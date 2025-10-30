@@ -354,6 +354,31 @@ def get_current_persona() -> str:
 3. **Reranking**: `hotchpotch/japanese-reranker-xsmall-v2` CrossEncoderで再ランク付け
 4. **結果返却**: 上位top_k件を返却
 
+### 動的登録とモジュール分割（概要）
+
+実装を役割ごとに分割し、ツールは起動時に「動的登録」されるようにした：
+
+- `persona_utils.py`
+  - Persona取得: `get_current_persona()`（HTTPヘッダー X-Persona or ContextVar）
+  - パス解決: `get_db_path()`, `get_vector_store_path()`, `get_persona_context_path()`
+  - レガシーデータ自動移行（旧ディレクトリから新構造へ）
+
+- `vector_utils.py`
+  - RAG初期化: 埋め込み/リランカー/FAISSロード（同期初期化）
+  - ベクトル再構築: SQLiteからの全量再構築、保存
+  - Dirtyフラグ + アイドル時バックグラウンド再構築ワーカー
+  - メトリクス: ベクトル数取得
+
+- `tools_memory.py`
+  - MCPツール/リソースの「動的登録」機構
+  - `memory_mcp.py`内のプレーン関数へデコレータを適用して登録（循環依存を回避）
+
+- `memory_mcp.py`
+  - エントリーポイントに特化
+  - 起動シーケンス: 設定・DBロード → `vector_utils.initialize_rag_sync()` → `start_idle_rebuilder_thread()` → `tools_memory.register_tools/resources()` → サーバ起動
+
+この分割により、責務が明確化し、テストや差分管理、将来の拡張（例えばベクトルDBの差し替え）が容易になった。
+
 ### データベーススキーママイグレーション
 
 起動時に`load_memory_from_db()`で自動マイグレーション：
