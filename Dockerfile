@@ -19,7 +19,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY memory_mcp.py .
-COPY mcp_config.json .
+COPY config.json .
 
 # Create directories for runtime data
 RUN mkdir -p /app/memory /app/.cache
