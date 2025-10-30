@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  memory-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: memory-mcp
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persist model cache on host
+      - ./.cache:/app/.cache
+      # Persist memory databases (all personas)
+      - ./memory:/app/memory
+      # Persist config file for hot reload
+      - ./config.json:/app/config.json
+      # Persist operation logs
+      - ./memory_operations.log:/app/memory_operations.log
+    environment:
+      # Cache directories (already set in Dockerfile, but explicit here)
+      - HF_HOME=/app/.cache/huggingface
+      - TRANSFORMERS_CACHE=/app/.cache/transformers
+      - SENTENCE_TRANSFORMERS_HOME=/app/.cache/sentence_transformers
+      - TORCH_HOME=/app/.cache/torch
+      # Python unbuffered output for better logging
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  default:
+    name: memory-mcp-network
