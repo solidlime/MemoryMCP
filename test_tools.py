@@ -10,13 +10,13 @@ from contextvars import ContextVar
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 async def test_tools():
-    print("🧪 Starting MCP Memory Tools Test (Phase 13-2 Edition)...\n")
+    print("🧪 Starting MCP Memory Tools Test (Phase 16 Simplified Edition)...\n")
 
     # Import the functions
     from memory_mcp import (
         create_memory, read_memory, update_memory, delete_memory,
-        list_memory, search_memory, search_memory_rag, search_memory_by_date,
-        search_memory_by_tags, clean_memory, load_memory_from_db, _initialize_rag_sync,
+        list_memory, search_memory, search_memory_rag, clean_memory,
+        load_memory_from_db, _initialize_rag_sync,
         get_time_since_last_conversation, get_persona_context, current_persona,
         load_persona_context, save_persona_context
     )
@@ -107,115 +107,12 @@ async def test_tools():
     result = await search_memory_rag("Phase 12の実装について教えて", top_k=3)
     print(f"   Result (first 400 chars):\n{result[:400]}...\n")
 
-    # Test 10: Search by date
-    print("10. Testing search_memory_by_date...")
-    print("    10a. Today's memories:")
-    result = await search_memory_by_date("今日", "", 5)
-    print(f"        {result[:300]}...\n")
-    
-    print("    10b. Memories with 'Phase 12':")
-    result = await search_memory_by_date("今日", "Phase 12", 5)
-    print(f"        {result[:300]}...\n")
-    
-    print("    10c. 3 days ago:")
-    result = await search_memory_by_date("3日前", "", 5)
-    print(f"        {result[:200]}...\n")
-
-    # Test 11: Update memory
-    print("11. Testing update_memory...")
-    if "memory_" in list_result:
-        lines = list_result.split('\n')
-        for line in lines:
-            if line.startswith('1. [memory_'):
-                key = line.split('[')[1].split(']')[0]
-                result = await update_memory(key, "User is [[らうらう]] and loves [[ニィロウ]] deeply. Expert in [[Python]], [[RAG]], [[MCP]], and [[Time-awareness]]! 💕")
-                print(f"   Result: {result}\n")
-                break
-        else:
-            print("   No memory key found for update\n")
-    else:
-        print("   No memories to update\n")
-
-    # Test 12: Clean memory
-    print("12. Testing clean_memory...")
-    # Create memory with duplicates
-    result = await create_memory("""Test duplicate line 1
-Test duplicate line 1
-Test unique line
-Test duplicate line 2
-Test duplicate line 2""")
-    print(f"   Created test memory: {result}")
-    
-    await asyncio.sleep(0.5)
-    
-    # Get the key and clean
-    list_result = await list_memory()
-    if "memory_" in list_result:
-        lines = list_result.split('\n')
-        for line in lines:
-            if line.startswith('1. [memory_'):
-                key = line.split('[')[1].split(']')[0]
-                result = await clean_memory(key)
-                print(f"   Clean result: {result}\n")
-                break
-
-    # Test 12: Delete memory
-    print("12. Testing delete_memory...")
-
-    # Test 12: Clean memory
-    print("12. Testing clean_memory...")
-    # Create memory with duplicates
-    result = await create_memory("""Test duplicate line 1
-Test duplicate line 1
-Test unique line
-Test duplicate line 2
-Test duplicate line 2""")
-    print(f"   Created test memory: {result}")
-    
-    await asyncio.sleep(0.5)
-    
-    # Get the key and clean
-    list_result = await list_memory()
-    if "memory_" in list_result:
-        lines = list_result.split('\n')
-        for line in lines:
-            if line.startswith('1. [memory_'):
-                key = line.split('[')[1].split(']')[0]
-                result = await clean_memory(key)
-                print(f"   Clean result: {result}\n")
-                break
-
-    # Test 13: Delete memory
-    print("13. Testing delete_memory...")
-    if "memory_" in list_result:
-        lines = list_result.split('\n')
-        for line in lines:
-            if line.startswith('1. [memory_'):
-                key = line.split('[')[1].split(']')[0]
-                result = await delete_memory(key)
-                print(f"   Result: {result}\n")
-                break
-        else:
-            print("   No memory key found for delete\n")
-    else:
-        print("   No memories to delete\n")
-
-    # Test 14: Test again time since last conversation
-    print("14. Testing get_time_since_last_conversation (second call)...")
-    result = await get_time_since_last_conversation()
-    print(f"   Result:\n{result}\n")
-
-    # Test 15: Test get_persona_context
-    print("15. Testing get_persona_context...")
-    result = await get_persona_context()
-    print(f"   Result:\n{result}\n")
-
     print("=" * 60)
     print("Phase 13-2 Feature Tests")
     print("=" * 60)
 
-    # Test 16: Create memory with full context parameters
-    print("\n16. Testing create_memory with full Phase 13-2 parameters...")
+    # Test 10: Create memory with full context parameters
+    print("\n10. Testing create_memory with full Phase 13-2 parameters...")
     result = await create_memory(
         content="らうらうが[[Phase 13-2]]を実装完了！タグとコンテキスト更新機能を追加したよ💕",
         emotion_type="joy",
@@ -231,78 +128,71 @@ Test duplicate line 2""")
 
     await asyncio.sleep(0.5)
 
-    # Test 17: Check updated persona context
-    print("17. Testing get_persona_context after full update...")
+    # Test 11: Check updated persona context
+    print("11. Testing get_persona_context after full update...")
     result = await get_persona_context()
     print(f"   Result:\n{result}\n")
 
-    # Test 18: Search by tags
-    print("18. Testing search_memory_by_tags...")
-    result = await search_memory_by_tags(tags=["technical_achievement"], top_k=5)
-    print(f"   Result (first 500 chars):\n{result[:500]}...\n")
-
-    # Test 19: Search by multiple tags
-    print("19. Testing search_memory_by_tags with multiple tags...")
-    result = await search_memory_by_tags(tags=["emotional_moment", "important_event"], top_k=5)
-    print(f"   Result (first 500 chars):\n{result[:500]}...\n")
-
-    # Test 20: List memory to see tags
-    print("20. Testing list_memory to verify tags are displayed...")
-    result = await list_memory()
-    lines = result.split('\n')
-    print(f"   Total memories: {lines[0]}")
-    print(f"   First few entries:\n{chr(10).join(lines[:15])}...\n")
-
     # ========================================
-    # Phase 16: Enhanced Search Tests
+    # Phase 16.5: Consolidated Search Tests
     # ========================================
     print("=" * 60)
-    print("Phase 16: Enhanced Search Feature Tests")
+    print("Phase 16.5: Consolidated Search Tool Tests")
     print("=" * 60)
     
-    # Import new search functions
-    from memory_mcp import search_memory_hybrid, search_memory_advanced
-    
+    # Test new consolidated search_memory with various parameter combinations
     print("\n21. Testing search_memory with fuzzy_match=True...")
     # Create a test memory with potential typo
     await create_memory(content="[[Python]]と[[RAG]]の組み合わせはとっても強力だよ！")
     result = await search_memory("Pythn", top_k=3, fuzzy_match=True, fuzzy_threshold=70)
     print(f"   Result:\n{result}\n")
     
-    print("\n22. Testing search_memory_hybrid (keyword + RAG)...")
-    result = await search_memory_hybrid("Python", top_k=5, keyword_weight=0.4, rag_weight=0.6)
-    print(f"   Result:\n{result}\n")
-    
-    print("\n23. Testing search_memory_by_tags with match_mode='all' (AND logic)...")
-    result = await search_memory_by_tags(
+    print("\n22. Testing search_memory with tag filtering (OR logic)...")
+    result = await search_memory(
+        query="",
         tags=["important_event", "technical_achievement"],
-        top_k=5,
-        match_mode="all"
+        tag_match_mode="any",
+        top_k=5
     )
     print(f"   Result:\n{result}\n")
     
-    print("\n24. Testing search_memory_advanced (date + tags + keyword)...")
-    result = await search_memory_advanced(
+    print("\n23. Testing search_memory with tag filtering (AND logic)...")
+    result = await search_memory(
+        query="",
+        tags=["important_event", "technical_achievement"],
+        tag_match_mode="all",
+        top_k=5
+    )
+    print(f"   Result:\n{result}\n")
+    
+    print("\n24. Testing search_memory with date range...")
+    result = await search_memory(
         query="Phase",
+        date_range="今月",
+        top_k=5
+    )
+    print(f"   Result:\n{result}\n")
+    
+    print("\n25. Testing search_memory with combined filters (date + tags + keyword)...")
+    result = await search_memory(
+        query="Python",
         tags=["technical_achievement"],
         tag_match_mode="any",
-        date_query="今月",
-        top_k=5,
-        fuzzy_match=False
+        date_range="今月",
+        fuzzy_match=False,
+        top_k=5
     )
     print(f"   Result:\n{result}\n")
     
-    print("\n25. Testing search_memory_advanced with fuzzy match...")
-    result = await search_memory_advanced(
-        query="Pythn",
-        tags=["technical_achievement"],
-        fuzzy_match=True,
+    print("\n26. Testing search_memory_rag for semantic search...")
+    result = await search_memory_rag(
+        query="Pythonに関する技術的な成果は？",
         top_k=3
     )
     print(f"   Result:\n{result}\n")
 
     print("=" * 60)
-    print("✅ All Phase 16 Enhanced Search tests completed!")
+    print("✅ All Phase 16.5 Consolidated Search tests completed!")
     print("=" * 60)
 
 if __name__ == "__main__":

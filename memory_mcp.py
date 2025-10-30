@@ -1095,107 +1095,169 @@ async def delete_memory(key: str) -> str:
         return f"Failed to delete memory: {str(e)}"
 
 @mcp.tool()
-async def search_memory(keyword: str, top_k: int = 5, fuzzy_match: bool = False, fuzzy_threshold: int = 70) -> str:
+async def search_memory(
+    query: str = "",
+    top_k: int = 5,
+    fuzzy_match: bool = False,
+    fuzzy_threshold: int = 70,
+    tags: list = None,
+    tag_match_mode: str = "any",
+    date_range: str = None
+) -> str:
     """
-    Search memories by keyword in content with optional fuzzy matching.
+    Universal search tool for structured queries (keywords, dates, tags).
+    For natural language queries, use search_memory_rag instead.
     
     Args:
-        keyword: Keyword to search for in memory contents
+        query: Keyword to search for in memory contents (default: "" - all memories)
         top_k: Maximum number of results to return (default: 5)
         fuzzy_match: Enable fuzzy matching for typos and variations (default: False)
         fuzzy_threshold: Minimum similarity score (0-100) for fuzzy matches (default: 70)
+        tags: Optional list of tags to filter by (default: None)
+        tag_match_mode: "any" (OR) or "all" (AND) for tag matching (default: "any")
+        date_range: Optional date filter (e.g., "今日", "昨日", "2025-10-01..2025-10-31") (default: None)
     
     Examples:
-        - search_memory("Python", top_k=5) → Exact matches only
-        - search_memory("Pythn", top_k=5, fuzzy_match=True) → Matches "Python" with typo tolerance
-        - search_memory("ニイロウ", top_k=5, fuzzy_match=True, fuzzy_threshold=80) → Matches "ニィロウ" (high threshold)
+        - search_memory("Python") → Simple keyword search
+        - search_memory("Pythn", fuzzy_match=True) → Fuzzy search with typo tolerance
+        - search_memory("", tags=["technical_achievement"]) → Tag-only filter
+        - search_memory("Phase", tags=["technical_achievement"]) → Keyword + tag filter
+        - search_memory("Phase", date_range="今月") → Keyword + date filter
+        - search_memory("Phase", tags=["important_event", "technical_achievement"], tag_match_mode="all", date_range="今月")
+          → Full combination: keyword + tags (AND) + date range
     """
     try:
         persona = get_current_persona()
+        current_time = get_current_time()
         
-        if not keyword:
-            return "Please provide a keyword to search."
+        # Phase 1: Start with all memories as candidates
+        candidate_keys = set(memory_store.keys())
+        filter_descriptions = []
         
-        matching_entries = []
+        # Phase 2: Apply date filter if specified
+        if date_range:
+            try:
+                start_date, end_date = parse_date_query(date_range)
+                date_filtered = set()
+                for key in candidate_keys:
+                    entry = memory_store[key]
+                    created_dt = datetime.fromisoformat(entry['created_at'])
+                    # Make timezone-aware if naive
+                    if created_dt.tzinfo is None:
+                        created_dt = created_dt.replace(tzinfo=start_date.tzinfo)
+                    if start_date <= created_dt <= end_date:
+                        date_filtered.add(key)
+                candidate_keys &= date_filtered
+                filter_descriptions.append(f"📅 {start_date.strftime('%Y-%m-%d')} ~ {end_date.strftime('%Y-%m-%d')}")
+            except ValueError as e:
+                return str(e)
         
-        if fuzzy_match and RAPIDFUZZ_AVAILABLE:
-            # Fuzzy matching mode: score all memories by similarity
-            scored_entries = []
-            for key, entry in memory_store.items():
+        # Phase 3: Apply tag filter if specified
+        if tags:
+            tag_filtered = set()
+            for key in candidate_keys:
+                entry = memory_store[key]
+                entry_tags = entry.get('tags', [])
+                
+                if tag_match_mode == "all":
+                    # AND logic: all tags must be present
+                    if entry_tags and all(tag in entry_tags for tag in tags):
+                        tag_filtered.add(key)
+                else:
+                    # OR logic: any tag must be present (default)
+                    if entry_tags and any(tag in entry_tags for tag in tags):
+                        tag_filtered.add(key)
+            
+            candidate_keys &= tag_filtered
+            logic_str = "ALL" if tag_match_mode == "all" else "ANY"
+            filter_descriptions.append(f"🏷️  {logic_str} of {tags}")
+        
+        # Phase 4: Apply keyword/fuzzy search (if query provided)
+        scored_results = []
+        
+        if not query:
+            # No query: return all candidates (filtered by date/tags only)
+            for key in candidate_keys:
+                entry = memory_store[key]
+                created_dt = datetime.fromisoformat(entry['created_at'])
+                scored_results.append((key, entry, created_dt, 100))  # Score 100 for all
+        elif fuzzy_match and RAPIDFUZZ_AVAILABLE:
+            # Fuzzy matching mode
+            for key in candidate_keys:
+                entry = memory_store[key]
                 content = entry['content']
-                # Use partial_ratio for better keyword matching (handles typos in keywords)
-                # Also check word-by-word for better recall
-                partial_score = fuzz.partial_ratio(keyword.lower(), content.lower())
-                # Extract best matching word/phrase
+                # Use partial_ratio + word-by-word matching
+                partial_score = fuzz.partial_ratio(query.lower(), content.lower())
                 words = content.split()
-                word_scores = [fuzz.ratio(keyword.lower(), word.lower()) for word in words if len(word) >= 2]
+                word_scores = [fuzz.ratio(query.lower(), word.lower()) for word in words if len(word) >= 2]
                 best_word_score = max(word_scores) if word_scores else 0
-                # Take the higher score
                 score = max(partial_score, best_word_score)
                 
                 if score >= fuzzy_threshold:
-                    scored_entries.append((key, entry, score))
+                    created_dt = datetime.fromisoformat(entry['created_at'])
+                    scored_results.append((key, entry, created_dt, score))
             
-            # Sort by score (descending) and take top_k
-            scored_entries.sort(key=lambda x: x[2], reverse=True)
-            matching_entries = [(key, entry) for key, entry, score in scored_entries[:top_k]]
-            
-            if matching_entries:
-                result = f"🔍 Fuzzy search found {len(matching_entries)} memories for '{keyword}' (threshold: {fuzzy_threshold}%, persona: {persona}):\n\n"
-                for i, (key, entry) in enumerate(matching_entries, 1):
-                    created_date = entry['created_at'][:10]
-                    created_time = entry['created_at'][11:19]
-                    content = entry['content']
-                    
-                    # Get the fuzzy match score
-                    _, _, match_score = scored_entries[i-1]
-                    
-                    # Calculate time elapsed
-                    time_diff = calculate_time_diff(entry['created_at'])
-                    time_ago = f" ({time_diff['formatted_string']}前)"
-                    
-                    result += f"{i}. [{key}] (Match: {match_score}%)\n"
-                    result += f"   {content[:200]}{'...' if len(content) > 200 else ''}\n"
-                    result += f"   {created_date} {created_time}{time_ago}\n\n"
-                return result.rstrip()
-            else:
-                return f"No fuzzy matches found for '{keyword}' with threshold {fuzzy_threshold}% (persona: {persona})."
-        
+            filter_descriptions.append(f"🔍 Fuzzy: '{query}' (≥{fuzzy_threshold}%)")
         else:
-            # Exact matching mode (original behavior)
+            # Exact keyword matching mode
             if fuzzy_match and not RAPIDFUZZ_AVAILABLE:
                 print("⚠️  Fuzzy matching requested but rapidfuzz not available, using exact match...")
             
-            for key, entry in memory_store.items():
-                if keyword.lower() in entry['content'].lower():
-                    matching_entries.append((key, entry))
+            for key in candidate_keys:
+                entry = memory_store[key]
+                if query.lower() in entry['content'].lower():
+                    created_dt = datetime.fromisoformat(entry['created_at'])
+                    scored_results.append((key, entry, created_dt, 100))  # Score 100 for exact match
             
-            matching_entries = matching_entries[:top_k]
+            filter_descriptions.append(f"🔍 Keyword: '{query}'")
+        
+        # Phase 5: Sort and format results
+        # Sort by score (desc), then by date (desc)
+        scored_results.sort(key=lambda x: (x[3], x[2]), reverse=True)
+        scored_results = scored_results[:top_k]
+        
+        if scored_results:
+            filter_str = " + ".join(filter_descriptions) if filter_descriptions else "No filters"
+            result = f"Found {len(scored_results)} memories ({filter_str}, persona: {persona}):\n\n"
             
-            if matching_entries:
-                result = f"🔍 Found {len(matching_entries)} memories containing '{keyword}' (persona: {persona}):\n\n"
-                for i, (key, entry) in enumerate(matching_entries, 1):
-                    created_date = entry['created_at'][:10]
-                    created_time = entry['created_at'][11:19]
-                    result += f"{i}. [{key}]\n"
-                    content = entry['content']
-                    keyword_lower = keyword.lower()
-                    start = content.lower().find(keyword_lower)
-                    if start != -1:
-                        snippet_start = max(0, start - 50)
-                        snippet_end = min(len(content), start + len(keyword) + 50)
-                        snippet = content[snippet_start:snippet_end]
-                        if snippet_start > 0:
-                            snippet = "..." + snippet
-                        if snippet_end < len(content):
-                            snippet = snippet + "..."
-                        result += f"   \"{snippet}\"\n"
-                    else:
-                        result += f"   \"{content[:100]}{'...' if len(content) > 100 else ''}\"\n"
-                    result += f"   {created_date} {created_time}\n\n"
-                return result.rstrip()
-            else:
-                return f"No memories found containing '{keyword}' (persona: {persona})."
+            for i, (key, entry, created_dt, score) in enumerate(scored_results, 1):
+                created_date = entry['created_at'][:10]
+                created_time = entry['created_at'][11:19]
+                content = entry['content']
+                
+                # Calculate time elapsed
+                time_diff = calculate_time_diff(entry['created_at'])
+                time_ago = f" ({time_diff['formatted_string']}前)"
+                
+                # Get tags
+                entry_tags = entry.get('tags', [])
+                tags_str = f" [{', '.join(entry_tags)}]" if entry_tags else ""
+                
+                # Show score if fuzzy or multiple results
+                score_str = f" (Match: {score:.0f}%)" if fuzzy_match or len(scored_results) > 1 else ""
+                
+                result += f"{i}. [{key}]{tags_str}{score_str}\n"
+                
+                # Show snippet with keyword highlighting
+                if query.lower() in content.lower():
+                    start = content.lower().find(query.lower())
+                    snippet_start = max(0, start - 50)
+                    snippet_end = min(len(content), start + len(query) + 50)
+                    snippet = content[snippet_start:snippet_end]
+                    if snippet_start > 0:
+                        snippet = "..." + snippet
+                    if snippet_end < len(content):
+                        snippet = snippet + "..."
+                    result += f"   \"{snippet}\"\n"
+                else:
+                    result += f"   {content[:200]}{'...' if len(content) > 200 else ''}\n"
+                
+                result += f"   {created_date} {created_time}{time_ago}\n\n"
+            
+            return result.rstrip()
+        else:
+            filter_str = " + ".join(filter_descriptions) if filter_descriptions else "No filters applied"
+            return f"No memories found ({filter_str}, persona: {persona})."
     except Exception as e:
         return f"Failed to search memories: {str(e)}"
 
@@ -1261,164 +1323,6 @@ async def clean_memory(key: str) -> str:
     except Exception as e:
         log_operation("clean", key=key, success=False, error=str(e))
         return f"Failed to clean memory: {str(e)}"
-
-@mcp.tool()
-async def search_memory_by_date(date_query: str, query: str = "", top_k: int = 10) -> str:
-    """
-    Search memories by date or date range, with optional keyword filtering.
-    
-    Args:
-        date_query: Date specification in various formats:
-            - "今日" / "today": Today's memories
-            - "昨日" / "yesterday": Yesterday's memories  
-            - "今週" / "this week": This week's memories
-            - "先週" / "last week": Last week's memories
-            - "今月" / "this month": This month's memories
-            - "YYYY-MM-DD": Specific date (e.g., "2025-10-29")
-            - "YYYY-MM-DD..YYYY-MM-DD": Date range (e.g., "2025-10-01..2025-10-31")
-            - "3日前" / "3 days ago": N days ago
-        query: Optional keyword to filter results (default: "" for all memories in date range)
-        top_k: Maximum number of results to return (default: 10)
-    
-    Examples:
-        - search_memory_by_date("今日", "", 10) -> All today's memories
-        - search_memory_by_date("3日前", "Python", 5) -> Python-related memories from 3 days ago
-        - search_memory_by_date("2025-10-01..2025-10-31", "", 20) -> All October 2025 memories
-    """
-    try:
-        persona = get_current_persona()
-        current_time = get_current_time()
-        
-        # Parse date query using helper function
-        try:
-            start_date, end_date = parse_date_query(date_query)
-        except ValueError as e:
-            return str(e)
-        
-        # Filter memories by date range
-        matching_memories = []
-        for key, entry in memory_store.items():
-            created_dt = datetime.fromisoformat(entry['created_at'])
-            # Make timezone-aware if naive
-            if created_dt.tzinfo is None:
-                created_dt = created_dt.replace(tzinfo=current_time.tzinfo)
-            
-            if start_date <= created_dt <= end_date:
-                # Apply keyword filter if provided
-                if not query or query.lower() in entry['content'].lower():
-                    matching_memories.append((key, entry, created_dt))
-        
-        # Sort by date (newest first)
-        matching_memories.sort(key=lambda x: x[2], reverse=True)
-        
-        # Limit results
-        matching_memories = matching_memories[:top_k]
-        
-        if matching_memories:
-            result = f"🔍 Found {len(matching_memories)} memories"
-            if query:
-                result += f" containing '{query}'"
-            result += f" from {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')} (persona: {persona}):\n\n"
-            
-            for i, (key, entry, created_dt) in enumerate(matching_memories, 1):
-                created_date = entry['created_at'][:10]
-                created_time = entry['created_at'][11:19]
-                
-                # Calculate time elapsed
-                time_diff = calculate_time_diff(entry['created_at'])
-                time_ago = f" ({time_diff['formatted_string']}前)"
-                
-                result += f"{i}. [{key}]\n"
-                result += f"   {entry['content'][:200]}{'...' if len(entry['content']) > 200 else ''}\n"
-                result += f"   {created_date} {created_time}{time_ago} ({len(entry['content'])} chars)\n\n"
-            
-            return result.rstrip()
-        else:
-            filter_msg = f" containing '{query}'" if query else ""
-            return f"No memories found{filter_msg} from {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')} (persona: {persona})."
-    except Exception as e:
-        return f"Failed to search memories by date: {str(e)}"
-
-@mcp.tool()
-async def search_memory_by_tags(tags: list, top_k: int = 10, match_mode: str = "any") -> str:
-    """
-    Search memories by tags with AND/OR logic.
-    
-    Args:
-        tags: List of tags to search for
-        top_k: Maximum number of results to return (default: 10)
-        match_mode: "any" (OR logic, default) or "all" (AND logic)
-    
-    Predefined tags:
-        - "important_event": Major milestones, achievements, significant moments
-        - "relationship_update": Changes in relationship, promises, new ways of addressing each other
-        - "daily_memory": Routine conversations, everyday interactions
-        - "technical_achievement": Programming accomplishments, project completions, bug fixes
-        - "emotional_moment": Expressions of gratitude, love, sadness, joy
-    
-    Examples:
-        - search_memory_by_tags(["technical_achievement"], 5) → Technical achievements (OR)
-        - search_memory_by_tags(["emotional_moment", "important_event"], 10, "any") → Either emotional OR important (OR logic)
-        - search_memory_by_tags(["emotional_moment", "important_event"], 10, "all") → Both emotional AND important (AND logic)
-    """
-    try:
-        persona = get_current_persona()
-        
-        if not tags:
-            return "Please provide at least one tag to search."
-        
-        if match_mode not in ["any", "all"]:
-            return "match_mode must be 'any' (OR) or 'all' (AND)."
-        
-        # Search for memories with tags
-        matching_memories = []
-        for key, entry in memory_store.items():
-            entry_tags = entry.get('tags', [])
-            
-            # Apply match mode logic
-            if match_mode == "all":
-                # AND logic: all tags must be present
-                if entry_tags and all(tag in entry_tags for tag in tags):
-                    created_dt = datetime.fromisoformat(entry['created_at'])
-                    matching_memories.append((key, entry, created_dt))
-            else:
-                # OR logic: any tag must be present (default)
-                if entry_tags and any(tag in entry_tags for tag in tags):
-                    created_dt = datetime.fromisoformat(entry['created_at'])
-                    matching_memories.append((key, entry, created_dt))
-        
-        # Sort by date (newest first)
-        matching_memories.sort(key=lambda x: x[2], reverse=True)
-        
-        # Limit results
-        matching_memories = matching_memories[:top_k]
-        
-        if matching_memories:
-            logic_str = "ALL" if match_mode == "all" else "ANY"
-            result = f"🏷️  Found {len(matching_memories)} memories with {logic_str} of tags {tags} (persona: {persona}):\n\n"
-            
-            for i, (key, entry, created_dt) in enumerate(matching_memories, 1):
-                created_date = entry['created_at'][:10]
-                created_time = entry['created_at'][11:19]
-                
-                # Calculate time elapsed
-                time_diff = calculate_time_diff(entry['created_at'])
-                time_ago = f" ({time_diff['formatted_string']}前)"
-                
-                # Get tags
-                entry_tags = entry.get('tags', [])
-                tags_str = f" [{', '.join(entry_tags)}]" if entry_tags else ""
-                
-                result += f"{i}. [{key}]{tags_str}\n"
-                result += f"   {entry['content'][:200]}{'...' if len(entry['content']) > 200 else ''}\n"
-                result += f"   {created_date} {created_time}{time_ago} ({len(entry['content'])} chars)\n\n"
-            
-            return result.rstrip()
-        else:
-            logic_str = "ALL" if match_mode == "all" else "ANY"
-            return f"No memories found with {logic_str} of tags {tags} (persona: {persona})."
-    except Exception as e:
-        return f"Failed to search memories by tags: {str(e)}"
 
 @mcp.tool()
 async def search_memory_rag(query: str, top_k: int = 5) -> str:
@@ -1494,290 +1398,6 @@ async def search_memory_rag(query: str, top_k: int = 5) -> str:
             return f"No relevant memories found for '{query}'."
     except Exception as e:
         return f"Failed to search memories with RAG: {str(e)}"
-
-# ========================================
-# Phase 16: Enhanced Search Tools
-# ========================================
-
-@mcp.tool()
-async def search_memory_hybrid(query: str, top_k: int = 5, keyword_weight: float = 0.3, rag_weight: float = 0.7) -> str:
-    """
-    Hybrid search combining keyword-based and RAG-based semantic search.
-    Provides best of both worlds: exact matches + contextual understanding.
-    
-    Args:
-        query: Search query (e.g., "Python関連の技術的成果", "最初のキス")
-        top_k: Number of top results to return (default: 5)
-        keyword_weight: Weight for keyword search (default: 0.3)
-        rag_weight: Weight for RAG semantic search (default: 0.7)
-    
-    Examples:
-        - search_memory_hybrid("Python", top_k=5) → Exact matches + semantic matches for Python
-        - search_memory_hybrid("思い出", top_k=10, keyword_weight=0.5, rag_weight=0.5) → Balanced search
-    """
-    try:
-        persona = get_current_persona()
-        
-        if not query:
-            return "Please provide a query to search."
-        
-        # Phase 1: Keyword search
-        keyword_results = {}
-        for key, entry in memory_store.items():
-            if query.lower() in entry['content'].lower():
-                # Calculate keyword score based on frequency and position
-                content = entry['content'].lower()
-                query_lower = query.lower()
-                frequency = content.count(query_lower)
-                # Boost score if query appears early in content
-                first_position = content.find(query_lower)
-                position_bonus = 1.0 - (first_position / max(len(content), 1)) if first_position >= 0 else 0
-                keyword_score = (frequency * 2 + position_bonus) * keyword_weight
-                keyword_results[key] = keyword_score
-        
-        # Phase 2: RAG semantic search (if available)
-        rag_results = {}
-        if vector_store is not None and embeddings is not None:
-            try:
-                initial_k = top_k * 3 if reranker else top_k
-                docs = vector_store.similarity_search(query, k=initial_k)
-                
-                # Rerank if available
-                if reranker and docs:
-                    pairs = [[query, doc.page_content] for doc in docs]
-                    scores = reranker.predict(pairs)
-                    ranked_docs = sorted(zip(docs, scores), key=lambda x: x[1], reverse=True)[:top_k]
-                    
-                    # Normalize reranker scores to 0-1 range
-                    max_score = max(score for _, score in ranked_docs) if ranked_docs else 1.0
-                    min_score = min(score for _, score in ranked_docs) if ranked_docs else 0.0
-                    score_range = max_score - min_score if max_score != min_score else 1.0
-                    
-                    for doc, score in ranked_docs:
-                        key = doc.metadata.get("key", "unknown")
-                        normalized_score = ((score - min_score) / score_range) * rag_weight
-                        rag_results[key] = normalized_score
-                else:
-                    # Fallback: use similarity scores from FAISS (distance-based)
-                    for i, doc in enumerate(docs[:top_k]):
-                        key = doc.metadata.get("key", "unknown")
-                        # Convert rank to score (higher rank = higher score)
-                        rag_results[key] = (1.0 - (i / max(top_k, 1))) * rag_weight
-            except Exception as e:
-                print(f"⚠️  RAG search failed in hybrid mode, using keyword-only: {e}")
-        
-        # Phase 3: Combine and rank results
-        combined_scores = {}
-        all_keys = set(keyword_results.keys()) | set(rag_results.keys())
-        
-        for key in all_keys:
-            keyword_score = keyword_results.get(key, 0.0)
-            rag_score = rag_results.get(key, 0.0)
-            combined_scores[key] = keyword_score + rag_score
-        
-        # Sort by combined score and take top_k
-        ranked_keys = sorted(combined_scores.items(), key=lambda x: x[1], reverse=True)[:top_k]
-        
-        if ranked_keys:
-            result = f"🔍 Hybrid search found {len(ranked_keys)} memories for '{query}' (persona: {persona}):\n"
-            result += f"   (Weights: Keyword={keyword_weight:.1f}, RAG={rag_weight:.1f})\n\n"
-            
-            for i, (key, score) in enumerate(ranked_keys, 1):
-                entry = memory_store[key]
-                content = entry['content']
-                created_date = entry['created_at'][:10]
-                created_time = entry['created_at'][11:19]
-                
-                # Calculate time elapsed
-                time_diff = calculate_time_diff(entry['created_at'])
-                time_ago = f" ({time_diff['formatted_string']}前)"
-                
-                # Show which search method contributed
-                kw_score = keyword_results.get(key, 0.0)
-                rag_score = rag_results.get(key, 0.0)
-                source_info = []
-                if kw_score > 0:
-                    source_info.append(f"KW:{kw_score:.2f}")
-                if rag_score > 0:
-                    source_info.append(f"RAG:{rag_score:.2f}")
-                source_str = "+".join(source_info) if source_info else "unknown"
-                
-                result += f"{i}. [{key}] (Score: {score:.2f} = {source_str})\n"
-                
-                # Show snippet with keyword highlighting
-                if query.lower() in content.lower():
-                    start = content.lower().find(query.lower())
-                    snippet_start = max(0, start - 50)
-                    snippet_end = min(len(content), start + len(query) + 50)
-                    snippet = content[snippet_start:snippet_end]
-                    if snippet_start > 0:
-                        snippet = "..." + snippet
-                    if snippet_end < len(content):
-                        snippet = snippet + "..."
-                    result += f"   \"{snippet}\"\n"
-                else:
-                    result += f"   {content[:200]}{'...' if len(content) > 200 else ''}\n"
-                
-                result += f"   {created_date} {created_time}{time_ago} ({len(content)} chars)\n\n"
-            
-            return result.rstrip()
-        else:
-            return f"No memories found for '{query}' (persona: {persona})."
-    except Exception as e:
-        return f"Failed to perform hybrid search: {str(e)}"
-
-@mcp.tool()
-async def search_memory_advanced(
-    query: str = "",
-    tags: list = None,
-    tag_match_mode: str = "any",
-    date_query: str = "",
-    top_k: int = 10,
-    fuzzy_match: bool = False
-) -> str:
-    """
-    Advanced search with multiple filter combinations: date range + tags + keyword/fuzzy.
-    Combines the power of all search features for maximum precision.
-    
-    Args:
-        query: Optional keyword to search (can use fuzzy matching)
-        tags: Optional list of tags to filter by
-        tag_match_mode: "any" (OR) or "all" (AND) for tag matching (default: "any")
-        date_query: Optional date filter (e.g., "今日", "昨日", "2025-10-01..2025-10-31")
-        top_k: Maximum number of results (default: 10)
-        fuzzy_match: Enable fuzzy matching for keyword query (default: False)
-    
-    Examples:
-        - search_memory_advanced(query="Python", tags=["technical_achievement"], date_query="今月")
-          → Technical Python achievements from this month
-        
-        - search_memory_advanced(tags=["emotional_moment", "important_event"], tag_match_mode="all", date_query="2025-10-01..2025-10-31")
-          → Memories with BOTH tags from October
-        
-        - search_memory_advanced(query="ニイロウ", fuzzy_match=True, tags=["relationship_update"], top_k=5)
-          → Relationship updates mentioning "ニィロウ" (fuzzy)
-    """
-    try:
-        persona = get_current_persona()
-        
-        # Start with all memories
-        candidate_keys = set(memory_store.keys())
-        filter_descriptions = []
-        
-        # Filter 1: Date range
-        if date_query:
-            start_date, end_date = parse_date_query(date_query)
-            date_filtered = set()
-            for key in candidate_keys:
-                entry = memory_store[key]
-                created_dt = datetime.fromisoformat(entry['created_at'])
-                # Make timezone-aware if naive
-                if created_dt.tzinfo is None:
-                    created_dt = created_dt.replace(tzinfo=start_date.tzinfo)
-                if start_date <= created_dt <= end_date:
-                    date_filtered.add(key)
-            candidate_keys &= date_filtered
-            filter_descriptions.append(f"Date: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
-        
-        # Filter 2: Tags
-        if tags:
-            tag_filtered = set()
-            for key in candidate_keys:
-                entry = memory_store[key]
-                entry_tags = entry.get('tags', [])
-                
-                if tag_match_mode == "all":
-                    if entry_tags and all(tag in entry_tags for tag in tags):
-                        tag_filtered.add(key)
-                else:  # "any"
-                    if entry_tags and any(tag in entry_tags for tag in tags):
-                        tag_filtered.add(key)
-            
-            candidate_keys &= tag_filtered
-            logic_str = "ALL" if tag_match_mode == "all" else "ANY"
-            filter_descriptions.append(f"Tags: {logic_str} of {tags}")
-        
-        # Filter 3: Keyword/Fuzzy search
-        if query:
-            query_filtered = set()
-            
-            if fuzzy_match and RAPIDFUZZ_AVAILABLE:
-                # Fuzzy matching (same algorithm as search_memory)
-                for key in candidate_keys:
-                    entry = memory_store[key]
-                    content = entry['content']
-                    # Use partial_ratio + word-by-word matching
-                    partial_score = fuzz.partial_ratio(query.lower(), content.lower())
-                    words = content.split()
-                    word_scores = [fuzz.ratio(query.lower(), word.lower()) for word in words if len(word) >= 2]
-                    best_word_score = max(word_scores) if word_scores else 0
-                    score = max(partial_score, best_word_score)
-                    
-                    if score >= 70:  # Fixed threshold for advanced search
-                        query_filtered.add(key)
-                filter_descriptions.append(f"Fuzzy keyword: '{query}'")
-            else:
-                # Exact matching
-                for key in candidate_keys:
-                    entry = memory_store[key]
-                    if query.lower() in entry['content'].lower():
-                        query_filtered.add(key)
-                filter_descriptions.append(f"Keyword: '{query}'")
-            
-            candidate_keys &= query_filtered
-        
-        # Convert to list and sort by date (newest first)
-        matching_memories = []
-        for key in candidate_keys:
-            entry = memory_store[key]
-            created_dt = datetime.fromisoformat(entry['created_at'])
-            matching_memories.append((key, entry, created_dt))
-        
-        matching_memories.sort(key=lambda x: x[2], reverse=True)
-        matching_memories = matching_memories[:top_k]
-        
-        # Build result
-        if matching_memories:
-            filter_str = " + ".join(filter_descriptions) if filter_descriptions else "No filters"
-            result = f"🔍 Advanced search found {len(matching_memories)} memories ({filter_str}, persona: {persona}):\n\n"
-            
-            for i, (key, entry, created_dt) in enumerate(matching_memories, 1):
-                created_date = entry['created_at'][:10]
-                created_time = entry['created_at'][11:19]
-                content = entry['content']
-                
-                # Calculate time elapsed
-                time_diff = calculate_time_diff(entry['created_at'])
-                time_ago = f" ({time_diff['formatted_string']}前)"
-                
-                # Get tags
-                entry_tags = entry.get('tags', [])
-                tags_str = f" [{', '.join(entry_tags)}]" if entry_tags else ""
-                
-                result += f"{i}. [{key}]{tags_str}\n"
-                
-                # Show snippet with keyword highlighting if query provided
-                if query and query.lower() in content.lower():
-                    start = content.lower().find(query.lower())
-                    snippet_start = max(0, start - 50)
-                    snippet_end = min(len(content), start + len(query) + 50)
-                    snippet = content[snippet_start:snippet_end]
-                    if snippet_start > 0:
-                        snippet = "..." + snippet
-                    if snippet_end < len(content):
-                        snippet = snippet + "..."
-                    result += f"   \"{snippet}\"\n"
-                else:
-                    result += f"   {content[:200]}{'...' if len(content) > 200 else ''}\n"
-                
-                result += f"   {created_date} {created_time}{time_ago} ({len(content)} chars)\n\n"
-            
-            return result.rstrip()
-        else:
-            filter_str = " + ".join(filter_descriptions) if filter_descriptions else "No filters applied"
-            return f"No memories found matching filters ({filter_str}, persona: {persona})."
-    except Exception as e:
-        return f"Failed to perform advanced search: {str(e)}"
 
 # ========================================
 # Phase 12: Time-awareness Tools
