@@ -6,12 +6,32 @@ import uuid
 import shutil
 import sqlite3
 import warnings
+import threading
+import time
 from contextvars import ContextVar
 from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 from mcp.server.fastmcp import FastMCP
-from fastmcp.server.dependencies import get_http_request
+from db_utils import db_get_entry as _db_get_entry_generic, db_recent_keys as _db_recent_keys_generic, db_count_entries as _db_count_entries_generic, db_sum_content_chars as _db_sum_content_chars_generic
+from persona_utils import (
+    current_persona,
+    get_current_persona,
+    get_persona_dir,
+    get_db_path,
+    get_vector_store_path,
+    get_persona_context_path,
+)
+from vector_utils import (
+    initialize_rag_sync as _initialize_rag_sync,
+    add_memory_to_vector_store,
+    update_memory_in_vector_store,
+    delete_memory_from_vector_store,
+    rebuild_vector_store,
+    start_idle_rebuilder_thread,
+    get_vector_count,
+)
+from vector_utils import reranker as _reranker
 
 # Suppress websockets legacy deprecation warnings
 warnings.filterwarnings('ignore', category=DeprecationWarning, module='websockets.legacy')
@@ -85,16 +105,8 @@ if sys.platform == 'win32':
             # If all else fails, just continue with default encoding
             pass
 
-# LangChain & RAG imports
+# LangChain & RAG imports (Document only used for dummy doc snippets)
 from langchain_core.documents import Document
-from langchain_community.vectorstores import FAISS
-from langchain_huggingface import HuggingFaceEmbeddings
-try:
-    from sentence_transformers import CrossEncoder
-    CROSSENCODER_AVAILABLE = True
-except ImportError:
-    CrossEncoder = None
-    CROSSENCODER_AVAILABLE = False
 from tqdm import tqdm
 
 # Phase 16: Fuzzy search support
@@ -122,33 +134,22 @@ mcp = FastMCP(
     port=_early_config.get("server_port", 8000)
 )
 
-# Persona context variable (thread-safe, request-scoped)
-current_persona: ContextVar[str] = ContextVar('current_persona', default='default')
-
-def get_current_persona() -> str:
-    """Get current persona from HTTP request header or context variable"""
-    try:
-        # Try to get request from FastMCP dependencies
-        request = get_http_request()
-        if request:
-            # Get X-Persona header (headers are case-insensitive in Starlette)
-            persona = request.headers.get('x-persona', 'default')
-            _log_progress(f"🔄 Request received - Persona from header: {persona}")
-            return persona
-    except Exception as e:
-        # Fallback to context variable if request is not available
-        _log_progress(f"⚠️  Could not get request, using context: {e}")
-        pass
-    
-    # Return context variable value
-    return current_persona.get()
+"""Persona helpers are imported from persona_utils"""
 
 LOG_FILE = os.path.join(SCRIPT_DIR, "memory_operations.log")
 
 memory_store = {}
-vector_store = None
-embeddings = None
-reranker = None
+
+def _get_rebuild_config():
+    cfg = load_config() or {}
+    vr = cfg.get("vector_rebuild", {}) if isinstance(cfg, dict) else {}
+    return {
+        "mode": vr.get("mode", "idle"),
+        "idle_seconds": int(vr.get("idle_seconds", 30)),
+        "min_interval": int(vr.get("min_interval", 120)),
+    }
+
+"""Vector store idle rebuild handled in vector_utils"""
 
 def _log_progress(message: str):
     """Log progress message to file (avoiding MCP protocol interference)"""
@@ -158,52 +159,7 @@ def _log_progress(message: str):
     except Exception:
         pass  # Silently fail if logging fails
 
-def get_persona_dir(persona: str = None) -> str:
-    """Get persona-specific directory path"""
-    if persona is None:
-        persona = get_current_persona()
-    # Sanitize persona name (remove path separators)
-    safe_persona = persona.replace('/', '_').replace('\\', '_')
-    persona_dir = os.path.join(SCRIPT_DIR, "memory", safe_persona)
-    os.makedirs(persona_dir, exist_ok=True)
-    return persona_dir
-
-def get_db_path(persona: str = None) -> str:
-    """Get persona-specific SQLite database path with legacy migration"""
-    if persona is None:
-        persona = get_current_persona()
-    
-    persona_dir = get_persona_dir(persona)
-    new_db_path = os.path.join(persona_dir, "memory.sqlite")
-    
-    # Check for legacy database (memory/{persona}.sqlite)
-    safe_persona = persona.replace('/', '_').replace('\\', '_')
-    legacy_db_path = os.path.join(SCRIPT_DIR, "memory", f"{safe_persona}.sqlite")
-    
-    # Migrate legacy database if exists
-    if os.path.exists(legacy_db_path) and not os.path.exists(new_db_path):
-        _log_progress(f"🔄 Migrating legacy database: {legacy_db_path} -> {new_db_path}")
-        try:
-            os.replace(legacy_db_path, new_db_path)
-            _log_progress(f"✅ Migrated legacy database to {new_db_path}")
-        except Exception as e:
-            _log_progress(f"❌ Failed to migrate legacy database: {e}")
-    
-    return new_db_path
-
-def get_vector_store_path(persona: str = None) -> str:
-    """Get persona-specific vector store path"""
-    if persona is None:
-        persona = get_current_persona()
-    persona_dir = get_persona_dir(persona)
-    return os.path.join(persona_dir, "vector_store")
-
-def get_persona_context_path(persona: str = None) -> str:
-    """Get persona-specific context JSON file path"""
-    if persona is None:
-        persona = get_current_persona()
-    persona_dir = get_persona_dir(persona)
-    return os.path.join(persona_dir, "persona_context.json")
+"""Persona path helpers are imported from persona_utils"""
 
 # ========================================
 # Phase 12: Time-awareness Functions
@@ -460,186 +416,7 @@ def save_persona_context(context: dict, persona: str = None) -> bool:
 # End of Phase 12 Time-awareness Functions
 # ========================================
 
-def _initialize_rag_sync():
-    """Initialize RAG components (called from background thread)"""
-    global vector_store, embeddings, reranker
-    
-    try:
-        # Load configuration
-        config = load_config()
-        embeddings_model = config.get("embeddings_model", "cl-nagoya/ruri-v3-30m")
-        embeddings_device = config.get("embeddings_device", "cpu")
-        reranker_model = config.get("reranker_model", "hotchpotch/japanese-reranker-xsmall-v2")
-        reranker_top_n = config.get("reranker_top_n", 5)
-        
-        # Initialize embeddings model (multilingual model for better Japanese support)
-        print(f"📥 Loading embeddings model: {embeddings_model}...")
-        _log_progress(f"📥 Loading embeddings model: {embeddings_model}...")
-        
-        try:
-            # Use tqdm to show download progress for embeddings model
-            with tqdm(total=100, desc="📥 Embeddings Model", unit="%", ncols=80) as pbar:
-                embeddings = HuggingFaceEmbeddings(
-                    model_name=embeddings_model,
-                    model_kwargs={'device': embeddings_device},
-                    encode_kwargs={'normalize_embeddings': True}
-                )
-                pbar.update(100)
-            
-            print("✅ Embeddings model loaded successfully!")
-            _log_progress("✅ Embeddings model loaded successfully!")
-        except Exception as e:
-            print(f"❌ Failed to load embeddings model: {e}")
-            _log_progress(f"❌ Failed to load embeddings model: {e}")
-            print("⚠️  Embeddings disabled - vector search will not be available")
-            _log_progress("⚠️  Embeddings disabled - vector search will not be available")
-            embeddings = None
-        
-        # Initialize reranker model (using lightweight Japanese model)
-        print(f"📥 Loading reranker model: {reranker_model}...")
-        _log_progress(f"📥 Loading reranker model: {reranker_model}...")
-        
-        # Check if reranker library is available
-        if not CROSSENCODER_AVAILABLE:
-            print("⚠️  Reranker library not available (sentence-transformers.CrossEncoder)")
-            _log_progress("⚠️  Reranker library not available")
-            print("✅ Reranker disabled - falling back to basic similarity search")
-            _log_progress("✅ Reranker disabled - falling back to basic similarity search")
-            reranker = None
-        else:
-            try:
-                # Use tqdm to show download progress for reranker model
-                with tqdm(total=100, desc="📥 Reranker Model", unit="%", ncols=80) as pbar:
-                    reranker = CrossEncoder(reranker_model)
-                    pbar.update(100)
-                
-                print("✅ Reranker model loaded successfully!")
-                _log_progress("✅ Reranker model loaded successfully!")
-            except Exception as e:
-                print(f"❌ Failed to load reranker model: {e}")
-                _log_progress(f"❌ Failed to load reranker model: {e}")
-                print("✅ Reranker disabled - falling back to basic similarity search")
-                _log_progress("✅ Reranker disabled - falling back to basic similarity search")
-                reranker = None  # Fallback to no reranking
-        
-        # Load existing vector store if it exists (persona-scoped)
-        print("📁 Checking for existing vector store (persona-scoped)...")
-        _log_progress("📁 Checking for existing vector store (persona-scoped)...")
-        
-        vector_store_path = get_vector_store_path()
-        
-        # Check for legacy vector store and migrate
-        legacy_vector_store_path = os.path.join(SCRIPT_DIR, "vector_store")
-        if os.path.exists(legacy_vector_store_path) and not os.path.exists(vector_store_path):
-            _log_progress(f"🔄 Migrating legacy vector store: {legacy_vector_store_path} -> {vector_store_path}")
-            try:
-                shutil.copytree(legacy_vector_store_path, vector_store_path)
-                _log_progress(f"✅ Migrated legacy vector store to {vector_store_path}")
-            except Exception as e:
-                _log_progress(f"❌ Failed to migrate legacy vector store: {e}")
-        
-        if os.path.exists(vector_store_path) and embeddings is not None:
-            try:
-                print("📥 Loading vector store from disk (persona)...")
-                _log_progress("📥 Loading vector store from disk (persona)...")
-                vector_store = FAISS.load_local(vector_store_path, embeddings, allow_dangerous_deserialization=True)
-                print(f"✅ Loaded existing vector store with {vector_store.index.ntotal} documents.")
-                _log_progress(f"✅ Loaded existing vector store with {vector_store.index.ntotal} documents.")
-                
-                # Check if vector store needs rebuilding (comparing count)
-                if len(memory_store) > 0 and vector_store.index.ntotal != len(memory_store):
-                    print(f"⚠️  Vector store count ({vector_store.index.ntotal}) != memory count ({len(memory_store)}). Rebuilding...")
-                    _log_progress(f"⚠️  Vector store count ({vector_store.index.ntotal}) != memory count ({len(memory_store)}). Rebuilding...")
-                    rebuild_vector_store()
-            except Exception as e:
-                print(f"❌ Failed to load vector store: {e}")
-                _log_progress(f"❌ Failed to load vector store: {e}")
-                vector_store = None
-        
-        if vector_store is None and embeddings is not None:
-            # Rebuild vector store from all existing memories
-            if memory_store:
-                print("🔨 No vector store found. Building from existing memories...")
-                _log_progress("🔨 No vector store found. Building from existing memories...")
-                rebuild_vector_store()
-            else:
-                # Create empty vector store with a dummy document
-                print("🆕 Creating new empty vector store...")
-                _log_progress("🆕 Creating new empty vector store...")
-                dummy_doc = Document(page_content="初期化用ダミー", metadata={"key": "dummy"})
-                vector_store = FAISS.from_documents([dummy_doc], embeddings)
-                print("✅ Created new vector store with dummy document.")
-                _log_progress("✅ Created new vector store with dummy document.")
-        
-        # Mark initialization as complete
-        print("🎉 RAG system is ready!")
-        _log_progress("🎉 RAG system is ready!")
-        
-    except Exception as e:
-        print(f"❌ RAG initialization failed: {e}")
-        _log_progress(f"❌ RAG initialization failed: {e}")
-
-
-def save_vector_store():
-    """Save vector store to disk (persona-scoped)"""
-    if vector_store:
-        try:
-            vector_store_path = get_vector_store_path()
-            vector_store.save_local(vector_store_path)
-            return True
-        except Exception as e:
-            print(f"Failed to save vector store: {e}")
-            return False
-    return False
-
-def add_memory_to_vector_store(key: str, content: str):
-    """Add memory to vector store"""
-    global vector_store
-    if vector_store is None:
-        return
-    
-    if vector_store and embeddings:
-        doc = Document(page_content=content, metadata={"key": key})
-        vector_store.add_documents([doc])
-        save_vector_store()
-
-def update_memory_in_vector_store(key: str, content: str):
-    """Update memory in vector store by deleting old and adding new"""
-    # FAISS doesn't support direct update, so we recreate from scratch
-    rebuild_vector_store()
-
-def delete_memory_from_vector_store(key: str):
-    """Delete memory from vector store"""
-    # Rebuild vector store without the deleted key
-    rebuild_vector_store()
-
-def rebuild_vector_store():
-    """Rebuild vector store from current memory_store"""
-    global vector_store
-    
-    if not memory_store or not embeddings:
-        print("⚠️  Cannot rebuild vector store: missing memory data or embeddings model")
-        return
-    
-    print(f"🔨 Rebuilding vector store from {len(memory_store)} memories...")
-    docs = []
-    
-    # Use tqdm to show progress for document processing
-    with tqdm(total=len(memory_store), desc="📄 Processing Memories", unit="docs", ncols=80) as pbar:
-        for key, entry in memory_store.items():
-            doc = Document(page_content=entry["content"], metadata={"key": key})
-            docs.append(doc)
-            pbar.update(1)
-    
-    if docs:
-        print(f"⚙️  Creating FAISS index for {len(docs)} documents (this may take a while)...")
-        # Use tqdm to show progress for FAISS index creation
-        with tqdm(total=1, desc="⚙️  Building FAISS Index", unit="index", ncols=80) as pbar:
-            vector_store = FAISS.from_documents(docs, embeddings)
-            pbar.update(1)
-        
-        save_vector_store()
-        print(f"✅ Rebuilt vector store with {len(docs)} documents.")
+"""Vector/RAG initialization and rebuild now handled by vector_utils"""
 
 def load_memory_from_db():
     """Load memory data from SQLite database (persona-scoped)"""
@@ -716,7 +493,10 @@ def load_memory_from_db():
 def save_memory_to_db(key: str, content: str, created_at: str = None, updated_at: str = None, tags: list = None):
     """Save memory to SQLite database (persona-scoped)"""
     try:
+        persona = get_current_persona()
         db_path = get_db_path()
+        _log_progress(f"💾 Attempting to save to DB: {db_path} (persona: {persona})")
+        
         now = datetime.now().isoformat()
         
         if created_at is None:
@@ -726,19 +506,30 @@ def save_memory_to_db(key: str, content: str, created_at: str = None, updated_at
         
         # Serialize tags as JSON
         tags_json = json.dumps(tags, ensure_ascii=False) if tags else None
+        _log_progress(f"💾 Tags JSON: {tags_json}")
         
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
+            
+            # Check schema before insert
+            cursor.execute("PRAGMA table_info(memories)")
+            columns = [col[1] for col in cursor.fetchall()]
+            _log_progress(f"💾 DB columns: {columns}")
+            
             cursor.execute('''
                 INSERT OR REPLACE INTO memories (key, content, created_at, updated_at, tags)
                 VALUES (?, ?, ?, ?, ?)
             ''', (key, content, created_at, updated_at, tags_json))
             conn.commit()
+            _log_progress(f"✅ Successfully saved {key} to DB")
         
         return True
     except Exception as e:
         print(f"Failed to save memory to database: {e}")
-        _log_progress(f"Failed to save memory to database: {e}")
+        _log_progress(f"❌ Failed to save memory to database: {e}")
+        _log_progress(f"❌ DB path was: {db_path}")
+        import traceback
+        _log_progress(f"❌ Traceback: {traceback.format_exc()}")
         return False
 
 def delete_memory_from_db(key: str):
@@ -756,6 +547,22 @@ def delete_memory_from_db(key: str):
         print(f"Failed to delete memory from database: {e}")
         _log_progress(f"Failed to delete memory from database: {e}")
         return False
+
+# ---------------------------
+# DB helper utilities (refactor)
+# ---------------------------
+def db_get_entry(key: str):
+    """Wrapper to generic helper with current persona db_path"""
+    return _db_get_entry_generic(get_db_path(), key)
+
+def db_recent_keys(limit: int = 5) -> list:
+    return _db_recent_keys_generic(get_db_path(), limit)
+
+def db_count_entries() -> int:
+    return _db_count_entries_generic(get_db_path())
+
+def db_sum_content_chars() -> int:
+    return _db_sum_content_chars_generic(get_db_path())
 
 def generate_auto_key():
     """Generate auto key from current time"""
@@ -792,7 +599,6 @@ def log_operation(operation: str, key: str | None = None, before: dict | None = 
     except Exception as e:
         print(f"Failed to write log: {str(e)}")
 
-@mcp.tool()
 async def list_memory() -> str:
     """
     This tool should be used first whenever the user is asking something related to themselves. 
@@ -800,24 +606,30 @@ async def list_memory() -> str:
     """
     try:
         persona = get_current_persona()
-        log_operation("list", metadata={"entry_count": len(memory_store), "persona": persona})
+        db_path = get_db_path()
         
-        if memory_store:
-            keys = list(memory_store.keys())
-            sorted_keys = sorted(keys, key=lambda k: memory_store[k]['created_at'], reverse=True)
-            result = f"🧠 {len(keys)} memory entries (persona: {persona}):\n\n"
-            for i, key in enumerate(sorted_keys, 1):
-                entry = memory_store[key]
-                created_date = entry['created_at'][:10]
-                created_time = entry['created_at'][11:19]
+        # Read directly from database instead of memory_store
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT key, content, created_at, updated_at, tags FROM memories ORDER BY created_at DESC')
+            rows = cursor.fetchall()
+        
+        log_operation("list", metadata={"entry_count": len(rows), "persona": persona})
+        
+        if rows:
+            result = f"🧠 {len(rows)} memory entries (persona: {persona}):\n\n"
+            for i, row in enumerate(rows, 1):
+                key, content, created_at, updated_at, tags_json = row
+                created_date = created_at[:10]
+                created_time = created_at[11:19]
                 
                 # Calculate time elapsed since creation
-                time_diff = calculate_time_diff(entry['created_at'])
+                time_diff = calculate_time_diff(created_at)
                 time_ago = f" ({time_diff['formatted_string']}前)"
                 
                 result += f"{i}. [{key}]\n"
-                result += f"   {entry['content']}\n"
-                result += f"   {created_date} {created_time}{time_ago} ({len(entry['content'])} chars)\n\n"
+                result += f"   {content}\n"
+                result += f"   {created_date} {created_time}{time_ago} ({len(content)} chars)\n\n"
             return result.rstrip()
         else:
             return f"No user info saved yet (persona: {persona})."
@@ -825,7 +637,6 @@ async def list_memory() -> str:
         log_operation("list", success=False, error=str(e))
         return f"Failed to list memory: {str(e)}"
 
-@mcp.tool()
 async def create_memory(
     content: str, 
     emotion_type: str = None, 
@@ -878,19 +689,27 @@ async def create_memory(
     """
     try:
         persona = get_current_persona()
+        db_path = get_db_path()
         
+        # Generate unique key by checking database
         key = generate_auto_key()
         original_key = key
         counter = 1
-        while key in memory_store:
-            key = f"{original_key}_{counter:02d}"
-            counter += 1
+        
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            # Check if key exists in database
+            while True:
+                cursor.execute('SELECT COUNT(*) FROM memories WHERE key = ?', (key,))
+                if cursor.fetchone()[0] == 0:
+                    break
+                key = f"{original_key}_{counter:02d}"
+                counter += 1
         
         new_entry = create_memory_entry(content)
         new_entry["tags"] = context_tags if context_tags else []
-        memory_store[key] = new_entry
         
-        # Save to database with tags
+        # Save to database with tags (no longer updating memory_store)
         save_memory_to_db(key, content, new_entry["created_at"], new_entry["updated_at"], context_tags)
         
         # Add to vector store
@@ -980,7 +799,6 @@ async def create_memory(
                      metadata={"attempted_content_length": len(content) if content else 0})
         return f"Failed to save: {str(e)}"
 
-@mcp.tool()
 async def update_memory(key: str, content: str) -> str:
     """
     Update existing memory content while preserving the original timestamp.
@@ -992,33 +810,50 @@ async def update_memory(key: str, content: str) -> str:
     """
     try:
         persona = get_current_persona()
+        db_path = get_db_path()
         
-        if key not in memory_store:
+        # Check if key exists in database
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT content, created_at, tags FROM memories WHERE key = ?', (key,))
+            row = cursor.fetchone()
+        
+        if not row:
             log_operation("update", key=key, success=False, error="Key not found")
-            available_keys = list(memory_store.keys())
+            # Get available keys
+            with sqlite3.connect(db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('SELECT key FROM memories ORDER BY created_at DESC LIMIT 5')
+                available_keys = [r[0] for r in cursor.fetchall()]
+            
             if available_keys:
-                return f"Key '{key}' not found. Available: {', '.join(available_keys)}"
+                return f"Key '{key}' not found. Recent keys: {', '.join(available_keys)}"
             else:
                 return f"Key '{key}' not found. No memory data exists."
         
-        existing_entry = memory_store[key].copy()
-        now = datetime.now().isoformat()
+        old_content, created_at, tags_json = row
+        existing_entry = {
+            "content": old_content,
+            "created_at": created_at,
+            "tags": json.loads(tags_json) if tags_json else []
+        }
         
+        now = datetime.now().isoformat()
         updated_entry = {
             "content": content,
-            "created_at": existing_entry["created_at"],
+            "created_at": created_at,
             "updated_at": now
         }
         
-        memory_store[key] = updated_entry
-        save_memory_to_db(key, content, updated_entry["created_at"], updated_entry["updated_at"])
+        # Update in database (preserve tags)
+        save_memory_to_db(key, content, created_at, now, existing_entry["tags"])
         update_memory_in_vector_store(key, content)
         
         log_operation("update", key=key, before=existing_entry, after=updated_entry,
                      metadata={
-                         "old_content_length": len(existing_entry["content"]),
+                         "old_content_length": len(old_content),
                          "new_content_length": len(content),
-                         "content_changed": existing_entry["content"] != content,
+                         "content_changed": old_content != content,
                          "persona": persona
                      })
         
@@ -1028,7 +863,6 @@ async def update_memory(key: str, content: str) -> str:
                      metadata={"attempted_content_length": len(content) if content else 0})
         return f"Failed to update memory: {str(e)}"
 
-@mcp.tool()
 async def read_memory(key: str) -> str:
     """
     Read user info by key.
@@ -1037,33 +871,36 @@ async def read_memory(key: str) -> str:
     """
     try:
         persona = get_current_persona()
+        # Read directly from database via helper
+        row = db_get_entry(key)
         
-        if key in memory_store:
-            entry = memory_store[key]
+        if row:
+            content, created_at, updated_at, tags_json = row
             
             # Calculate time elapsed since creation
-            time_diff = calculate_time_diff(entry['created_at'])
+            time_diff = calculate_time_diff(created_at)
             time_ago = f"{time_diff['formatted_string']}前"
             
-            log_operation("read", key=key, metadata={"content_length": len(entry["content"]), "persona": persona})
+            log_operation("read", key=key, metadata={"content_length": len(content), "persona": persona})
             return f"""Key: '{key}' (persona: {persona})
-{entry['content']}
+{content}
 --- Metadata ---
-Created: {entry['created_at']} ({time_ago})
-Updated: {entry['updated_at']}
-Chars: {len(entry['content'])}"""
+Created: {created_at} ({time_ago})
+Updated: {updated_at}
+Chars: {len(content)}"""
         else:
             log_operation("read", key=key, success=False, error="Key not found")
-            available_keys = list(memory_store.keys())
+            # Get available keys from DB
+            available_keys = db_recent_keys(5)
+            
             if available_keys:
-                return f"Key '{key}' not found. Available: {', '.join(available_keys)}"
+                return f"Key '{key}' not found. Recent keys: {', '.join(available_keys)}"
             else:
                 return f"Key '{key}' not found. No memory data."
     except Exception as e:
         log_operation("read", key=key, success=False, error=str(e))
         return f"Failed to read memory: {str(e)}"
 
-@mcp.tool()
 async def delete_memory(key: str) -> str:
     """
     Delete user info by key.
@@ -1072,29 +909,41 @@ async def delete_memory(key: str) -> str:
     """
     try:
         persona = get_current_persona()
+        db_path = get_db_path()
         
-        if key in memory_store:
-            deleted_entry = memory_store[key].copy()
-            del memory_store[key]
+        # Check if key exists and get data
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT content FROM memories WHERE key = ?', (key,))
+            row = cursor.fetchone()
+        
+        if row:
+            deleted_content = row[0]
+            deleted_entry = {"content": deleted_content}
+            
             delete_memory_from_db(key)
             delete_memory_from_vector_store(key)
             
             log_operation("delete", key=key, before=deleted_entry,
-                         metadata={"deleted_content_length": len(deleted_entry["content"]), "persona": persona})
+                         metadata={"deleted_content_length": len(deleted_content), "persona": persona})
             
             return f"Deleted '{key}' (persona: {persona})"
         else:
             log_operation("delete", key=key, success=False, error="Key not found")
-            available_keys = list(memory_store.keys())
+            # Get available keys
+            with sqlite3.connect(db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('SELECT key FROM memories ORDER BY created_at DESC LIMIT 5')
+                available_keys = [r[0] for r in cursor.fetchall()]
+            
             if available_keys:
-                return f"Key '{key}' not found. Available: {', '.join(available_keys)}"
+                return f"Key '{key}' not found. Recent keys: {', '.join(available_keys)}"
             else:
                 return f"Key '{key}' not found. No memory data."
     except Exception as e:
         log_operation("delete", key=key, success=False, error=str(e))
         return f"Failed to delete memory: {str(e)}"
 
-@mcp.tool()
 async def search_memory(
     query: str = "",
     top_k: int = 5,
@@ -1129,9 +978,24 @@ async def search_memory(
     try:
         persona = get_current_persona()
         current_time = get_current_time()
+        db_path = get_db_path()
+        
+        # Read all memories from database
+        memories = {}
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT key, content, created_at, updated_at, tags FROM memories')
+            for row in cursor.fetchall():
+                key, content, created_at, updated_at, tags_json = row
+                memories[key] = {
+                    "content": content,
+                    "created_at": created_at,
+                    "updated_at": updated_at,
+                    "tags": json.loads(tags_json) if tags_json else []
+                }
         
         # Phase 1: Start with all memories as candidates
-        candidate_keys = set(memory_store.keys())
+        candidate_keys = set(memories.keys())
         filter_descriptions = []
         
         # Phase 2: Apply date filter if specified
@@ -1140,7 +1004,7 @@ async def search_memory(
                 start_date, end_date = parse_date_query(date_range)
                 date_filtered = set()
                 for key in candidate_keys:
-                    entry = memory_store[key]
+                    entry = memories[key]
                     created_dt = datetime.fromisoformat(entry['created_at'])
                     # Make timezone-aware if naive
                     if created_dt.tzinfo is None:
@@ -1156,7 +1020,7 @@ async def search_memory(
         if tags:
             tag_filtered = set()
             for key in candidate_keys:
-                entry = memory_store[key]
+                entry = memories[key]
                 entry_tags = entry.get('tags', [])
                 
                 if tag_match_mode == "all":
@@ -1178,13 +1042,13 @@ async def search_memory(
         if not query:
             # No query: return all candidates (filtered by date/tags only)
             for key in candidate_keys:
-                entry = memory_store[key]
+                entry = memories[key]
                 created_dt = datetime.fromisoformat(entry['created_at'])
                 scored_results.append((key, entry, created_dt, 100))  # Score 100 for all
         elif fuzzy_match and RAPIDFUZZ_AVAILABLE:
             # Fuzzy matching mode
             for key in candidate_keys:
-                entry = memory_store[key]
+                entry = memories[key]
                 content = entry['content']
                 # Use partial_ratio + word-by-word matching
                 partial_score = fuzz.partial_ratio(query.lower(), content.lower())
@@ -1204,7 +1068,7 @@ async def search_memory(
                 print("⚠️  Fuzzy matching requested but rapidfuzz not available, using exact match...")
             
             for key in candidate_keys:
-                entry = memory_store[key]
+                entry = memories[key]
                 if query.lower() in entry['content'].lower():
                     created_dt = datetime.fromisoformat(entry['created_at'])
                     scored_results.append((key, entry, created_dt, 100))  # Score 100 for exact match
@@ -1261,7 +1125,6 @@ async def search_memory(
     except Exception as e:
         return f"Failed to search memories: {str(e)}"
 
-@mcp.tool()
 async def clean_memory(key: str) -> str:
     """
     Clean up memory content by removing duplicates and normalizing format.
@@ -1269,15 +1132,28 @@ async def clean_memory(key: str) -> str:
         key: Memory key to clean
     """
     try:
-        if key not in memory_store:
-            available_keys = list(memory_store.keys())
+        db_path = get_db_path()
+        
+        # Get memory from database
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT content, created_at, tags FROM memories WHERE key = ?', (key,))
+            row = cursor.fetchone()
+        
+        if not row:
+            # Get available keys
+            with sqlite3.connect(db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('SELECT key FROM memories ORDER BY created_at DESC LIMIT 5')
+                available_keys = [r[0] for r in cursor.fetchall()]
+            
             if available_keys:
-                return f"Key '{key}' not found. Available: {', '.join(available_keys)}"
+                return f"Key '{key}' not found. Recent keys: {', '.join(available_keys)}"
             else:
                 return f"Key '{key}' not found. No memory data."
         
-        existing_entry = memory_store[key].copy()
-        original_content = existing_entry["content"]
+        original_content, created_at, tags_json = row
+        existing_tags = json.loads(tags_json) if tags_json else []
         
         # Clean up content: remove duplicates, normalize whitespace
         lines = original_content.split('\n')
@@ -1298,21 +1174,15 @@ async def clean_memory(key: str) -> str:
         
         now = datetime.now().isoformat()
         
-        updated_entry = {
-            "content": cleaned_content,
-            "created_at": existing_entry["created_at"],
-            "updated_at": now
-        }
-        
-        memory_store[key] = updated_entry
-        
-        # Save to database
-        save_memory_to_db(key, cleaned_content, existing_entry["created_at"], now)
+        # Save to database (preserve tags and created_at)
+        save_memory_to_db(key, cleaned_content, created_at, now, existing_tags)
         
         # Update vector store
         update_memory_in_vector_store(key, cleaned_content)
         
-        log_operation("clean", key=key, before=existing_entry, after=updated_entry,
+        log_operation("clean", key=key, 
+                     before={"content": original_content, "created_at": created_at, "tags": existing_tags},
+                     after={"content": cleaned_content, "created_at": created_at, "updated_at": now, "tags": existing_tags},
                      metadata={
                          "old_content_length": len(original_content),
                          "new_content_length": len(cleaned_content),
@@ -1324,7 +1194,6 @@ async def clean_memory(key: str) -> str:
         log_operation("clean", key=key, success=False, error=str(e))
         return f"Failed to clean memory: {str(e)}"
 
-@mcp.tool()
 async def search_memory_rag(query: str, top_k: int = 5) -> str:
     """
     Search memories using RAG (Retrieval-Augmented Generation) with embedding-based similarity search.
@@ -1347,6 +1216,7 @@ async def search_memory_rag(query: str, top_k: int = 5) -> str:
             return "Please provide a query to search."
         
         # Check if RAG system is ready, fallback to keyword search if not
+        from vector_utils import vector_store, embeddings, reranker
         if vector_store is None or embeddings is None:
             print("⚠️  RAG system not ready, fallback to keyword search...")
             return await search_memory(query, top_k)
@@ -1371,28 +1241,30 @@ async def search_memory_rag(query: str, top_k: int = 5) -> str:
         
         if docs:
             result = f"🔍 Found {len(docs)} relevant memories for '{query}':\n\n"
-            for i, doc in enumerate(docs, 1):
-                key = doc.metadata.get("key", "unknown")
-                content = doc.page_content
-                
-                # Get metadata from memory store
-                if key in memory_store:
-                    entry = memory_store[key]
-                    created_date = entry['created_at'][:10]
-                    created_time = entry['created_at'][11:19]
-                    
-                    # Calculate time elapsed since creation
-                    time_diff = calculate_time_diff(entry['created_at'])
-                    time_ago = f" ({time_diff['formatted_string']}前)"
-                else:
-                    created_date = "unknown"
-                    created_time = "unknown"
-                    time_ago = ""
-                
-                result += f"{i}. [{key}]\n"
-                result += f"   {content[:200]}{'...' if len(content) > 200 else ''}\n"
-                result += f"   {created_date} {created_time}{time_ago} ({len(content)} chars)\n\n"
-            
+            persona = get_current_persona()
+            db_path = get_db_path()
+            import sqlite3
+            with sqlite3.connect(db_path) as conn:
+                cursor = conn.cursor()
+                for i, doc in enumerate(docs, 1):
+                    key = doc.metadata.get("key", "unknown")
+                    content = doc.page_content
+                    # DBからメタデータ取得
+                    cursor.execute('SELECT created_at FROM memories WHERE key = ?', (key,))
+                    row = cursor.fetchone()
+                    if row:
+                        created_at = row[0]
+                        created_date = created_at[:10]
+                        created_time = created_at[11:19]
+                        time_diff = calculate_time_diff(created_at)
+                        time_ago = f" ({time_diff['formatted_string']}前)"
+                    else:
+                        created_date = "unknown"
+                        created_time = "unknown"
+                        time_ago = ""
+                    result += f"{i}. [{key}]\n"
+                    result += f"   {content[:200]}{'...' if len(content) > 200 else ''}\n"
+                    result += f"   {created_date} {created_time}{time_ago} ({len(content)} chars)\n\n"
             return result.rstrip()
         else:
             return f"No relevant memories found for '{query}'."
@@ -1403,7 +1275,6 @@ async def search_memory_rag(query: str, top_k: int = 5) -> str:
 # Phase 12: Time-awareness Tools
 # ========================================
 
-@mcp.tool()
 async def get_time_since_last_conversation() -> str:
     """
     Get the time elapsed since the last conversation.
@@ -1443,7 +1314,6 @@ async def get_time_since_last_conversation() -> str:
         _log_progress(f"❌ Failed to get time since last conversation: {e}")
         return f"Failed to get time information: {str(e)}"
 
-@mcp.tool()
 async def get_persona_context() -> str:
     """
     Get current persona context including emotion state, physical/mental state, and environment.
@@ -1509,21 +1379,40 @@ async def get_persona_context() -> str:
 # End of Phase 12 Time-awareness Tools
 # ========================================
 
-@mcp.resource("memory://info")
+async def rebuild_vector_store_tool() -> str:
+    """
+    Rebuild vector store from database.
+    Use this when search_memory_rag returns outdated or missing results.
+    This will recreate the FAISS index from all memories in the current persona's database.
+    """
+    try:
+        persona = get_current_persona()
+        rebuild_vector_store()
+        return f"✅ Vector store rebuilt successfully for persona: {persona}"
+    except Exception as e:
+        return f"❌ Failed to rebuild vector store: {str(e)}"
+
+# ========================================
+# Resource: Memory Info
+# ========================================
+
 def get_memory_info() -> str:
-    """Provide memory service info"""
-    total_chars = sum(len(entry['content']) for entry in memory_store.values())
-    vector_count = vector_store.index.ntotal if vector_store else 0
+    """Provide memory service info (DB-source of truth)"""
+    entries = db_count_entries()
+    total_chars = db_sum_content_chars()
+    vector_count = get_vector_count()
     db_path = get_db_path()
     persona = get_current_persona()
+    cfg = _get_rebuild_config()
     return (
         f"User Memory System Info:\n"
-        f"- Entries: {len(memory_store)}\n"
+        f"- Entries: {entries}\n"
         f"- Total chars: {total_chars}\n"
         f"- Vector Store: {vector_count} documents\n"
-        f"- Reranker: {'Available' if reranker else 'Not available'}\n"
+        f"- Reranker: {'Available' if _reranker else 'Not available'}\n"
         f"- Database: {db_path}\n"
         f"- Persona: {persona}\n"
+        f"- Vector Rebuild: mode={cfg.get('mode')}, idle_seconds={cfg.get('idle_seconds')}, min_interval={cfg.get('min_interval')}\n"
         f"- Tools: create_memory, read_memory, update_memory, delete_memory, list_memory, search_memory, search_memory_rag, search_memory_by_date, clean_memory\n"
         f"- Key format: memory_YYYYMMDDHHMMSS\n"
         f"- Save format: 'User is ...'\n"
@@ -1543,5 +1432,20 @@ if __name__ == "__main__":
     # Initialize RAG synchronously before starting MCP server
     print("📥 Starting RAG system initialization...")
     _initialize_rag_sync()
+    # Start idle rebuild worker
+    try:
+        start_idle_rebuilder_thread()
+        print("🧵 Idle rebuild worker started")
+    except Exception as e:
+        print(f"⚠️  Failed to start idle rebuild worker: {e}")
+    # ツール/リソースの登録（デコレータではなく動的登録）
+    try:
+        import tools_memory
+        tools_memory.register_tools(mcp)
+        tools_memory.register_resources(mcp)
+        print("🧰 Tools and resources registered")
+    except Exception as e:
+        print(f"⚠️  Failed to register tools/resources: {e}")
+
     # Run MCP server with streamable-http transport
     mcp.run(transport='streamable-http')
