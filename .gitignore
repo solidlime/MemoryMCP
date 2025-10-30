@@ -36,9 +36,6 @@ env/
 *~
 .DS_Store
 
-# GitHub個人設定
-.github/
-
 # Memory MCP specific
 memory/
 .cache/

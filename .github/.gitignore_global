@@ -1,0 +1,7 @@
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.venv/
+.gitignore_global
+copilot-instructions.md

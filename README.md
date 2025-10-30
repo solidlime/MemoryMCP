@@ -76,6 +76,16 @@ docker compose down
 
 詳細は [DOCKER.md](DOCKER.md) を参照してください。
 
+#### 公開イメージの使用
+
+GitHub Container Registryから公開イメージを使用：
+
+```bash
+# イメージ取得と起動
+docker run -d -p 8000:8000 --name memory-mcp \
+  ghcr.io/solidlime/memory-mcp:latest
+```
+
 ### VS Codeでの設定
 
 VS Codeの設定 (`settings.json`) に以下を追加：

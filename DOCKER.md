@@ -10,6 +10,7 @@ Memory MCP ServerをDockerで実行するための完全ガイドです。
 - [ボリュームマウント](#ボリュームマウント)
 - [環境変数](#環境変数)
 - [ヘルスチェック](#ヘルスチェック)
+- [イメージ配布](#イメージ配布)
 - [トラブルシューティング](#トラブルシューティング)
 
 ## クイックスタート
@@ -272,6 +273,75 @@ docker ps --filter name=memory-mcp
 ```
 
 `STATUS`列に`healthy`と表示されればOKです。
+
+## イメージ配布
+
+ビルドしたDockerイメージをコンテナレジストリに公開する方法です。
+
+### GitHub Container Registry (推奨)
+
+1. **Personal Access Tokenの作成**
+   - GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)
+   - 権限: `write:packages`, `read:packages`, `delete:packages`
+
+2. **ログイン**
+   ```bash
+   echo $GITHUB_TOKEN | docker login ghcr.io -u USERNAME --password-stdin
+   ```
+
+3. **イメージのタグ付け**
+   ```bash
+   docker tag memory-mcp:latest ghcr.io/solidlime/memory-mcp:latest
+   ```
+
+4. **プッシュ**
+   ```bash
+   docker push ghcr.io/solidlime/memory-mcp:latest
+   ```
+
+5. **使用方法**
+   ```bash
+   docker run -d -p 8000:8000 --name memory-mcp \
+     ghcr.io/solidlime/memory-mcp:latest
+   ```
+
+### Docker Hub
+
+1. **ログイン**
+   ```bash
+   docker login
+   ```
+
+2. **イメージのタグ付け**
+   ```bash
+   docker tag memory-mcp:latest yourusername/memory-mcp:latest
+   ```
+
+3. **プッシュ**
+   ```bash
+   docker push yourusername/memory-mcp:latest
+   ```
+
+4. **使用方法**
+   ```bash
+   docker run -d -p 8000:8000 --name memory-mcp \
+     yourusername/memory-mcp:latest
+   ```
+
+### バージョン管理
+
+```bash
+# バージョンタグ付きでビルド
+docker build -t memory-mcp:v1.0.0 .
+
+# 複数タグを付ける
+docker tag memory-mcp:v1.0.0 ghcr.io/solidlime/memory-mcp:v1.0.0
+docker tag memory-mcp:v1.0.0 ghcr.io/solidlime/memory-mcp:latest
+
+# プッシュ
+docker push ghcr.io/solidlime/memory-mcp:v1.0.0
+docker push ghcr.io/solidlime/memory-mcp:latest
+```
 
 ## トラブルシューティング
 
