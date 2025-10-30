@@ -253,8 +253,56 @@ Test duplicate line 2""")
     print(f"   Total memories: {lines[0]}")
     print(f"   First few entries:\n{chr(10).join(lines[:15])}...\n")
 
+    # ========================================
+    # Phase 16: Enhanced Search Tests
+    # ========================================
     print("=" * 60)
-    print("✅ All Phase 13-2 tests completed!")
+    print("Phase 16: Enhanced Search Feature Tests")
+    print("=" * 60)
+    
+    # Import new search functions
+    from memory_mcp import search_memory_hybrid, search_memory_advanced
+    
+    print("\n21. Testing search_memory with fuzzy_match=True...")
+    # Create a test memory with potential typo
+    await create_memory(content="[[Python]]と[[RAG]]の組み合わせはとっても強力だよ！")
+    result = await search_memory("Pythn", top_k=3, fuzzy_match=True, fuzzy_threshold=70)
+    print(f"   Result:\n{result}\n")
+    
+    print("\n22. Testing search_memory_hybrid (keyword + RAG)...")
+    result = await search_memory_hybrid("Python", top_k=5, keyword_weight=0.4, rag_weight=0.6)
+    print(f"   Result:\n{result}\n")
+    
+    print("\n23. Testing search_memory_by_tags with match_mode='all' (AND logic)...")
+    result = await search_memory_by_tags(
+        tags=["important_event", "technical_achievement"],
+        top_k=5,
+        match_mode="all"
+    )
+    print(f"   Result:\n{result}\n")
+    
+    print("\n24. Testing search_memory_advanced (date + tags + keyword)...")
+    result = await search_memory_advanced(
+        query="Phase",
+        tags=["technical_achievement"],
+        tag_match_mode="any",
+        date_query="今月",
+        top_k=5,
+        fuzzy_match=False
+    )
+    print(f"   Result:\n{result}\n")
+    
+    print("\n25. Testing search_memory_advanced with fuzzy match...")
+    result = await search_memory_advanced(
+        query="Pythn",
+        tags=["technical_achievement"],
+        fuzzy_match=True,
+        top_k=3
+    )
+    print(f"   Result:\n{result}\n")
+
+    print("=" * 60)
+    print("✅ All Phase 16 Enhanced Search tests completed!")
     print("=" * 60)
 
 if __name__ == "__main__":
