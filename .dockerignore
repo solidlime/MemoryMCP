@@ -1,0 +1,60 @@
+# Docker build exclusions for memory-mcp
+
+# Model cache (will be bind-mounted from host)
+.cache/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Development environment
+.github/
+.vscode/
+
+# Runtime data (generated at runtime or bind-mounted)
+memory/
+*.sqlite
+*.sqlite-journal
+
+# Virtual environment
+venv-rag/
+venv/
+env/
+ENV/
+
+# OS files
+.DS_Store
+Thumbs.db
+.AppleDouble
+.LSOverride
+
+# Logs (bind-mounted)
+*.log
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Documentation (not needed in container)
+DOCKER.md
+README.md
+
+# Test files
+tests/
+test_*.py
+*_test.py
+
+# IDE
+.idea/
+*.swp
+*.swo
+*~
+
+# Docker files themselves
+Dockerfile
+docker-compose.yml
+.dockerignore
