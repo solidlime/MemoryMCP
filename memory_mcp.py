@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 from mcp.server.fastmcp import FastMCP
-from db_utils import db_get_entry as _db_get_entry_generic, db_recent_keys as _db_recent_keys_generic, db_count_entries as _db_count_entries_generic, db_sum_content_chars as _db_sum_content_chars_generic
+from db_utils import db_get_entry as _db_get_entry_generic, db_recent_keys as _db_recent_keys_generic, db_count_entries as _db_count_entries_generic, db_sum_content_chars as _db_sum_content_chars_generic, clear_query_cache
 from persona_utils import (
     current_persona,
     get_current_persona,
@@ -713,6 +713,9 @@ async def create_memory(
         # Save to database with tags (no longer updating memory_store)
         save_memory_to_db(key, content, new_entry["created_at"], new_entry["updated_at"], context_tags)
         
+        # Clear query cache (Phase 18: Performance Optimization)
+        clear_query_cache()
+        
         # Add to vector store
         add_memory_to_vector_store(key, content)
         
@@ -848,6 +851,10 @@ async def update_memory(key: str, content: str) -> str:
         
         # Update in database (preserve tags)
         save_memory_to_db(key, content, created_at, now, existing_entry["tags"])
+        
+        # Clear query cache (Phase 18: Performance Optimization)
+        clear_query_cache()
+        
         update_memory_in_vector_store(key, content)
         
         log_operation("update", key=key, before=existing_entry, after=updated_entry,
@@ -923,6 +930,10 @@ async def delete_memory(key: str) -> str:
             deleted_entry = {"content": deleted_content}
             
             delete_memory_from_db(key)
+            
+            # Clear query cache (Phase 18: Performance Optimization)
+            clear_query_cache()
+            
             delete_memory_from_vector_store(key)
             
             log_operation("delete", key=key, before=deleted_entry,

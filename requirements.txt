@@ -29,3 +29,6 @@ fastmcp>=0.9.0
 # Phase 16: Enhanced Search
 rapidfuzz>=3.0.0
 
+# Phase 18: Performance Optimization
+cachetools>=5.3.0
+

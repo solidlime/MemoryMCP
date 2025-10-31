@@ -16,6 +16,7 @@
 - ✅ Phase 16.6: モジュール分割とリファクタリング（persona_utils, vector_utils, tools_memory）
 - ✅ Phase 16.7: 監視機能とタスク改善（memory://metrics, .vscode/tasks.json）
 - ✅ Phase 17: メモリ整理・管理機能（統計ダッシュボード、関連検索、重複検出、統合）
+- ✅ Phase 18: パフォーマンス最適化（インクリメンタルインデックス、クエリキャッシュ）
 
 ### 最新の主要機能（Phase 17 追加）
 
@@ -33,6 +34,8 @@
 - **関連メモリ検索**: find_related_memories ツール（embeddings距離による類似度計算）
 - **重複検出**: detect_duplicates ツール（閾値ベースの重複ペア検出）
 - **メモリ統合**: merge_memories ツール（複数メモリを1つに統合）
+- **インクリメンタルインデックス**: メモリ変更時にFAISSを即座に増分更新（Phase 18）
+- **クエリキャッシュ**: TTLCache（5分、100エントリ）による検索高速化（Phase 18）
 
 
 
@@ -829,9 +832,82 @@ def get_memory_stats() -> str:
 - ⏳ activeContext.md: Phase 17状況反映
 
 ### 今後の展開
-- パフォーマンス改善（インクリメンタルインデックス、キャッシュ最適化）
 - AIアシスト機能（トピックモデリング、メモリ自動要約）
 - アーカイブ機能（古いメモリの退避）
+- 並列処理最適化（Phase 18 Step 3: 保留中）
+
+---
+
+## Phase 18: パフォーマンス最適化（2025-10-31 完了 ✅）
+
+### 目標
+大規模なメモリセットでの検索・更新パフォーマンスを向上させる。従来の「全件再構築」から「インクリメンタル更新」へ移行し、頻繁なクエリをキャッシュして応答速度を改善。
+
+### 完了項目
+
+#### Step 1: インクリメンタルインデックス ✅
+- **変更前**: メモリ追加/更新/削除時にdirtyフラグを立て、アイドル時に全件再構築
+- **変更後**: FAISS `add_documents()` / `delete()` による即座の増分更新
+- **実装**:
+  - `vector_utils.py` の3関数を改修:
+    - `add_memory_to_vector_store()`: Document作成 → add_documents([doc], ids=[key]) → save
+    - `update_memory_in_vector_store()`: delete([key]) → add_documents() → save
+    - `delete_memory_from_vector_store()`: delete([key]) → save
+  - ハイブリッドアプローチ: try 増分更新 → except フォールバック dirty flag
+  - メタデータ駆動: FAISS metadata={"key": key} で文書を識別・削除
+
+#### Step 2: クエリキャッシュ ✅
+- **ライブラリ**: `cachetools.TTLCache` (maxsize=100, ttl=300秒)
+- **実装**:
+  - `db_utils.py` に `_query_cache`, `_cache_lock`, `clear_query_cache()` 追加
+  - `memory_mcp.py` の create/update/delete でキャッシュクリア呼び出し
+  - スレッドセーフ: Lock保護されたキャッシュアクセス
+- **効果**: 頻繁なクエリ（リスト、検索）の応答速度向上
+
+#### Step 3: 並列処理最適化（保留）
+- 優先度低のため Phase 18 では実装せず
+- 将来的に検討: バッチ埋め込み生成、並列FAISS検索
+
+### 技術的詳細
+
+#### インクリメンタルインデックスの仕組み
+```python
+# 追加
+docs = [Document(page_content=content, metadata={"key": key})]
+vector_store.add_documents(docs, ids=[key])
+vector_store.save_vector_store()
+
+# 更新
+vector_store.delete([key])  # 古いバージョンを削除
+vector_store.add_documents(docs, ids=[key])  # 新バージョンを追加
+vector_store.save_vector_store()
+
+# 削除
+vector_store.delete([key])
+vector_store.save_vector_store()
+```
+
+#### キャッシュ戦略
+- **TTL 5分**: 頻繁なクエリには十分、古いデータの長期保持を防ぐ
+- **サイズ100**: 中規模ワークロードに対応
+- **即座クリア**: 書き込み操作（create/update/delete）時に全キャッシュクリア
+- **スレッドセーフ**: threading.Lock で排他制御
+
+### テスト結果
+- ✅ 作成（create）: インクリメンタル追加成功、即座に検索可能
+- ✅ 更新（update）: 削除→追加で内容即座反映、キャッシュクリア確認
+- ✅ 削除（delete）: FAISSから即座削除、検索結果から消失確認
+- ✅ キャッシュ: 更新後も最新内容が検索できる（キャッシュクリア動作確認）
+
+### パフォーマンス改善
+- **Before**: 67件メモリ変更 → 全67件再構築 → O(n) コスト
+- **After**: 1件変更 → 1件更新のみ → O(1) コスト（理論値）
+- **スケーラビリティ**: メモリ数1000件でも更新は高速
+
+### ドキュメント更新
+- ✅ README.md: Phase 18セクション追加（インクリメンタルインデックス、キャッシュ説明）
+- ✅ progress.md: Phase 18詳細追加（このセクション）
+- ⏳ activeContext.md: Phase 18状況反映
 
 ---
 

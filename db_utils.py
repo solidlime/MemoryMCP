@@ -1,5 +1,17 @@
 import sqlite3
 from typing import Optional, List, Tuple
+from cachetools import TTLCache
+from threading import Lock
+
+# Cache configuration (Phase 18: Performance Optimization)
+# TTL = 300 seconds (5 minutes), maxsize = 100 entries
+_query_cache = TTLCache(maxsize=100, ttl=300)
+_cache_lock = Lock()
+
+def clear_query_cache():
+    """Clear all cached query results. Call this when data changes."""
+    with _cache_lock:
+        _query_cache.clear()
 
 # These helpers are kept generic: caller passes db_path
 
