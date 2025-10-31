@@ -27,3 +27,4 @@ def register_tools(mcp: Any) -> None:
 def register_resources(mcp: Any) -> None:
     import memory_mcp as impl
     mcp.resource("memory://info")(impl.get_memory_info)
+    mcp.resource("memory://metrics")(impl.get_memory_metrics)

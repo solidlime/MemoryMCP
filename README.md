@@ -108,6 +108,103 @@ VS Codeの設定 (`settings.json`) に以下を追加：
 
 **Persona切り替え**: `X-Persona`ヘッダーの値を変更することで、異なる人格の記憶空間を利用できます。
 
+## Try it 🚀
+
+### 最速スタート（ローカル環境）
+
+```bash
+# 1. リポジトリクローン
+git clone <repository-url>
+cd memory-mcp
+
+# 2. 仮想環境作成と有効化
+python -m venv venv-rag
+source venv-rag/bin/activate  # Windows: venv-rag\Scripts\activate
+
+# 3. 依存関係インストール
+pip install -r requirements.txt
+
+# 4. サーバー起動
+python memory_mcp.py
+```
+
+サーバーが `http://127.0.0.1:8000` で起動します。
+
+### VS Code Tasks で起動（推奨）
+
+VS Codeで `.vscode/tasks.json` を作成し、以下のタスクを定義：
+
+```json
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Run MCP server (foreground)",
+      "type": "shell",
+      "command": "bash -lc \"source venv-rag/bin/activate && python3 memory_mcp.py\"",
+      "problemMatcher": [],
+      "isBackground": false
+    },
+    {
+      "label": "Run MCP server (background)",
+      "type": "shell",
+      "command": "bash -lc \"source venv-rag/bin/activate && nohup python3 memory_mcp.py > mcp.log 2>&1 & echo $!\"",
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "Stop MCP server",
+      "type": "shell",
+      "command": "bash -lc \"pkill -f memory_mcp.py || true\"",
+      "problemMatcher": []
+    }
+  ]
+}
+```
+
+**起動方法**:
+- `Ctrl+Shift+B` (ビルドタスク実行) → バックグラウンドで起動
+- `Ctrl+Shift+P` → "Tasks: Run Task" → "Run MCP server (foreground)" → フォアグラウンドで起動
+
+### Docker Composeで起動（最も簡単）
+
+```bash
+# 起動
+docker compose up -d
+
+# ログ確認
+docker compose logs -f memory-mcp
+
+# 停止
+docker compose down
+```
+
+### Persona別メモリの確認
+
+MCPリソース `memory://info` と `memory://metrics` で状態確認：
+
+```bash
+# Personaコンテキストの取得
+# → ユーザー情報、Persona情報、感情・体調・環境状態を返す
+
+# メモリ情報の取得 (memory://info)
+# → エントリ数、総文字数、ベクトル数、DBパス、Persona、再構築設定
+
+# メトリクス情報の取得 (memory://metrics)
+# → 埋め込みモデル名とロード状態、ベクトル数、Dirty状態、最終書き込み/再構築時刻、再構築モード
+```
+
+VS Code Copilot Chatで以下のコマンドを実行：
+
+```
+@workspace メモリシステム情報を教えて（memory://info）
+@workspace メトリクス情報を教えて（memory://metrics）
+```
+
+
 ### MCPツール
 
 #### 基本操作
