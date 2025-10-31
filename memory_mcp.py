@@ -1699,6 +1699,70 @@ async def merge_memories(
         _log_progress(f"❌ Failed to merge memories: {e}")
         return f"❌ Error merging memories: {str(e)}"
 
+
+# ============================================================================
+# Phase 19: AI Assist - Sentiment Analysis
+# ============================================================================
+
+async def analyze_sentiment(content: str) -> str:
+    """
+    Analyze sentiment of text content using AI.
+    
+    Args:
+        content: Text content to analyze for sentiment/emotion
+        
+    Returns:
+        Formatted string with detected emotion, confidence score, and details
+    """
+    try:
+        from vector_utils import analyze_sentiment_text
+        
+        _log_progress(f"🔍 Analyzing sentiment for text ({len(content)} chars)...")
+        
+        result = analyze_sentiment_text(content)
+        
+        if "error" in result:
+            return f"❌ Error analyzing sentiment: {result.get('error', 'Unknown error')}"
+        
+        emotion = result.get("emotion", "neutral")
+        score = result.get("score", 0.0)
+        raw_label = result.get("raw_label", "unknown")
+        
+        # Format output
+        output = "🎭 Sentiment Analysis Result:\n\n"
+        output += f"📊 Detected Emotion: **{emotion}** (confidence: {score:.2%})\n"
+        output += f"🏷️  Raw Label: {raw_label}\n\n"
+        
+        # Add emoji based on emotion
+        emotion_emoji = {
+            "joy": "😊",
+            "sadness": "😢",
+            "neutral": "😐",
+            "anger": "😠",
+            "fear": "😨",
+            "surprise": "😲",
+            "disgust": "😖"
+        }
+        emoji = emotion_emoji.get(emotion, "🤔")
+        
+        output += f"{emoji} Interpretation:\n"
+        if emotion == "joy":
+            output += "   The text expresses positive emotions, happiness, or satisfaction.\n"
+        elif emotion == "sadness":
+            output += "   The text expresses negative emotions, disappointment, or concern.\n"
+        else:
+            output += "   The text has a neutral or balanced emotional tone.\n"
+        
+        output += f"\n💡 Analyzed text ({len(content)} chars):\n"
+        output += f"   {content[:200]}{'...' if len(content) > 200 else ''}\n"
+        
+        _log_progress(f"✅ Sentiment analysis complete: {emotion} ({score:.2%})")
+        return output
+        
+    except Exception as e:
+        _log_progress(f"❌ Sentiment analysis failed: {e}")
+        return f"❌ Error analyzing sentiment: {str(e)}"
+
 # ========================================
 # Resource: Memory Info
 # ========================================

@@ -25,6 +25,8 @@ def register_tools(mcp: Any) -> None:
     mcp.tool()(impl.find_related_memories)
     mcp.tool()(impl.detect_duplicates)
     mcp.tool()(impl.merge_memories)
+    # Phase 19: AI Assist
+    mcp.tool()(impl.analyze_sentiment)
 
 
 def register_resources(mcp: Any) -> None:
