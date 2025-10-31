@@ -27,6 +27,8 @@ def register_tools(mcp: Any) -> None:
     mcp.tool()(impl.merge_memories)
     # Phase 19: AI Assist
     mcp.tool()(impl.analyze_sentiment)
+    # Phase 20: Knowledge Graph
+    mcp.tool()(impl.generate_knowledge_graph)
 
 
 def register_resources(mcp: Any) -> None:

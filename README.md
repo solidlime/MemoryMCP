@@ -278,16 +278,38 @@ VS Code Copilot Chatで以下のコマンドを実行：
 - スレッドセーフ: Lock保護されたキャッシュアクセス
 - メタデータ駆動: FAISSメタデータの`key`フィールドを使用して文書を識別・削除
 
-#### AIアシスト機能（Phase 19）
+#### AIアシスト機能（Phase 19-20）
 
-**感情分析自動化**: テキストコンテンツから感情を自動検出します。transformers pipelineを使用し、日本語を含む多言語テキストに対応。
+**Phase 19: 感情分析自動化**
+
+テキストコンテンツから感情を自動検出します。transformers pipelineを使用し、日本語を含む多言語テキストに対応。
 
 - `analyze_sentiment(content)`: テキストから感情を自動検出
   - 検出可能な感情: joy（喜び）、sadness（悲しみ）、neutral（中立）
   - 信頼度スコア付きで結果を返す
   - モデル: `lxyuan/distilbert-base-multilingual-cased-sentiments-student`（軽量66MB）
 
+**Phase 20: 知識グラフ生成**
+
+メモリから`[[リンク]]`を抽出し、インタラクティブな知識グラフを生成します。
+
+- `generate_knowledge_graph(format, min_count, min_cooccurrence, remove_isolated)`: 知識グラフ生成
+  - **format**: "json"（データ構造）または "html"（インタラクティブ可視化）
+  - **min_count**: 最小リンク出現回数（デフォルト: 2）
+  - **min_cooccurrence**: 最小共起回数（デフォルト: 1）
+  - **remove_isolated**: 孤立ノード削除（デフォルト: True）
+  - ノード: リンク（サイズ=出現回数）
+  - エッジ: 共起関係（太さ=共起回数）
+  - インタラクティブHTML: ドラッグ可能、ズーム可能、物理演算レイアウト
+
 **実装の特徴**:
+- NetworkX: グラフ構造の構築と分析
+- PyVis: インタラクティブなHTML可視化
+- Obsidian連携: `[[リンク]]`記法から自動的に知識グラフを生成
+- 統計情報: ノード数、エッジ数、密度、平均接続数
+- 2つの出力形式: プログラマティック（JSON）とビジュアル（HTML）
+
+**Phase 19: 感情分析の特徴**:
 - 軽量モデル: 高速な推論、メモリ効率的
 - 多言語対応: 日本語・英語などに対応
 - 自動初期化: サーバー起動時に自動的にモデルをロード
