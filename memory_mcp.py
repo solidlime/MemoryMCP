@@ -30,6 +30,7 @@ from vector_utils import (
     rebuild_vector_store,
     start_idle_rebuilder_thread,
     get_vector_count,
+    get_vector_metrics,
 )
 from vector_utils import reranker as _reranker
 
@@ -1416,6 +1417,62 @@ def get_memory_info() -> str:
         f"- Tools: create_memory, read_memory, update_memory, delete_memory, list_memory, search_memory, search_memory_rag, search_memory_by_date, clean_memory\n"
         f"- Key format: memory_YYYYMMDDHHMMSS\n"
         f"- Save format: 'User is ...'\n"
+    )
+
+# ========================================
+# Resource: Memory Metrics
+# ========================================
+
+def get_memory_metrics() -> str:
+    """
+    Provide detailed metrics for monitoring and debugging.
+    
+    Returns:
+        Formatted string with:
+        - Embeddings model name and load status
+        - Reranker model name and load status
+        - Vector store document count
+        - Dirty status (rebuild pending)
+        - Last write/rebuild timestamps
+        - Rebuild configuration
+    """
+    from datetime import datetime
+    
+    metrics = get_vector_metrics()
+    persona = get_current_persona()
+    
+    # Format timestamps
+    def format_ts(ts: float) -> str:
+        if ts > 0:
+            return datetime.fromtimestamp(ts).isoformat()
+        return "Never"
+    
+    last_write = format_ts(metrics["last_write_ts"])
+    last_rebuild = format_ts(metrics["last_rebuild_ts"])
+    
+    rebuild_cfg = metrics["rebuild_config"]
+    
+    return (
+        f"📊 Memory Metrics (persona: {persona}):\n"
+        f"\n"
+        f"🧠 Models:\n"
+        f"  - Embeddings: {metrics['embeddings_model'] or 'Not loaded'} "
+        f"({'✅ Loaded' if metrics['embeddings_loaded'] else '❌ Not loaded'})\n"
+        f"  - Reranker: {metrics['reranker_model'] or 'Not loaded'} "
+        f"({'✅ Loaded' if metrics['reranker_loaded'] else '❌ Not loaded'})\n"
+        f"\n"
+        f"📦 Vector Store:\n"
+        f"  - Documents: {metrics['vector_count']}\n"
+        f"  - Dirty: {'✅ Yes (rebuild pending)' if metrics['dirty'] else '❌ No'}\n"
+        f"\n"
+        f"⏰ Timestamps:\n"
+        f"  - Last Write: {last_write}\n"
+        f"  - Last Rebuild: {last_rebuild}\n"
+        f"\n"
+        f"⚙️  Rebuild Config:\n"
+        f"  - Mode: {rebuild_cfg['mode']}\n"
+        f"  - Idle Seconds: {rebuild_cfg['idle_seconds']}\n"
+        f"  - Min Interval: {rebuild_cfg['min_interval']}\n"
     )
 
 if __name__ == "__main__":

@@ -204,3 +204,37 @@ def get_vector_count() -> int:
         return vector_store.index.ntotal if vector_store else 0
     except Exception:
         return 0
+
+def get_vector_metrics() -> dict:
+    """
+    Return detailed metrics for monitoring and debugging.
+    
+    Returns:
+        dict with keys:
+        - embeddings_model: str (model name or None)
+        - embeddings_loaded: bool
+        - reranker_model: str (model name or None)
+        - reranker_loaded: bool
+        - vector_count: int
+        - dirty: bool
+        - last_write_ts: float (Unix timestamp)
+        - last_rebuild_ts: float (Unix timestamp)
+        - rebuild_config: dict (mode, idle_seconds, min_interval)
+    """
+    cfg = _load_config()
+    rebuild_cfg = _get_rebuild_config()
+    
+    embeddings_model_name = cfg.get("embeddings_model", "Unknown") if embeddings else None
+    reranker_model_name = cfg.get("reranker_model", "Unknown") if reranker else None
+    
+    return {
+        "embeddings_model": embeddings_model_name,
+        "embeddings_loaded": embeddings is not None,
+        "reranker_model": reranker_model_name,
+        "reranker_loaded": reranker is not None,
+        "vector_count": get_vector_count(),
+        "dirty": _dirty,
+        "last_write_ts": _last_write_ts,
+        "last_rebuild_ts": _last_rebuild_ts,
+        "rebuild_config": rebuild_cfg,
+    }
