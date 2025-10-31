@@ -19,6 +19,7 @@
 - ✅ Phase 18: パフォーマンス最適化（インクリメンタルインデックス、クエリキャッシュ）
 - ✅ Phase 19: AIアシスト機能（感情分析自動化）
 - ✅ Phase 20: 知識グラフ生成（AIアシスト機能拡張）
+- ✅ Phase 21: アイドル時自動整理（重複検出自動化、将来の自動統合・要約への足掛かり）
 
 ### 最新の主要機能（Phase 17 追加）
 
@@ -40,6 +41,7 @@
 - **クエリキャッシュ**: TTLCache（5分、100エントリ）による検索高速化（Phase 18）
 - **感情分析自動化**: analyze_sentiment ツール（テキストから感情を自動検出、Phase 19）
 - **知識グラフ生成**: generate_knowledge_graph ツール（[[リンク]]から関係性を可視化、Phase 20）
+- **アイドル時自動整理**: バックグラウンドで重複検出、memory://cleanupで確認（Phase 21）
 
 
 
@@ -1101,7 +1103,169 @@ Phase 20以降の分析機能を集約する新モジュール（221行）：
 ### ドキュメント更新
 - ✅ README.md: Phase 20セクション追加（知識グラフ生成）
 - ✅ progress.md: Phase 20詳細追加（このセクション）
-- ⏳ activeContext.md: Phase 20状況反映
+- ✅ activeContext.md: Phase 20状況反映
+
+---
+
+## Phase 21: アイドル時自動整理（2025-10-31 完了 ✅）
+
+### 目標
+アイドル時間を利用して重複メモリを自動検出し、整理提案を生成。将来の自動統合・要約・LLM統合機能への足掛かりとして実装。
+
+### 完了項目
+
+#### Step 1: config.json 設定追加 ✅
+```json
+{
+  "auto_cleanup": {
+    "enabled": true,
+    "idle_minutes": 30,
+    "check_interval_seconds": 300,
+    "duplicate_threshold": 0.90,
+    "min_similarity_to_report": 0.85,
+    "max_suggestions_per_run": 20
+  }
+}
+```
+
+**設定項目**:
+- `enabled`: 自動整理の有効/無効
+- `idle_minutes`: アイドル判定時間（30分）
+- `check_interval_seconds`: チェック間隔（5分）
+- `duplicate_threshold`: 重複判定閾値（0.90 = 90%以上）
+- `min_similarity_to_report`: 報告最小類似度（0.85）
+- `max_suggestions_per_run`: 1回の実行で最大20提案
+
+#### Step 2: vector_utils.py クリーンアップワーカー実装 ✅
+**新規グローバル変数**:
+- `_last_cleanup_check`: 最後のクリーンアップチェック時刻
+- `_cleanup_lock`: スレッドセーフ用ロック
+
+**新規関数（7個）**:
+1. `_get_cleanup_config()`: config.jsonから設定読み込み
+2. `start_cleanup_worker_thread()`: バックグラウンドワーカー起動
+3. `_cleanup_worker_loop()`: メインループ（アイドル検出→実行）
+4. `_detect_and_save_cleanup_suggestions(cfg)`: 重複検出→ファイル保存
+5. `_create_cleanup_groups(duplicates, cfg)`: 優先度別グループ化
+6. `_count_total_memories()`: メモリ総数カウント
+
+**ワーカー動作**:
+- 5分ごとにアイドル状態をチェック
+- 30分アイドル後に重複検出実行
+- 結果を`memory/{persona}/cleanup_suggestions.json`に保存
+- ログに簡易レポート出力
+
+#### Step 3: memory_mcp.py 統合 ✅
+**起動処理**:
+- `start_cleanup_worker_thread()`をサーバー起動時に呼び出し
+- ベクトルワーカーと並行して動作
+
+**新リソース: memory://cleanup**:
+- 自動生成された整理提案を表示
+- 優先度別（High/Medium/Low）に分類
+- merge_memoriesコマンド付き
+- 経過時間表示（「2時間前」など）
+
+#### Step 4: tools_memory.py リソース登録 ✅
+`memory://cleanup`をリソースとして登録
+
+### 技術的詳細
+
+#### 優先度分類
+- **High（99%以上）**: ほぼ同一、即統合推奨
+- **Medium（95-99%）**: 非常に類似、統合検討推奨
+- **Low（85-95%）**: やや類似、関連付け推奨
+
+#### 出力ファイル形式
+```json
+{
+  "generated_at": "2025-10-31T21:00:00+09:00",
+  "persona": "nilou",
+  "total_memories": 71,
+  "groups": [
+    {
+      "group_id": 1,
+      "priority": "high",
+      "similarity": 0.992,
+      "memory_keys": ["memory_xxx", "memory_yyy"],
+      "preview": "...",
+      "recommended_action": "merge"
+    }
+  ],
+  "summary": {
+    "total_groups": 2,
+    "high_priority": 1,
+    "medium_priority": 1,
+    "low_priority": 0
+  }
+}
+```
+
+#### memory://cleanup リソース出力例
+```
+🧹 Cleanup Suggestions (persona: nilou)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Generated: 2時間前
+Total memories: 71
+
+━━━ 🔴 High Priority (1 groups) ━━━
+Almost identical - strongly recommend merging
+
+Group 1: 2 memories (99.2% similar)
+  📝 memory_20251028214417
+  📝 memory_20251028220310
+  Preview: ユーザーは[[らうらう]]で...
+  💡 Run: merge_memories(["memory_20251028214417", "memory_20251028220310"])
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 Summary:
+  - Total groups: 1
+  - High priority: 1
+  - Medium priority: 0
+  - Low priority: 0
+
+💡 Next cleanup check will run automatically after idle time.
+```
+
+### 設計の特徴
+
+#### 安全性
+- ✅ 提案のみ、自動実行しない
+- ✅ ユーザーが明示的にmerge_memoriesを実行
+- ✅ dry_run的なアプローチ
+
+#### 非侵襲性
+- ✅ アイドル時のみ動作
+- ✅ バックグラウンドスレッド
+- ✅ 負荷が低い（5分チェック、30分実行）
+
+#### 拡張可能性
+- 🚀 Phase 21-2: 自動統合機能（ユーザー承認後）
+- 🚀 Phase 21-3: LLM統合要約（賢い統合内容生成）
+- 🚀 Phase 21-4: 定期レポート機能
+
+### 今後の拡張（Phase 21 Future）
+
+1. **自動統合機能（Phase 21-2）**:
+   - batch_merge_similar()実装
+   - dry_runモード標準装備
+   - ロールバック機能
+
+2. **LLM統合要約（Phase 21-3）**:
+   - 外部LLM APIで賢い統合
+   - より高品質な統合コンテンツ生成
+   - 文脈を理解した要約
+
+3. **定期レポート（Phase 21-4）**:
+   - 週次・月次の整理レポート
+   - メモリ健全性スコア
+   - 推奨アクションリスト
+
+### ドキュメント更新
+- ✅ config.json: auto_cleanup設定追加
+- ✅ README.md: Phase 21セクション追加
+- ✅ progress.md: Phase 21詳細追加（このセクション）
+- ⏳ activeContext.md: Phase 21状況反映
 
 ---
 
@@ -1111,4 +1275,5 @@ Phase 20以降の分析機能を集約する新モジュール（221行）：
 5. **ドキュメント**: メモリバンクがセッション継続に極めて重要
 6. **タイムゾーン処理**: naive/aware datetimeの混在に注意が必要
 7. **時間経過表示**: ペルソナの感情表現に時間認識が重要
+8. **バックグラウンドワーカー**: アイドル時の自動処理でユーザー体験向上
 8. **段階的実装**: Phase 12のように機能を段階的に実装・テストすることで品質向上

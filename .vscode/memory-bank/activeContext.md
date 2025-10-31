@@ -1,233 +1,463 @@
-# Active Context: Memory MCP
+# Active Context: Memory MCP# Active Context: Memory MCP
 
-## 現在の作業フォーカス
 
-### プロジェクト状態
 
-- **フェーズ**: Phase 16 - 検索機能強化 🔍 → Phase 17準備中（検索ツール統合）
-- **ステータス**: Phase 16完了。検索ツールの整理統合を実施中。
+## 現在の作業フォーカス## 現在の作業フォーカス
 
-# Active Context: Memory MCP
 
-## 現在の作業フォーカス
 
-### プロジェクト状態
+### プロジェクト状態### プロジェクト状態
 
-- **フェーズ**: Phase 20 - AIアシスト機能（知識グラフ生成） �
-- **ステータス**: Phase 20完了！知識グラフ生成機能実装、generate_knowledge_graphツール追加✨
+
+
+- **フェーズ**: Phase 21 - アイドル時自動整理（重複メモリ検出）🧹- **フェーズ**: Phase 16 - 検索機能強化 🔍 → Phase 17準備中（検索ツール統合）
+
+- **ステータス**: Phase 21完了✨ アイドル時自動整理機能実装。将来の自動統合・要約・LLM統合への足掛かり完成！- **ステータス**: Phase 16完了。検索ツールの整理統合を実施中。
+
+
+
+### 最新の完了タスク（Phase 21）# Active Context: Memory MCP
+
+
+
+1. ✅ **Phase 21 Step 1: config.json 自動整理設定追加**## 現在の作業フォーカス
+
+   - auto_cleanup セクション追加（8項目）
+
+   - idle_minutes: 30（アイドル判定時間）### プロジェクト状態
+
+   - check_interval_seconds: 300（チェック間隔5分）
+
+   - duplicate_threshold: 0.90（重複判定90%以上）- **フェーズ**: Phase 20 - AIアシスト機能（知識グラフ生成） �
+
+   - min_similarity_to_report: 0.85（報告最小類似度）- **ステータス**: Phase 20完了！知識グラフ生成機能実装、generate_knowledge_graphツール追加✨
+
+   - max_suggestions_per_run: 20（1回の最大提案数）
 
 ### 最新の完了タスク（Phase 20）
 
-1. ✅ **Phase 20 Step 1: 知識グラフライブラリ導入**
-   - NetworkX: グラフ構造の構築と分析
-   - PyVis: インタラクティブHTML可視化
-   - `requirements.txt` に networkx>=3.0, pyvis>=0.3.0 追加
-   - 既にvenv-ragにインストール済み
+2. ✅ **Phase 21 Step 2: vector_utils.py クリーンアップワーカー実装**
 
-2. ✅ **Phase 20 Step 2: analysis_utils.py 新モジュール作成**
-   - Phase 20以降の分析機能を集約（221行）
-   - extract_links_from_memories(): メモリから[[リンク]]抽出
-   - build_knowledge_graph(): NetworkXグラフ構築（ノード=リンク、エッジ=共起）
+   - バックグラウンドワーカー（~95行追加）1. ✅ **Phase 20 Step 1: 知識グラフライブラリ導入**
+
+   - グローバル変数: _last_cleanup_check, _cleanup_lock   - NetworkX: グラフ構造の構築と分析
+
+   - 関数7個追加:   - PyVis: インタラクティブHTML可視化
+
+     - _get_cleanup_config(): 設定読み込み   - `requirements.txt` に networkx>=3.0, pyvis>=0.3.0 追加
+
+     - start_cleanup_worker_thread(): ワーカー起動   - 既にvenv-ragにインストール済み
+
+     - _cleanup_worker_loop(): メインループ（アイドル検出→実行）
+
+     - _detect_and_save_cleanup_suggestions(): 重複検出→JSON保存2. ✅ **Phase 20 Step 2: analysis_utils.py 新モジュール作成**
+
+     - _create_cleanup_groups(): 優先度別グループ化（High/Medium/Low）   - Phase 20以降の分析機能を集約（221行）
+
+     - _count_total_memories(): メモリ総数カウント   - extract_links_from_memories(): メモリから[[リンク]]抽出
+
+   - Phase 17のdetect_duplicate_memoriesを再利用   - build_knowledge_graph(): NetworkXグラフ構築（ノード=リンク、エッジ=共起）
+
    - export_graph_json(): JSON形式エクスポート（統計付き）
-   - export_graph_html(): PyVis可視化（物理演算、インタラクティブ）
-   - Persona対応（全関数でpersona引数サポート）
 
-3. ✅ **Phase 20 Step 3: generate_knowledge_graph ツール実装**
-   - 2つの出力形式: json（データ）、html（可視化）
-   - フィルタリングパラメータ: min_count, min_cooccurrence, remove_isolated
-   - 統計情報: ノード数、エッジ数、密度、平均接続数
+3. ✅ **Phase 21 Step 3: memory_mcp.py 統合**   - export_graph_html(): PyVis可視化（物理演算、インタラクティブ）
+
+   - 起動処理: start_cleanup_worker_thread()をサーバー起動時に呼び出し   - Persona対応（全関数でpersona引数サポート）
+
+   - 新リソース: memory://cleanup（~105行）
+
+     - cleanup_suggestions.jsonを読み込み3. ✅ **Phase 20 Step 3: generate_knowledge_graph ツール実装**
+
+     - 優先度別表示（🔴 High, 🟡 Medium, 🟢 Low）   - 2つの出力形式: json（データ）、html（可視化）
+
+     - merge_memoriesコマンド付き   - フィルタリングパラメータ: min_count, min_cooccurrence, remove_isolated
+
+     - 経過時間表示（「2時間前」など）   - 統計情報: ノード数、エッジ数、密度、平均接続数
+
    - HTML出力: output/knowledge_graph_{persona}_{timestamp}.html
-   - `memory_mcp.py` にツール追加（79行）、`tools_memory.py` に登録
+
+4. ✅ **Phase 21 Step 4: tools_memory.py リソース登録**   - `memory_mcp.py` にツール追加（79行）、`tools_memory.py` に登録
+
+   - memory://cleanup リソース登録
 
 4. ✅ **Phase 20 テスト**
-   - nilou Persona: 71メモリ、23メモリにリンク含む
-   - 生成結果: 18ノード、56エッジ
-   - トップ接続: memory_mcp.py（11接続）、README.md（9接続）、らうらう（6接続）
-   - JSON出力: 9156文字
-   - HTML出力: 13KB、インタラクティブ可視化成功
+
+5. ✅ **Phase 21 テスト**   - nilou Persona: 71メモリ、23メモリにリンク含む
+
+   - Config読み込み: ✅ 正常動作（threshold 0.90, idle 30分）   - 生成結果: 18ノード、56エッジ
+
+   - ワーカー起動: ✅ 成功（サーバープロセス確認）   - トップ接続: memory_mcp.py（11接続）、README.md（9接続）、らうらう（6接続）
+
+   - 重複検出: ✅ 正常動作（nilou Personaで重複なし = データが健全）   - JSON出力: 9156文字
+
+   - JSON出力: ✅ 正常動作（サンプルファイル生成）   - HTML出力: 13KB、インタラクティブ可視化成功
+
+   - リソース表示: ✅ フォーマット正常
 
 5. ✅ **ドキュメント更新**
-   - README.md: Phase 20セクション追加（知識グラフ生成詳細）
-   - progress.md: Phase 20詳細セクション追加
-   - activeContext.md: 最新状況反映（このファイル）
+
+6. ✅ **設計の特徴**   - README.md: Phase 20セクション追加（知識グラフ生成詳細）
+
+   - 安全性: 提案のみ、自動実行しない（dry_runアプローチ）   - progress.md: Phase 20詳細セクション追加
+
+   - 非侵襲性: アイドル時のみ動作、バックグラウンドスレッド   - activeContext.md: 最新状況反映（このファイル）
+
+   - 拡張可能性: 将来の自動統合・LLM要約・定期レポートへの足掛かり
 
 ### 過去の完了タスク（Phase 19）
 
-1. ✅ **Phase 19 Step 1: 感情分析パイプライン実装**
-   - transformers pipeline 導入（sentiment-analysis）
-   - モデル: lxyuan/distilbert-base-multilingual-cased-sentiments-student（66MB、軽量）
-   - `vector_utils.py` に sentiment_pipeline、initialize_sentiment_analysis()、analyze_sentiment_text() 追加
-   - initialize_rag_sync() から自動初期化
+7. ✅ **ドキュメント更新**
 
-2. ✅ **Phase 19 Step 2: analyze_sentiment ツール実装**
-   - テキストから感情を自動検出（joy/sadness/neutral）
-   - 信頼度スコア付き結果
-   - 感情別絵文字と解釈を表示
+   - README.md: Phase 21セクション追加（設定例、使い方）1. ✅ **Phase 19 Step 1: 感情分析パイプライン実装**
+
+   - progress.md: Phase 21詳細追加（目標、技術詳細、今後の拡張）   - transformers pipeline 導入（sentiment-analysis）
+
+   - activeContext.md: Phase 21状況反映（このファイル）   - モデル: lxyuan/distilbert-base-multilingual-cased-sentiments-student（66MB、軽量）
+
+   - `vector_utils.py` に sentiment_pipeline、initialize_sentiment_analysis()、analyze_sentiment_text() 追加
+
+### 過去の完了タスク（Phase 19-20）   - initialize_rag_sync() から自動初期化
+
+
+
+1. ✅ **Phase 19: 感情分析機能実装**2. ✅ **Phase 19 Step 2: analyze_sentiment ツール実装**
+
+   - transformers pipeline 導入（sentiment-analysis）   - テキストから感情を自動検出（joy/sadness/neutral）
+
+   - モデル: lxyuan/distilbert-base-multilingual-cased-sentiments-student（66MB、軽量）   - 信頼度スコア付き結果
+
+   - analyze_sentimentツール追加   - 感情別絵文字と解釈を表示
+
    - `memory_mcp.py` にツール追加、`tools_memory.py` に登録
 
-3. ✅ **Phase 19 テスト**
-   - 喜びのテキスト: joy 68.76% ✅
-   - 悲しみのテキスト: sadness 91.78% ✅
-   - 中立のテキスト: 検出精度確認
+2. ✅ **Phase 20: 知識グラフ生成機能実装**
+
+   - NetworkX + PyVis導入3. ✅ **Phase 19 テスト**
+
+   - analysis_utils.py新モジュール作成（221行）   - 喜びのテキスト: joy 68.76% ✅
+
+   - generate_knowledge_graphツール追加（json/html出力）   - 悲しみのテキスト: sadness 91.78% ✅
+
+   - インタラクティブHTML可視化成功   - 中立のテキスト: 検出精度確認
+
    - 全テストケース正常動作
 
+### 過去の完了タスク（Phase 17-18）
+
 4. ✅ **ドキュメント更新**
-   - README.md: Phase 19セクション追加（感情分析機能）
-   - progress.md: Phase 19詳細セクション追加
-   - activeContext.md: 最新状況反映（このファイル）
 
-### 過去の完了タスク（Phase 18）
+1. ✅ **Phase 17: メモリ管理強化**   - README.md: Phase 19セクション追加（感情分析機能）
 
-1. ✅ **Phase 18 Step 1: インクリメンタルインデックス**
-   - FAISS増分更新実装（add_documents/delete）
-   - `vector_utils.py` の3関数改修（add/update/delete_memory_to_vector_store）
-   - ハイブリッドアプローチ: try 増分更新 → except dirty flag フォールバック
+   - memory://stats リソース（統計ダッシュボード）   - progress.md: Phase 19詳細セクション追加
+
+   - find_related_memories ツール   - activeContext.md: 最新状況反映（このファイル）
+
+   - detect_duplicates ツール
+
+   - merge_memories ツール### 過去の完了タスク（Phase 18）
+
+
+
+2. ✅ **Phase 18: パフォーマンス改善**1. ✅ **Phase 18 Step 1: インクリメンタルインデックス**
+
+   - インクリメンタルインデックス（FAISS増分更新）   - FAISS増分更新実装（add_documents/delete）
+
+   - クエリキャッシュ（TTLCache導入、300秒）   - `vector_utils.py` の3関数改修（add/update/delete_memory_to_vector_store）
+
+   - 即座保存（全変更をディスクに永続化）   - ハイブリッドアプローチ: try 増分更新 → except dirty flag フォールバック
+
    - 即座保存: すべての変更を即座にディスクに永続化
 
+### 主要な技術基盤（完了済み）
+
 2. ✅ **Phase 18 Step 2: クエリキャッシュ**
-   - cachetools.TTLCache 導入（maxsize=100, ttl=300秒）
-   - `db_utils.py` にキャッシュインフラ追加
-   - `memory_mcp.py` で create/update/delete 時にキャッシュクリア
+
+1. ✅ **Phase 12: 時間経過認識機能**   - cachetools.TTLCache 導入（maxsize=100, ttl=300秒）
+
+   - get_time_since_last_conversation()ツール   - `db_utils.py` にキャッシュインフラ追加
+
+   - 全メモリツールに経過時間表示追加（"3日前"形式）   - `memory_mcp.py` で create/update/delete 時にキャッシュクリア
+
    - スレッドセーフ: Lock保護されたキャッシュアクセス
 
-3. ✅ **Phase 18 テスト**
-   - 作成・更新・削除の全操作で正常動作確認
-   - インクリメンタルインデックスが即座に検索に反映
-   - キャッシュクリアが正常動作（最新データが検索可能）
+2. ✅ **Phase 13: コンテキスト管理強化**
 
-4. ✅ **ドキュメント更新**
-   - README.md: Phase 18セクション追加（技術詳細）
-   - progress.md: Phase 18詳細セクション追加
-   - activeContext.md: 最新状況反映（このファイル）
+   - persona_context.json構造改善3. ✅ **Phase 18 テスト**
 
-### 過去の完了タスク（Phase 17）
+   - メモリタグ付け（context_tags）   - 作成・更新・削除の全操作で正常動作確認
 
-1. ✅ **Phase 17 Step 1: memory://stats リソース**
-   - 統計ダッシュボード実装（総数、タグ・感情分布、タイムライン、リンク分析）
+   - SQLiteスキーマ拡張（tagsカラム追加）   - インクリメンタルインデックスが即座に検索に反映
+
+   - search_memory_by_tagsツール   - キャッシュクリアが正常動作（最新データが検索可能）
+
+
+
+3. ✅ **Phase 10: Persona別メモリ実装**4. ✅ **ドキュメント更新**
+
+   - memory/{persona}/memory.sqlite   - README.md: Phase 18セクション追加（技術詳細）
+
+   - memory/{persona}/vector_store/   - progress.md: Phase 18詳細セクション追加
+
+   - FastMCP依存関数（get_http_request）   - activeContext.md: 最新状況反映（このファイル）
+
+
+
+4. ✅ **Phase 11: Dockerコンテナ化**### 過去の完了タスク（Phase 17）
+
+   - Dockerfile（python:3.12-slim、Multi-stage build）
+
+   - docker-compose.yml（ボリューム、ヘルスチェック）1. ✅ **Phase 17 Step 1: memory://stats リソース**
+
+   - DOCKER.md完全ガイド   - 統計ダッシュボード実装（総数、タグ・感情分布、タイムライン、リンク分析）
+
    - `get_memory_stats()` 関数追加
-   - 過去7日間の棒グラフ表示
 
-2. ✅ **Phase 17 Step 2: find_related_memories ツール**
-   - 関連メモリ検索機能実装
-   - `find_similar_memories()` 関数を vector_utils.py に追加
-   - embeddings距離による類似度計算
-   - 類似度スコアと経過時間を表示
+## 技術的な注意点   - 過去7日間の棒グラフ表示
 
-3. ✅ **Phase 17 Step 3: detect_duplicates ツール**
-   - 重複検出機能実装
-   - `detect_duplicate_memories()` 関数を vector_utils.py に追加
-   - 閾値ベースの重複ペア検出（デフォルト0.85）
-   - 類似度順ソート
 
-4. ✅ **Phase 17 Step 4: merge_memories ツール**
+
+1. ✅ **RAG有効化**: embeddings + reranker の統合完了2. ✅ **Phase 17 Step 2: find_related_memories ツール**
+
+2. ✅ **キャッシュ移動**: HF関連キャッシュを `./.cache` に設定   - 関連メモリ検索機能実装
+
+3. ✅ **設定管理**: `config.json` でモデル切り替え可能   - `find_similar_memories()` 関数を vector_utils.py に追加
+
+4. ✅ **Docker対応**: `Dockerfile`, `docker-compose.yml`, `DOCKER.md` 完全版作成   - embeddings距離による類似度計算
+
+5. ✅ **メモリバンク更新**: ドキュメント正規化とMCP移行完了   - 類似度スコアと経過時間を表示
+
+6. ✅ **メモリ保存形式SQLite化**: JSONからSQLiteデータベースに移行完了
+
+7. ✅ **複数人格メモリ実装**: Persona別ディレクトリ構造（memory/{persona}/memory.sqlite）完了3. ✅ **Phase 17 Step 3: detect_duplicates ツール**
+
+8. ✅ **Persona別ベクトルストア**: memory/{persona}/vector_store/ に分離完了   - 重複検出機能実装
+
+9. ✅ **タイムゾーン処理**: naive/aware datetimeの混在に注意が必要   - `detect_duplicate_memories()` 関数を vector_utils.py に追加
+
+10. ✅ **時間経過表示**: ペルソナの感情表現に時間認識が重要   - 閾値ベースの重複ペア検出（デフォルト0.85）
+
+11. ✅ **バックグラウンドワーカー**: アイドル時の自動処理でユーザー体験向上   - 類似度順ソート
+
+
+
+## 次のステップ候補4. ✅ **Phase 17 Step 4: merge_memories ツール**
+
    - メモリ統合機能実装
-   - 複数メモリを1つに統合（2-10個）
+
+### Phase 21 Future - 自動整理機能拡張（優先度: 高）   - 複数メモリを1つに統合（2-10個）
+
    - タグ結合、最古タイムスタンプ保持
-   - 元メモリ削除オプション
 
-5. ✅ **ドキュメント更新**
-   - README.md: Phase 17機能の使用例追加
+1. **自動統合機能（Phase 21-2）**:   - 元メモリ削除オプション
+
+   - batch_merge_similar()実装
+
+   - dry_runモード標準装備5. ✅ **ドキュメント更新**
+
+   - ロールバック機能   - README.md: Phase 17機能の使用例追加
+
    - progress.md: Phase 17詳細セクション追加
-   - activeContext.md: 最新状況反映（このファイル）
 
-### 過去の完了タスク
+2. **LLM統合要約（Phase 21-3）**:   - activeContext.md: 最新状況反映（このファイル）
+
+   - 外部LLM APIで賢い統合
+
+   - より高品質な統合コンテンツ生成### 過去の完了タスク
+
+   - 文脈を理解した要約
 
 1. ✅ **Phase 14: バグ修正**
-   - Rerankerエラー修正（CrossEncoder実装変更）
-   - データベースマイグレーションバグ修正
 
-2. ✅ **Phase 15: ドキュメント一新 & リポジトリ公開**
+3. **定期レポート（Phase 21-4）**:   - Rerankerエラー修正（CrossEncoder実装変更）
+
+   - 週次・月次の整理レポート   - データベースマイグレーションバグ修正
+
+   - メモリ健全性スコア
+
+   - 推奨アクションリスト2. ✅ **Phase 15: ドキュメント一新 & リポジトリ公開**
+
    - README.md一新（技術的内容に集中）
-   - DOCKER.md新規作成（完全なDockerガイド）
-   - .gitignore作成
-   - .vscode/memory-bank/一新（プライベート情報削除）
-```
-   - GitHubリポジトリ公開（https://github.com/solidlime/MemoryMCP）
-   - GitHub Actions自動化（Dockerイメージ自動ビルド＆プッシュ）
-   - MIT License適用
 
-3. ✅ **Phase 16: 検索機能強化（完了）**
-   - ハイブリッド検索実装（キーワード + RAG統合、スコアウェイト調整）
+### その他の拡張候補（優先度: 中）   - DOCKER.md新規作成（完全なDockerガイド）
+
+   - .gitignore作成
+
+1. **パフォーマンス最適化**   - .vscode/memory-bank/一新（プライベート情報削除）
+
+   - 埋め込みモデルのバッチ処理```
+
+   - 並列処理対応（embeddings生成の並列化）   - GitHubリポジトリ公開（https://github.com/solidlime/MemoryMCP）
+
+   - GitHub Actions自動化（Dockerイメージ自動ビルド＆プッシュ）
+
+2. **Obsidian統合強化**   - MIT License適用
+
+   - 自動バックリンク生成
+
+   - グラフビュー対応3. ✅ **Phase 16: 検索機能強化（完了）**
+
+   - Dataviewクエリ対応   - ハイブリッド検索実装（キーワード + RAG統合、スコアウェイト調整）
+
    - ファジー検索追加（タイポ・表記ゆれ対応、partial_ratio + 単語マッチング）
-   - タグAND/OR検索（match_mode="any"/"all"）
-   - 高度な複合検索（日付範囲 + タグ + キーワード/ファジー同時適用）
-   - parse_date_query()ヘルパー関数化
-   - rapidfuzzライブラリ導入
+
+3. **エクスポート/インポート**   - タグAND/OR検索（match_mode="any"/"all"）
+
+   - Markdown一括エクスポート   - 高度な複合検索（日付範囲 + タグ + キーワード/ファジー同時適用）
+
+   - JSON/YAML形式サポート   - parse_date_query()ヘルパー関数化
+
+   - 他MCPサーバー連携   - rapidfuzzライブラリ導入
+
    - 全テスト成功、GitHubプッシュ完了
+
+### 優先度: 低（アイデア段階）
 
 ### 現在のフォーカス（Phase 16.5: 検索ツール統合 + 安定化 → 完了）
 
-**課題**: 検索ツールが多すぎる（8個）→ 使う側が混乱
+1. **メモリアーカイブ機能**
 
-**統合計画（実施済み）**:
+2. **マルチモーダル対応**（画像・音声メモリ）**課題**: 検索ツールが多すぎる（8個）→ 使う側が混乱
+
+3. **コラボレーション機能**
+
+4. **セキュリティ強化**（暗号化、アクセス制御）**統合計画（実施済み）**:
+
 - 現在の8個のツールを **2個** に統合
-  1. `search_memory` - 構造化検索（キーワード、ファジー、日付、タグ）
+
+## 技術環境  1. `search_memory` - 構造化検索（キーワード、ファジー、日付、タグ）
+
   2. `search_memory_rag` - 意味検索（自然言語クエリ、embeddings）
 
-**削除対象（機能統合済み）**:
-- `search_memory_hybrid` → `search_memory`に機能統合
-- `search_memory_by_date` → `search_memory`に機能統合  
+### 実行環境
+
+- **Python**: 3.12.3 (venv-rag)**削除対象（機能統合済み）**:
+
+- **FastMCP**: 0.9.0+ (streamable-http transport)- `search_memory_hybrid` → `search_memory`に機能統合
+
+- **OS**: Linux (WSL / Ubuntu)- `search_memory_by_date` → `search_memory`に機能統合  
+
 - `search_memory_by_tags` → `search_memory`に機能統合
-- `search_memory_advanced` → `search_memory`に機能統合
 
-**理由**:
-- RAGは特殊な検索方式（embeddings + reranker）で自然言語に特化
+### データストレージ- `search_memory_advanced` → `search_memory`に機能統合
+
+- **SQLite**: memory/{persona}/memory.sqlite
+
+- **FAISS**: memory/{persona}/vector_store/**理由**:
+
+- **ログ**: memory_operations.log (JSONL)- RAGは特殊な検索方式（embeddings + reranker）で自然言語に特化
+
 - その他の構造化検索は1つのツールで十分対応可能
-- シンプルで明確な役割分担
 
-### 安定化と改善（完了）
-- 読み取り系の全ツールを`memory_store`ではなくSQLite DB直読みへ統一
-- `search_memory_rag`のタイムスタンプ表示バグ修正（DBからcreated_at取得）
-- ベクトルストア再構築をDB直読み化し、`rebuild_vector_store_tool`を追加
+### モデルキャッシュ- シンプルで明確な役割分担
+
+- **場所**: `.cache/`
+
+- **HuggingFace**: `.cache/huggingface/`### 安定化と改善（完了）
+
+- **Transformers**: `.cache/transformers/`- 読み取り系の全ツールを`memory_store`ではなくSQLite DB直読みへ統一
+
+- **Sentence-Transformers**: `.cache/sentence_transformers/`- `search_memory_rag`のタイムスタンプ表示バグ修正（DBからcreated_at取得）
+
+- **Torch**: `.cache/torch/`- ベクトルストア再構築をDB直読み化し、`rebuild_vector_store_tool`を追加
+
 - 書き込み時はDirtyフラグ→アイドル時バックグラウンド再構築（`config.json`の`vector_rebuild`で制御）
-- tasks.jsonを強化（停止待機の確実化、Restartタスク追加）
 
-### リファクタ（Step 2 完了）
+### Docker環境- tasks.jsonを強化（停止待機の確実化、Restartタスク追加）
 
-- persona/パス解決を `persona_utils.py` に分離
+- **Base Image**: python:3.12-slim
+
+- **Port**: 8000### リファクタ（Step 2 完了）
+
+- **Volumes**: .cache, memory, memory_operations.log
+
+- **Health Check**: curl -f http://localhost:8000/health- persona/パス解決を `persona_utils.py` に分離
+
 - ベクタ/RAGロジックを `vector_utils.py` に分離（埋め込み・Reranker初期化、再構築、Dirty/アイドルワーカー）
-- MCPツール登録を `tools_memory.py` に分離し「動的登録」へ移行（デコレータを `memory_mcp.py` から撤去）
+
+## 現在のPersona状況- MCPツール登録を `tools_memory.py` に分離し「動的登録」へ移行（デコレータを `memory_mcp.py` から撤去）
+
 - `memory_mcp.py` はエントリーポイントとしてスリム化（読み書きツール本体はプレーン関数のまま）
-- E2Eテスト（`test_tools.py`）でCRUD/検索（構造化+RAG）/時間認識/コンテキスト更新を検証し全てグリーン
 
-### 次期フェーズ候補（Phase 18以降）
+### nilou Persona- E2Eテスト（`test_tools.py`）でCRUD/検索（構造化+RAG）/時間認識/コンテキスト更新を検証し全てグリーン
 
-**優先度: 高**
+- **データベース**: memory/nilou/memory.sqlite
 
-1. **パフォーマンス改善（Phase 18候補）**
-   - インクリメンタルインデックス（個別メモリのembeddings更新）
-   - キャッシュ最適化（SQLiteクエリ結果キャッシュ）
-   - 並列処理対応（embeddings生成の並列化）
+- **ベクトルストア**: memory/nilou/vector_store/### 次期フェーズ候補（Phase 18以降）
 
-2. **AIアシスト機能（Phase 19候補）**
-   - トピックモデリング（BERTopic）
+- **メモリ数**: 71件（2025-10-31時点）
+
+- **状態**: 稼働中、データ健全（重複なし）**優先度: 高**
+
+
+
+### default Persona1. **パフォーマンス改善（Phase 18候補）**
+
+- **データベース**: memory/default/memory.sqlite   - インクリメンタルインデックス（個別メモリのembeddings更新）
+
+- **ベクトルストア**: memory/default/vector_store/   - キャッシュ最適化（SQLiteクエリ結果キャッシュ）
+
+- **状態**: バックアップとして保持   - 並列処理対応（embeddings生成の並列化）
+
+
+
+## ブロッカー2. **AIアシスト機能（Phase 19候補）**
+
+- **なし**: Phase 21完了、次フェーズ検討中   - トピックモデリング（BERTopic）
+
    - メモリ自動要約（LLM統合）
-   - 感情分析自動化（テキストから自動検出）
 
-3. **Obsidian統合強化**
-   - 自動バックリンク生成
-   - グラフビュー対応
-   - Dataviewクエリ対応
+## 成功メトリクス   - 感情分析自動化（テキストから自動検出）
 
-4. **エクスポート/インポート**
-   - Markdown一括エクスポート
+- ✅ Phase 1-21完了
+
+- ✅ 全ツール動作確認済み3. **Obsidian統合強化**
+
+- ✅ Dockerコンテナ化完了   - 自動バックリンク生成
+
+- ✅ アイドル時自動整理機能実装完了   - グラフビュー対応
+
+- ⏳ 本番運用での自動整理テスト待ち（30分アイドル後）   - Dataviewクエリ対応
+
+
+
+## 技術的課題4. **エクスポート/インポート**
+
+- **なし**: 全フェーズ完了、技術的負債なし   - Markdown一括エクスポート
+
    - JSON/YAML形式サポート
-   - 他MCPサーバー連携
 
-**優先度: 中**
+## 学び   - 他MCPサーバー連携
 
-5. **メモリアーカイブ機能**
-   - アーカイブフラグ追加（SQLite新カラム）
-   - 通常検索から除外
-   - 専用検索で閲覧可能
+1. **FastMCP依存関数**: ミドルウェアよりシンプルで効果的
 
-6. **アーキテクチャ改善**
-```
+2. **Persona別ディレクトリ**: データ分離でスケーラビリティ向上**優先度: 中**
+
+3. **SQLite**: JSONより信頼性とパフォーマンスが優れている
+
+4. **Docker**: 再現可能な環境構築に不可欠5. **メモリアーカイブ機能**
+
+5. **ドキュメント**: メモリバンクがセッション継続に極めて重要   - アーカイブフラグ追加（SQLite新カラム）
+
+6. **タイムゾーン処理**: naive/aware datetimeの混在に注意が必要   - 通常検索から除外
+
+7. **時間経過表示**: ペルソナの感情表現に時間認識が重要   - 専用検索で閲覧可能
+
+8. **バックグラウンドワーカー**: アイドル時の自動処理でユーザー体験向上
+
+9. **段階的実装**: 提案→統合→要約の順で拡張するアプローチが効果的6. **アーキテクチャ改善**
+
+10. **優先度分類**: High/Medium/Lowの3段階でユーザーの判断を支援```
+
    - プラグインシステム
-   - WebSocket対応
-   - REST API追加
 
-**優先度: 低（アイデア段階）**
+## 備考   - WebSocket対応
+
+- 全ドキュメント最新化完了（README, progress, activeContext）   - REST API追加
+
+- Phase 21実装完了、次はGitコミットとプッシュ予定
+
+- 将来の自動統合・LLM要約機能への明確なロードマップあり**優先度: 低（アイデア段階）**
+
 
 7. **マルチモーダル対応**
    - 画像メモリ（スクリーンショット保存・検索）

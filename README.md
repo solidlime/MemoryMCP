@@ -278,7 +278,7 @@ VS Code Copilot Chatで以下のコマンドを実行：
 - スレッドセーフ: Lock保護されたキャッシュアクセス
 - メタデータ駆動: FAISSメタデータの`key`フィールドを使用して文書を識別・削除
 
-#### AIアシスト機能（Phase 19-20）
+#### AIアシスト機能（Phase 19-21）
 
 **Phase 19: 感情分析自動化**
 
@@ -302,22 +302,40 @@ VS Code Copilot Chatで以下のコマンドを実行：
   - エッジ: 共起関係（太さ=共起回数）
   - インタラクティブHTML: ドラッグ可能、ズーム可能、物理演算レイアウト
 
-**実装の特徴**:
-- NetworkX: グラフ構造の構築と分析
-- PyVis: インタラクティブなHTML可視化
-- Obsidian連携: `[[リンク]]`記法から自動的に知識グラフを生成
-- 統計情報: ノード数、エッジ数、密度、平均接続数
-- 2つの出力形式: プログラマティック（JSON）とビジュアル（HTML）
+**Phase 21: アイドル時自動整理**
 
-**Phase 19: 感情分析の特徴**:
-- 軽量モデル: 高速な推論、メモリ効率的
-- 多言語対応: 日本語・英語などに対応
-- 自動初期化: サーバー起動時に自動的にモデルをロード
-- 拡張可能: 将来的により詳細な感情分類モデルへの切り替えが可能
+アイドル時間を利用して重複メモリを自動検出し、整理提案を生成します。
+
+- **自動実行**: 30分間のアイドル後に重複検出を実行
+- **提案保存**: `memory/{persona}/cleanup_suggestions.json`に保存
+- **memory://cleanup**: VS Code Copilot Chatから参照可能
+- **優先度分類**: High（99%以上）、Medium（95-99%）、Low（85-95%）
+- **安全設計**: 提案のみ、自動実行しない
+- **将来拡張**: 自動統合・要約・LLM統合への足掛かり
+
+**設定（config.json）**:
+```json
+{
+  "auto_cleanup": {
+    "enabled": true,
+    "idle_minutes": 30,
+    "check_interval_seconds": 300,
+    "duplicate_threshold": 0.90,
+    "min_similarity_to_report": 0.85,
+    "max_suggestions_per_run": 20
+  }
+}
+```
+
+**実装の特徴**:
+- Phase 19: 軽量モデル、多言語対応、自動初期化
+- Phase 20: NetworkX、PyVis、Obsidian連携
+- Phase 21: バックグラウンドワーカー、非侵襲的、拡張可能設計
 
 #### リソース（VS Code Copilot Chatから参照）
 
 - `memory://info`: メモリシステム情報（エントリ数、DB パス、Persona など）
+- `memory://cleanup`: 整理提案（Phase 21、アイドル時自動生成）
 - `memory://metrics`: 詳細メトリクス（モデル状態、ベクトル数、再構築状態）
 - `memory://stats`: 統計ダッシュボード（Phase 17 NEW!）
   - 総メモリ数、日付範囲、平均投稿数
