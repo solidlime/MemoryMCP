@@ -63,6 +63,10 @@ _last_write_ts: float = 0.0
 _last_rebuild_ts: float = 0.0
 _rebuild_lock = threading.Lock()
 
+# Phase 21: Idle cleanup controls
+_last_cleanup_check: float = 0.0
+_cleanup_lock = threading.Lock()
+
 def mark_vector_store_dirty():
     global _dirty, _last_write_ts
     _dirty = True
@@ -92,6 +96,168 @@ def _idle_rebuilder_loop():
             time.sleep(2)
         except Exception:
             time.sleep(5)
+
+# ============================================================================
+# Phase 21: Idle Cleanup Worker
+# ============================================================================
+
+def _get_cleanup_config():
+    """Get auto_cleanup configuration from config.json"""
+    cfg = _load_config()
+    ac = cfg.get("auto_cleanup", {})
+    return {
+        "enabled": ac.get("enabled", True),
+        "idle_minutes": int(ac.get("idle_minutes", 30)),
+        "check_interval_seconds": int(ac.get("check_interval_seconds", 300)),
+        "duplicate_threshold": float(ac.get("duplicate_threshold", 0.90)),
+        "min_similarity_to_report": float(ac.get("min_similarity_to_report", 0.85)),
+        "max_suggestions_per_run": int(ac.get("max_suggestions_per_run", 20)),
+    }
+
+def start_cleanup_worker_thread():
+    """Start background cleanup worker thread"""
+    cfg = _get_cleanup_config()
+    if not cfg.get("enabled", True):
+        return None
+    t = threading.Thread(target=_cleanup_worker_loop, daemon=True)
+    t.start()
+    return t
+
+def _cleanup_worker_loop():
+    """Background loop that checks for cleanup opportunities during idle time"""
+    global _last_cleanup_check, _last_write_ts
+    
+    while True:
+        try:
+            cfg = _get_cleanup_config()
+            if not cfg.get("enabled", True):
+                time.sleep(60)
+                continue
+            
+            now = time.time()
+            check_interval = cfg.get("check_interval_seconds", 300)
+            
+            # Wait for check interval
+            if (now - _last_cleanup_check) < check_interval:
+                time.sleep(10)
+                continue
+            
+            # Check if idle (no writes for idle_minutes)
+            idle_seconds = cfg.get("idle_minutes", 30) * 60
+            if (now - _last_write_ts) < idle_seconds:
+                time.sleep(10)
+                continue
+            
+            # Run cleanup check
+            with _cleanup_lock:
+                _last_cleanup_check = now
+                _detect_and_save_cleanup_suggestions(cfg)
+            
+            # Sleep after successful check
+            time.sleep(check_interval)
+            
+        except Exception as e:
+            print(f"⚠️ Cleanup worker error: {e}")
+            time.sleep(60)
+
+def _detect_and_save_cleanup_suggestions(cfg):
+    """Detect duplicates and save suggestions to file"""
+    try:
+        from persona_utils import get_current_persona, get_persona_dir
+        
+        persona = get_current_persona()
+        threshold = cfg.get("duplicate_threshold", 0.90)
+        max_pairs = cfg.get("max_suggestions_per_run", 20)
+        
+        print(f"🧹 Running cleanup check for persona: {persona} (threshold: {threshold:.2f})...")
+        
+        # Detect duplicates
+        duplicates = detect_duplicate_memories(threshold, max_pairs)
+        
+        if not duplicates:
+            print(f"✅ No cleanup suggestions (threshold: {threshold:.2f})")
+            return
+        
+        # Group duplicates into suggestion groups
+        groups = _create_cleanup_groups(duplicates, cfg)
+        
+        # Save to file
+        persona_dir = get_persona_dir(persona)
+        suggestions_file = os.path.join(persona_dir, "cleanup_suggestions.json")
+        
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        
+        timezone = _load_config().get("timezone", "Asia/Tokyo")
+        now = datetime.now(ZoneInfo(timezone))
+        
+        suggestions_data = {
+            "generated_at": now.isoformat(),
+            "persona": persona,
+            "total_memories": _count_total_memories(),
+            "groups": groups,
+            "summary": {
+                "total_groups": len(groups),
+                "high_priority": sum(1 for g in groups if g["priority"] == "high"),
+                "medium_priority": sum(1 for g in groups if g["priority"] == "medium"),
+                "low_priority": sum(1 for g in groups if g["priority"] == "low"),
+            }
+        }
+        
+        with open(suggestions_file, 'w', encoding='utf-8') as f:
+            json.dump(suggestions_data, f, indent=2, ensure_ascii=False)
+        
+        print(f"💾 Cleanup suggestions saved: {len(groups)} groups found")
+        print(f"   📁 {suggestions_file}")
+        
+    except Exception as e:
+        print(f"❌ Failed to generate cleanup suggestions: {e}")
+
+def _create_cleanup_groups(duplicates, cfg):
+    """Create cleanup suggestion groups from duplicate pairs"""
+    groups = []
+    min_report = cfg.get("min_similarity_to_report", 0.85)
+    
+    for idx, (key1, key2, content1, content2, similarity) in enumerate(duplicates, 1):
+        if similarity < min_report:
+            continue
+        
+        # Determine priority
+        if similarity >= 0.99:
+            priority = "high"
+        elif similarity >= 0.95:
+            priority = "medium"
+        else:
+            priority = "low"
+        
+        # Create preview (first 100 chars)
+        preview = content1[:100] + "..." if len(content1) > 100 else content1
+        
+        group = {
+            "group_id": idx,
+            "priority": priority,
+            "similarity": round(similarity, 3),
+            "memory_keys": [key1, key2],
+            "preview": preview,
+            "recommended_action": "merge" if similarity >= 0.95 else "review"
+        }
+        
+        groups.append(group)
+    
+    return groups
+
+def _count_total_memories():
+    """Count total memories in current persona"""
+    try:
+        from persona_utils import get_db_path
+        import sqlite3
+        
+        with sqlite3.connect(get_db_path()) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM memories")
+            return cursor.fetchone()[0]
+    except Exception:
+        return 0
 
 def initialize_rag_sync():
     """Initialize embeddings/reranker and load or bootstrap a vector store."""

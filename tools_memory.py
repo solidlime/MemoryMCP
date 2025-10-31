@@ -36,4 +36,6 @@ def register_resources(mcp: Any) -> None:
     mcp.resource("memory://info")(impl.get_memory_info)
     mcp.resource("memory://metrics")(impl.get_memory_metrics)
     mcp.resource("memory://stats")(impl.get_memory_stats)
+    # Phase 21: Cleanup Suggestions
+    mcp.resource("memory://cleanup")(impl.get_cleanup_suggestions)
 

@@ -10,4 +10,12 @@
     "mode": "idle",          // "idle" or "manual"
     "idle_seconds": 30,
     "min_interval": 120
+  },
+  "auto_cleanup": {
+    "enabled": true,
+    "idle_minutes": 30,
+    "check_interval_seconds": 300,
+    "duplicate_threshold": 0.90,
+    "min_similarity_to_report": 0.85,
+    "max_suggestions_per_run": 20
   }
