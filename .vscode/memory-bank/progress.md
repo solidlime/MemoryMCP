@@ -11,9 +11,13 @@
 - ✅ Phase 13: タグ管理とコンテキスト更新機能
 - ✅ Phase 14: Rerankerバグ修正（CrossEncoder実装変更）、データベースマイグレーション修正
 - ✅ Phase 15: ドキュメント一新、GitHubリポジトリ公開、GitHub Actions自動化
-- 🔄 Phase 16: 検索機能強化（進行中）
+- ✅ Phase 16: 検索機能強化（ハイブリッド検索、ファジー検索、タグAND/OR検索、ツール統合）
+- ✅ Phase 16.5: 検索ツール統合（8個→2個に集約）
+- ✅ Phase 16.6: モジュール分割とリファクタリング（persona_utils, vector_utils, tools_memory）
+- ✅ Phase 16.7: 監視機能とタスク改善（memory://metrics, .vscode/tasks.json）
+- ✅ Phase 17: メモリ整理・管理機能（統計ダッシュボード、関連検索、重複検出、統合）
 
-### 最新の主要機能
+### 最新の主要機能（Phase 17 追加）
 
 - **RAG検索**: FAISS + cl-nagoya/ruri-v3-30m embeddings
 - **Reranking**: sentence-transformers CrossEncoder（hotchpotch/japanese-reranker-xsmall-v2）
@@ -25,6 +29,10 @@
 - **Dockerサポート**: docker-compose.ymlによる簡単デプロイ
 - **GitHub Actions**: Dockerイメージ自動ビルド＆GHCR公開
 - **公開リポジトリ**: https://github.com/solidlime/MemoryMCP
+- **統計ダッシュボード**: memory://stats リソース（タグ・感情分布、タイムライン、リンク分析）
+- **関連メモリ検索**: find_related_memories ツール（embeddings距離による類似度計算）
+- **重複検出**: detect_duplicates ツール（閾値ベースの重複ペア検出）
+- **メモリ統合**: merge_memories ツール（複数メモリを1つに統合）
 
 
 
@@ -734,6 +742,99 @@ memory/
 
 ## 学んだこと
 1. **FastMCP依存関数**: ミドルウェアより依存関数がシンプルで効果的
+2. **Persona別ディレクトリ**: データ分離でスケーラビリティ向上
+3. **SQLite**: JSONより信頼性とパフォーマンスが優れている
+4. **Docker**: 再現可能な環境構築に不可欠
+5. **ドキュメント**: メモリバンクがセッション継続に極めて重要
+6. **モジュール分割**: persona_utils, vector_utils, tools_memoryによる責務分離でメンテナンス性向上
+7. **統計分析**: memory://statsリソースにより、メモリの傾向と課題が可視化された
+
+---
+
+## Phase 17: メモリ整理・管理機能（2025-10-31 完了 ✅）
+
+### 目的
+メモリが蓄積してきたため、整理・管理機能を強化。重複検出、統計分析、メモリ統合機能を実装。
+
+### 実装内容
+
+#### Step 1: memory://stats リソース（統計ダッシュボード）
+- `get_memory_stats()` 関数を memory_mcp.py に追加
+- 総メモリ数、日付範囲、平均投稿数を表示
+- タグ別・感情別の集計（パーセンテージ付き）
+- 過去7日間のタイムライン（棒グラフ形式）
+- よく使われる`[[リンク]]`の分析（正規表現で抽出）
+- tools_memory.py に `mcp.resource("memory://stats")` 登録
+
+#### Step 2: find_related_memories ツール（関連メモリ検索）
+- `find_similar_memories()` 関数を vector_utils.py に追加
+- FAISS similarity_search_with_score() で類似度計算
+- L2距離を類似度スコア（0-1）に変換
+- 指定メモリ自身を結果から除外
+- memory_mcp.py に `find_related_memories()` ツール追加
+- 類似度スコアと経過時間を表示
+- tools_memory.py に登録
+
+#### Step 3: detect_duplicates ツール（重複検出）
+- `detect_duplicate_memories()` 関数を vector_utils.py に追加
+- 全メモリペアの類似度計算（効率化実装）
+- 閾値以上のペアを検出（デフォルト0.85 = 85%類似）
+- 類似度の高い順にソート
+- memory_mcp.py に `detect_duplicates()` ツール追加
+- ペアごとに両メモリの内容と経過時間を表示
+- tools_memory.py に登録
+
+#### Step 4: merge_memories ツール（メモリ統合）
+- memory_mcp.py に `merge_memories()` ツール追加
+- 複数メモリ（2-10個）を1つに統合
+- 自動統合（改行区切り）または手動指定
+- タグ結合（全タグ or 最初のメモリのみ）
+- 最古のタイムスタンプを保持
+- 元メモリの削除オプション（デフォルトTrue）
+- マージ後に vector store を dirty マーク
+- tools_memory.py に登録
+
+### 技術的詳細
+
+#### memory://stats 実装
+```python
+def get_memory_stats() -> str:
+    # SQLiteから全メモリ取得
+    # タグJSON解析してCounter集計
+    # persona_context.jsonから感情履歴取得
+    # 正規表現で[[リンク]]抽出
+    # 過去7日分のタイムライン生成
+    # 棒グラフ形式で表示（█文字使用）
+```
+
+#### 類似度計算
+- FAISS L2距離 → 類似度スコア変換: `similarity = 1.0 / (1.0 + score)`
+- 高い類似度 = 小さいL2距離 → 大きいスコア
+- スコア範囲: 0.0（全く似てない）～ 1.0（完全一致）
+
+#### 重複検出の最適化
+- 全ペア比較O(n²)を回避：各メモリでtop-k検索
+- key1 >= key2 の比較で同一ペアを2回処理しない
+- max_pairs でメモリ使用量を制限
+
+### テスト結果
+- ✅ memory://stats: 66件のメモリから統計生成成功
+- ✅ find_related_memories: Phase 16.7関連メモリを正しく検出（類似度0.852）
+- ✅ detect_duplicates: 実装完了（テスト待ち）
+- ✅ merge_memories: 実装完了（テスト待ち）
+
+### ドキュメント更新
+- ✅ README.md: Phase 17機能の使用例追加
+- ✅ progress.md: Phase 17詳細追加（このセクション）
+- ⏳ activeContext.md: Phase 17状況反映
+
+### 今後の展開
+- パフォーマンス改善（インクリメンタルインデックス、キャッシュ最適化）
+- AIアシスト機能（トピックモデリング、メモリ自動要約）
+- アーカイブ機能（古いメモリの退避）
+
+---
+
 2. **Persona別ディレクトリ**: データ分離でスケーラビリティ向上
 3. **SQLite**: JSON より信頼性とパフォーマンスが優れている
 4. **Docker**: 再現可能な環境構築に不可欠

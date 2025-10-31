@@ -238,3 +238,116 @@ def get_vector_metrics() -> dict:
         "last_rebuild_ts": _last_rebuild_ts,
         "rebuild_config": rebuild_cfg,
     }
+
+def find_similar_memories(query_key: str, top_k: int = 5) -> list:
+    """
+    Find memories similar to the specified memory using embeddings similarity.
+    
+    Args:
+        query_key: The key of the memory to find similar memories for
+        top_k: Number of similar memories to return (default: 5)
+        
+    Returns:
+        List of tuples: [(key, content, score), ...]
+        Empty list if query_key not found or vector store not available
+    """
+    global vector_store
+    
+    if not vector_store:
+        return []
+    
+    try:
+        # Get the content of the query memory from database
+        db_path = get_db_path()
+        with sqlite3.connect(db_path) as conn:
+            cur = conn.cursor()
+            cur.execute('SELECT content FROM memories WHERE key = ?', (query_key,))
+            row = cur.fetchone()
+            
+        if not row:
+            return []
+        
+        query_content = row[0]
+        
+        # Search similar documents
+        # top_k + 1 because the query itself will be in results
+        results = vector_store.similarity_search_with_score(query_content, k=top_k + 1)
+        
+        # Filter out the query memory itself and format results
+        similar = []
+        for doc, score in results:
+            key = doc.metadata.get("key")
+            if key != query_key:  # Exclude the query memory itself
+                # FAISS returns L2 distance (lower is better)
+                # Convert to similarity score (higher is better) for user-friendly display
+                similarity = 1.0 / (1.0 + score)
+                similar.append((key, doc.page_content, similarity))
+        
+        # Return top_k results (excluding query itself)
+        return similar[:top_k]
+        
+    except Exception as e:
+        print(f"Error finding similar memories: {e}")
+        return []
+
+def detect_duplicate_memories(threshold: float = 0.85, max_pairs: int = 50) -> list:
+    """
+    Detect duplicate or highly similar memory pairs using embeddings similarity.
+    
+    Args:
+        threshold: Similarity threshold (0.0-1.0). Pairs above this are considered duplicates.
+                  Default 0.85 means 85% similar or more.
+        max_pairs: Maximum number of duplicate pairs to return (default: 50)
+        
+    Returns:
+        List of tuples: [(key1, key2, content1, content2, similarity), ...]
+        Sorted by similarity (highest first)
+    """
+    global vector_store
+    
+    if not vector_store:
+        return []
+    
+    try:
+        # Get all memories from database
+        db_path = get_db_path()
+        with sqlite3.connect(db_path) as conn:
+            cur = conn.cursor()
+            cur.execute('SELECT key, content FROM memories ORDER BY created_at')
+            all_memories = cur.fetchall()
+        
+        if len(all_memories) < 2:
+            return []
+        
+        duplicate_pairs = []
+        
+        # Compare each memory with all subsequent memories
+        for i in range(len(all_memories)):
+            key1, content1 = all_memories[i]
+            
+            # Search for similar memories
+            results = vector_store.similarity_search_with_score(content1, k=20)
+            
+            for doc, score in results:
+                key2 = doc.metadata.get("key")
+                content2 = doc.page_content
+                
+                # Skip self-comparison and already processed pairs
+                if key1 >= key2:  # >= ensures we don't process the same pair twice
+                    continue
+                
+                # Convert L2 distance to similarity score
+                similarity = 1.0 / (1.0 + score)
+                
+                # Check if above threshold
+                if similarity >= threshold:
+                    duplicate_pairs.append((key1, key2, content1, content2, similarity))
+        
+        # Sort by similarity (highest first) and limit results
+        duplicate_pairs.sort(key=lambda x: x[4], reverse=True)
+        return duplicate_pairs[:max_pairs]
+        
+    except Exception as e:
+        print(f"Error detecting duplicates: {e}")
+        return []
+
