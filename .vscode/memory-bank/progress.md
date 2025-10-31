@@ -18,6 +18,7 @@
 - ✅ Phase 17: メモリ整理・管理機能（統計ダッシュボード、関連検索、重複検出、統合）
 - ✅ Phase 18: パフォーマンス最適化（インクリメンタルインデックス、クエリキャッシュ）
 - ✅ Phase 19: AIアシスト機能（感情分析自動化）
+- ✅ Phase 20: 知識グラフ生成（AIアシスト機能拡張）
 
 ### 最新の主要機能（Phase 17 追加）
 
@@ -38,6 +39,7 @@
 - **インクリメンタルインデックス**: メモリ変更時にFAISSを即座に増分更新（Phase 18）
 - **クエリキャッシュ**: TTLCache（5分、100エントリ）による検索高速化（Phase 18）
 - **感情分析自動化**: analyze_sentiment ツール（テキストから感情を自動検出、Phase 19）
+- **知識グラフ生成**: generate_knowledge_graph ツール（[[リンク]]から関係性を可視化、Phase 20）
 
 
 
@@ -979,7 +981,127 @@ emotion_map = {
 ### ドキュメント更新
 - ✅ README.md: Phase 19セクション追加（感情分析自動化）
 - ✅ progress.md: Phase 19詳細追加（このセクション）
-- ⏳ activeContext.md: Phase 19状況反映
+- ✅ activeContext.md: Phase 19状況反映
+
+---
+
+## Phase 20: 知識グラフ生成（2025-10-31 完了 ✅）
+
+### 目標
+メモリから`[[リンク]]`を抽出し、インタラクティブな知識グラフを生成。メモリ間の関係性を視覚的に理解し、知識の構造を可視化。
+
+### 完了項目
+
+#### Step 1: 知識グラフ構築ライブラリ導入 ✅
+- **NetworkX**: グラフ構造の構築と分析
+  - `requirements.txt` に `networkx>=3.0` 追加
+  - ノード・エッジの追加、属性管理、グラフ統計
+- **PyVis**: インタラクティブHTML可視化
+  - `requirements.txt` に `pyvis>=0.3.0` 追加
+  - 物理演算ベースのレイアウト（forceAtlas2Based）
+  - ドラッグ可能、ズーム可能な可視化
+
+#### Step 2: analysis_utils.py 新モジュール作成 ✅
+Phase 20以降の分析機能を集約する新モジュール（221行）：
+
+**関数1: extract_links_from_memories(persona)**
+- メモリから `[[リンク]]` を抽出
+- 正規表現: `r'\[\[([^\]]+)\]\]'`
+- SQLite直接クエリでパフォーマンス最適化
+- Persona対応（指定されたPersonaのDBを読む）
+
+**関数2: build_knowledge_graph(min_count, min_cooccurrence, remove_isolated, persona)**
+- NetworkXグラフを構築
+- **ノード**: リンク（属性: count=出現回数, memories=メモリキーリスト）
+- **エッジ**: 共起関係（属性: weight=共起回数）
+- **フィルタリング**:
+  - `min_count`: 最小リンク出現回数（デフォルト: 2）
+  - `min_cooccurrence`: 最小共起回数（デフォルト: 1）
+  - `remove_isolated`: 孤立ノード削除（デフォルト: True）
+
+**関数3: export_graph_json(G)**
+- JSON形式でエクスポート
+- 統計情報: ノード数、エッジ数、密度、平均接続数
+- ノード一覧、エッジ一覧を含む構造化データ
+
+**関数4: export_graph_html(G, output_path, title)**
+- PyVisでインタラクティブHTML生成
+- 物理演算: forceAtlas2Based（中心引力0.001、重力-50）
+- ノードサイズ: 出現回数に比例（10 + count * 5）
+- エッジ太さ: 共起回数に比例（1 + weight * 0.5）
+- ドラッグ可能、ズーム可能、ホバーで詳細表示
+
+#### Step 3: generate_knowledge_graph ツール実装 ✅
+- **新ツール**: `generate_knowledge_graph(format, min_count, min_cooccurrence, remove_isolated)`
+- **パラメータ**:
+  - `format`: "json"（データ構造）または "html"（可視化）
+  - `min_count`: 最小リンク出現回数（デフォルト: 2）
+  - `min_cooccurrence`: 最小共起回数（デフォルト: 1）
+  - `remove_isolated`: 孤立ノード削除（デフォルト: True）
+- **出力**:
+  - JSON形式: 統計情報 + JSON文字列
+  - HTML形式: 統計情報 + ファイルパス（`output/knowledge_graph_{persona}_{timestamp}.html`）
+- **実装**:
+  - `memory_mcp.py` に `generate_knowledge_graph()` 関数追加（79行）
+  - `tools_memory.py` にツール登録
+  - Persona対応（get_current_persona()使用）
+
+#### Step 4: テスト ✅
+**テストデータ**: nilou Persona、71メモリ、23メモリにリンク含む
+
+**結果**:
+- **ノード**: 18個（2回以上出現するリンク）
+- **エッジ**: 56個（共起関係）
+- **トップ10接続**:
+  1. `memory_mcp.py` - 4回出現, 11接続
+  2. `progress.md` - 2回出現, 9接続
+  3. `README.md` - 3回出現, 9接続
+  4. `activeContext.md` - 2回出現, 9接続
+  5. `Phase 17` - 2回出現, 8接続
+  6. `find_related_memories` - 2回出現, 8接続
+  7. `vector_utils.py` - 4回出現, 8接続
+  8. `tools_memory.py` - 3回出現, 8接続
+  9. `memory://stats` - 2回出現, 8接続
+  10. `らうらう` - 9回出現, 6接続
+
+**JSON出力**: 9156文字
+**HTML出力**: 13KB、インタラクティブ可視化成功
+
+### 技術的詳細
+
+#### Obsidian連携
+- Obsidianの `[[リンク]]` 記法をそのまま活用
+- メモリ作成時に固有名詞・概念を `[[...]]` でマークアップ
+- 自動的に知識グラフのノードとして認識
+
+#### グラフ分析メトリクス
+- **密度**: ネットワークの接続密度（完全グラフ=1.0）
+- **平均接続数**: ノードあたりの平均エッジ数
+- **ノード重要度**: 出現回数とエッジ数で評価
+
+#### 可視化の最適化
+- ノードサイズで出現頻度を表現
+- エッジ太さで関係の強さを表現
+- 物理演算で自然な配置（関連性の高いノードが近くに）
+
+### 今後の拡張候補（Phase 20 残り3機能）
+1. **時系列分析**: メモリの時系列パターン分析
+   - 時間帯別のメモリ活動
+   - 週次・月次のトレンド分析
+   - 感情の時系列推移
+2. **トピックモデリング（BERTopic）**: メモリの自動トピック抽出
+   - 主要なトピック発見
+   - トピック別メモリ分類
+   - トピック推移の可視化
+3. **メモリ自動要約**: LLM統合による長期記憶の要約
+   - 期間別サマリー生成
+   - 重要イベントの抽出
+   - 関係性の変化の要約
+
+### ドキュメント更新
+- ✅ README.md: Phase 20セクション追加（知識グラフ生成）
+- ✅ progress.md: Phase 20詳細追加（このセクション）
+- ⏳ activeContext.md: Phase 20状況反映
 
 ---
 

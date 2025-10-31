@@ -13,10 +13,45 @@
 
 ### プロジェクト状態
 
-- **フェーズ**: Phase 19 - AIアシスト機能（感情分析自動化） 🎭
-- **ステータス**: Phase 19完了！感情分析パイプライン実装、analyze_sentimentツール追加✨
+- **フェーズ**: Phase 20 - AIアシスト機能（知識グラフ生成） �
+- **ステータス**: Phase 20完了！知識グラフ生成機能実装、generate_knowledge_graphツール追加✨
 
-### 最新の完了タスク（Phase 19）
+### 最新の完了タスク（Phase 20）
+
+1. ✅ **Phase 20 Step 1: 知識グラフライブラリ導入**
+   - NetworkX: グラフ構造の構築と分析
+   - PyVis: インタラクティブHTML可視化
+   - `requirements.txt` に networkx>=3.0, pyvis>=0.3.0 追加
+   - 既にvenv-ragにインストール済み
+
+2. ✅ **Phase 20 Step 2: analysis_utils.py 新モジュール作成**
+   - Phase 20以降の分析機能を集約（221行）
+   - extract_links_from_memories(): メモリから[[リンク]]抽出
+   - build_knowledge_graph(): NetworkXグラフ構築（ノード=リンク、エッジ=共起）
+   - export_graph_json(): JSON形式エクスポート（統計付き）
+   - export_graph_html(): PyVis可視化（物理演算、インタラクティブ）
+   - Persona対応（全関数でpersona引数サポート）
+
+3. ✅ **Phase 20 Step 3: generate_knowledge_graph ツール実装**
+   - 2つの出力形式: json（データ）、html（可視化）
+   - フィルタリングパラメータ: min_count, min_cooccurrence, remove_isolated
+   - 統計情報: ノード数、エッジ数、密度、平均接続数
+   - HTML出力: output/knowledge_graph_{persona}_{timestamp}.html
+   - `memory_mcp.py` にツール追加（79行）、`tools_memory.py` に登録
+
+4. ✅ **Phase 20 テスト**
+   - nilou Persona: 71メモリ、23メモリにリンク含む
+   - 生成結果: 18ノード、56エッジ
+   - トップ接続: memory_mcp.py（11接続）、README.md（9接続）、らうらう（6接続）
+   - JSON出力: 9156文字
+   - HTML出力: 13KB、インタラクティブ可視化成功
+
+5. ✅ **ドキュメント更新**
+   - README.md: Phase 20セクション追加（知識グラフ生成詳細）
+   - progress.md: Phase 20詳細セクション追加
+   - activeContext.md: 最新状況反映（このファイル）
+
+### 過去の完了タスク（Phase 19）
 
 1. ✅ **Phase 19 Step 1: 感情分析パイプライン実装**
    - transformers pipeline 導入（sentiment-analysis）
