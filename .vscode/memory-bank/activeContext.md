@@ -13,10 +13,34 @@
 
 ### プロジェクト状態
 
-- **フェーズ**: Phase 17 - メモリ整理・管理機能 🎯
-- **ステータス**: Phase 17完了！統計ダッシュボード、関連検索、重複検出、統合機能を実装✨
+- **フェーズ**: Phase 18 - パフォーマンス最適化 ⚡
+- **ステータス**: Phase 18完了！インクリメンタルインデックスとクエリキャッシュを実装✨
 
-### 最新の完了タスク（Phase 17）
+### 最新の完了タスク（Phase 18）
+
+1. ✅ **Phase 18 Step 1: インクリメンタルインデックス**
+   - FAISS増分更新実装（add_documents/delete）
+   - `vector_utils.py` の3関数改修（add/update/delete_memory_to_vector_store）
+   - ハイブリッドアプローチ: try 増分更新 → except dirty flag フォールバック
+   - 即座保存: すべての変更を即座にディスクに永続化
+
+2. ✅ **Phase 18 Step 2: クエリキャッシュ**
+   - cachetools.TTLCache 導入（maxsize=100, ttl=300秒）
+   - `db_utils.py` にキャッシュインフラ追加
+   - `memory_mcp.py` で create/update/delete 時にキャッシュクリア
+   - スレッドセーフ: Lock保護されたキャッシュアクセス
+
+3. ✅ **Phase 18 テスト**
+   - 作成・更新・削除の全操作で正常動作確認
+   - インクリメンタルインデックスが即座に検索に反映
+   - キャッシュクリアが正常動作（最新データが検索可能）
+
+4. ✅ **ドキュメント更新**
+   - README.md: Phase 18セクション追加（技術詳細）
+   - progress.md: Phase 18詳細セクション追加
+   - activeContext.md: 最新状況反映（このファイル）
+
+### 過去の完了タスク（Phase 17）
 
 1. ✅ **Phase 17 Step 1: memory://stats リソース**
    - 統計ダッシュボード実装（総数、タグ・感情分布、タイムライン、リンク分析）

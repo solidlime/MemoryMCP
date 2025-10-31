@@ -191,13 +191,80 @@ def rebuild_vector_store():
         pass
 
 def add_memory_to_vector_store(key: str, content: str):
-    mark_vector_store_dirty()
+    """
+    Add a new memory to the vector store incrementally.
+    Falls back to dirty flag if vector store is not available.
+    """
+    global vector_store
+    
+    if not vector_store or not embeddings:
+        mark_vector_store_dirty()
+        return
+    
+    try:
+        # Create document with metadata
+        doc = Document(page_content=content, metadata={"key": key})
+        
+        # Add to vector store with ID
+        vector_store.add_documents([doc], ids=[key])
+        
+        # Save immediately
+        save_vector_store()
+        
+        print(f"✅ Added memory {key} to vector store incrementally")
+    except Exception as e:
+        print(f"⚠️  Failed to add memory incrementally: {e}, falling back to dirty flag")
+        mark_vector_store_dirty()
 
 def update_memory_in_vector_store(key: str, content: str):
-    mark_vector_store_dirty()
+    """
+    Update an existing memory in the vector store incrementally.
+    Falls back to dirty flag if vector store is not available.
+    """
+    global vector_store
+    
+    if not vector_store or not embeddings:
+        mark_vector_store_dirty()
+        return
+    
+    try:
+        # Delete old version
+        vector_store.delete([key])
+        
+        # Add new version
+        doc = Document(page_content=content, metadata={"key": key})
+        vector_store.add_documents([doc], ids=[key])
+        
+        # Save immediately
+        save_vector_store()
+        
+        print(f"✅ Updated memory {key} in vector store incrementally")
+    except Exception as e:
+        print(f"⚠️  Failed to update memory incrementally: {e}, falling back to dirty flag")
+        mark_vector_store_dirty()
 
 def delete_memory_from_vector_store(key: str):
-    mark_vector_store_dirty()
+    """
+    Delete a memory from the vector store incrementally.
+    Falls back to dirty flag if vector store is not available.
+    """
+    global vector_store
+    
+    if not vector_store:
+        mark_vector_store_dirty()
+        return
+    
+    try:
+        # Delete from vector store
+        vector_store.delete([key])
+        
+        # Save immediately
+        save_vector_store()
+        
+        print(f"✅ Deleted memory {key} from vector store incrementally")
+    except Exception as e:
+        print(f"⚠️  Failed to delete memory incrementally: {e}, falling back to dirty flag")
+        mark_vector_store_dirty()
 
 def get_vector_count() -> int:
     try:
