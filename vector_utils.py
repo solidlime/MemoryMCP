@@ -55,6 +55,7 @@ def _get_rebuild_config():
 vector_store = None
 embeddings = None
 reranker = None
+sentiment_pipeline = None  # Phase 19: Sentiment analysis pipeline
 
 # Idle rebuild controls
 _dirty: bool = False
@@ -161,6 +162,9 @@ def initialize_rag_sync():
                 save_vector_store()
             except Exception:
                 vector_store = None
+    
+    # Phase 19: Initialize sentiment analysis
+    initialize_sentiment_analysis()
 
 def save_vector_store():
     if vector_store:
@@ -418,3 +422,75 @@ def detect_duplicate_memories(threshold: float = 0.85, max_pairs: int = 50) -> l
         print(f"Error detecting duplicates: {e}")
         return []
 
+
+# ============================================================================
+# Phase 19: Sentiment Analysis (AI Assist)
+# ============================================================================
+
+def initialize_sentiment_analysis():
+    """Initialize sentiment analysis pipeline."""
+    global sentiment_pipeline
+    cfg = _load_config()
+    sentiment_model = cfg.get("sentiment_model", "lxyuan/distilbert-base-multilingual-cased-sentiments-student")
+    
+    try:
+        from transformers import pipeline
+        with tqdm(total=100, desc="📥 Sentiment Model", unit="%", ncols=80) as pbar:
+            sentiment_pipeline = pipeline(
+                "sentiment-analysis",
+                model=sentiment_model,
+                device=-1  # CPU
+            )
+            pbar.update(100)
+        print(f"✅ Sentiment analysis pipeline initialized: {sentiment_model}")
+    except Exception as e:
+        sentiment_pipeline = None
+        print(f"❌ Failed to initialize sentiment analysis: {e}")
+
+
+def analyze_sentiment_text(content: str) -> dict:
+    """
+    Analyze sentiment of text content.
+    
+    Args:
+        content: Text to analyze
+        
+    Returns:
+        dict with keys:
+        - emotion: Mapped emotion type (joy/sadness/neutral)
+        - score: Confidence score (0.0-1.0)
+        - raw_label: Original model label (positive/negative/neutral)
+    """
+    if not sentiment_pipeline:
+        return {"emotion": "neutral", "score": 0.0, "raw_label": "unknown", "error": "Pipeline not initialized"}
+    
+    try:
+        # Get prediction
+        result = sentiment_pipeline(content[:512])  # Limit to 512 chars for performance
+        if not result or len(result) == 0:
+            return {"emotion": "neutral", "score": 0.0, "raw_label": "none"}
+        
+        prediction = result[0]
+        raw_label = prediction.get("label", "neutral").lower()
+        score = prediction.get("score", 0.0)
+        
+        # Map to our emotion types
+        emotion_map = {
+            "positive": "joy",
+            "negative": "sadness",
+            "neutral": "neutral",
+            # Fallbacks
+            "pos": "joy",
+            "neg": "sadness",
+        }
+        emotion = emotion_map.get(raw_label, "neutral")
+        
+        return {
+            "emotion": emotion,
+            "score": float(score),
+            "raw_label": raw_label
+        }
+        
+    except Exception as e:
+        print(f"Error analyzing sentiment: {e}")
+        return {"emotion": "neutral", "score": 0.0, "raw_label": "error", "error": str(e)}
