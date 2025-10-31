@@ -1394,6 +1394,301 @@ async def rebuild_vector_store_tool() -> str:
         return f"❌ Failed to rebuild vector store: {str(e)}"
 
 # ========================================
+# Tool: Find Related Memories
+# ========================================
+
+async def find_related_memories(
+    memory_key: str,
+    top_k: int = 5
+) -> str:
+    """
+    Find memories related to the specified memory using embeddings similarity.
+    
+    This tool helps discover connections between memories by analyzing semantic similarity.
+    Useful for:
+    - Finding relevant context for a specific memory
+    - Discovering related topics or experiences
+    - Understanding memory clusters and themes
+    
+    Args:
+        memory_key: The key of the memory to find related memories for (format: memory_YYYYMMDDHHMMSS)
+        top_k: Number of related memories to return (default: 5, max: 20)
+        
+    Returns:
+        Formatted string with related memories and their similarity scores
+    """
+    from vector_utils import find_similar_memories
+    
+    try:
+        persona = get_current_persona()
+        
+        # Validate input
+        if not memory_key.startswith("memory_"):
+            return "❌ Invalid memory key format. Expected: memory_YYYYMMDDHHMMSS"
+        
+        # Limit top_k to reasonable range
+        top_k = min(max(1, top_k), 20)
+        
+        # Check if memory exists
+        db_path = get_db_path()
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT content, created_at FROM memories WHERE key = ?", (memory_key,))
+            row = cursor.fetchone()
+            
+        if not row:
+            return f"❌ Memory not found: {memory_key}"
+        
+        query_content, created_at = row
+        
+        # Find similar memories
+        similar = find_similar_memories(memory_key, top_k)
+        
+        if not similar:
+            return f"💡 No related memories found for {memory_key}"
+        
+        # Format output
+        result = f"🔗 Related Memories for {memory_key}:\n"
+        result += f"📝 Query: {query_content[:100]}{'...' if len(query_content) > 100 else ''}\n"
+        result += f"📅 Created: {created_at}\n"
+        result += f"\n{'='*50}\n"
+        result += f"Found {len(similar)} related memories:\n\n"
+        
+        for idx, (key, content, score) in enumerate(similar, 1):
+            # Get timestamp for related memory
+            with sqlite3.connect(db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT created_at FROM memories WHERE key = ?", (key,))
+                ts_row = cursor.fetchone()
+                timestamp = ts_row[0] if ts_row else "Unknown"
+            
+            # Calculate time difference
+            time_diff = calculate_time_diff(timestamp)
+            
+            result += f"{idx}. [{key}] (similarity: {score:.3f})\n"
+            result += f"   📅 {time_diff['formatted_string']}前\n"
+            result += f"   📝 {content[:150]}{'...' if len(content) > 150 else ''}\n\n"
+        
+        result += f"\n💡 Persona: {persona}"
+        return result
+        
+    except Exception as e:
+        _log_progress(f"❌ Failed to find related memories: {e}")
+        return f"❌ Error finding related memories: {str(e)}"
+
+# ========================================
+# Tool: Detect Duplicate Memories
+# ========================================
+
+async def detect_duplicates(
+    threshold: float = 0.85,
+    max_pairs: int = 50
+) -> str:
+    """
+    Detect duplicate or highly similar memory pairs.
+    
+    This tool helps identify memories that are very similar to each other,
+    which might be:
+    - Exact duplicates created by mistake
+    - Multiple versions of the same information
+    - Related memories that could be merged
+    
+    Args:
+        threshold: Similarity threshold (0.0-1.0). Default 0.85 means 85% similar or more.
+                  Higher values = stricter duplicate detection (only very similar pairs)
+                  Lower values = looser detection (more pairs, including somewhat similar ones)
+        max_pairs: Maximum number of duplicate pairs to return (default: 50)
+        
+    Returns:
+        Formatted string with duplicate pairs sorted by similarity
+    """
+    from vector_utils import detect_duplicate_memories
+    
+    try:
+        persona = get_current_persona()
+        
+        # Validate threshold
+        threshold = max(0.0, min(1.0, threshold))
+        max_pairs = max(1, min(100, max_pairs))
+        
+        # Detect duplicates
+        duplicates = detect_duplicate_memories(threshold, max_pairs)
+        
+        if not duplicates:
+            return f"💡 No duplicate memories found (threshold: {threshold:.2f})\n\nTry lowering the threshold to find more similar pairs."
+        
+        # Format output
+        result = f"🔍 Duplicate Memory Detection (persona: {persona})\n"
+        result += f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        result += f"Threshold: {threshold:.2f} (similarity ≥ {threshold*100:.0f}%)\n"
+        result += f"Found {len(duplicates)} duplicate pairs:\n\n"
+        
+        for idx, (key1, key2, content1, content2, similarity) in enumerate(duplicates, 1):
+            # Get timestamps
+            db_path = get_db_path()
+            with sqlite3.connect(db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT created_at FROM memories WHERE key = ?", (key1,))
+                ts1 = cursor.fetchone()[0]
+                cursor.execute("SELECT created_at FROM memories WHERE key = ?", (key2,))
+                ts2 = cursor.fetchone()[0]
+            
+            time_diff1 = calculate_time_diff(ts1)
+            time_diff2 = calculate_time_diff(ts2)
+            
+            result += f"━━━ Pair {idx} (similarity: {similarity:.3f} = {similarity*100:.1f}%) ━━━\n\n"
+            result += f"📝 Memory 1: [{key1}] ({time_diff1['formatted_string']}前)\n"
+            result += f"   {content1[:200]}{'...' if len(content1) > 200 else ''}\n\n"
+            result += f"📝 Memory 2: [{key2}] ({time_diff2['formatted_string']}前)\n"
+            result += f"   {content2[:200]}{'...' if len(content2) > 200 else ''}\n\n"
+        
+        result += f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        result += f"💡 Tip: Use merge_memories tool to combine duplicate pairs.\n"
+        result += f"💡 Persona: {persona}"
+        
+        return result
+        
+    except Exception as e:
+        _log_progress(f"❌ Failed to detect duplicates: {e}")
+        return f"❌ Error detecting duplicates: {str(e)}"
+
+# ========================================
+# Tool: Merge Memories
+# ========================================
+
+async def merge_memories(
+    memory_keys: list[str],
+    merged_content: str = None,
+    keep_all_tags: bool = True,
+    delete_originals: bool = True
+) -> str:
+    """
+    Merge multiple memories into a single consolidated memory.
+    
+    This tool combines multiple related or duplicate memories into one,
+    preserving important information while reducing clutter.
+    
+    Args:
+        memory_keys: List of memory keys to merge (minimum 2, format: memory_YYYYMMDDHHMMSS)
+        merged_content: Content for the merged memory. If None, contents are concatenated with newlines.
+        keep_all_tags: If True, combine tags from all memories. If False, use tags from first memory only.
+        delete_originals: If True, delete original memories after merge. If False, keep them.
+        
+    Returns:
+        Success message with the new merged memory key, or error message
+    """
+    try:
+        persona = get_current_persona()
+        
+        # Validate input
+        if not memory_keys or len(memory_keys) < 2:
+            return "❌ Please provide at least 2 memory keys to merge"
+        
+        if len(memory_keys) > 10:
+            return "❌ Cannot merge more than 10 memories at once"
+        
+        for key in memory_keys:
+            if not key.startswith("memory_"):
+                return f"❌ Invalid memory key format: {key}"
+        
+        # Fetch all memories
+        db_path = get_db_path()
+        memories = []
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            for key in memory_keys:
+                cursor.execute(
+                    "SELECT content, created_at, tags FROM memories WHERE key = ?",
+                    (key,)
+                )
+                row = cursor.fetchone()
+                if not row:
+                    return f"❌ Memory not found: {key}"
+                memories.append({
+                    "key": key,
+                    "content": row[0],
+                    "created_at": row[1],
+                    "tags": json.loads(row[2]) if row[2] else []
+                })
+        
+        # Sort by timestamp (oldest first)
+        memories.sort(key=lambda x: x["created_at"])
+        oldest_timestamp = memories[0]["created_at"]
+        
+        # Merge content
+        if merged_content is None:
+            # Auto-merge: concatenate with separators
+            merged_content = "\n\n".join([m["content"] for m in memories])
+        
+        # Merge tags
+        if keep_all_tags:
+            all_tags = set()
+            for m in memories:
+                all_tags.update(m["tags"])
+            merged_tags = list(all_tags)
+        else:
+            merged_tags = memories[0]["tags"]
+        
+        # Create merged memory with oldest timestamp
+        merged_key = f"memory_{datetime.fromisoformat(oldest_timestamp).strftime('%Y%m%d%H%M%S')}_merged"
+        
+        # Save to database
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """INSERT OR REPLACE INTO memories 
+                   (key, content, created_at, updated_at, tags) 
+                   VALUES (?, ?, ?, ?, ?)""",
+                (
+                    merged_key,
+                    merged_content,
+                    oldest_timestamp,
+                    get_current_time().isoformat(),
+                    json.dumps(merged_tags) if merged_tags else None
+                )
+            )
+            conn.commit()
+        
+        # Update vector store
+        mark_vector_store_dirty()
+        
+        # Delete originals if requested
+        deleted_keys = []
+        if delete_originals:
+            with sqlite3.connect(db_path) as conn:
+                cursor = conn.cursor()
+                for key in memory_keys:
+                    cursor.execute("DELETE FROM memories WHERE key = ?", (key,))
+                    deleted_keys.append(key)
+                conn.commit()
+        
+        # Format result
+        result = f"✅ Successfully merged {len(memory_keys)} memories!\n\n"
+        result += f"🆕 New merged memory: [{merged_key}]\n"
+        result += f"📅 Timestamp: {oldest_timestamp} (oldest)\n"
+        result += f"📝 Content ({len(merged_content)} chars):\n"
+        result += f"   {merged_content[:200]}{'...' if len(merged_content) > 200 else ''}\n\n"
+        
+        if merged_tags:
+            result += f"🏷️  Tags: {', '.join(merged_tags)}\n\n"
+        
+        if delete_originals:
+            result += f"🗑️  Deleted {len(deleted_keys)} original memories:\n"
+            for key in deleted_keys:
+                result += f"   - {key}\n"
+        else:
+            result += f"💡 Original memories kept (delete_originals=False)\n"
+        
+        result += f"\n💡 Persona: {persona}"
+        
+        _log_progress(f"✅ Merged {len(memory_keys)} memories into {merged_key}")
+        return result
+        
+    except Exception as e:
+        _log_progress(f"❌ Failed to merge memories: {e}")
+        return f"❌ Error merging memories: {str(e)}"
+
+# ========================================
 # Resource: Memory Info
 # ========================================
 
@@ -1474,6 +1769,142 @@ def get_memory_metrics() -> str:
         f"  - Idle Seconds: {rebuild_cfg['idle_seconds']}\n"
         f"  - Min Interval: {rebuild_cfg['min_interval']}\n"
     )
+
+# ========================================
+# Resource: Memory Statistics Dashboard
+# ========================================
+
+def get_memory_stats() -> str:
+    """
+    Provide comprehensive memory statistics dashboard.
+    
+    Returns:
+        Formatted string with:
+        - Total memory count and date range
+        - Tag distribution (with percentages)
+        - Emotion distribution (with percentages)
+        - Timeline (daily memory counts for last 7 days)
+        - Link analysis (most mentioned [[links]])
+    """
+    import re
+    from collections import Counter, defaultdict
+    from datetime import datetime, timedelta
+    
+    db_path = get_db_path()
+    persona = get_current_persona()
+    
+    try:
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            
+            # ========== Basic Stats ==========
+            cursor.execute("SELECT COUNT(*) FROM memories")
+            total_count = cursor.fetchone()[0]
+            
+            if total_count == 0:
+                return f"📊 Memory Statistics (persona: {persona}):\n\n💡 No memories yet!"
+            
+            # Get date range
+            cursor.execute("SELECT MIN(created_at), MAX(created_at) FROM memories")
+            min_date_str, max_date_str = cursor.fetchone()
+            min_date = datetime.fromisoformat(min_date_str).date()
+            max_date = datetime.fromisoformat(max_date_str).date()
+            date_range_days = (max_date - min_date).days + 1
+            avg_per_day = total_count / date_range_days if date_range_days > 0 else 0
+            
+            # ========== Tag Distribution ==========
+            cursor.execute("SELECT tags FROM memories WHERE tags IS NOT NULL AND tags != ''")
+            tag_counter = Counter()
+            for row in cursor.fetchall():
+                tags_json = row[0]
+                try:
+                    tags_list = json.loads(tags_json)
+                    tag_counter.update(tags_list)
+                except:
+                    pass
+            
+            # ========== Emotion Distribution ==========
+            # Load persona context to get emotion history
+            context = load_persona_context()
+            emotion_history = context.get("emotion_history", [])
+            emotion_counter = Counter()
+            for entry in emotion_history:
+                emotion_type = entry.get("emotion_type")
+                if emotion_type:
+                    emotion_counter[emotion_type] += 1
+            
+            # ========== Timeline (last 7 days) ==========
+            cursor.execute("SELECT created_at FROM memories")
+            date_counter = Counter()
+            for row in cursor.fetchall():
+                created_at = datetime.fromisoformat(row[0]).date()
+                date_counter[created_at] += 1
+            
+            # Get last 7 days
+            today = datetime.now().date()
+            timeline = []
+            for i in range(6, -1, -1):
+                day = today - timedelta(days=i)
+                count = date_counter.get(day, 0)
+                timeline.append((day, count))
+            
+            # ========== Link Analysis ==========
+            cursor.execute("SELECT content FROM memories")
+            link_counter = Counter()
+            link_pattern = re.compile(r'\[\[(.+?)\]\]')
+            for row in cursor.fetchall():
+                content = row[0]
+                matches = link_pattern.findall(content)
+                link_counter.update(matches)
+            
+            # ========== Format Output ==========
+            output = f"📊 Memory Statistics Dashboard (persona: {persona})\n"
+            output += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            
+            # Basic stats
+            output += f"📦 Total Memories: {total_count}\n"
+            output += f"📅 Date Range: {min_date} ~ {max_date} ({date_range_days} days)\n"
+            output += f"📈 Average per day: {avg_per_day:.2f} memories\n\n"
+            
+            # Tag distribution
+            if tag_counter:
+                output += "🏷️  Tag Distribution:\n"
+                for tag, count in tag_counter.most_common(10):
+                    percentage = (count / total_count) * 100
+                    output += f"  - {tag}: {count} ({percentage:.1f}%)\n"
+                output += "\n"
+            
+            # Emotion distribution
+            if emotion_counter:
+                output += "😊 Emotion Distribution:\n"
+                total_emotions = sum(emotion_counter.values())
+                for emotion, count in emotion_counter.most_common(10):
+                    percentage = (count / total_emotions) * 100
+                    output += f"  - {emotion}: {count} ({percentage:.1f}%)\n"
+                output += "\n"
+            
+            # Timeline
+            output += "📆 Timeline (last 7 days):\n"
+            max_count = max([count for _, count in timeline]) if timeline else 1
+            for day, count in timeline:
+                bar_length = int((count / max_count) * 10) if max_count > 0 else 0
+                bar = "█" * bar_length
+                output += f"  {day}: {bar} {count}\n"
+            output += "\n"
+            
+            # Link analysis
+            if link_counter:
+                output += "🔗 Link Analysis (top 10):\n"
+                top_links = link_counter.most_common(10)
+                output += "  Most mentioned: "
+                link_strs = [f"[[{link}]]({count})" for link, count in top_links]
+                output += ", ".join(link_strs)
+                output += "\n"
+            
+            return output
+            
+    except Exception as e:
+        return f"❌ Error generating statistics: {e}"
 
 if __name__ == "__main__":
     print("🚀 MCP server starting...")

@@ -22,9 +22,14 @@ def register_tools(mcp: Any) -> None:
     mcp.tool()(impl.get_time_since_last_conversation)
     mcp.tool()(impl.get_persona_context)
     mcp.tool()(impl.rebuild_vector_store_tool)
+    mcp.tool()(impl.find_related_memories)
+    mcp.tool()(impl.detect_duplicates)
+    mcp.tool()(impl.merge_memories)
 
 
 def register_resources(mcp: Any) -> None:
     import memory_mcp as impl
     mcp.resource("memory://info")(impl.get_memory_info)
     mcp.resource("memory://metrics")(impl.get_memory_metrics)
+    mcp.resource("memory://stats")(impl.get_memory_stats)
+

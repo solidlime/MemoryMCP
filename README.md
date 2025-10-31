@@ -243,6 +243,38 @@ VS Code Copilot Chatで以下のコマンドを実行：
 #### ユーティリティ
 
 - `clean_memory(key)`: 記憶の重複を除去
+- `rebuild_vector_store_tool()`: ベクトルストアを再構築
+
+#### メモリ整理・管理機能（Phase 17）
+
+- `find_related_memories(memory_key, top_k)`: 関連メモリの検索
+  - 指定したメモリに意味的に類似する他のメモリを検索
+  - embeddings距離で類似度を計算し、top-k件を返す
+  - 類似度スコアと経過時間を表示
+  
+- `detect_duplicates(threshold, max_pairs)`: 重複メモリの検出
+  - 重複または高度に類似したメモリペアを検出
+  - `threshold`: 類似度閾値（0.0-1.0）。デフォルト0.85（85%以上類似）
+  - `max_pairs`: 返す最大ペア数（デフォルト50）
+  - 類似度の高い順にソートして表示
+  
+- `merge_memories(memory_keys, merged_content, keep_all_tags, delete_originals)`: メモリの統合
+  - 複数のメモリを1つに統合
+  - `memory_keys`: 統合するメモリキーのリスト（最低2個）
+  - `merged_content`: 統合後の内容（Noneの場合は自動結合）
+  - `keep_all_tags`: 全メモリのタグを結合（デフォルトTrue）
+  - `delete_originals`: 元のメモリを削除（デフォルトTrue）
+  - 最も古いタイムスタンプを保持
+
+#### リソース（VS Code Copilot Chatから参照）
+
+- `memory://info`: メモリシステム情報（エントリ数、DB パス、Persona など）
+- `memory://metrics`: 詳細メトリクス（モデル状態、ベクトル数、再構築状態）
+- `memory://stats`: 統計ダッシュボード（Phase 17 NEW!）
+  - 総メモリ数、日付範囲、平均投稿数
+  - タグ別・感情別の集計（パーセンテージ付き）
+  - 過去7日間のタイムライン（棒グラフ）
+  - よく使われる`[[リンク]]`の分析
 
 ### Personaサポート
 
