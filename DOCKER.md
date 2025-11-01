@@ -451,6 +451,108 @@ docker push ghcr.io/solidlime/memory-mcp:v1.0.0
 docker push ghcr.io/solidlime/memory-mcp:latest
 ```
 
+## 管理ツールの使用
+
+### Dockerコンテナ内での管理ツール実行
+
+管理者用CLIツール（`admin_tools.py`）は、Dockerコンテナ内でも使用できます。
+
+#### 1. コンテナ内でCLIを直接実行
+
+```bash
+# コンテナに入る
+docker exec -it memory-mcp bash
+
+# 仮想環境を有効化（イメージ内ではすでに有効化済み）
+cd /opt/memory-mcp
+
+# CLIツールを実行
+python3 admin_tools.py --help
+python3 admin_tools.py rebuild --persona nilou
+python3 admin_tools.py generate-graph --persona nilou --format html
+```
+
+#### 2. ワンライナーで実行
+
+```bash
+# ベクトルストア再構築
+docker exec memory-mcp python3 /opt/memory-mcp/admin_tools.py rebuild --persona nilou
+
+# ナレッジグラフ生成
+docker exec memory-mcp python3 /opt/memory-mcp/admin_tools.py generate-graph --persona nilou --format html
+
+# 重複検出
+docker exec memory-mcp python3 /opt/memory-mcp/admin_tools.py detect-duplicates --persona nilou --threshold 0.85
+
+# SQLite → Qdrant 移行
+docker exec memory-mcp python3 /opt/memory-mcp/admin_tools.py migrate --source sqlite --target qdrant --persona nilou
+```
+
+#### 3. Webダッシュボード経由（推奨）
+
+最も簡単な方法は、Webブラウザから管理ツールにアクセスすることです：
+
+```bash
+# Docker起動後、ブラウザでアクセス
+open http://localhost:26262/
+```
+
+ダッシュボード上の **🛠️ Admin Tools** カードから、以下の操作をワンクリックで実行できます：
+
+- 🧹 **Clean Memory** - 重複行削除
+- 🔄 **Rebuild Vector Store** - ベクトルストア再構築
+- 🔀 **Migrate Backend** - SQLite⇔Qdrant移行
+- 🔍 **Detect Duplicates** - 類似記憶検出
+- 🔗 **Merge Memories** - 複数記憶の統合
+- 🕸️ **Generate Graph** - ナレッジグラフ生成
+
+#### 4. REST API経由
+
+```bash
+# ナレッジグラフ生成
+curl -X POST http://localhost:26262/api/admin/generate-graph \
+  -H "Content-Type: application/json" \
+  -H "X-Persona: nilou" \
+  -d '{"persona":"nilou","format":"html","min_count":2}'
+
+# ベクトルストア再構築
+curl -X POST http://localhost:26262/api/admin/rebuild \
+  -H "Content-Type: application/json" \
+  -H "X-Persona: nilou" \
+  -d '{"persona":"nilou"}'
+
+# 重複検出
+curl -X POST http://localhost:26262/api/admin/detect-duplicates \
+  -H "Content-Type: application/json" \
+  -H "X-Persona: nilou" \
+  -d '{"persona":"nilou","threshold":0.85,"max_pairs":50}'
+```
+
+### 利用可能な管理コマンド
+
+| コマンド | 説明 | 使用例 |
+|---------|------|--------|
+| `clean` | メモリ内の重複行を削除 | `--persona nilou --key memory_20251101183052` |
+| `rebuild` | ベクトルストアを再構築 | `--persona nilou` |
+| `migrate` | SQLite⇔Qdrant間でデータ移行 | `--source sqlite --target qdrant --persona nilou` |
+| `detect-duplicates` | 類似した記憶を検出 | `--persona nilou --threshold 0.85` |
+| `merge` | 複数の記憶を1つに統合 | `--persona nilou --keys memory_001,memory_002` |
+| `generate-graph` | 知識グラフHTMLを生成 | `--persona nilou --format html` |
+
+### 出力ファイルの確認
+
+ナレッジグラフなどの生成ファイルは、`/data/output/`ディレクトリに保存されます：
+
+```bash
+# コンテナ内の出力ファイル確認
+docker exec memory-mcp ls -lh /data/output/
+
+# ホストにコピー
+docker cp memory-mcp:/data/output/knowledge_graph_nilou_20251101_190210.html ./
+```
+
+**注意**: `./data`ディレクトリをマウントしている場合、出力ファイルは自動的にホストの`./data/output/`に保存されます。
+
 ## トラブルシューティング
 
 ### コンテナが起動しない

@@ -91,6 +91,95 @@
         </div>
     </div>
 
+    <!-- Admin Tools Card -->
+    <div class="glass-card rounded-2xl p-6 mb-6">
+        <h2 class="text-2xl font-bold text-white mb-4">🛠️ Admin Tools</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- Clean Memory -->
+            <div class="glass-card rounded-lg p-4">
+                <h3 class="text-lg font-semibold text-white mb-2">🧹 Clean Memory</h3>
+                <p class="text-purple-200 text-sm mb-3">Remove duplicate lines from a memory</p>
+                <input type="text" id="cleanMemoryKey" placeholder="memory_YYYYMMDDHHMMSS" 
+                       class="w-full px-3 py-2 rounded-lg bg-white/20 text-white placeholder-purple-200 mb-2">
+                <button onclick="cleanMemory()" 
+                        class="w-full glass-card rounded-lg px-4 py-2 text-white font-semibold hover:bg-white/20 transition">
+                    Clean
+                </button>
+            </div>
+            
+            <!-- Rebuild Vector Store -->
+            <div class="glass-card rounded-lg p-4">
+                <h3 class="text-lg font-semibold text-white mb-2">🔄 Rebuild Vector Store</h3>
+                <p class="text-purple-200 text-sm mb-3">Rebuild FAISS index from database</p>
+                <button onclick="rebuildVectorStore()" 
+                        class="w-full glass-card rounded-lg px-4 py-2 text-white font-semibold hover:bg-white/20 transition mt-8">
+                    Rebuild
+                </button>
+            </div>
+            
+            <!-- Migrate Backend -->
+            <div class="glass-card rounded-lg p-4">
+                <h3 class="text-lg font-semibold text-white mb-2">🔀 Migrate Backend</h3>
+                <p class="text-purple-200 text-sm mb-3">Migrate between SQLite ⇔ Qdrant</p>
+                <select id="migrateSource" class="w-full px-3 py-2 rounded-lg bg-white/20 text-white mb-2">
+                    <option value="sqlite">SQLite</option>
+                    <option value="qdrant">Qdrant</option>
+                </select>
+                <select id="migrateTarget" class="w-full px-3 py-2 rounded-lg bg-white/20 text-white mb-2">
+                    <option value="qdrant">Qdrant</option>
+                    <option value="sqlite">SQLite</option>
+                </select>
+                <button onclick="migrateBackend()" 
+                        class="w-full glass-card rounded-lg px-4 py-2 text-white font-semibold hover:bg-white/20 transition">
+                    Migrate
+                </button>
+            </div>
+            
+            <!-- Detect Duplicates -->
+            <div class="glass-card rounded-lg p-4">
+                <h3 class="text-lg font-semibold text-white mb-2">🔍 Detect Duplicates</h3>
+                <p class="text-purple-200 text-sm mb-3">Find similar memories</p>
+                <input type="number" id="duplicateThreshold" placeholder="Threshold (0.0-1.0)" 
+                       value="0.85" step="0.05" min="0" max="1"
+                       class="w-full px-3 py-2 rounded-lg bg-white/20 text-white placeholder-purple-200 mb-2">
+                <button onclick="detectDuplicates()" 
+                        class="w-full glass-card rounded-lg px-4 py-2 text-white font-semibold hover:bg-white/20 transition">
+                    Detect
+                </button>
+            </div>
+            
+            <!-- Merge Memories -->
+            <div class="glass-card rounded-lg p-4">
+                <h3 class="text-lg font-semibold text-white mb-2">🔗 Merge Memories</h3>
+                <p class="text-purple-200 text-sm mb-3">Combine multiple memories (comma-separated keys)</p>
+                <input type="text" id="mergeKeys" placeholder="key1,key2,key3" 
+                       class="w-full px-3 py-2 rounded-lg bg-white/20 text-white placeholder-purple-200 mb-2">
+                <button onclick="mergeMemories()" 
+                        class="w-full glass-card rounded-lg px-4 py-2 text-white font-semibold hover:bg-white/20 transition">
+                    Merge
+                </button>
+            </div>
+            
+            <!-- Generate Knowledge Graph -->
+            <div class="glass-card rounded-lg p-4">
+                <h3 class="text-lg font-semibold text-white mb-2">🕸️ Generate Graph</h3>
+                <p class="text-purple-200 text-sm mb-3">Create new knowledge graph</p>
+                <button onclick="generateGraph()" 
+                        class="w-full glass-card rounded-lg px-4 py-2 text-white font-semibold hover:bg-white/20 transition mt-8">
+                    Generate
+                </button>
+            </div>
+        </div>
+        
+        <!-- Result Display Area -->
+        <div id="adminResult" class="mt-4 hidden">
+            <div class="glass-card rounded-lg p-4">
+                <h3 class="text-lg font-semibold text-white mb-2">Result</h3>
+                <pre id="adminResultContent" class="text-white text-sm overflow-auto max-h-96"></pre>
+            </div>
+        </div>
+    </div>
+
     <!-- Knowledge Graph Card -->
     <div class="glass-card rounded-2xl p-6">
         <h2 class="text-2xl font-bold text-white mb-4">🕸️ Knowledge Graph</h2>
@@ -307,6 +396,213 @@
 
         // Initialize on page load
         loadPersonas();
+        
+        // ========================================
+        // Admin Tools Functions
+        // ========================================
+        
+        function showAdminResult(result, isError = false) {
+            const resultDiv = document.getElementById('adminResult');
+            const resultContent = document.getElementById('adminResultContent');
+            resultDiv.classList.remove('hidden');
+            
+            if (isError) {
+                resultContent.className = 'text-red-300 text-sm overflow-auto max-h-96';
+            } else {
+                resultContent.className = 'text-white text-sm overflow-auto max-h-96';
+            }
+            
+            resultContent.textContent = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
+            
+            // Auto-hide after 10 seconds for success messages
+            if (!isError) {
+                setTimeout(() => {
+                    resultDiv.classList.add('hidden');
+                }, 10000);
+            }
+        }
+        
+        async function cleanMemory() {
+            const key = document.getElementById('cleanMemoryKey').value.trim();
+            if (!key) {
+                showAdminResult('Error: Please enter a memory key', true);
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/admin/clean', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ persona: currentPersona, key: key })
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAdminResult(result.message);
+                    document.getElementById('cleanMemoryKey').value = '';
+                } else {
+                    showAdminResult(`Error: ${result.error}`, true);
+                }
+            } catch (error) {
+                showAdminResult(`Error: ${error.message}`, true);
+            }
+        }
+        
+        async function rebuildVectorStore() {
+            if (!confirm(`Rebuild vector store for persona "${currentPersona}"?`)) return;
+            
+            try {
+                const response = await fetch('/api/admin/rebuild', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ persona: currentPersona })
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAdminResult(result.message);
+                } else {
+                    showAdminResult(`Error: ${result.error}`, true);
+                }
+            } catch (error) {
+                showAdminResult(`Error: ${error.message}`, true);
+            }
+        }
+        
+        async function migrateBackend() {
+            const source = document.getElementById('migrateSource').value;
+            const target = document.getElementById('migrateTarget').value;
+            
+            if (source === target) {
+                showAdminResult('Error: Source and target must be different', true);
+                return;
+            }
+            
+            if (!confirm(`Migrate from ${source} to ${target} for persona "${currentPersona}"?`)) return;
+            
+            try {
+                const response = await fetch('/api/admin/migrate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        persona: currentPersona, 
+                        source: source, 
+                        target: target 
+                    })
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAdminResult(`${result.message} (${result.count} memories)`);
+                } else {
+                    showAdminResult(`Error: ${result.error}`, true);
+                }
+            } catch (error) {
+                showAdminResult(`Error: ${error.message}`, true);
+            }
+        }
+        
+        async function detectDuplicates() {
+            const threshold = parseFloat(document.getElementById('duplicateThreshold').value);
+            
+            if (isNaN(threshold) || threshold < 0 || threshold > 1) {
+                showAdminResult('Error: Threshold must be between 0.0 and 1.0', true);
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/admin/detect-duplicates', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        persona: currentPersona, 
+                        threshold: threshold,
+                        max_pairs: 50
+                    })
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    if (result.duplicates && result.duplicates.length > 0) {
+                        showAdminResult(`Found ${result.duplicates.length} duplicate pairs:\n\n${JSON.stringify(result.duplicates, null, 2)}`);
+                    } else {
+                        showAdminResult('No duplicates found!');
+                    }
+                } else {
+                    showAdminResult(`Error: ${result.error}`, true);
+                }
+            } catch (error) {
+                showAdminResult(`Error: ${error.message}`, true);
+            }
+        }
+        
+        async function mergeMemories() {
+            const keysInput = document.getElementById('mergeKeys').value.trim();
+            if (!keysInput) {
+                showAdminResult('Error: Please enter memory keys (comma-separated)', true);
+                return;
+            }
+            
+            const keys = keysInput.split(',').map(k => k.trim()).filter(k => k);
+            if (keys.length < 2) {
+                showAdminResult('Error: At least 2 keys are required for merging', true);
+                return;
+            }
+            
+            if (!confirm(`Merge ${keys.length} memories? Original memories will be deleted.`)) return;
+            
+            try {
+                const response = await fetch('/api/admin/merge', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        persona: currentPersona, 
+                        keys: keys,
+                        keep_all_tags: true,
+                        delete_originals: true
+                    })
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAdminResult(`${result.message}\nNew key: ${result.new_key}`);
+                    document.getElementById('mergeKeys').value = '';
+                    await refreshData(); // Refresh dashboard data
+                } else {
+                    showAdminResult(`Error: ${result.error}`, true);
+                }
+            } catch (error) {
+                showAdminResult(`Error: ${error.message}`, true);
+            }
+        }
+        
+        async function generateGraph() {
+            if (!confirm(`Generate new knowledge graph for persona "${currentPersona}"?`)) return;
+            
+            try {
+                const response = await fetch('/api/admin/generate-graph', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        persona: currentPersona,
+                        format: 'html',
+                        min_count: 2,
+                        min_cooccurrence: 1,
+                        remove_isolated: true
+                    })
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAdminResult(`${result.message}\nURL: ${result.url}`);
+                    await refreshData(); // Refresh to show new graph
+                } else {
+                    showAdminResult(`Error: ${result.error}`, true);
+                }
+            } catch (error) {
+                showAdminResult(`Error: ${error.message}`, true);
+            }
+        }
     </script>
 </body>
 </html>

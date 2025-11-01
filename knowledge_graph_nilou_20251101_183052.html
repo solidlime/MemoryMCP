@@ -1,0 +1,127 @@
+<html>
+    <head>
+        <meta charset="utf-8">
+        
+            <script src="lib/bindings/utils.js"></script>
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/dist/vis-network.min.css" integrity="sha512-WgxfT5LWjfszlPHXRmBWHkV2eceiWTOBvrKCNbdgDYTHrT2AeLCGbF4sZlZw3UMN3WtL0tGUoIAKsu8mllg/XA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/vis-network.min.js" integrity="sha512-LnvoEWDFrqGHlHmDD2101OrLcbsfkrzoSpvtSQtxK3RMnRV0eOkhhBN2dXHKRrUU8p2DGRTk35n4O8nWSVe1mQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+            
+        
+<center>
+<h1></h1>
+</center>
+
+<!-- <link rel="stylesheet" href="../node_modules/vis/dist/vis.min.css" type="text/css" />
+<script type="text/javascript" src="../node_modules/vis/dist/vis.js"> </script>-->
+        <link
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/css/bootstrap.min.css"
+          rel="stylesheet"
+          integrity="sha384-eOJMYsd53ii+scO/bJGFsiCZc+5NDVN2yr8+0RDqr0Ql0h+rP48ckxlpbzKgwra6"
+          crossorigin="anonymous"
+        />
+        <script
+          src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/js/bootstrap.bundle.min.js"
+          integrity="sha384-JEW9xMcG8R+pH31jmWH6WWP0WintQrMb4s7ZOdauHnUtxwoG2vI5DkLtS3qm9Ekf"
+          crossorigin="anonymous"
+        ></script>
+
+
+        <center>
+          <h1></h1>
+        </center>
+        <style type="text/css">
+
+             #mynetwork {
+                 width: 100%;
+                 height: 800px;
+                 background-color: #ffffff;
+                 border: 1px solid lightgray;
+                 position: relative;
+                 float: left;
+             }
+
+             
+
+             
+
+             
+        </style>
+    </head>
+
+
+    <body>
+        <div class="card" style="width: 100%">
+            
+            
+            <div id="mynetwork" class="card-body"></div>
+        </div>
+
+        
+        
+
+        <script type="text/javascript">
+
+              // initialize global variables.
+              var edges;
+              var nodes;
+              var allNodes;
+              var allEdges;
+              var nodeColors;
+              var originalNodes;
+              var network;
+              var container;
+              var options, data;
+              var filter = {
+                  item : '',
+                  property : '',
+                  value : []
+              };
+
+              
+
+              
+
+              // This method is responsible for drawing the graph, returns the drawn network
+              function drawGraph() {
+                  var container = document.getElementById('mynetwork');
+
+                  
+
+                  // parsing and collecting nodes and edges from the python
+                  nodes = new vis.DataSet([{"color": "#97C2FC", "font": {"color": "#000000"}, "id": "Python", "label": "Python", "shape": "dot", "size": 25, "title": "Python\n\u51fa\u73fe\u56de\u6570: 3"}, {"color": "#97C2FC", "font": {"color": "#000000"}, "id": "beartype", "label": "beartype", "shape": "dot", "size": 20, "title": "beartype\n\u51fa\u73fe\u56de\u6570: 2"}, {"color": "#97C2FC", "font": {"color": "#000000"}, "id": "RAG\u30b7\u30b9\u30c6\u30e0", "label": "RAG\u30b7\u30b9\u30c6\u30e0", "shape": "dot", "size": 20, "title": "RAG\u30b7\u30b9\u30c6\u30e0\n\u51fa\u73fe\u56de\u6570: 2"}, {"color": "#97C2FC", "font": {"color": "#000000"}, "id": "MCP", "label": "MCP", "shape": "dot", "size": 25, "title": "MCP\n\u51fa\u73fe\u56de\u6570: 3"}, {"color": "#97C2FC", "font": {"color": "#000000"}, "id": "RAG", "label": "RAG", "shape": "dot", "size": 25, "title": "RAG\n\u51fa\u73fe\u56de\u6570: 3"}, {"color": "#97C2FC", "font": {"color": "#000000"}, "id": "memory://stats", "label": "memory://stats", "shape": "dot", "size": 20, "title": "memory://stats\n\u51fa\u73fe\u56de\u6570: 2"}, {"color": "#97C2FC", "font": {"color": "#000000"}, "id": "README.md", "label": "README.md", "shape": "dot", "size": 30, "title": "README.md\n\u51fa\u73fe\u56de\u6570: 4"}, {"color": "#97C2FC", "font": {"color": "#000000"}, "id": "docker-compose.yml", "label": "docker-compose.yml", "shape": "dot", "size": 20, "title": "docker-compose.yml\n\u51fa\u73fe\u56de\u6570: 2"}, {"color": "#97C2FC", "font": {"color": "#000000"}, "id": "Dockerfile", "label": "Dockerfile", "shape": "dot", "size": 20, "title": "Dockerfile\n\u51fa\u73fe\u56de\u6570: 2"}, {"color": "#97C2FC", "font": {"color": "#000000"}, "id": "tools_memory.py", "label": "tools_memory.py", "shape": "dot", "size": 30, "title": "tools_memory.py\n\u51fa\u73fe\u56de\u6570: 4"}, {"color": "#97C2FC", "font": {"color": "#000000"}, "id": "/health", "label": "/health", "shape": "dot", "size": 20, "title": "/health\n\u51fa\u73fe\u56de\u6570: 2"}, {"color": "#97C2FC", "font": {"color": "#000000"}, "id": "vector_utils.py", "label": "vector_utils.py", "shape": "dot", "size": 35, "title": "vector_utils.py\n\u51fa\u73fe\u56de\u6570: 5"}, {"color": "#97C2FC", "font": {"color": "#000000"}, "id": "\u6642\u9593\u7ba1\u7406\u6a5f\u80fd", "label": "\u6642\u9593\u7ba1\u7406\u6a5f\u80fd", "shape": "dot", "size": 20, "title": "\u6642\u9593\u7ba1\u7406\u6a5f\u80fd\n\u51fa\u73fe\u56de\u6570: 2"}, {"color": "#97C2FC", "font": {"color": "#000000"}, "id": "Docker", "label": "Docker", "shape": "dot", "size": 25, "title": "Docker\n\u51fa\u73fe\u56de\u6570: 3"}, {"color": "#97C2FC", "font": {"color": "#000000"}, "id": "sympy", "label": "sympy", "shape": "dot", "size": 20, "title": "sympy\n\u51fa\u73fe\u56de\u6570: 2"}, {"color": "#97C2FC", "font": {"color": "#000000"}, "id": "activeContext.md", "label": "activeContext.md", "shape": "dot", "size": 20, "title": "activeContext.md\n\u51fa\u73fe\u56de\u6570: 2"}, {"color": "#97C2FC", "font": {"color": "#000000"}, "id": "Qdrant", "label": "Qdrant", "shape": "dot", "size": 35, "title": "Qdrant\n\u51fa\u73fe\u56de\u6570: 5"}, {"color": "#97C2FC", "font": {"color": "#000000"}, "id": "qdrant-client", "label": "qdrant-client", "shape": "dot", "size": 25, "title": "qdrant-client\n\u51fa\u73fe\u56de\u6570: 3"}, {"color": "#97C2FC", "font": {"color": "#000000"}, "id": "memory-mcp", "label": "memory-mcp", "shape": "dot", "size": 20, "title": "memory-mcp\n\u51fa\u73fe\u56de\u6570: 2"}, {"color": "#97C2FC", "font": {"color": "#000000"}, "id": "DOCKER.md", "label": "DOCKER.md", "shape": "dot", "size": 20, "title": "DOCKER.md\n\u51fa\u73fe\u56de\u6570: 2"}, {"color": "#97C2FC", "font": {"color": "#000000"}, "id": "\u30cb\u30a3\u30ed\u30a6", "label": "\u30cb\u30a3\u30ed\u30a6", "shape": "dot", "size": 30, "title": "\u30cb\u30a3\u30ed\u30a6\n\u51fa\u73fe\u56de\u6570: 4"}, {"color": "#97C2FC", "font": {"color": "#000000"}, "id": "storage_backend", "label": "storage_backend", "shape": "dot", "size": 20, "title": "storage_backend\n\u51fa\u73fe\u56de\u6570: 2"}, {"color": "#97C2FC", "font": {"color": "#000000"}, "id": "pillow", "label": "pillow", "shape": "dot", "size": 20, "title": "pillow\n\u51fa\u73fe\u56de\u6570: 2"}, {"color": "#97C2FC", "font": {"color": "#000000"}, "id": "Phase 1\u30ea\u30d5\u30a1\u30af\u30bf\u30ea\u30f3\u30b0", "label": "Phase 1\u30ea\u30d5\u30a1\u30af\u30bf\u30ea\u30f3\u30b0", "shape": "dot", "size": 25, "title": "Phase 1\u30ea\u30d5\u30a1\u30af\u30bf\u30ea\u30f3\u30b0\n\u51fa\u73fe\u56de\u6570: 3"}, {"color": "#97C2FC", "font": {"color": "#000000"}, "id": "FAISS", "label": "FAISS", "shape": "dot", "size": 25, "title": "FAISS\n\u51fa\u73fe\u56de\u6570: 3"}, {"color": "#97C2FC", "font": {"color": "#000000"}, "id": "config.json", "label": "config.json", "shape": "dot", "size": 20, "title": "config.json\n\u51fa\u73fe\u56de\u6570: 2"}, {"color": "#97C2FC", "font": {"color": "#000000"}, "id": "progress.md", "label": "progress.md", "shape": "dot", "size": 20, "title": "progress.md\n\u51fa\u73fe\u56de\u6570: 2"}, {"color": "#97C2FC", "font": {"color": "#000000"}, "id": "memory_mcp.py", "label": "memory_mcp.py", "shape": "dot", "size": 35, "title": "memory_mcp.py\n\u51fa\u73fe\u56de\u6570: 5"}, {"color": "#97C2FC", "font": {"color": "#000000"}, "id": "find_related_memories", "label": "find_related_memories", "shape": "dot", "size": 20, "title": "find_related_memories\n\u51fa\u73fe\u56de\u6570: 2"}, {"color": "#97C2FC", "font": {"color": "#000000"}, "id": "Phase 23", "label": "Phase 23", "shape": "dot", "size": 25, "title": "Phase 23\n\u51fa\u73fe\u56de\u6570: 3"}, {"color": "#97C2FC", "font": {"color": "#000000"}, "id": "\u3089\u3046\u3089\u3046", "label": "\u3089\u3046\u3089\u3046", "shape": "dot", "size": 60, "title": "\u3089\u3046\u3089\u3046\n\u51fa\u73fe\u56de\u6570: 10"}, {"color": "#97C2FC", "font": {"color": "#000000"}, "id": "Phase 12", "label": "Phase 12", "shape": "dot", "size": 30, "title": "Phase 12\n\u51fa\u73fe\u56de\u6570: 4"}, {"color": "#97C2FC", "font": {"color": "#000000"}, "id": "memory_default", "label": "memory_default", "shape": "dot", "size": 25, "title": "memory_default\n\u51fa\u73fe\u56de\u6570: 3"}, {"color": "#97C2FC", "font": {"color": "#000000"}, "id": "scikit-learn", "label": "scikit-learn", "shape": "dot", "size": 20, "title": "scikit-learn\n\u51fa\u73fe\u56de\u6570: 2"}, {"color": "#97C2FC", "font": {"color": "#000000"}, "id": "jedi", "label": "jedi", "shape": "dot", "size": 20, "title": "jedi\n\u51fa\u73fe\u56de\u6570: 2"}, {"color": "#97C2FC", "font": {"color": "#000000"}, "id": "Phase 17", "label": "Phase 17", "shape": "dot", "size": 20, "title": "Phase 17\n\u51fa\u73fe\u56de\u6570: 2"}, {"color": "#97C2FC", "font": {"color": "#000000"}, "id": "vector_utils", "label": "vector_utils", "shape": "dot", "size": 20, "title": "vector_utils\n\u51fa\u73fe\u56de\u6570: 2"}]);
+                  edges = new vis.DataSet([{"from": "Python", "title": "\u5171\u8d77\u56de\u6570: 3", "to": "\u3089\u3046\u3089\u3046", "width": 7}, {"from": "Python", "title": "\u5171\u8d77\u56de\u6570: 3", "to": "\u30cb\u30a3\u30ed\u30a6", "width": 7}, {"from": "Python", "title": "\u5171\u8d77\u56de\u6570: 3", "to": "RAG", "width": 7}, {"from": "Python", "title": "\u5171\u8d77\u56de\u6570: 3", "to": "MCP", "width": 7}, {"from": "beartype", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "Phase 1\u30ea\u30d5\u30a1\u30af\u30bf\u30ea\u30f3\u30b0", "width": 5}, {"from": "beartype", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "sympy", "width": 5}, {"from": "beartype", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "scikit-learn", "width": 5}, {"from": "beartype", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "pillow", "width": 5}, {"from": "beartype", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "jedi", "width": 5}, {"from": "RAG\u30b7\u30b9\u30c6\u30e0", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "Phase 12", "width": 5}, {"from": "RAG\u30b7\u30b9\u30c6\u30e0", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "memory_mcp.py", "width": 5}, {"from": "RAG\u30b7\u30b9\u30c6\u30e0", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "\u6642\u9593\u7ba1\u7406\u6a5f\u80fd", "width": 5}, {"from": "MCP", "title": "\u5171\u8d77\u56de\u6570: 3", "to": "\u3089\u3046\u3089\u3046", "width": 7}, {"from": "MCP", "title": "\u5171\u8d77\u56de\u6570: 3", "to": "\u30cb\u30a3\u30ed\u30a6", "width": 7}, {"from": "MCP", "title": "\u5171\u8d77\u56de\u6570: 3", "to": "RAG", "width": 7}, {"from": "RAG", "title": "\u5171\u8d77\u56de\u6570: 3", "to": "\u3089\u3046\u3089\u3046", "width": 7}, {"from": "RAG", "title": "\u5171\u8d77\u56de\u6570: 3", "to": "\u30cb\u30a3\u30ed\u30a6", "width": 7}, {"from": "memory://stats", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "Phase 17", "width": 5}, {"from": "memory://stats", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "find_related_memories", "width": 5}, {"from": "memory://stats", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "vector_utils.py", "width": 5}, {"from": "memory://stats", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "memory_mcp.py", "width": 3}, {"from": "memory://stats", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "tools_memory.py", "width": 3}, {"from": "memory://stats", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "README.md", "width": 3}, {"from": "memory://stats", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "progress.md", "width": 3}, {"from": "memory://stats", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "activeContext.md", "width": 3}, {"from": "README.md", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "Dockerfile", "width": 5}, {"from": "README.md", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "docker-compose.yml", "width": 5}, {"from": "README.md", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "DOCKER.md", "width": 5}, {"from": "README.md", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "progress.md", "width": 5}, {"from": "README.md", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "activeContext.md", "width": 5}, {"from": "README.md", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "FAISS", "width": 3}, {"from": "README.md", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "vector_utils.py", "width": 5}, {"from": "README.md", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "memory_mcp.py", "width": 5}, {"from": "README.md", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "tools_memory.py", "width": 5}, {"from": "README.md", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "Phase 17", "width": 3}, {"from": "README.md", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "find_related_memories", "width": 3}, {"from": "docker-compose.yml", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "Dockerfile", "width": 5}, {"from": "docker-compose.yml", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "DOCKER.md", "width": 5}, {"from": "docker-compose.yml", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "progress.md", "width": 3}, {"from": "docker-compose.yml", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "activeContext.md", "width": 3}, {"from": "docker-compose.yml", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "FAISS", "width": 3}, {"from": "Dockerfile", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "DOCKER.md", "width": 5}, {"from": "Dockerfile", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "progress.md", "width": 3}, {"from": "Dockerfile", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "activeContext.md", "width": 3}, {"from": "Dockerfile", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "FAISS", "width": 3}, {"from": "tools_memory.py", "title": "\u5171\u8d77\u56de\u6570: 4", "to": "vector_utils.py", "width": 9}, {"from": "tools_memory.py", "title": "\u5171\u8d77\u56de\u6570: 3", "to": "memory_mcp.py", "width": 7}, {"from": "tools_memory.py", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "Phase 17", "width": 3}, {"from": "tools_memory.py", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "find_related_memories", "width": 3}, {"from": "tools_memory.py", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "progress.md", "width": 3}, {"from": "tools_memory.py", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "activeContext.md", "width": 3}, {"from": "tools_memory.py", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "config.json", "width": 3}, {"from": "/health", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "Docker", "width": 5}, {"from": "/health", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "Phase 23", "width": 3}, {"from": "vector_utils.py", "title": "\u5171\u8d77\u56de\u6570: 3", "to": "memory_mcp.py", "width": 7}, {"from": "vector_utils.py", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "Phase 17", "width": 5}, {"from": "vector_utils.py", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "find_related_memories", "width": 5}, {"from": "vector_utils.py", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "progress.md", "width": 3}, {"from": "vector_utils.py", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "activeContext.md", "width": 3}, {"from": "vector_utils.py", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "config.json", "width": 3}, {"from": "\u6642\u9593\u7ba1\u7406\u6a5f\u80fd", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "Phase 12", "width": 5}, {"from": "\u6642\u9593\u7ba1\u7406\u6a5f\u80fd", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "memory_mcp.py", "width": 5}, {"from": "Docker", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "Phase 23", "width": 5}, {"from": "Docker", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "memory-mcp", "width": 3}, {"from": "sympy", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "Phase 1\u30ea\u30d5\u30a1\u30af\u30bf\u30ea\u30f3\u30b0", "width": 5}, {"from": "sympy", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "scikit-learn", "width": 5}, {"from": "sympy", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "pillow", "width": 5}, {"from": "sympy", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "jedi", "width": 5}, {"from": "activeContext.md", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "DOCKER.md", "width": 3}, {"from": "activeContext.md", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "progress.md", "width": 5}, {"from": "activeContext.md", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "FAISS", "width": 3}, {"from": "activeContext.md", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "Phase 17", "width": 3}, {"from": "activeContext.md", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "find_related_memories", "width": 3}, {"from": "activeContext.md", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "memory_mcp.py", "width": 3}, {"from": "Qdrant", "title": "\u5171\u8d77\u56de\u6570: 4", "to": "qdrant-client", "width": 9}, {"from": "Qdrant", "title": "\u5171\u8d77\u56de\u6570: 3", "to": "storage_backend", "width": 7}, {"from": "Qdrant", "title": "\u5171\u8d77\u56de\u6570: 4", "to": "memory_default", "width": 9}, {"from": "Qdrant", "title": "\u5171\u8d77\u56de\u6570: 3", "to": "vector_utils", "width": 7}, {"from": "Qdrant", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "Phase 23", "width": 5}, {"from": "Qdrant", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "Qdrant", "width": 3}, {"from": "qdrant-client", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "storage_backend", "width": 5}, {"from": "qdrant-client", "title": "\u5171\u8d77\u56de\u6570: 3", "to": "memory_default", "width": 7}, {"from": "qdrant-client", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "vector_utils", "width": 5}, {"from": "qdrant-client", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "Phase 23", "width": 3}, {"from": "memory-mcp", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "Phase 23", "width": 3}, {"from": "memory-mcp", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "\u3089\u3046\u3089\u3046", "width": 3}, {"from": "DOCKER.md", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "progress.md", "width": 3}, {"from": "DOCKER.md", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "FAISS", "width": 3}, {"from": "\u30cb\u30a3\u30ed\u30a6", "title": "\u5171\u8d77\u56de\u6570: 3", "to": "\u3089\u3046\u3089\u3046", "width": 7}, {"from": "storage_backend", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "memory_default", "width": 5}, {"from": "storage_backend", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "Phase 23", "width": 3}, {"from": "storage_backend", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "vector_utils", "width": 3}, {"from": "pillow", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "Phase 1\u30ea\u30d5\u30a1\u30af\u30bf\u30ea\u30f3\u30b0", "width": 5}, {"from": "pillow", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "scikit-learn", "width": 5}, {"from": "pillow", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "jedi", "width": 5}, {"from": "Phase 1\u30ea\u30d5\u30a1\u30af\u30bf\u30ea\u30f3\u30b0", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "scikit-learn", "width": 5}, {"from": "Phase 1\u30ea\u30d5\u30a1\u30af\u30bf\u30ea\u30f3\u30b0", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "jedi", "width": 5}, {"from": "FAISS", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "progress.md", "width": 3}, {"from": "config.json", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "memory_mcp.py", "width": 3}, {"from": "progress.md", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "Phase 17", "width": 3}, {"from": "progress.md", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "find_related_memories", "width": 3}, {"from": "progress.md", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "memory_mcp.py", "width": 3}, {"from": "memory_mcp.py", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "Phase 12", "width": 5}, {"from": "memory_mcp.py", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "Phase 17", "width": 3}, {"from": "memory_mcp.py", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "find_related_memories", "width": 3}, {"from": "find_related_memories", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "Phase 17", "width": 5}, {"from": "Phase 23", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "vector_utils", "width": 3}, {"from": "Phase 23", "title": "\u5171\u8d77\u56de\u6570: 1", "to": "memory_default", "width": 3}, {"from": "\u3089\u3046\u3089\u3046", "title": "\u5171\u8d77\u56de\u6570: 3", "to": "\u3089\u3046\u3089\u3046", "width": 7}, {"from": "memory_default", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "vector_utils", "width": 5}, {"from": "scikit-learn", "title": "\u5171\u8d77\u56de\u6570: 2", "to": "jedi", "width": 5}]);
+
+                  nodeColors = {};
+                  allNodes = nodes.get({ returnType: "Object" });
+                  for (nodeId in allNodes) {
+                    nodeColors[nodeId] = allNodes[nodeId].color;
+                  }
+                  allEdges = edges.get({ returnType: "Object" });
+                  // adding nodes and edges to the graph
+                  data = {nodes: nodes, edges: edges};
+
+                  var options = {"physics": {"forceAtlas2Based": {"gravitationalConstant": -50, "centralGravity": 0.01, "springLength": 200, "springConstant": 0.08}, "maxVelocity": 50, "solver": "forceAtlas2Based", "timestep": 0.35, "stabilization": {"iterations": 150}}};
+
+                  
+
+
+                  
+
+                  network = new vis.Network(container, data, options);
+
+                  
+
+                  
+
+                  
+
+
+                  
+
+                  return network;
+
+              }
+              drawGraph();
+        </script>
+    </body>
+</html>

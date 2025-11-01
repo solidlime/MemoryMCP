@@ -234,3 +234,94 @@ def export_graph_html(
     net.save_graph(output_path)
     
     return output_path
+
+
+# ============================================================================
+# Duplicate Detection and Memory Merging
+# ============================================================================
+
+def detect_duplicate_memories(threshold: float = 0.85, max_pairs: int = 50) -> List[Dict]:
+    """
+    Detect duplicate or highly similar memory pairs using embeddings similarity.
+    
+    Args:
+        threshold: Similarity threshold (0.0-1.0). Default 0.85 means 85% similar or more
+        max_pairs: Maximum number of duplicate pairs to return (default: 50)
+        
+    Returns:
+        List of duplicate pairs sorted by similarity score
+    """
+    # Delegate to vector_utils implementation
+    from vector_utils import detect_duplicate_memories as _detect_duplicates
+    return _detect_duplicates(threshold=threshold, max_pairs=max_pairs)
+
+
+def merge_memories(
+    memory_keys: List[str],
+    merged_content: Optional[str] = None,
+    keep_all_tags: bool = True,
+    delete_originals: bool = True
+) -> str:
+    """
+    Merge multiple memories into a single consolidated memory.
+    
+    Args:
+        memory_keys: List of memory keys to merge (minimum 2)
+        merged_content: Content for merged memory. If None, contents are concatenated
+        keep_all_tags: If True, combine tags from all memories
+        delete_originals: If True, delete original memories after merge
+        
+    Returns:
+        New merged memory key
+    """
+    from core import load_memory_from_db, save_memory_to_db, delete_memory_from_db, generate_auto_key
+    from datetime import datetime
+    
+    if not memory_keys or len(memory_keys) < 2:
+        raise ValueError("At least 2 memory keys are required for merging")
+    
+    # Load all memories
+    memories = []
+    all_tags = set()
+    for key in memory_keys:
+        memory = load_memory_from_db(key)
+        if not memory:
+            raise ValueError(f"Memory not found: {key}")
+        memories.append(memory)
+        
+        # Collect tags
+        if memory.get("tags"):
+            all_tags.update(memory["tags"])
+    
+    # Create merged content
+    if merged_content is None:
+        # Concatenate all contents with separators
+        content_parts = [m["content"] for m in memories]
+        merged_content = "\n\n".join(content_parts)
+    
+    # Prepare merged memory data
+    merged_tags = list(all_tags) if keep_all_tags else memories[0].get("tags", [])
+    
+    # Use earliest created_at as timestamp
+    created_dates = [datetime.fromisoformat(m["created_at"]) for m in memories]
+    earliest_date = min(created_dates)
+    
+    # Generate new key
+    new_key = generate_auto_key()
+    
+    # Save merged memory
+    merged_memory = {
+        "key": new_key,
+        "content": merged_content,
+        "tags": merged_tags,
+        "created_at": earliest_date.isoformat()
+    }
+    save_memory_to_db(merged_memory)
+    
+    # Delete originals if requested
+    if delete_originals:
+        for key in memory_keys:
+            delete_memory_from_db(key)
+    
+    return new_key
+

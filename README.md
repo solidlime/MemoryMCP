@@ -259,13 +259,94 @@ export MEMORY_MCP_EMBEDDINGS_DEVICE=cpu
 `MEMORY_MCP_DATA_DIR` は `/data` を指し、その中に `memory/`、`logs/`、`cache/` が作成されます。
 
 ## MCPリソースとツール
-- `memory://info` / `memory://metrics` / `memory://stats` / `memory://cleanup`
-- CRUD: `create_memory`, `read_memory`, `update_memory`, `delete_memory`, `list_memory`
-- 検索: `search_memory`, `search_memory_rag`, `search_memory_by_date`, `search_memory_by_tags`
-- 管理: `find_related_memories`, `detect_duplicates`, `merge_memories`, `rebuild_vector_store_tool`, `clean_memory`
-- **移行**: `migrate_sqlite_to_qdrant_tool`, `migrate_qdrant_to_sqlite_tool` （SQLite⇔Qdrant双方向移行）
-- コンテキスト: `get_persona_context`, `get_time_since_last_conversation`
-- 生成: `generate_knowledge_graph`
+
+### LLM用ツール（11個）
+会話型AIが直接使用するツールです。`/mcp`エンドポイント経由でアクセスできます。
+
+**リソース**:
+- `memory://info` - メモリ統計情報
+- `memory://metrics` - 詳細メトリクス
+- `memory://stats` - 統計データ
+- `memory://cleanup` - 自動整理レポート
+
+**CRUD操作**:
+- `create_memory` - 新しい記憶を作成
+- `read_memory` - 記憶を読み取り
+- `update_memory` - 記憶を更新
+- `delete_memory` - 記憶を削除
+- `list_memory` - 全記憶一覧
+
+**検索・分析**:
+- `search_memory` - キーワード検索
+- `search_memory_rag` - 意味検索（RAG）
+- `find_related_memories` - 関連記憶検索
+- `analyze_sentiment` - 感情分析
+
+**コンテキスト管理**:
+- `get_persona_context` - Personaコンテキスト取得
+- `get_time_since_last_conversation` - 最終会話時刻
+
+### 管理者用ツール（7個）
+
+管理者がメンテナンスに使用するツールです。以下3つの方法でアクセスできます：
+
+#### 1. CLI（admin_tools.py）
+
+```bash
+# 仮想環境を有効化
+source venv-rag/bin/activate
+
+# ヘルプ表示
+python3 admin_tools.py --help
+
+# 使用例
+python3 admin_tools.py clean --persona nilou --key memory_20251101183052
+python3 admin_tools.py rebuild --persona nilou
+python3 admin_tools.py migrate --source sqlite --target qdrant --persona nilou
+python3 admin_tools.py detect-duplicates --persona nilou --threshold 0.85
+python3 admin_tools.py merge --persona nilou --keys memory_001,memory_002
+python3 admin_tools.py generate-graph --persona nilou --format html
+```
+
+#### 2. Webダッシュボード
+
+`http://localhost:8000/`（開発）または`http://localhost:26262/`（Docker）にアクセスし、🛠️ Admin Toolsカードから実行できます。
+
+- 🧹 Clean Memory - 重複行削除
+- 🔄 Rebuild Vector Store - ベクトルストア再構築
+- 🔀 Migrate Backend - SQLite⇔Qdrant移行
+- 🔍 Detect Duplicates - 類似記憶検出
+- 🔗 Merge Memories - 複数記憶の統合
+- 🕸️ Generate Graph - ナレッジグラフ生成
+
+#### 3. API呼び出し
+
+```bash
+# 例: ナレッジグラフ生成
+curl -X POST http://localhost:8000/api/admin/generate-graph \
+  -H "Content-Type: application/json" \
+  -H "X-Persona: nilou" \
+  -d '{"persona":"nilou","format":"html","min_count":2}'
+
+# 例: 重複検出
+curl -X POST http://localhost:8000/api/admin/detect-duplicates \
+  -H "Content-Type: application/json" \
+  -H "X-Persona: nilou" \
+  -d '{"persona":"nilou","threshold":0.85,"max_pairs":50}'
+```
+
+**管理ツール一覧**:
+- `clean` - メモリ内の重複行を削除
+- `rebuild` - ベクトルストアを再構築
+- `migrate` - SQLite⇔Qdrant間でデータ移行
+- `detect-duplicates` - 類似した記憶を検出
+- `merge` - 複数の記憶を1つに統合
+- `generate-graph` - 知識グラフHTMLを生成
+
+**LLMツールから除外された理由**:
+- 管理ツールはメンテナンス作業用
+- LLMの会話中に誤って実行されるリスクを回避
+- 人間の判断が必要な操作（削除・統合など）
 
 ## 自動処理とバックグラウンド機能
 - 感情分析 (Phase 19): テキストから joy/sadness/neutral を推定
