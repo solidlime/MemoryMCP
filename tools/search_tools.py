@@ -319,17 +319,18 @@ async def search_memory_rag(
             # Apply filters
             if min_importance is not None and meta.get("importance", 0) < min_importance:
                 continue
-            if emotion and meta.get("emotion") != emotion:
+            # 🆕 Phase 26.3: Fuzzy matching for text filters (case-insensitive partial match)
+            if emotion and emotion.lower() not in str(meta.get("emotion", "")).lower():
                 continue
-            if action_tag and meta.get("action_tag") != action_tag:
+            if action_tag and action_tag.lower() not in str(meta.get("action_tag", "")).lower():
                 continue
-            if environment and meta.get("environment") != environment:
+            if environment and environment.lower() not in str(meta.get("environment", "")).lower():
                 continue
-            if physical_state and meta.get("physical_state") != physical_state:
+            if physical_state and physical_state.lower() not in str(meta.get("physical_state", "")).lower():
                 continue
-            if mental_state and meta.get("mental_state") != mental_state:
+            if mental_state and mental_state.lower() not in str(meta.get("mental_state", "")).lower():
                 continue
-            if relationship_status and meta.get("relationship_status") != relationship_status:
+            if relationship_status and relationship_status.lower() not in str(meta.get("relationship_status", "")).lower():
                 continue
             
             # 🆕 Phase 26.2: Calculate custom score
