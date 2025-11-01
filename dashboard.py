@@ -24,7 +24,9 @@ from vector_utils import get_vector_count
 
 # Get script directory for output files
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-MEMORY_ROOT = os.path.join(SCRIPT_DIR, "memory")
+# Use MEMORY_MCP_DATA_DIR if available (Docker), otherwise use local ./memory
+DATA_DIR = os.getenv("MEMORY_MCP_DATA_DIR", SCRIPT_DIR)
+MEMORY_ROOT = os.path.join(DATA_DIR, "memory")
 
 
 def db_count_entries() -> int:

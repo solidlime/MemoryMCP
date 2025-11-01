@@ -192,9 +192,7 @@ if __name__ == "__main__":
     server_port = config.get("server_port", 26262)
     print(f"📝 Server configuration: {server_host}:{server_port}")
     _log_progress(f"📝 Server configuration: {server_host}:{server_port}")
-    # Load memory database first (includes migration)
-    print("📥 Loading memory database...")
-    load_memory_from_db()
+    # Note: Memory database is loaded on-demand per request (no default persona loading at startup)
     # Initialize RAG synchronously before starting MCP server
     print("📥 Starting RAG system initialization...")
     _initialize_rag_sync()

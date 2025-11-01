@@ -26,15 +26,18 @@ RUN pip install --no-cache-dir \
 FROM python:3.12-slim
 
 ENV APP_HOME=/opt/memory-mcp \
-    DATA_HOME=/data
+    DATA_HOME=/data \
+    TZ=Asia/Tokyo
 
 # Set working directory
 WORKDIR ${APP_HOME}
 
-# Install only runtime dependencies (curl for healthcheck)
+# Install only runtime dependencies (curl for healthcheck, tzdata for timezone)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     curl \
+    tzdata \
+    && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy Python packages from builder
@@ -54,19 +57,15 @@ RUN mkdir -p ${DATA_HOME}/memory \
 
 # Default runtime environment
 ENV HF_HOME=${DATA_HOME}/cache/huggingface \
-    TRANSFORMERS_CACHE=${DATA_HOME}/cache/transformers \
     SENTENCE_TRANSFORMERS_HOME=${DATA_HOME}/cache/sentence_transformers \
     TORCH_HOME=${DATA_HOME}/cache/torch \
     MEMORY_MCP_DATA_DIR=${DATA_HOME} \
-    MEMORY_MCP_CONFIG_PATH=${DATA_HOME}/config.json \
-    MEMORY_MCP_LOG_FILE=${DATA_HOME}/logs/memory_operations.log \
     MEMORY_MCP_SERVER_HOST=0.0.0.0 \
     MEMORY_MCP_SERVER_PORT=26262 \
     MEMORY_MCP_EMBEDDINGS_MODEL=cl-nagoya/ruri-v3-30m \
     MEMORY_MCP_EMBEDDINGS_DEVICE=cpu \
     MEMORY_MCP_RERANKER_MODEL=hotchpotch/japanese-reranker-xsmall-v2 \
     MEMORY_MCP_RERANKER_TOP_N=5 \
-    MEMORY_MCP_TIMEZONE=Asia/Tokyo \
     MEMORY_MCP_STORAGE_BACKEND=qdrant \
     MEMORY_MCP_QDRANT_URL=http://nas:6333 \
     MEMORY_MCP_QDRANT_COLLECTION_PREFIX=memory_ \
