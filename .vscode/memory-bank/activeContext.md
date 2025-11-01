@@ -17,6 +17,9 @@
 - ✅ Multi-stage build導入（build-essential除外）
 - ✅ プロジェクトメモリバンク更新
 - ✅ README更新（本番移行ガイド、Docker最適化記録）
+- ✅ Qdrant接続確認ツール実装（check_qdrant.py）
+- ✅ VS Code Tasks追加（Qdrant接続チェック、移行ツール）
+- ✅ ドキュメント更新（README.md、DOCKER.md）
 
 ---
 

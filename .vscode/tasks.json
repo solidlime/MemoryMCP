@@ -1,0 +1,79 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Check Qdrant Connection (Production)",
+            "type": "shell",
+            "command": "python3",
+            "args": [
+                "check_qdrant.py",
+                "http://nas:6333"
+            ],
+            "problemMatcher": [],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            }
+        },
+        {
+            "label": "Check Qdrant Connection (Local)",
+            "type": "shell",
+            "command": "python3",
+            "args": [
+                "check_qdrant.py",
+                "http://localhost:6333"
+            ],
+            "problemMatcher": [],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            }
+        },
+        {
+            "label": "Check Qdrant Connection (Auto from config)",
+            "type": "shell",
+            "command": "python3",
+            "args": [
+                "check_qdrant.py"
+            ],
+            "problemMatcher": [],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            }
+        },
+        {
+            "label": "Migrate SQLite to Qdrant",
+            "type": "shell",
+            "command": "python3",
+            "args": [
+                "migrate_to_qdrant.py"
+            ],
+            "problemMatcher": [],
+            "group": "none",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            }
+        }
+    ]
+}
