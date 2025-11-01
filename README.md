@@ -273,7 +273,7 @@ export MEMORY_MCP_EMBEDDINGS_DEVICE=cpu
 
 ## MCPリソースとツール
 
-### LLM用ツール（11個）
+### LLM用ツール（9個）
 会話型AIが直接使用するツールです。`/mcp`エンドポイント経由でアクセスできます。
 
 **リソース**:
@@ -281,6 +281,14 @@ export MEMORY_MCP_EMBEDDINGS_DEVICE=cpu
 - `memory://metrics` - 詳細メトリクス
 - `memory://stats` - 統計データ
 - `memory://cleanup` - 自動整理レポート
+
+**セッション管理**:
+- `get_session_context` - **セッション開始時の総合コンテキスト取得** (Phase 26.5)
+  - ペルソナ状態（ユーザー情報、感情、関係性、環境など）
+  - 最終会話からの経過時間（自動更新）
+  - 記憶統計（件数、最近の記憶、重要度/感情/タグ分布）
+  - 💡 **推奨**: 毎セッション開始時に最初に呼ぶツール
+  - 💡 以下3ツールを統合：`get_memory_stats`, `get_persona_context`, `get_time_since_last_conversation`
 
 **CRUD操作**:
 - `create_memory` - 新しい記憶を作成
@@ -305,10 +313,6 @@ export MEMORY_MCP_EMBEDDINGS_DEVICE=cpu
     - 例: `emotion="joy"` → "joy", "joyful", "overjoyed" 全部ヒット
 - `find_related_memories` - 関連記憶検索
 - `analyze_sentiment` - 感情分析
-
-**コンテキスト管理**:
-- `get_persona_context` - Personaコンテキスト取得
-- `get_time_since_last_conversation` - 最終会話時刻
 
 ### 管理者用ツール（7個）
 

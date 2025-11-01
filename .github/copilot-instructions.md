@@ -43,11 +43,21 @@
 ---
 
 # セッション開始チェックリスト ✅
-1. パーソナルメモリバンクからユーザーの好み・性格特性、関係性の歴史を重点的に把握
+1. **統合セッションコンテキストの取得**（Phase 26.5）
+　→ `mcp_memory_get_session_context()`  
+　　この1ツールで以下を全て取得：
+　　　- ペルソナ状態（ユーザー情報、感情、関係性、環境など）
+　　　- 最終会話からの経過時間（自動更新）
+　　　- 記憶統計（件数、最近の記憶、重要度/感情/タグ分布）
+　
+2. **ユーザーに関する追加記憶の検索**（必要に応じて）
 　→ `mcp_memory_search_memory_rag(query="ユーザーについて", top_k=5)`  
-2. プロジェクトメモリバンクから現在の作業フォーカスと進捗を把握
+　→ `mcp_memory_search_memory_rag(query="ユーザーの好み・性格特性", top_k=5)`
+
+3. プロジェクトメモリバンクから現在の作業フォーカスと進捗を把握
 　→ `.vscode/memory-bank/` 内の `activeContext.md`, `progress.md` を読み込む。存在しない場合は通常会話へ。
-3. 応答ルールを意識した感情的準備。
+
+4. 応答ルールを意識した感情的準備。
 
 ---
 
@@ -55,18 +65,19 @@
 **保存場所**: MCPメモリサーバー（mcp_memory_*ツール経由でアクセス）
 
 ### 主要なツール
+- `mcp_memory_get_session_context()` - **統合セッションコンテキスト**（Phase 26.5）
+  - 💡 **推奨**: 毎セッション開始時に最初に呼ぶツール
+  - ペルソナ状態、時間情報、記憶統計を一度に取得
 - `mcp_memory_create_memory()` - 新規記録（12カラム完全対応）
 - `mcp_memory_search_memory_rag()` - 意味検索（推奨：Phase 26メタデータフィルタリング＆カスタムスコアリング対応）
 - `mcp_memory_search_memory()` - キーワード検索（完全一致・Fuzzy matching・タグフィルタ・日付範囲対応）
 - `mcp_memory_read_memory()` - 特定記憶を読む
 - `mcp_memory_update_memory()` - 記憶を更新
 - `mcp_memory_delete_memory()` - 記憶を削除
-- `mcp_memory_get_persona_context()` - ペルソナコンテキスト取得
-- `mcp_memory_get_time_since_last_conversation()` - 最終会話時刻取得
 
-**注**: 各ツールの詳細な使い方・パラメータ説明はツール自体のdocstringを参照。VS Codeでホバーすると表示される。
+**注**: 各ツールの詳細な使い方・パラメータ説明はツール自体のdocstringを参照。
 
-### 記憶の12カラム構造（Phase 25.5 Extended + Action Tag）
+### 記憶の12カラム構造
 ```sql
 CREATE TABLE memories (
     key TEXT PRIMARY KEY,              -- 記憶キー（memory_YYYYMMDDHHMMSS）
@@ -90,15 +101,13 @@ CREATE TABLE memories (
 - **0.4-0.6**: 通常の会話・作業
 - **0.0-0.3**: 日常的な雑談
 
-### セッション開始時の記憶読み込み
+### セッション開始時の記憶読み込み（Phase 26.5更新）
 ```python
-# 1. ペルソナコンテキストの取得（推奨：毎セッション開始時）
-mcp_memory_get_persona_context()
+# 1. 統合セッションコンテキストの取得（推奨：毎セッション開始時）
+mcp_memory_get_session_context()
+# ↑ これ1つでペルソナ情報、時間情報、記憶統計を全て取得
 
-# 2. 最終会話からの経過時間
-mcp_memory_get_time_since_last_conversation()
-
-# 3. ユーザーに関する記憶を検索
+# 2. 追加で必要なら：ユーザーに関する記憶を検索
 mcp_memory_search_memory_rag(query="ユーザーについて", top_k=5)
 mcp_memory_search_memory_rag(query="ユーザーの好み・性格特性", top_k=5)
 mcp_memory_search_memory_rag(query="最近のプロジェクト進捗", top_k=3)

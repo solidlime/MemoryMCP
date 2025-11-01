@@ -12,15 +12,16 @@ from typing import Any
 
 def register_tools(mcp: Any) -> None:
     # 遅延importして循環依存を回避
-    from tools.crud_tools import get_memory_stats, create_memory, update_memory, read_memory, delete_memory
+    from tools.crud_tools import create_memory, update_memory, read_memory, delete_memory
     from tools.search_tools import search_memory, search_memory_rag
     from tools.analysis_tools import find_related_memories, analyze_sentiment
-    from tools.context_tools import get_time_since_last_conversation, get_persona_context
+    from tools.context_tools import get_session_context
 
     # === LLM用ツール（会話中に使用） ===
     
-    # Phase 25: list_memory廃止 → get_memory_stats のみ
-    mcp.tool()(get_memory_stats)
+    # Phase 26.5: セッションコンテキスト統合ツール
+    # 以下3つのツールを統合: get_memory_stats, get_persona_context, get_time_since_last_conversation
+    mcp.tool()(get_session_context)
     
     # 基本的なCRUD操作
     mcp.tool()(create_memory)
@@ -33,10 +34,6 @@ def register_tools(mcp: Any) -> None:
     mcp.tool()(search_memory_rag)
     mcp.tool()(find_related_memories)
     mcp.tool()(analyze_sentiment)
-    
-    # コンテキスト情報
-    mcp.tool()(get_time_since_last_conversation)
-    mcp.tool()(get_persona_context)
     
     # === 管理者用ツールはMCPから除外 ===
     # 以下のツールは admin_tools.py CLIコマンド または ダッシュボードから実行：
