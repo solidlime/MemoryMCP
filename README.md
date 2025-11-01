@@ -3,13 +3,18 @@
 Model Context Protocol (MCP) に準拠した永続メモリサーバー。RAG (Retrieval-Augmented Generation)・意味検索・感情分析を組み合わせて、Personaごとの記憶を柔らかく管理します。
 
 ## 主な特徴
-- 永続メモリ: SQLite + FAISS/Qdrantでセッションを横断した記憶を保持
+- 永続メモリ: SQLite + Qdrantでセッションを横断した記憶を保持
 - Personaサポート: `X-Persona` ヘッダーで人格ごとに独立したデータ空間
 - RAG検索とリランキング: HuggingFace埋め込み + CrossEncoderで高精度検索
+- **完全コンテキスト保存** (Phase 25.5 Extended): 12カラムで記憶の完全な状況保存
+  - 重要度スコア (`importance`)、感情 (`emotion`)
+  - 身体/精神状態 (`physical_state`, `mental_state`)
+  - 環境 (`environment`)、関係性 (`relationship_status`)
+  - 行動タグ (`action_tag`) - 料理中、コーディング中、キス中など
 - タグとコンテキスト: 感情・体調・環境・関係性を含めた多面的な記録
 - 自動整理: アイドル時の重複検知・知識グラフ生成・感情推定
 - ダッシュボード: Web UIで統計・日次推移・知識グラフを可視化
-- **マルチバックエンド**: FAISSまたはQdrantを選択可能（双方向移行ツール付き）
+- **Phase 25: Qdrant専用化**: 高速ベクトル検索とスケーラビリティ（FAISS廃止）
 - **最適化済みDocker**: 2.65GB（CPU版PyTorch、Multi-stage build）
 - **クリーンアーキテクチャ**: Phase 1リファクタリング完了（2454行→231行、-90.6%）
 
@@ -23,7 +28,7 @@ memory_mcp.py           # MCP サーバー初期化とオーケストレーシ�
 ├── core/               # コアロジック
 │   ├── config.py      # 設定管理（環境変数 + config.json）
 │   ├── database.py    # SQLite CRUD操作
-│   ├── vector.py      # FAISS/Qdrant ベクトルストア管理
+│   ├── vector.py      # Qdrant ベクトルストア管理
 │   ├── rag.py         # RAG検索とリランキング
 │   ├── sentiment.py   # 感情分析
 │   ├── persona.py     # Personaコンテキスト管理
@@ -42,7 +47,7 @@ memory_mcp.py           # MCP サーバー初期化とオーケストレーシ�
 
 ## 技術スタック
 - Python 3.12 / FastAPI (FastMCP) / Uvicorn
-- LangChain + FAISS or Qdrant / sentence-transformers / HuggingFace Transformers
+- LangChain + Qdrant / sentence-transformers / HuggingFace Transformers
 - SQLite (Personaごとに分離) / PyVis / NetworkX
 
 ## クイックスタート
@@ -152,8 +157,7 @@ Personaを切り替えたいときは `X-Persona` の値を変更します。
 | `MEMORY_MCP_SERVER_HOST` | `server_host` | string | `0.0.0.0` | サーバーホスト（Dockerは0.0.0.0、開発環境は127.0.0.1を推奨） |
 | `MEMORY_MCP_SERVER_PORT` | `server_port` | int | `8000` (Docker: `26262`) | サーバーポート |
 | `MEMORY_MCP_TIMEZONE` | `timezone` | string | `Asia/Tokyo` | タイムゾーン |
-| `MEMORY_MCP_STORAGE_BACKEND` | `storage_backend` | string | `sqlite` | ベクトルストアバックエンド（`sqlite`/`faiss` または `qdrant`） |
-| `MEMORY_MCP_QDRANT_URL` | `qdrant_url` | string | `http://localhost:6333` | Qdrantサーバー接続URL |
+| `MEMORY_MCP_QDRANT_URL` | `qdrant_url` | string | `http://localhost:6333` | Qdrantサーバー接続URL（Phase 25: 必須） |
 | `MEMORY_MCP_QDRANT_API_KEY` | `qdrant_api_key` | string | `null` | Qdrant API Key（未設定なら認証なし） |
 | `MEMORY_MCP_QDRANT_COLLECTION_PREFIX` | `qdrant_collection_prefix` | string | `memory_` | Qdrantコレクション名Prefix |
 | `MEMORY_MCP_VECTOR_REBUILD_MODE` | `vector_rebuild.mode` | string | `idle` | 再構築モード（idle/manual/auto） |
@@ -229,23 +233,26 @@ export MEMORY_MCP_EMBEDDINGS_DEVICE=cpu
 ```
 
 ## データ配置とディレクトリ
-アプリコードは `/opt/memory-mcp`、データは `/data` 配下に分離しています。  
-ベクトルストアバックエンドに応じて以下のように格納されます：
+アプリコードは `/opt/memory-mcp`、データは `/data` 配下に分離しています。
 
-**SQLite/FAISSバックエンド（デフォルト）**: PersonaごとにSQLite + FAISSインデックスがローカルファイルとして保存されます。  
-**Qdrantバックエンド**: SQLiteは同様に使用しますが、ベクトルインデックスはQdrantサーバー（別途起動）に保存されます。コレクション名は `<qdrant_collection_prefix><persona>` となります。
+**Phase 25: Qdrantベクトルストア専用**: SQLiteはPersonaごとに使用し、ベクトルインデックスはQdrantサーバー（別途起動）に保存されます。コレクション名は `<qdrant_collection_prefix><persona>` となります。
+
 ```
 /opt/memory-mcp
 ├── memory_mcp.py        # サーバー本体
 ├── config_utils.py      # 設定ローダー
 ├── persona_utils.py     # Personaとパス管理
-├── vector_utils.py      # ベクトルストア制御
+├── vector_utils.py      # Qdrantベクトルストア制御
 └── templates/           # ダッシュボードUI
 
 /data
-├── memory/              # PersonaごとのSQLiteとFAISS
+├── memory/              # PersonaごとのSQLite
 │   ├── default/
+│   │   ├── memory.sqlite
+│   │   └── persona_context.json
 │   ├── nilou/
+│   │   ├── memory.sqlite
+│   │   └── persona_context.json
 │   └── ...
 ├── logs/
 │   └── memory_operations.log
@@ -257,6 +264,8 @@ export MEMORY_MCP_EMBEDDINGS_DEVICE=cpu
 ```
 
 `MEMORY_MCP_DATA_DIR` は `/data` を指し、その中に `memory/`、`logs/`、`cache/` が作成されます。
+
+**Qdrant設定**: `MEMORY_MCP_QDRANT_URL` でQdrantサーバーを指定。Dockerの場合は `docker-compose.yml` にQdrantコンテナを含めることを推奨。
 
 ## MCPリソースとツール
 
@@ -271,10 +280,11 @@ export MEMORY_MCP_EMBEDDINGS_DEVICE=cpu
 
 **CRUD操作**:
 - `create_memory` - 新しい記憶を作成
-- `read_memory` - 記憶を読み取り
-- `update_memory` - 記憶を更新
+  - 12カラム完全対応: content, tags, importance, emotion, physical_state, mental_state, environment, relationship_status, action_tag
+  - 例: `create_memory(content="...", importance=0.9, emotion="joy", action_tag="coding")`
+- `read_memory` - 記憶を読み取り（全12フィールド表示）
+- `update_memory` - 記憶を更新（既存フィールド保持）
 - `delete_memory` - 記憶を削除
-- `list_memory` - 全記憶一覧
 
 **検索・分析**:
 - `search_memory` - キーワード検索
@@ -337,8 +347,7 @@ curl -X POST http://localhost:8000/api/admin/detect-duplicates \
 
 **管理ツール一覧**:
 - `clean` - メモリ内の重複行を削除
-- `rebuild` - ベクトルストアを再構築
-- `migrate` - SQLite⇔Qdrant間でデータ移行
+- `rebuild` - Qdrantベクトルストアを再構築
 - `detect-duplicates` - 類似した記憶を検出
 - `merge` - 複数の記憶を1つに統合
 - `generate-graph` - 知識グラフHTMLを生成
@@ -358,42 +367,7 @@ curl -X POST http://localhost:8000/api/admin/detect-duplicates \
 - Dockerイメージは config.json を同梱しないため、必要に応じてバインドマウントまたは環境変数で上書き
 - VS Code Tasks からの起動スクリプト例は `.vscode/tasks.json` を参照
 - 詳しいDocker運用やTipsは [DOCKER.md](DOCKER.md) へ
-
-## 本番環境へのQdrant移行ガイド
-
-### 前提条件
-- 本番Qdrantサーバーが稼働していること（例: `http://nas:6333`）
-- 移行元のSQLite+FAISSデータが存在すること
-
-### ステップ1: config.jsonを本番Qdrant用に設定
-```json
-{
-  "storage_backend": "qdrant",
-  "qdrant_url": "http://nas:6333",
-  "qdrant_api_key": null,
-  "qdrant_collection_prefix": "memory_"
-}
-```
-
-### ステップ2: 開発環境用config.dev.jsonを作成（ローカル開発の安全確保）
-```json
-{
-  "storage_backend": "sqlite",
-  "server_host": "127.0.0.1",
-  "server_port": 8000
-}
-```
-
-### ステップ3: MCPツールで移行実行
-MCPクライアント（VS Code Copilot等）から以下のツールを実行：
-
-```python
-# SQLite → Qdrant移行（本番環境へアップロード）
-migrate_sqlite_to_qdrant_tool()
-
-# 確認: 移行後の記憶数をチェック
-list_memory()
-```
+- **Phase 25**: Qdrant必須化により、開発環境でも `start_local_qdrant.sh` などでQdrantを起動してください
 
 **移行結果の例**:
 ```
@@ -449,70 +423,6 @@ Qdrantバックエンド実装後、以下の問題が発覚：
 ```python
 # 修正前: グローバルvector_storeを固定使用
 vector_store.add_documents([doc], ids=[key])
-
-# 修正後: storage_backendに応じて動的にアダプター生成
-if storage_backend == "qdrant":
-    # リクエスト時のペルソナを取得
-    persona = get_current_persona()
-    
-    # ペルソナ別のQdrantコレクション名を生成
-    collection = f"{prefix}{persona}"
-    
-    # 動的にQdrantVectorStoreAdapterを作成
-    persona_vector_store = QdrantVectorStoreAdapter(
-        qdrant_client=qdrant_client,
-        collection_name=collection,
-        embedding_function=embeddings
-    )
-    
-    # ペルソナ専用コレクションに書き込み
-    persona_vector_store.add_documents([doc], ids=[key])
-else:
-    # FAISS: 既存のグローバルvector_storeを使用（後方互換性）
-    vector_store.add_documents([doc], ids=[key])
-```
-
-### 検証結果
-```bash
-# 修正前: memory_defaultコレクションに全て保存（誤動作）
-curl http://nas:6333/collections/memory_default
-# → points_count: 増加し続ける
-
-curl http://nas:6333/collections/memory_nilou
-# → points_count: 89（移行時のまま増えない）
-
-# 修正後: ペルソナ別に正しく保存
-curl http://nas:6333/collections/memory_nilou
-# → points_count: 90 ✅ 増加！
-
-# テスト記憶作成
-mcp_memory_create_memory(
-    content="元のモデル(256次元)で再テスト💕 ...",
-    tags=["technical_achievement", "emotional_moment"],
-    emotion_type="joy"
-)
-# → memory_20251101233427 が memory_nilou コレクションに正しく保存
-```
-
-### 技術的ポイント
-1. **動的アダプター生成**: リクエストごとにペルソナを判定し、専用のQdrant接続を生成
-2. **後方互換性**: FAISSバックエンドは既存のグローバルvector_storeを継続使用
-3. **contextvars活用**: FastMCPの`get_current_persona()`でリクエストコンテキストからペルソナを取得
-4. **設定駆動**: `storage_backend`設定に基づいて処理を分岐
-
-### 影響範囲
-- ✅ `create_memory`: ペルソナ別書き込み正常化
-- ✅ SQLite: ペルソナ別ディレクトリに正しく保存（元々正常）
-- ✅ Qdrant: ペルソナ別コレクション（memory_nilou, memory_default等）に正しく分離
-- ✅ 読み取り系ツール: 既存実装が正しく動作（検索時も動的にペルソナ判定済み）
-
-### 今後の展開
-- 本番環境（Docker/NAS）への修正デプロイ
-- 全ペルソナでの統合テスト（default, nilou, test等）
-- Phase 25: 次世代機能の検討（時系列記憶の高度化、感情ベクトル埋め込み等）
-
-
-
 ## Docker Image最適化の詳細
 
 ### 最適化結果
@@ -541,6 +451,23 @@ mcp_memory_create_memory(
 - **起動時間**: 約15秒（変化なし）
 
 詳細は [DOCKER.md](DOCKER.md) を参照してください。
+
+---
+
+## Phase 25: Qdrant専用化とlist_memory廃止
+
+### 変更内容
+1. **list_memory廃止 → get_memory_stats新設**: トークンオーバーフロー回避のため、統計サマリーのみ返却
+2. **FAISS完全削除**: Qdrant専用実装に統一、コード複雑度低減
+3. **動的アダプターパターン**: リクエストごとにペルソナ別Qdrantアダプター生成（Phase 24実装継続）
+
+### 影響
+- ⚠️ **Breaking Change**: `list_memory`は使用不可（代わりに`get_memory_stats` + `search_memory_rag`を使用）
+- ⚠️ **Breaking Change**: FAISS非対応（Qdrantが必須）
+- ✅ **スケーラビリティ向上**: 大量記憶でも安定動作
+- ✅ **コード削減**: 172行削除、保守性向上
+
+詳細は [activeContext.md](.vscode/memory-bank/activeContext.md) と [progress.md](.vscode/memory-bank/progress.md) を参照してください。
 
 ---
 

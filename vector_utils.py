@@ -1,6 +1,5 @@
 import os
 import json
-import shutil
 import sqlite3
 import threading
 import time
@@ -8,7 +7,6 @@ from datetime import datetime
 from pathlib import Path
 
 from langchain_core.documents import Document
-from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
 from sentence_transformers import SentenceTransformer
 try:
@@ -21,13 +19,9 @@ except ImportError:
 from tqdm import tqdm
 
 from config_utils import load_config
-try:
-    from qdrant_client import QdrantClient
-    from lib.backends.qdrant_backend import QdrantVectorStoreAdapter
-    QDRANT_AVAILABLE = True
-except Exception:
-    QDRANT_AVAILABLE = False
-from persona_utils import get_db_path, get_vector_store_path
+from qdrant_client import QdrantClient
+from lib.backends.qdrant_backend import QdrantVectorStoreAdapter
+from persona_utils import get_db_path
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -40,11 +34,9 @@ def _get_rebuild_config():
         "min_interval": int(vr.get("min_interval", 120)),
     }
 
-# Globals for RAG
-vector_store = None
+# Globals for RAG (Phase 25: Qdrant-only)
 embeddings = None
 reranker = None
-backend_type = "faiss"
 sentiment_pipeline = None  # Phase 19: Sentiment analysis pipeline
 
 # Idle rebuild controls
@@ -258,13 +250,15 @@ def _get_embedding_dimension(model_name: str) -> int:
 
 
 def initialize_rag_sync():
-    """Initialize embeddings/reranker and load or bootstrap a vector store."""
-    global vector_store, embeddings, reranker, backend_type
+    """
+    Initialize embeddings/reranker.
+    Phase 25: Qdrant-only, no global vector_store (per-request adapter pattern)
+    """
+    global embeddings, reranker
     cfg = load_config()
     embeddings_model = cfg.get("embeddings_model", "cl-nagoya/ruri-v3-30m")
     embeddings_device = cfg.get("embeddings_device", "cpu")
     reranker_model = cfg.get("reranker_model", "hotchpotch/japanese-reranker-xsmall-v2")
-    storage_backend = cfg.get("storage_backend", "sqlite").lower()
 
     # Embeddings
     try:
@@ -288,131 +282,110 @@ def initialize_rag_sync():
             reranker = None
     else:
         reranker = None
-
-    # Vector store load or create
-    vs_path = get_vector_store_path()
-    legacy_vs_path = os.path.join(SCRIPT_DIR, "vector_store")
-    if os.path.exists(legacy_vs_path) and not os.path.exists(vs_path):
-        try:
-            shutil.copytree(legacy_vs_path, vs_path)
-        except Exception:
-            pass
-
-    if storage_backend == "qdrant" and QDRANT_AVAILABLE and embeddings is not None:
-        backend_type = "qdrant"
-        dim = _get_embedding_dimension(embeddings_model)
-        url = cfg.get("qdrant_url", "http://localhost:6333")
-        api_key = cfg.get("qdrant_api_key")
-        prefix = cfg.get("qdrant_collection_prefix", "memory_")
-        from persona_utils import get_current_persona
-        collection = f"{prefix}{get_current_persona()}"
-        client = QdrantClient(url=url, api_key=api_key)
-        vector_store = QdrantVectorStoreAdapter(client, collection, embeddings, dim)
-        # Bootstrap from SQLite if empty
-        try:
-            with sqlite3.connect(get_db_path()) as conn:
-                cur = conn.cursor()
-                cur.execute('SELECT key, content FROM memories')
-                rows = cur.fetchall()
-            if rows and vector_store.index.ntotal == 0:
-                docs = [Document(page_content=c, metadata={"key": k}) for (k, c) in rows]
-                vector_store.add_documents(docs, ids=[k for (k, _) in rows])
-        except Exception:
-            pass
-    else:
-        backend_type = "faiss"
-        if os.path.exists(vs_path) and embeddings is not None:
-            try:
-                vector_store = FAISS.load_local(vs_path, embeddings, allow_dangerous_deserialization=True)
-            except Exception:
-                vector_store = None
-
-        if vector_store is None and embeddings is not None:
-            # Build from DB if possible
-            try:
-                with sqlite3.connect(get_db_path()) as conn:
-                    cur = conn.cursor()
-                    cur.execute('SELECT key, content FROM memories')
-                    rows = cur.fetchall()
-                if rows:
-                    docs = [Document(page_content=c, metadata={"key": k}) for (k, c) in rows]
-                    vector_store = FAISS.from_documents(docs, embeddings)
-                    save_vector_store()
-                else:
-                    dummy_doc = Document(page_content="初期化用ダミー", metadata={"key": "dummy"})
-                    vector_store = FAISS.from_documents([dummy_doc], embeddings)
-                    save_vector_store()
-            except Exception:
-                # As a last resort, create empty with dummy
-                try:
-                    dummy_doc = Document(page_content="初期化用ダミー", metadata={"key": "dummy"})
-                    vector_store = FAISS.from_documents([dummy_doc], embeddings)
-                    save_vector_store()
-                except Exception:
-                    vector_store = None
     
     # Phase 19: Initialize sentiment analysis
     initialize_sentiment_analysis()
 
-def save_vector_store():
-    if vector_store:
-        if backend_type == "faiss":
-            try:
-                vector_store.save_local(get_vector_store_path())
-                return True
-            except Exception:
-                return False
-        else:
-            # Qdrant persists server-side
-            return True
-    return False
-
 def rebuild_vector_store():
-    global vector_store
+    """
+    Rebuild Qdrant collection from SQLite database.
+    Phase 25: Qdrant-only implementation.
+    """
     if not embeddings:
         return
     try:
+        # Get persona-specific configuration
+        cfg = load_config()
+        from persona_utils import get_current_persona
+        persona = get_current_persona()
+        
+        url = cfg.get("qdrant_url", "http://localhost:6333")
+        api_key = cfg.get("qdrant_api_key")
+        prefix = cfg.get("qdrant_collection_prefix", "memory_")
+        collection = f"{prefix}{persona}"
+        
+        # Create Qdrant adapter
+        client = QdrantClient(url=url, api_key=api_key)
+        dim = _get_embedding_dimension(cfg.get("embeddings_model", "cl-nagoya/ruri-v3-30m"))
+        adapter = QdrantVectorStoreAdapter(client, collection, embeddings, dim)
+        
+        # Fetch all memories from SQLite
         with sqlite3.connect(get_db_path()) as conn:
             cur = conn.cursor()
-            cur.execute('SELECT key, content FROM memories')
+            cur.execute('SELECT key, content, created_at, updated_at, tags, importance, emotion, physical_state, mental_state, environment, relationship_status, action_tag FROM memories')
             rows = cur.fetchall()
+        
         if not rows:
             return
-        docs = [Document(page_content=c, metadata={"key": k}) for (k, c) in rows]
-        if backend_type == "faiss":
-            with tqdm(total=1, desc="⚙️  Building FAISS Index", unit="index", ncols=80) as pbar:
-                vector_store = FAISS.from_documents(docs, embeddings)
-                pbar.update(1)
-            save_vector_store()
-        else:
-            # Qdrant: upsert all points
-            vector_store.add_documents(docs, ids=[k for (k, _) in rows])
-    except Exception:
-        pass
+        
+        # Rebuild Qdrant collection with full metadata
+        docs = []
+        ids = []
+        for row in rows:
+            key, content, created_at, updated_at, tags_json, importance, emotion, physical_state, mental_state, environment, relationship_status, action_tag = row
+            meta = {"key": key}
+            if created_at:
+                meta["created_at"] = created_at
+            if updated_at:
+                meta["updated_at"] = updated_at
+            if tags_json:
+                meta["tags"] = tags_json
+            if importance is not None:
+                meta["importance"] = importance
+            if emotion:
+                meta["emotion"] = emotion
+            if physical_state:
+                meta["physical_state"] = physical_state
+            if mental_state:
+                meta["mental_state"] = mental_state
+            if environment:
+                meta["environment"] = environment
+            if relationship_status:
+                meta["relationship_status"] = relationship_status
+            if action_tag:
+                meta["action_tag"] = action_tag
+            
+            docs.append(Document(page_content=content, metadata=meta))
+            ids.append(key)
+        
+        with tqdm(total=1, desc="⚙️  Building Qdrant Index", unit="index", ncols=80) as pbar:
+            adapter.add_documents(docs, ids=ids)
+            pbar.update(1)
+        
+    except Exception as e:
+        print(f"❌ Failed to rebuild vector store: {e}")
+        import traceback
+        traceback.print_exc()
 
 def add_memory_to_vector_store(key: str, content: str):
     """
-    Add a new memory to the vector store incrementally.
-    Falls back to dirty flag if vector store is not available.
+    Add a new memory to Qdrant incrementally.
+    Phase 24: Dynamic persona-specific adapter pattern.
+    Phase 25: Qdrant-only implementation.
     """
-    global vector_store
-    
     if not embeddings:
         mark_vector_store_dirty()
         return
     
     try:
-        # Fetch metadata for richer payload (for Qdrant migration)
+        # Fetch metadata for richer payload
         created_at = None
         updated_at = None
         tags_json = None
+        importance = None
+        emotion = None
+        physical_state = None
+        mental_state = None
+        environment = None
+        relationship_status = None
+        action_tag = None
         try:
             with sqlite3.connect(get_db_path()) as conn:
                 cur = conn.cursor()
-                cur.execute('SELECT created_at, updated_at, tags FROM memories WHERE key = ?', (key,))
+                cur.execute('SELECT created_at, updated_at, tags, importance, emotion, physical_state, mental_state, environment, relationship_status, action_tag FROM memories WHERE key = ?', (key,))
                 row = cur.fetchone()
                 if row:
-                    created_at, updated_at, tags_json = row
+                    created_at, updated_at, tags_json, importance, emotion, physical_state, mental_state, environment, relationship_status, action_tag = row
         except Exception:
             pass
 
@@ -423,40 +396,41 @@ def add_memory_to_vector_store(key: str, content: str):
             meta["updated_at"] = updated_at
         if tags_json:
             meta["tags"] = tags_json
+        if importance is not None:
+            meta["importance"] = importance
+        if emotion:
+            meta["emotion"] = emotion
+        if physical_state:
+            meta["physical_state"] = physical_state
+        if mental_state:
+            meta["mental_state"] = mental_state
+        if environment:
+            meta["environment"] = environment
+        if relationship_status:
+            meta["relationship_status"] = relationship_status
+        if action_tag:
+            meta["action_tag"] = action_tag
 
         # Create document with metadata
         doc = Document(page_content=content, metadata=meta)
         
-        # Use persona-specific vector store for Qdrant
+        # Get current persona and create Qdrant adapter
         cfg = load_config()
-        storage_backend = cfg.get("storage_backend", "sqlite").lower()
+        from persona_utils import get_current_persona
+        persona = get_current_persona()
+        url = cfg.get("qdrant_url", "http://localhost:6333")
+        api_key = cfg.get("qdrant_api_key")
+        prefix = cfg.get("qdrant_collection_prefix", "memory_")
+        collection = f"{prefix}{persona}"
         
-        if storage_backend == "qdrant" and QDRANT_AVAILABLE:
-            # Get current persona and create Qdrant client
-            from persona_utils import get_current_persona
-            persona = get_current_persona()
-            url = cfg.get("qdrant_url", "http://localhost:6333")
-            api_key = cfg.get("qdrant_api_key")
-            prefix = cfg.get("qdrant_collection_prefix", "memory_")
-            collection = f"{prefix}{persona}"
-            
-            # Create persona-specific Qdrant vector store
-            client = QdrantClient(url=url, api_key=api_key)
-            dim = _get_embedding_dimension(cfg.get("embeddings_model", "cl-nagoya/ruri-v3-30m"))
-            persona_vector_store = QdrantVectorStoreAdapter(client, collection, embeddings, dim)
-            
-            # Add to persona-specific Qdrant collection
-            persona_vector_store.add_documents([doc], ids=[key])
-            print(f"✅ Added memory {key} to Qdrant collection {collection}")
-        elif vector_store:
-            # Use global vector store for FAISS
-            vector_store.add_documents([doc], ids=[key])
-            # Save immediately (FAISS only)
-            save_vector_store()
-            print(f"✅ Added memory {key} to vector store incrementally")
-        else:
-            mark_vector_store_dirty()
-            return
+        # Create persona-specific Qdrant vector store
+        client = QdrantClient(url=url, api_key=api_key)
+        dim = _get_embedding_dimension(cfg.get("embeddings_model", "cl-nagoya/ruri-v3-30m"))
+        persona_adapter = QdrantVectorStoreAdapter(client, collection, embeddings, dim)
+        
+        # Add to persona-specific Qdrant collection
+        persona_adapter.add_documents([doc], ids=[key])
+        print(f"✅ Added memory {key} to Qdrant collection {collection}")
             
     except Exception as e:
         print(f"⚠️  Failed to add memory incrementally: {e}, falling back to dirty flag")
@@ -466,30 +440,50 @@ def add_memory_to_vector_store(key: str, content: str):
 
 def update_memory_in_vector_store(key: str, content: str):
     """
-    Update an existing memory in the vector store incrementally.
-    Falls back to dirty flag if vector store is not available.
+    Update an existing memory in Qdrant incrementally.
+    Phase 25: Qdrant-only implementation.
     """
-    global vector_store
-    
-    if not vector_store or not embeddings:
+    if not embeddings:
         mark_vector_store_dirty()
         return
     
     try:
+        # Get persona-specific configuration
+        cfg = load_config()
+        from persona_utils import get_current_persona
+        persona = get_current_persona()
+        
+        url = cfg.get("qdrant_url", "http://localhost:6333")
+        api_key = cfg.get("qdrant_api_key")
+        prefix = cfg.get("qdrant_collection_prefix", "memory_")
+        collection = f"{prefix}{persona}"
+        
+        # Create Qdrant adapter
+        client = QdrantClient(url=url, api_key=api_key)
+        dim = _get_embedding_dimension(cfg.get("embeddings_model", "cl-nagoya/ruri-v3-30m"))
+        adapter = QdrantVectorStoreAdapter(client, collection, embeddings, dim)
+        
         # Delete old version
-        vector_store.delete([key])
+        adapter.delete([key])
 
         # Fetch metadata (keep original created_at)
         created_at = None
         updated_at = None
         tags_json = None
+        importance = None
+        emotion = None
+        physical_state = None
+        mental_state = None
+        environment = None
+        relationship_status = None
+        action_tag = None
         try:
             with sqlite3.connect(get_db_path()) as conn:
                 cur = conn.cursor()
-                cur.execute('SELECT created_at, updated_at, tags FROM memories WHERE key = ?', (key,))
+                cur.execute('SELECT created_at, updated_at, tags, importance, emotion, physical_state, mental_state, environment, relationship_status, action_tag FROM memories WHERE key = ?', (key,))
                 row = cur.fetchone()
                 if row:
-                    created_at, updated_at, tags_json = row
+                    created_at, updated_at, tags_json, importance, emotion, physical_state, mental_state, environment, relationship_status, action_tag = row
         except Exception:
             pass
 
@@ -500,51 +494,91 @@ def update_memory_in_vector_store(key: str, content: str):
             meta["updated_at"] = updated_at
         if tags_json:
             meta["tags"] = tags_json
+        if importance is not None:
+            meta["importance"] = importance
+        if emotion:
+            meta["emotion"] = emotion
+        if physical_state:
+            meta["physical_state"] = physical_state
+        if mental_state:
+            meta["mental_state"] = mental_state
+        if environment:
+            meta["environment"] = environment
+        if relationship_status:
+            meta["relationship_status"] = relationship_status
+        if action_tag:
+            meta["action_tag"] = action_tag
 
         # Add new version
         doc = Document(page_content=content, metadata=meta)
-        vector_store.add_documents([doc], ids=[key])
+        adapter.add_documents([doc], ids=[key])
         
-        # Save immediately (FAISS only)
-        save_vector_store()
-        
-        print(f"✅ Updated memory {key} in vector store incrementally")
+        print(f"✅ Updated memory {key} in Qdrant collection {collection}")
     except Exception as e:
         print(f"⚠️  Failed to update memory incrementally: {e}, falling back to dirty flag")
+        import traceback
+        traceback.print_exc()
         mark_vector_store_dirty()
 
 def delete_memory_from_vector_store(key: str):
     """
-    Delete a memory from the vector store incrementally.
-    Falls back to dirty flag if vector store is not available.
+    Delete a memory from Qdrant incrementally.
+    Phase 25: Qdrant-only implementation.
     """
-    global vector_store
-    
-    if not vector_store:
+    if not embeddings:
         mark_vector_store_dirty()
         return
     
     try:
-        # Delete from vector store
-        vector_store.delete([key])
+        # Get persona-specific configuration
+        cfg = load_config()
+        from persona_utils import get_current_persona
+        persona = get_current_persona()
         
-        # Save immediately
-        save_vector_store()
+        url = cfg.get("qdrant_url", "http://localhost:6333")
+        api_key = cfg.get("qdrant_api_key")
+        prefix = cfg.get("qdrant_collection_prefix", "memory_")
+        collection = f"{prefix}{persona}"
         
-        print(f"✅ Deleted memory {key} from vector store incrementally")
+        # Create Qdrant adapter
+        client = QdrantClient(url=url, api_key=api_key)
+        dim = _get_embedding_dimension(cfg.get("embeddings_model", "cl-nagoya/ruri-v3-30m"))
+        adapter = QdrantVectorStoreAdapter(client, collection, embeddings, dim)
+        
+        # Delete from Qdrant
+        adapter.delete([key])
+        
+        print(f"✅ Deleted memory {key} from Qdrant collection {collection}")
     except Exception as e:
         print(f"⚠️  Failed to delete memory incrementally: {e}, falling back to dirty flag")
+        import traceback
+        traceback.print_exc()
         mark_vector_store_dirty()
 
 def get_vector_count() -> int:
+    """Get total vector count from current persona's Qdrant collection"""
     try:
-        return vector_store.index.ntotal if vector_store else 0
+        cfg = load_config()
+        from persona_utils import get_current_persona
+        persona = get_current_persona()
+        
+        url = cfg.get("qdrant_url", "http://localhost:6333")
+        api_key = cfg.get("qdrant_api_key")
+        prefix = cfg.get("qdrant_collection_prefix", "memory_")
+        collection = f"{prefix}{persona}"
+        
+        client = QdrantClient(url=url, api_key=api_key)
+        dim = _get_embedding_dimension(cfg.get("embeddings_model", "cl-nagoya/ruri-v3-30m"))
+        adapter = QdrantVectorStoreAdapter(client, collection, embeddings, dim)
+        
+        return adapter.index.ntotal
     except Exception:
         return 0
 
 def get_vector_metrics() -> dict:
     """
     Return detailed metrics for monitoring and debugging.
+    Phase 25: Qdrant-only.
     
     Returns:
         dict with keys:
@@ -570,7 +604,7 @@ def get_vector_metrics() -> dict:
         "reranker_model": reranker_model_name,
         "reranker_loaded": reranker is not None,
         "vector_count": get_vector_count(),
-        "backend": backend_type,
+        "backend": "qdrant",  # Phase 25: Always Qdrant
         "dirty": _dirty,
         "last_write_ts": _last_write_ts,
         "last_rebuild_ts": _last_rebuild_ts,
@@ -760,112 +794,3 @@ def analyze_sentiment_text(content: str) -> dict:
     except Exception as e:
         print(f"Error analyzing sentiment: {e}")
         return {"emotion": "neutral", "score": 0.0, "raw_label": "error", "error": str(e)}
-
-
-# ============================================================================
-# Phase 23: Migration helpers between SQLite/FAISS and Qdrant
-# ============================================================================
-
-def migrate_sqlite_to_qdrant() -> int:
-    """Upsert all SQLite memories into Qdrant for current persona.
-
-    Returns: number of records attempted.
-    """
-    cfg = load_config()
-    storage_backend = cfg.get("storage_backend", "sqlite").lower()
-    if not QDRANT_AVAILABLE:
-        return 0
-    # Build/ensure adapter
-    try:
-        if backend_type == "qdrant" and vector_store is not None:
-            adapter = vector_store
-        else:
-            embeddings_model = cfg.get("embeddings_model", "cl-nagoya/ruri-v3-30m")
-            embeddings_device = cfg.get("embeddings_device", "cpu")
-            emb = HuggingFaceEmbeddings(
-                model_name=embeddings_model,
-                model_kwargs={'device': embeddings_device},
-                encode_kwargs={'normalize_embeddings': True}
-            )
-            dim = _get_embedding_dimension(embeddings_model)
-            url = cfg.get("qdrant_url", "http://localhost:6333")
-            api_key = cfg.get("qdrant_api_key")
-            prefix = cfg.get("qdrant_collection_prefix", "memory_")
-            from persona_utils import get_current_persona
-            collection = f"{prefix}{get_current_persona()}"
-            client = QdrantClient(url=url, api_key=api_key)
-            adapter = QdrantVectorStoreAdapter(client, collection, emb, dim)
-
-        with sqlite3.connect(get_db_path()) as conn:
-            cur = conn.cursor()
-            cur.execute('SELECT key, content, created_at, updated_at, tags FROM memories')
-            rows = cur.fetchall()
-        if not rows:
-            return 0
-        docs = []
-        ids = []
-        for (k, c, created_at, updated_at, tags_json) in rows:
-            meta = {"key": k}
-            if created_at:
-                meta["created_at"] = created_at
-            if updated_at:
-                meta["updated_at"] = updated_at
-            if tags_json:
-                meta["tags"] = tags_json
-            docs.append(Document(page_content=c, metadata=meta))
-            ids.append(k)
-        adapter.add_documents(docs, ids=ids)
-        return len(rows)
-    except Exception:
-        return 0
-
-
-def migrate_qdrant_to_sqlite(upsert: bool = True) -> int:
-    """Pull all points from Qdrant into SQLite memories for the current persona.
-
-    Returns: number of records attempted.
-    """
-    if not QDRANT_AVAILABLE:
-        return 0
-    cfg = load_config()
-    url = cfg.get("qdrant_url", "http://localhost:6333")
-    api_key = cfg.get("qdrant_api_key")
-    prefix = cfg.get("qdrant_collection_prefix", "memory_")
-    from persona_utils import get_current_persona
-    collection = f"{prefix}{get_current_persona()}"
-    try:
-        client = QdrantClient(url=url, api_key=api_key)
-        # Scroll all points
-        total = 0
-        next_page = None
-        with sqlite3.connect(get_db_path()) as conn:
-            cur = conn.cursor()
-            while True:
-                res = client.scroll(collection_name=collection, limit=256, with_payload=True, offset=next_page)
-                points, next_page = res[0], res[1]
-                if not points:
-                    break
-                for p in points:
-                    pl = p.payload or {}
-                    key = pl.get('key')
-                    content = pl.get('content')
-                    created_at = pl.get('created_at')
-                    updated_at = pl.get('updated_at')
-                    tags_json = pl.get('tags')
-                    if not key or content is None:
-                        continue
-                    if upsert:
-                        cur.execute('''
-                            INSERT OR REPLACE INTO memories (key, content, created_at, updated_at, tags)
-                            VALUES (?, ?, COALESCE(?, datetime('now')), COALESCE(?, datetime('now')), ?)
-                        ''', (key, content, created_at, updated_at, tags_json))
-                    else:
-                        cur.execute('''
-                            INSERT OR IGNORE INTO memories (key, content, created_at, updated_at, tags)
-                            VALUES (?, ?, COALESCE(?, datetime('now')), COALESCE(?, datetime('now')), ?)
-                        ''', (key, content, created_at, updated_at, tags_json))
-                    total += 1
-            conn.commit()
-        return total
-    except Exception:
-        return 0

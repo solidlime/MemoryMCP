@@ -67,7 +67,6 @@ from tools.vector_tools import (
     migrate_qdrant_to_sqlite_tool,
 )
 from tools.crud_tools import (
-    list_memory,
     create_memory,
     read_memory,
     update_memory,

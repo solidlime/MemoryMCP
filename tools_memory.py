@@ -12,26 +12,31 @@ from typing import Any
 
 def register_tools(mcp: Any) -> None:
     # 遅延importして循環依存を回避
-    import memory_mcp as impl
+    from tools.crud_tools import get_memory_stats, create_memory, update_memory, read_memory, delete_memory
+    from tools.search_tools import search_memory, search_memory_rag
+    from tools.analysis_tools import find_related_memories, analyze_sentiment
+    from tools.context_tools import get_time_since_last_conversation, get_persona_context
 
     # === LLM用ツール（会話中に使用） ===
     
+    # Phase 25: list_memory廃止 → get_memory_stats のみ
+    mcp.tool()(get_memory_stats)
+    
     # 基本的なCRUD操作
-    mcp.tool()(impl.list_memory)
-    mcp.tool()(impl.create_memory)
-    mcp.tool()(impl.update_memory)
-    mcp.tool()(impl.read_memory)
-    mcp.tool()(impl.delete_memory)
+    mcp.tool()(create_memory)
+    mcp.tool()(update_memory)
+    mcp.tool()(read_memory)
+    mcp.tool()(delete_memory)
     
     # 検索・分析
-    mcp.tool()(impl.search_memory)
-    mcp.tool()(impl.search_memory_rag)
-    mcp.tool()(impl.find_related_memories)
-    mcp.tool()(impl.analyze_sentiment)
+    mcp.tool()(search_memory)
+    mcp.tool()(search_memory_rag)
+    mcp.tool()(find_related_memories)
+    mcp.tool()(analyze_sentiment)
     
     # コンテキスト情報
-    mcp.tool()(impl.get_time_since_last_conversation)
-    mcp.tool()(impl.get_persona_context)
+    mcp.tool()(get_time_since_last_conversation)
+    mcp.tool()(get_persona_context)
     
     # === 管理者用ツールはMCPから除外 ===
     # 以下のツールは admin_tools.py CLIコマンド または ダッシュボードから実行：

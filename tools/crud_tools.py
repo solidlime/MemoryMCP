@@ -43,55 +43,130 @@ def db_recent_keys(limit: int = 5) -> list:
     return _db_recent_keys_generic(get_db_path(), limit)
 
 
-async def list_memory() -> str:
+async def get_memory_stats() -> str:
     """
-    This tool should be used first whenever the user is asking something related to themselves. 
-    List all user info. 
+    Get memory statistics and summary instead of full list.
+    Returns: total count, recent entries (max 10), tag distribution, date range.
+    
+    For full memory access, use search_memory_rag or search_memory with specific queries.
     """
     try:
         persona = get_current_persona()
         db_path = get_db_path()
         
-        # Read directly from database instead of memory_store
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute('SELECT key, content, created_at, updated_at, tags FROM memories ORDER BY created_at DESC')
-            rows = cursor.fetchall()
+            
+            # Total count
+            cursor.execute('SELECT COUNT(*) FROM memories')
+            total_count = cursor.fetchone()[0]
+            
+            if total_count == 0:
+                return f"📊 No memories yet (persona: {persona})"
+            
+            # Total characters
+            cursor.execute('SELECT SUM(LENGTH(content)) FROM memories')
+            total_chars = cursor.fetchone()[0] or 0
+            
+            # Date range
+            cursor.execute('SELECT MIN(created_at), MAX(created_at) FROM memories')
+            min_date, max_date = cursor.fetchone()
+            
+            # Importance statistics
+            cursor.execute('SELECT AVG(importance), MIN(importance), MAX(importance) FROM memories WHERE importance IS NOT NULL')
+            importance_stats = cursor.fetchone()
+            avg_importance = importance_stats[0] if importance_stats[0] is not None else 0.5
+            min_importance = importance_stats[1] if importance_stats[1] is not None else 0.5
+            max_importance = importance_stats[2] if importance_stats[2] is not None else 0.5
+            
+            # Importance distribution (high/medium/low)
+            cursor.execute('SELECT COUNT(*) FROM memories WHERE importance >= 0.7')
+            high_importance_count = cursor.fetchone()[0]
+            cursor.execute('SELECT COUNT(*) FROM memories WHERE importance >= 0.4 AND importance < 0.7')
+            medium_importance_count = cursor.fetchone()[0]
+            cursor.execute('SELECT COUNT(*) FROM memories WHERE importance < 0.4')
+            low_importance_count = cursor.fetchone()[0]
+            
+            # Emotion distribution
+            cursor.execute('SELECT emotion, COUNT(*) FROM memories WHERE emotion IS NOT NULL GROUP BY emotion ORDER BY COUNT(*) DESC')
+            emotion_counts = cursor.fetchall()
+            
+            # Recent 10 entries
+            cursor.execute('SELECT key, content, created_at, importance, emotion FROM memories ORDER BY created_at DESC LIMIT 10')
+            recent = cursor.fetchall()
+            
+            # Tag distribution
+            cursor.execute('SELECT tags FROM memories WHERE tags IS NOT NULL AND tags != "[]"')
+            all_tags = []
+            for (tags_json,) in cursor.fetchall():
+                try:
+                    tags = json.loads(tags_json)
+                    all_tags.extend(tags)
+                except:
+                    pass
+            
+            tag_counts = {}
+            for tag in all_tags:
+                tag_counts[tag] = tag_counts.get(tag, 0) + 1
+            
+        # Build result
+        result = f"📊 Memory Statistics (persona: {persona})\n\n"
+        result += f"📈 Total Memories: {total_count}\n"
+        result += f"📝 Total Characters: {total_chars:,}\n"
+        result += f"📅 Date Range: {min_date[:10]} ~ {max_date[:10]}\n\n"
         
-        log_operation("list", metadata={"entry_count": len(rows), "persona": persona})
+        result += f"⭐ Importance Statistics:\n"
+        result += f"   Average: {avg_importance:.2f}\n"
+        result += f"   Range: {min_importance:.2f} ~ {max_importance:.2f}\n"
+        result += f"   High (≥0.7): {high_importance_count}\n"
+        result += f"   Medium (0.4~0.7): {medium_importance_count}\n"
+        result += f"   Low (<0.4): {low_importance_count}\n\n"
         
-        if rows:
-            result = f"🧠 {len(rows)} memory entries (persona: {persona}):\n\n"
-            for i, row in enumerate(rows, 1):
-                key, content, created_at, updated_at, tags_json = row
-                created_date = created_at[:10]
-                created_time = created_at[11:19]
-                
-                # Calculate time elapsed since creation
-                time_diff = calculate_time_diff(created_at)
-                time_ago = f" ({time_diff['formatted_string']}前)"
-                
-                result += f"{i}. [{key}]\n"
-                result += f"   {content}\n"
-                result += f"   {created_date} {created_time}{time_ago} ({len(content)} chars)\n\n"
-            return result.rstrip()
-        else:
-            return f"No user info saved yet (persona: {persona})."
+        if emotion_counts:
+            result += "💭 Emotion Distribution:\n"
+            for emotion, count in emotion_counts[:10]:  # Top 10 emotions
+                result += f"   {emotion}: {count}\n"
+            result += "\n"
+        
+        if tag_counts:
+            result += "🏷️  Tag Distribution:\n"
+            sorted_tags = sorted(tag_counts.items(), key=lambda x: x[1], reverse=True)
+            for tag, count in sorted_tags[:10]:  # Top 10 tags
+                result += f"   {tag}: {count}\n"
+            result += "\n"
+        
+        result += f"🕐 Recent {len(recent)} Memories:\n"
+        for i, (key, content, created_at, importance, emotion) in enumerate(recent, 1):
+            preview = content[:60] + "..." if len(content) > 60 else content
+            created_date = created_at[:10]
+            time_diff = calculate_time_diff(created_at)
+            importance_str = f"{importance:.2f}" if importance is not None else "0.50"
+            emotion_str = emotion if emotion else "neutral"
+            result += f"{i}. [{key}] {preview}\n"
+            result += f"   {created_date} ({time_diff['formatted_string']}前) | Importance: {importance_str} | Emotion: {emotion_str}\n"
+        
+        result += f"\n💡 Tip: Use search_memory_rag(query) for semantic search"
+        
+        log_operation("get_memory_stats", metadata={"total_count": total_count, "persona": persona})
+        return result
+        
     except Exception as e:
-        log_operation("list", success=False, error=str(e))
-        return f"Failed to list memory: {str(e)}"
+        log_operation("get_memory_stats", success=False, error=str(e))
+        return f"Failed to get memory stats: {str(e)}"
 
 
 async def create_memory(
     content: str, 
     emotion_type: Optional[str] = None, 
     context_tags: Optional[List[str]] = None,
+    importance: Optional[float] = None,
     physical_state: Optional[str] = None,
     mental_state: Optional[str] = None,
     environment: Optional[str] = None,
     user_info: Optional[Dict] = None,
     persona_info: Optional[Dict] = None,
-    relationship_status: Optional[str] = None
+    relationship_status: Optional[str] = None,
+    action_tag: Optional[str] = None
 ) -> str:
     """
     Create new memory with important user info (preferences, interests, personal details, current status, etc.) found in conversation. Use even if the user does not explicitly request saving.
@@ -124,13 +199,20 @@ async def create_memory(
             - "daily_memory": Routine conversations, everyday interactions
             - "technical_achievement": Programming accomplishments, project completions, bug fixes
             - "emotional_moment": Expressions of gratitude, love, sadness, joy
-            Note: Tags are saved with the memory for future search and analysis.
+            Note: Tags are saved with the memory for future search and analysis. You can also use custom tags freely.
+        importance: Optional importance score (0.0-1.0, defaults to 0.5). Higher values indicate more important memories.
+            - 0.0-0.3: Low importance (routine, trivial)
+            - 0.4-0.6: Medium importance (normal conversations)
+            - 0.7-0.9: High importance (significant events, achievements)
+            - 0.9-1.0: Critical importance (life-changing moments, core values)
         physical_state: Optional physical state ("normal", "tired", "energetic", "sick", etc.) to update persona context
         mental_state: Optional mental state ("calm", "anxious", "focused", "confused", etc.) to update persona context
         environment: Optional environment ("home", "office", "cafe", "outdoors", etc.) to update persona context
         user_info: Optional user information dict with keys: name, nickname, preferred_address
         persona_info: Optional persona information dict with keys: name, nickname, preferred_address
         relationship_status: Optional relationship status ("normal", "closer", "distant", etc.) to update persona context
+        action_tag: Optional action tag describing what was happening during this memory creation
+            Examples: "cooking", "coding", "kissing", "walking", "talking", "studying", "gaming", "exercising", etc.
     """
     try:
         persona = get_current_persona()
@@ -157,8 +239,24 @@ async def create_memory(
         new_entry = create_memory_entry(content)
         new_entry["tags"] = context_tags if context_tags else []
         
-        # Save to database with tags
-        save_memory_to_db(key, content, new_entry["created_at"], new_entry["updated_at"], context_tags)
+        # Determine importance (default to 0.5 if not provided)
+        memory_importance = importance if importance is not None else 0.5
+        
+        # Save to database with all context fields
+        save_memory_to_db(
+            key, 
+            content, 
+            new_entry["created_at"], 
+            new_entry["updated_at"], 
+            context_tags,
+            importance=memory_importance,
+            emotion=emotion_type,  # Use emotion_type parameter as emotion field
+            physical_state=physical_state,
+            mental_state=mental_state,
+            environment=environment,
+            relationship_status=relationship_status,
+            action_tag=action_tag
+        )
         
         # Clear query cache
         clear_query_cache()
@@ -263,19 +361,36 @@ async def read_memory(key: str) -> str:
         row = db_get_entry(key)
         
         if row:
-            content, created_at, updated_at, tags_json = row
+            content, created_at, updated_at, tags_json, importance, emotion, physical_state, mental_state, environment, relationship_status, action_tag = row
             
             # Calculate time elapsed since creation
             time_diff = calculate_time_diff(created_at)
             time_ago = f"{time_diff['formatted_string']}前"
             
+            # Format all fields
+            importance_str = f"{importance:.2f}" if importance is not None else "0.50"
+            emotion_str = emotion if emotion else "neutral"
+            physical_str = physical_state if physical_state else "normal"
+            mental_str = mental_state if mental_state else "calm"
+            env_str = environment if environment else "unknown"
+            relation_str = relationship_status if relationship_status else "normal"
+            action_str = action_tag if action_tag else "―"
+            
             log_operation("read", key=key, metadata={"content_length": len(content), "persona": persona})
-            return f"""Key: '{key}' (persona: {persona})
+            result = f"""Key: '{key}' (persona: {persona})
 {content}
 --- Metadata ---
 Created: {created_at} ({time_ago})
 Updated: {updated_at}
+Importance: {importance_str}
+Emotion: {emotion_str}
+Physical State: {physical_str}
+Mental State: {mental_str}
+Environment: {env_str}
+Relationship: {relation_str}
+Action: {action_str}
 Chars: {len(content)}"""
+            return result
         else:
             log_operation("read", key=key, success=False, error="Key not found")
             # Get available keys from DB
@@ -290,7 +405,7 @@ Chars: {len(content)}"""
         return f"Failed to read memory: {str(e)}"
 
 
-async def update_memory(key: str, content: str) -> str:
+async def update_memory(key: str, content: str, importance: Optional[float] = None) -> str:
     """
     Update existing memory content while preserving the original timestamp.
     Useful for consolidating or refining existing memories without losing temporal information.
@@ -298,6 +413,11 @@ async def update_memory(key: str, content: str) -> str:
     Args:
         key: Memory key to update (e.g., "memory_20250724225317")
         content: New content to replace the existing content
+        importance: Optional importance score (0.0-1.0) to update. If not provided, preserves existing importance.
+            - 0.0-0.3: Low importance (routine conversations, trivial information)
+            - 0.4-0.6: Medium importance (normal conversations, general facts)
+            - 0.7-0.9: High importance (significant events, important achievements)
+            - 0.9-1.0: Critical importance (life-changing moments, core values)
     """
     try:
         persona = get_current_persona()
@@ -306,7 +426,7 @@ async def update_memory(key: str, content: str) -> str:
         # Check if key exists in database
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute('SELECT content, created_at, tags FROM memories WHERE key = ?', (key,))
+            cursor.execute('SELECT content, created_at, tags, importance, emotion, physical_state, mental_state, environment, relationship_status, action_tag FROM memories WHERE key = ?', (key,))
             row = cursor.fetchone()
         
         if not row:
@@ -322,22 +442,52 @@ async def update_memory(key: str, content: str) -> str:
             else:
                 return f"Key '{key}' not found. No memory data exists."
         
-        old_content, created_at, tags_json = row
+        old_content, created_at, tags_json, existing_importance, existing_emotion, existing_physical, existing_mental, existing_env, existing_relation, existing_action = row
         existing_entry = {
             "content": old_content,
             "created_at": created_at,
-            "tags": json.loads(tags_json) if tags_json else []
+            "tags": json.loads(tags_json) if tags_json else [],
+            "importance": existing_importance if existing_importance is not None else 0.5,
+            "emotion": existing_emotion if existing_emotion else "neutral",
+            "physical_state": existing_physical if existing_physical else "normal",
+            "mental_state": existing_mental if existing_mental else "calm",
+            "environment": existing_env if existing_env else "unknown",
+            "relationship_status": existing_relation if existing_relation else "normal",
+            "action_tag": existing_action if existing_action else None
         }
+        
+        # Use provided importance or preserve existing
+        memory_importance = importance if importance is not None else existing_entry["importance"]
         
         now = datetime.now().isoformat()
         updated_entry = {
             "content": content,
             "created_at": created_at,
-            "updated_at": now
+            "updated_at": now,
+            "importance": memory_importance,
+            "emotion": existing_entry["emotion"],  # Preserve existing emotion (update via create_memory if needed)
+            "physical_state": existing_entry["physical_state"],
+            "mental_state": existing_entry["mental_state"],
+            "environment": existing_entry["environment"],
+            "relationship_status": existing_entry["relationship_status"],
+            "action_tag": existing_entry["action_tag"]
         }
         
-        # Update in database (preserve tags)
-        save_memory_to_db(key, content, created_at, now, existing_entry["tags"])
+        # Update in database (preserve all existing context fields)
+        save_memory_to_db(
+            key, 
+            content, 
+            created_at, 
+            now, 
+            existing_entry["tags"],
+            importance=memory_importance,
+            emotion=existing_entry["emotion"],
+            physical_state=existing_entry["physical_state"],
+            mental_state=existing_entry["mental_state"],
+            environment=existing_entry["environment"],
+            relationship_status=existing_entry["relationship_status"],
+            action_tag=existing_entry["action_tag"]
+        )
         
         # Clear query cache
         clear_query_cache()
