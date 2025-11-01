@@ -22,6 +22,9 @@ def register_tools(mcp: Any) -> None:
     mcp.tool()(impl.get_time_since_last_conversation)
     mcp.tool()(impl.get_persona_context)
     mcp.tool()(impl.rebuild_vector_store_tool)
+    # Phase 23: Migration helpers
+    mcp.tool()(impl.migrate_sqlite_to_qdrant_tool)
+    mcp.tool()(impl.migrate_qdrant_to_sqlite_tool)
     mcp.tool()(impl.find_related_memories)
     mcp.tool()(impl.detect_duplicates)
     mcp.tool()(impl.merge_memories)
