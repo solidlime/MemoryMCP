@@ -7,7 +7,7 @@
   "server_port": 8000,
   "timezone": "Asia/Tokyo",
   "vector_rebuild": {
-    "mode": "idle",          // "idle" or "manual"
+    "mode": "idle",
     "idle_seconds": 30,
     "min_interval": 120
   },

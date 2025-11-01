@@ -20,6 +20,7 @@ Memory MCP ServerをDockerで実行するための完全ガイドです。
 - Docker 20.10+
 - Docker Compose 2.0+（推奨）
 - 最低2GB RAM（モデルキャッシュ含む）
+- ディスク: 5GB以上推奨（モデルキャッシュ + データ）
 
 ### 最速起動
 
@@ -28,6 +29,9 @@ Memory MCP ServerをDockerで実行するための完全ガイドです。
 git clone https://github.com/solidlime/MemoryMCP.git
 cd MemoryMCP
 
+# データディレクトリ作成（初回のみ）
+mkdir -p data
+
 # Docker Composeで起動
 docker compose up -d
 
@@ -35,7 +39,11 @@ docker compose up -d
 docker compose logs -f memory-mcp
 ```
 
-サーバーが `http://localhost:8000` で起動します。
+サーバーが `http://localhost:26262` で起動します。
+
+**ポート設定について**:
+- 開発環境（ローカル起動）: ポート `8000` (config.jsonで設定)
+- 本番環境（Docker起動）: ポート `26262` (環境変数で設定、競合回避)
 
 ## Docker Compose（推奨）
 
@@ -53,25 +61,47 @@ services:
       dockerfile: Dockerfile
     container_name: memory-mcp
     ports:
-      - "8000:8000"
+      - "26262:26262"
     volumes:
-      - ./.cache:/app/.cache
-      - ./memory:/app/memory
-      - ./config.json:/app/config.json
-      - ./memory_operations.log:/app/memory_operations.log
+      # Persist all data (memory, logs, cache) in one mount
+      - ./data:/data
+      # Persist config file for hot reload
+      - ./config.json:/config/config.json:ro
     environment:
-      - HF_HOME=/app/.cache/huggingface
-      - TRANSFORMERS_CACHE=/app/.cache/transformers
-      - SENTENCE_TRANSFORMERS_HOME=/app/.cache/sentence_transformers
-      - TORCH_HOME=/app/.cache/torch
+      # Cache directories (unified under /data/cache)
+      - HF_HOME=/data/cache/huggingface
+      - TRANSFORMERS_CACHE=/data/cache/transformers
+      - SENTENCE_TRANSFORMERS_HOME=/data/cache/sentence_transformers
+      - TORCH_HOME=/data/cache/torch
+      # Memory & config paths
+      - MEMORY_MCP_CONFIG_PATH=/config/config.json
+      - MEMORY_MCP_DATA_DIR=/data
+      - MEMORY_MCP_SERVER_PORT=26262
+      # Python unbuffered output for better logging
       - PYTHONUNBUFFERED=1
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:26262/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
+```
+
+**ディレクトリ構造**:
+```
+./data/
+├── memory/              # Personaごとのデータベース
+│   ├── default/
+│   ├── nilou/
+│   └── ...
+├── logs/                # 操作ログ
+│   └── memory_operations.log
+└── cache/               # モデルキャッシュ
+    ├── huggingface/
+    ├── transformers/
+    ├── sentence_transformers/
+    └── torch/
 ```
 
 ### 基本コマンド
@@ -98,11 +128,20 @@ docker compose down -v
 
 ### カスタムポート
 
-ホスト側のポートを変更する場合：
+デフォルトではポート `26262` を使用しますが、変更も可能です：
 
 ```yaml
 ports:
-  - "9000:8000"  # ホスト:9000 -> コンテナ:8000
+  - "9000:26262"  # ホスト:9000 -> コンテナ:26262
+```
+
+環境変数でコンテナ内のポートを変更する場合：
+
+```yaml
+environment:
+  - MEMORY_MCP_SERVER_PORT=8080
+ports:
+  - "8080:8080"
 ```
 
 VS Code設定も合わせて変更：
@@ -134,11 +173,16 @@ docker build -t memory-mcp:latest .
 ```bash
 docker run -d \
   --name memory-mcp \
-  -p 8000:8000 \
-  -v "$(pwd)/.cache:/app/.cache" \
-  -v "$(pwd)/memory:/app/memory" \
-  -v "$(pwd)/config.json:/app/config.json" \
-  -v "$(pwd)/memory_operations.log:/app/memory_operations.log" \
+  -p 26262:26262 \
+  -v "$(pwd)/data:/data" \
+  -v "$(pwd)/config.json:/config/config.json:ro" \
+  -e HF_HOME=/data/cache/huggingface \
+  -e TRANSFORMERS_CACHE=/data/cache/transformers \
+  -e SENTENCE_TRANSFORMERS_HOME=/data/cache/sentence_transformers \
+  -e TORCH_HOME=/data/cache/torch \
+  -e MEMORY_MCP_CONFIG_PATH=/config/config.json \
+  -e MEMORY_MCP_DATA_DIR=/data \
+  -e MEMORY_MCP_SERVER_PORT=26262 \
   -e PYTHONUNBUFFERED=1 \
   --restart unless-stopped \
   memory-mcp:latest
@@ -169,10 +213,35 @@ docker rm -f memory-mcp
 
 | ホストパス | コンテナパス | 説明 | 必須 |
 |-----------|-------------|------|------|
-| `./.cache` | `/app/.cache` | HuggingFace/Torchモデルキャッシュ | ⭐ 推奨 |
-| `./memory` | `/app/memory` | Persona別データベース・ベクトルストア | ✅ 必須 |
-| `./config.json` | `/app/config.json` | サーバー設定（ホットリロード） | ⭐ 推奨 |
-| `./memory_operations.log` | `/app/memory_operations.log` | 操作ログ | △ オプション |
+| `./data` | `/data` | 全データ（memory/, logs/, cache/） | ✅ 必須 |
+| `./config.json` | `/config/config.json` | サーバー設定（ホットリロード） | ⭐ 推奨 |
+
+**シンプル化のポイント**:
+- `./data` ディレクトリ1つだけマウントすれば、メモリ・ログ・キャッシュすべて永続化
+- 個別のディレクトリをマウントする必要なし
+
+### データディレクトリ構造
+
+初回起動時、`./data` 配下に以下が自動作成されます：
+
+```
+data/
+├── memory/              # Persona別データベース・ベクトルストア
+│   ├── default/
+│   │   ├── memory.sqlite
+│   │   ├── persona_context.json
+│   │   └── vector_store/
+│   │       └── index.faiss
+│   └── [persona_name]/
+│       └── ...
+├── logs/                # 操作ログ
+│   └── memory_operations.log
+└── cache/               # モデルキャッシュ
+    ├── huggingface/
+    ├── transformers/
+    ├── sentence_transformers/
+    └── torch/
+```
 
 ### キャッシュボリューム
 
@@ -181,50 +250,31 @@ docker rm -f memory-mcp
 - **埋め込みモデル**: `cl-nagoya/ruri-v3-30m` (~120MB)
 - **Rerankerモデル**: `hotchpotch/japanese-reranker-xsmall-v2` (~50MB)
 
-`.cache`ディレクトリをマウントすることで、コンテナ再作成時もダウンロードをスキップできます。
+`./data/cache`ディレクトリに永続化されるため、コンテナ再作成時もダウンロードをスキップできます。
 
-**Docker Composeの場合**:
-
-```yaml
-volumes:
-  - ./.cache:/app/.cache  # ホストにキャッシュを永続化
-```
-
-**Dockerfileのみの場合**:
-
-```bash
-docker run -v "$(pwd)/.cache:/app/.cache" ...
-```
-
-### データ永続化
-
-`./memory`ディレクトリには各Personaのデータが保存されます：
-
-```
-memory/
-├── default/
-│   ├── memory.sqlite          # SQLiteデータベース
-│   ├── persona_context.json   # コンテキスト
-│   └── vector_store/
-│       └── index.faiss        # FAISSインデックス
-└── [persona_name]/
-    ├── memory.sqlite
-    ├── persona_context.json
-    └── vector_store/
-```
-
-**重要**: このディレクトリを削除すると、すべての記憶が失われます。
+**重要**: `./data`ディレクトリを削除すると、すべての記憶とキャッシュが失われます。
 
 ## 環境変数
 
+### データパス設定
+
+| 環境変数 | デフォルト値 | 説明 |
+|---------|-------------|------|
+| `MEMORY_MCP_DATA_DIR` | `/data` | データディレクトリルート |
+| `MEMORY_MCP_CONFIG_PATH` | `/config/config.json` | 設定ファイルパス |
+
 ### キャッシュディレクトリ
 
+すべてのキャッシュは `MEMORY_MCP_DATA_DIR` 配下の `cache/` に統一：
+
 ```bash
-HF_HOME=/app/.cache/huggingface
-TRANSFORMERS_CACHE=/app/.cache/transformers
-SENTENCE_TRANSFORMERS_HOME=/app/.cache/sentence_transformers
-TORCH_HOME=/app/.cache/torch
+HF_HOME=/data/cache/huggingface
+TRANSFORMERS_CACHE=/data/cache/transformers
+SENTENCE_TRANSFORMERS_HOME=/data/cache/sentence_transformers
+TORCH_HOME=/data/cache/torch
 ```
+
+これにより、`./data` ディレクトリ1つをマウントするだけで、すべてのキャッシュが永続化されます。
 
 ### Python設定
 
@@ -357,8 +407,10 @@ docker logs memory-mcp
 
 **よくあるエラー**:
 
-1. **ポート競合**: `Bind for 0.0.0.0:8000 failed: port is already allocated`
-   - 解決: `docker-compose.yml`でポートを変更（例: `9000:8000`）
+1. **ポート競合**: `Bind for 0.0.0.0:26262 failed: port is already allocated`
+   - 原因: 別のコンテナやプロセスが同じポートを使用中
+   - 解決: `docker-compose.yml`でホスト側ポートを変更（例: `9000:26262`）
+   - または: `MEMORY_MCP_SERVER_PORT`環境変数で別のポートを指定
 
 2. **パーミッションエラー**: `Permission denied`
    - 解決: ボリュームマウント先のディレクトリパーミッション確認

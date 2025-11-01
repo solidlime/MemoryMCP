@@ -7,27 +7,27 @@ services:
       dockerfile: Dockerfile
     container_name: memory-mcp
     ports:
-      - "8000:8000"
+      - "26262:26262"
     volumes:
-      # Persist model cache on host
-      - ./.cache:/app/.cache
-      # Persist memory databases (all personas)
-      - ./memory:/app/memory
+      # Persist all data (memory, logs, cache) in one mount
+      - ./data:/data
       # Persist config file for hot reload
-      - ./config.json:/app/config.json
-      # Persist operation logs
-      - ./memory_operations.log:/app/memory_operations.log
+      - ./config.json:/config/config.json:ro
     environment:
-      # Cache directories (already set in Dockerfile, but explicit here)
-      - HF_HOME=/app/.cache/huggingface
-      - TRANSFORMERS_CACHE=/app/.cache/transformers
-      - SENTENCE_TRANSFORMERS_HOME=/app/.cache/sentence_transformers
-      - TORCH_HOME=/app/.cache/torch
+      # Cache directories (unified under /data/cache)
+      - HF_HOME=/data/cache/huggingface
+      - TRANSFORMERS_CACHE=/data/cache/transformers
+      - SENTENCE_TRANSFORMERS_HOME=/data/cache/sentence_transformers
+      - TORCH_HOME=/data/cache/torch
+      # Memory & config paths
+      - MEMORY_MCP_CONFIG_PATH=/config/config.json
+      - MEMORY_MCP_DATA_DIR=/data
+      - MEMORY_MCP_SERVER_PORT=26262
       # Python unbuffered output for better logging
       - PYTHONUNBUFFERED=1
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:26262/health"]
       interval: 30s
       timeout: 10s
       retries: 3

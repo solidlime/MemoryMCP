@@ -40,6 +40,8 @@ env/
 
 # Memory MCP specific
 memory/
+data/
+output/
 .cache/
 *.log
 *.sqlite

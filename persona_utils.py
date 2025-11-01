@@ -2,6 +2,8 @@ import os
 from contextvars import ContextVar
 from fastmcp.server.dependencies import get_http_request
 
+from config_utils import ensure_directory, ensure_memory_root
+
 # Paths
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -24,8 +26,9 @@ def get_persona_dir(persona: str | None = None) -> str:
     if persona is None:
         persona = get_current_persona()
     safe_persona = persona.replace('/', '_').replace('\\', '_')
-    persona_dir = os.path.join(SCRIPT_DIR, "memory", safe_persona)
-    os.makedirs(persona_dir, exist_ok=True)
+    base_dir = ensure_memory_root()
+    persona_dir = os.path.join(base_dir, safe_persona)
+    ensure_directory(persona_dir)
     return persona_dir
 
 def get_db_path(persona: str | None = None) -> str:

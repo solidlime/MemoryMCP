@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memory MCP Dashboard 🧠</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+        }
+        .glass-card:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateY(-2px);
+            transition: all 0.3s ease;
+        }
+        .loading {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body class="p-6">
+    <!-- Header -->
+    <header class="glass-card rounded-2xl p-6 mb-6">
+        <div class="flex justify-between items-center">
+            <div>
+                <h1 class="text-4xl font-bold text-white mb-2">🧠 Memory MCP Dashboard</h1>
+                <p class="text-purple-200">Visualize your memories and knowledge</p>
+            </div>
+            <div class="flex items-center gap-4">
+                <label class="text-white font-semibold">Persona:</label>
+                <select id="personaSelect" class="glass-card rounded-lg px-4 py-2 text-white font-semibold cursor-pointer">
+                    <option value="">Loading...</option>
+                </select>
+                <button onclick="refreshData()" class="glass-card rounded-lg px-4 py-2 text-white font-semibold hover:bg-white/20 transition">
+                    🔄 Refresh
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Info & Metrics Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <!-- Info Card -->
+        <div class="glass-card rounded-2xl p-6">
+            <h2 class="text-2xl font-bold text-white mb-4">📊 Memory Info</h2>
+            <div id="infoContent" class="text-white space-y-2 loading">
+                <p>Loading...</p>
+            </div>
+        </div>
+
+        <!-- Metrics Card -->
+        <div class="glass-card rounded-2xl p-6">
+            <h2 class="text-2xl font-bold text-white mb-4">📈 Metrics</h2>
+            <div id="metricsContent" class="text-white space-y-2 loading">
+                <p>Loading...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Card -->
+    <div class="glass-card rounded-2xl p-6 mb-6">
+        <h2 class="text-2xl font-bold text-white mb-4">📉 Statistics</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <h3 class="text-xl text-white mb-3">📅 7-Day Timeline</h3>
+                <canvas id="timelineChart"></canvas>
+            </div>
+            <div>
+                <h3 class="text-xl text-white mb-3">🏷️ Tag Distribution</h3>
+                <canvas id="tagChart"></canvas>
+            </div>
+        </div>
+        <div class="mt-6">
+            <h3 class="text-xl text-white mb-3">🔗 Top Links</h3>
+            <div id="topLinksContent" class="text-white space-y-1">
+                Loading...
+            </div>
+        </div>
+    </div>
+
+    <!-- Knowledge Graph Card -->
+    <div class="glass-card rounded-2xl p-6">
+        <h2 class="text-2xl font-bold text-white mb-4">🕸️ Knowledge Graph</h2>
+        <div id="knowledgeGraphContent" class="bg-white rounded-lg" style="height: 600px;">
+            <div class="flex items-center justify-center h-full text-gray-500">
+                <p class="loading">Loading Knowledge Graph...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentPersona = '';
+        let timelineChart = null;
+        let tagChart = null;
+
+        // Load personas on page load
+        async function loadPersonas() {
+            try {
+                const response = await fetch('/api/personas');
+                const personas = await response.json();
+                const select = document.getElementById('personaSelect');
+                select.innerHTML = personas.map(p => 
+                    `<option value="${p}">${p}</option>`
+                ).join('');
+                
+                // Load first persona by default
+                if (personas.length > 0) {
+                    currentPersona = personas[0];
+                    select.value = currentPersona;
+                    await loadDashboardData(currentPersona);
+                }
+            } catch (error) {
+                console.error('Failed to load personas:', error);
+                document.getElementById('personaSelect').innerHTML = '<option>Error loading personas</option>';
+            }
+        }
+
+        // Persona selection change
+        document.getElementById('personaSelect').addEventListener('change', async (e) => {
+            currentPersona = e.target.value;
+            await loadDashboardData(currentPersona);
+        });
+
+        // Refresh data
+        async function refreshData() {
+            if (currentPersona) {
+                await loadDashboardData(currentPersona);
+            }
+        }
+
+        // Load dashboard data
+        async function loadDashboardData(persona) {
+            try {
+                const response = await fetch(`/api/dashboard/${persona}`);
+                const data = await response.json();
+                
+                // Update Info
+                renderInfo(data.info);
+                
+                // Update Metrics
+                renderMetrics(data.metrics);
+                
+                // Update Stats
+                renderStats(data.stats);
+                
+                // Update Knowledge Graph
+                renderKnowledgeGraph(data.knowledge_graph_url);
+                
+            } catch (error) {
+                console.error('Failed to load dashboard data:', error);
+            }
+        }
+
+        function renderInfo(info) {
+            const content = document.getElementById('infoContent');
+            content.classList.remove('loading');
+            content.innerHTML = `
+                <div class="space-y-2">
+                    <p class="text-lg"><span class="font-semibold">💭 Total Memories:</span> ${info.total_memories || 0}</p>
+                    <p><span class="font-semibold">📅 Database Created:</span> ${info.created_at || 'N/A'}</p>
+                    <p><span class="font-semibold">🕐 Last Conversation:</span> ${info.last_conversation || 'N/A'}</p>
+                    <p><span class="font-semibold">😊 Current Emotion:</span> ${info.current_emotion || 'neutral'}</p>
+                    <p><span class="font-semibold">🏃 Physical State:</span> ${info.physical_state || 'normal'}</p>
+                    <p><span class="font-semibold">🧠 Mental State:</span> ${info.mental_state || 'calm'}</p>
+                </div>
+            `;
+        }
+
+        function renderMetrics(metrics) {
+            const content = document.getElementById('metricsContent');
+            content.classList.remove('loading');
+            
+            const topTags = metrics.top_tags ? Object.entries(metrics.top_tags)
+                .slice(0, 5)
+                .map(([tag, count]) => `<span class="inline-block bg-white/20 rounded-full px-3 py-1 text-sm">${tag} (${count})</span>`)
+                .join(' ') : 'No tags';
+            
+            const topEmotions = metrics.emotion_distribution ? Object.entries(metrics.emotion_distribution)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 3)
+                .map(([emotion, count]) => `<span class="inline-block bg-white/20 rounded-full px-3 py-1 text-sm">${emotion} (${count})</span>`)
+                .join(' ') : 'No emotions';
+            
+            content.innerHTML = `
+                <div class="space-y-3">
+                    <div>
+                        <p class="font-semibold mb-2">🏷️ Top Tags:</p>
+                        <div class="flex flex-wrap gap-2">${topTags}</div>
+                    </div>
+                    <div>
+                        <p class="font-semibold mb-2">😊 Top Emotions:</p>
+                        <div class="flex flex-wrap gap-2">${topEmotions}</div>
+                    </div>
+                    <p><span class="font-semibold">📊 Tagged Memories:</span> ${metrics.tagged_memories_count || 0}</p>
+                    <p><span class="font-semibold">🔗 Linked Memories:</span> ${metrics.linked_memories_count || 0}</p>
+                </div>
+            `;
+        }
+
+        function renderStats(stats) {
+            // Timeline Chart
+            if (stats.last_7_days) {
+                const ctx = document.getElementById('timelineChart');
+                if (timelineChart) timelineChart.destroy();
+                
+                const labels = stats.last_7_days.map(d => d.date);
+                const data = stats.last_7_days.map(d => d.count);
+                
+                timelineChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Memories Created',
+                            data: data,
+                            backgroundColor: 'rgba(255, 255, 255, 0.7)',
+                            borderColor: 'rgba(255, 255, 255, 1)',
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            y: { beginAtZero: true }
+                        }
+                    }
+                });
+            }
+            
+            // Tag Chart
+            if (stats.tag_distribution) {
+                const ctx = document.getElementById('tagChart');
+                if (tagChart) tagChart.destroy();
+                
+                const tagEntries = Object.entries(stats.tag_distribution).slice(0, 5);
+                const labels = tagEntries.map(([tag, _]) => tag);
+                const data = tagEntries.map(([_, count]) => count);
+                
+                tagChart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: data,
+                            backgroundColor: [
+                                'rgba(255, 99, 132, 0.7)',
+                                'rgba(54, 162, 235, 0.7)',
+                                'rgba(255, 206, 86, 0.7)',
+                                'rgba(75, 192, 192, 0.7)',
+                                'rgba(153, 102, 255, 0.7)'
+                            ],
+                            borderWidth: 2,
+                            borderColor: '#fff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: { 
+                                position: 'right',
+                                labels: { color: 'white' }
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // Top Links
+            if (stats.top_links) {
+                const content = document.getElementById('topLinksContent');
+                const links = Object.entries(stats.top_links)
+                    .slice(0, 10)
+                    .map(([link, count]) => `<span class="inline-block bg-white/20 rounded-full px-3 py-1 text-sm mr-2 mb-2">${link} (${count})</span>`)
+                    .join('');
+                content.innerHTML = links || '<p class="text-purple-200">No links found</p>';
+            }
+        }
+
+        function renderKnowledgeGraph(url) {
+            const content = document.getElementById('knowledgeGraphContent');
+            if (url) {
+                content.innerHTML = `<iframe src="${url}" class="w-full h-full rounded-lg" frameborder="0"></iframe>`;
+            } else {
+                content.innerHTML = `
+                    <div class="flex items-center justify-center h-full text-gray-500">
+                        <p>No Knowledge Graph available. Generate one using the generate_knowledge_graph tool!</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Initialize on page load
+        loadPersonas();
+    </script>
+</body>
+</html>
