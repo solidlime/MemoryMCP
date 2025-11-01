@@ -146,7 +146,7 @@ except Exception:
 mcp = FastMCP(
     "Memory Service",
     host=_early_config.get("server_host", "127.0.0.1"),
-    port=_early_config.get("server_port", 8000)
+    port=_early_config.get("server_port", 26262)
 )
 
 # Initialize Jinja2 templates for dashboard
@@ -189,7 +189,7 @@ if __name__ == "__main__":
     # Load configuration (already loaded early for FastMCP initialization)
     config = load_config()
     server_host = config.get("server_host", "127.0.0.1")
-    server_port = config.get("server_port", 8000)
+    server_port = config.get("server_port", 26262)
     print(f"📝 Server configuration: {server_host}:{server_port}")
     _log_progress(f"📝 Server configuration: {server_host}:{server_port}")
     # Load memory database first (includes migration)

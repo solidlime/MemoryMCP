@@ -397,7 +397,7 @@ def add_memory_to_vector_store(key: str, content: str):
     """
     global vector_store
     
-    if not vector_store or not embeddings:
+    if not embeddings:
         mark_vector_store_dirty()
         return
     
@@ -427,15 +427,41 @@ def add_memory_to_vector_store(key: str, content: str):
         # Create document with metadata
         doc = Document(page_content=content, metadata=meta)
         
-        # Add to vector store with ID
-        vector_store.add_documents([doc], ids=[key])
+        # Use persona-specific vector store for Qdrant
+        cfg = load_config()
+        storage_backend = cfg.get("storage_backend", "sqlite").lower()
         
-        # Save immediately (FAISS only)
-        save_vector_store()
-        
-        print(f"✅ Added memory {key} to vector store incrementally")
+        if storage_backend == "qdrant" and QDRANT_AVAILABLE:
+            # Get current persona and create Qdrant client
+            from persona_utils import get_current_persona
+            persona = get_current_persona()
+            url = cfg.get("qdrant_url", "http://localhost:6333")
+            api_key = cfg.get("qdrant_api_key")
+            prefix = cfg.get("qdrant_collection_prefix", "memory_")
+            collection = f"{prefix}{persona}"
+            
+            # Create persona-specific Qdrant vector store
+            client = QdrantClient(url=url, api_key=api_key)
+            dim = _get_embedding_dimension(cfg.get("embeddings_model", "cl-nagoya/ruri-v3-30m"))
+            persona_vector_store = QdrantVectorStoreAdapter(client, collection, embeddings, dim)
+            
+            # Add to persona-specific Qdrant collection
+            persona_vector_store.add_documents([doc], ids=[key])
+            print(f"✅ Added memory {key} to Qdrant collection {collection}")
+        elif vector_store:
+            # Use global vector store for FAISS
+            vector_store.add_documents([doc], ids=[key])
+            # Save immediately (FAISS only)
+            save_vector_store()
+            print(f"✅ Added memory {key} to vector store incrementally")
+        else:
+            mark_vector_store_dirty()
+            return
+            
     except Exception as e:
         print(f"⚠️  Failed to add memory incrementally: {e}, falling back to dirty flag")
+        import traceback
+        traceback.print_exc()
         mark_vector_store_dirty()
 
 def update_memory_in_vector_store(key: str, content: str):

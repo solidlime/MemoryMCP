@@ -11,7 +11,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "reranker_model": "hotchpotch/japanese-reranker-xsmall-v2",
     "reranker_top_n": 5,
     "server_host": "0.0.0.0",
-    "server_port": 8000,
+    "server_port": 26262,
     "timezone": "Asia/Tokyo",
     # Storage backend: "sqlite" (default) or "qdrant"
     "storage_backend": "sqlite",
