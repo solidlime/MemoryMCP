@@ -1,23 +1,26 @@
 # Active Context: Memory MCP
 
 ## 現在の作業フォーカス
-- **フェーズ**: Phase 22 - Webダッシュボード実装・UI/UX・API・知識グラフ・セキュリティ
-- **注力ポイント**: ダッシュボードのUX改善・API拡張・メモリバンク整理・ドキュメント整備
+- **フェーズ**: Phase 23 - Docker環境最適化 完了 → Qdrant移行準備へ
+- **注力ポイント**: Qdrant移行の設計・実装計画、ダッシュボード微修正、ドキュメント反映
 
 ---
 
 ## 今日のTODO（2025-11-01）
-- WebダッシュボードのTop Emotions表示修正
-- knowledge_graph.htmlの自動生成・更新（アイドル時間活用も検討）
-- ベクトルDBをQdrantへ移行準備（QDRANT_URL=http://nas:6333, QDRANT_COLLECTION_NAME=persona_nilou_memory）
+- WebダッシュボードのTop Emotions表示修正（小数→%表記、表示揺れ抑制）
+- knowledge_graph.htmlの自動生成・更新（アイドル時トリガー検討）
+- Qdrant移行の接続検証（QDRANT_URL=http://nas:6333 / API Key任意）
+- Qdrantコレクション命名規約とスキーマ（例: memory_{persona}）の定義
+- VS Code `tasks.json` 追加（Start/Stop/Restart）
 - スペック要件（Celeron J4125/4C/16GB）をREADME等に明記
 
 ---
 
 ## 🔥 優先課題
-- dockerコンテナ立ち上げエラー修正（ModuleNotFoundError: No module named 'db_utils'）
-- /appホストマウント時にmemory_mcp.pyへアクセスできなくなる問題の構成見直し
-- Docker環境変数でconfig.jsonの内容を全て代替できるようにする（優先度: config.json > 環境変数、イメージからconfig.json除外）
+- Qdrant移行（デフォルトDB切替）設計と段階導入
+  - デュアルバックエンド: `sqlite` | `qdrant` を設定で切替
+  - 互換API層（add/update/delete/search/rebuild）で抽象化
+  - 既存SQLite/FAISSからの移行スクリプト（全件Upsert）
 
 ---
 
@@ -26,8 +29,7 @@
 - ドキュメント（README, 各md）の最新化
 - Dockerイメージの軽量化検討
 - context_tagsの自由記述を許可の検討
-- デフォルト使用ポート変更（8000→26262）
-- 時系列記憶の実装
+- 時系列記憶の実装（Qdrant payload拡張: timestamp, emotion, importance）
 
 ## 記憶構造の設計案
 RAG + Qdrantで**時系列＋感情付き記憶**を実現するための設計案
@@ -47,7 +49,7 @@ RAG + Qdrantで**時系列＋感情付き記憶**を実現するための設計�
 
 ### 2️⃣ 記憶保存層（Qdrant）
 
-* Qdrantの各ベクトルに `timestamp` と `emotion` をpayloadで付ける
+* Qdrantの各ベクトルに `timestamp`, `emotion`, `importance`, `persona`, `tags` をpayloadで付ける
 * 検索時はスコア計算を次のように拡張：
 
   ```
@@ -93,6 +95,16 @@ RAG + Qdrantで**時系列＋感情付き記憶**を実現するための設計�
 - ✅ Phase 14: バグ修正（Rerankerエラー、データベースマイグレーションバグ）
 - ✅ Phase 13: コンテキスト管理強化（persona_context.json構造改善、メモリタグ付け）
 - ✅ Phase 12: 時間経過認識機能（経過時間表示、キャッシュインフラ追加）
+
+---
+
+## Qdrant移行 設計メモ（ドラフト）
+- 切替フラグ: `storage_backend` = `sqlite` | `qdrant`（env: `MEMORY_MCP_STORAGE_BACKEND`）
+- Qdrant設定: `qdrant_url`, `qdrant_api_key`(任意), `qdrant_collection_prefix`（env対応）
+- コレクション命名: `memory_{persona}`（prefix上書き可）
+- 埋め込み次元: モデルから動的検出（`get_sentence_embedding_dimension()`）
+- 抽象インターフェース: `add/update/delete/search/rebuild/get_vector_count`
+- 段階導入: 1) 接続・作成 2) 並行書き込み（ミラー）3) 既存全件移行 4) 切替 5) FAISSはフォールバックとして維持
 
 ---
 
