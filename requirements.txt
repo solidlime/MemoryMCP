@@ -16,8 +16,8 @@ transformers>=4.35.0
 # torchvision>=0.15.0
 # torchaudio>=2.0.0
 
-# ベクトル検索用（FAISS CPU版）
-faiss-cpu>=1.7.4
+# Phase 25: FAISS削除（Qdrant専用化）
+# faiss-cpu>=1.7.4  # 削除
 
 # その他依存
 numpy>=1.24.0
@@ -44,5 +44,5 @@ pyvis>=0.3.0
 # Phase 22: Web Dashboard
 jinja2>=3.1.0
 
-# Phase 23: Qdrant Backend
+# Phase 23 → Phase 25: Qdrant Backend（必須化）
 qdrant-client>=1.8.2
