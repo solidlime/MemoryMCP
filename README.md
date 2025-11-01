@@ -402,7 +402,31 @@ Collection: memory_nilou
 Qdrant URL: http://nas:6333
 ```
 
-### ステップ4: 本番環境での動作確認
+### ステップ4: Qdrant接続確認
+本番Qdrantサーバーが正常に動作しているか確認します：
+
+```bash
+# Qdrant接続確認ツールを実行
+python3 check_qdrant.py http://nas:6333
+
+# または設定ファイルから自動取得
+python3 check_qdrant.py
+```
+
+**出力例（成功時）**:
+```
+✅ Connection Status: CONNECTED
+📊 Collections Found: 3
+📈 Total Vectors: 84
+
+📦 Collection Details:
+✨ memory_nilou
+   Vectors: 84
+   Vector Size: 768
+   Distance Metric: COSINE
+```
+
+### ステップ5: 本番環境での動作確認
 ```bash
 # Dockerで本番起動
 docker run -d --name memory-mcp \
@@ -415,7 +439,7 @@ docker run -d --name memory-mcp \
 curl http://localhost:26262/health
 ```
 
-### ステップ5: 開発環境ではconfig.dev.jsonを使用
+### ステップ6: 開発環境ではconfig.dev.jsonを使用
 ```bash
 # ローカル開発
 python memory_mcp.py --config config.dev.json

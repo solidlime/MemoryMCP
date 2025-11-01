@@ -359,6 +359,28 @@ MCPツール経由で、SQLite⇔Qdrant間でメモリデータを移行でき�
 
 これにより、既存のSQLite/FAISSデータをQdrantに移行したり、Qdrantデータをバックアップとしてローカルに保存することが可能です。
 
+**Qdrant接続確認**:
+
+本番Qdrantサーバーへの接続を確認するツールも用意されています：
+
+```bash
+# Qdrant接続確認（URLを指定）
+python3 check_qdrant.py http://nas:6333
+
+# または設定ファイルから自動取得
+python3 check_qdrant.py
+
+# Dockerコンテナ内から実行
+docker exec memory-mcp python3 /opt/memory-mcp/check_qdrant.py http://nas:6333
+```
+
+このツールは以下の情報を表示します：
+- ✅ 接続状態（成功/失敗）
+- 📊 コレクション一覧と記憶数
+- 📈 合計ベクトル数
+- 🔧 エラー時のトラブルシューティングヒント
+
+
 ## ヘルスチェック
 
 Docker Composeには自動ヘルスチェックが含まれています：

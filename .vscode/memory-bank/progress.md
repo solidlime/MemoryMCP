@@ -8,12 +8,17 @@
 - **Phase 23完了**: Qdrantバックエンド実装、本番環境移行完了（84 memories → http://nas:6333）
 - **Docker最適化完了**: イメージサイズ 8.28GB → 2.65GB (68.0%削減)
 - **本番運用準備完了**: 開発/本番環境分離、VS Code Tasks、最適化済みDockerイメージ
+- **Qdrant接続確認ツール**: check_qdrant.py実装、VS Code Tasks連携
 - Phase 22: Webダッシュボード実装完了
 - メモリバンク整備・ドキュメント更新完了
 
 ---
 
 ## 完了フェーズ（新しい順）
+- ✅ **Qdrant Connection Verification Tool** (2025-11-01)
+  - check_qdrant.py実装（接続確認、コレクション一覧、記憶数表示）
+  - VS Code Tasks追加（本番/ローカル/自動検出）
+  - README・DOCKER.md更新（使い方ガイド）
 - ✅ **Docker Image Optimization** (2025-11-01)
   - PyTorchをCUDA版からCPU版へ切り替え（6.6GB → 184MB）
   - Multi-stage build導入（build-essential除外）
