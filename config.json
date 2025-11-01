@@ -4,8 +4,6 @@
   "reranker_model": "hotchpotch/japanese-reranker-xsmall-v2",
   "reranker_top_n": 10,
 
-  "server_host": "127.0.0.1",
-  "server_port": 8000,
   "timezone": "Asia/Tokyo",
 
   "storage_backend": "qdrant",
