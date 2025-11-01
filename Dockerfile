@@ -20,9 +20,7 @@ RUN pip install --no-cache-dir \
     torchvision \
     torchaudio \
     --index-url https://download.pytorch.org/whl/cpu && \
-    pip install --no-cache-dir -r requirements.txt && \
-    # Remove unnecessary packages to reduce image size
-    pip uninstall -y sympy scikit-learn jedi pillow beartype 2>/dev/null || true
+    pip install --no-cache-dir -r requirements.txt
 
 # Runtime stage: Copy only necessary files
 FROM python:3.12-slim
