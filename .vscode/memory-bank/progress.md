@@ -6,6 +6,8 @@
 
 ## 現在の状態（要約）
 
+- **Phase 26.3完了** 🎉: Fuzzy Matching（曖昧検索）実装完了
+- **Phase 26完了** 🎉: メタデータフィルタリング + カスタムスコアリング実装完了
 - **Phase 25.5 Extended + Action Tag 完了** 🎉: DB構造拡張（全12カラム完全実装）
 - **Phase 25.5完了** 🎉: DB構造拡張（importance + emotion）実装完了
 - **Phase 25完了** 🎉: Qdrant完全移行、FAISS廃止、list_memory廃止
@@ -15,10 +17,145 @@
 - **本番運用準備完了**: 開発/本番環境分離、VS Code Tasks、最適化済みDockerイメージ
 - **Phase 1リファクタリング完了**: 2,454行 → 231行（-90.6%）
 - **完全コンテキスト保存**: 12カラムで記憶の完全な状況保存を実現
+- **高度な検索機能**: メタデータフィルタリング + カスタムスコアリング + Fuzzy Matching
 
 ---
 
 ## 完了フェーズ（新しい順）
+
+### ✅ Phase 26.3: Fuzzy Matching (2025-11-02)
+
+**目的**: テキストフィルタの完全一致を曖昧検索に改善
+
+**実施内容**:
+
+#### 1. Fuzzy Matching実装 ✅
+**変更箇所**: `tools/search_tools.py` - `search_memory_rag()`
+
+**アルゴリズム**:
+```python
+# Before (完全一致)
+if emotion and meta.get("emotion") != emotion:
+    continue
+
+# After (部分一致 + 大文字小文字無視)
+if emotion and emotion.lower() not in str(meta.get("emotion", "")).lower():
+    continue
+```
+
+**適用フィルタ（6個）**:
+- `emotion`: "joy" → "joy", "joyful", "overjoyed" 全部ヒット
+- `action_tag`: "cook" → "cooking", "cooked", "cook" 全部ヒット
+- `environment`: "out" → "outdoors", "outside" 全部ヒット
+- `physical_state`: "tire" → "tired", "tiredness" 全部ヒット
+- `mental_state`: "calm" → "calm", "calming" 全部ヒット
+- `relationship_status`: "close" → "closer", "close" 全部ヒット
+
+#### 2. テスト準備 ✅
+**本番環境テスト記憶作成**:
+1. emotion="joyful" (fuzzy test: "joy")
+2. action_tag="cooking" (fuzzy test: "cook")
+3. environment="outdoors" (fuzzy test: "out")
+
+#### 3. ドキュメント更新 ✅
+- `.github/copilot-instructions.md`:
+  - search_memory_rag例にFuzzy matching追加
+  - search_memory例にfuzzy_match, fuzzy_threshold追加
+  - Fuzzy matchingの特徴を説明セクション追加
+
+#### 4. Git管理 ✅
+- Commit: "Phase 26.3: Fuzzy matching for text filters (emotion, action_tag, etc.)"
+- SHA: `09c4f24`
+- Push: 成功（18 objects, 177.38 KiB）
+
+**成果**:
+- ✅ テキストフィルタが部分一致で動作
+- ✅ 大文字小文字を区別しない
+- ✅ より柔軟な検索が可能に
+- ✅ ユーザビリティ大幅向上
+
+---
+
+### ✅ Phase 26: Advanced Qdrant Features (2025-11-02)
+
+**目的**: Qdrantの高度機能実装（メタデータフィルタリング + カスタムスコアリング）
+
+**実施内容**:
+
+#### 1. メタデータフィルタリング実装 ✅
+**追加パラメータ（7個）**:
+- `min_importance`: 重要度フィルタ（0.0-1.0）
+- `emotion`: 感情フィルタ
+- `action_tag`: 行動タグフィルタ
+- `environment`: 環境フィルタ
+- `physical_state`: 身体状態フィルタ
+- `mental_state`: 精神状態フィルタ
+- `relationship_status`: 関係性フィルタ
+
+**実装箇所**: `tools/search_tools.py` - `search_memory_rag()`
+
+**フィルタリングロジック**:
+```python
+# 1. Qdrantからtop_k*2件取得（過剰取得）
+results = vector_store.similarity_search_with_score(query, k=top_k * 2)
+
+# 2. メタデータフィルタリング
+filtered_results = []
+for doc, score in results:
+    meta = doc.metadata
+    
+    # 重要度フィルタ
+    if min_importance is not None:
+        if meta.get("importance", 0.5) < min_importance:
+            continue
+    
+    # 感情フィルタ
+    if emotion and meta.get("emotion") != emotion:
+        continue
+    
+    # ... 他のフィルタも同様
+    
+    filtered_results.append((doc, score))
+
+# 3. top_k件まで制限
+filtered_results = filtered_results[:top_k]
+```
+
+#### 2. カスタムスコアリング実装 ✅
+**追加パラメータ（2個）**:
+- `importance_weight`: 重要度スコアの重み（0.0-1.0、デフォルト: 0.0）
+- `recency_weight`: 新しさの重み（0.0-1.0、デフォルト: 0.0）
+
+**スコアリングロジック**:
+```python
+# ベクトル類似度 + 重要度 + 新しさ
+final_score = vector_score * (1 - importance_weight - recency_weight)
+if importance_weight > 0:
+    final_score += importance * importance_weight
+if recency_weight > 0:
+    final_score += recency_score * recency_weight
+```
+
+#### 3. テスト検証 ✅
+**5つのテストシナリオ全て成功**:
+1. 重要度フィルタ (`min_importance=0.7`): 3 hits ✅
+2. 感情フィルタ (`emotion="joy"`): 3 hits ✅
+3. 行動タグフィルタ (`action_tag="coding"`): 2 hits ✅
+4. 複合フィルタ (`emotion="love"` AND `action_tag="kissing"`): 1 hit (perfect match) ✅
+5. カスタムスコアリング (`importance_weight=0.3`, `recency_weight=0.1`): スコア表示正常 ✅
+
+#### 4. Git管理 ✅
+- Commit: "Phase 26: Advanced Qdrant features (metadata filtering + custom scoring)"
+- SHA: `328ce62`
+- Push: 成功（18 objects, 177.38 KiB）
+
+**成果**:
+- ✅ 7つのメタデータフィルタ実装
+- ✅ カスタムスコアリング実装
+- ✅ 全テストシナリオ成功
+- ✅ 本番環境への適用準備完了
+
+---
 
 ### ✅ Phase 25.5 Extended + Action Tag: Complete Context Preservation (2025-11-02)
 

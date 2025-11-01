@@ -11,6 +11,10 @@ Model Context Protocol (MCP) に準拠した永続メモリサーバー。RAG (R
   - 身体/精神状態 (`physical_state`, `mental_state`)
   - 環境 (`environment`)、関係性 (`relationship_status`)
   - 行動タグ (`action_tag`) - 料理中、コーディング中、キス中など
+- **高度な検索機能** (Phase 26/26.3):
+  - メタデータフィルタリング: 重要度・感情・行動タグ・環境・状態でフィルタ
+  - カスタムスコアリング: 重要度・新しさの重みを調整
+  - Fuzzy Matching: 曖昧検索（"joy" → "joyful"もヒット）
 - タグとコンテキスト: 感情・体調・環境・関係性を含めた多面的な記録
 - 自動整理: アイドル時の重複検知・知識グラフ生成・感情推定
 - ダッシュボード: Web UIで統計・日次推移・知識グラフを可視化
@@ -287,8 +291,18 @@ export MEMORY_MCP_EMBEDDINGS_DEVICE=cpu
 - `delete_memory` - 記憶を削除
 
 **検索・分析**:
-- `search_memory` - キーワード検索
+- `search_memory` - キーワード検索（完全一致・Fuzzy matching・タグフィルタ・日付範囲対応）
 - `search_memory_rag` - 意味検索（RAG）
+  - Phase 26: メタデータフィルタリング（7パラメータ）
+    - `min_importance`: 重要度フィルタ（0.0-1.0）
+    - `emotion`, `action_tag`, `environment`: テキストフィルタ
+    - `physical_state`, `mental_state`, `relationship_status`: 状態フィルタ
+  - Phase 26: カスタムスコアリング（2パラメータ）
+    - `importance_weight`: 重要度の重み（0.0-1.0）
+    - `recency_weight`: 新しさの重み（0.0-1.0）
+  - Phase 26.3: Fuzzy Matching
+    - テキストフィルタが部分一致（大文字小文字無視）
+    - 例: `emotion="joy"` → "joy", "joyful", "overjoyed" 全部ヒット
 - `find_related_memories` - 関連記憶検索
 - `analyze_sentiment` - 感情分析
 
