@@ -297,3 +297,236 @@ def register_http_routes(mcp, templates):
             raise HTTPException(status_code=404, detail="File not found")
         
         return FileResponse(file_path)
+
+    # ========================================
+    # Admin Tools API Routes
+    # ========================================
+    
+    @mcp.custom_route("/api/admin/clean", methods=["POST"])
+    async def admin_clean_memory(request: Request):
+        """Clean memory by removing duplicate lines."""
+        try:
+            data = await request.json()
+            persona = data.get("persona")
+            memory_key = data.get("key")
+            
+            if not persona or not memory_key:
+                raise HTTPException(status_code=400, detail="persona and key are required")
+            
+            original_persona = current_persona.get()
+            current_persona.set(persona)
+            
+            try:
+                from db_utils import clean_memory_duplicates
+                clean_memory_duplicates(memory_key)
+                return JSONResponse({
+                    "success": True,
+                    "message": f"Successfully cleaned memory {memory_key}"
+                })
+            finally:
+                current_persona.set(original_persona)
+                
+        except Exception as e:
+            return JSONResponse({
+                "success": False,
+                "error": str(e)
+            }, status_code=500)
+    
+    @mcp.custom_route("/api/admin/rebuild", methods=["POST"])
+    async def admin_rebuild_vector_store(request: Request):
+        """Rebuild vector store from database."""
+        try:
+            data = await request.json()
+            persona = data.get("persona")
+            
+            if not persona:
+                raise HTTPException(status_code=400, detail="persona is required")
+            
+            original_persona = current_persona.get()
+            current_persona.set(persona)
+            
+            try:
+                from vector_utils import rebuild_vector_store
+                rebuild_vector_store()
+                return JSONResponse({
+                    "success": True,
+                    "message": f"Successfully rebuilt vector store for {persona}"
+                })
+            finally:
+                current_persona.set(original_persona)
+                
+        except Exception as e:
+            return JSONResponse({
+                "success": False,
+                "error": str(e)
+            }, status_code=500)
+    
+    @mcp.custom_route("/api/admin/migrate", methods=["POST"])
+    async def admin_migrate_backend(request: Request):
+        """Migrate memories between SQLite and Qdrant."""
+        try:
+            data = await request.json()
+            persona = data.get("persona")
+            source = data.get("source")  # "sqlite" or "qdrant"
+            target = data.get("target")  # "sqlite" or "qdrant"
+            
+            if not all([persona, source, target]):
+                raise HTTPException(status_code=400, detail="persona, source, and target are required")
+            
+            if source == target:
+                raise HTTPException(status_code=400, detail="source and target must be different")
+            
+            original_persona = current_persona.get()
+            current_persona.set(persona)
+            
+            try:
+                if source == "sqlite" and target == "qdrant":
+                    from vector_utils import migrate_sqlite_to_qdrant
+                    count = migrate_sqlite_to_qdrant()
+                    message = f"Migrated {count} memories from SQLite to Qdrant"
+                elif source == "qdrant" and target == "sqlite":
+                    from vector_utils import migrate_qdrant_to_sqlite
+                    count = migrate_qdrant_to_sqlite()
+                    message = f"Migrated {count} memories from Qdrant to SQLite"
+                else:
+                    raise HTTPException(status_code=400, detail="Invalid source/target combination")
+                
+                return JSONResponse({
+                    "success": True,
+                    "message": message,
+                    "count": count
+                })
+            finally:
+                current_persona.set(original_persona)
+                
+        except Exception as e:
+            return JSONResponse({
+                "success": False,
+                "error": str(e)
+            }, status_code=500)
+    
+    @mcp.custom_route("/api/admin/detect-duplicates", methods=["POST"])
+    async def admin_detect_duplicates(request: Request):
+        """Detect duplicate or similar memories."""
+        try:
+            data = await request.json()
+            persona = data.get("persona")
+            threshold = data.get("threshold", 0.85)
+            max_pairs = data.get("max_pairs", 50)
+            
+            if not persona:
+                raise HTTPException(status_code=400, detail="persona is required")
+            
+            original_persona = current_persona.get()
+            current_persona.set(persona)
+            
+            try:
+                from analysis_utils import detect_duplicate_memories
+                duplicates = detect_duplicate_memories(threshold=threshold, max_pairs=max_pairs)
+                return JSONResponse({
+                    "success": True,
+                    "duplicates": duplicates
+                })
+            finally:
+                current_persona.set(original_persona)
+                
+        except Exception as e:
+            return JSONResponse({
+                "success": False,
+                "error": str(e)
+            }, status_code=500)
+    
+    @mcp.custom_route("/api/admin/merge", methods=["POST"])
+    async def admin_merge_memories(request: Request):
+        """Merge multiple memories into one."""
+        try:
+            data = await request.json()
+            persona = data.get("persona")
+            memory_keys = data.get("keys", [])
+            merged_content = data.get("content")
+            keep_all_tags = data.get("keep_all_tags", True)
+            delete_originals = data.get("delete_originals", True)
+            
+            if not persona or not memory_keys or len(memory_keys) < 2:
+                raise HTTPException(status_code=400, detail="persona and at least 2 keys are required")
+            
+            original_persona = current_persona.get()
+            current_persona.set(persona)
+            
+            try:
+                from analysis_utils import merge_memories
+                new_key = merge_memories(
+                    memory_keys=memory_keys,
+                    merged_content=merged_content,
+                    keep_all_tags=keep_all_tags,
+                    delete_originals=delete_originals
+                )
+                return JSONResponse({
+                    "success": True,
+                    "message": f"Successfully merged {len(memory_keys)} memories",
+                    "new_key": new_key
+                })
+            finally:
+                current_persona.set(original_persona)
+                
+        except Exception as e:
+            return JSONResponse({
+                "success": False,
+                "error": str(e)
+            }, status_code=500)
+    
+    @mcp.custom_route("/api/admin/generate-graph", methods=["POST"])
+    async def admin_generate_knowledge_graph(request: Request):
+        """Generate knowledge graph visualization."""
+        try:
+            data = await request.json()
+            persona = data.get("persona")
+            output_format = data.get("format", "html")
+            min_count = data.get("min_count", 2)
+            min_cooccurrence = data.get("min_cooccurrence", 1)
+            remove_isolated = data.get("remove_isolated", True)
+            
+            if not persona:
+                raise HTTPException(status_code=400, detail="persona is required")
+            
+            original_persona = current_persona.get()
+            current_persona.set(persona)
+            
+            try:
+                from analysis_utils import build_knowledge_graph, export_graph_html, export_graph_json
+                
+                graph = build_knowledge_graph(
+                    min_count=min_count,
+                    min_cooccurrence=min_cooccurrence,
+                    remove_isolated=remove_isolated
+                )
+                
+                # Create output directory if not exists
+                output_dir = os.path.join(SCRIPT_DIR, "output")
+                os.makedirs(output_dir, exist_ok=True)
+                
+                if output_format == "html":
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    output_path = os.path.join(output_dir, f"knowledge_graph_{persona}_{timestamp}.html")
+                    export_graph_html(graph, output_path)
+                    filename = os.path.basename(output_path)
+                    return JSONResponse({
+                        "success": True,
+                        "message": f"Knowledge graph generated successfully",
+                        "url": f"/output/{filename}"
+                    })
+                else:  # json
+                    graph_json = export_graph_json(graph)
+                    return JSONResponse({
+                        "success": True,
+                        "message": "Knowledge graph generated successfully",
+                        "graph": graph_json
+                    })
+            finally:
+                current_persona.set(original_persona)
+                
+        except Exception as e:
+            return JSONResponse({
+                "success": False,
+                "error": str(e)
+            }, status_code=500)
