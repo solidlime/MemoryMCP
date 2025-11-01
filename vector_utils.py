@@ -21,7 +21,7 @@ from tqdm import tqdm
 from config_utils import load_config
 from qdrant_client import QdrantClient
 from lib.backends.qdrant_backend import QdrantVectorStoreAdapter
-from persona_utils import get_db_path
+from persona_utils import get_db_path, get_current_persona
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 

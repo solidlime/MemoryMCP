@@ -60,7 +60,6 @@ from vector_utils import (
     get_vector_metrics,
 )
 from vector_utils import reranker as _reranker
-from tools.context_tools import get_time_since_last_conversation, get_persona_context
 from tools.vector_tools import (
     rebuild_vector_store_tool,
     migrate_sqlite_to_qdrant_tool,

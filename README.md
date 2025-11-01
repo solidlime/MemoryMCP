@@ -283,12 +283,11 @@ export MEMORY_MCP_EMBEDDINGS_DEVICE=cpu
 - `memory://cleanup` - 自動整理レポート
 
 **セッション管理**:
-- `get_session_context` - **セッション開始時の総合コンテキスト取得** (Phase 26.5)
+- `get_session_context` - **応答前の総合コンテキスト取得**
   - ペルソナ状態（ユーザー情報、感情、関係性、環境など）
   - 最終会話からの経過時間（自動更新）
   - 記憶統計（件数、最近の記憶、重要度/感情/タグ分布）
-  - 💡 **推奨**: 毎セッション開始時に最初に呼ぶツール
-  - 💡 以下3ツールを統合：`get_memory_stats`, `get_persona_context`, `get_time_since_last_conversation`
+  - 💡 **推奨**: 毎応答時に呼ぶことでセッション間の記憶同期を行う
 
 **CRUD操作**:
 - `create_memory` - 新しい記憶を作成
@@ -301,14 +300,14 @@ export MEMORY_MCP_EMBEDDINGS_DEVICE=cpu
 **検索・分析**:
 - `search_memory` - キーワード検索（完全一致・Fuzzy matching・タグフィルタ・日付範囲対応）
 - `search_memory_rag` - 意味検索（RAG）
-  - Phase 26: メタデータフィルタリング（7パラメータ）
+  - メタデータフィルタリング（7パラメータ）
     - `min_importance`: 重要度フィルタ（0.0-1.0）
     - `emotion`, `action_tag`, `environment`: テキストフィルタ
     - `physical_state`, `mental_state`, `relationship_status`: 状態フィルタ
-  - Phase 26: カスタムスコアリング（2パラメータ）
+  - カスタムスコアリング（2パラメータ）
     - `importance_weight`: 重要度の重み（0.0-1.0）
     - `recency_weight`: 新しさの重み（0.0-1.0）
-  - Phase 26.3: Fuzzy Matching
+  - Fuzzy Matching
     - テキストフィルタが部分一致（大文字小文字無視）
     - 例: `emotion="joy"` → "joy", "joyful", "overjoyed" 全部ヒット
 - `find_related_memories` - 関連記憶検索
@@ -385,7 +384,7 @@ curl -X POST http://localhost:8000/api/admin/detect-duplicates \
 - Dockerイメージは config.json を同梱しないため、必要に応じてバインドマウントまたは環境変数で上書き
 - VS Code Tasks からの起動スクリプト例は `.vscode/tasks.json` を参照
 - 詳しいDocker運用やTipsは [DOCKER.md](DOCKER.md) へ
-- **Phase 25**: Qdrant必須化により、開発環境でも `start_local_qdrant.sh` などでQdrantを起動してください
+- Qdrant必須化により、開発環境でも `start_local_qdrant.sh` などでQdrantを起動してください
 
 **移行結果の例**:
 ```
