@@ -138,7 +138,7 @@ Personaを切り替えたいときは `X-Persona` の値を変更します。
 
 | 環境変数 | config.json パス | 型 | デフォルト値 | 説明 |
 |---------|-----------------|-----|------------|------|
-| `MEMORY_MCP_CONFIG_PATH` | *(特別)* | string | `./config.json` | config.jsonファイルのパス |
+| `MEMORY_MCP_CONFIG_PATH` | *(特別)* | string | `./data/config.json` | config.jsonファイルのパス（デフォルトはdataディレクトリ内） |
 | `MEMORY_MCP_DATA_DIR` | *(特別)* | string | `./` (Docker: `/data`) | データディレクトリ（memory/, logs/, cache/の親） |
 | `MEMORY_MCP_LOG_FILE` | *(特別)* | string | `<data_dir>/logs/memory_operations.log` | ログファイルパス |
 | `HF_HOME` | *(キャッシュ)* | string | `<data_dir>/cache/huggingface` | HuggingFaceキャッシュ |
