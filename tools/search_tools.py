@@ -18,6 +18,15 @@ from core import (
 # Utility imports
 from persona_utils import get_db_path, get_current_persona
 
+# Qdrant filter imports (Phase 26)
+try:
+    from qdrant_client.models import Filter, FieldCondition, MatchValue, Range
+except ImportError:
+    Filter = None
+    FieldCondition = None
+    MatchValue = None
+    Range = None
+
 # Fuzzy matching (optional)
 try:
     from rapidfuzz import fuzz
@@ -208,20 +217,59 @@ async def search_memory(
         return f"Failed to search memories: {str(e)}"
 
 
-async def search_memory_rag(query: str, top_k: int = 5) -> str:
+async def search_memory_rag(
+    query: str, 
+    top_k: int = 5,
+    # 🆕 Phase 26: フィルタリングパラメータ
+    min_importance: Optional[float] = None,
+    emotion: Optional[str] = None,
+    action_tag: Optional[str] = None,
+    environment: Optional[str] = None,
+    physical_state: Optional[str] = None,
+    mental_state: Optional[str] = None,
+    relationship_status: Optional[str] = None,
+    # 🆕 Phase 26: スコアリング調整
+    importance_weight: float = 0.0,
+    recency_weight: float = 0.0
+) -> str:
     """
     Search memories using RAG (Retrieval-Augmented Generation) with embedding-based similarity search.
     More intelligent than keyword search - understands meaning and context.
     
+    🆕 Phase 26: Enhanced with metadata filtering and custom scoring!
+    
     Args:
-        query: Natural language query to search for (e.g., "What did we discuss about Python?", "Tell me about our first kiss")
+        query: Natural language query to search for
         top_k: Number of top results to return (default: 5, recommended: 3-10)
+        
+        # Filtering (all optional)
+        min_importance: Minimum importance score (0.0-1.0, e.g., 0.7 for important memories only)
+        emotion: Filter by emotion (e.g., "joy", "love", "neutral")
+        action_tag: Filter by activity (e.g., "coding", "kissing", "cooking")
+        environment: Filter by location (e.g., "home", "office")
+        physical_state: Filter by physical condition (e.g., "energetic", "tired")
+        mental_state: Filter by mental state (e.g., "focused", "calm")
+        relationship_status: Filter by relationship (e.g., "closer", "intimate")
+        
+        # Scoring (Phase 26.2)
+        importance_weight: Weight for importance score (0.0-1.0, default: 0.0)
+        recency_weight: Weight for recency (newer = higher, 0.0-1.0, default: 0.0)
     
     Examples:
-        - "最初の出会いは？"
-        - "思い出を教えて"
-        - "Phase 9で何をした？"
-        - "Python関連の技術的成果は？"
+        # Basic usage (unchanged)
+        - search_memory_rag("Python関連の成果")
+        
+        # 🆕 Filter by importance
+        - search_memory_rag("最近の成果", min_importance=0.7)
+        
+        # 🆕 Filter by emotion + action
+        - search_memory_rag("幸せな時間", emotion="joy", action_tag="kissing")
+        
+        # 🆕 Multiple filters
+        - search_memory_rag("開発作業", min_importance=0.6, action_tag="coding", environment="home")
+        
+        # 🆕 Custom scoring (Phase 26.2)
+        - search_memory_rag("成果", importance_weight=0.3, recency_weight=0.1)
     """
     try:
         persona = get_current_persona()
@@ -230,14 +278,84 @@ async def search_memory_rag(query: str, top_k: int = 5) -> str:
             return "Please provide a query to search."
         
         # Check if RAG system is ready, fallback to keyword search if not
-        from vector_utils import vector_store, embeddings, reranker
-        if vector_store is None or embeddings is None:
+        from vector_utils import embeddings, reranker
+        from lib.backends.qdrant_backend import QdrantVectorStoreAdapter
+        from config_utils import load_config
+        from qdrant_client import QdrantClient
+        
+        if embeddings is None:
             print("⚠️  RAG system not ready, fallback to keyword search...")
             return await search_memory(query, top_k)
         
-        # Perform similarity search with more candidates for reranking
-        initial_k = top_k * 3 if reranker else top_k  # Get 3x more candidates for reranking if available
-        docs = vector_store.similarity_search(query, k=initial_k)
+        # 🆕 Phase 26: Create vector store adapter (Phase 25 pattern)
+        cfg = load_config()
+        dim = cfg.get("embeddings_dim", 384)
+        url = cfg.get("qdrant_url", "http://localhost:6333")
+        api_key = cfg.get("qdrant_api_key")
+        prefix = cfg.get("qdrant_collection_prefix", "memory_")
+        collection = f"{prefix}{persona}"
+        
+        try:
+            client = QdrantClient(url=url, api_key=api_key)
+            adapter = QdrantVectorStoreAdapter(client, collection, embeddings, dim)
+        except Exception as e:
+            print(f"⚠️  Failed to create Qdrant adapter: {e}, fallback to keyword search...")
+            return await search_memory(query, top_k)
+        
+        # 🆕 Phase 26.1: Build Qdrant filters from parameters
+        # Note: Native Qdrant filtering will be added in future phase
+        # For now, we use post-search filtering
+        
+        # Perform similarity search with more candidates for reranking and filtering
+        initial_k = top_k * 3 if reranker else top_k
+        
+        # Get similarity search results with scores
+        docs_with_scores = adapter.similarity_search_with_score(query, k=initial_k * 2)
+        
+        # 🆕 Phase 26.1: Filter results based on metadata
+        filtered_docs = []
+        for doc, score in docs_with_scores:
+            meta = doc.metadata
+            # Apply filters
+            if min_importance is not None and meta.get("importance", 0) < min_importance:
+                continue
+            if emotion and meta.get("emotion") != emotion:
+                continue
+            if action_tag and meta.get("action_tag") != action_tag:
+                continue
+            if environment and meta.get("environment") != environment:
+                continue
+            if physical_state and meta.get("physical_state") != physical_state:
+                continue
+            if mental_state and meta.get("mental_state") != mental_state:
+                continue
+            if relationship_status and meta.get("relationship_status") != relationship_status:
+                continue
+            
+            # 🆕 Phase 26.2: Calculate custom score
+            final_score = score  # Base vector similarity score
+            
+            if importance_weight > 0 and meta.get("importance") is not None:
+                final_score += importance_weight * meta["importance"]
+            
+            if recency_weight > 0 and meta.get("created_at"):
+                from datetime import datetime
+                try:
+                    created_at = datetime.fromisoformat(meta["created_at"])
+                    now = datetime.now()
+                    days_ago = (now - created_at).days
+                    # Recency score: 1.0 for today, decreases over time (0 after 1 year)
+                    recency_score = max(0, 1 - days_ago / 365.0)
+                    final_score += recency_weight * recency_score
+                except:
+                    pass
+            
+            doc.metadata["final_score"] = final_score
+            filtered_docs.append((doc, final_score))
+        
+        # Sort by final score (descending)
+        filtered_docs.sort(key=lambda x: x[1], reverse=True)
+        docs = [doc for doc, score in filtered_docs[:initial_k]]
         
         # Rerank if reranker is available
         if reranker and docs:
@@ -254,7 +372,35 @@ async def search_memory_rag(query: str, top_k: int = 5) -> str:
             docs = docs[:top_k]
         
         if docs:
-            result = f"🔍 Found {len(docs)} relevant memories for '{query}':\n\n"
+            # Build filter description for display
+            filter_desc = []
+            if min_importance is not None:
+                filter_desc.append(f"importance≥{min_importance}")
+            if emotion:
+                filter_desc.append(f"emotion={emotion}")
+            if action_tag:
+                filter_desc.append(f"action={action_tag}")
+            if environment:
+                filter_desc.append(f"env={environment}")
+            if physical_state:
+                filter_desc.append(f"physical={physical_state}")
+            if mental_state:
+                filter_desc.append(f"mental={mental_state}")
+            if relationship_status:
+                filter_desc.append(f"relation={relationship_status}")
+            
+            filter_str = f" [filters: {', '.join(filter_desc)}]" if filter_desc else ""
+            
+            # Build scoring description
+            scoring_desc = []
+            if importance_weight > 0:
+                scoring_desc.append(f"importance×{importance_weight}")
+            if recency_weight > 0:
+                scoring_desc.append(f"recency×{recency_weight}")
+            
+            scoring_str = f" [scoring: vector + {' + '.join(scoring_desc)}]" if scoring_desc else ""
+            
+            result = f"🔍 Found {len(docs)} relevant memories for '{query}'{filter_str}{scoring_str}:\n\n"
             persona = get_current_persona()
             db_path = get_db_path()
             import sqlite3
@@ -263,24 +409,62 @@ async def search_memory_rag(query: str, top_k: int = 5) -> str:
                 for i, doc in enumerate(docs, 1):
                     key = doc.metadata.get("key", "unknown")
                     content = doc.page_content
-                    # DBからメタデータ取得
-                    cursor.execute('SELECT created_at FROM memories WHERE key = ?', (key,))
+                    # DBからメタデータ取得（全12フィールド）
+                    cursor.execute('''
+                        SELECT created_at, importance, emotion, physical_state, 
+                               mental_state, environment, relationship_status, action_tag 
+                        FROM memories WHERE key = ?
+                    ''', (key,))
                     row = cursor.fetchone()
                     if row:
-                        created_at = row[0]
+                        created_at, importance, emotion_db, physical, mental, env, relation, action = row
                         created_date = created_at[:10]
                         created_time = created_at[11:19]
                         time_diff = calculate_time_diff(created_at)
                         time_ago = f" ({time_diff['formatted_string']}前)"
+                        
+                        # Build metadata display
+                        meta_parts = []
+                        if importance is not None and importance != 0.5:
+                            meta_parts.append(f"⭐{importance:.1f}")
+                        if emotion_db and emotion_db != "neutral":
+                            meta_parts.append(f"😊{emotion_db}")
+                        if action:
+                            meta_parts.append(f"🎭{action}")
+                        if env and env != "unknown":
+                            meta_parts.append(f"📍{env}")
+                        
+                        meta_str = f" [{', '.join(meta_parts)}]" if meta_parts else ""
+                        
+                        # Show final score if custom scoring was used
+                        score_str = ""
+                        if importance_weight > 0 or recency_weight > 0:
+                            final_score = doc.metadata.get("final_score")
+                            if final_score is not None:
+                                score_str = f" (score: {final_score:.3f})"
                     else:
                         created_date = "unknown"
                         created_time = "unknown"
                         time_ago = ""
-                    result += f"{i}. [{key}]\n"
+                        meta_str = ""
+                        score_str = ""
+                    
+                    result += f"{i}. [{key}]{meta_str}{score_str}\n"
                     result += f"   {content[:200]}{'...' if len(content) > 200 else ''}\n"
                     result += f"   {created_date} {created_time}{time_ago} ({len(content)} chars)\n\n"
             return result.rstrip()
         else:
-            return f"No relevant memories found for '{query}'."
+            filter_desc = []
+            if min_importance is not None:
+                filter_desc.append(f"importance≥{min_importance}")
+            if emotion:
+                filter_desc.append(f"emotion={emotion}")
+            if action_tag:
+                filter_desc.append(f"action={action_tag}")
+            filter_str = f" (filters: {', '.join(filter_desc)})" if filter_desc else ""
+            return f"No relevant memories found for '{query}'{filter_str}."
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return f"Failed to search memories with RAG: {str(e)}"
+

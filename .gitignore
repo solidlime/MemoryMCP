@@ -10,7 +10,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# lib/  # Commented out: we need lib/backends/ for custom modules
 lib64/
 parts/
 sdist/
