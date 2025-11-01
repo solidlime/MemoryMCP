@@ -146,6 +146,35 @@ def main():
     """
     メイン処理: 設定ファイルまたは引数からQdrant URLを取得して接続確認
     """
+    # ヘルプメッセージ
+    if len(sys.argv) > 1 and sys.argv[1] in ['-h', '--help', 'help']:
+        print("=" * 70)
+        print("🔍 Qdrant Connection Verification Tool")
+        print("=" * 70)
+        print()
+        print("Usage:")
+        print("  python3 check_qdrant.py [URL] [API_KEY]")
+        print()
+        print("Arguments:")
+        print("  URL       Qdrant server URL (default: from config.json)")
+        print("  API_KEY   Qdrant API key (optional)")
+        print()
+        print("Examples:")
+        print("  # Check production Qdrant")
+        print("  python3 check_qdrant.py http://nas:6333")
+        print()
+        print("  # Check local Qdrant")
+        print("  python3 check_qdrant.py http://localhost:6333")
+        print()
+        print("  # Use config.json settings")
+        print("  python3 check_qdrant.py")
+        print()
+        print("  # With API key")
+        print("  python3 check_qdrant.py http://nas:6333 your-api-key")
+        print()
+        print("=" * 70)
+        sys.exit(0)
+    
     # 設定を読み込み
     config = config_utils.load_config()
     
