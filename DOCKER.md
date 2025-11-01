@@ -476,6 +476,19 @@ docker logs memory-mcp
    sudo chown -R $USER:$USER .cache memory
    ```
 
+3. **モジュールが見つからない**: `ModuleNotFoundError: No module named 'beartype'` など
+   - 原因: 必要な依存パッケージがDockerイメージに含まれていない
+   - 解決: Dockerfileで不要なpip uninstallを実行していないか確認
+   - **重要な依存関係**:
+     - `beartype`: fastmcp（MCPサーバー）に必須
+     - `sympy`: torch（PyTorch）に必須
+     - `scikit-learn`: sentence-transformers（埋め込みモデル）に必須
+     - `pillow`: sentence-transformers、torchvision（画像処理）に必須
+     - `jedi`: ipython（対話シェル）に必須
+   - これらのパッケージは `requirements.txt` で自動的にインストールされますが、
+     イメージサイズ削減のために削除すると本番環境でエラーになります
+   - **推奨**: すべての依存パッケージを保持し、pip uninstallコマンドは使用しない
+
 ### モデルダウンロードエラー
 
 ```bash
@@ -621,6 +634,118 @@ tar -czf memory-default-backup.tar.gz memory/default/
 # crontab -e
 0 2 * * * cd /path/to/MemoryMCP && tar -czf /backup/memory-$(date +\%Y\%m\%d).tar.gz memory/
 ```
+
+## Dockerfileビルド最適化
+
+### Multi-stage Build
+
+このプロジェクトのDockerfileは、Multi-stage buildパターンを採用しています：
+
+```dockerfile
+# Stage 1: Builder - PyTorchとPython依存関係をインストール
+FROM python:3.12-slim AS builder
+RUN pip install --no-cache-dir \
+    torch --index-url https://download.pytorch.org/whl/cpu && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Stage 2: Runtime - 最小限のファイルだけをコピー
+FROM python:3.12-slim
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY . /app
+```
+
+**メリット**:
+- 最終イメージサイズの削減（ビルドツール不要）
+- レイヤーキャッシュの効率化
+- セキュリティ向上（不要なツールを含まない）
+
+### 依存関係管理のベストプラクティス
+
+**重要**: Dockerイメージサイズを削減するために不要なパッケージを削除したくなりますが、
+**依存関係を正しく理解せずに削除すると本番環境でエラーが発生します**。
+
+#### 削除してはいけないパッケージ
+
+以下のパッケージは一見不要に見えますが、**実際には必須依存関係**です：
+
+| パッケージ | 依存元 | 理由 |
+|-----------|--------|------|
+| `beartype` | fastmcp → key_value.aio | MCPサーバー起動に必須 |
+| `sympy` | torch | PyTorch内部で使用 |
+| `scikit-learn` | sentence-transformers | 埋め込みモデルの内部処理 |
+| `pillow` | sentence-transformers, torchvision | 画像処理機能（間接的に必要） |
+| `jedi` | ipython | コード補完・対話シェル |
+
+#### 依存関係チェック方法
+
+パッケージを削除する前に、以下のスクリプトで依存関係を確認してください：
+
+```python
+import pkg_resources
+
+def check_dependency(package_name):
+    """指定パッケージを使用している依存関係を検出"""
+    dependencies = []
+    for dist in pkg_resources.working_set:
+        if dist.has_metadata('METADATA'):
+            metadata = dist.get_metadata('METADATA')
+            if package_name in metadata:
+                dependencies.append(dist.project_name)
+    return dependencies
+
+# 例: sympyの依存関係チェック
+used_by = check_dependency('sympy')
+if used_by:
+    print(f"❌ sympy: USED BY {used_by} - DO NOT REMOVE")
+else:
+    print(f"✅ sympy: Not used - Safe to remove")
+```
+
+#### 推奨アプローチ
+
+1. **すべての依存パッケージを保持**: `requirements.txt` で管理されているパッケージはすべて必要
+2. **pip uninstallコマンドは使用しない**: 予期しない依存関係の破壊を防ぐ
+3. **イメージサイズ削減は別の方法で**: Multi-stage build、`--no-cache-dir`、Alpine base imageなどを活用
+
+#### 過去の失敗例
+
+```dockerfile
+# ❌ 悪い例: イメージサイズ削減のために依存パッケージを削除
+RUN pip install -r requirements.txt && \
+    pip uninstall -y sympy scikit-learn jedi pillow beartype
+
+# 結果: 本番環境で ModuleNotFoundError が発生
+# - beartype: fastmcpが起動しない
+# - sympy: torchの一部機能が動かない
+# - scikit-learn, pillow: sentence-transformersがクラッシュ
+```
+
+```dockerfile
+# ✅ 良い例: 必要な依存関係をすべて保持
+RUN pip install --no-cache-dir \
+    torch --index-url https://download.pytorch.org/whl/cpu && \
+    pip install --no-cache-dir -r requirements.txt
+
+# イメージサイズ削減はMulti-stage buildとキャッシュ無効化で対応
+```
+
+### イメージサイズの現状
+
+- **最終イメージサイズ**: ~2.65GB
+- **内訳**:
+  - Base image (python:3.12-slim): ~180MB
+  - PyTorch (CPU版): ~800MB
+  - その他Python依存関係: ~1.2GB
+  - アプリケーションコード: ~50MB
+  - モデルキャッシュ: ボリュームマウントで永続化（含まない）
+
+### さらなる最適化案
+
+必要に応じて以下の最適化も検討できます：
+
+1. **Alpine Linuxベース**: `python:3.12-alpine` (~50MB削減、ただしビルド時間増加)
+2. **GPU版の分離**: CPU版とGPU版で別イメージを用意
+3. **依存関係の見直し**: 本当に不要なパッケージがないか定期的にレビュー
 
 ## まとめ
 

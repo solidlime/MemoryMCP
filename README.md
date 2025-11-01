@@ -11,6 +11,34 @@ Model Context Protocol (MCP) に準拠した永続メモリサーバー。RAG (R
 - ダッシュボード: Web UIで統計・日次推移・知識グラフを可視化
 - **マルチバックエンド**: FAISSまたはQdrantを選択可能（双方向移行ツール付き）
 - **最適化済みDocker**: 2.65GB（CPU版PyTorch、Multi-stage build）
+- **クリーンアーキテクチャ**: Phase 1リファクタリング完了（2454行→231行、-90.6%）
+
+## アーキテクチャ
+
+### モジュール構成（Phase 1リファクタリング完了）
+
+**memory_mcp.py** (231行) - メインエントリポイント
+```
+memory_mcp.py           # MCP サーバー初期化とオーケストレーション
+├── core/               # コアロジック
+│   ├── config.py      # 設定管理（環境変数 + config.json）
+│   ├── database.py    # SQLite CRUD操作
+│   ├── vector.py      # FAISS/Qdrant ベクトルストア管理
+│   ├── rag.py         # RAG検索とリランキング
+│   ├── sentiment.py   # 感情分析
+│   ├── persona.py     # Personaコンテキスト管理
+│   └── analysis.py    # 重複検知・知識グラフ生成
+├── tools/              # MCPツール定義
+│   └── memory_tools.py # 全MCPツール（create/read/update/delete/search etc.）
+├── resources.py        # MCPリソース登録（Persona情報提供）
+└── dashboard.py        # Web UIダッシュボード
+```
+
+**設計原則**:
+- 単一責任の原則: 各モジュールが1つの明確な責務を持つ
+- 依存性の分離: コア機能はMCPから独立（再利用可能）
+- テスタビリティ: モジュール単位でのテストが容易
+- 保守性: 機能追加時の影響範囲を最小化
 
 ## 技術スタック
 - Python 3.12 / FastAPI (FastMCP) / Uvicorn
