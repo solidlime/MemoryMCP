@@ -19,31 +19,13 @@ except ImportError:
 
 from tqdm import tqdm
 
+from config_utils import load_config
 from persona_utils import get_db_path, get_vector_store_path
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-CONFIG_FILE = os.path.join(SCRIPT_DIR, "config.json")
-
-_config_cache = {}
-_config_mtime = 0
-
-def _load_config() -> dict:
-    global _config_cache, _config_mtime
-    try:
-        if os.path.exists(CONFIG_FILE):
-            m = os.path.getmtime(CONFIG_FILE)
-            if m != _config_mtime or not _config_cache:
-                with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-                    _config_cache = json.load(f)
-                _config_mtime = m
-        else:
-            _config_cache = {}
-    except Exception:
-        _config_cache = {}
-    return _config_cache
 
 def _get_rebuild_config():
-    cfg = _load_config() or {}
+    cfg = load_config() or {}
     vr = cfg.get("vector_rebuild", {}) if isinstance(cfg, dict) else {}
     return {
         "mode": vr.get("mode", "idle"),
@@ -103,7 +85,7 @@ def _idle_rebuilder_loop():
 
 def _get_cleanup_config():
     """Get auto_cleanup configuration from config.json"""
-    cfg = _load_config()
+    cfg = load_config()
     ac = cfg.get("auto_cleanup", {})
     return {
         "enabled": ac.get("enabled", True),
@@ -188,7 +170,7 @@ def _detect_and_save_cleanup_suggestions(cfg):
         from datetime import datetime
         from zoneinfo import ZoneInfo
         
-        timezone = _load_config().get("timezone", "Asia/Tokyo")
+        timezone = load_config().get("timezone", "Asia/Tokyo")
         now = datetime.now(ZoneInfo(timezone))
         
         suggestions_data = {
@@ -262,7 +244,7 @@ def _count_total_memories():
 def initialize_rag_sync():
     """Initialize embeddings/reranker and load or bootstrap a vector store."""
     global vector_store, embeddings, reranker
-    cfg = _load_config()
+    cfg = load_config()
     embeddings_model = cfg.get("embeddings_model", "cl-nagoya/ruri-v3-30m")
     embeddings_device = cfg.get("embeddings_device", "cpu")
     reranker_model = cfg.get("reranker_model", "hotchpotch/japanese-reranker-xsmall-v2")
@@ -458,7 +440,7 @@ def get_vector_metrics() -> dict:
         - last_rebuild_ts: float (Unix timestamp)
         - rebuild_config: dict (mode, idle_seconds, min_interval)
     """
-    cfg = _load_config()
+    cfg = load_config()
     rebuild_cfg = _get_rebuild_config()
     
     embeddings_model_name = cfg.get("embeddings_model", "Unknown") if embeddings else None
@@ -596,7 +578,7 @@ def detect_duplicate_memories(threshold: float = 0.85, max_pairs: int = 50) -> l
 def initialize_sentiment_analysis():
     """Initialize sentiment analysis pipeline."""
     global sentiment_pipeline
-    cfg = _load_config()
+    cfg = load_config()
     sentiment_model = cfg.get("sentiment_model", "lxyuan/distilbert-base-multilingual-cased-sentiments-student")
     
     try:

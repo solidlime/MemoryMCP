@@ -8,11 +8,24 @@ import sqlite3
 import warnings
 import threading
 import time
+import glob
 from contextvars import ContextVar
 from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 from mcp.server.fastmcp import FastMCP
+from fastapi import HTTPException
+from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.templating import Jinja2Templates
+from starlette.requests import Request
+from starlette.responses import JSONResponse
+from starlette.staticfiles import StaticFiles
+from config_utils import (
+    ensure_memory_root,
+    get_config,
+    get_log_file_path,
+    load_config,
+)
 from db_utils import db_get_entry as _db_get_entry_generic, db_recent_keys as _db_recent_keys_generic, db_count_entries as _db_count_entries_generic, db_sum_content_chars as _db_sum_content_chars_generic, clear_query_cache
 from persona_utils import (
     current_persona,
@@ -43,52 +56,7 @@ warnings.filterwarnings('ignore', message='builtin type.*has no __module__ attri
 
 # Configuration
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-CONFIG_FILE = os.path.join(SCRIPT_DIR, "config.json")
-DEFAULT_CONFIG = {
-    "embeddings_model": "cl-nagoya/ruri-v3-30m",
-    "embeddings_device": "cpu",
-    "reranker_model": "hotchpotch/japanese-reranker-xsmall-v2",
-    "reranker_top_n": 5,
-    "server_host": "127.0.0.1",
-    "server_port": 8000
-}
-
-# Global config storage
-_config = {}
-_config_mtime = 0
-
-def load_config() -> dict:
-    """Load configuration from config.json with hot reload support"""
-    global _config, _config_mtime
-    
-    try:
-        # Check if config file exists and has been modified
-        if os.path.exists(CONFIG_FILE):
-            current_mtime = os.path.getmtime(CONFIG_FILE)
-            
-            # Reload if file was modified or not loaded yet
-            if current_mtime != _config_mtime or not _config:
-                with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-                    _config = {**DEFAULT_CONFIG, **json.load(f)}
-                _config_mtime = current_mtime
-                _log_progress(f"✅ Config loaded/reloaded from {CONFIG_FILE}")
-        else:
-            # Create default config file if it doesn't exist
-            _config = DEFAULT_CONFIG.copy()
-            with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
-                json.dump(DEFAULT_CONFIG, f, indent=2, ensure_ascii=False)
-            _config_mtime = os.path.getmtime(CONFIG_FILE)
-            _log_progress(f"✅ Created default config at {CONFIG_FILE}")
-    except Exception as e:
-        _log_progress(f"⚠️  Failed to load config, using defaults: {e}")
-        _config = DEFAULT_CONFIG.copy()
-    
-    return _config
-
-def get_config(key: str, default=None):
-    """Get configuration value with hot reload check"""
-    config = load_config()
-    return config.get(key, default)
+MEMORY_ROOT = ensure_memory_root()
 
 # Fix Windows console encoding for emoji support
 if sys.platform == 'win32':
@@ -123,11 +91,9 @@ except ImportError:
 # Load configuration early for server settings
 _early_config = {}
 try:
-    if os.path.exists(os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")):
-        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json"), 'r', encoding='utf-8') as f:
-            _early_config = json.load(f)
-except:
-    pass
+    _early_config = load_config()
+except Exception:
+    _early_config = {}
 
 # Initialize MCP server with configured host and port
 mcp = FastMCP(
@@ -136,9 +102,12 @@ mcp = FastMCP(
     port=_early_config.get("server_port", 8000)
 )
 
+# Initialize Jinja2 templates for dashboard
+templates = Jinja2Templates(directory=os.path.join(SCRIPT_DIR, "templates"))
+
 """Persona helpers are imported from persona_utils"""
 
-LOG_FILE = os.path.join(SCRIPT_DIR, "memory_operations.log")
+LOG_FILE = get_log_file_path()
 
 memory_store = {}
 
@@ -2059,6 +2028,257 @@ def get_memory_stats() -> str:
             
     except Exception as e:
         return f"❌ Error generating statistics: {e}"
+
+# ========================================
+# Phase 22: Web Dashboard HTTP API
+# ========================================
+
+def _get_memory_info_data(persona: str) -> dict:
+    """Core function to get memory info data for a specific persona."""
+    # Temporarily override persona context
+    original_persona = current_persona.get()
+    current_persona.set(persona)
+    
+    try:
+        entries = db_count_entries()
+        total_chars = db_sum_content_chars()
+        vector_count = get_vector_count()
+        
+        # Load persona context
+        context = load_persona_context()
+        
+        # Get database created date
+        db_path = get_db_path()
+        if os.path.exists(db_path):
+            created_at = datetime.fromtimestamp(os.path.getctime(db_path)).isoformat()
+        else:
+            created_at = "Unknown"
+        
+        # Get last conversation time
+        last_conv = context.get("last_conversation_time")
+        if last_conv:
+            last_conversation = calculate_time_diff(last_conv)
+        else:
+            last_conversation = "Never"
+        
+        return {
+            "persona": persona,
+            "total_memories": entries,
+            "total_chars": total_chars,
+            "vector_count": vector_count,
+            "created_at": created_at,
+            "last_conversation": last_conversation,
+            "current_emotion": context.get("current_emotion", "neutral"),
+            "physical_state": context.get("physical_state", "normal"),
+            "mental_state": context.get("mental_state", "calm"),
+            "environment": context.get("environment", "unknown")
+        }
+    finally:
+        current_persona.set(original_persona)
+
+def _get_memory_metrics_data(persona: str) -> dict:
+    """Core function to get memory metrics data for a specific persona."""
+    original_persona = current_persona.get()
+    current_persona.set(persona)
+    
+    try:
+        import re
+        from collections import Counter
+        
+        db_path = get_db_path()
+        
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            
+            # Tag distribution
+            cursor.execute("SELECT tags FROM memories WHERE tags IS NOT NULL AND tags != ''")
+            tag_counter = Counter()
+            for row in cursor.fetchall():
+                tags_json = row[0]
+                try:
+                    tags_list = json.loads(tags_json)
+                    tag_counter.update(tags_list)
+                except:
+                    pass
+            
+            # Emotion distribution
+            context = load_persona_context()
+            emotion_history = context.get("emotion_history", [])
+            emotion_counter = Counter()
+            for entry in emotion_history:
+                emotion_type = entry.get("emotion_type")
+                if emotion_type:
+                    emotion_counter[emotion_type] += 1
+            
+            # Tagged/Linked memory counts
+            cursor.execute("SELECT COUNT(*) FROM memories WHERE tags IS NOT NULL AND tags != ''")
+            tagged_count = cursor.fetchone()[0]
+            
+            cursor.execute("SELECT content FROM memories")
+            link_pattern = re.compile(r'\[\[(.+?)\]\]')
+            linked_count = 0
+            for row in cursor.fetchall():
+                if link_pattern.search(row[0]):
+                    linked_count += 1
+            
+            return {
+                "persona": persona,
+                "top_tags": dict(tag_counter.most_common(10)),
+                "emotion_distribution": dict(emotion_counter.most_common(10)),
+                "tagged_memories_count": tagged_count,
+                "linked_memories_count": linked_count
+            }
+    finally:
+        current_persona.set(original_persona)
+
+def _get_memory_stats_data(persona: str) -> dict:
+    """Core function to get memory stats data for a specific persona."""
+    original_persona = current_persona.get()
+    current_persona.set(persona)
+    
+    try:
+        import re
+        from collections import Counter
+        
+        db_path = get_db_path()
+        
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            
+            # Timeline (last 7 days)
+            cursor.execute("SELECT created_at FROM memories")
+            date_counter = Counter()
+            for row in cursor.fetchall():
+                created_at = datetime.fromisoformat(row[0]).date()
+                date_counter[created_at] += 1
+            
+            today = datetime.now().date()
+            timeline = []
+            for i in range(6, -1, -1):
+                day = today - timedelta(days=i)
+                count = date_counter.get(day, 0)
+                timeline.append({"date": str(day), "count": count})
+            
+            # Tag distribution
+            cursor.execute("SELECT tags FROM memories WHERE tags IS NOT NULL AND tags != ''")
+            tag_counter = Counter()
+            for row in cursor.fetchall():
+                tags_json = row[0]
+                try:
+                    tags_list = json.loads(tags_json)
+                    tag_counter.update(tags_list)
+                except:
+                    pass
+            
+            # Link analysis
+            cursor.execute("SELECT content FROM memories")
+            link_counter = Counter()
+            link_pattern = re.compile(r'\[\[(.+?)\]\]')
+            for row in cursor.fetchall():
+                content = row[0]
+                matches = link_pattern.findall(content)
+                link_counter.update(matches)
+            
+            return {
+                "persona": persona,
+                "last_7_days": timeline,
+                "tag_distribution": dict(tag_counter.most_common(10)),
+                "top_links": dict(link_counter.most_common(10))
+            }
+    finally:
+        current_persona.set(original_persona)
+
+def _get_latest_knowledge_graph(persona: str) -> str:
+    """Get the URL of the latest knowledge graph HTML file for a persona."""
+    pattern = os.path.join(SCRIPT_DIR, "output", f"knowledge_graph_{persona}_*.html")
+    files = glob.glob(pattern)
+    if not files:
+        return None
+    # Return the latest file (based on timestamp in filename)
+    latest = max(files)
+    # Return relative URL path
+    filename = os.path.basename(latest)
+    return f"/output/{filename}"
+
+# HTTP Routes for Dashboard
+@mcp.custom_route("/", methods=["GET"])
+async def dashboard(request: Request):
+    """Serve the dashboard HTML page."""
+    return templates.TemplateResponse("dashboard.html", {"request": request})
+
+# Simple health endpoint for Docker healthcheck
+@mcp.custom_route("/health", methods=["GET"])
+async def healthcheck(request: Request):
+    """Return 200 OK when server is healthy."""
+    try:
+        persona = get_current_persona()
+    except Exception:
+        persona = "unknown"
+    return JSONResponse({
+        "status": "ok",
+        "persona": persona,
+        "time": datetime.now().isoformat()
+    })
+
+@mcp.custom_route("/api/personas", methods=["GET"])
+async def get_personas(request: Request):
+    """Get list of available personas."""
+    memory_dir = MEMORY_ROOT
+    if not os.path.exists(memory_dir):
+        return JSONResponse([])
+    
+    personas = []
+    for item in os.listdir(memory_dir):
+        item_path = os.path.join(memory_dir, item)
+        if os.path.isdir(item_path):
+            # Check if it has a valid database
+            db_path = os.path.join(item_path, "memory.sqlite")
+            if os.path.exists(db_path):
+                personas.append(item)
+    
+    return JSONResponse(personas)
+
+@mcp.custom_route("/api/dashboard/{persona}", methods=["GET"])
+async def get_dashboard_data(request: Request):
+    """Get dashboard data for a specific persona."""
+    persona = request.path_params.get("persona")
+    
+    # Validate persona exists
+    memory_dir = os.path.join(MEMORY_ROOT, persona)
+    if not os.path.exists(memory_dir):
+        raise HTTPException(status_code=404, detail=f"Persona '{persona}' not found")
+    
+    try:
+        info = _get_memory_info_data(persona)
+        metrics = _get_memory_metrics_data(persona)
+        stats = _get_memory_stats_data(persona)
+        kg_url = _get_latest_knowledge_graph(persona)
+        
+        return JSONResponse({
+            "persona": persona,
+            "info": info,
+            "metrics": metrics,
+            "stats": stats,
+            "knowledge_graph_url": kg_url,
+            "last_updated": datetime.now().isoformat()
+        })
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error loading data: {str(e)}")
+
+@mcp.custom_route("/output/{filename}", methods=["GET"])
+async def serve_output_file(request: Request):
+    """Serve static files from the output directory."""
+    filename = request.path_params.get("filename")
+    file_path = os.path.join(SCRIPT_DIR, "output", filename)
+    
+    # Security: prevent directory traversal
+    if ".." in filename or "/" in filename or "\\" in filename:
+        raise HTTPException(status_code=403, detail="Invalid filename")
+    
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    return FileResponse(file_path)
 
 # ========================================
 # Resource: Cleanup Suggestions (Phase 21)
