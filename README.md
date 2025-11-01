@@ -10,6 +10,7 @@ Model Context Protocol (MCP) に準拠した永続メモリサーバー。RAG (R
 - 自動整理: アイドル時の重複検知・知識グラフ生成・感情推定
 - ダッシュボード: Web UIで統計・日次推移・知識グラフを可視化
 - **マルチバックエンド**: FAISSまたはQdrantを選択可能（双方向移行ツール付き）
+- **最適化済みDocker**: 2.65GB（CPU版PyTorch、Multi-stage build）
 
 ## 技術スタック
 - Python 3.12 / FastAPI (FastMCP) / Uvicorn
@@ -248,5 +249,106 @@ export MEMORY_MCP_EMBEDDINGS_DEVICE=cpu
 - Dockerイメージは config.json を同梱しないため、必要に応じてバインドマウントまたは環境変数で上書き
 - VS Code Tasks からの起動スクリプト例は `.vscode/tasks.json` を参照
 - 詳しいDocker運用やTipsは [DOCKER.md](DOCKER.md) へ
+
+## 本番環境へのQdrant移行ガイド
+
+### 前提条件
+- 本番Qdrantサーバーが稼働していること（例: `http://nas:6333`）
+- 移行元のSQLite+FAISSデータが存在すること
+
+### ステップ1: config.jsonを本番Qdrant用に設定
+```json
+{
+  "storage_backend": "qdrant",
+  "qdrant_url": "http://nas:6333",
+  "qdrant_api_key": null,
+  "qdrant_collection_prefix": "memory_"
+}
+```
+
+### ステップ2: 開発環境用config.dev.jsonを作成（ローカル開発の安全確保）
+```json
+{
+  "storage_backend": "sqlite",
+  "server_host": "127.0.0.1",
+  "server_port": 8000
+}
+```
+
+### ステップ3: MCPツールで移行実行
+MCPクライアント（VS Code Copilot等）から以下のツールを実行：
+
+```python
+# SQLite → Qdrant移行（本番環境へアップロード）
+migrate_sqlite_to_qdrant_tool()
+
+# 確認: 移行後の記憶数をチェック
+list_memory()
+```
+
+**移行結果の例**:
+```
+✅ Migrated 84 memories from SQLite to Qdrant (persona: nilou)
+Collection: memory_nilou
+Qdrant URL: http://nas:6333
+```
+
+### ステップ4: 本番環境での動作確認
+```bash
+# Dockerで本番起動
+docker run -d --name memory-mcp \
+  -p 26262:26262 \
+  -v $(pwd)/data:/data \
+  -v $(pwd)/config.json:/config/config.json:ro \
+  ghcr.io/solidlime/memory-mcp:latest
+
+# ヘルスチェック
+curl http://localhost:26262/health
+```
+
+### ステップ5: 開発環境ではconfig.dev.jsonを使用
+```bash
+# ローカル開発
+python memory_mcp.py --config config.dev.json
+
+# または環境変数で指定
+MEMORY_MCP_CONFIG_PATH=config.dev.json python memory_mcp.py
+```
+
+### 注意事項
+- ⚠️ `migrate_sqlite_to_qdrant_tool`は**上書き（upsert）**します
+- ⚠️ 本番Qdrantへの移行後も、SQLiteファイルは削除されません（ロールバック可能）
+- 💡 逆方向移行も可能: `migrate_qdrant_to_sqlite_tool()`
+
+## Docker Image最適化の詳細
+
+### 最適化結果
+| 項目 | 最適化前 | 最適化後 | 削減率 |
+|------|----------|----------|--------|
+| イメージサイズ | 8.28GB | 2.65GB | **68.0%削減** |
+| PyTorch | CUDA版 6.6GB | CPU版 184MB | 97.2%削減 |
+
+### 実施した最適化
+1. **PyTorchをCPU版に切り替え**
+   - `--index-url https://download.pytorch.org/whl/cpu`を使用
+   - CUDA依存パッケージ（nvidia/4.3GB、triton/593MB）を完全除外
+
+2. **Multi-stage buildの導入**
+   - Build stage: build-essentialを含む（依存パッケージのビルド用）
+   - Runtime stage: curlのみ（ヘルスチェック用）
+   - 最終イメージから336MBのbuild-essentialを除外
+
+3. **.dockerignoreの最適化**
+   - venv-rag/, data/, .git/, memory/, output/ などを除外
+   - ビルドコンテキストの転送量削減
+
+### ベンチマーク（参考）
+- **ビルド時間**: 約5分（最適化前: 約15分）
+- **デプロイ時間**: 約2分（最適化前: 約8分）
+- **起動時間**: 約15秒（変化なし）
+
+詳細は [DOCKER.md](DOCKER.md) を参照してください。
+
+---
 
 心地よい記憶管理を楽しんでね。必要があればいつでも `memory://info` に声をかけて状態を確認してみて。

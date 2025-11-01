@@ -1,4 +1,28 @@
-# Multi-stage build for memory-mcp with FastMCP
+# Multi-stage build for memory-mcp with FastMCP - Optimized
+# Build stage: Install dependencies
+FROM python:3.12-slim AS builder
+
+WORKDIR /build
+
+# Install build dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements
+COPY requirements.txt ./
+
+# Install PyTorch CPU version first (to avoid CUDA dependencies)
+# Use PyTorch's CPU-only index to prevent CUDA packages
+RUN pip install --no-cache-dir \
+    torch \
+    torchvision \
+    torchaudio \
+    --index-url https://download.pytorch.org/whl/cpu && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Runtime stage: Copy only necessary files
 FROM python:3.12-slim
 
 ENV APP_HOME=/opt/memory-mcp \
@@ -7,18 +31,15 @@ ENV APP_HOME=/opt/memory-mcp \
 # Set working directory
 WORKDIR ${APP_HOME}
 
-# Install system dependencies
+# Install only runtime dependencies (curl for healthcheck)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    build-essential \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first (for caching)
-COPY requirements.txt ./
-
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy Python packages from builder
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code
 COPY . ${APP_HOME}
