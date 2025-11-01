@@ -47,9 +47,6 @@ output/
 *.sqlite
 *.sqlite-journal
 
-# Configuration (keep template, ignore local)
-# config.json  # コメントアウト: 設定例として含める場合
-
 # Temporary files
 *.tmp
 *.bak

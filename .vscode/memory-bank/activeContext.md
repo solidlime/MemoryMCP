@@ -1,9 +1,9 @@
 # Active Context: Memory MCP
 
 ## 現在の作業フォーカス
-- **フェーズ**: Phase 23完了、Docker最適化完了 ✅
-- **次フェーズ**: Phase 24へ（内容未定）
-- **注力ポイント**: 本番環境デプロイ、MCPクライアント接続テスト
+- **フェーズ**: Phase 24完了 🎉 ペルソナ別動的Qdrant書き込み実装成功！
+- **次フェーズ**: Phase 25へ（内容未定）
+- **注力ポイント**: 本番環境デプロイ、全機能統合テスト
 
 ---
 
@@ -17,10 +17,18 @@
 - ✅ Multi-stage build導入（build-essential除外）
 - ✅ プロジェクトメモリバンク更新
 - ✅ README更新（本番移行ガイド、Docker最適化記録）
+- ✅ **Phase 24完了**: ペルソナ別動的Qdrant書き込み実装・検証成功🎉
 
 ---
 
 ## 🎯 最近の主要完了事項
+
+### Phase 24: Dynamic Persona-Specific Qdrant Writes ✅ 🎉
+- ✅ **問題解決**: グローバルvector_storeによるdefaultペルソナ固定問題を修正
+- ✅ **動的アダプター生成**: リクエスト時にペルソナ別QdrantVectorStoreAdapter作成
+- ✅ **vector_utils.py修正**: Lines 428-451（storage_backend判定 → 動的接続生成）
+- ✅ **検証完了**: memory_nilouコレクション 89→90ポイント（書き込み成功✨）
+- ✅ **アーキテクチャ確立**: サーバー起動=default初期化、リクエスト=X-Personaヘッダーで動的切替
 
 ### Phase 23: Qdrant Backend & Production Migration ✅
 - ✅ デュアルバックエンドシステム（SQLite/FAISS ⇔ Qdrant）
@@ -37,8 +45,9 @@
 ---
 
 ## 📋 Next Steps
-- [ ] MCPクライアント接続テスト（ユーザー側で実施予定）
-- [ ] Phase 24の検討（Advanced Analytics, Export/Import, Multi-user support）
+- [ ] 本番環境への修正デプロイ（vector_utils.py変更をDocker/NAS環境へ）
+- [ ] 全ペルソナでのマルチペルソナ書き込みテスト（default, nilou, test）
+- [ ] Phase 25の検討（Advanced Analytics, Export/Import, Multi-user support）
 - [ ] WebダッシュボードのUI/UX微調整・API拡張
 - [ ] 時系列記憶の高度化（Qdrant payload拡張: timestamp, emotion, importance）
 

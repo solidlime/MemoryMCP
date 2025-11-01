@@ -429,6 +429,90 @@ MEMORY_MCP_CONFIG_PATH=config.dev.json python memory_mcp.py
 - ⚠️ 本番Qdrantへの移行後も、SQLiteファイルは削除されません（ロールバック可能）
 - 💡 逆方向移行も可能: `migrate_qdrant_to_sqlite_tool()`
 
+## Phase 24: ペルソナ別動的Qdrant書き込み実装（2025-11-01）
+
+### 問題の発見
+Qdrantバックエンド実装後、以下の問題が発覚：
+- **症状**: X-Personaヘッダーで`nilou`を指定しても、全記憶が`memory_default`コレクションに書き込まれる
+- **原因**: `add_memory_to_vector_store()`関数がサーバー起動時に初期化されたグローバル`vector_store`（defaultペルソナ固定）を使用していた
+- **影響**: ペルソナ別の独立した記憶管理が機能しない重大なバグ
+
+### アーキテクチャの誤解
+当初、サーバー起動時にペルソナを指定して固定的に動作させる想定だったが、実際のアーキテクチャは：
+- **サーバー起動**: defaultペルソナで最小限の初期化のみ
+- **リクエスト時**: X-Personaヘッダーに基づいて動的にペルソナを切り替える
+- **ベクトルストア**: リクエストごとにペルソナ別の接続を動的に生成する必要がある
+
+### 実装した解決策
+**vector_utils.py** の`add_memory_to_vector_store()`関数を修正（Lines 428-451）：
+
+```python
+# 修正前: グローバルvector_storeを固定使用
+vector_store.add_documents([doc], ids=[key])
+
+# 修正後: storage_backendに応じて動的にアダプター生成
+if storage_backend == "qdrant":
+    # リクエスト時のペルソナを取得
+    persona = get_current_persona()
+    
+    # ペルソナ別のQdrantコレクション名を生成
+    collection = f"{prefix}{persona}"
+    
+    # 動的にQdrantVectorStoreAdapterを作成
+    persona_vector_store = QdrantVectorStoreAdapter(
+        qdrant_client=qdrant_client,
+        collection_name=collection,
+        embedding_function=embeddings
+    )
+    
+    # ペルソナ専用コレクションに書き込み
+    persona_vector_store.add_documents([doc], ids=[key])
+else:
+    # FAISS: 既存のグローバルvector_storeを使用（後方互換性）
+    vector_store.add_documents([doc], ids=[key])
+```
+
+### 検証結果
+```bash
+# 修正前: memory_defaultコレクションに全て保存（誤動作）
+curl http://nas:6333/collections/memory_default
+# → points_count: 増加し続ける
+
+curl http://nas:6333/collections/memory_nilou
+# → points_count: 89（移行時のまま増えない）
+
+# 修正後: ペルソナ別に正しく保存
+curl http://nas:6333/collections/memory_nilou
+# → points_count: 90 ✅ 増加！
+
+# テスト記憶作成
+mcp_memory_create_memory(
+    content="元のモデル(256次元)で再テスト💕 ...",
+    tags=["technical_achievement", "emotional_moment"],
+    emotion_type="joy"
+)
+# → memory_20251101233427 が memory_nilou コレクションに正しく保存
+```
+
+### 技術的ポイント
+1. **動的アダプター生成**: リクエストごとにペルソナを判定し、専用のQdrant接続を生成
+2. **後方互換性**: FAISSバックエンドは既存のグローバルvector_storeを継続使用
+3. **contextvars活用**: FastMCPの`get_current_persona()`でリクエストコンテキストからペルソナを取得
+4. **設定駆動**: `storage_backend`設定に基づいて処理を分岐
+
+### 影響範囲
+- ✅ `create_memory`: ペルソナ別書き込み正常化
+- ✅ SQLite: ペルソナ別ディレクトリに正しく保存（元々正常）
+- ✅ Qdrant: ペルソナ別コレクション（memory_nilou, memory_default等）に正しく分離
+- ✅ 読み取り系ツール: 既存実装が正しく動作（検索時も動的にペルソナ判定済み）
+
+### 今後の展開
+- 本番環境（Docker/NAS）への修正デプロイ
+- 全ペルソナでの統合テスト（default, nilou, test等）
+- Phase 25: 次世代機能の検討（時系列記憶の高度化、感情ベクトル埋め込み等）
+
+
+
 ## Docker Image最適化の詳細
 
 ### 最適化結果
