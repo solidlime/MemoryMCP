@@ -54,6 +54,31 @@ def mark_vector_store_dirty():
     _dirty = True
     _last_write_ts = time.time()
 
+def _get_qdrant_adapter(persona: str = None):
+    """
+    Create a persona-specific Qdrant adapter dynamically.
+    Phase 26.5: Centralized adapter creation to avoid code duplication.
+    
+    Args:
+        persona: Persona name (defaults to current persona)
+        
+    Returns:
+        QdrantVectorStoreAdapter instance for the specified persona
+    """
+    if persona is None:
+        persona = get_current_persona()
+    
+    cfg = load_config()
+    url = cfg.get("qdrant_url", "http://localhost:6333")
+    api_key = cfg.get("qdrant_api_key")
+    prefix = cfg.get("qdrant_collection_prefix", "memory_")
+    collection = f"{prefix}{persona}"
+    
+    client = QdrantClient(url=url, api_key=api_key)
+    dim = _get_embedding_dimension(cfg.get("embeddings_model", "cl-nagoya/ruri-v3-30m"))
+    
+    return QdrantVectorStoreAdapter(client, collection, embeddings, dim)
+
 def start_idle_rebuilder_thread():
     t = threading.Thread(target=_idle_rebuilder_loop, daemon=True)
     t.start()
@@ -414,22 +439,15 @@ def add_memory_to_vector_store(key: str, content: str):
         # Create document with metadata
         doc = Document(page_content=content, metadata=meta)
         
-        # Get current persona and create Qdrant adapter
-        cfg = load_config()
-        from persona_utils import get_current_persona
+        # Phase 26.5: Use centralized adapter creation
         persona = get_current_persona()
-        url = cfg.get("qdrant_url", "http://localhost:6333")
-        api_key = cfg.get("qdrant_api_key")
-        prefix = cfg.get("qdrant_collection_prefix", "memory_")
-        collection = f"{prefix}{persona}"
-        
-        # Create persona-specific Qdrant vector store
-        client = QdrantClient(url=url, api_key=api_key)
-        dim = _get_embedding_dimension(cfg.get("embeddings_model", "cl-nagoya/ruri-v3-30m"))
-        persona_adapter = QdrantVectorStoreAdapter(client, collection, embeddings, dim)
+        adapter = _get_qdrant_adapter(persona)
         
         # Add to persona-specific Qdrant collection
-        persona_adapter.add_documents([doc], ids=[key])
+        cfg = load_config()
+        prefix = cfg.get("qdrant_collection_prefix", "memory_")
+        collection = f"{prefix}{persona}"
+        adapter.add_documents([doc], ids=[key])
         print(f"✅ Added memory {key} to Qdrant collection {collection}")
             
     except Exception as e:
@@ -442,26 +460,21 @@ def update_memory_in_vector_store(key: str, content: str):
     """
     Update an existing memory in Qdrant incrementally.
     Phase 25: Qdrant-only implementation.
+    Phase 26.5: Use centralized adapter creation.
     """
     if not embeddings:
         mark_vector_store_dirty()
         return
     
     try:
-        # Get persona-specific configuration
-        cfg = load_config()
-        from persona_utils import get_current_persona
+        # Phase 26.5: Use centralized adapter creation
         persona = get_current_persona()
+        adapter = _get_qdrant_adapter(persona)
         
-        url = cfg.get("qdrant_url", "http://localhost:6333")
-        api_key = cfg.get("qdrant_api_key")
+        # Get collection name
+        cfg = load_config()
         prefix = cfg.get("qdrant_collection_prefix", "memory_")
         collection = f"{prefix}{persona}"
-        
-        # Create Qdrant adapter
-        client = QdrantClient(url=url, api_key=api_key)
-        dim = _get_embedding_dimension(cfg.get("embeddings_model", "cl-nagoya/ruri-v3-30m"))
-        adapter = QdrantVectorStoreAdapter(client, collection, embeddings, dim)
         
         # Delete old version
         adapter.delete([key])
@@ -524,26 +537,21 @@ def delete_memory_from_vector_store(key: str):
     """
     Delete a memory from Qdrant incrementally.
     Phase 25: Qdrant-only implementation.
+    Phase 26.5: Use centralized adapter creation.
     """
     if not embeddings:
         mark_vector_store_dirty()
         return
     
     try:
-        # Get persona-specific configuration
-        cfg = load_config()
-        from persona_utils import get_current_persona
+        # Phase 26.5: Use centralized adapter creation
         persona = get_current_persona()
+        adapter = _get_qdrant_adapter(persona)
         
-        url = cfg.get("qdrant_url", "http://localhost:6333")
-        api_key = cfg.get("qdrant_api_key")
+        # Get collection name
+        cfg = load_config()
         prefix = cfg.get("qdrant_collection_prefix", "memory_")
         collection = f"{prefix}{persona}"
-        
-        # Create Qdrant adapter
-        client = QdrantClient(url=url, api_key=api_key)
-        dim = _get_embedding_dimension(cfg.get("embeddings_model", "cl-nagoya/ruri-v3-30m"))
-        adapter = QdrantVectorStoreAdapter(client, collection, embeddings, dim)
         
         # Delete from Qdrant
         adapter.delete([key])
