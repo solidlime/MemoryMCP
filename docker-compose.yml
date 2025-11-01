@@ -12,43 +12,25 @@ services:
       # Persist all data (memory, logs, cache, config) in one mount
       - ./data:/data
     environment:
+      # System timezone (for container clock)
+      - TZ=Asia/Tokyo
       # Cache directories (unified under /data/cache)
       - HF_HOME=/data/cache/huggingface
-      - TRANSFORMERS_CACHE=/data/cache/transformers
       - SENTENCE_TRANSFORMERS_HOME=/data/cache/sentence_transformers
       - TORCH_HOME=/data/cache/torch
-      # Memory & config paths
-      - MEMORY_MCP_CONFIG_PATH=/data/config.json
+      # Memory MCP data directory (all other paths are relative to this)
       - MEMORY_MCP_DATA_DIR=/data
-      - MEMORY_MCP_LOG_FILE=/data/logs/memory_operations.log
-      # Server settings
-      - MEMORY_MCP_SERVER_HOST=0.0.0.0
-      - MEMORY_MCP_SERVER_PORT=26262
-      # Model settings
-      - MEMORY_MCP_EMBEDDINGS_MODEL=cl-nagoya/ruri-v3-30m
-      - MEMORY_MCP_EMBEDDINGS_DEVICE=cpu
-      - MEMORY_MCP_RERANKER_MODEL=hotchpotch/japanese-reranker-xsmall-v2
-      - MEMORY_MCP_RERANKER_TOP_N=5
-      # Storage backend
-      - MEMORY_MCP_STORAGE_BACKEND=sqlite
-      - MEMORY_MCP_QDRANT_URL=http://localhost:6333
-      - MEMORY_MCP_QDRANT_API_KEY=
-      - MEMORY_MCP_QDRANT_COLLECTION_PREFIX=memory_
-      # Vector rebuild settings
-      - MEMORY_MCP_VECTOR_REBUILD_MODE=idle
-      - MEMORY_MCP_VECTOR_REBUILD_IDLE_SECONDS=30
-      - MEMORY_MCP_VECTOR_REBUILD_MIN_INTERVAL=120
-      # Auto cleanup settings
-      - MEMORY_MCP_AUTO_CLEANUP_ENABLED=true
-      - MEMORY_MCP_AUTO_CLEANUP_IDLE_MINUTES=30
-      - MEMORY_MCP_AUTO_CLEANUP_CHECK_INTERVAL_SECONDS=300
-      - MEMORY_MCP_AUTO_CLEANUP_DUPLICATE_THRESHOLD=0.90
-      - MEMORY_MCP_AUTO_CLEANUP_MIN_SIMILARITY_TO_REPORT=0.85
-      - MEMORY_MCP_AUTO_CLEANUP_MAX_SUGGESTIONS_PER_RUN=20
-      # Other settings
-      - MEMORY_MCP_TIMEZONE=Asia/Tokyo
       # Python unbuffered output for better logging
       - PYTHONUNBUFFERED=1
+      # Note: All other application settings (models, storage backend, server port, etc.)
+      #       should be configured in /data/config.json or via environment variables below.
+      #       Uncomment and set only the values you need to override:
+      # - MEMORY_MCP_SERVER_HOST=0.0.0.0
+      # - MEMORY_MCP_SERVER_PORT=26262
+      # - MEMORY_MCP_EMBEDDINGS_MODEL=cl-nagoya/ruri-v3-30m
+      # - MEMORY_MCP_EMBEDDINGS_DEVICE=cpu
+      # - MEMORY_MCP_STORAGE_BACKEND=sqlite
+      # - MEMORY_MCP_QDRANT_URL=http://localhost:6333
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:26262/health"]
