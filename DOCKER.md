@@ -213,11 +213,13 @@ docker rm -f memory-mcp
 
 | ホストパス | コンテナパス | 説明 | 必須 |
 |-----------|-------------|------|------|
-| `./data` | `/data` | 全データ（memory/, logs/, cache/） | ✅ 必須 |
-| `./config.json` | `/config/config.json` | サーバー設定（ホットリロード） | ⭐ 推奨 |
+| `./data` | `/data` | 全データ（memory/, logs/, cache/, config.json） | ✅ 必須 |
+
+**注意**: `config.json`は`./data/config.json`に配置してください。Dockerイメージにはconfig.jsonは含まれません。
 
 **シンプル化のポイント**:
-- `./data` ディレクトリ1つだけマウントすれば、メモリ・ログ・キャッシュすべて永続化
+- `./data` ディレクトリ1つだけマウントすれば、メモリ・ログ・キャッシュ・設定すべて永続化
+- config.jsonも`./data/config.json`として配置
 - 個別のディレクトリをマウントする必要なし
 
 ### データディレクトリ構造
@@ -261,7 +263,7 @@ data/
 | 環境変数 | デフォルト値 | 説明 |
 |---------|-------------|------|
 | `MEMORY_MCP_DATA_DIR` | `/data` | データディレクトリルート |
-| `MEMORY_MCP_CONFIG_PATH` | `/config/config.json` | 設定ファイルパス |
+| `MEMORY_MCP_CONFIG_PATH` | `/data/config.json` | 設定ファイルパス（デフォルトはdataディレクトリ内） |
 | `MEMORY_MCP_STORAGE_BACKEND` | `sqlite` | ベクトルストアバックエンド（`sqlite`/`faiss` または `qdrant`） |
 | `MEMORY_MCP_QDRANT_URL` | `http://localhost:6333` | Qdrantサーバー接続URL |
 | `MEMORY_MCP_QDRANT_API_KEY` | `null` | Qdrant API Key（未設定なら認証なし） |
