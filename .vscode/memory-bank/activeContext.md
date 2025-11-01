@@ -2,15 +2,105 @@
 
 ## 現在の状態
 
-- **現在フェーズ**: Phase 25.5 Extended + Action Tag 完了 🎉
-- **次フェーズ**: Phase 26（Qdrant高度機能実装、フィルタリング・ハイブリッド検索）
+- **現在フェーズ**: Phase 26.3（Fuzzy Matching）完了 🎉
+- **次フェーズ**: 本番環境テスト & Phase 27検討
 - **本番環境**: Qdrant (http://nas:6333) 運用中
 - **開発環境**: Qdrant専用（Phase 25でFAISS廃止完了）
 - **最新DB構造**: 12カラム（完全コンテキスト保存）
+- **最新検索機能**: メタデータフィルタリング + カスタムスコアリング + Fuzzy Matching
 
 ---
 
 ## 今日の作業（2025-11-02）
+
+### Phase 26.3: Fuzzy Matching（曖昧検索）✨
+
+#### 実装目的
+- 完全一致フィルタだと使いづらい問題を解消
+- 例: `emotion="joy"` で "joyful", "overjoyed" もヒットさせたい
+- 例: `action_tag="cook"` で "cooking", "cooked" もヒットさせたい
+
+#### 実装内容
+- [x] **Fuzzy Matchingアルゴリズム**
+  - 完全一致 (`==`) → 部分一致 (`in`) に変更
+  - 大文字小文字を無視（`.lower()`）
+  - 6つのテキストフィルタ全てに適用:
+    - emotion
+    - action_tag
+    - environment
+    - physical_state
+    - mental_state
+    - relationship_status
+
+#### 更新されたファイル
+- [x] **tools/search_tools.py**
+  - `search_memory_rag()`: 6つのテキストフィルタをFuzzy Matching化
+  ```python
+  # Before (完全一致)
+  if emotion and meta.get("emotion") != emotion:
+      continue
+  
+  # After (部分一致 + 大文字小文字無視)
+  if emotion and emotion.lower() not in str(meta.get("emotion", "")).lower():
+      continue
+  ```
+
+#### テスト準備
+- [x] 本番環境に3つのテスト記憶作成:
+  1. emotion="joyful" (fuzzy test: "joy")
+  2. action_tag="cooking" (fuzzy test: "cook")
+  3. environment="outdoors" (fuzzy test: "out")
+
+#### Git管理
+- [x] Git commit & push完了
+  - コミット: "Phase 26.3: Fuzzy matching for text filters (emotion, action_tag, etc.)"
+  - SHA: 09c4f24
+  - プッシュ: 成功（18 objects, 177.38 KiB）
+
+#### ドキュメント更新
+- [x] `.github/copilot-instructions.md`
+  - search_memory_rag例にFuzzy matching追加
+  - search_memory例にfuzzy_match, fuzzy_threshold追加
+  - Fuzzy matchingの特徴を説明セクション追加
+
+---
+
+### Phase 26: Advanced Qdrant Features（メタデータフィルタリング + カスタムスコアリング）完了 ✅
+
+#### 実装内容
+- [x] **メタデータフィルタリング（7パラメータ）**
+  - `min_importance`: 重要度フィルタ（0.0-1.0）
+  - `emotion`: 感情フィルタ
+  - `action_tag`: 行動タグフィルタ
+  - `environment`: 環境フィルタ
+  - `physical_state`: 身体状態フィルタ
+  - `mental_state`: 精神状態フィルタ
+  - `relationship_status`: 関係性フィルタ
+
+- [x] **カスタムスコアリング（2パラメータ）**
+  - `importance_weight`: 重要度スコアの重み（0.0-1.0、デフォルト: 0.0）
+  - `recency_weight`: 新しさの重み（0.0-1.0、デフォルト: 0.0）
+
+#### 更新されたファイル
+- [x] **tools/search_tools.py**
+  - `search_memory_rag()`: 9パラメータ追加（7フィルタ + 2スコア）
+  - フィルタリングロジック実装
+  - カスタムスコアリング実装
+
+#### テスト結果（完全成功）
+- ✅ Test 1: 重要度フィルタ (`min_importance=0.7`) → 3 hits
+- ✅ Test 2: 感情フィルタ (`emotion="joy"`) → 3 hits
+- ✅ Test 3: 行動タグフィルタ (`action_tag="coding"`) → 2 hits
+- ✅ Test 4: 複合フィルタ (`emotion="love"` AND `action_tag="kissing"`) → 1 hit (perfect match)
+- ✅ Test 5: カスタムスコアリング → スコア表示正常
+
+#### Git管理
+- [x] Git commit & push完了
+  - コミット: "Phase 26: Advanced Qdrant features (metadata filtering + custom scoring)"
+  - SHA: 328ce62
+  - プッシュ: 成功（18 objects, 177.38 KiB）
+
+---
 
 ### Phase 25.5 Extended + Action Tag: 完全コンテキスト保存（全12カラム実装完了）✨
 

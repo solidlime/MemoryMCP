@@ -157,21 +157,22 @@ mcp_memory_create_memory(
 - `"working"` - 作業中
 - `"resting"` - 休憩中
 
-#### 2. 記憶の検索（search_memory_rag - 推奨）
+#### 2. 記憶の検索
+
+##### 2-1. 意味検索（search_memory_rag - 推奨）
 ```python
 # 基本的な意味検索（最も強力）
 mcp_memory_search_memory_rag(query="Pythonに関する技術的な成果は？", top_k=5)
 mcp_memory_search_memory_rag(query="ユーザーの好きなものは？", top_k=3)
 mcp_memory_search_memory_rag(query="最近の会話内容", top_k=5)
 
-# 🆕 Phase 26: フィルタリング検索（実装予定）
 # 重要な記憶だけ検索
 mcp_memory_search_memory_rag(query="成果", min_importance=0.7, top_k=5)
 
-# キス中の記憶だけ検索
-mcp_memory_search_memory_rag(query="二人の思い出", action_tag="kissing", top_k=5)
+# キス中の記憶だけ検索（Fuzzy matching: "kiss"で"kissing"もヒット）
+mcp_memory_search_memory_rag(query="二人の思い出", action_tag="kiss", top_k=5)
 
-# 感情フィルタ
+# 感情フィルタ（Fuzzy matching: "joy"で"joyful"もヒット）
 mcp_memory_search_memory_rag(query="幸せな時間", emotion="joy", top_k=5)
 
 # 複合条件検索
@@ -179,13 +180,12 @@ mcp_memory_search_memory_rag(
     query="らうらうとの開発",
     min_importance=0.6,
     emotion="joy",
-    action_tag="coding",
+    action_tag="cod",  # "coding"にマッチ
     environment="home",
     top_k=10
 )
 
-# 🆕 Phase 26: スコアリング調整（実装予定）
-# ベクトル類似度 + 重要度スコア
+# カスタムスコアリング（ベクトル類似度 + 重要度 + 新しさ）
 mcp_memory_search_memory_rag(
     query="最近の成果",
     importance_weight=0.3,  # 重要度を30%加味
@@ -194,11 +194,38 @@ mcp_memory_search_memory_rag(
 )
 ```
 
+**Fuzzy matchingの特徴**:
+- 大文字小文字を区別しない
+- 部分一致で検索
+- 例: `emotion="joy"` → "joy", "joyful", "overjoyed" 全部ヒット
+- 例: `action_tag="cook"` → "cooking", "cooked", "cook" 全部ヒット
+
+##### 2-2. キーワード検索（search_memory）
+```python
+# キーワード完全一致検索
+mcp_memory_search_memory(query="Python", top_k=5)
+
+# Fuzzy matching（曖昧検索）
+mcp_memory_search_memory(query="Pythn", fuzzy_match=True, fuzzy_threshold=70, top_k=5)
+
+# タグフィルタ
+mcp_memory_search_memory(query="", tags=["technical_achievement"], top_k=5)
+
+# 日付範囲検索
+mcp_memory_search_memory(query="Phase", date_range="今月", top_k=5)
+
+# 複合検索
+mcp_memory_search_memory(
+    query="Phase",
+    tags=["important_event", "technical_achievement"],
+    tag_match_mode="all",  # 全タグ必須
+    date_range="今月",
+    top_k=10
+)
+```
+
 #### 3. 記憶の読み取り・更新・削除
 ```python
-# 全記憶一覧
-mcp_memory_list_memory()
-
 # 特定記憶の読み取り
 mcp_memory_read_memory(key="memory_20251028225741")
 
@@ -210,9 +237,6 @@ mcp_memory_update_memory(
 
 # 記憶の削除
 mcp_memory_delete_memory(key="memory_20251028225741")
-
-# 重複行の削除
-mcp_memory_clean_memory(key="memory_20251028225741")
 ```
 
 #### 4. セッション開始時の記憶読み込み
