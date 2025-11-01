@@ -1,5 +1,8 @@
 # Docker build exclusions for memory-mcp
 
+# Data directory (bind-mounted at runtime)
+data/
+
 # Model cache (will be bind-mounted from host)
 .cache/
 

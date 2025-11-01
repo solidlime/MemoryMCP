@@ -20,7 +20,7 @@ services:
       - SENTENCE_TRANSFORMERS_HOME=/data/cache/sentence_transformers
       - TORCH_HOME=/data/cache/torch
       # Memory & config paths
-      - MEMORY_MCP_CONFIG_PATH=/config/config.json
+      - MEMORY_MCP_CONFIG_PATH=/data/config.json
       - MEMORY_MCP_DATA_DIR=/data
       - MEMORY_MCP_SERVER_PORT=26262
       # Python unbuffered output for better logging
