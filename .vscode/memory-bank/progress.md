@@ -5,15 +5,25 @@
 ---
 
 ## 現在の状態（要約）
-- Phase 23: Docker環境最適化完了（config統一、env優先度整理、単一データマウント、ポート26262、0.0.0.0バインド、/healthエンドポイント）
-- Phase 22: Webダッシュボード実装・UI/UX・API・知識グラフ・セキュリティまで完了
-- メモリバンク全体の整理・ドキュメント整備を完了
-- 本番運用準備完了（Docker環境安定、ヘルスチェック正常、ポート競合解消）
+- **Phase 23完了**: Qdrantバックエンド実装、本番環境移行完了（84 memories → http://nas:6333）
+- **Docker最適化完了**: イメージサイズ 8.28GB → 2.65GB (68.0%削減)
+- **本番運用準備完了**: 開発/本番環境分離、VS Code Tasks、最適化済みDockerイメージ
+- Phase 22: Webダッシュボード実装完了
+- メモリバンク整備・ドキュメント更新完了
 
 ---
 
 ## 完了フェーズ（新しい順）
-- ✅ Phase 23: Docker環境最適化（config統一、env変数優先度設計、/data単一マウント、cache統一、ポート26262、0.0.0.0バインド、/healthエンドポイント）
+- ✅ **Docker Image Optimization** (2025-11-01)
+  - PyTorchをCUDA版からCPU版へ切り替え（6.6GB → 184MB）
+  - Multi-stage build導入（build-essential除外）
+  - 最終イメージ: 8.28GB → 2.65GB (**68.0%削減**)
+- ✅ **Phase 23: Qdrant Backend & Production Migration** (2025-10-31 - 2025-11-01)
+  - デュアルバックエンド実装（SQLite/FAISS ⇔ Qdrant）
+  - 本番Qdrant移行完了（84 memories → http://nas:6333）
+  - 開発/本番環境分離（config.dev.json / config.json）
+  - VS Code Tasks実装（nohup+pidfile方式）
+- ✅ Phase 22.5: Docker環境最適化（config統一、env変数優先度設計、/data単一マウント、cache統一、ポート26262、0.0.0.0バインド、/healthエンドポイント）
 - ✅ Phase 22: Webダッシュボード実装（Jinja2, Tailwind, Chart.js, API, Persona切り替え, セキュリティ, テスト, ドキュメント更新）
 - ✅ Phase 21: アイドル時自動整理（重複検出・提案・バックグラウンドワーカー）
 - ✅ Phase 20: 知識グラフ生成（NetworkX, PyVis, Obsidian連携、インタラクティブHTML）
@@ -40,7 +50,9 @@
 ---
 
 ## 現在の主要機能
-- RAG検索（FAISS + cl-nagoya/ruri-v3-30m）
+- RAG検索（FAISS or Qdrant + cl-nagoya/ruri-v3-30m）
+- デュアルベクトルストアバックエンド（SQLite/FAISS or Qdrant、設定で切替可能）
+- SQLite⇔Qdrant移行ツール（双方向データ移行サポート）
 - Reranking（sentence-transformers CrossEncoder）
 - Personaサポート（X-Personaヘッダー、完全分離）
 - タグ管理・柔軟な検索
@@ -55,21 +67,151 @@
 
 ## 技術スタック
 - Python 3.12+
-- FastMCP, LangChain, FAISS, sentence-transformers
+- FastMCP, LangChain, FAISS or Qdrant, sentence-transformers
 - SQLite, Docker, Jinja2, Tailwind, Chart.js, PyVis
 
 ---
 
 ## 最近の更新履歴
-- 2025-11-01: Phase 23完了・Docker環境最適化（config統一、env優先度設計、/data単一マウント、cache統一、ポート26262、0.0.0.0バインド、/healthエンドポイント）
-- 2025-10-31: Webダッシュボード実装・全体整理
-- 2025-10-30: 知識グラフ生成・AIアシスト拡張
-- 2025-10-29: メモリ管理強化・統計ダッシュボード
+- **2025-11-01**: Docker Image Optimization完了（8.28GB → 2.65GB, 68.0%削減、PyTorch CPU版、Multi-stage build）
+- **2025-11-01**: Phase 23完了・本番Qdrant移行（84 memories → http://nas:6333）
+- **2025-11-01**: 開発環境/本番環境分離（config.dev.json/config.json）
+- **2025-11-01**: VS Code Tasks実装（開発サーバー起動/停止/再起動）
+- **2025-10-31**: Phase 23完了・Qdrantバックエンド実装（デュアルバックエンド、QdrantVectorStoreAdapter、移行ツール、Docker連携、ドキュメント更新）
+- 2025-10-28: Phase 22.5完了・Docker環境最適化（config統一、env優先度設計、/data単一マウント、cache統一、ポート26262、0.0.0.0バインド、/healthエンドポイント）
 - 2025-10-28: タグ管理強化・コンテキスト更新
-- 2025-10-27: Reranking精度向上・検索機能改善
 - 2025-10-26: Docker環境構築・基本機能確認
-- 2025-10-25: Phase 12 完了・時間経過認識機能実装
 - 2025-10-24: Phase 11 完了・Dockerコンテナ化
+
+---
+
+## Docker Image Optimization 詳細 (2025-11-01)
+
+### 課題
+- Dockerイメージサイズが **8.28GB** と巨大
+- ビルド時間が長い（17GBのプロジェクトディレクトリをコピー）
+- デプロイ効率が悪い
+
+### 原因分析
+- PyTorchのCUDA版が不要にインストールされていた（6.6GB）
+  - `nvidia/`: 4.3GB
+  - `torch/`: 1.7GB
+  - `triton/`: 593MB
+- プロジェクトディレクトリ内の不要ファイル（venv-rag: 7.4GB、.git: 689MB、data: 818MB）
+- build-essential（336MB）が最終イメージに残っていた
+
+### 実施した最適化
+
+#### 1. PyTorchをCPU版に切り替え
+```dockerfile
+# Dockerfileで明示的にCPU版をインストール
+RUN pip install --no-cache-dir \
+    torch \
+    torchvision \
+    torchaudio \
+    --index-url https://download.pytorch.org/whl/cpu
+```
+- **削減量**: 6.4GB（CUDA版 6.6GB → CPU版 184MB）
+
+#### 2. Multi-stage build導入
+```dockerfile
+# Build stage: build-essentialを含む
+FROM python:3.12-slim AS builder
+RUN apt-get install build-essential ...
+
+# Runtime stage: 必要なファイルのみコピー
+FROM python:3.12-slim
+COPY --from=builder /usr/local/lib/python3.12/site-packages ...
+```
+- **削減量**: 336MB（build-essential除外）
+
+#### 3. .dockerignoreの検証
+- 既に適切に設定されていることを確認
+- venv-rag/, data/, .git/, memory/, output/ などを除外済み
+
+### 最適化結果
+
+| 項目 | Before | After | 削減量 | 削減率 |
+|------|--------|-------|--------|--------|
+| **Total Image Size** | 8.28GB | 2.65GB | -5.63GB | **-68.0%** |
+| PyTorch | CUDA版 6.6GB | CPU版 184MB | -6.4GB | -97.2% |
+| Build tools | 336MB | 0MB | -336MB | -100% |
+
+### 検証結果
+- ✅ PyTorch 2.9.0+cpu 正常動作
+- ✅ CUDA無効化確認（`torch.cuda.is_available() == False`）
+- ✅ 全パッケージ読み込み成功（sentence_transformers, faiss, qdrant_client）
+- ✅ ビルド時間短縮
+- ✅ デプロイ効率向上
+
+### 変更ファイル
+- `Dockerfile`: Multi-stage build、PyTorch CPU版インストール
+- `requirements.txt`: PyTorchのコメント化（Dockerfileで管理）
+
+---
+
+## Phase 23 詳細: Qdrant Backend & Production Migration (2025-10-31 - 2025-11-01)
+1. **デュアルバックエンドアーキテクチャ**
+   - storage_backend設定で `sqlite`/`faiss` または `qdrant` を選択可能
+   - config.jsonまたは環境変数（MEMORY_MCP_STORAGE_BACKEND）で切り替え
+   - 既存のFAISSバックエンドは完全互換性維持
+
+2. **QdrantVectorStoreAdapter実装**
+   - lib/backends/qdrant_backend.py: FAISSインターフェース互換のアダプター
+   - add_documents, delete, similarity_search_with_score, index.ntotalメソッド実装
+   - Qdrantコレクション命名: `<qdrant_collection_prefix><persona>` (例: memory_default)
+   - Payload: key, content, metadata（全検索・フィルタリングに対応）
+
+3. **vector_utilsのバックエンドスイッチ**
+   - initialize_rag_sync()でstorage_backendに応じてQdrantまたはFAISSを初期化
+   - Qdrant起動時、SQLiteからのブートストラップ機能（コレクション空なら自動インポート）
+   - save_vector_store(), rebuild_vector_store()はバックエンド抽象化済み
+
+4. **双方向移行ツール**
+   - migrate_sqlite_to_qdrant(): SQLite→Qdrant全件アップサート
+   - migrate_qdrant_to_sqlite(): Qdrant→SQLite全件インポート（upsertモード）
+   - MCPツールとして公開（migrate_sqlite_to_qdrant_tool, migrate_qdrant_to_sqlite_tool）
+
+5. **Qdrant設定**
+   - qdrant_url: Qdrantサーバー接続URL（デフォルト: http://localhost:6333）
+   - qdrant_api_key: 認証キー（未設定なら認証なし）
+   - qdrant_collection_prefix: コレクション名プレフィックス（デフォルト: memory_）
+   - 環境変数: MEMORY_MCP_QDRANT_URL, MEMORY_MCP_QDRANT_API_KEY, MEMORY_MCP_QDRANT_COLLECTION_PREFIX
+
+6. **Docker連携設定**
+   - docker-compose.ymlにQdrantサービス追加例をDOCKER.mdに記載
+   - Qdrantコンテナ: ポート6333/6334公開、ボリュームマウント
+   - memory-mcpコンテナ: depends_on設定でQdrant起動待機
+
+7. **ドキュメント更新**
+   - README.md: Qdrant設定の環境変数マッピング、移行ツール説明追加
+   - DOCKER.md: Qdrant連携のdocker-compose例、移行手順追加
+   - activeContext.md, progress.md: Phase 23完了状況反映
+
+### 修正ファイル
+- requirements.txt: qdrant-client追加
+- lib/backends/qdrant_backend.py: QdrantVectorStoreAdapter新規作成
+- config_utils.py: storage_backend, qdrant_url, qdrant_api_key, qdrant_collection_prefix設定追加
+- vector_utils.py: デュアルバックエンドスイッチ、移行ヘルパー実装、find_similar_memories構文エラー修正
+- memory_mcp.py: 移行ツール（migrate_sqlite_to_qdrant_tool, migrate_qdrant_to_sqlite_tool）追加
+- tools_memory.py: 移行ツールをMCPツールとして登録
+- README.md, DOCKER.md: Qdrant設定・移行説明追加
+- .vscode/memory-bank/activeContext.md, progress.md: Phase 23完了反映
+
+### 検証結果
+- ✅ qdrant-clientインストール成功
+- ✅ QdrantVectorStoreAdapterの実装完了
+- ✅ Qdrantサーバー起動（port 6333）成功
+- ✅ storage_backend=qdrantでサーバー起動（port 8001）成功
+- ✅ Qdrant HTTPリクエストログでコレクション作成確認（memory_default）
+- ✅ find_similar_memories構文エラー修正
+- ✅ 移行ツールMCP登録完了
+- ✅ README/DOCKER.mdドキュメント更新完了
+- ✅ Git commit & push成功
+
+---
+
+## Phase 22.5 詳細: Docker環境最適化
 - 2025-10-23: Phase 10 完了・メモリ移行
 - 2025-10-22: Phase 9 完了・FastMCP依存関数実装
 - 2025-10-21: Phase 8 完了・Persona別ディレクトリ構造実装

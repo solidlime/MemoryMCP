@@ -3,9 +3,16 @@
   "embeddings_device": "cpu",
   "reranker_model": "hotchpotch/japanese-reranker-xsmall-v2",
   "reranker_top_n": 10,
+
   "server_host": "127.0.0.1",
   "server_port": 8000,
   "timezone": "Asia/Tokyo",
+
+  "storage_backend": "qdrant",
+  "qdrant_url": "http://nas:6333",
+  "qdrant_api_key": null,
+  "qdrant_collection_prefix": "memory_",
+
   "vector_rebuild": {
     "mode": "idle",
     "idle_seconds": 30,
@@ -15,7 +22,8 @@
     "enabled": true,
     "idle_minutes": 30,
     "check_interval_seconds": 300,
-    "duplicate_threshold": 0.90,
+    "duplicate_threshold": 0.9,
     "min_similarity_to_report": 0.85,
     "max_suggestions_per_run": 20
   }
+}

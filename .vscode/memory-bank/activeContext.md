@@ -1,35 +1,46 @@
 # Active Context: Memory MCP
 
 ## 現在の作業フォーカス
-- **フェーズ**: Phase 23 - Docker環境最適化 完了 → Qdrant移行準備へ
-- **注力ポイント**: Qdrant移行の設計・実装計画、ダッシュボード微修正、ドキュメント反映
+- **フェーズ**: Phase 23完了、Docker最適化完了 ✅
+- **次フェーズ**: Phase 24へ（内容未定）
+- **注力ポイント**: 本番環境デプロイ、MCPクライアント接続テスト
 
 ---
 
 ## 今日のTODO（2025-11-01）
-- WebダッシュボードのTop Emotions表示修正（小数→%表記、表示揺れ抑制）
-- knowledge_graph.htmlの自動生成・更新（アイドル時トリガー検討）
-- Qdrant移行の接続検証（QDRANT_URL=http://nas:6333 / API Key任意）
-- Qdrantコレクション命名規約とスキーマ（例: memory_{persona}）の定義
-- VS Code `tasks.json` 追加（Start/Stop/Restart）
-- スペック要件（Celeron J4125/4C/16GB）をREADME等に明記
+- ✅ Qdrantバックエンド実装完了
+- ✅ 本番Qdrant (http://nas:6333) への全記憶移行完了（84件）
+- ✅ config.json/config.dev.json分離（本番/開発環境の安全な分離）
+- ✅ VS Code Tasks実装（nohup+pidfile方式）
+- ✅ Dockerイメージ最適化完了（8.28GB → 2.65GB, 68.0%削減）
+- ✅ PyTorchをCPU版に切り替え（CUDA依存6.6GB削除）
+- ✅ Multi-stage build導入（build-essential除外）
+- ✅ プロジェクトメモリバンク更新
+- ✅ README更新（本番移行ガイド、Docker最適化記録）
 
 ---
 
-## 🔥 優先課題
-- Qdrant移行（デフォルトDB切替）設計と段階導入
-  - デュアルバックエンド: `sqlite` | `qdrant` を設定で切替
-  - 互換API層（add/update/delete/search/rebuild）で抽象化
-  - 既存SQLite/FAISSからの移行スクリプト（全件Upsert）
+## 🎯 最近の主要完了事項
+
+### Phase 23: Qdrant Backend & Production Migration ✅
+- ✅ デュアルバックエンドシステム（SQLite/FAISS ⇔ Qdrant）
+- ✅ 本番Qdrant移行: **84 memories** → http://nas:6333
+- ✅ 開発/本番環境完全分離（config.dev.json / config.json）
+- ✅ VS Code Tasks（開発サーバー起動/停止/再起動）
+
+### Docker Image Optimization ✅
+- ✅ **イメージサイズ削減**: 8.28GB → 2.65GB (**68.0%削減**)
+- ✅ **PyTorch最適化**: CUDA版(6.6GB) → CPU版(184MB)
+- ✅ **Multi-stage build**: build-essential除外で336MB削減
+- ✅ **ビルド時間短縮**: 本番デプロイ効率向上
 
 ---
 
-## 進行中タスク
-- WebダッシュボードのUI/UX微調整・API拡張
-- ドキュメント（README, 各md）の最新化
-- Dockerイメージの軽量化検討
-- context_tagsの自由記述を許可の検討
-- 時系列記憶の実装（Qdrant payload拡張: timestamp, emotion, importance）
+## 📋 Next Steps
+- [ ] MCPクライアント接続テスト（ユーザー側で実施予定）
+- [ ] Phase 24の検討（Advanced Analytics, Export/Import, Multi-user support）
+- [ ] WebダッシュボードのUI/UX微調整・API拡張
+- [ ] 時系列記憶の高度化（Qdrant payload拡張: timestamp, emotion, importance）
 
 ## 記憶構造の設計案
 RAG + Qdrantで**時系列＋感情付き記憶**を実現するための設計案

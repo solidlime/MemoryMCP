@@ -8,10 +8,13 @@ langchain-huggingface>=1.0.0
 sentence-transformers>=3.0.0
 transformers>=4.35.0
 
-# PyTorch（CPU版、GPUの場合は cu118 などに置き換え）
-torch>=2.0.0
-torchvision>=0.15.0
-torchaudio>=2.0.0
+# PyTorch CPU版
+# Docker: Dockerfile で --index-url を使って CPU 版を先にインストール
+# ローカル開発: pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+# requirements.txt では依存関係として記載（バージョン管理用）
+# torch>=2.0.0
+# torchvision>=0.15.0
+# torchaudio>=2.0.0
 
 # ベクトル検索用（FAISS CPU版）
 faiss-cpu>=1.7.4

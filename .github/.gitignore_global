@@ -1,6 +1,6 @@
 .DS_Store
 Thumbs.db
-.vscode/
+.vscode/*
 .idea/
 .venv/
 .gitignore_global
