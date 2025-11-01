@@ -9,10 +9,8 @@ services:
     ports:
       - "26262:26262"
     volumes:
-      # Persist all data (memory, logs, cache) in one mount
+      # Persist all data (memory, logs, cache, config) in one mount
       - ./data:/data
-      # Persist config file for hot reload
-      - ./config.json:/config/config.json:ro
     environment:
       # Cache directories (unified under /data/cache)
       - HF_HOME=/data/cache/huggingface
@@ -22,7 +20,33 @@ services:
       # Memory & config paths
       - MEMORY_MCP_CONFIG_PATH=/data/config.json
       - MEMORY_MCP_DATA_DIR=/data
+      - MEMORY_MCP_LOG_FILE=/data/logs/memory_operations.log
+      # Server settings
+      - MEMORY_MCP_SERVER_HOST=0.0.0.0
       - MEMORY_MCP_SERVER_PORT=26262
+      # Model settings
+      - MEMORY_MCP_EMBEDDINGS_MODEL=cl-nagoya/ruri-v3-30m
+      - MEMORY_MCP_EMBEDDINGS_DEVICE=cpu
+      - MEMORY_MCP_RERANKER_MODEL=hotchpotch/japanese-reranker-xsmall-v2
+      - MEMORY_MCP_RERANKER_TOP_N=5
+      # Storage backend
+      - MEMORY_MCP_STORAGE_BACKEND=sqlite
+      - MEMORY_MCP_QDRANT_URL=http://localhost:6333
+      - MEMORY_MCP_QDRANT_API_KEY=
+      - MEMORY_MCP_QDRANT_COLLECTION_PREFIX=memory_
+      # Vector rebuild settings
+      - MEMORY_MCP_VECTOR_REBUILD_MODE=idle
+      - MEMORY_MCP_VECTOR_REBUILD_IDLE_SECONDS=30
+      - MEMORY_MCP_VECTOR_REBUILD_MIN_INTERVAL=120
+      # Auto cleanup settings
+      - MEMORY_MCP_AUTO_CLEANUP_ENABLED=true
+      - MEMORY_MCP_AUTO_CLEANUP_IDLE_MINUTES=30
+      - MEMORY_MCP_AUTO_CLEANUP_CHECK_INTERVAL_SECONDS=300
+      - MEMORY_MCP_AUTO_CLEANUP_DUPLICATE_THRESHOLD=0.90
+      - MEMORY_MCP_AUTO_CLEANUP_MIN_SIMILARITY_TO_REPORT=0.85
+      - MEMORY_MCP_AUTO_CLEANUP_MAX_SUGGESTIONS_PER_RUN=20
+      # Other settings
+      - MEMORY_MCP_TIMEZONE=Asia/Tokyo
       # Python unbuffered output for better logging
       - PYTHONUNBUFFERED=1
     restart: unless-stopped
