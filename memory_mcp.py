@@ -41,6 +41,12 @@ from core import (
     calculate_time_diff,
     load_persona_context,
     save_persona_context,
+    load_memory_from_db,
+    save_memory_to_db,
+    delete_memory_from_db,
+    create_memory_entry,
+    generate_auto_key,
+    log_operation,
 )
 from vector_utils import (
     initialize_rag_sync as _initialize_rag_sync,
@@ -145,135 +151,8 @@ def _log_progress(message: str):
 
 """Vector/RAG initialization and rebuild now handled by vector_utils"""
 
-def load_memory_from_db():
-    """Load memory data from SQLite database (persona-scoped)"""
-    global memory_store
-    try:
-        db_path = get_db_path()
-        
-        if not os.path.exists(db_path):
-            # Initialize new database
-            with sqlite3.connect(db_path) as conn:
-                cursor = conn.cursor()
-                cursor.execute('''
-                    CREATE TABLE IF NOT EXISTS memories (
-                        key TEXT PRIMARY KEY,
-                        content TEXT NOT NULL,
-                        created_at TEXT NOT NULL,
-                        updated_at TEXT NOT NULL,
-                        tags TEXT
-                    )
-                ''')
-                cursor.execute('''
-                    CREATE TABLE IF NOT EXISTS operations (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        timestamp TEXT NOT NULL,
-                        operation_id TEXT NOT NULL,
-                        operation TEXT NOT NULL,
-                        key TEXT,
-                        before TEXT,
-                        after TEXT,
-                        success INTEGER NOT NULL,
-                        error TEXT,
-                        metadata TEXT
-                    )
-                ''')
-                conn.commit()
-            memory_store = {}
-            print(f"Created new SQLite database at {db_path}")
-            _log_progress(f"Created new SQLite database at {db_path}")
-            return
-        
-        # Load existing data and migrate schema if needed
-        with sqlite3.connect(db_path) as conn:
-            cursor = conn.cursor()
-            
-            # Check if tags column exists, add if not (migration)
-            cursor.execute("PRAGMA table_info(memories)")
-            columns = [col[1] for col in cursor.fetchall()]
-            if 'tags' not in columns:
-                _log_progress("🔄 Migrating database: Adding tags column...")
-                cursor.execute('ALTER TABLE memories ADD COLUMN tags TEXT')
-                conn.commit()
-                _log_progress("✅ Database migration complete: tags column added")
-            
-            cursor.execute('SELECT key, content, created_at, updated_at, tags FROM memories')
-            rows = cursor.fetchall()
-            
-            memory_store = {}
-            for row in rows:
-                key, content, created_at, updated_at, tags_json = row
-                memory_store[key] = {
-                    "content": content,
-                    "created_at": created_at,
-                    "updated_at": updated_at,
-                    "tags": json.loads(tags_json) if tags_json else []
-                }
-        
-        print(f"Loaded {len(memory_store)} memory entries from {db_path}")
-        _log_progress(f"Loaded {len(memory_store)} memory entries from {db_path}")
-    except Exception as e:
-        print(f"Failed to load memory database: {e}")
-        _log_progress(f"Failed to load memory database: {e}")
-        memory_store = {}
-
-def save_memory_to_db(key: str, content: str, created_at: str = None, updated_at: str = None, tags: list = None):
-    """Save memory to SQLite database (persona-scoped)"""
-    try:
-        persona = get_current_persona()
-        db_path = get_db_path()
-        _log_progress(f"💾 Attempting to save to DB: {db_path} (persona: {persona})")
-        
-        now = datetime.now().isoformat()
-        
-        if created_at is None:
-            created_at = now
-        if updated_at is None:
-            updated_at = now
-        
-        # Serialize tags as JSON
-        tags_json = json.dumps(tags, ensure_ascii=False) if tags else None
-        _log_progress(f"💾 Tags JSON: {tags_json}")
-        
-        with sqlite3.connect(db_path) as conn:
-            cursor = conn.cursor()
-            
-            # Check schema before insert
-            cursor.execute("PRAGMA table_info(memories)")
-            columns = [col[1] for col in cursor.fetchall()]
-            _log_progress(f"💾 DB columns: {columns}")
-            
-            cursor.execute('''
-                INSERT OR REPLACE INTO memories (key, content, created_at, updated_at, tags)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (key, content, created_at, updated_at, tags_json))
-            conn.commit()
-            _log_progress(f"✅ Successfully saved {key} to DB")
-        
-        return True
-    except Exception as e:
-        print(f"Failed to save memory to database: {e}")
-        _log_progress(f"❌ Failed to save memory to database: {e}")
-        _log_progress(f"❌ DB path was: {db_path}")
-        import traceback
-        _log_progress(f"❌ Traceback: {traceback.format_exc()}")
-        return False
-
-def delete_memory_from_db(key: str):
-    """Delete memory from SQLite database (persona-scoped)"""
-    try:
-        db_path = get_db_path()
-        
-        with sqlite3.connect(db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('DELETE FROM memories WHERE key = ?', (key,))
-            conn.commit()
-        
-        return True
-    except Exception as e:
-        print(f"Failed to delete memory from database: {e}")
-        _log_progress(f"Failed to delete memory from database: {e}")
-        return False
+# Global memory store (will be loaded from DB on startup)
+memory_store = {}
 
 # ---------------------------
 # DB helper utilities (refactor)
@@ -291,40 +170,9 @@ def db_count_entries() -> int:
 def db_sum_content_chars() -> int:
     return _db_sum_content_chars_generic(get_db_path())
 
-def generate_auto_key():
-    """Generate auto key from current time"""
-    now = datetime.now()
-    return f"memory_{now.strftime('%Y%m%d%H%M%S')}"
-
-def create_memory_entry(content: str):
-    """Create memory entry with metadata"""
-    now = datetime.now().isoformat()
-    return {
-        "content": content,
-        "created_at": now,
-        "updated_at": now
-    }
-
-def log_operation(operation: str, key: str | None = None, before: dict | None = None, after: dict | None = None, 
-                 success: bool = True, error: str | None = None, metadata: dict | None = None):
-    """Log memory operations to jsonl file"""
-    try:
-        log_entry = {
-            "timestamp": datetime.now().isoformat(),
-            "operation_id": str(uuid.uuid4()),
-            "operation": operation,
-            "key": key,
-            "before": before,
-            "after": after,
-            "success": success,
-            "error": error,
-            "metadata": metadata or {}
-        }
-        
-        with open(LOG_FILE, 'a', encoding='utf-8') as f:
-            f.write(json.dumps(log_entry, ensure_ascii=False) + '\n')
-    except Exception as e:
-        print(f"Failed to write log: {str(e)}")
+# ---------------------------
+# MCP Server initialization
+# ---------------------------
 
 async def list_memory() -> str:
     """
