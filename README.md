@@ -3,16 +3,17 @@
 Model Context Protocol (MCP) に準拠した永続メモリサーバー。RAG (Retrieval-Augmented Generation)・意味検索・感情分析を組み合わせて、Personaごとの記憶を柔らかく管理します。
 
 ## 主な特徴
-- 永続メモリ: SQLite + FAISSでセッションを横断した記憶を保持
+- 永続メモリ: SQLite + FAISS/Qdrantでセッションを横断した記憶を保持
 - Personaサポート: `X-Persona` ヘッダーで人格ごとに独立したデータ空間
 - RAG検索とリランキング: HuggingFace埋め込み + CrossEncoderで高精度検索
 - タグとコンテキスト: 感情・体調・環境・関係性を含めた多面的な記録
 - 自動整理: アイドル時の重複検知・知識グラフ生成・感情推定
 - ダッシュボード: Web UIで統計・日次推移・知識グラフを可視化
+- **マルチバックエンド**: FAISSまたはQdrantを選択可能（双方向移行ツール付き）
 
 ## 技術スタック
 - Python 3.12 / FastAPI (FastMCP) / Uvicorn
-- LangChain + FAISS / sentence-transformers / HuggingFace Transformers
+- LangChain + FAISS or Qdrant / sentence-transformers / HuggingFace Transformers
 - SQLite (Personaごとに分離) / PyVis / NetworkX
 
 ## クイックスタート
@@ -122,6 +123,10 @@ Personaを切り替えたいときは `X-Persona` の値を変更します。
 | `MEMORY_MCP_SERVER_HOST` | `server_host` | string | `0.0.0.0` | サーバーホスト（Dockerは0.0.0.0、開発環境は127.0.0.1を推奨） |
 | `MEMORY_MCP_SERVER_PORT` | `server_port` | int | `8000` (Docker: `26262`) | サーバーポート |
 | `MEMORY_MCP_TIMEZONE` | `timezone` | string | `Asia/Tokyo` | タイムゾーン |
+| `MEMORY_MCP_STORAGE_BACKEND` | `storage_backend` | string | `sqlite` | ベクトルストアバックエンド（`sqlite`/`faiss` または `qdrant`） |
+| `MEMORY_MCP_QDRANT_URL` | `qdrant_url` | string | `http://localhost:6333` | Qdrantサーバー接続URL |
+| `MEMORY_MCP_QDRANT_API_KEY` | `qdrant_api_key` | string | `null` | Qdrant API Key（未設定なら認証なし） |
+| `MEMORY_MCP_QDRANT_COLLECTION_PREFIX` | `qdrant_collection_prefix` | string | `memory_` | Qdrantコレクション名Prefix |
 | `MEMORY_MCP_VECTOR_REBUILD_MODE` | `vector_rebuild.mode` | string | `idle` | 再構築モード（idle/manual/auto） |
 | `MEMORY_MCP_VECTOR_REBUILD_IDLE_SECONDS` | `vector_rebuild.idle_seconds` | int | `30` | アイドル判定秒数 |
 | `MEMORY_MCP_VECTOR_REBUILD_MIN_INTERVAL` | `vector_rebuild.min_interval` | int | `120` | 最小再構築間隔（秒） |
@@ -195,7 +200,11 @@ export MEMORY_MCP_EMBEDDINGS_DEVICE=cpu
 ```
 
 ## データ配置とディレクトリ
-アプリコードは `/opt/memory-mcp`、データは `/data` 配下に分離しています。
+アプリコードは `/opt/memory-mcp`、データは `/data` 配下に分離しています。  
+ベクトルストアバックエンドに応じて以下のように格納されます：
+
+**SQLite/FAISSバックエンド（デフォルト）**: PersonaごとにSQLite + FAISSインデックスがローカルファイルとして保存されます。  
+**Qdrantバックエンド**: SQLiteは同様に使用しますが、ベクトルインデックスはQdrantサーバー（別途起動）に保存されます。コレクション名は `<qdrant_collection_prefix><persona>` となります。
 ```
 /opt/memory-mcp
 ├── memory_mcp.py        # サーバー本体
@@ -224,7 +233,8 @@ export MEMORY_MCP_EMBEDDINGS_DEVICE=cpu
 - `memory://info` / `memory://metrics` / `memory://stats` / `memory://cleanup`
 - CRUD: `create_memory`, `read_memory`, `update_memory`, `delete_memory`, `list_memory`
 - 検索: `search_memory`, `search_memory_rag`, `search_memory_by_date`, `search_memory_by_tags`
-- 管理: `find_related_memories`, `detect_duplicates`, `merge_memories`, `rebuild_vector_store_tool`
+- 管理: `find_related_memories`, `detect_duplicates`, `merge_memories`, `rebuild_vector_store_tool`, `clean_memory`
+- **移行**: `migrate_sqlite_to_qdrant_tool`, `migrate_qdrant_to_sqlite_tool` （SQLite⇔Qdrant双方向移行）
 - コンテキスト: `get_persona_context`, `get_time_since_last_conversation`
 - 生成: `generate_knowledge_graph`
 
