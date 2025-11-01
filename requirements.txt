@@ -40,3 +40,6 @@ pyvis>=0.3.0
 
 # Phase 22: Web Dashboard
 jinja2>=3.1.0
+
+# Phase 23: Qdrant Backend
+qdrant-client>=1.8.2

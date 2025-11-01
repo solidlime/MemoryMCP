@@ -10,6 +10,7 @@ from pathlib import Path
 from langchain_core.documents import Document
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
+from sentence_transformers import SentenceTransformer
 try:
     from sentence_transformers import CrossEncoder
     CROSSENCODER_AVAILABLE = True
@@ -20,6 +21,12 @@ except ImportError:
 from tqdm import tqdm
 
 from config_utils import load_config
+try:
+    from qdrant_client import QdrantClient
+    from lib.backends.qdrant_backend import QdrantVectorStoreAdapter
+    QDRANT_AVAILABLE = True
+except Exception:
+    QDRANT_AVAILABLE = False
 from persona_utils import get_db_path, get_vector_store_path
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -37,6 +44,7 @@ def _get_rebuild_config():
 vector_store = None
 embeddings = None
 reranker = None
+backend_type = "faiss"
 sentiment_pipeline = None  # Phase 19: Sentiment analysis pipeline
 
 # Idle rebuild controls
@@ -241,13 +249,22 @@ def _count_total_memories():
     except Exception:
         return 0
 
+def _get_embedding_dimension(model_name: str) -> int:
+    try:
+        m = SentenceTransformer(model_name)
+        return int(m.get_sentence_embedding_dimension())
+    except Exception:
+        return 384
+
+
 def initialize_rag_sync():
     """Initialize embeddings/reranker and load or bootstrap a vector store."""
-    global vector_store, embeddings, reranker
+    global vector_store, embeddings, reranker, backend_type
     cfg = load_config()
     embeddings_model = cfg.get("embeddings_model", "cl-nagoya/ruri-v3-30m")
     embeddings_device = cfg.get("embeddings_device", "cpu")
     reranker_model = cfg.get("reranker_model", "hotchpotch/japanese-reranker-xsmall-v2")
+    storage_backend = cfg.get("storage_backend", "sqlite").lower()
 
     # Embeddings
     try:
@@ -281,46 +298,73 @@ def initialize_rag_sync():
         except Exception:
             pass
 
-    if os.path.exists(vs_path) and embeddings is not None:
-        try:
-            vector_store = FAISS.load_local(vs_path, embeddings, allow_dangerous_deserialization=True)
-        except Exception:
-            vector_store = None
-
-    if vector_store is None and embeddings is not None:
-        # Build from DB if possible
+    if storage_backend == "qdrant" and QDRANT_AVAILABLE and embeddings is not None:
+        backend_type = "qdrant"
+        dim = _get_embedding_dimension(embeddings_model)
+        url = cfg.get("qdrant_url", "http://localhost:6333")
+        api_key = cfg.get("qdrant_api_key")
+        prefix = cfg.get("qdrant_collection_prefix", "memory_")
+        from persona_utils import get_current_persona
+        collection = f"{prefix}{get_current_persona()}"
+        client = QdrantClient(url=url, api_key=api_key)
+        vector_store = QdrantVectorStoreAdapter(client, collection, embeddings, dim)
+        # Bootstrap from SQLite if empty
         try:
             with sqlite3.connect(get_db_path()) as conn:
                 cur = conn.cursor()
                 cur.execute('SELECT key, content FROM memories')
                 rows = cur.fetchall()
-            if rows:
+            if rows and vector_store.index.ntotal == 0:
                 docs = [Document(page_content=c, metadata={"key": k}) for (k, c) in rows]
-                vector_store = FAISS.from_documents(docs, embeddings)
-                save_vector_store()
-            else:
-                dummy_doc = Document(page_content="初期化用ダミー", metadata={"key": "dummy"})
-                vector_store = FAISS.from_documents([dummy_doc], embeddings)
-                save_vector_store()
+                vector_store.add_documents(docs, ids=[k for (k, _) in rows])
         except Exception:
-            # As a last resort, create empty with dummy
+            pass
+    else:
+        backend_type = "faiss"
+        if os.path.exists(vs_path) and embeddings is not None:
             try:
-                dummy_doc = Document(page_content="初期化用ダミー", metadata={"key": "dummy"})
-                vector_store = FAISS.from_documents([dummy_doc], embeddings)
-                save_vector_store()
+                vector_store = FAISS.load_local(vs_path, embeddings, allow_dangerous_deserialization=True)
             except Exception:
                 vector_store = None
+
+        if vector_store is None and embeddings is not None:
+            # Build from DB if possible
+            try:
+                with sqlite3.connect(get_db_path()) as conn:
+                    cur = conn.cursor()
+                    cur.execute('SELECT key, content FROM memories')
+                    rows = cur.fetchall()
+                if rows:
+                    docs = [Document(page_content=c, metadata={"key": k}) for (k, c) in rows]
+                    vector_store = FAISS.from_documents(docs, embeddings)
+                    save_vector_store()
+                else:
+                    dummy_doc = Document(page_content="初期化用ダミー", metadata={"key": "dummy"})
+                    vector_store = FAISS.from_documents([dummy_doc], embeddings)
+                    save_vector_store()
+            except Exception:
+                # As a last resort, create empty with dummy
+                try:
+                    dummy_doc = Document(page_content="初期化用ダミー", metadata={"key": "dummy"})
+                    vector_store = FAISS.from_documents([dummy_doc], embeddings)
+                    save_vector_store()
+                except Exception:
+                    vector_store = None
     
     # Phase 19: Initialize sentiment analysis
     initialize_sentiment_analysis()
 
 def save_vector_store():
     if vector_store:
-        try:
-            vector_store.save_local(get_vector_store_path())
+        if backend_type == "faiss":
+            try:
+                vector_store.save_local(get_vector_store_path())
+                return True
+            except Exception:
+                return False
+        else:
+            # Qdrant persists server-side
             return True
-        except Exception:
-            return False
     return False
 
 def rebuild_vector_store():
@@ -335,10 +379,14 @@ def rebuild_vector_store():
         if not rows:
             return
         docs = [Document(page_content=c, metadata={"key": k}) for (k, c) in rows]
-        with tqdm(total=1, desc="⚙️  Building FAISS Index", unit="index", ncols=80) as pbar:
-            vector_store = FAISS.from_documents(docs, embeddings)
-            pbar.update(1)
-        save_vector_store()
+        if backend_type == "faiss":
+            with tqdm(total=1, desc="⚙️  Building FAISS Index", unit="index", ncols=80) as pbar:
+                vector_store = FAISS.from_documents(docs, embeddings)
+                pbar.update(1)
+            save_vector_store()
+        else:
+            # Qdrant: upsert all points
+            vector_store.add_documents(docs, ids=[k for (k, _) in rows])
     except Exception:
         pass
 
@@ -354,13 +402,35 @@ def add_memory_to_vector_store(key: str, content: str):
         return
     
     try:
+        # Fetch metadata for richer payload (for Qdrant migration)
+        created_at = None
+        updated_at = None
+        tags_json = None
+        try:
+            with sqlite3.connect(get_db_path()) as conn:
+                cur = conn.cursor()
+                cur.execute('SELECT created_at, updated_at, tags FROM memories WHERE key = ?', (key,))
+                row = cur.fetchone()
+                if row:
+                    created_at, updated_at, tags_json = row
+        except Exception:
+            pass
+
+        meta = {"key": key}
+        if created_at:
+            meta["created_at"] = created_at
+        if updated_at:
+            meta["updated_at"] = updated_at
+        if tags_json:
+            meta["tags"] = tags_json
+
         # Create document with metadata
-        doc = Document(page_content=content, metadata={"key": key})
+        doc = Document(page_content=content, metadata=meta)
         
         # Add to vector store with ID
         vector_store.add_documents([doc], ids=[key])
         
-        # Save immediately
+        # Save immediately (FAISS only)
         save_vector_store()
         
         print(f"✅ Added memory {key} to vector store incrementally")
@@ -382,12 +452,34 @@ def update_memory_in_vector_store(key: str, content: str):
     try:
         # Delete old version
         vector_store.delete([key])
-        
+
+        # Fetch metadata (keep original created_at)
+        created_at = None
+        updated_at = None
+        tags_json = None
+        try:
+            with sqlite3.connect(get_db_path()) as conn:
+                cur = conn.cursor()
+                cur.execute('SELECT created_at, updated_at, tags FROM memories WHERE key = ?', (key,))
+                row = cur.fetchone()
+                if row:
+                    created_at, updated_at, tags_json = row
+        except Exception:
+            pass
+
+        meta = {"key": key}
+        if created_at:
+            meta["created_at"] = created_at
+        if updated_at:
+            meta["updated_at"] = updated_at
+        if tags_json:
+            meta["tags"] = tags_json
+
         # Add new version
-        doc = Document(page_content=content, metadata={"key": key})
+        doc = Document(page_content=content, metadata=meta)
         vector_store.add_documents([doc], ids=[key])
         
-        # Save immediately
+        # Save immediately (FAISS only)
         save_vector_store()
         
         print(f"✅ Updated memory {key} in vector store incrementally")
@@ -452,6 +544,7 @@ def get_vector_metrics() -> dict:
         "reranker_model": reranker_model_name,
         "reranker_loaded": reranker is not None,
         "vector_count": get_vector_count(),
+        "backend": backend_type,
         "dirty": _dirty,
         "last_write_ts": _last_write_ts,
         "last_rebuild_ts": _last_rebuild_ts,
@@ -488,18 +581,18 @@ def find_similar_memories(query_key: str, top_k: int = 5) -> list:
         
         query_content = row[0]
         
-        # Search similar documents
-        # top_k + 1 because the query itself will be in results
-        results = vector_store.similarity_search_with_score(query_content, k=top_k + 1)
+    # Search similar documents
+    # top_k + 1 because the query itself will be in results
+    results = vector_store.similarity_search_with_score(query_content, k=top_k + 1)
         
         # Filter out the query memory itself and format results
         similar = []
         for doc, score in results:
             key = doc.metadata.get("key")
             if key != query_key:  # Exclude the query memory itself
-                # FAISS returns L2 distance (lower is better)
-                # Convert to similarity score (higher is better) for user-friendly display
-                similarity = 1.0 / (1.0 + score)
+                # For FAISS (L2): lower distance is better → convert to similarity
+                # For Qdrant (cosine): we returned (1 - cosine) to emulate a distance
+                similarity = 1.0 / (1.0 + float(score))
                 similar.append((key, doc.page_content, similarity))
         
         # Return top_k results (excluding query itself)
@@ -555,8 +648,8 @@ def detect_duplicate_memories(threshold: float = 0.85, max_pairs: int = 50) -> l
                 if key1 >= key2:  # >= ensures we don't process the same pair twice
                     continue
                 
-                # Convert L2 distance to similarity score
-                similarity = 1.0 / (1.0 + score)
+                # Convert distance-like score to similarity
+                similarity = 1.0 / (1.0 + float(score))
                 
                 # Check if above threshold
                 if similarity >= threshold:
@@ -642,3 +735,112 @@ def analyze_sentiment_text(content: str) -> dict:
     except Exception as e:
         print(f"Error analyzing sentiment: {e}")
         return {"emotion": "neutral", "score": 0.0, "raw_label": "error", "error": str(e)}
+
+
+# ============================================================================
+# Phase 23: Migration helpers between SQLite/FAISS and Qdrant
+# ============================================================================
+
+def migrate_sqlite_to_qdrant() -> int:
+    """Upsert all SQLite memories into Qdrant for current persona.
+
+    Returns: number of records attempted.
+    """
+    cfg = load_config()
+    storage_backend = cfg.get("storage_backend", "sqlite").lower()
+    if not QDRANT_AVAILABLE:
+        return 0
+    # Build/ensure adapter
+    try:
+        if backend_type == "qdrant" and vector_store is not None:
+            adapter = vector_store
+        else:
+            embeddings_model = cfg.get("embeddings_model", "cl-nagoya/ruri-v3-30m")
+            embeddings_device = cfg.get("embeddings_device", "cpu")
+            emb = HuggingFaceEmbeddings(
+                model_name=embeddings_model,
+                model_kwargs={'device': embeddings_device},
+                encode_kwargs={'normalize_embeddings': True}
+            )
+            dim = _get_embedding_dimension(embeddings_model)
+            url = cfg.get("qdrant_url", "http://localhost:6333")
+            api_key = cfg.get("qdrant_api_key")
+            prefix = cfg.get("qdrant_collection_prefix", "memory_")
+            from persona_utils import get_current_persona
+            collection = f"{prefix}{get_current_persona()}"
+            client = QdrantClient(url=url, api_key=api_key)
+            adapter = QdrantVectorStoreAdapter(client, collection, emb, dim)
+
+        with sqlite3.connect(get_db_path()) as conn:
+            cur = conn.cursor()
+            cur.execute('SELECT key, content, created_at, updated_at, tags FROM memories')
+            rows = cur.fetchall()
+        if not rows:
+            return 0
+        docs = []
+        ids = []
+        for (k, c, created_at, updated_at, tags_json) in rows:
+            meta = {"key": k}
+            if created_at:
+                meta["created_at"] = created_at
+            if updated_at:
+                meta["updated_at"] = updated_at
+            if tags_json:
+                meta["tags"] = tags_json
+            docs.append(Document(page_content=c, metadata=meta))
+            ids.append(k)
+        adapter.add_documents(docs, ids=ids)
+        return len(rows)
+    except Exception:
+        return 0
+
+
+def migrate_qdrant_to_sqlite(upsert: bool = True) -> int:
+    """Pull all points from Qdrant into SQLite memories for the current persona.
+
+    Returns: number of records attempted.
+    """
+    if not QDRANT_AVAILABLE:
+        return 0
+    cfg = load_config()
+    url = cfg.get("qdrant_url", "http://localhost:6333")
+    api_key = cfg.get("qdrant_api_key")
+    prefix = cfg.get("qdrant_collection_prefix", "memory_")
+    from persona_utils import get_current_persona
+    collection = f"{prefix}{get_current_persona()}"
+    try:
+        client = QdrantClient(url=url, api_key=api_key)
+        # Scroll all points
+        total = 0
+        next_page = None
+        with sqlite3.connect(get_db_path()) as conn:
+            cur = conn.cursor()
+            while True:
+                res = client.scroll(collection_name=collection, limit=256, with_payload=True, offset=next_page)
+                points, next_page = res[0], res[1]
+                if not points:
+                    break
+                for p in points:
+                    pl = p.payload or {}
+                    key = pl.get('key')
+                    content = pl.get('content')
+                    created_at = pl.get('created_at')
+                    updated_at = pl.get('updated_at')
+                    tags_json = pl.get('tags')
+                    if not key or content is None:
+                        continue
+                    if upsert:
+                        cur.execute('''
+                            INSERT OR REPLACE INTO memories (key, content, created_at, updated_at, tags)
+                            VALUES (?, ?, COALESCE(?, datetime('now')), COALESCE(?, datetime('now')), ?)
+                        ''', (key, content, created_at, updated_at, tags_json))
+                    else:
+                        cur.execute('''
+                            INSERT OR IGNORE INTO memories (key, content, created_at, updated_at, tags)
+                            VALUES (?, ?, COALESCE(?, datetime('now')), COALESCE(?, datetime('now')), ?)
+                        ''', (key, content, created_at, updated_at, tags_json))
+                    total += 1
+            conn.commit()
+        return total
+    except Exception:
+        return 0

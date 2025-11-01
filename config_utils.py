@@ -13,6 +13,12 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "server_host": "0.0.0.0",
     "server_port": 8000,
     "timezone": "Asia/Tokyo",
+    # Storage backend: "sqlite" (default) or "qdrant"
+    "storage_backend": "sqlite",
+    # Qdrant settings (used when storage_backend == "qdrant")
+    "qdrant_url": "http://localhost:6333",
+    "qdrant_api_key": None,
+    "qdrant_collection_prefix": "memory_",
     "vector_rebuild": {
         "mode": "idle",
         "idle_seconds": 30,
