@@ -21,6 +21,7 @@ from core import (
     generate_auto_key,
     save_memory_to_db,
     delete_memory_from_db,
+    load_memory_from_db,
     log_operation,
 )
 from vector_utils import (
@@ -134,6 +135,9 @@ async def create_memory(
     try:
         persona = get_current_persona()
         db_path = get_db_path()
+        
+        # Ensure database and tables are initialized (handles empty database files)
+        load_memory_from_db()
         
         # Generate unique key by checking database
         key = generate_auto_key()
