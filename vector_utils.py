@@ -575,15 +575,15 @@ def find_similar_memories(query_key: str, top_k: int = 5) -> list:
             cur = conn.cursor()
             cur.execute('SELECT content FROM memories WHERE key = ?', (query_key,))
             row = cur.fetchone()
-            
+        
         if not row:
             return []
         
         query_content = row[0]
-        
-    # Search similar documents
-    # top_k + 1 because the query itself will be in results
-    results = vector_store.similarity_search_with_score(query_content, k=top_k + 1)
+
+        # Search similar documents
+        # top_k + 1 because the query itself will be in results
+        results = vector_store.similarity_search_with_score(query_content, k=top_k + 1)
         
         # Filter out the query memory itself and format results
         similar = []
@@ -597,7 +597,6 @@ def find_similar_memories(query_key: str, top_k: int = 5) -> list:
         
         # Return top_k results (excluding query itself)
         return similar[:top_k]
-        
     except Exception as e:
         print(f"Error finding similar memories: {e}")
         return []
