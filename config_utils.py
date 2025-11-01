@@ -124,7 +124,9 @@ def get_config_path() -> str:
     env_path = os.environ.get(f"{_ENV_PREFIX}CONFIG_PATH")
     if env_path:
         return os.path.abspath(env_path)
-    return os.path.join(BASE_DIR, "config.json")
+    # Default to data/config.json instead of root config.json
+    data_dir = get_data_dir()
+    return os.path.join(data_dir, "config.json")
 
 
 def get_data_dir() -> str:
