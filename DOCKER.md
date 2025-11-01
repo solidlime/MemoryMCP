@@ -262,6 +262,10 @@ data/
 |---------|-------------|------|
 | `MEMORY_MCP_DATA_DIR` | `/data` | データディレクトリルート |
 | `MEMORY_MCP_CONFIG_PATH` | `/config/config.json` | 設定ファイルパス |
+| `MEMORY_MCP_STORAGE_BACKEND` | `sqlite` | ベクトルストアバックエンド（`sqlite`/`faiss` または `qdrant`） |
+| `MEMORY_MCP_QDRANT_URL` | `http://localhost:6333` | Qdrantサーバー接続URL |
+| `MEMORY_MCP_QDRANT_API_KEY` | `null` | Qdrant API Key（未設定なら認証なし） |
+| `MEMORY_MCP_QDRANT_COLLECTION_PREFIX` | `memory_` | Qdrantコレクション名Prefix |
 
 ### キャッシュディレクトリ
 
@@ -293,11 +297,65 @@ PYTHONUNBUFFERED=1  # ログをリアルタイムで出力
   "reranker_model": "hotchpotch/japanese-reranker-xsmall-v2",
   "reranker_top_n": 5,
   "server_host": "0.0.0.0",
-  "server_port": 8000
+  "server_port": 8000,
+  "storage_backend": "sqlite",
+  "qdrant_url": "http://localhost:6333",
+  "qdrant_api_key": null,
+  "qdrant_collection_prefix": "memory_"
 }
 ```
 
 **注意**: `server_host`をDockerコンテナ内で`127.0.0.1`にすると、外部からアクセスできません。`0.0.0.0`を推奨します。
+
+### Qdrantバックエンド使用時
+
+Qdrantをベクトルストアバックエンドとして使用する場合、別途Qdrantサーバーを起動する必要があります。
+
+**docker-compose.ymlにQdrantサービスを追加**:
+
+```yaml
+version: '3.8'
+
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - ./qdrant_storage:/qdrant/storage
+    restart: unless-stopped
+
+  memory-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: memory-mcp
+    ports:
+      - "26262:26262"
+    volumes:
+      - ./data:/data
+      - ./config.json:/config/config.json:ro
+    environment:
+      - MEMORY_MCP_DATA_DIR=/data
+      - MEMORY_MCP_SERVER_PORT=26262
+      - MEMORY_MCP_STORAGE_BACKEND=qdrant
+      - MEMORY_MCP_QDRANT_URL=http://qdrant:6333
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - qdrant
+    restart: unless-stopped
+```
+
+**移行ツール**:
+
+MCPツール経由で、SQLite⇔Qdrant間でメモリデータを移行できます：
+
+- `migrate_sqlite_to_qdrant_tool`: SQLiteからQdrantへベクトルデータをアップサート
+- `migrate_qdrant_to_sqlite_tool`: QdrantからSQLiteへベクトルデータをインポート
+
+これにより、既存のSQLite/FAISSデータをQdrantに移行したり、Qdrantデータをバックアップとしてローカルに保存することが可能です。
 
 ## ヘルスチェック
 
