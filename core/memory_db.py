@@ -30,37 +30,39 @@ def load_memory_from_db() -> Dict[str, Any]:
     try:
         db_path = get_db_path()
         
-        if not os.path.exists(db_path):
-            # Initialize new database
-            with sqlite3.connect(db_path) as conn:
-                cursor = conn.cursor()
-                cursor.execute('''
-                    CREATE TABLE IF NOT EXISTS memories (
-                        key TEXT PRIMARY KEY,
-                        content TEXT NOT NULL,
-                        created_at TEXT NOT NULL,
-                        updated_at TEXT NOT NULL,
-                        tags TEXT
-                    )
-                ''')
-                cursor.execute('''
-                    CREATE TABLE IF NOT EXISTS operations (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        timestamp TEXT NOT NULL,
-                        operation_id TEXT NOT NULL,
-                        operation TEXT NOT NULL,
-                        key TEXT,
-                        before TEXT,
-                        after TEXT,
-                        success INTEGER NOT NULL,
-                        error TEXT,
-                        metadata TEXT
-                    )
-                ''')
-                conn.commit()
-            print(f"Created new SQLite database at {db_path}")
-            _log_progress(f"Created new SQLite database at {db_path}")
-            return memory_store
+        # Always ensure tables exist (handles both new and empty databases)
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            
+            # Create tables if they don't exist
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS memories (
+                    key TEXT PRIMARY KEY,
+                    content TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    tags TEXT
+                )
+            ''')
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS operations (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TEXT NOT NULL,
+                    operation_id TEXT NOT NULL,
+                    operation TEXT NOT NULL,
+                    key TEXT,
+                    before TEXT,
+                    after TEXT,
+                    success INTEGER NOT NULL,
+                    error TEXT,
+                    metadata TEXT
+                )
+            ''')
+            conn.commit()
+            
+            if not os.path.exists(db_path) or os.path.getsize(db_path) < 100:
+                print(f"Initialized SQLite database at {db_path}")
+                _log_progress(f"Initialized SQLite database at {db_path}")
         
         # Load existing data and migrate schema if needed
         with sqlite3.connect(db_path) as conn:
