@@ -623,12 +623,11 @@ def find_similar_memories(query_key: str, top_k: int = 5) -> list:
         List of tuples: [(key, content, score), ...]
         Empty list if query_key not found or vector store not available
     """
-    global vector_store
-    
-    if not vector_store:
-        return []
-    
     try:
+        # Phase 26.5: Use dynamic adapter instead of global vector_store
+        persona = get_current_persona()
+        adapter = _get_qdrant_adapter(persona)
+        
         # Get the content of the query memory from database
         db_path = get_db_path()
         with sqlite3.connect(db_path) as conn:
@@ -643,15 +642,14 @@ def find_similar_memories(query_key: str, top_k: int = 5) -> list:
 
         # Search similar documents
         # top_k + 1 because the query itself will be in results
-        results = vector_store.similarity_search_with_score(query_content, k=top_k + 1)
+        results = adapter.similarity_search_with_score(query_content, k=top_k + 1)
         
         # Filter out the query memory itself and format results
         similar = []
         for doc, score in results:
             key = doc.metadata.get("key")
             if key != query_key:  # Exclude the query memory itself
-                # For FAISS (L2): lower distance is better → convert to similarity
-                # For Qdrant (cosine): we returned (1 - cosine) to emulate a distance
+                # Convert distance/score to similarity
                 similarity = 1.0 / (1.0 + float(score))
                 similar.append((key, doc.page_content, similarity))
         
@@ -674,12 +672,11 @@ def detect_duplicate_memories(threshold: float = 0.85, max_pairs: int = 50) -> l
         List of tuples: [(key1, key2, content1, content2, similarity), ...]
         Sorted by similarity (highest first)
     """
-    global vector_store
-    
-    if not vector_store:
-        return []
-    
     try:
+        # Phase 26.5: Use dynamic adapter instead of global vector_store
+        persona = get_current_persona()
+        adapter = _get_qdrant_adapter(persona)
+        
         # Get all memories from database
         db_path = get_db_path()
         with sqlite3.connect(db_path) as conn:
@@ -697,7 +694,7 @@ def detect_duplicate_memories(threshold: float = 0.85, max_pairs: int = 50) -> l
             key1, content1 = all_memories[i]
             
             # Search for similar memories
-            results = vector_store.similarity_search_with_score(content1, k=20)
+            results = adapter.similarity_search_with_score(content1, k=20)
             
             for doc, score in results:
                 key2 = doc.metadata.get("key")
