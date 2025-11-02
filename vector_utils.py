@@ -294,7 +294,10 @@ def initialize_rag_sync():
                 encode_kwargs={'normalize_embeddings': True}
             )
             pbar.update(100)
-    except Exception:
+    except Exception as e:
+        print(f"❌ Failed to initialize embeddings: {e}")
+        import traceback
+        traceback.print_exc()
         embeddings = None
 
     # Reranker
@@ -303,7 +306,10 @@ def initialize_rag_sync():
             with tqdm(total=100, desc="📥 Reranker Model", unit="%", ncols=80) as pbar:
                 reranker = CrossEncoder(reranker_model)
                 pbar.update(100)
-        except Exception:
+        except Exception as e:
+            print(f"❌ Failed to initialize reranker: {e}")
+            import traceback
+            traceback.print_exc()
             reranker = None
     else:
         reranker = None
