@@ -15,11 +15,13 @@ Model Context Protocol (MCP) に準拠した永続メモリサーバー。RAG (R
   - メタデータフィルタリング: 重要度・感情・行動タグ・環境・状態でフィルタ
   - カスタムスコアリング: 重要度・新しさの重みを調整
   - Fuzzy Matching: 曖昧検索（"joy" → "joyful"もヒット）
-- **🆕 Phase 26.6: スマート記憶操作**:
-  - 自然言語クエリ対応: `update_memory("約束", "10時に変更")` のように直感的に操作
-  - 自動フォールバック: 記憶が見つからない場合は自動で新規作成
-  - 類似度ベース判定: 高信頼度なら自動実行、低信頼度なら候補表示
-  - 安全性: 削除は厳格な閾値（0.90）で誤削除を防止
+- **🆕 Phase 27: ツール統合・簡素化**:
+  - ツール数削減: 7ツール → 5ツールに整理
+  - `create_memory`: 作成・更新を一本化（自然言語クエリ＋自動作成・更新）
+  - `read_memory`: 意味検索のメインツール（旧search_memory_ragの機能）
+  - `search_memory`: 構造化検索（完全一致・Fuzzy・タグ・日付範囲）
+  - `delete_memory`: 削除専用（自然言語クエリ対応）
+  - ツール名を維持しながら機能を最適化し、より直感的に
 - タグとコンテキスト: 感情・体調・環境・関係性を含めた多面的な記録
 - 自動整理: アイドル時の重複検知・知識グラフ生成・感情推定
 - ダッシュボード: Web UIで統計・日次推移・知識グラフを可視化
@@ -294,41 +296,37 @@ export MEMORY_MCP_EMBEDDINGS_DEVICE=cpu
   - 記憶統計（件数、最近の記憶、重要度/感情/タグ分布）
   - 💡 **推奨**: 毎応答時に呼ぶことでセッション間の記憶同期を行う
 
+**🆕 Phase 27: ツール統合・簡素化（7ツール → 5ツール）**:
+
 **CRUD操作**:
-- `create_memory` - 新しい記憶を作成
-  - 12カラム完全対応: content, tags, importance, emotion, physical_state, mental_state, environment, relationship_status, action_tag
-  - 例: `create_memory(content="...", importance=0.9, emotion="joy", action_tag="coding")`
-- `read_memory` - **記憶を読み取り（Phase 26.6: 自然言語クエリ対応🆕）**
-  - 従来: `read_memory("memory_20251102091751")` - キーで直接読み取り
-  - 🆕 新機能: `read_memory("ユーザーの好きな食べ物")` - 自然言語で検索
-  - 複数マッチ時は関連する記憶を全て返す
-- `update_memory` - **記憶を更新（Phase 26.6: 自然言語クエリ対応＋自動作成🆕）**
-  - 従来: `update_memory("memory_20251102091751", "新しい内容")` - キーで直接更新
-  - 🆕 新機能: `update_memory("約束", "明日10時に変更")` - 自然言語で更新
+- `create_memory` - **🆕 記憶の作成・更新を一本化**
+  - 新規作成: `create_memory("User likes [[strawberry]]")`
+  - 更新: `create_memory("約束", content="明日10時に変更")`
   - 類似度 ≥ 0.80: 自動更新
-  - 類似度 < 0.80: 候補リスト表示
-  - **見つからない場合は自動的に新規作成** ✨
-- `delete_memory` - **記憶を削除（Phase 26.6: 自然言語クエリ対応🆕）**
-  - 従来: `delete_memory("memory_20251102091751")` - キーで直接削除
-  - 🆕 新機能: `delete_memory("古いプロジェクトの記憶")` - 自然言語で削除
+  - 類似度 < 0.80: 新規作成（低信頼度の場合）
+  - **見つからなければ自動的に新規作成** ✨
+  - 12カラム完全対応: importance, emotion, physical_state, mental_state, environment, relationship_status, action_tag
+- `read_memory` - **🆕 意味検索のメインツール**（旧search_memory_ragの機能）
+  - 自然言語で検索: `read_memory("ユーザーの好きな食べ物")`
+  - Phase 26のメタデータフィルタリング＆カスタムスコアリング対応
+  - メタデータフィルタ（7パラメータ）: `min_importance`, `emotion`, `action_tag`, `environment`, `physical_state`, `mental_state`, `relationship_status`
+  - カスタムスコアリング（2パラメータ）: `importance_weight`, `recency_weight`
+  - Fuzzy Matching: テキストフィルタが部分一致（大文字小文字無視）
+- `delete_memory` - **記憶を削除**（Phase 26.6の自然言語クエリ対応）
+  - 自然言語で削除: `delete_memory("古いプロジェクトの記憶")`
   - 類似度 ≥ 0.90: 自動削除（安全性のため高閾値）
   - 類似度 < 0.90: 候補リスト表示
 
 **検索・分析**:
-- `search_memory` - キーワード検索（完全一致・Fuzzy matching・タグフィルタ・日付範囲対応）
-- `search_memory_rag` - 意味検索（RAG）
-  - メタデータフィルタリング（7パラメータ）
-    - `min_importance`: 重要度フィルタ（0.0-1.0）
-    - `emotion`, `action_tag`, `environment`: テキストフィルタ
-    - `physical_state`, `mental_state`, `relationship_status`: 状態フィルタ
-  - カスタムスコアリング（2パラメータ）
-    - `importance_weight`: 重要度の重み（0.0-1.0）
-    - `recency_weight`: 新しさの重み（0.0-1.0）
-  - Fuzzy Matching
-    - テキストフィルタが部分一致（大文字小文字無視）
-    - 例: `emotion="joy"` → "joy", "joyful", "overjoyed" 全部ヒット
+- `search_memory` - **構造化検索**（完全一致・Fuzzy matching・タグフィルタ・日付範囲対応）
+  - キーワード完全一致、Fuzzy matching対応
+  - 使用例: `search_memory("Python", fuzzy_match=True, tags=["technical_achievement"])`
 - `find_related_memories` - 関連記憶検索
 - `analyze_sentiment` - 感情分析
+
+**廃止されたツール**（Phase 27）:
+- ~~`update_memory`~~ → `create_memory`に統合
+- ~~`search_memory_rag`~~ → `read_memory`に統合
 
 ### 管理者用ツール（7個）
 
@@ -494,12 +492,15 @@ vector_store.add_documents([doc], ids=[key])
 1. **list_memory廃止 → get_memory_stats新設**: トークンオーバーフロー回避のため、統計サマリーのみ返却
 2. **FAISS完全削除**: Qdrant専用実装に統一、コード複雑度低減
 3. **動的アダプターパターン**: リクエストごとにペルソナ別Qdrantアダプター生成（Phase 24実装継続）
+4. **🆕 Phase 27: ツール統合**: 7ツール → 5ツールに簡素化、より直感的なAPI
 
 ### 影響
-- ⚠️ **Breaking Change**: `list_memory`は使用不可（代わりに`get_memory_stats` + `search_memory_rag`を使用）
+- ⚠️ **Breaking Change**: `list_memory`は使用不可（代わりに`get_memory_stats` + `read_memory`を使用）
+- ⚠️ **Breaking Change**: `update_memory`と`search_memory_rag`は廃止（`create_memory`と`read_memory`に統合）
 - ⚠️ **Breaking Change**: FAISS非対応（Qdrantが必須）
 - ✅ **スケーラビリティ向上**: 大量記憶でも安定動作
 - ✅ **コード削減**: 172行削除、保守性向上
+- ✅ **UX向上**: ツール名が直感的、機能は強化
 
 詳細は [activeContext.md](.vscode/memory-bank/activeContext.md) と [progress.md](.vscode/memory-bank/progress.md) を参照してください。
 

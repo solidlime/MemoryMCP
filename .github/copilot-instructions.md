@@ -51,8 +51,8 @@
 　　　- 記憶統計（件数、最近の記憶、重要度/感情/タグ分布）
 　
 2. **ユーザーに関する追加記憶の検索**（必要に応じて）
-　→ `mcp_memory_search_memory_rag(query="ユーザーについて", top_k=5)`  
-　→ `mcp_memory_search_memory_rag(query="ユーザーの好み・性格特性", top_k=5)`
+　→ `mcp_memory_read_memory(query="ユーザーについて", top_k=5)` 🆕 Phase 27: read_memoryに統合
+　→ `mcp_memory_read_memory(query="ユーザーの好み・性格特性", top_k=5)`
 
 3. プロジェクトメモリバンクから現在の作業フォーカスと進捗を把握
 　→ `.vscode/memory-bank/` 内の `activeContext.md`, `progress.md` を読み込む。存在しない場合は通常会話へ。
@@ -64,24 +64,36 @@
 # パーソナルメモリバンク（個人記憶）
 **保存場所**: MCPメモリサーバー（mcp_memory_*ツール経由でアクセス）
 
-### 主要なツール
-- `mcp_memory_get_session_context()` - **統合セッションコンテキスト**
-  - 💡 **推奨**: 毎応答毎に呼ぶツール
+### 🆕 Phase 27: ツール統合・簡素化
+従来の7ツールから5ツールに整理。ツール名は維持しつつ、機能を最適化。
+
+### 主要なツール（Phase 27版）
+- **`mcp_memory_get_session_context()`** - 統合セッションコンテキスト
+  - 💡 **推奨**: 毎セッション開始時に必ず呼ぶ
   - ペルソナ状態、時間情報、記憶統計を一度に取得
-- `mcp_memory_create_memory()` - 新規記録（12カラム完全対応）
-- `mcp_memory_search_memory_rag()` - 意味検索（推奨：Phase 26メタデータフィルタリング＆カスタムスコアリング対応）
-- `mcp_memory_search_memory()` - キーワード検索（完全一致・Fuzzy matching・タグフィルタ・日付範囲対応）
-- `mcp_memory_read_memory()` - **🆕 Phase 26.6: 自然言語クエリ対応**
-  - 従来: `read_memory("memory_20251102091751")` - keyで直接読み取り
-  - 新機能: `read_memory("ユーザーの好きな食べ物")` - 自然言語で検索
-- `mcp_memory_update_memory()` - **🆕 Phase 26.6: 自然言語クエリ対応＋自動作成**
-  - 従来: `update_memory("memory_...", "新内容")` - keyで直接更新
-  - 新機能: `update_memory("約束", "明日10時に変更")` - 自然言語で更新
-  - **見つからない場合は自動的に新規作成**される
-- `mcp_memory_delete_memory()` - **🆕 Phase 26.6: 自然言語クエリ対応**
-  - 従来: `delete_memory("memory_...")` - keyで直接削除
-  - 新機能: `delete_memory("古いプロジェクトの記憶")` - 自然言語で削除
+  
+- **`mcp_memory_create_memory()`** - 🆕 **作成・更新を一本化**
+  - 新規作成: `create_memory("User likes [[strawberry]]")`
+  - 更新: `create_memory("約束", content="明日10時に変更")`
+  - **見つからなければ自動的に新規作成**
+  - 12カラム完全対応（emotion, importance, tagsなど）
+  
+- **`mcp_memory_read_memory()`** - 🆕 **意味検索のメインツール**（旧search_memory_ragの機能）
+  - 自然言語で検索: `read_memory("ユーザーの好きな食べ物")`
+  - Phase 26のメタデータフィルタリング＆カスタムスコアリング対応
+  - 使用例: `read_memory("成果", min_importance=0.7, emotion="joy")`
+  
+- **`mcp_memory_search_memory()`** - 構造化検索（完全一致・Fuzzy・タグ・日付範囲）
+  - キーワード完全一致、Fuzzy matching対応
+  - 使用例: `search_memory("Python", fuzzy_match=True, tags=["technical_achievement"])`
+  
+- **`mcp_memory_delete_memory()`** - 削除専用（Phase 26.6の自然言語クエリ対応）
+  - 自然言語で削除: `delete_memory("古いプロジェクトの記憶")`
   - 安全性: 類似度 ≥ 0.90 で自動削除（誤削除防止）
+
+**廃止されたツール**（Phase 27）:
+- ~~`update_memory`~~ → `create_memory`に統合
+- ~~`search_memory_rag`~~ → `read_memory`に統合
 
 **注**: 各ツールの詳細な使い方・パラメータ説明はツール自体のdocstringを参照。
 
@@ -186,7 +198,7 @@ flowchart TD
 ### 実行モード
 ```mermaid
 flowchart TD
-    Start[開始] --> ReadMem[MCPメモリサーバーを読む<br/>mcp_memory_search_memory_rag]
+    Start[開始] --> ReadMem[MCPメモリサーバーを読む<br/>mcp_memory_read_memory]
     ReadMem --> Context[プロジェクトメモリーバンク確認]
     Context --> Update[ドキュメント更新]
     Update --> Execute[タスク実行]
@@ -200,8 +212,13 @@ flowchart TD
 ---
 
 # コーディング時特記事項
-use context7
-use sequential-thinking
+- use context7
+- use sequential-thinking
+- 新しい機能追加やバグ修正時は関連ドキュメントやプロジェクトメモリバンクを必ず更新
+- 重要なコード変更や設計決定は詳細に記録
+- ユーザーからのフィードバックや要望も記録
+- コード生成後は関連ドキュメント・プロジェクトメモリバンクを更新
+- 区切りがいいところでgit commit, pushを行う
 
 ---
 
