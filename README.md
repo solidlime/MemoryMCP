@@ -15,6 +15,11 @@ Model Context Protocol (MCP) に準拠した永続メモリサーバー。RAG (R
   - メタデータフィルタリング: 重要度・感情・行動タグ・環境・状態でフィルタ
   - カスタムスコアリング: 重要度・新しさの重みを調整
   - Fuzzy Matching: 曖昧検索（"joy" → "joyful"もヒット）
+- **🆕 Phase 26.6: スマート記憶操作**:
+  - 自然言語クエリ対応: `update_memory("約束", "10時に変更")` のように直感的に操作
+  - 自動フォールバック: 記憶が見つからない場合は自動で新規作成
+  - 類似度ベース判定: 高信頼度なら自動実行、低信頼度なら候補表示
+  - 安全性: 削除は厳格な閾値（0.90）で誤削除を防止
 - タグとコンテキスト: 感情・体調・環境・関係性を含めた多面的な記録
 - 自動整理: アイドル時の重複検知・知識グラフ生成・感情推定
 - ダッシュボード: Web UIで統計・日次推移・知識グラフを可視化
@@ -293,9 +298,21 @@ export MEMORY_MCP_EMBEDDINGS_DEVICE=cpu
 - `create_memory` - 新しい記憶を作成
   - 12カラム完全対応: content, tags, importance, emotion, physical_state, mental_state, environment, relationship_status, action_tag
   - 例: `create_memory(content="...", importance=0.9, emotion="joy", action_tag="coding")`
-- `read_memory` - 記憶を読み取り（全12フィールド表示）
-- `update_memory` - 記憶を更新（既存フィールド保持）
-- `delete_memory` - 記憶を削除
+- `read_memory` - **記憶を読み取り（Phase 26.6: 自然言語クエリ対応🆕）**
+  - 従来: `read_memory("memory_20251102091751")` - キーで直接読み取り
+  - 🆕 新機能: `read_memory("ユーザーの好きな食べ物")` - 自然言語で検索
+  - 複数マッチ時は関連する記憶を全て返す
+- `update_memory` - **記憶を更新（Phase 26.6: 自然言語クエリ対応＋自動作成🆕）**
+  - 従来: `update_memory("memory_20251102091751", "新しい内容")` - キーで直接更新
+  - 🆕 新機能: `update_memory("約束", "明日10時に変更")` - 自然言語で更新
+  - 類似度 ≥ 0.80: 自動更新
+  - 類似度 < 0.80: 候補リスト表示
+  - **見つからない場合は自動的に新規作成** ✨
+- `delete_memory` - **記憶を削除（Phase 26.6: 自然言語クエリ対応🆕）**
+  - 従来: `delete_memory("memory_20251102091751")` - キーで直接削除
+  - 🆕 新機能: `delete_memory("古いプロジェクトの記憶")` - 自然言語で削除
+  - 類似度 ≥ 0.90: 自動削除（安全性のため高閾値）
+  - 類似度 < 0.90: 候補リスト表示
 
 **検索・分析**:
 - `search_memory` - キーワード検索（完全一致・Fuzzy matching・タグフィルタ・日付範囲対応）

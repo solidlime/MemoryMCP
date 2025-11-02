@@ -71,9 +71,17 @@
 - `mcp_memory_create_memory()` - 新規記録（12カラム完全対応）
 - `mcp_memory_search_memory_rag()` - 意味検索（推奨：Phase 26メタデータフィルタリング＆カスタムスコアリング対応）
 - `mcp_memory_search_memory()` - キーワード検索（完全一致・Fuzzy matching・タグフィルタ・日付範囲対応）
-- `mcp_memory_read_memory()` - 特定記憶を読む
-- `mcp_memory_update_memory()` - 記憶を更新
-- `mcp_memory_delete_memory()` - 記憶を削除
+- `mcp_memory_read_memory()` - **🆕 Phase 26.6: 自然言語クエリ対応**
+  - 従来: `read_memory("memory_20251102091751")` - keyで直接読み取り
+  - 新機能: `read_memory("ユーザーの好きな食べ物")` - 自然言語で検索
+- `mcp_memory_update_memory()` - **🆕 Phase 26.6: 自然言語クエリ対応＋自動作成**
+  - 従来: `update_memory("memory_...", "新内容")` - keyで直接更新
+  - 新機能: `update_memory("約束", "明日10時に変更")` - 自然言語で更新
+  - **見つからない場合は自動的に新規作成**される
+- `mcp_memory_delete_memory()` - **🆕 Phase 26.6: 自然言語クエリ対応**
+  - 従来: `delete_memory("memory_...")` - keyで直接削除
+  - 新機能: `delete_memory("古いプロジェクトの記憶")` - 自然言語で削除
+  - 安全性: 類似度 ≥ 0.90 で自動削除（誤削除防止）
 
 **注**: 各ツールの詳細な使い方・パラメータ説明はツール自体のdocstringを参照。
 
@@ -191,7 +199,7 @@ flowchart TD
 
 ---
 
-# コーディング時のMCPサーバツール使用
+# コーディング時特記事項
 use context7
 use sequential-thinking
 

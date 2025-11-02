@@ -31,6 +31,59 @@ from vector_utils import (
 )
 
 
+# ============================================================
+# Phase 26.6: Internal RAG Search Helper
+# ============================================================
+
+async def _search_memory_by_query(query: str, top_k: int = 3) -> List[Dict]:
+    """
+    Internal helper to search memories using RAG.
+    Returns list of dicts with keys: 'key', 'content', 'score', 'metadata'
+    
+    This is used by update_memory, delete_memory, read_memory to enable
+    natural language queries instead of requiring exact memory keys.
+    """
+    try:
+        from vector_utils import embeddings
+        from lib.backends.qdrant_backend import QdrantVectorStoreAdapter
+        from qdrant_client import QdrantClient
+        
+        if embeddings is None:
+            return []
+        
+        persona = get_current_persona()
+        cfg = load_config()
+        dim = cfg.get("embeddings_dim", 384)
+        url = cfg.get("qdrant_url", "http://localhost:6333")
+        api_key = cfg.get("qdrant_api_key")
+        prefix = cfg.get("qdrant_collection_prefix", "memory_")
+        collection = f"{prefix}{persona}"
+        
+        # Create Qdrant adapter
+        client = QdrantClient(url=url, api_key=api_key)
+        adapter = QdrantVectorStoreAdapter(client, collection, embeddings, dim)
+        
+        # Perform similarity search
+        docs_with_scores = adapter.similarity_search_with_score(query, k=top_k)
+        
+        # Format results
+        results = []
+        for doc, score in docs_with_scores:
+            meta = doc.metadata
+            results.append({
+                'key': meta.get('key', ''),
+                'content': doc.page_content,
+                'score': score,
+                'metadata': meta
+            })
+        
+        return results
+        
+    except Exception as e:
+        print(f"⚠️  RAG search failed: {e}")
+        return []
+
+
 def db_get_entry(key: str):
     """Get single entry from database."""
     from db_utils import db_get_entry as _db_get_entry_generic
@@ -349,35 +402,54 @@ async def create_memory(
         return f"Failed to save: {str(e)}"
 
 
-async def read_memory(key: str) -> str:
+async def read_memory(key_or_query: str) -> str:
     """
-    Read user info by key.
+    Read user info by key or natural language query.
+    
+    Phase 26.6: Now supports natural language queries! No need to know the exact memory key.
+    
     Args:
-        key: Memory key (memory_YYYYMMDDHHMMSS)
+        key_or_query: Memory key (e.g., "memory_YYYYMMDDHHMMSS") OR natural language query (e.g., "ユーザーの好きな食べ物")
+    
+    Examples:
+        # Traditional way (still works)
+        read_memory("memory_20251102083918")
+        
+        # 🆕 Phase 26.6: Natural language query
+        read_memory("ユーザーの好きな食べ物")
+        read_memory("最近のプロジェクト進捗")
+        
+        # Natural language queries return multiple relevant memories
     """
     try:
         persona = get_current_persona()
-        # Read directly from database via helper
-        row = db_get_entry(key)
         
-        if row:
-            content, created_at, updated_at, tags_json, importance, emotion, physical_state, mental_state, environment, relationship_status, action_tag = row
+        # Phase 26.6: Check if input is a key or a query
+        if key_or_query.startswith("memory_"):
+            # Direct key access (traditional behavior)
+            key = key_or_query
             
-            # Calculate time elapsed since creation
-            time_diff = calculate_time_diff(created_at)
-            time_ago = f"{time_diff['formatted_string']}前"
+            # Read directly from database via helper
+            row = db_get_entry(key)
             
-            # Format all fields
-            importance_str = f"{importance:.2f}" if importance is not None else "0.50"
-            emotion_str = emotion if emotion else "neutral"
-            physical_str = physical_state if physical_state else "normal"
-            mental_str = mental_state if mental_state else "calm"
-            env_str = environment if environment else "unknown"
-            relation_str = relationship_status if relationship_status else "normal"
-            action_str = action_tag if action_tag else "―"
-            
-            log_operation("read", key=key, metadata={"content_length": len(content), "persona": persona})
-            result = f"""Key: '{key}' (persona: {persona})
+            if row:
+                content, created_at, updated_at, tags_json, importance, emotion, physical_state, mental_state, environment, relationship_status, action_tag = row
+                
+                # Calculate time elapsed since creation
+                time_diff = calculate_time_diff(created_at)
+                time_ago = f"{time_diff['formatted_string']}前"
+                
+                # Format all fields
+                importance_str = f"{importance:.2f}" if importance is not None else "0.50"
+                emotion_str = emotion if emotion else "neutral"
+                physical_str = physical_state if physical_state else "normal"
+                mental_str = mental_state if mental_state else "calm"
+                env_str = environment if environment else "unknown"
+                relation_str = relationship_status if relationship_status else "normal"
+                action_str = action_tag if action_tag else "―"
+                
+                log_operation("read", key=key, metadata={"content_length": len(content), "persona": persona})
+                result = f"""Key: '{key}' (persona: {persona})
 {content}
 --- Metadata ---
 Created: {created_at} ({time_ago})
@@ -390,38 +462,117 @@ Environment: {env_str}
 Relationship: {relation_str}
 Action: {action_str}
 Chars: {len(content)}"""
-            return result
-        else:
-            log_operation("read", key=key, success=False, error="Key not found")
-            # Get available keys from DB
-            available_keys = db_recent_keys(5)
-            
-            if available_keys:
-                return f"Key '{key}' not found. Recent keys: {', '.join(available_keys)}"
+                return result
             else:
-                return f"Key '{key}' not found. No memory data."
+                log_operation("read", key=key, success=False, error="Key not found")
+                # Get available keys from DB
+                available_keys = db_recent_keys(5)
+                
+                if available_keys:
+                    return f"Key '{key}' not found. Recent keys: {', '.join(available_keys)}"
+                else:
+                    return f"Key '{key}' not found. No memory data."
+        
+        else:
+            # Natural language query - use RAG search and return multiple results
+            print(f"🔍 Searching for memories matching: '{key_or_query}'")
+            search_results = await _search_memory_by_query(key_or_query, top_k=5)
+            
+            if not search_results or len(search_results) == 0:
+                return f"📭 No memories found matching: '{key_or_query}'"
+            
+            # Format multiple results
+            results_text = f"📚 Found {len(search_results)} memories matching '{key_or_query}':\n\n"
+            
+            for i, result in enumerate(search_results, 1):
+                meta = result['metadata']
+                content_preview = result['content'][:150] + "..." if len(result['content']) > 150 else result['content']
+                
+                # Calculate time ago
+                created_at = meta.get('created_at', '')
+                time_diff = calculate_time_diff(created_at) if created_at else None
+                time_ago = f"{time_diff['formatted_string']}前" if time_diff else "unknown"
+                
+                importance = meta.get('importance', 0.5)
+                emotion = meta.get('emotion', 'neutral')
+                
+                results_text += f"""[{i}] {result['key']} (similarity: {result['score']:.2f})
+{content_preview}
+Created: {created_at} ({time_ago}) | ⭐{importance:.2f} | 💭{emotion}
+
+"""
+            
+            log_operation("read", key=key_or_query, metadata={"results_count": len(search_results), "persona": persona})
+            return results_text.strip()
+            
     except Exception as e:
-        log_operation("read", key=key, success=False, error=str(e))
+        log_operation("read", key=key_or_query, success=False, error=str(e))
         return f"Failed to read memory: {str(e)}"
 
 
-async def update_memory(key: str, content: str, importance: Optional[float] = None) -> str:
+async def update_memory(key_or_query: str, content: str, importance: Optional[float] = None) -> str:
     """
     Update existing memory content while preserving the original timestamp.
     Useful for consolidating or refining existing memories without losing temporal information.
+    
+    Phase 26.6: Now supports natural language queries! No need to know the exact memory key.
 
     Args:
-        key: Memory key to update (e.g., "memory_20250724225317")
+        key_or_query: Memory key (e.g., "memory_20250724225317") OR natural language query (e.g., "約束の内容")
         content: New content to replace the existing content
         importance: Optional importance score (0.0-1.0) to update. If not provided, preserves existing importance.
             - 0.0-0.3: Low importance (routine conversations, trivial information)
             - 0.4-0.6: Medium importance (normal conversations, general facts)
             - 0.7-0.9: High importance (significant events, important achievements)
             - 0.9-1.0: Critical importance (life-changing moments, core values)
+    
+    Examples:
+        # Traditional way (still works)
+        update_memory("memory_20251102083918", "Updated content")
+        
+        # 🆕 Phase 26.6: Natural language query
+        update_memory("約束", "明日10時に変更")
+        update_memory("プロジェクトの進捗", "Phase 26完了")
+        
+        # If no matching memory found, automatically creates a new one!
     """
     try:
         persona = get_current_persona()
         db_path = get_db_path()
+        
+        # Phase 26.6: Check if input is a key or a query
+        if key_or_query.startswith("memory_"):
+            # Direct key access (traditional behavior)
+            key = key_or_query
+        else:
+            # Natural language query - use RAG search
+            print(f"🔍 Searching for memory matching: '{key_or_query}'")
+            search_results = await _search_memory_by_query(key_or_query, top_k=3)
+            
+            if not search_results or len(search_results) == 0:
+                # 🆕 Phase 26.6: No match found - fallback to create_memory
+                print(f"💡 No matching memory found. Creating new memory instead.")
+                return await create_memory(
+                    content=content,
+                    importance=importance,
+                    # Other metadata will use defaults
+                )
+            
+            # Check similarity score of best match
+            best_match = search_results[0]
+            similarity_score = best_match['score']
+            
+            if similarity_score >= 0.80:
+                # High confidence - auto-select
+                key = best_match['key']
+                print(f"✨ Auto-selected: {key} (similarity: {similarity_score:.2f})")
+            else:
+                # Low confidence - show candidates
+                candidates = "\n".join([
+                    f"  [{i+1}] {r['key']} (score: {r['score']:.2f})\n      Preview: {r['content'][:80]}..."
+                    for i, r in enumerate(search_results[:3])
+                ])
+                return f"🤔 Multiple candidates found. Please specify the exact key:\n\n{candidates}\n\nOr use create_memory() to create a new one."
         
         # Check if key exists in database
         with sqlite3.connect(db_path) as conn:
@@ -509,15 +660,56 @@ async def update_memory(key: str, content: str, importance: Optional[float] = No
         return f"Failed to update memory: {str(e)}"
 
 
-async def delete_memory(key: str) -> str:
+async def delete_memory(key_or_query: str) -> str:
     """
-    Delete user info by key.
+    Delete user info by key or natural language query.
+    
+    Phase 26.6: Now supports natural language queries! No need to know the exact memory key.
+    
     Args:
-        key: Memory key (memory_YYYYMMDDHHMMSS)
+        key_or_query: Memory key (e.g., "memory_YYYYMMDDHHMMSS") OR natural language query (e.g., "古いプロジェクトの記憶")
+    
+    Examples:
+        # Traditional way (still works)
+        delete_memory("memory_20251102083918")
+        
+        # 🆕 Phase 26.6: Natural language query
+        delete_memory("古いプロジェクトの記憶")
+        delete_memory("Phase 24の実装メモ")
+        
+        # Safety: Requires similarity score ≥ 0.90 for auto-deletion
     """
     try:
         persona = get_current_persona()
         db_path = get_db_path()
+        
+        # Phase 26.6: Check if input is a key or a query
+        if key_or_query.startswith("memory_"):
+            # Direct key access (traditional behavior)
+            key = key_or_query
+        else:
+            # Natural language query - use RAG search
+            print(f"🔍 Searching for memory to delete: '{key_or_query}'")
+            search_results = await _search_memory_by_query(key_or_query, top_k=3)
+            
+            if not search_results or len(search_results) == 0:
+                return f"❌ No matching memory found for query: '{key_or_query}'"
+            
+            # Check similarity score of best match
+            best_match = search_results[0]
+            similarity_score = best_match['score']
+            
+            if similarity_score >= 0.90:
+                # Very high confidence - auto-select (strict threshold for deletion safety)
+                key = best_match['key']
+                print(f"✨ Auto-selected for deletion: {key} (similarity: {similarity_score:.2f})")
+            else:
+                # Lower confidence - show candidates for confirmation
+                candidates = "\n".join([
+                    f"  [{i+1}] {r['key']} (score: {r['score']:.2f})\n      Preview: {r['content'][:80]}..."
+                    for i, r in enumerate(search_results[:3])
+                ])
+                return f"⚠️  Multiple candidates found. Please confirm by specifying exact key:\n\n{candidates}\n\n(Safety: Auto-deletion requires similarity ≥ 0.90)"
         
         # Check if key exists and get data
         with sqlite3.connect(db_path) as conn:
