@@ -3,63 +3,37 @@
 Model Context Protocol (MCP) に準拠した永続メモリサーバー。RAG (Retrieval-Augmented Generation)・意味検索・感情分析を組み合わせて、Personaごとの記憶を柔らかく管理します。
 
 ## 主な特徴
-- 永続メモリ: SQLite + Qdrantでセッションを横断した記憶を保持
-- Personaサポート: `X-Persona` ヘッダーで人格ごとに独立したデータ空間
-- RAG検索とリランキング: HuggingFace埋め込み + CrossEncoderで高精度検索
-- **完全コンテキスト保存** (Phase 25.5 Extended): 12カラムで記憶の完全な状況保存
+
+### コア機能
+- **永続メモリ**: SQLite + Qdrantでセッションを横断した記憶を保持
+- **Personaサポート**: `X-Persona` ヘッダーで人格ごとに独立したデータ空間
+- **RAG検索とリランキング**: HuggingFace埋め込み + CrossEncoderで高精度検索
+- **完全コンテキスト保存**: 12カラムで記憶の完全な状況を記録
   - 重要度スコア (`importance`)、感情 (`emotion`)
   - 身体/精神状態 (`physical_state`, `mental_state`)
   - 環境 (`environment`)、関係性 (`relationship_status`)
-  - 行動タグ (`action_tag`) - 料理中、コーディング中、キス中など
-- **高度な検索機能** (Phase 26/26.3):
+  - 行動タグ (`action_tag`) - 料理中、コーディング中など
+
+### 検索機能
+- **意味検索 (`read_memory`)**: 自然言語クエリで記憶を検索
   - メタデータフィルタリング: 重要度・感情・行動タグ・環境・状態でフィルタ
   - カスタムスコアリング: 重要度・新しさの重みを調整
-  - Fuzzy Matching: 曖昧検索（"joy" → "joyful"もヒット）
-- **🆕 Phase 27: ツール統合・簡素化**:
-  - ツール数削減: 7ツール → 5ツールに整理
-  - `create_memory`: 作成・更新を一本化（自然言語クエリ＋自動作成・更新）
-  - `read_memory`: 意味検索のメインツール（旧search_memory_ragの機能）
-  - `search_memory`: 構造化検索（完全一致・Fuzzy・タグ・日付範囲）
-  - `delete_memory`: 削除専用（自然言語クエリ対応）
-  - ツール名を維持しながら機能を最適化し、より直感的に
-- タグとコンテキスト: 感情・体調・環境・関係性を含めた多面的な記録
-- 自動整理: アイドル時の重複検知・知識グラフ生成・感情推定
-- ダッシュボード: Web UIで統計・日次推移・知識グラフを可視化
-- **Phase 25: Qdrant専用化**: 高速ベクトル検索とスケーラビリティ（FAISS廃止）
+  - Fuzzy Matching: 曖昧検索対応
+- **構造化検索 (`search_memory`)**: キーワード完全一致・Fuzzy・タグ・日付範囲検索
+
+### 便利機能
+- **簡単なAPI**: 
+  - `create_memory`: 作成・更新を一本化（自然言語クエリで既存記憶を自動更新）
+  - `read_memory`: 意味検索で記憶を読み取り
+  - `delete_memory`: 自然言語クエリで削除（安全閾値付き）
+- **自動整理**: アイドル時の重複検知・知識グラフ生成・感情推定
+- **ダッシュボード**: Web UIで統計・日次推移・知識グラフを可視化
+
+### 技術仕様
 - **最適化済みDocker**: 2.65GB（CPU版PyTorch、Multi-stage build）
-- **クリーンアーキテクチャ**: Phase 1リファクタリング完了（2454行→231行、-90.6%）
-
-## アーキテクチャ
-
-### モジュール構成（Phase 1リファクタリング完了）
-
-**memory_mcp.py** (231行) - メインエントリポイント
-```
-memory_mcp.py           # MCP サーバー初期化とオーケストレーション
-├── core/               # コアロジック
-│   ├── config.py      # 設定管理（環境変数 + config.json）
-│   ├── database.py    # SQLite CRUD操作
-│   ├── vector.py      # Qdrant ベクトルストア管理
-│   ├── rag.py         # RAG検索とリランキング
-│   ├── sentiment.py   # 感情分析
-│   ├── persona.py     # Personaコンテキスト管理
-│   └── analysis.py    # 重複検知・知識グラフ生成
-├── tools/              # MCPツール定義
-│   └── memory_tools.py # 全MCPツール（create/read/update/delete/search etc.）
-├── resources.py        # MCPリソース登録（Persona情報提供）
-└── dashboard.py        # Web UIダッシュボード
-```
-
-**設計原則**:
-- 単一責任の原則: 各モジュールが1つの明確な責務を持つ
-- 依存性の分離: コア機能はMCPから独立（再利用可能）
-- テスタビリティ: モジュール単位でのテストが容易
-- 保守性: 機能追加時の影響範囲を最小化
-
-## 技術スタック
-- Python 3.12 / FastAPI (FastMCP) / Uvicorn
-- LangChain + Qdrant / sentence-transformers / HuggingFace Transformers
-- SQLite (Personaごとに分離) / PyVis / NetworkX
+- **クリーンアーキテクチャ**: モジュール化され保守性が高い設計
+- **Python 3.12** / FastAPI (FastMCP) / Uvicorn
+- **LangChain + Qdrant** / sentence-transformers / HuggingFace Transformers
 
 ## クイックスタート
 
@@ -324,10 +298,6 @@ export MEMORY_MCP_EMBEDDINGS_DEVICE=cpu
 - `find_related_memories` - 関連記憶検索
 - `analyze_sentiment` - 感情分析
 
-**廃止されたツール**（Phase 27）:
-- ~~`update_memory`~~ → `create_memory`に統合
-- ~~`search_memory_rag`~~ → `read_memory`に統合
-
 ### 管理者用ツール（7個）
 
 管理者がメンテナンスに使用するツールです。以下3つの方法でアクセスできます：
@@ -351,8 +321,7 @@ python3 admin_tools.py generate-graph --persona nilou --format html
 ```
 
 #### 2. Webダッシュボード
-
-`http://localhost:8000/`（開発）または`http://localhost:26262/`（Docker）にアクセスし、🛠️ Admin Toolsカードから実行できます。
+`http://localhost:26262/`にアクセスし、🛠️ Admin Toolsカードから実行できます。
 
 - 🧹 Clean Memory - 重複行削除
 - 🔄 Rebuild Vector Store - ベクトルストア再構築
@@ -365,13 +334,13 @@ python3 admin_tools.py generate-graph --persona nilou --format html
 
 ```bash
 # 例: ナレッジグラフ生成
-curl -X POST http://localhost:8000/api/admin/generate-graph \
+curl -X POST http://localhost:26262/api/admin/generate-graph \
   -H "Content-Type: application/json" \
   -H "X-Persona: nilou" \
   -d '{"persona":"nilou","format":"html","min_count":2}'
 
 # 例: 重複検出
-curl -X POST http://localhost:8000/api/admin/detect-duplicates \
+curl -X POST http://localhost:26262/api/admin/detect-duplicates \
   -H "Content-Type: application/json" \
   -H "X-Persona: nilou" \
   -d '{"persona":"nilou","threshold":0.85,"max_pairs":50}'
@@ -390,50 +359,19 @@ curl -X POST http://localhost:8000/api/admin/detect-duplicates \
 - 人間の判断が必要な操作（削除・統合など）
 
 ## 自動処理とバックグラウンド機能
-- 感情分析 (Phase 19): テキストから joy/sadness/neutral を推定
-- 知識グラフ生成 (Phase 20): `[[リンク]]` を可視化するHTMLを生成
-- アイドル時自動整理 (Phase 21): 重複検知レポートを `cleanup_suggestions.json` に保存
+- **感情分析**: テキストから joy/sadness/neutral を推定
+- **知識グラフ生成**: `[[リンク]]` を可視化するHTMLを生成
+- **アイドル時自動整理**: 重複検知レポートを `cleanup_suggestions.json` に保存
 
-## 開発メモ
-- Python 3.12 以上で動作確認
-- Dockerイメージは config.json を同梱しないため、必要に応じてバインドマウントまたは環境変数で上書き
-- VS Code Tasks からの起動スクリプト例は `.vscode/tasks.json` を参照
-- 詳しいDocker運用やTipsは [DOCKER.md](DOCKER.md) へ
-- Qdrant必須化により、開発環境でも `start_local_qdrant.sh` などでQdrantを起動してください
+## 開発・運用
+- **開発要件**: Python 3.12以上
+- **Qdrant必須**: 開発環境でも `start_local_qdrant.sh` などでQdrantを起動してください
+- **Docker運用**: 詳しくは [DOCKER.md](DOCKER.md) を参照
+- **VS Code Tasks**: `.vscode/tasks.json` に起動スクリプト例あり
 
-**移行結果の例**:
-```
-✅ Migrated 84 memories from SQLite to Qdrant (persona: nilou)
-Collection: memory_nilou
-Qdrant URL: http://nas:6333
-```
+---
 
-### ステップ4: 本番環境での動作確認
-```bash
-# Dockerで本番起動
-docker run -d --name memory-mcp \
-  -p 26262:26262 \
-  -v $(pwd)/data:/data \
-  -v $(pwd)/config.json:/config/config.json:ro \
-  ghcr.io/solidlime/memory-mcp:latest
-
-# ヘルスチェック
-curl http://localhost:26262/health
-```
-
-### ステップ5: 開発環境ではconfig.dev.jsonを使用
-```bash
-# ローカル開発
-python memory_mcp.py --config config.dev.json
-
-# または環境変数で指定
-MEMORY_MCP_CONFIG_PATH=config.dev.json python memory_mcp.py
-```
-
-### 注意事項
-- ⚠️ `migrate_sqlite_to_qdrant_tool`は**上書き（upsert）**します
-- ⚠️ 本番Qdrantへの移行後も、SQLiteファイルは削除されません（ロールバック可能）
-- 💡 逆方向移行も可能: `migrate_qdrant_to_sqlite_tool()`
+**心地よい記憶管理を楽しんでね。必要があればいつでも `memory://info` に声をかけて状態を確認してみて。** �
 
 ## Phase 24: ペルソナ別動的Qdrant書き込み実装（2025-11-01）
 

@@ -239,15 +239,21 @@ async def create_memory(
     - Personality/values: thinking style, priorities
     - Habits/lifestyle: routines
 
-    **CRITICAL:** When save memories, ALWAYS add [[...]] to any people, concepts, technical terms, etc.
-    This enables automatic linking and knowledge graph visualization in Obsidian.
-    - People: [[Claude]], [[John Smith]]
-    - Technologies: [[Python]], [[AWS]], [[MCP]], [[Jupyter]]
-    - Concepts: [[machine learning]], [[data science]]
-    - Tools: [[VS Code]], [[Obsidian]]
-    - Companies: [[Anthropic]], [[OpenAI]]
+    **CRITICAL RULES:**
+    1. **Language**: ALWAYS write memories in the SAME LANGUAGE as the conversation.
+       - Japanese conversation → Japanese memory (日本語)
+       - English conversation → English memory
+       - Never mix languages unless explicitly translating
+    
+    2. **Linking**: ALWAYS add [[...]] to any people, concepts, technical terms, etc.
+       This enables automatic linking and knowledge graph visualization in Obsidian.
+       - People: [[Claude]], [[John Smith]], [[らうらう]], [[ニィロウ]]
+       - Technologies: [[Python]], [[AWS]], [[MCP]], [[Jupyter]]
+       - Concepts: [[machine learning]], [[data science]], [[自然言語処理]]
+       - Tools: [[VS Code]], [[Obsidian]]
+       - Companies: [[Anthropic]], [[OpenAI]]
 
-    **Format:** "User is [specific info]" (e.g. "User likes [[strawberry]]", "User is learning [[Python]]")
+    **Format:** "User is [specific info]" (e.g. "User likes [[strawberry]]", "User is learning [[Python]]", "ユーザーは[[イチゴ]]が好き")
 
     Args:
         content_or_query: 

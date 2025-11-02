@@ -377,6 +377,8 @@ def rebuild_vector_store():
             adapter.add_documents(docs, ids=ids)
             pbar.update(1)
         
+        print(f"✅ Rebuilt vector store: {len(docs)} memories indexed in collection '{collection}'")
+        
     except Exception as e:
         print(f"❌ Failed to rebuild vector store: {e}")
         import traceback
