@@ -7,6 +7,7 @@ langchain-huggingface>=1.0.0
 # 埋め込みモデルとReranker
 sentence-transformers>=3.0.0
 transformers>=4.35.0
+sentencepiece>=0.1.99  # Required for cl-nagoya/ruri-v3-30m tokenizer
 
 # PyTorch CPU版
 # Docker: Dockerfile で --index-url を使って CPU 版を先にインストール
