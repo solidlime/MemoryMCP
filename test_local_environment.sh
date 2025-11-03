@@ -36,28 +36,52 @@ cleanup() {
         rm -f "$PID_FILE"
     fi
     
-    # Stop Qdrant container
+    # Stop Qdrant container (Docker)
     echo "Stopping Qdrant container..."
-    docker-compose down
+    if docker ps --format '{{.Names}}' | grep -q '^qdrant$'; then
+        docker stop qdrant
+        echo "Qdrant container stopped"
+    else
+        echo "Qdrant container not running"
+    fi
     
     echo -e "${GREEN}✅ Cleanup complete${NC}"
+    echo -e "${YELLOW}💡 Note: Qdrant container is stopped but not removed${NC}"
+    echo -e "${YELLOW}💡 To remove: docker rm qdrant${NC}"
+    echo -e "${YELLOW}💡 To remove data: rm -rf ./data/qdrant_storage${NC}"
 }
 
 # Set trap to cleanup on exit
 trap cleanup EXIT INT TERM
 
 # Step 1: Start Qdrant
-echo -e "${YELLOW}📦 Step 1: Starting Qdrant...${NC}"
-docker-compose up -d qdrant
+echo -e "${YELLOW}📦 Step 1: Starting Qdrant (Docker)...${NC}"
+
+# Check if Qdrant container exists
+if docker ps -a --format '{{.Names}}' | grep -q '^qdrant$'; then
+    echo "Qdrant container found, starting..."
+    docker start qdrant
+else
+    echo "Creating new Qdrant container..."
+    docker run -d \
+        --name qdrant \
+        -p 6333:6333 \
+        -p 6334:6334 \
+        -v $(pwd)/data/qdrant_storage:/qdrant/storage \
+        qdrant/qdrant:latest
+fi
+
 sleep 3
 
 # Verify Qdrant is running
-if ! docker ps | grep -q qdrant; then
+if ! docker ps --format '{{.Names}}' | grep -q '^qdrant$'; then
     echo -e "${RED}❌ Qdrant container not running${NC}"
+    echo "Container status:"
+    docker ps -a | grep qdrant || echo "No qdrant container found"
     exit 1
 fi
 
-echo -e "${GREEN}✅ Qdrant started${NC}"
+echo -e "${GREEN}✅ Qdrant started (Docker container)${NC}"
 
 # Check Qdrant health
 echo -e "${YELLOW}🔍 Checking Qdrant health...${NC}"
@@ -88,7 +112,7 @@ echo "------------------------"
 
 # Monitor logs for 30 seconds max
 COUNTER=0
-MAX_WAIT=30
+MAX_WAIT=40
 INITIALIZED=false
 
 while [ $COUNTER -lt $MAX_WAIT ]; do
