@@ -43,9 +43,24 @@ class QdrantVectorStoreAdapter:
 
     def _ensure_collection(self):
         try:
-            self.client.get_collection(self.collection)
-        except Exception:
-            self.client.recreate_collection(
+            collection_info = self.client.get_collection(self.collection)
+            # Check if vector dimensions match
+            config = collection_info.config.params.vectors
+            existing_dim = config.size if hasattr(config, 'size') else config.get('size', 0)
+            
+            if existing_dim != self.dim:
+                print(f"⚠️  Vector dimension mismatch: expected {self.dim}, got {existing_dim}")
+                print(f"🔄 Auto-rebuilding collection '{self.collection}' with correct dimensions...")
+                self.client.delete_collection(self.collection)
+                self.client.create_collection(
+                    collection_name=self.collection,
+                    vectors_config=rest.VectorParams(size=self.dim, distance=rest.Distance.COSINE),
+                )
+                print(f"✅ Collection '{self.collection}' recreated with dimension {self.dim}")
+        except Exception as e:
+            # Collection doesn't exist, create it
+            print(f"📝 Creating new collection '{self.collection}' with dimension {self.dim}")
+            self.client.create_collection(
                 collection_name=self.collection,
                 vectors_config=rest.VectorParams(size=self.dim, distance=rest.Distance.COSINE),
             )

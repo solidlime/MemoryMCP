@@ -67,7 +67,14 @@ def _get_memory_info_data(persona: str) -> dict:
             created_at = "Unknown"
         
         # Get last conversation time (from persona_context.json)
-        last_conversation = context.get("last_conversation_time", "Never")
+        last_conversation_raw = context.get("last_conversation_time", "Never")
+        
+        # Remove timezone suffix (+09:00, etc.) for cleaner display
+        if last_conversation_raw != "Never":
+            # Format: "YYYY-MM-DDTHH:MM:SS+09:00" → "YYYY-MM-DD HH:MM:SS"
+            last_conversation = last_conversation_raw[:19].replace("T", " ")
+        else:
+            last_conversation = last_conversation_raw
         
         return {
             "persona": persona,

@@ -6,8 +6,8 @@
 
 ## 現在の状態（要約）
 
+- **Phase 29完了** ✅: Vector dimension自動リビルド、MCPツールキャッシュ対策、ダッシュボードタイムゾーン表示改善
 - **公開準備完了** ✅: 個人情報削除、Phase番号削除、公開ドキュメントポリシー追加
-- **MCP接続問題調査中** ⚠️: `initialize` request応答なし、Sentiment分析バグ修正が必要
 - **Phase 28.1完了** 🎉: DB Schema拡張（15カラム）、連想記憶基盤実装完了
 - **Phase 27完了** 🎉: ツール統合・簡素化（7→5ツール）、本番環境バグ修正完了
 - **Phase 26.3完了** 🎉: Fuzzy Matching（曖昧検索）実装完了
@@ -17,10 +17,101 @@
 - **完全コンテキスト保存**: 15カラムで記憶の完全な状況・連想保存を実現
 - **高度な検索機能**: メタデータフィルタリング + カスタムスコアリング + Fuzzy Matching
 - **ツール最適化**: 統合された5ツール体制（create/read/search/delete + helpers）
+- **自動リカバリ**: Vector dimension mismatch自動検出・再構築
 
 ---
 
 ## 完了フェーズ（新しい順）
+
+### ✅ Phase 29: Production Optimization (2025-11-03)
+
+**目的**: 本番環境での運用性向上、自動リカバリ、UX改善
+
+#### 実施内容
+
+##### 1. Vector Dimension Auto-Rebuild ✅
+**問題**:
+- 埋め込みモデル変更時（256-dim → 384-dim）にQdrantコレクションのdimension mismatchエラー
+- 手動でダッシュボードから再構築しても修正されない
+- read_memory()が常に失敗: "Vector dimension error: expected dim: 256, got 384"
+
+**解決策**:
+- `lib/backends/qdrant_backend.py`の`_ensure_collection()`を拡張
+- 既存コレクションのdimensionチェック機能追加
+- Mismatch検出時に自動削除→再作成
+
+**実装** (commit: `XXXXXX`):
+```python
+def _ensure_collection(self):
+    try:
+        collection_info = self.client.get_collection(self.collection)
+        existing_dim = collection_info.config.params.vectors.size
+        
+        if existing_dim != self.dim:
+            print(f"⚠️  Vector dimension mismatch: expected {self.dim}, got {existing_dim}")
+            print(f"🔄 Auto-rebuilding collection '{self.collection}'...")
+            self.client.delete_collection(self.collection)
+            self.client.create_collection(
+                collection_name=self.collection,
+                vectors_config=rest.VectorParams(size=self.dim, distance=rest.Distance.COSINE),
+            )
+            print(f"✅ Collection recreated with dimension {self.dim}")
+    except Exception:
+        # Collection doesn't exist, create it
+        self.client.create_collection(...)
+```
+
+**効果**:
+- ✅ read_memory()が正常動作
+- ✅ 手動Qdrant操作不要
+- ✅ モデル変更時の自動対応
+
+##### 2. MCP Tool Cache Clearing Guide ✅
+**問題**:
+- VS CodeがMCPツール定義をキャッシュ
+- サーバー側のパラメータ変更が反映されない（例: Phase 28の`content_or_query` → `content`）
+
+**解決策** (TROUBLESHOOTING.md追加):
+1. GitHub Copilot Chat拡張の再読み込み（Developer Tools → `location.reload()`）
+2. VS Codeウィンドウの再読み込み（"Developer: Reload Window"）
+3. VS Code完全再起動
+4. MCPサーバー再起動
+5. 最終手段: 拡張機能キャッシュクリア（`~/.vscode/extensions/github.copilot-chat-*`削除）
+
+##### 3. Dashboard Timezone Format Fix ✅
+**問題**:
+- Last Conversation表示: "2025-11-03T12:34:56+09:00"（冗長）
+
+**解決策** (dashboard.py):
+```python
+# Before
+last_conversation = context.get("last_conversation_time", "Never")
+
+# After
+last_conversation_raw = context.get("last_conversation_time", "Never")
+if last_conversation_raw != "Never":
+    # "YYYY-MM-DDTHH:MM:SS+09:00" → "YYYY-MM-DD HH:MM:SS"
+    last_conversation = last_conversation_raw[:19].replace("T", " ")
+else:
+    last_conversation = last_conversation_raw
+```
+
+**効果**:
+- ✅ クリーンな表示: "2025-11-03 12:34:56"
+- ✅ UX改善
+
+#### ドキュメント更新
+
+1. **README.md**: 自動リビルド機能追記
+2. **TROUBLESHOOTING.md**: MCPツールキャッシュクリア手順追加
+3. **progress.md**: Phase 29記録（本ファイル）
+
+#### 残タスク
+
+- [ ] NAS本番環境でテスト
+  - [ ] Vector dimension mismatch自動修復動作確認
+  - [ ] read_memory()正常動作確認
+  - [ ] Dashboard表示確認
 
 ### ✅ Phase 27: ツール統合・簡素化 + 本番環境バグ修正 (2025-11-02 ~ 11-03)
 

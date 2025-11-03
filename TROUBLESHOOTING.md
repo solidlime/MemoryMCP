@@ -398,3 +398,45 @@ curlテスト成功？
 - サーバーログで初期化完了を確認してからVS Codeを接続
 - VS Codeのタイムアウト設定を延長
 - サーバーを事前に起動しておく（自動起動設定）
+
+### Q: ツール定義が古いまま（新しいパラメータが認識されない）
+
+**A**: VS CodeがMCPツールの定義をキャッシュしている可能性があります。
+
+**対策**:
+1. **GitHub Copilot Chat拡張機能の再読み込み**:
+   - VS Code Developer Tools（`Ctrl+Shift+I` / `Cmd+Opt+I`）を開く
+   - Consoleタブで実行：
+     ```javascript
+     location.reload();
+     ```
+
+2. **VS Codeウィンドウの再読み込み**:
+   - Command Palette（`Ctrl+Shift+P` / `Cmd+Shift+P`）
+   - "Developer: Reload Window"を選択
+
+3. **VS Codeの完全再起動**:
+   - VS Codeを完全に終了
+   - 再度起動
+
+4. **MCPサーバーの再起動**:
+   ```bash
+   # NASで実行
+   sudo systemctl restart memory-mcp
+   # または
+   docker restart memory-mcp
+   ```
+
+5. **最終手段：VS Code拡張機能キャッシュのクリア**:
+   ```bash
+   # Linux/macOS
+   rm -rf ~/.vscode/extensions/github.copilot-chat-*
+   
+   # Windows
+   rd /s /q "%USERPROFILE%\.vscode\extensions\github.copilot-chat-*"
+   ```
+   その後VS Code再起動して拡張機能を再インストール
+
+**確認方法**:
+- Copilot Chatで `/` を入力
+- MCPツールのリストと各ツールのパラメータが最新版になっているか確認

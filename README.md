@@ -276,6 +276,12 @@ export MEMORY_MCP_EMBEDDINGS_DEVICE=cpu
 - **ペイロード**: SQLiteの全12カラム + メタデータ
 - **ID**: SQLiteの `key` と同一
 
+**自動リビルド機能** (Phase 29):
+- Vector dimensionのミスマッチを検出（例: 256 vs 384）
+- 検出時に自動でコレクションを削除・再作成
+- 正しいdimensionで初期化
+- 手動でのQdrant操作不要
+
 ### 記憶の作成・更新・削除
 
 #### 作成（create_memory）
