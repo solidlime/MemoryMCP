@@ -301,7 +301,7 @@ def main():
     
     elif args.command == 'summarize':
         # Phase 28.4: 期間要約コマンド
-        from persona_utils import current_persona
+        from src.utils.persona_utils import current_persona
         from tools.summarization_tools import summarize_last_day, summarize_last_week
         
         # Set persona context

@@ -20,14 +20,14 @@ from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.staticfiles import StaticFiles
-from config_utils import (
+from src.utils.config_utils import (
     ensure_memory_root,
     get_config,
     get_log_file_path,
     load_config,
 )
-from db_utils import db_get_entry as _db_get_entry_generic, db_recent_keys as _db_recent_keys_generic, db_count_entries as _db_count_entries_generic, db_sum_content_chars as _db_sum_content_chars_generic, clear_query_cache
-from persona_utils import (
+from src.utils.db_utils import db_get_entry as _db_get_entry_generic, db_recent_keys as _db_recent_keys_generic, db_count_entries as _db_count_entries_generic, db_sum_content_chars as _db_sum_content_chars_generic, clear_query_cache
+from src.utils.persona_utils import (
     current_persona,
     get_current_persona,
     get_persona_dir,
@@ -48,7 +48,7 @@ from core import (
     generate_auto_key,
     log_operation,
 )
-from vector_utils import (
+from src.utils.vector_utils import (
     initialize_rag_sync as _initialize_rag_sync,
     add_memory_to_vector_store,
     update_memory_in_vector_store,
@@ -59,7 +59,7 @@ from vector_utils import (
     get_vector_count,
     get_vector_metrics,
 )
-from vector_utils import reranker as _reranker
+from src.utils.vector_utils import reranker as _reranker
 from tools.vector_tools import (
     rebuild_vector_store_tool,
     migrate_sqlite_to_qdrant_tool,
@@ -83,13 +83,13 @@ from tools.search_tools import (
 from tools.knowledge_graph_tools import (
     generate_knowledge_graph,
 )
-from resources import (
+from src.resources import (
     get_memory_info,
     get_memory_metrics,
     get_memory_stats,
     get_cleanup_suggestions,
 )
-from dashboard import register_http_routes
+from src.dashboard import register_http_routes
 
 # Suppress websockets legacy deprecation warnings
 warnings.filterwarnings('ignore', category=DeprecationWarning, module='websockets.legacy')
@@ -148,7 +148,7 @@ mcp = FastMCP(
 # Initialize Jinja2 templates for dashboard
 templates = Jinja2Templates(directory=os.path.join(SCRIPT_DIR, "templates"))
 
-"""Persona helpers are imported from persona_utils"""
+"""Persona helpers are imported from src.utils.persona_utils"""
 
 LOG_FILE = get_log_file_path()
 
@@ -171,13 +171,13 @@ memory_store = {}
 # MCP Server initialization
 # ---------------------------
 # All tools imported from tools/ modules
-# All resources imported from resources module
-# Dashboard routes imported from dashboard module
+# All resources imported from src.resources module
+# Dashboard routes imported from src.dashboard module
 
 # ========================================
 # Resources and Dashboard Routes
 # ========================================
-# Resources imported from resources module
+# Resources imported from src.resources module
 # Dashboard routes registered via dashboard.register_http_routes()
 
 if __name__ == "__main__":

@@ -14,7 +14,7 @@ from typing import List, Dict, Tuple, Optional
 import networkx as nx
 from pyvis.network import Network
 
-from persona_utils import get_db_path
+from src.utils.persona_utils import get_db_path
 
 
 # ============================================================================
@@ -252,7 +252,7 @@ def detect_duplicate_memories(threshold: float = 0.85, max_pairs: int = 50) -> L
         List of duplicate pairs sorted by similarity score
     """
     # Delegate to vector_utils implementation
-    from vector_utils import detect_duplicate_memories as _detect_duplicates
+    from src.utils.vector_utils import detect_duplicate_memories as _detect_duplicates
     return _detect_duplicates(threshold=threshold, max_pairs=max_pairs)
 
 

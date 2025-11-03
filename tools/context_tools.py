@@ -13,7 +13,7 @@ from core import (
     save_persona_context,
     log_operation,
 )
-from persona_utils import get_current_persona, get_db_path
+from src.utils.persona_utils import get_current_persona, get_db_path
 
 
 def _log_progress(message: str) -> None:

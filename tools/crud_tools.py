@@ -10,9 +10,9 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 from typing import Optional, List, Dict
 
-from config_utils import load_config
-from persona_utils import get_current_persona, get_db_path
-from db_utils import clear_query_cache
+from src.utils.config_utils import load_config
+from src.utils.persona_utils import get_current_persona, get_db_path
+from src.utils.db_utils import clear_query_cache
 from core import (
     calculate_time_diff,
     load_persona_context,
@@ -24,7 +24,7 @@ from core import (
     load_memory_from_db,
     log_operation,
 )
-from vector_utils import (
+from src.utils.vector_utils import (
     add_memory_to_vector_store,
     update_memory_in_vector_store,
     delete_memory_from_vector_store,
@@ -44,7 +44,7 @@ async def _search_memory_by_query(query: str, top_k: int = 3) -> List[Dict]:
     natural language queries instead of requiring exact memory keys.
     """
     try:
-        from vector_utils import embeddings
+        from src.utils.vector_utils import embeddings
         from lib.backends.qdrant_backend import QdrantVectorStoreAdapter
         from qdrant_client import QdrantClient
         
@@ -86,13 +86,13 @@ async def _search_memory_by_query(query: str, top_k: int = 3) -> List[Dict]:
 
 def db_get_entry(key: str):
     """Get single entry from database."""
-    from db_utils import db_get_entry as _db_get_entry_generic
+    from src.utils.db_utils import db_get_entry as _db_get_entry_generic
     return _db_get_entry_generic(get_db_path(), key)
 
 
 def db_recent_keys(limit: int = 5) -> list:
     """Get recent keys from database."""
-    from db_utils import db_recent_keys as _db_recent_keys_generic
+    from src.utils.db_utils import db_recent_keys as _db_recent_keys_generic
     return _db_recent_keys_generic(get_db_path(), limit)
 
 
@@ -499,7 +499,7 @@ async def read_memory(
             return "Please provide a query to search."
         
         # Check if RAG system is ready, fallback to keyword search if not
-        from vector_utils import embeddings, reranker
+        from src.utils.vector_utils import embeddings, reranker
         from lib.backends.qdrant_backend import QdrantVectorStoreAdapter
         from qdrant_client import QdrantClient
         

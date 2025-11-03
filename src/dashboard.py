@@ -18,8 +18,8 @@ from fastapi.responses import JSONResponse, FileResponse
 from core import load_persona_context, calculate_time_diff
 
 # Utility imports
-from persona_utils import get_db_path, get_current_persona, current_persona
-from vector_utils import get_vector_count
+from src.utils.persona_utils import get_db_path, get_current_persona, current_persona
+from src.utils.vector_utils import get_vector_count
 
 
 # Get script directory for output files
@@ -31,13 +31,13 @@ MEMORY_ROOT = os.path.join(DATA_DIR, "memory")
 
 def db_count_entries() -> int:
     """Count total entries in database."""
-    from db_utils import db_count_entries as db_count_impl
+    from src.utils.db_utils import db_count_entries as db_count_impl
     return db_count_impl(get_db_path())
 
 
 def db_sum_content_chars() -> int:
     """Sum total content characters in database."""
-    from db_utils import db_sum_content_chars as db_sum_impl
+    from src.utils.db_utils import db_sum_content_chars as db_sum_impl
     return db_sum_impl(get_db_path())
 
 
@@ -321,7 +321,7 @@ def register_http_routes(mcp, templates):
             current_persona.set(persona)
             
             try:
-                from db_utils import clean_memory_duplicates
+                from src.utils.db_utils import clean_memory_duplicates
                 clean_memory_duplicates(memory_key)
                 return JSONResponse({
                     "success": True,
@@ -350,7 +350,7 @@ def register_http_routes(mcp, templates):
             current_persona.set(persona)
             
             try:
-                from vector_utils import rebuild_vector_store
+                from src.utils.vector_utils import rebuild_vector_store
                 rebuild_vector_store()
                 return JSONResponse({
                     "success": True,
@@ -385,11 +385,11 @@ def register_http_routes(mcp, templates):
             
             try:
                 if source == "sqlite" and target == "qdrant":
-                    from vector_utils import migrate_sqlite_to_qdrant
+                    from src.utils.vector_utils import migrate_sqlite_to_qdrant
                     count = migrate_sqlite_to_qdrant()
                     message = f"Migrated {count} memories from SQLite to Qdrant"
                 elif source == "qdrant" and target == "sqlite":
-                    from vector_utils import migrate_qdrant_to_sqlite
+                    from src.utils.vector_utils import migrate_qdrant_to_sqlite
                     count = migrate_qdrant_to_sqlite()
                     message = f"Migrated {count} memories from Qdrant to SQLite"
                 else:
@@ -425,7 +425,7 @@ def register_http_routes(mcp, templates):
             current_persona.set(persona)
             
             try:
-                from analysis_utils import detect_duplicate_memories
+                from src.utils.analysis_utils import detect_duplicate_memories
                 duplicates = detect_duplicate_memories(threshold=threshold, max_pairs=max_pairs)
                 return JSONResponse({
                     "success": True,
@@ -458,7 +458,7 @@ def register_http_routes(mcp, templates):
             current_persona.set(persona)
             
             try:
-                from analysis_utils import merge_memories
+                from src.utils.analysis_utils import merge_memories
                 new_key = merge_memories(
                     memory_keys=memory_keys,
                     merged_content=merged_content,
@@ -497,7 +497,7 @@ def register_http_routes(mcp, templates):
             current_persona.set(persona)
             
             try:
-                from analysis_utils import build_knowledge_graph, export_graph_html, export_graph_json
+                from src.utils.analysis_utils import build_knowledge_graph, export_graph_html, export_graph_json
                 
                 graph = build_knowledge_graph(
                     min_count=min_count,

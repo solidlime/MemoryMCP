@@ -10,14 +10,14 @@ import sqlite3
 from datetime import datetime
 from typing import Optional, List
 
-from persona_utils import get_current_persona, get_db_path
+from src.utils.persona_utils import get_current_persona, get_db_path
 from core import (
     get_current_time,
     calculate_time_diff,
     save_memory_to_db,
     log_operation,
 )
-from vector_utils import (
+from src.utils.vector_utils import (
     update_memory_in_vector_store,
     find_similar_memories,
     detect_duplicate_memories,

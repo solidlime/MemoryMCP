@@ -4,7 +4,8 @@ import threading
 from copy import deepcopy
 from typing import Any, Dict, Iterable, List
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# BASE_DIR is src/utils/, so project root is two levels up
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DEFAULT_CONFIG: Dict[str, Any] = {
     "embeddings_model": "cl-nagoya/ruri-v3-30m",
     "embeddings_device": "cpu",  # Unified device for all RAG models (embeddings, reranker, sentiment)
@@ -141,11 +142,12 @@ def get_config_path() -> str:
 
 
 def get_data_dir() -> str:
-    """データディレクトリのルートパスを取得（memory/やlogs/の親ディレクトリ）"""
+    """データディレクトリのパスを取得（data/をデフォルトに）"""
     env_path = os.environ.get(f"{_ENV_PREFIX}DATA_DIR")
     if env_path:
         return os.path.abspath(env_path)
-    return BASE_DIR
+    # Default to ./data/ directory in project root
+    return os.path.join(BASE_DIR, "data")
 
 
 def get_memory_root() -> str:

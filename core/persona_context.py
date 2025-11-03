@@ -9,7 +9,7 @@ import os
 import shutil
 from typing import Optional
 
-from persona_utils import get_current_persona, get_persona_context_path
+from src.utils.persona_utils import get_current_persona, get_persona_context_path
 
 
 def _log_progress(message: str) -> None:

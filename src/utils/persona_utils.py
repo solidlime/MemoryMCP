@@ -2,7 +2,7 @@ import os
 from contextvars import ContextVar
 from fastmcp.server.dependencies import get_http_request
 
-from config_utils import ensure_directory, ensure_memory_root
+from src.utils.config_utils import ensure_directory, ensure_memory_root
 
 # Paths
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))

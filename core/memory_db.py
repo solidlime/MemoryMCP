@@ -11,7 +11,7 @@ import uuid
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 
-from persona_utils import get_current_persona, get_db_path
+from src.utils.persona_utils import get_current_persona, get_db_path
 
 
 def _log_progress(message: str) -> None:

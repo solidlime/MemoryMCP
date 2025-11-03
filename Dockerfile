@@ -47,8 +47,8 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 # Copy application code
 COPY . ${APP_HOME}
 
-# Remove config.json to allow runtime overrides via bind mount or env vars
-RUN rm -f ${APP_HOME}/config.json
+# Remove config.json from app directory (will be loaded from data/ at runtime)
+RUN rm -f ${APP_HOME}/data/config.json 2>/dev/null || true
 
 # Create directories for runtime data and caches
 RUN mkdir -p ${DATA_HOME}/memory \
@@ -60,6 +60,7 @@ ENV HF_HOME=${DATA_HOME}/cache/huggingface \
     SENTENCE_TRANSFORMERS_HOME=${DATA_HOME}/cache/sentence_transformers \
     TORCH_HOME=${DATA_HOME}/cache/torch \
     MEMORY_MCP_DATA_DIR=${DATA_HOME} \
+    MEMORY_MCP_CONFIG_PATH=${DATA_HOME}/config.json \
     MEMORY_MCP_SERVER_HOST=0.0.0.0 \
     MEMORY_MCP_SERVER_PORT=26262 \
     MEMORY_MCP_EMBEDDINGS_MODEL=cl-nagoya/ruri-v3-30m \

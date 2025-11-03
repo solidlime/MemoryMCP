@@ -18,10 +18,10 @@ except ImportError:
 
 from tqdm import tqdm
 
-from config_utils import load_config
+from src.utils.config_utils import load_config
 from qdrant_client import QdrantClient
 from lib.backends.qdrant_backend import QdrantVectorStoreAdapter
-from persona_utils import get_db_path, get_current_persona
+from src.utils.persona_utils import get_db_path, get_current_persona
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -201,7 +201,7 @@ def _cleanup_worker_loop():
 def _detect_and_save_cleanup_suggestions(cfg):
     """Detect duplicates and save suggestions to file"""
     try:
-        from persona_utils import get_current_persona, get_persona_dir
+        from src.utils.persona_utils import get_current_persona, get_persona_dir
         
         persona = get_current_persona()
         threshold = cfg.get("duplicate_threshold", 0.90)
@@ -287,7 +287,7 @@ def _create_cleanup_groups(duplicates, cfg):
 def _count_total_memories():
     """Count total memories in current persona"""
     try:
-        from persona_utils import get_db_path
+        from src.utils.persona_utils import get_db_path
         import sqlite3
         
         with sqlite3.connect(get_db_path()) as conn:
@@ -371,7 +371,7 @@ def rebuild_vector_store():
     try:
         # Get persona-specific configuration
         cfg = load_config()
-        from persona_utils import get_current_persona
+        from src.utils.persona_utils import get_current_persona
         persona = get_current_persona()
         
         url = cfg.get("qdrant_url", "http://localhost:6333")
@@ -643,7 +643,7 @@ def get_vector_count() -> int:
     """Get total vector count from current persona's Qdrant collection"""
     try:
         cfg = load_config()
-        from persona_utils import get_current_persona
+        from src.utils.persona_utils import get_current_persona
         persona = get_current_persona()
         
         url = cfg.get("qdrant_url", "http://localhost:6333")

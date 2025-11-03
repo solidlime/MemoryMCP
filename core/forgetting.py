@@ -9,8 +9,8 @@ import sqlite3
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 from zoneinfo import ZoneInfo
-from config_utils import load_config
-from persona_utils import get_db_path
+from src.utils.config_utils import load_config
+from src.utils.persona_utils import get_db_path
 
 
 def calculate_time_decay(created_at: str, last_accessed: Optional[str] = None) -> float:

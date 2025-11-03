@@ -10,8 +10,8 @@ import sqlite3
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Tuple
 from zoneinfo import ZoneInfo
-from config_utils import load_config
-from persona_utils import get_db_path, get_current_persona
+from src.utils.config_utils import load_config
+from src.utils.persona_utils import get_db_path, get_current_persona
 from core.memory_db import save_memory_to_db, generate_auto_key
 
 

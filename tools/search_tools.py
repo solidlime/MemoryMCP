@@ -16,7 +16,7 @@ from core import (
 )
 
 # Utility imports
-from persona_utils import get_db_path, get_current_persona
+from src.utils.persona_utils import get_db_path, get_current_persona
 
 # Qdrant filter imports (Phase 26)
 try:
@@ -295,9 +295,9 @@ async def search_memory_rag(
             return "Please provide a query to search."
         
         # Check if RAG system is ready, fallback to keyword search if not
-        from vector_utils import embeddings, reranker
+        from src.utils.vector_utils import embeddings, reranker
         from lib.backends.qdrant_backend import QdrantVectorStoreAdapter
-        from config_utils import load_config
+        from src.utils.config_utils import load_config
         from qdrant_client import QdrantClient
         
         if embeddings is None:

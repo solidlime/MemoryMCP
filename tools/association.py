@@ -7,8 +7,8 @@ Implements the "related_keys" functionality to create memory chains.
 
 import json
 from typing import List, Dict, Optional, Tuple
-from config_utils import load_config
-from persona_utils import get_current_persona
+from src.utils.config_utils import load_config
+from src.utils.persona_utils import get_current_persona
 
 
 def find_similar_memories(
@@ -27,7 +27,7 @@ def find_similar_memories(
     Returns:
         List of dicts with keys: 'key', 'score', 'content', 'emotion', 'emotion_intensity'
     """
-    from vector_utils import embeddings, _get_qdrant_adapter, initialize_rag_sync
+    from src.utils.vector_utils import embeddings, _get_qdrant_adapter, initialize_rag_sync
     
     # Ensure RAG is initialized
     if not embeddings:
@@ -35,7 +35,7 @@ def find_similar_memories(
         initialize_rag_sync()
     
     # Import again after initialization
-    from vector_utils import embeddings
+    from src.utils.vector_utils import embeddings
     
     if not embeddings:
         print("⚠️  RAG initialization failed, cannot find similar memories")
@@ -193,7 +193,7 @@ def update_related_keys(key: str, related_keys: List[str]) -> bool:
         True if successful, False otherwise
     """
     import sqlite3
-    from persona_utils import get_db_path
+    from src.utils.persona_utils import get_db_path
     
     try:
         db_path = get_db_path()

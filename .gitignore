@@ -38,7 +38,10 @@ env/
 
 # Memory MCP specific
 memory/
-data/
+data/config.json     # Actual config (personal settings)
+data/cache/          # Model caches
+data/logs/           # Log files
+data/memory/         # Memory databases
 output/
 .cache/
 *.log

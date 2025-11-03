@@ -14,9 +14,9 @@ from datetime import datetime, timedelta
 from core import load_persona_context, calculate_time_diff
 
 # Utility imports
-from persona_utils import get_db_path, get_current_persona, get_persona_dir
-from vector_utils import get_vector_count, get_vector_metrics, reranker as _reranker
-from db_utils import (
+from src.utils.persona_utils import get_db_path, get_current_persona, get_persona_dir
+from src.utils.vector_utils import get_vector_count, get_vector_metrics, reranker as _reranker
+from src.utils.db_utils import (
     db_count_entries as db_count_entries_impl,
     db_sum_content_chars as db_sum_content_chars_impl,
 )
@@ -24,7 +24,7 @@ from db_utils import (
 
 def _get_rebuild_config():
     """Get vector rebuild configuration."""
-    from vector_utils import REBUILD_MODE, IDLE_SECONDS, MIN_REBUILD_INTERVAL
+    from src.utils.vector_utils import REBUILD_MODE, IDLE_SECONDS, MIN_REBUILD_INTERVAL
     return {
         "mode": REBUILD_MODE,
         "idle_seconds": IDLE_SECONDS,

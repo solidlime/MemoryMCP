@@ -6,7 +6,7 @@ Generates interactive knowledge graphs from memory [[links]]
 from datetime import datetime
 
 # Utility imports
-from persona_utils import get_current_persona
+from src.utils.persona_utils import get_current_persona
 
 
 def _log_progress(message: str):
@@ -33,8 +33,8 @@ async def generate_knowledge_graph(
         JSON string or HTML file path
     """
     try:
-        from analysis_utils import build_knowledge_graph, export_graph_json, export_graph_html
-        from persona_utils import get_current_persona
+        from src.utils.analysis_utils import build_knowledge_graph, export_graph_json, export_graph_html
+        from src.utils.persona_utils import get_current_persona
         
         persona = get_current_persona()
         _log_progress(f"🔍 Generating knowledge graph for persona: {persona}...")
