@@ -110,7 +110,7 @@ class QdrantVectorStoreAdapter:
             text = payload.get('content', '')
             # 🆕 Phase 26: Preserve all metadata from payload
             metadata = {k: v for k, v in payload.items() if k != 'content'}
-            # Convert similarity (higher better) to distance-like (lower better) for compatibility
-            distance_like = float(1.0 - (sp.score or 0.0))
-            out.append((Document(page_content=text, metadata=metadata), distance_like))
+            # Phase 31.2: Return similarity score directly (higher = more similar)
+            similarity = float(sp.score or 0.0)
+            out.append((Document(page_content=text, metadata=metadata), similarity))
         return out
