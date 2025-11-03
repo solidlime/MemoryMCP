@@ -376,3 +376,222 @@ from vector_utils import add_memory_to_vector_store
 
 add_memory_to_vector_store(key, content)  # 動的Persona切替対応
 ```
+
+---
+
+## 🛠️ Debug Commands Cheat Sheet
+
+### Quick Testing
+
+#### Full Environment Test
+```bash
+# Start Qdrant + MCP Server + Health check + MCP initialize
+./test_local_environment.sh
+```
+
+#### HTTP Endpoint Test
+```bash
+# Test all MCP tools (server must be running)
+source venv-rag/bin/activate
+python test_mcp_http.py
+```
+
+### Environment Management
+
+#### Start Qdrant (Docker)
+```bash
+docker-compose up -d qdrant
+
+# Verify
+curl http://localhost:6333/health
+```
+
+#### Start MCP Server
+
+**Foreground** (see logs directly):
+```bash
+source venv-rag/bin/activate
+python memory_mcp.py
+```
+
+**Background** (for testing):
+```bash
+source venv-rag/bin/activate
+python memory_mcp.py > /tmp/mcp_server.log 2>&1 &
+echo $! > /tmp/mcp_server.pid
+
+# View logs
+tail -f /tmp/mcp_server.log
+
+# Stop
+kill $(cat /tmp/mcp_server.pid)
+```
+
+### Health Checks
+
+```bash
+# MCP Server health
+curl http://localhost:26262/health | jq .
+
+# Qdrant health
+curl http://localhost:6333/health
+
+# List Qdrant collections
+curl http://localhost:6333/collections | jq '.result.collections'
+
+# Collection details
+curl http://localhost:6333/collections/memory_default | jq .
+```
+
+### MCP Protocol Testing
+
+#### Initialize
+```bash
+curl -X POST http://localhost:26262/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -H "X-Persona: default" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "initialize",
+    "params": {
+      "protocolVersion": "2024-11-05",
+      "capabilities": {},
+      "clientInfo": {"name": "test", "version": "1.0"}
+    }
+  }'
+```
+
+#### List Tools
+```bash
+curl -X POST http://localhost:26262/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -H "X-Persona: default" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 2,
+    "method": "tools/list",
+    "params": {}
+  }'
+```
+
+#### Call Tool
+```bash
+curl -X POST http://localhost:26262/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -H "X-Persona: default" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 3,
+    "method": "tools/call",
+    "params": {
+      "name": "create_memory",
+      "arguments": {
+        "content_or_query": "Debug test memory",
+        "importance": 0.7
+      }
+    }
+  }'
+```
+
+### Database Inspection
+
+```bash
+# SQLite
+sqlite3 memory/default/memories.db
+
+# Useful queries
+SELECT COUNT(*) FROM memories;
+SELECT key, content, created_at FROM memories ORDER BY created_at DESC LIMIT 10;
+SELECT key, content, importance FROM memories WHERE importance >= 0.7;
+
+# Persona context
+cat memory/default/persona_context.json | jq .
+```
+
+### Log Analysis
+
+```bash
+# Operation logs (real-time)
+tail -f data/logs/memory_operations.log
+
+# Search errors
+grep -i error data/logs/memory_operations.log
+
+# Server logs (if background)
+tail -f /tmp/mcp_server.log
+```
+
+### Process Management
+
+```bash
+# Find MCP process
+ps aux | grep memory_mcp.py | grep -v grep
+
+# Find process on port
+lsof -i :26262
+
+# Kill server
+kill $(lsof -t -i:26262)
+# or
+kill -9 $(lsof -t -i:26262)
+```
+
+### Docker Management
+
+```bash
+# View containers
+docker ps
+
+# Qdrant logs
+docker-compose logs -f qdrant
+
+# Restart Qdrant
+docker-compose restart qdrant
+
+# Stop all
+docker-compose down
+```
+
+### Troubleshooting
+
+#### Reset Qdrant Collection
+```bash
+curl -X DELETE http://localhost:6333/collections/memory_default
+```
+
+#### Rebuild Vector Store
+```bash
+python -c "from vector_utils import rebuild_vector_store; rebuild_vector_store()"
+```
+
+#### Kill All Related Processes
+```bash
+# Stop MCP server
+pkill -f memory_mcp.py
+
+# Stop Qdrant
+docker-compose down
+```
+
+### Configuration
+
+```bash
+# View current config
+python -c "from config_utils import load_config; import json; print(json.dumps(load_config(), indent=2))"
+
+# Set env vars (temporary)
+export MEMORY_MCP_EMBEDDINGS_DEVICE=cpu
+export MEMORY_MCP_SERVER_PORT=26262
+```
+
+---
+
+## 📚 See Also
+
+- [TESTING.md](../../TESTING.md) - Comprehensive testing guide with detailed examples
+- [README.md](../../README.md) - Project overview and setup instructions
+- [DOCKER.md](../../DOCKER.md) - Docker deployment and optimization guide

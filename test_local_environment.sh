@@ -16,6 +16,7 @@ QDRANT_PORT=6333
 MCP_PORT=26262
 LOG_FILE="/tmp/mcp_server_test.log"
 PID_FILE="/tmp/mcp_server_test.pid"
+SKIP_CLEANUP=false
 
 echo -e "${GREEN}🧪 Memory MCP Local Environment Test${NC}"
 echo "========================================"
@@ -24,6 +25,16 @@ echo ""
 # Cleanup function
 cleanup() {
     echo -e "\n${YELLOW}🧹 Cleaning up...${NC}"
+    
+    # Check if we should skip cleanup (Ctrl+C before timeout)
+    if [ "$SKIP_CLEANUP" = "true" ]; then
+        echo -e "${GREEN}✅ Keeping server running for manual testing${NC}"
+        echo -e "${YELLOW}💡 Server is still running (PID: $(cat $PID_FILE 2>/dev/null || echo 'unknown'))${NC}"
+        echo -e "${YELLOW}💡 To stop manually:${NC}"
+        echo -e "${YELLOW}   - MCP Server: kill \$(cat $PID_FILE)${NC}"
+        echo -e "${YELLOW}   - Qdrant: docker stop qdrant${NC}"
+        return
+    fi
     
     # Stop MCP server if running
     if [ -f "$PID_FILE" ]; then
@@ -52,7 +63,9 @@ cleanup() {
 }
 
 # Set trap to cleanup on exit
-trap cleanup EXIT INT TERM
+# SIGINT (Ctrl+C) sets SKIP_CLEANUP flag
+trap 'SKIP_CLEANUP=true; cleanup; exit 0' INT
+trap cleanup EXIT TERM
 
 # Step 1: Start Qdrant
 echo -e "${YELLOW}📦 Step 1: Starting Qdrant (Docker)...${NC}"
@@ -117,22 +130,24 @@ INITIALIZED=false
 
 while [ $COUNTER -lt $MAX_WAIT ]; do
     if [ -f "$LOG_FILE" ]; then
-        # Show recent log lines
-        tail -5 "$LOG_FILE" | grep -v "^$"
+        # Show recent log lines (suppress errors if file is still being written)
+        tail -5 "$LOG_FILE" 2>/dev/null | grep -v "^$" || true
         
         # Check if server is ready
-        if grep -q "Application startup complete" "$LOG_FILE"; then
+        if grep -q "Application startup complete" "$LOG_FILE" 2>/dev/null; then
             INITIALIZED=true
             break
         fi
         
         # Check for errors
-        if grep -q "Failed to initialize" "$LOG_FILE"; then
+        if grep -q "Failed to initialize" "$LOG_FILE" 2>/dev/null; then
             echo -e "${RED}❌ Server initialization failed${NC}"
             echo "Error logs:"
             grep "Failed to initialize" "$LOG_FILE"
             exit 1
         fi
+    else
+        echo "... waiting for log file to be created"
     fi
     
     sleep 2
@@ -201,10 +216,15 @@ echo "Qdrant:     ✅ Running on port $QDRANT_PORT"
 echo "MCP Server: ✅ Running on port $MCP_PORT (PID: $MCP_PID)"
 echo "Logs:       $LOG_FILE"
 echo ""
-echo -e "${YELLOW}💡 Tip: Server will be stopped when you exit this script${NC}"
+echo -e "${YELLOW}💡 Server is running in background for additional testing${NC}"
 echo -e "${YELLOW}💡 To view logs: tail -f $LOG_FILE${NC}"
+echo -e "${YELLOW}💡 To run HTTP tests: python test_mcp_http.py${NC}"
 echo ""
-echo "Press Ctrl+C to stop and cleanup..."
+echo -e "${GREEN}Options:${NC}"
+echo "  1. Press Enter to stop server and cleanup"
+echo "  2. Press Ctrl+C to keep server running (manual cleanup needed)"
+echo ""
+read -p "Press Enter to cleanup and stop server..." -t 300 || echo -e "\n${YELLOW}Timeout - keeping server running${NC}"
 
-# Keep running until interrupted
-wait $MCP_PID
+# If user pressed Enter, cleanup will happen via trap
+echo -e "\n${YELLOW}Cleaning up...${NC}"

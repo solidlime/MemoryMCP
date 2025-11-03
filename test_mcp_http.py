@@ -38,8 +38,10 @@ class MCPTester:
     def __init__(self, base_url: str = DEFAULT_MCP_URL):
         self.base_url = base_url
         self.mcp_url = f"{base_url}/mcp"
-        self.session_id = None
+        self.session = requests.Session()  # Use persistent session
+        self.session.headers.update(HEADERS)
         self.request_id = 0
+        self.session_id = None  # Session ID from initialize
         
     def _send_request(self, method: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Send JSON-RPC request to MCP endpoint"""
@@ -52,8 +54,26 @@ class MCPTester:
             "params": params or {}
         }
         
-        response = requests.post(self.mcp_url, json=payload, headers=HEADERS)
-        response.raise_for_status()
+        # Add session ID to headers if available (after initialize)
+        headers = HEADERS.copy()
+        if self.session_id and method != "initialize":
+            headers["mcp-session-id"] = self.session_id
+        
+        try:
+            response = requests.post(self.mcp_url, json=payload, headers=headers)
+            response.raise_for_status()
+            
+            # Extract session ID from response headers (if present and not already set)
+            if not self.session_id and "mcp-session-id" in response.headers:
+                self.session_id = response.headers["mcp-session-id"]
+                
+        except requests.exceptions.HTTPError as e:
+            # Print detailed error info
+            print(f"\n  ❌ HTTP Error: {e}")
+            print(f"  Request: {method}")
+            print(f"  Response status: {response.status_code}")
+            print(f"  Response body: {response.text[:500]}")
+            raise
         
         # Parse SSE response
         lines = response.text.strip().split('\n')
@@ -92,6 +112,11 @@ class MCPTester:
             
             if "result" in result:
                 server_info = result["result"].get("serverInfo", {})
+                
+                # Session ID is extracted automatically in _send_request from headers
+                if self.session_id:
+                    print(f"  ✅ Session ID: {self.session_id[:16]}...")
+                
                 print(f"  ✅ Initialize: {server_info.get('name')} v{server_info.get('version')}")
                 return True
             else:
@@ -160,7 +185,7 @@ class MCPTester:
             result = self._send_request("tools/call", {
                 "name": "create_memory",
                 "arguments": {
-                    "content_or_query": content,
+                    "content": content,  # Fixed: was "content_or_query"
                     "importance": 0.8,
                     "context_tags": ["test", "debug"]
                 }

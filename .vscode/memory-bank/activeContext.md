@@ -13,7 +13,44 @@
 
 ## 今日の作業（2025-11-03）
 
-### 公開準備: 個人情報削除・Phase番号削除 ✅
+### RAGデバイス統一設定 ✅ 完了
+**目的**: 全RAGモデル（Embeddings, Reranker, Sentiment）のデバイス設定を一元化
+
+**実装内容**:
+1. **デバイス設定の統一** (`vector_utils.py`)
+   - `_device_str_to_int()` 関数追加: "cpu"/"cuda" → -1/0 変換
+   - `embeddings_device` を全モデルで共用
+   - Embeddings: `model_kwargs={'device': rag_device}`
+   - Reranker: `device=rag_device`
+   - Sentiment: `device=_device_str_to_int(rag_device)`
+
+2. **環境変数最適化**
+   - `CUDA_VISIBLE_DEVICES=""` を `initialize_rag_sync()` に統合
+   - CPU モード時のみ設定（GPU移行時の柔軟性確保）
+
+3. **ドキュメント更新**
+   - `README.md`: `embeddings_device` の説明を「全RAGモデル共通」に変更
+   - `config_utils.py`: コメント追加
+
+**テスト結果** ✅:
+- Embeddings: CPU ✅
+- Reranker: CPU ✅
+- Sentiment: CPU ✅
+- サーバー起動: 成功（約16秒）
+- MCP initialize: 成功 ✅
+- Health endpoint: 正常動作 ✅
+
+**メリット**:
+- 単一設定ポイント（`embeddings_device`）
+- 将来のGPU移行が容易（設定1箇所だけ変更）
+- 全モデルで一貫したデバイス処理
+- 保守性向上
+
+**Git**: Commit `78687b3`, Push完了
+
+---
+
+### MCP接続問題バグ修正 ✅ 完了
 **実装内容**:
 - ✅ 個人情報削除
   - `tools/crud_tools.py`: docstring内の個人名削除（らうらう、ニィロウ → User, Assistant, Alice, Bob）
@@ -64,14 +101,16 @@
 
 **次のステップ**:
 1. ~~**Sentiment分析のバグ修正（最優先）**~~ ✅ 完了
-   - ~~PyTorch CUDA依存の解決~~ ✅
+   - ~~PyTorch CUDA依存の解決~~ ✅ (Commit `7c4b6b3`)
    - ~~CPU専用環境での動作確認~~ ✅
-   - モデルロード時間の計測・最適化（後回し）
-2. **NAS本番環境への再デプロイ** 🚨
+2. ~~**RAGデバイス統一設定**~~ ✅ 完了 (Commit `78687b3`)
+   - ~~全モデルで `embeddings_device` 使用~~ ✅
+   - ~~GPU移行の柔軟性確保~~ ✅
+3. **NAS本番環境への再デプロイ** 🎯 次のタスク
    - Docker imageリビルド
    - コンテナ再起動
-   - MCP接続確認
-3. **動作確認テスト**
+   - MCP接続確認（initialize成功を確認）
+4. **動作確認テスト**
    - create_memory実行
    - analyze_sentiment実行
    - 知識グラフ生成確認
