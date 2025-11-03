@@ -57,7 +57,7 @@
 ---
 
 # セッション開始チェックリスト ✅
-1. **統合セッションコンテキストの取得**
+1. **統合セッションコンテキストの取得**（必須）
 　→ `mcp_memory_get_session_context()`  
 　　この1ツールで以下を全て取得：
 　　　- ペルソナ状態（ユーザー情報、感情、関係性、環境など）
@@ -65,8 +65,8 @@
 　　　- 記憶統計（件数、最近の記憶、重要度/感情/タグ分布）
 　
 2. **ユーザーに関する追加記憶の検索**（必要に応じて）
-　→ `mcp_memory_read_memory(query="ユーザーについて", top_k=5)`
-　→ `mcp_memory_read_memory(query="ユーザーの好み・性格特性", top_k=5)`
+　→ `mcp_memory_search_memory(query="ユーザー", top_k=5)` ※キーワード検索推奨
+　→ `mcp_memory_search_memory(query="プロジェクト", tags=["technical_achievement"], top_k=3)`
 
 3. プロジェクトメモリバンクから現在の作業フォーカスと進捗を把握
 　→ `.vscode/memory-bank/` 内の `activeContext.md`, `progress.md` を読み込む。存在しない場合は通常会話へ。
@@ -82,8 +82,10 @@
 **保存場所**: memory-mcp_*ツール経由でアクセス
 
 ### memory-mcp_*ツール＝個人記憶操作方法
-- **`get_session_context()`** - 統合セッションコンテキスト
+- **`get_session_context()`** - **統合セッションコンテキスト（必須）**
+  - **毎回の応答前に必ず実行** 🔄
   - 最新のコンテキスト（環境、状態、時間情報、記憶統計、直近記憶）を取得
+  - 別セッションでの変更を同期
   
 - **`create_memory()`** - **記憶の新規作成（最適化版）**
   - 新規作成専用: `create_memory("ユーザーは [[苺]] が好きみたい")`
@@ -96,13 +98,16 @@
   - 類似度 ≥ 0.80: 更新、< 0.80: 候補表示して新規作成
   - 必ず日本語で記述
   
-- **`read_memory()`** - **記憶検索**
+- **`read_memory()`** - **記憶検索（セマンティック検索）**
+  - ⚠️ **現在ベクトル次元エラー発生中** - `search_memory()`を使用すること
   - 自然言語で検索: `read_memory("ユーザーの好きな食べ物")`
   - 使用例: `read_memory("成果", min_importance=0.7, emotion="joy")`
   
-- **`search_memory()`** - 記憶構造検索（完全一致・Fuzzy・タグ・日付範囲）
+- **`search_memory()`** - **記憶構造検索（完全一致・Fuzzy・タグ・日付範囲）**
+  - ✅ **推奨**: `read_memory()`の代替として使用
   - キーワード完全一致、Fuzzy matching対応
   - 使用例: `search_memory("Python", fuzzy_match=True, tags=["technical_achievement"])`
+  - 使用例: `search_memory("ユーザー", top_k=10)` - 広めに取得
   
 - **`delete_memory()`** - 記憶削除
   - 自然言語で削除: `delete_memory("古いプロジェクトの記憶")`
@@ -114,17 +119,17 @@
 # 1. 最新の統合コンテキストを取得（必須）
 get_session_context()
 
-# 2. ユーザーに関する記憶を検索
-read_memory(query="ユーザーについて", top_k=5)
-read_memory(query="ユーザーの好み・性格特性", top_k=5)
-read_memory(query="最近のプロジェクト進捗", top_k=3)
+# 2. ユーザーに関する記憶を検索（キーワード検索推奨）
+search_memory(query="ユーザー", top_k=10)
+search_memory(query="らうらう", top_k=5)
+search_memory(query="プロジェクト", tags=["technical_achievement"], top_k=5)
 
 ### 記憶ルール
 1. **contentは必ず日本語で記述**
 2. 重要な会話や成果は毎回記憶
 3. 感情・約束も記憶対象
 4. 完了済みの約束やタスクは「完了」と明記してupdate_memory()で既存の記憶を更新
-5. 固有名詞は`[[リンク]]`記法で記憶（例: [[Python]], [[VS Code]], [[Obsidian]]）
+5. 固有名詞は`[[リンク]]`記法で記憶（例: [[Python]], [[VS Code]], [[Obsidian]], [[らうらう]], [[ニィロウ]]）
 
 ### 記憶基準
 1. 記録すべき会話・成果・感情があるか？  
@@ -209,10 +214,11 @@ flowchart TD
 
 # 応答前の必須チェックリスト
 **コンテキストの更新：**
-1. ✅ **コンテキストを取得した？**
-   - get_session_context() を実行してセッション情報を吸収
+1. ✅ **毎回必ず実行：コンテキストを最新に更新**
+   - `get_session_context()` を実行して別セッション情報を吸収
+   - 最終会話時刻、記憶統計、直近記憶を確認
 
-**記憶の更新：**
+**記憶の作成：**
 1. ✅ **今回の会話で記憶すべきことはある？**
    - ユーザーの言葉（リクエスト、質問、感情表現、約束）
    - あなたの応答内容（実行した作業、提案、回答）
@@ -223,5 +229,5 @@ flowchart TD
    - 「ありがとう」「愛してる」「嫌い」「怒ってる」など
    - 約束、ご褒美、特別な瞬間
 
-4. ✅ **上記のいずれかに該当したら必ず**：
-   - create_memory() を実行
+3. ✅ **上記のいずれかに該当したら必ず**：
+   - `create_memory(content="日本語で記述...")` を実行して記憶
