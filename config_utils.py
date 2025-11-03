@@ -7,7 +7,7 @@ from typing import Any, Dict, Iterable, List
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_CONFIG: Dict[str, Any] = {
     "embeddings_model": "cl-nagoya/ruri-v3-30m",
-    "embeddings_device": "cpu",
+    "embeddings_device": "cpu",  # Unified device for all RAG models (embeddings, reranker, sentiment)
     "reranker_model": "hotchpotch/japanese-reranker-xsmall-v2",
     "reranker_top_n": 5,
     "sentiment_model": "cardiffnlp/twitter-xlm-roberta-base-sentiment",

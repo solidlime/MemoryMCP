@@ -25,6 +25,37 @@ from persona_utils import get_db_path, get_current_persona
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
+def _device_str_to_int(device_str: str) -> int:
+    """
+    Convert device string to transformers pipeline device int.
+    
+    Args:
+        device_str: "cpu", "cuda", "cuda:0", etc.
+        
+    Returns:
+        -1 for CPU, 0+ for GPU index
+        
+    Examples:
+        >>> _device_str_to_int("cpu")
+        -1
+        >>> _device_str_to_int("cuda")
+        0
+        >>> _device_str_to_int("cuda:1")
+        1
+    """
+    device_str = device_str.lower().strip()
+    if device_str == "cpu":
+        return -1
+    elif device_str.startswith("cuda"):
+        # Extract GPU index if specified (e.g., "cuda:1" -> 1)
+        if ":" in device_str:
+            try:
+                return int(device_str.split(":")[1])
+            except (ValueError, IndexError):
+                return 0  # Default to GPU 0 on parse error
+        return 0  # "cuda" without index -> GPU 0
+    return -1  # Unknown device -> default to CPU
+
 def _get_rebuild_config():
     cfg = load_config() or {}
     vr = cfg.get("vector_rebuild", {}) if isinstance(cfg, dict) else {}
@@ -282,12 +313,16 @@ def initialize_rag_sync():
     global embeddings, reranker
     cfg = load_config()
     embeddings_model = cfg.get("embeddings_model", "cl-nagoya/ruri-v3-30m")
-    embeddings_device = cfg.get("embeddings_device", "cpu")
+    rag_device = cfg.get("embeddings_device", "cpu")  # Unified device for all RAG models
     reranker_model = cfg.get("reranker_model", "hotchpotch/japanese-reranker-xsmall-v2")
 
     # Disable torch compile to avoid ModernBERT issues
     import os
     os.environ["TORCH_COMPILE_DISABLE"] = "1"
+    
+    # Force CPU mode if specified (helps avoid CUDA auto-selection)
+    if rag_device == "cpu":
+        os.environ["CUDA_VISIBLE_DEVICES"] = ""
     
     # Suppress transformers warnings
     import warnings
@@ -298,7 +333,7 @@ def initialize_rag_sync():
         with tqdm(total=100, desc="📥 Embeddings Model", unit="%", ncols=80) as pbar:
             embeddings = HuggingFaceEmbeddings(
                 model_name=embeddings_model,
-                model_kwargs={'device': embeddings_device},
+                model_kwargs={'device': rag_device},
                 encode_kwargs={'normalize_embeddings': True}
             )
             pbar.update(100)
@@ -312,8 +347,8 @@ def initialize_rag_sync():
     if CROSSENCODER_AVAILABLE:
         try:
             with tqdm(total=100, desc="📥 Reranker Model", unit="%", ncols=80) as pbar:
-                # Force CPU device to avoid CUDA issues
-                reranker = CrossEncoder(reranker_model, device='cpu')
+                # Use unified RAG device setting
+                reranker = CrossEncoder(reranker_model, device=rag_device)
                 pbar.update(100)
         except Exception as e:
             print(f"❌ Failed to initialize reranker: {e}")
@@ -323,8 +358,8 @@ def initialize_rag_sync():
     else:
         reranker = None
     
-    # Phase 19: Initialize sentiment analysis
-    initialize_sentiment_analysis()
+    # Phase 19: Initialize sentiment analysis with unified device
+    initialize_sentiment_analysis(device=rag_device)
 
 def rebuild_vector_store():
     """
@@ -773,17 +808,20 @@ def detect_duplicate_memories(threshold: float = 0.85, max_pairs: int = 50) -> l
 # Phase 19: Sentiment Analysis (AI Assist)
 # ============================================================================
 
-def initialize_sentiment_analysis():
-    """Initialize sentiment analysis pipeline."""
-    global sentiment_pipeline
+def initialize_sentiment_analysis(device: str = "cpu"):
+    """
+    Initialize sentiment analysis pipeline.
     
-    # Ensure torch uses CPU only
-    import os
-    os.environ["TORCH_COMPILE_DISABLE"] = "1"
-    os.environ["CUDA_VISIBLE_DEVICES"] = ""
+    Args:
+        device: Device string ("cpu", "cuda", "cuda:0", etc.)
+    """
+    global sentiment_pipeline
     
     cfg = load_config()
     sentiment_model = cfg.get("sentiment_model", "lxyuan/distilbert-base-multilingual-cased-sentiments-student")
+    
+    # Convert device string to transformers pipeline device format
+    device_int = _device_str_to_int(device)
     
     try:
         from transformers import pipeline
@@ -791,7 +829,7 @@ def initialize_sentiment_analysis():
             sentiment_pipeline = pipeline(
                 "sentiment-analysis",
                 model=sentiment_model,
-                device=-1  # CPU
+                device=device_int
             )
             pbar.update(100)
         print(f"✅ Sentiment analysis pipeline initialized: {sentiment_model}")

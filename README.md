@@ -103,7 +103,7 @@ Personaを切り替えたいときは `X-Persona` の値を変更します。
 | `SENTENCE_TRANSFORMERS_HOME` | *(キャッシュ)* | string | `<data_dir>/cache/sentence_transformers` | SentenceTransformersキャッシュ |
 | `TORCH_HOME` | *(キャッシュ)* | string | `<data_dir>/cache/torch` | PyTorchキャッシュ |
 | `MEMORY_MCP_EMBEDDINGS_MODEL` | `embeddings_model` | string | `cl-nagoya/ruri-v3-30m` | 埋め込みモデル名 |
-| `MEMORY_MCP_EMBEDDINGS_DEVICE` | `embeddings_device` | string | `cpu` | 計算デバイス（cpu/cuda） |
+| `MEMORY_MCP_EMBEDDINGS_DEVICE` | `embeddings_device` | string | `cpu` | 全RAGモデル共通デバイス（cpu/cuda/cuda:0） |
 | `MEMORY_MCP_RERANKER_MODEL` | `reranker_model` | string | `hotchpotch/japanese-reranker-xsmall-v2` | リランカーモデル |
 | `MEMORY_MCP_RERANKER_TOP_N` | `reranker_top_n` | int | `5` | リランク後の返却件数 |
 | `MEMORY_MCP_SENTIMENT_MODEL` | `sentiment_model` | string | `cardiffnlp/twitter-xlm-roberta-base-sentiment` | 感情分析モデル |
