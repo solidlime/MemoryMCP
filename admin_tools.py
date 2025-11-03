@@ -257,6 +257,11 @@ def main():
     graph_parser.add_argument('--min-cooccurrence', type=int, default=1, help='最小共起回数')
     graph_parser.add_argument('--keep-isolated', action='store_true', help='孤立ノードを保持')
     
+    # summarize コマンド (Phase 28.4)
+    summarize_parser = subparsers.add_parser('summarize', help='期間別メモリを要約')
+    summarize_parser.add_argument('--persona', required=True, help='Persona名')
+    summarize_parser.add_argument('--period', required=True, choices=['day', 'week'], help='要約期間')
+    
     args = parser.parse_args()
     
     if not args.command:
@@ -293,6 +298,26 @@ def main():
             args.min_cooccurrence,
             remove_isolated=not args.keep_isolated
         )
+    
+    elif args.command == 'summarize':
+        # Phase 28.4: 期間要約コマンド
+        from persona_utils import current_persona
+        from tools.summarization_tools import summarize_last_day, summarize_last_week
+        
+        # Set persona context
+        current_persona.set(args.persona)
+        
+        if args.period == 'day':
+            print(f"📝 Summarizing last day for persona: {args.persona}")
+            summary_key = summarize_last_day()
+        else:  # week
+            print(f"📝 Summarizing last week for persona: {args.persona}")
+            summary_key = summarize_last_week()
+        
+        if summary_key:
+            print(f"✅ Summary created: {summary_key}")
+        else:
+            print(f"⚠️  Failed to create summary")
 
 
 if __name__ == '__main__':

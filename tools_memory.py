@@ -16,6 +16,7 @@ def register_tools(mcp: Any) -> None:
     from tools.search_tools import search_memory
     from tools.analysis_tools import find_related_memories, analyze_sentiment
     from tools.context_tools import get_session_context
+    from tools.summarization_tools import summarize_last_week, summarize_last_day
 
     # === LLM用ツール（会話中に使用） ===
     
@@ -36,6 +37,10 @@ def register_tools(mcp: Any) -> None:
     # 検索・分析
     mcp.tool()(find_related_memories)
     mcp.tool()(analyze_sentiment)
+    
+    # Phase 28.4: 自己要約（メタメモリ）
+    mcp.tool()(summarize_last_week)
+    mcp.tool()(summarize_last_day)
     
     # === 管理者用ツールはMCPから除外 ===
     # 以下のツールは admin_tools.py CLIコマンド または ダッシュボードから実行：
