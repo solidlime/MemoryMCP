@@ -622,7 +622,6 @@ async def read_memory(
         # Check if RAG system is ready, fallback to keyword search if not
         from vector_utils import embeddings, reranker
         from lib.backends.qdrant_backend import QdrantVectorStoreAdapter
-        from config_utils import load_config
         from qdrant_client import QdrantClient
         
         if embeddings is None:

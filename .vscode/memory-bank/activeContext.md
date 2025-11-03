@@ -2,18 +2,54 @@
 
 ## 現在の状態
 
-- **現在フェーズ**: Phase 26.3（Fuzzy Matching）完了 🎉
-- **次フェーズ**: 本番環境テスト & Phase 27検討
-- **本番環境**: Qdrant (http://nas:6333) 運用中
+- **現在フェーズ**: Phase 27（ツール統合・簡素化）完了 🎉
+- **次フェーズ**: Phase 28検討中
+- **本番環境**: Qdrant (http://nas:6333) 運用中、sentencepiece依存解決済み
 - **開発環境**: Qdrant専用（Phase 25でFAISS廃止完了）
 - **最新DB構造**: 12カラム（完全コンテキスト保存）
-- **最新検索機能**: メタデータフィルタリング + カスタムスコアリング + Fuzzy Matching
+- **最新ツール構成**: 5ツール（create_memory, read_memory, search_memory, delete_memory, helpers）
 
 ---
 
-## 今日の作業（2025-11-02）
+## 今日の作業（2025-11-03）
 
-### Phase 26.3: Fuzzy Matching（曖昧検索）✨
+### Phase 27フォローアップ: 本番環境バグ修正 & 改善 ✨
+
+#### sentencepiece依存問題解決 ✅
+**問題**: NAS本番環境でRAG初期化失敗
+- エラー: "Cannot instantiate this tokenizer from a slow version. If it's based on sentencepiece, make sure you have sentencepiece installed."
+- 原因: ローカル環境では偶然インストール済みだったが、Dockerには含まれていなかった
+
+**解決**:
+- [x] requirements.txt に `sentencepiece>=0.1.99` 追加
+- [x] vector_utils.py にエラーログ追加（デバッグ用）
+- [x] NASでDockerイメージ再ビルド成功
+- [x] RAG検索動作確認（create_memory成功）
+
+#### Admin Tools更新 ✅
+- [x] **dashboard.py**: "Rebuild Vector Store" → "Rebuild Qdrant Collection"
+- [x] **templates/dashboard.html**: UI表示更新（FAISS→Qdrant）
+- [x] メッセージ更新: "Successfully rebuilt Qdrant collection for {persona}"
+
+#### コードリファクタリング調査 ✅
+**発見した改善点**:
+1. ✅ **重複インポート削除**: tools/crud_tools.py L625 の `from config_utils import load_config`
+2. 📝 **将来の改善候補**（Phase 28以降）:
+   - 共通SQLクエリ関数の集約（db_utils.py）
+   - 定数の一元管理（SQLスキーマ）
+   - 未使用コードの整理
+
+**方針**: Phase 27直後なので最小限の改善に留める
+
+#### ドキュメント改善準備
+- [ ] **README.md**: さらなる簡素化（現在~400行、目標~250-300行）
+- [ ] **メモリバンク更新**: Phase 27の内容を反映 ← 今ココ
+
+---
+
+## 最近の主要変更（Phase 27）
+
+### Phase 27: ツール統合・簡素化（2025-11-02完了）
 
 #### 実装目的
 - 完全一致フィルタだと使いづらい問題を解消

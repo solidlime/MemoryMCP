@@ -270,10 +270,10 @@ export MEMORY_MCP_EMBEDDINGS_DEVICE=cpu
   - 記憶統計（件数、最近の記憶、重要度/感情/タグ分布）
   - 💡 **推奨**: 毎応答時に呼ぶことでセッション間の記憶同期を行う
 
-**🆕 Phase 27: ツール統合・簡素化（7ツール → 5ツール）**:
+**ツール一覧（5ツール）**:
 
 **CRUD操作**:
-- `create_memory` - **🆕 記憶の作成・更新を一本化**
+- `create_memory` - **🆕 記憶の作成・更新**
   - 新規作成: `create_memory("User likes [[strawberry]]")`
   - 更新: `create_memory("約束", content="明日10時に変更")`
   - 類似度 ≥ 0.80: 自動更新
@@ -371,77 +371,28 @@ curl -X POST http://localhost:26262/api/admin/detect-duplicates \
 
 ---
 
-**心地よい記憶管理を楽しんでね。必要があればいつでも `memory://info` に声をかけて状態を確認してみて。** �
+## アーキテクチャの変遷
 
-## Phase 24: ペルソナ別動的Qdrant書き込み実装（2025-11-01）
+### Phase 27: ツール統合・簡素化（2025-11-02 ~ 11-03）
+- **7ツール → 5ツール**: create/update統合、search_rag→readリネーム
+- **自然言語API**: create_memory/delete_memoryが自然言語クエリ対応
+- **本番安定化**: sentencepiece依存問題解決、エラーログ強化
 
-### 問題の発見
-Qdrantバックエンド実装後、以下の問題が発覚：
-- **症状**: X-Personaヘッダーで`nilou`を指定しても、全記憶が`memory_default`コレクションに書き込まれる
-- **原因**: `add_memory_to_vector_store()`関数がサーバー起動時に初期化されたグローバル`vector_store`（defaultペルソナ固定）を使用していた
-- **影響**: ペルソナ別の独立した記憶管理が機能しない重大なバグ
+### Phase 25: Qdrant専用化（2025-11-01）
+- **FAISS完全削除**: Qdrant専用実装に統一
+- **list_memory廃止**: トークンオーバーフロー回避のため統計サマリーに変更
 
-### アーキテクチャの誤解
-当初、サーバー起動時にペルソナを指定して固定的に動作させる想定だったが、実際のアーキテクチャは：
-- **サーバー起動**: defaultペルソナで最小限の初期化のみ
-- **リクエスト時**: X-Personaヘッダーに基づいて動的にペルソナを切り替える
-- **ベクトルストア**: リクエストごとにペルソナ別の接続を動的に生成する必要がある
+### Phase 24: ペルソナ別動的Qdrant（2025-11-01）
+- **動的アダプター**: リクエストごとにペルソナ別Qdrantコレクション生成
+- **X-Personaヘッダー対応**: ペルソナ切り替え実装
 
-### 実装した解決策
-**vector_utils.py** の`add_memory_to_vector_store()`関数を修正（Lines 428-451）：
-
-```python
-# 修正前: グローバルvector_storeを固定使用
-vector_store.add_documents([doc], ids=[key])
-## Docker Image最適化の詳細
-
-### 最適化結果
-| 項目 | 最適化前 | 最適化後 | 削減率 |
-|------|----------|----------|--------|
-| イメージサイズ | 8.28GB | 2.65GB | **68.0%削減** |
-| PyTorch | CUDA版 6.6GB | CPU版 184MB | 97.2%削減 |
-
-### 実施した最適化
-1. **PyTorchをCPU版に切り替え**
-   - `--index-url https://download.pytorch.org/whl/cpu`を使用
-   - CUDA依存パッケージ（nvidia/4.3GB、triton/593MB）を完全除外
-
-2. **Multi-stage buildの導入**
-   - Build stage: build-essentialを含む（依存パッケージのビルド用）
-   - Runtime stage: curlのみ（ヘルスチェック用）
-   - 最終イメージから336MBのbuild-essentialを除外
-
-3. **.dockerignoreの最適化**
-   - venv-rag/, data/, .git/, memory/, output/ などを除外
-   - ビルドコンテキストの転送量削減
-
-### ベンチマーク（参考）
-- **ビルド時間**: 約5分（最適化前: 約15分）
-- **デプロイ時間**: 約2分（最適化前: 約8分）
-- **起動時間**: 約15秒（変化なし）
-
-詳細は [DOCKER.md](DOCKER.md) を参照してください。
-
----
-
-## Phase 25: Qdrant専用化とlist_memory廃止
-
-### 変更内容
-1. **list_memory廃止 → get_memory_stats新設**: トークンオーバーフロー回避のため、統計サマリーのみ返却
-2. **FAISS完全削除**: Qdrant専用実装に統一、コード複雑度低減
-3. **動的アダプターパターン**: リクエストごとにペルソナ別Qdrantアダプター生成（Phase 24実装継続）
-4. **🆕 Phase 27: ツール統合**: 7ツール → 5ツールに簡素化、より直感的なAPI
-
-### 影響
-- ⚠️ **Breaking Change**: `list_memory`は使用不可（代わりに`get_memory_stats` + `read_memory`を使用）
-- ⚠️ **Breaking Change**: `update_memory`と`search_memory_rag`は廃止（`create_memory`と`read_memory`に統合）
-- ⚠️ **Breaking Change**: FAISS非対応（Qdrantが必須）
-- ✅ **スケーラビリティ向上**: 大量記憶でも安定動作
-- ✅ **コード削減**: 172行削除、保守性向上
-- ✅ **UX向上**: ツール名が直感的、機能は強化
+### Docker最適化（2025-10-30）
+- **イメージサイズ削減**: 8.28GB → 2.65GB（68.0%削減）
+- **CPU版PyTorch**: CUDA依存除外、Multi-stage build
 
 詳細は [activeContext.md](.vscode/memory-bank/activeContext.md) と [progress.md](.vscode/memory-bank/progress.md) を参照してください。
 
 ---
 
-心地よい記憶管理を楽しんでね。必要があればいつでも `memory://info` に声をかけて状態を確認してみて。
+**心地よい記憶管理を楽しんでね。必要があればいつでも `memory://info` に声をかけて状態を確認してみて。** 🌸
+

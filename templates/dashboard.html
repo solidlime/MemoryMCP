@@ -107,10 +107,10 @@
                 </button>
             </div>
             
-            <!-- Rebuild Vector Store -->
+            <!-- Rebuild Qdrant Collection -->
             <div class="glass-card rounded-lg p-4">
-                <h3 class="text-lg font-semibold text-white mb-2">🔄 Rebuild Vector Store</h3>
-                <p class="text-purple-200 text-sm mb-3">Rebuild FAISS index from database</p>
+                <h3 class="text-lg font-semibold text-white mb-2">🔄 Rebuild Qdrant Collection</h3>
+                <p class="text-purple-200 text-sm mb-3">Rebuild Qdrant vectors from SQLite database</p>
                 <button onclick="rebuildVectorStore()" 
                         class="w-full glass-card rounded-lg px-4 py-2 text-white font-semibold hover:bg-white/20 transition mt-8">
                     Rebuild
@@ -449,7 +449,7 @@
         }
         
         async function rebuildVectorStore() {
-            if (!confirm(`Rebuild vector store for persona "${currentPersona}"?`)) return;
+            if (!confirm(`Rebuild Qdrant collection for persona "${currentPersona}"?`)) return;
             
             try {
                 const response = await fetch('/api/admin/rebuild', {

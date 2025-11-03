@@ -336,7 +336,7 @@ def register_http_routes(mcp, templates):
     
     @mcp.custom_route("/api/admin/rebuild", methods=["POST"])
     async def admin_rebuild_vector_store(request: Request):
-        """Rebuild vector store from database."""
+        """Rebuild Qdrant collection from SQLite database."""
         try:
             data = await request.json()
             persona = data.get("persona")
@@ -352,7 +352,7 @@ def register_http_routes(mcp, templates):
                 rebuild_vector_store()
                 return JSONResponse({
                     "success": True,
-                    "message": f"Successfully rebuilt vector store for {persona}"
+                    "message": f"Successfully rebuilt Qdrant collection for {persona}"
                 })
             finally:
                 current_persona.set(original_persona)
