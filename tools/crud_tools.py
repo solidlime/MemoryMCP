@@ -795,7 +795,8 @@ async def update_memory(
         
         # Check similarity score of best match
         best_match = search_results[0]
-        similarity_score = best_match['score']
+        distance_score = best_match['score']  # Lower is better (0.0 = perfect match)
+        similarity_score = 1.0 - distance_score  # Convert to similarity (higher is better)
         
         if similarity_score < 0.80:
             # Low confidence - show candidates and create new
@@ -971,7 +972,8 @@ async def delete_memory(key_or_query: str) -> str:
             
             # Check similarity score of best match
             best_match = search_results[0]
-            similarity_score = best_match['score']
+            distance_score = best_match['score']  # Lower is better (0.0 = perfect match)
+            similarity_score = 1.0 - distance_score  # Convert to similarity (higher is better)
             
             if similarity_score >= 0.90:
                 # Very high confidence - auto-select (strict threshold for deletion safety)
