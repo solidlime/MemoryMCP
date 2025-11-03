@@ -12,12 +12,31 @@
 ```
 memory-mcp/
 ├── memory_mcp.py (231行)      # MCPサーバー初期化とオーケストレーション
+├── tools_memory.py            # MCPツール/リソース登録
 ├── core/                       # コアロジック（MCPから独立）
 │   ├── __init__.py
 │   ├── memory_db.py           # SQLite CRUD操作
 │   ├── persona_context.py     # Personaコンテキスト管理
 │   ├── time_utils.py          # 時刻・タイムゾーン処理
+│   ├── forgetting.py          # 忘却曲線実装
 │   └── __pycache__/
+├── src/                        # アプリケーションコード
+│   ├── admin_tools.py         # 管理者コマンドCLI
+│   ├── dashboard.py           # Webダッシュボード
+│   ├── resources.py           # MCPリソース定義
+│   └── utils/                 # ユーティリティモジュール群
+│       ├── __init__.py
+│       ├── config_utils.py    # 設定管理
+│       ├── db_utils.py        # DB操作ヘルパー
+│       ├── persona_utils.py   # ペルソナ管理
+│       ├── vector_utils.py    # ベクトル操作
+│       └── analysis_utils.py  # 分析機能
+├── scripts/                    # 開発/運用スクリプト
+│   ├── start_local_qdrant.sh  # Qdrant起動
+│   ├── test_local_environment.sh
+│   └── test_mcp_http.py
+├── config/                     # 設定例（バージョン管理対象）
+│   └── README.md              # 設定手順ドキュメント
 ├── tools/                      # MCPツール定義
 │   ├── __init__.py
 │   ├── crud_tools.py          # Create/Read/Update/Delete
@@ -25,7 +44,9 @@ memory-mcp/
 │   ├── context_tools.py       # Personaコンテキスト操作
 │   ├── analysis_tools.py      # 感情分析、関連記憶検索
 │   ├── vector_tools.py        # ベクトルストア管理
+│   ├── summarization_tools.py # 要約ツール（管理者専用）
 │   ├── knowledge_graph_tools.py # 知識グラフ生成
+│   ├── association.py         # 連想記憶（Phase 28.2予定）
 │   └── __pycache__/
 ├── lib/                        # バックエンド実装
 │   ├── backends/
@@ -36,12 +57,12 @@ memory-mcp/
 ├── api/                        # REST APIエンドポイント（将来）
 ├── templates/                  # ダッシュボードUI
 │   └── dashboard.html
-├── data/                       # データディレクトリ
+├── data/                       # ランタイムデータ（gitignore）
+│   ├── config.json            # 実際の設定ファイル
 │   ├── memory/                # Personaごとのストレージ
 │   │   ├── default/
 │   │   │   ├── memory.sqlite  # SQLiteデータベース
-│   │   │   ├── persona_context.json
-│   │   │   └── vector_store/  # FAISSインデックス（FAISS mode）
+│   │   │   └── persona_context.json
 │   │   ├── nilou/
 │   │   └── ...
 │   ├── logs/                  # ログファイル
@@ -50,11 +71,17 @@ memory-mcp/
 │       ├── huggingface/
 │       ├── sentence_transformers/
 │       └── transformers/
-├── config.json                # 設定ファイル（本番）
-├── config.dev.json            # 設定ファイル（開発）
 ├── docker-compose.yml         # Docker構成
-└── Dockerfile                 # Dockerイメージ定義
+├── Dockerfile                 # Dockerイメージ定義
+└── requirements.txt           # Python依存関係
 ```
+
+**Phase 30での改善**:
+- src/構造導入: コアロジックとユーティリティを明確分離
+- scripts/へ開発スクリプト集約
+- config/で設定例をバージョン管理可能に
+- data/をランタイムデータ専用に統一
+- -462行削減、ルートディレクトリすっきり化
 
 ## 設計パターン
 

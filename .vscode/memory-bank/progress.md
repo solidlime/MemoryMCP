@@ -6,6 +6,7 @@
 
 ## 現在の状態（要約）
 
+- **Phase 30完了** ✅: プロジェクト構造再編成、src/utils/構造導入、要約ツール管理者専用化
 - **Phase 29完了** ✅: Vector dimension自動リビルド、MCPツールキャッシュ対策、ダッシュボードタイムゾーン表示改善
 - **公開準備完了** ✅: 個人情報削除、Phase番号削除、公開ドキュメントポリシー追加
 - **Phase 28.1完了** 🎉: DB Schema拡張（15カラム）、連想記憶基盤実装完了
@@ -18,10 +19,185 @@
 - **高度な検索機能**: メタデータフィルタリング + カスタムスコアリング + Fuzzy Matching
 - **ツール最適化**: 統合された5ツール体制（create/read/search/delete + helpers）
 - **自動リカバリ**: Vector dimension mismatch自動検出・再構築
+- **クリーンな構造**: src/ + scripts/ + config/ 分離、-462行削除でシンプル化
 
 ---
 
 ## 完了フェーズ（新しい順）
+
+### ✅ Phase 30: Project Structure Reorganization (2025-11-03)
+
+**目的**: プロジェクト構造の整理、保守性向上、ツール責務明確化
+
+#### 実施内容
+
+##### 1. Directory Structure Reorganization ✅
+**背景**:
+- ルートディレクトリに21個のファイルが混在（保守困難）
+- コアロジック、ユーティリティ、スクリプトが未分離
+- 設定ファイルの配置が不明確
+
+**新構造**:
+```
+/
+├── src/                       # コアロジック（アプリケーション本体）
+│   ├── admin_tools.py        # 管理者コマンドCLI
+│   ├── dashboard.py          # Webダッシュボード
+│   ├── resources.py          # MCPリソース定義
+│   └── utils/                # ユーティリティモジュール群
+│       ├── __init__.py
+│       ├── config_utils.py   # 設定管理
+│       ├── db_utils.py       # DB操作
+│       ├── persona_utils.py  # ペルソナ管理
+│       ├── vector_utils.py   # ベクトル操作
+│       └── analysis_utils.py # 分析機能
+├── scripts/                   # 開発/運用スクリプト
+│   ├── start_local_qdrant.sh
+│   ├── test_local_environment.sh
+│   └── test_mcp_http.py
+├── config/                    # 設定例（バージョン管理対象）
+│   ├── README.md
+│   └── config.json.example（予定）
+├── data/                      # ランタイムデータ（gitignore）
+│   ├── config.json           # 実際の設定ファイル
+│   ├── cache/                # モデルキャッシュ
+│   ├── logs/                 # ログファイル
+│   └── memory/               # メモリDB
+├── core/                      # 中核機能（変更なし）
+├── lib/                       # ライブラリ（変更なし）
+├── tools/                     # MCPツール定義（変更なし）
+├── memory_mcp.py             # エントリーポイント
+├── tools_memory.py           # ツール登録
+└── requirements.txt
+```
+
+**実装** (commit: `34c4568`):
+- git mvでファイル移動（履歴保持）
+- src/utils/__init__.py作成（パッケージ化）
+- config/README.md追加（設定手順ドキュメント）
+- test_phase28.py削除（Phase 28開発用テストファイル、不要）
+
+##### 2. Import Path Updates ✅
+**問題**:
+- ファイル移動後、全Pythonファイルのimportパスが旧構造のまま
+
+**解決策**（一括sed置換）:
+```bash
+find . -name "*.py" ! -path "./venv-*" ! -path "./.cache/*" ! -path "./data/*" -exec sed -i \
+  's|from config_utils|from src.utils.config_utils|g; \
+   s|from db_utils|from src.utils.db_utils|g; \
+   s|from persona_utils|from src.utils.persona_utils|g; \
+   s|from vector_utils|from src.utils.vector_utils|g; \
+   s|from analysis_utils|from src.utils.analysis_utils|g; \
+   s|from resources|from src.resources|g; \
+   s|from dashboard|from src.dashboard|g; \
+   s|from admin_tools|from src.admin_tools|g' {} \;
+```
+
+**効果**:
+- ✅ 全importが新構造に対応
+- ✅ テスト通過：`python -c "from src.utils import config_utils; print(config_utils.get_config_path())"`
+  → 出力: `/home/rausraus/memory-mcp/data/config.json`
+
+##### 3. Configuration System Alignment ✅
+**更新内容**:
+
+**src/utils/config_utils.py**:
+- `BASE_DIR`計算を3階層上に変更（`__file__` → src/utils/ → src/ → project root）
+- `get_data_dir()`: デフォルトを`./data/`に変更（以前は`./`）
+- `get_config_path()`: デフォルトを`data/config.json`に変更
+
+**Dockerfile**:
+- L51: `config.json` → `data/config.json`削除処理に変更
+- L61: `MEMORY_MCP_CONFIG_PATH=${DATA_HOME}/config.json` 環境変数追加
+
+**効果**:
+- ✅ 設定ファイルが`data/config.json`に統一
+- ✅ Docker環境でも新構造対応
+
+##### 4. Gitignore Granular Rules ✅
+**更新内容** (.gitignore):
+```gitignore
+# Before
+data/
+
+# After
+data/config.json     # Actual config (personal settings)
+data/cache/          # Model caches
+data/logs/           # Log files
+data/memory/         # Memory databases
+```
+
+**効果**:
+- ✅ `config/config.json.example`をバージョン管理可能に（予定）
+- ✅ ランタイムデータは引き続き除外
+- ✅ data/ディレクトリ構造は追跡可能
+
+##### 5. Summarization Tools Migration ✅
+**目的**: LLM用ツールと管理者用ツールの責務分離
+
+**変更内容** (tools_memory.py):
+```python
+# Before
+from tools.summarization_tools import summarize_last_week, summarize_last_day
+mcp.tool()(summarize_last_week)
+mcp.tool()(summarize_last_day)
+
+# After
+# from tools.summarization_tools import summarize_last_week, summarize_last_day  # 管理者ツールに移行
+# Phase 28.4: 自己要約（メタメモリ）→ 管理者ツールに移行
+# mcp.tool()(summarize_last_week)  # ❌ LLM用ツールから除外
+# mcp.tool()(summarize_last_day)   # ❌ LLM用ツールから除外
+# ✅ admin_tools.py + ダッシュボードから実行可能
+```
+
+**理由**:
+- 要約ツールは会話中に実行するものではなく、定期メンテナンス用
+- admin_tools.py CLIとダッシュボード管理画面で十分
+- MCPツールリストをシンプルに保つ
+
+**効果**:
+- ✅ LLM用MCPツール: 7個（create/update/read/search/delete + helpers）
+- ✅ 管理者専用ツール: admin_tools.py経由またはダッシュボード経由で実行
+
+#### 統計
+
+**ファイル変更**:
+- 31 files changed
+- +136 insertions, **-462 deletions** （コード削減！）
+
+**ディレクトリ構成**:
+- src/ (4ファイル + utils/5ファイル)
+- scripts/ (3ファイル)
+- config/ (1ファイル + README)
+- data/logs/ (3ログファイル移動)
+
+**削除**:
+- test_phase28.py（開発用テストファイル、不要）
+
+#### 効果・メリット
+
+1. **可読性向上** 📖:
+   - ルートディレクトリがすっきり（21 → 11ファイル）
+   - ロジック/ユーティリティ/スクリプトが明確に分離
+
+2. **保守性向上** 🔧:
+   - src/utils/で関連機能がパッケージ化
+   - import pathが構造を反映（from src.utils.config_utils）
+
+3. **新規開発者フレンドリー** 👥:
+   - プロジェクト構造が直感的
+   - config/README.mdで設定手順明確化
+
+4. **Docker最適化** 🐳:
+   - 環境変数で設定パス明示
+   - data/構造が一貫
+
+5. **ツール責務明確化** 🛠️:
+   - LLM用ツール: 会話記憶管理（7個）
+   - 管理者用ツール: メンテナンス作業（admin_tools.py + dashboard）
+
+---
 
 ### ✅ Phase 29: Production Optimization (2025-11-03)
 

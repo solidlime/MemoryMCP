@@ -2,16 +2,69 @@
 
 ## 現在の状態
 
-- **現在フェーズ**: Phase 28.1（DB Schema Extension）完了 ✅
-- **次フェーズ**: Phase 28.2（Association Generation Module）
+- **現在フェーズ**: Phase 30（Project Structure Reorganization）完了 ✅
+- **次フェーズ**: 未定（新機能検討中）
 - **本番環境**: Qdrant (http://nas:6333) 運用中、sentencepiece依存解決済み
 - **開発環境**: Qdrant専用（Phase 25でFAISS廃止完了）
 - **最新DB構造**: 15カラム（Phase 28.1で3カラム追加: emotion_intensity, related_keys, summary_ref）
-- **最新ツール構成**: 5ツール（create_memory, read_memory, search_memory, delete_memory, helpers）
+- **最新ツール構成**: 7ツール（create/update/read/search/delete + find_related + analyze_sentiment）
+  - 要約ツール（summarize_last_day/week）は管理者専用に移行
+- **プロジェクト構造**: src/ + scripts/ + config/ 分離構成
 
 ---
 
 ## 今日の作業（2025-11-03）
+
+### Phase 30: Project Structure Reorganization ✅ 完了
+
+#### 1. ディレクトリ構造再編成
+**目的**: ルートディレクトリ整理、保守性向上、責務明確化
+
+**実装内容**:
+- ✅ 新構造作成:
+  - `src/`: コアロジック（admin_tools, dashboard, resources）
+  - `src/utils/`: ユーティリティ5モジュール（config, db, persona, vector, analysis）
+  - `scripts/`: 開発/運用スクリプト（start_local_qdrant, test_*）
+  - `config/`: 設定例とREADME
+  - `data/logs/`: ログファイル
+- ✅ ファイル移動: git mv で履歴保持
+- ✅ 不要ファイル削除: `test_phase28.py`
+
+**効果**:
+- ルートディレクトリ: 21 → 11ファイル（クリーン化）
+- -462行削除（コード簡素化）
+
+#### 2. Import Path Updates
+**実装**:
+- 一括sed置換で全Pythonファイルのimportパス更新
+- `from config_utils` → `from src.utils.config_utils` など8パターン
+- ✅ テスト通過: `python -c "from src.utils import config_utils; print(config_utils.get_config_path())"`
+
+#### 3. Configuration System Alignment
+**変更内容**:
+- `src/utils/config_utils.py`:
+  - BASE_DIR計算を3階層上に変更（project root取得）
+  - get_data_dir(): `./` → `./data/`
+  - get_config_path(): `config.json` → `data/config.json`
+- `Dockerfile`:
+  - config削除処理を`data/config.json`に変更
+  - MEMORY_MCP_CONFIG_PATH環境変数追加
+- `.gitignore`:
+  - data/ルールを粒度高く（cache, logs, memory個別指定）
+  - config/config.json.exampleをバージョン管理可能に
+
+#### 4. Summarization Tools Migration
+**変更内容**:
+- `tools_memory.py`: summarize_last_day/week のMCPツール登録をコメントアウト
+- admin_tools.pyとダッシュボードからのみ実行可能に
+
+**理由**:
+- 要約はメンテナンス用（会話中に不要）
+- MCPツールリストをシンプルに保つ
+
+**Git**: Commit `34c4568`, Push完了
+
+---
 
 ### RAGデバイス統一設定 ✅ 完了
 **目的**: 全RAGモデル（Embeddings, Reranker, Sentiment）のデバイス設定を一元化
