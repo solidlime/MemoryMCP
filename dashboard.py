@@ -66,13 +66,8 @@ def _get_memory_info_data(persona: str) -> dict:
         else:
             created_at = "Unknown"
         
-        # Get last conversation time
-        last_conv = context.get("last_conversation_time")
-        if last_conv:
-            time_diff = calculate_time_diff(last_conv)
-            last_conversation = time_diff.get("formatted_string", "Unknown")
-        else:
-            last_conversation = "Never"
+        # Get last conversation time (from persona_context.json)
+        last_conversation = context.get("last_conversation_time", "Never")
         
         return {
             "persona": persona,

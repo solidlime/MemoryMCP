@@ -10,6 +10,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "embeddings_device": "cpu",
     "reranker_model": "hotchpotch/japanese-reranker-xsmall-v2",
     "reranker_top_n": 5,
+    "sentiment_model": "cardiffnlp/twitter-xlm-roberta-base-sentiment",
     "server_host": "0.0.0.0",
     "server_port": 26262,
     "timezone": "Asia/Tokyo",

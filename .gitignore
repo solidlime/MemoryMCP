@@ -30,8 +30,6 @@ env/
 
 # IDEs
 .vscode/
-!.vscode/memory-bank/
-!.vscode/tasks.json
 .idea/
 *.swp
 *.swo

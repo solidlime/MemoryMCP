@@ -13,6 +13,162 @@
 
 ## 今日の作業（2025-11-03）
 
+### Phase 28
+ 📝 **改善候補**
+   - 共通SQLクエリ関数の集約（db_utils.py）
+   - 定数の一元管理（SQLスキーマ）
+   - 未使用コードの整理
+
+``````
+## 🧠 記憶システム設計書（完全版：感情強度対応）
+
+### 🎯 目的
+
+Qdrantを用いたLLM記憶システムにおいて、人間のような「感情」「連想」「忘却」を再現する。
+単なる検索ではなく、「思い出す・手放す・まとめる」という流れを模倣する。
+
+---
+
+## 1️⃣ 記憶データ構造
+
+| カラム名                  | 型    | デフォルト       | 説明                                         |
+| --------------------- | ---- | ----------- | ------------------------------------------ |
+| `key`                 | TEXT | (必須)        | 一意識別子（例：`memory_YYYYMMDDHHMMSS`）           |
+| `content`             | TEXT | (必須)        | 記憶本文（自然言語）                                 |
+| `created_at`          | TEXT | (必須)        | 作成日時（ISO 8601）                             |
+| `updated_at`          | TEXT | (必須)        | 更新日時（ISO 8601）                             |
+| `tags`                | TEXT | `[]`        | 記憶の属性（例: `["research", "conversation"]`）   |
+| `importance`          | REAL | `0.5`       | 記憶の重要度（0〜1）                                |
+| `emotion`             | TEXT | `"neutral"` | 感情カテゴリ（joy, anger, sadness, fear, neutral） |
+| `emotion_intensity`   | REAL | `0.0`       | 感情の強度（0〜1、0.8以上は強烈）                        |
+| `physical_state`      | TEXT | `"normal"`  | 身体状態（tired, energeticなど）                   |
+| `mental_state`        | TEXT | `"calm"`    | 精神状態（focused, anxiousなど）                   |
+| `environment`         | TEXT | `"unknown"` | 環境（home, officeなど）                         |
+| `relationship_status` | TEXT | `"normal"`  | 対人距離（close, distantなど）                     |
+| `action_tag`          | TEXT | `NULL`      | 行動内容（coding, meetingなど）                    |
+| `related_keys`        | TEXT | `[]`        | 類似スコア上位3件の参照キー（記憶の「連想」）                    |
+| `summary_ref`         | TEXT | `NULL`      | 要約ノードへの参照キー                                |
+
+---
+
+## 2️⃣ モジュール構成
+
+### 【A】連想生成モジュール
+
+**目的:** 新しい記憶と既存記憶の“関連”を自動構築する。
+**担当:** コード（ベクトル検索 + Qdrant API）
+
+**処理フロー**
+
+1. 新規記憶が生成されるたびに、embeddingを作成
+2. 類似スコア上位3件を取得
+3. `related_keys` に保存
+4. 類似記憶群から感情・タグを統計的に抽出し、「文脈の平均感情」を算出
+5. 感情強度が高い記憶ほどimportanceを初期値＋補正する（例：joy=0.9→importance+0.2）
+
+**擬似コード例**
+
+```python
+neighbors = qdrant.query(embedding, top_k=3)
+related_keys = [n.id for n in neighbors]
+emotion_intensity = max([n.payload["emotion_intensity"] for n in neighbors])
+importance = base_importance + (emotion_intensity * 0.2)
+```
+
+---
+
+### 【B】回想＋忘却モジュール
+
+**目的:** 記憶を呼び出す際に、関連連鎖と感情補正を行い、同時に“忘却”の進行をシミュレート。
+**担当:** LLM＋コード（ハイブリッド）
+
+**処理フロー**
+
+1. クエリに対して類似記憶を検索（importanceと類似度で加重スコア）
+2. 関連記憶（`related_keys`）も辿って二次記憶を補完
+3. LLMが回想文を構成（感情・時系列に基づく再解釈）
+4. 呼び出された記憶の参照カウントを+1
+5. **忘却ルール:**
+
+   * 時間経過 × 未参照期間 × 低importance → importance減衰
+   * emotion_intensity > 0.7 の記憶は減衰が遅い（強い感情は残る）
+   * summary_ref が存在する場合、importanceが0.0未満で削除（自己要約済）
+
+**擬似コード例**
+
+```python
+importance_decay = 0.01 * (days_since_last_access)
+if emotion_intensity < 0.5:
+    importance -= importance_decay
+else:
+    importance -= importance_decay * 0.3  # 強い感情は遅く減衰
+if importance < 0.0 and summary_ref:
+    delete(memory)
+```
+
+---
+
+### 【C】自己要約（Metamemory）モジュール
+
+**目的:** 定期的に記憶群を圧縮・抽象化し、「人生の節」として保存。
+**担当:** LLM
+
+**処理フロー**
+
+1. 1日/週単位で該当期間の記憶を抽出
+2. importance×emotion_intensity×参照頻度で上位を抽出
+3. LLMが「期間の印象」や「支配的感情」を要約文として生成
+4. 新しい要約ノードを作成し、各記憶に `summary_ref` を付与
+5. 要約ノードにも emotion / emotion_intensity / importance を付与し、
+   全体のトーンを反映（例：「穏やかだが焦燥感のある週だった」）
+
+**出力例**
+
+```json
+{
+  "key": "summary_202511",
+  "content": "新しいプロジェクトに没頭した週。充実と軽い疲労感が混ざる。",
+  "emotion": "joy",
+  "emotion_intensity": 0.6,
+  "importance": 0.8,
+  "related_keys": ["memory_202511021200", "memory_202511030930"]
+}
+```
+
+---
+
+## 3️⃣ 感情強度の影響規則まとめ
+
+| 要素             | 影響                             | 説明               |
+| -------------- | ------------------------------ | ---------------- |
+| importance 初期値 | emotion_intensity × 0.2 加算     | 感情が強いほど残りやすい     |
+| 忘却速度           | emotion_intensity に反比例         | 強烈な感情はゆっくり消える    |
+| 要約優先度          | emotion_intensity × importance | 強く印象的な出来事が節に残る   |
+| 連想連鎖           | 類似する感情同士が優先的にリンク               | 「悲しい→寂しい」など感情的連鎖 |
+
+---
+
+## 4️⃣ LLM・コード・RAGの役割整理
+
+| 項目                   | 担当          | 説明                 |
+| -------------------- | ----------- | ------------------ |
+| Embedding生成・近傍探索     | コード（Qdrant） | 記憶間のベクトル距離算出       |
+| importance・emotion補正 | コード         | 数値計算とメタデータ更新       |
+| 回想テキスト構築             | LLM         | 記憶群を文脈として統合        |
+| 要約ノード生成              | LLM         | 抽象的まとめと感情の再ラベル     |
+| 知識検索との統合             | RAG         | 記憶と外部知識を接続（背景文脈補完） |
+
+---
+
+## 🌌 運用サイクル
+
+1. **登録:** 新しい記憶 → 連想 → 感情補正
+2. **使用:** 回想呼び出し（関連＋感情補正）
+3. **整理:** 定期要約ノード生成
+4. **忘却:** importance減衰＋要約済み削除
+5. **継承:** 要約ノードが過去を内包し、再生可能な記憶履歴となる
+``````
+
 ### Phase 27フォローアップ: 本番環境バグ修正 & 改善 ✨
 
 #### sentencepiece依存問題解決 ✅
@@ -34,10 +190,6 @@
 #### コードリファクタリング調査 ✅
 **発見した改善点**:
 1. ✅ **重複インポート削除**: tools/crud_tools.py L625 の `from config_utils import load_config`
-2. 📝 **将来の改善候補**（Phase 28以降）:
-   - 共通SQLクエリ関数の集約（db_utils.py）
-   - 定数の一元管理（SQLスキーマ）
-   - 未使用コードの整理
 
 ---
 
