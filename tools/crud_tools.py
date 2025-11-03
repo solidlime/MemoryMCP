@@ -211,7 +211,8 @@ async def get_memory_stats() -> str:
 async def create_memory(
     content_or_query: str,
     content: Optional[str] = None,
-    emotion_type: Optional[str] = None, 
+    emotion_type: Optional[str] = None,
+    emotion_intensity: Optional[float] = None,
     context_tags: Optional[List[str]] = None,
     importance: Optional[float] = None,
     physical_state: Optional[str] = None,
@@ -321,22 +322,25 @@ async def create_memory(
                     # Get existing data
                     with sqlite3.connect(db_path) as conn:
                         cursor = conn.cursor()
-                        cursor.execute('SELECT content, created_at, tags, importance, emotion, physical_state, mental_state, environment, relationship_status, action_tag FROM memories WHERE key = ?', (key,))
+                        cursor.execute('SELECT content, created_at, tags, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys, summary_ref FROM memories WHERE key = ?', (key,))
                         row = cursor.fetchone()
                     
                     if row:
-                        old_content, created_at, tags_json, existing_importance, existing_emotion, existing_physical, existing_mental, existing_env, existing_relation, existing_action = row
+                        old_content, created_at, tags_json, existing_importance, existing_emotion, existing_emotion_intensity, existing_physical, existing_mental, existing_env, existing_relation, existing_action, existing_related_keys_json, existing_summary_ref = row
                         existing_entry = {
                             "content": old_content,
                             "created_at": created_at,
                             "tags": json.loads(tags_json) if tags_json else [],
                             "importance": existing_importance if existing_importance is not None else 0.5,
                             "emotion": existing_emotion if existing_emotion else "neutral",
+                            "emotion_intensity": existing_emotion_intensity if existing_emotion_intensity is not None else 0.0,
                             "physical_state": existing_physical if existing_physical else "normal",
                             "mental_state": existing_mental if existing_mental else "calm",
                             "environment": existing_env if existing_env else "unknown",
                             "relationship_status": existing_relation if existing_relation else "normal",
-                            "action_tag": existing_action if existing_action else None
+                            "action_tag": existing_action if existing_action else None,
+                            "related_keys": json.loads(existing_related_keys_json) if existing_related_keys_json else [],
+                            "summary_ref": existing_summary_ref if existing_summary_ref else None
                         }
                         
                         # Use provided importance or preserve existing
@@ -353,11 +357,14 @@ async def create_memory(
                             context_tags if context_tags else existing_entry["tags"],
                             importance=memory_importance,
                             emotion=emotion_type if emotion_type else existing_entry["emotion"],
+                            emotion_intensity=emotion_intensity if emotion_intensity is not None else existing_entry.get("emotion_intensity", 0.0),
                             physical_state=physical_state if physical_state else existing_entry["physical_state"],
                             mental_state=mental_state if mental_state else existing_entry["mental_state"],
                             environment=environment if environment else existing_entry["environment"],
                             relationship_status=relationship_status if relationship_status else existing_entry["relationship_status"],
-                            action_tag=action_tag if action_tag else existing_entry["action_tag"]
+                            action_tag=action_tag if action_tag else existing_entry["action_tag"],
+                            related_keys=existing_entry.get("related_keys", []),  # Phase 28: Preserve existing associations
+                            summary_ref=existing_entry.get("summary_ref", None)  # Phase 28: Preserve existing summary ref
                         )
                         
                         # Clear query cache
@@ -459,11 +466,14 @@ async def create_memory(
             context_tags,
             importance=memory_importance,
             emotion=emotion_type,  # Use emotion_type parameter as emotion field
+            emotion_intensity=emotion_intensity if emotion_intensity is not None else 0.0,
             physical_state=physical_state,
             mental_state=mental_state,
             environment=environment,
             relationship_status=relationship_status,
-            action_tag=action_tag
+            action_tag=action_tag,
+            related_keys=[],  # Phase 28.2: Will be populated by association module
+            summary_ref=None  # Phase 28.4: Will be populated by summarization module
         )
         
         # Clear query cache

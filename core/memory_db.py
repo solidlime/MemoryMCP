@@ -44,11 +44,14 @@ def load_memory_from_db() -> Dict[str, Any]:
                     tags TEXT,
                     importance REAL DEFAULT 0.5,
                     emotion TEXT DEFAULT 'neutral',
+                    emotion_intensity REAL DEFAULT 0.0,
                     physical_state TEXT DEFAULT 'normal',
                     mental_state TEXT DEFAULT 'calm',
                     environment TEXT DEFAULT 'unknown',
                     relationship_status TEXT DEFAULT 'normal',
-                    action_tag TEXT DEFAULT NULL
+                    action_tag TEXT DEFAULT NULL,
+                    related_keys TEXT DEFAULT '[]',
+                    summary_ref TEXT DEFAULT NULL
                 )
             ''')
             cursor.execute('''
@@ -129,11 +132,30 @@ def load_memory_from_db() -> Dict[str, Any]:
                 conn.commit()
                 _log_progress("✅ Database migration complete: action_tag column added")
             
-            cursor.execute('SELECT key, content, created_at, updated_at, tags, importance, emotion, physical_state, mental_state, environment, relationship_status, action_tag FROM memories')
+            # Phase 28.1: Add emotion intensity, related keys, and summary reference columns
+            if 'emotion_intensity' not in columns:
+                _log_progress("🔄 Migrating database: Adding emotion_intensity column...")
+                cursor.execute('ALTER TABLE memories ADD COLUMN emotion_intensity REAL DEFAULT 0.0')
+                conn.commit()
+                _log_progress("✅ Database migration complete: emotion_intensity column added")
+            
+            if 'related_keys' not in columns:
+                _log_progress("🔄 Migrating database: Adding related_keys column...")
+                cursor.execute('ALTER TABLE memories ADD COLUMN related_keys TEXT DEFAULT "[]"')
+                conn.commit()
+                _log_progress("✅ Database migration complete: related_keys column added")
+            
+            if 'summary_ref' not in columns:
+                _log_progress("🔄 Migrating database: Adding summary_ref column...")
+                cursor.execute('ALTER TABLE memories ADD COLUMN summary_ref TEXT DEFAULT NULL')
+                conn.commit()
+                _log_progress("✅ Database migration complete: summary_ref column added")
+            
+            cursor.execute('SELECT key, content, created_at, updated_at, tags, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys, summary_ref FROM memories')
             rows = cursor.fetchall()
             
             for row in rows:
-                key, content, created_at, updated_at, tags_json, importance, emotion, physical_state, mental_state, environment, relationship_status, action_tag = row
+                key, content, created_at, updated_at, tags_json, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys_json, summary_ref = row
                 memory_store[key] = {
                     "content": content,
                     "created_at": created_at,
@@ -141,11 +163,14 @@ def load_memory_from_db() -> Dict[str, Any]:
                     "tags": json.loads(tags_json) if tags_json else [],
                     "importance": importance if importance is not None else 0.5,
                     "emotion": emotion if emotion else "neutral",
+                    "emotion_intensity": emotion_intensity if emotion_intensity is not None else 0.0,
                     "physical_state": physical_state if physical_state else "normal",
                     "mental_state": mental_state if mental_state else "calm",
                     "environment": environment if environment else "unknown",
                     "relationship_status": relationship_status if relationship_status else "normal",
-                    "action_tag": action_tag if action_tag else None
+                    "action_tag": action_tag if action_tag else None,
+                    "related_keys": json.loads(related_keys_json) if related_keys_json else [],
+                    "summary_ref": summary_ref if summary_ref else None
                 }
         
         print(f"Loaded {len(memory_store)} memory entries from {db_path}")
@@ -165,11 +190,14 @@ def save_memory_to_db(
     tags: Optional[List[str]] = None,
     importance: Optional[float] = None,
     emotion: Optional[str] = None,
+    emotion_intensity: Optional[float] = None,
     physical_state: Optional[str] = None,
     mental_state: Optional[str] = None,
     environment: Optional[str] = None,
     relationship_status: Optional[str] = None,
-    action_tag: Optional[str] = None
+    action_tag: Optional[str] = None,
+    related_keys: Optional[List[str]] = None,
+    summary_ref: Optional[str] = None
 ) -> bool:
     """
     Save memory to SQLite database (persona-scoped).
@@ -182,11 +210,14 @@ def save_memory_to_db(
         tags: Optional list of tags
         importance: Optional importance score (0.0-1.0, defaults to 0.5)
         emotion: Optional emotion label (defaults to 'neutral')
+        emotion_intensity: Optional emotion intensity (0.0-1.0, defaults to 0.0)
         physical_state: Optional physical state (defaults to 'normal')
         mental_state: Optional mental state (defaults to 'calm')
         environment: Optional environment (defaults to 'unknown')
         relationship_status: Optional relationship status (defaults to 'normal')
         action_tag: Optional action tag (e.g., 'cooking', 'coding', 'kissing', 'walking', etc.)
+        related_keys: Optional list of related memory keys (defaults to [])
+        summary_ref: Optional reference to summary node (defaults to None)
     
     Returns:
         bool: Success status
@@ -208,6 +239,8 @@ def save_memory_to_db(
             importance = 0.5
         if emotion is None:
             emotion = "neutral"
+        if emotion_intensity is None:
+            emotion_intensity = 0.0
         if physical_state is None:
             physical_state = "normal"
         if mental_state is None:
@@ -217,13 +250,18 @@ def save_memory_to_db(
         if relationship_status is None:
             relationship_status = "normal"
         # action_tag remains None if not provided (no default)
+        if related_keys is None:
+            related_keys = []
+        # summary_ref remains None if not provided (no default)
         
-        # Validate importance range
+        # Validate ranges
         importance = max(0.0, min(1.0, importance))
+        emotion_intensity = max(0.0, min(1.0, emotion_intensity))
         
-        # Serialize tags as JSON
+        # Serialize tags and related_keys as JSON
         tags_json = json.dumps(tags, ensure_ascii=False) if tags else None
-        _log_progress(f"💾 Tags JSON: {tags_json}, importance: {importance}, emotion: {emotion}, physical: {physical_state}, mental: {mental_state}, env: {environment}, relation: {relationship_status}, action: {action_tag}")
+        related_keys_json = json.dumps(related_keys, ensure_ascii=False)
+        _log_progress(f"💾 Tags JSON: {tags_json}, importance: {importance}, emotion: {emotion}, emotion_intensity: {emotion_intensity}, physical: {physical_state}, mental: {mental_state}, env: {environment}, relation: {relationship_status}, action: {action_tag}, related_keys: {related_keys_json}, summary_ref: {summary_ref}")
         
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
@@ -234,9 +272,9 @@ def save_memory_to_db(
             _log_progress(f"💾 DB columns: {columns}")
             
             cursor.execute('''
-                INSERT OR REPLACE INTO memories (key, content, created_at, updated_at, tags, importance, emotion, physical_state, mental_state, environment, relationship_status, action_tag)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (key, content, created_at, updated_at, tags_json, importance, emotion, physical_state, mental_state, environment, relationship_status, action_tag))
+                INSERT OR REPLACE INTO memories (key, content, created_at, updated_at, tags, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys, summary_ref)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (key, content, created_at, updated_at, tags_json, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys_json, summary_ref))
             conn.commit()
             _log_progress(f"✅ Successfully saved {key} to DB")
         

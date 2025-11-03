@@ -343,7 +343,7 @@ def rebuild_vector_store():
         # Fetch all memories from SQLite
         with sqlite3.connect(get_db_path()) as conn:
             cur = conn.cursor()
-            cur.execute('SELECT key, content, created_at, updated_at, tags, importance, emotion, physical_state, mental_state, environment, relationship_status, action_tag FROM memories')
+            cur.execute('SELECT key, content, created_at, updated_at, tags, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys, summary_ref FROM memories')
             rows = cur.fetchall()
         
         if not rows:
@@ -353,7 +353,7 @@ def rebuild_vector_store():
         docs = []
         ids = []
         for row in rows:
-            key, content, created_at, updated_at, tags_json, importance, emotion, physical_state, mental_state, environment, relationship_status, action_tag = row
+            key, content, created_at, updated_at, tags_json, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys_json, summary_ref = row
             meta = {"key": key}
             if created_at:
                 meta["created_at"] = created_at
@@ -365,6 +365,8 @@ def rebuild_vector_store():
                 meta["importance"] = importance
             if emotion:
                 meta["emotion"] = emotion
+            if emotion_intensity is not None:
+                meta["emotion_intensity"] = emotion_intensity
             if physical_state:
                 meta["physical_state"] = physical_state
             if mental_state:
@@ -375,6 +377,10 @@ def rebuild_vector_store():
                 meta["relationship_status"] = relationship_status
             if action_tag:
                 meta["action_tag"] = action_tag
+            if related_keys_json:
+                meta["related_keys"] = related_keys_json
+            if summary_ref:
+                meta["summary_ref"] = summary_ref
             
             docs.append(Document(page_content=content, metadata=meta))
             ids.append(key)
@@ -407,18 +413,21 @@ def add_memory_to_vector_store(key: str, content: str):
         tags_json = None
         importance = None
         emotion = None
+        emotion_intensity = None
         physical_state = None
         mental_state = None
         environment = None
         relationship_status = None
         action_tag = None
+        related_keys_json = None
+        summary_ref = None
         try:
             with sqlite3.connect(get_db_path()) as conn:
                 cur = conn.cursor()
-                cur.execute('SELECT created_at, updated_at, tags, importance, emotion, physical_state, mental_state, environment, relationship_status, action_tag FROM memories WHERE key = ?', (key,))
+                cur.execute('SELECT created_at, updated_at, tags, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys, summary_ref FROM memories WHERE key = ?', (key,))
                 row = cur.fetchone()
                 if row:
-                    created_at, updated_at, tags_json, importance, emotion, physical_state, mental_state, environment, relationship_status, action_tag = row
+                    created_at, updated_at, tags_json, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys_json, summary_ref = row
         except Exception:
             pass
 
@@ -433,6 +442,8 @@ def add_memory_to_vector_store(key: str, content: str):
             meta["importance"] = importance
         if emotion:
             meta["emotion"] = emotion
+        if emotion_intensity is not None:
+            meta["emotion_intensity"] = emotion_intensity
         if physical_state:
             meta["physical_state"] = physical_state
         if mental_state:
@@ -443,6 +454,10 @@ def add_memory_to_vector_store(key: str, content: str):
             meta["relationship_status"] = relationship_status
         if action_tag:
             meta["action_tag"] = action_tag
+        if related_keys_json:
+            meta["related_keys"] = related_keys_json
+        if summary_ref:
+            meta["summary_ref"] = summary_ref
 
         # Create document with metadata
         doc = Document(page_content=content, metadata=meta)
@@ -493,18 +508,21 @@ def update_memory_in_vector_store(key: str, content: str):
         tags_json = None
         importance = None
         emotion = None
+        emotion_intensity = None
         physical_state = None
         mental_state = None
         environment = None
         relationship_status = None
         action_tag = None
+        related_keys_json = None
+        summary_ref = None
         try:
             with sqlite3.connect(get_db_path()) as conn:
                 cur = conn.cursor()
-                cur.execute('SELECT created_at, updated_at, tags, importance, emotion, physical_state, mental_state, environment, relationship_status, action_tag FROM memories WHERE key = ?', (key,))
+                cur.execute('SELECT created_at, updated_at, tags, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys, summary_ref FROM memories WHERE key = ?', (key,))
                 row = cur.fetchone()
                 if row:
-                    created_at, updated_at, tags_json, importance, emotion, physical_state, mental_state, environment, relationship_status, action_tag = row
+                    created_at, updated_at, tags_json, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys_json, summary_ref = row
         except Exception:
             pass
 
@@ -519,6 +537,8 @@ def update_memory_in_vector_store(key: str, content: str):
             meta["importance"] = importance
         if emotion:
             meta["emotion"] = emotion
+        if emotion_intensity is not None:
+            meta["emotion_intensity"] = emotion_intensity
         if physical_state:
             meta["physical_state"] = physical_state
         if mental_state:
@@ -529,6 +549,10 @@ def update_memory_in_vector_store(key: str, content: str):
             meta["relationship_status"] = relationship_status
         if action_tag:
             meta["action_tag"] = action_tag
+        if related_keys_json:
+            meta["related_keys"] = related_keys_json
+        if summary_ref:
+            meta["summary_ref"] = summary_ref
 
         # Add new version
         doc = Document(page_content=content, metadata=meta)

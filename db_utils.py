@@ -15,11 +15,11 @@ def clear_query_cache():
 
 # These helpers are kept generic: caller passes db_path
 
-def db_get_entry(db_path: str, key: str) -> Optional[Tuple[str, str, str, str, float, str, str, str, str, str, str]]:
-    """Return (content, created_at, updated_at, tags_json, importance, emotion, physical_state, mental_state, environment, relationship_status, action_tag) for a key, or None"""
+def db_get_entry(db_path: str, key: str) -> Optional[Tuple[str, str, str, str, float, str, float, str, str, str, str, str, str, str]]:
+    """Return (content, created_at, updated_at, tags_json, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys_json, summary_ref) for a key, or None"""
     with sqlite3.connect(db_path) as conn:
         cursor = conn.cursor()
-        cursor.execute('SELECT content, created_at, updated_at, tags, importance, emotion, physical_state, mental_state, environment, relationship_status, action_tag FROM memories WHERE key = ?', (key,))
+        cursor.execute('SELECT content, created_at, updated_at, tags, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys, summary_ref FROM memories WHERE key = ?', (key,))
         return cursor.fetchone()
 
 
