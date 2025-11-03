@@ -27,9 +27,18 @@ def find_similar_memories(
     Returns:
         List of dicts with keys: 'key', 'score', 'content', 'emotion', 'emotion_intensity'
     """
-    from vector_utils import embeddings, _get_qdrant_adapter
+    from vector_utils import embeddings, _get_qdrant_adapter, initialize_rag_sync
+    
+    # Ensure RAG is initialized
+    if not embeddings:
+        print("🔄 Initializing RAG for association search...")
+        initialize_rag_sync()
+    
+    # Import again after initialization
+    from vector_utils import embeddings
     
     if not embeddings:
+        print("⚠️  RAG initialization failed, cannot find similar memories")
         return []
     
     try:
