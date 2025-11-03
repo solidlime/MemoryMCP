@@ -285,6 +285,14 @@ def initialize_rag_sync():
     embeddings_device = cfg.get("embeddings_device", "cpu")
     reranker_model = cfg.get("reranker_model", "hotchpotch/japanese-reranker-xsmall-v2")
 
+    # Disable torch compile to avoid ModernBERT issues
+    import os
+    os.environ["TORCH_COMPILE_DISABLE"] = "1"
+    
+    # Suppress transformers warnings
+    import warnings
+    warnings.filterwarnings("ignore", category=DeprecationWarning)
+
     # Embeddings
     try:
         with tqdm(total=100, desc="📥 Embeddings Model", unit="%", ncols=80) as pbar:
