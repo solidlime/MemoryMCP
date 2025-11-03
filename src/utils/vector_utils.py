@@ -429,11 +429,18 @@ def rebuild_vector_store():
             docs.append(Document(page_content=content, metadata=meta))
             ids.append(key)
         
-        with tqdm(total=1, desc="⚙️  Building Qdrant Index", unit="index", ncols=80) as pbar:
-            adapter.add_documents(docs, ids=ids)
-            pbar.update(1)
+        # Batch upload with progress bar
+        batch_size = 50
+        total_docs = len(docs)
         
-        print(f"✅ Rebuilt vector store: {len(docs)} memories indexed in collection '{collection}'")
+        with tqdm(total=total_docs, desc="⚙️  Building Qdrant Index", unit="memory", ncols=80) as pbar:
+            for i in range(0, total_docs, batch_size):
+                batch_docs = docs[i:i+batch_size]
+                batch_ids = ids[i:i+batch_size]
+                adapter.add_documents(batch_docs, ids=batch_ids)
+                pbar.update(len(batch_docs))
+        
+        print(f"✅ Rebuilt vector store: {total_docs} memories indexed in collection '{collection}'")
         
     except Exception as e:
         print(f"❌ Failed to rebuild vector store: {e}")
@@ -774,26 +781,29 @@ def detect_duplicate_memories(threshold: float = 0.85, max_pairs: int = 50) -> l
         duplicate_pairs = []
         
         # Compare each memory with all subsequent memories
-        for i in range(len(all_memories)):
-            key1, content1 = all_memories[i]
-            
-            # Search for similar memories
-            results = adapter.similarity_search_with_score(content1, k=20)
-            
-            for doc, score in results:
-                key2 = doc.metadata.get("key")
-                content2 = doc.page_content
+        with tqdm(total=len(all_memories), desc="🔍 Detecting Duplicates", unit="memory", ncols=80) as pbar:
+            for i in range(len(all_memories)):
+                key1, content1 = all_memories[i]
                 
-                # Skip self-comparison and already processed pairs
-                if key1 >= key2:  # >= ensures we don't process the same pair twice
-                    continue
+                # Search for similar memories
+                results = adapter.similarity_search_with_score(content1, k=20)
                 
-                # Convert distance-like score to similarity
-                similarity = 1.0 / (1.0 + float(score))
+                for doc, score in results:
+                    key2 = doc.metadata.get("key")
+                    content2 = doc.page_content
+                    
+                    # Skip self-comparison and already processed pairs
+                    if key1 >= key2:  # >= ensures we don't process the same pair twice
+                        continue
+                    
+                    # Convert distance-like score to similarity
+                    similarity = 1.0 / (1.0 + float(score))
+                    
+                    # Check if above threshold
+                    if similarity >= threshold:
+                        duplicate_pairs.append((key1, key2, content1, content2, similarity))
                 
-                # Check if above threshold
-                if similarity >= threshold:
-                    duplicate_pairs.append((key1, key2, content1, content2, similarity))
+                pbar.update(1)
         
         # Sort by similarity (highest first) and limit results
         duplicate_pairs.sort(key=lambda x: x[4], reverse=True)

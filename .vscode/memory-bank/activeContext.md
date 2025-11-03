@@ -2,14 +2,103 @@
 
 ## 現在の状態
 
-- **現在フェーズ**: Phase 30（Project Structure Reorganization）完了 ✅
-- **次フェーズ**: 未定（新機能検討中）
-- **本番環境**: Qdrant (http://nas:6333) 運用中、sentencepiece依存解決済み
+- **現在フェーズ**: Phase 31.2（read_memory Dimension Fix）完了 ✅
+- **次フェーズ**: サーバー再起動 → 意味的検索テスト
+- **本番環境**: Qdrant (http://nas:6333) 運用中、256次元（cl-nagoya/ruri-v3-30m）
 - **開発環境**: Qdrant専用（Phase 25でFAISS廃止完了）
 - **最新DB構造**: 15カラム（Phase 28.1で3カラム追加: emotion_intensity, related_keys, summary_ref）
 - **最新ツール構成**: 7ツール（create/update/read/search/delete + find_related + analyze_sentiment）
   - 要約ツール（summarize_last_day/week）は管理者専用に移行
 - **プロジェクト構造**: src/ + scripts/ + config/ 分離構成
+
+---
+
+## 今日の作業（2025-11-04）
+
+### Phase 31.2: read_memory Dimension Mismatch Fix ✅ 完了
+
+#### 1. 問題発見：検索精度診断
+**診断ツール作成**: `scripts/test_search_accuracy.py`
+
+**診断結果**:
+- ✅ **強い部分**（キーワード検索）:
+  - "Phase 28" → 100%マッチ、5件ヒット
+  - "Qdrant" → 100%マッチ、5件ヒット
+  - "らうらう" → 100%マッチ、5件ヒット
+  
+- ❌ **弱い部分**（意味的検索）:
+  - "嬉しい出来事" → ヒットなし（joyタグ記憶は存在）
+  - "非同期処理" → ヒットなし（async記憶は存在）
+  - "最近の開発作業" → ヒットなし
+  - "[[Authorization Bearer]]" → ヒットなし
+
+**結論**: 
+- `search_memory`（キーワード）は正常動作
+- `read_memory`（意味的検索）が停止中
+- 原因: Vector dimension mismatch
+
+#### 2. 根本原因特定
+**問題箇所**:
+- `tools/crud_tools.py`: `dim = cfg.get("embeddings_dim", 384)` (2箇所)
+- `tools/search_tools.py`: `dim = cfg.get("embeddings_dim", 384)` (1箇所)
+
+**エラー**:
+```
+Vector dimension error: expected dim: 384, got 256
+```
+
+**原因**:
+- コード: デフォルト384次元でQdrantに問い合わせ
+- 実際: cl-nagoya/ruri-v3-30mは256次元
+- Qdrantコレクション: 256次元で構築済み
+
+#### 3. 修正実装
+**変更内容**:
+```python
+# Before
+dim = cfg.get("embeddings_dim", 384)
+
+# After
+model_name = cfg.get("embeddings_model", "cl-nagoya/ruri-v3-30m")
+from src.utils.vector_utils import _get_embedding_dimension
+dim = _get_embedding_dimension(model_name)
+```
+
+**適用箇所**:
+- `tools/crud_tools.py`:
+  - `_search_memory_by_query()` 内
+  - `read_memory()` 内
+- `tools/search_tools.py`:
+  - `search_memory_rag()` 内（削除済み関数だが念のため）
+
+#### 4. テスト作成
+**テストツール**: `scripts/test_read_memory_fix.py`
+
+**テストケース**:
+1. 意味的類似性（感情）: "嬉しい出来事"
+2. 類義語検索: "非同期処理"  
+3. 抽象的クエリ: "最近の開発作業"
+4. 固有名詞: "Phase 28"
+
+**テスト結果（修正前）**:
+- 全て400エラー: "Vector dimension error: expected dim: 384, got 256"
+
+**次のステップ**:
+- サーバー再起動（コード反映）
+- テスト再実行
+- 意味的検索の復活確認
+
+#### 5. Git Operations
+**Commit**: bcbd78f
+```
+Phase 31.2: Fix read_memory dimension mismatch
+
+- Fix vector dimension detection
+- Add diagnostic tools
+- Expected: Semantic search restoration
+```
+
+**Push**: origin/main へ成功
 
 ---
 

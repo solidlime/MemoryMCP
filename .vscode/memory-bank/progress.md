@@ -1,11 +1,12 @@
 # Progress: Memory MCP
 
-## 最新更新: 2025-11-03
+## 最新更新: 2025-11-04
 
 ---
 
 ## 現在の状態（要約）
 
+- **Phase 31.2完了** ✅: read_memory次元エラー修復、意味的検索復活準備完了
 - **Phase 30完了** ✅: プロジェクト構造再編成、src/utils/構造導入、要約ツール管理者専用化
 - **Phase 29完了** ✅: Vector dimension自動リビルド、MCPツールキャッシュ対策、ダッシュボードタイムゾーン表示改善
 - **公開準備完了** ✅: 個人情報削除、Phase番号削除、公開ドキュメントポリシー追加
@@ -16,14 +17,76 @@
 - **Docker最適化完了**: イメージサイズ 8.28GB → 2.65GB (68.0%削減)
 - **本番運用準備完了**: 開発/本番環境分離、VS Code Tasks、最適化済みDockerイメージ
 - **完全コンテキスト保存**: 15カラムで記憶の完全な状況・連想保存を実現
-- **高度な検索機能**: メタデータフィルタリング + カスタムスコアリング + Fuzzy Matching
-- **ツール最適化**: 統合された5ツール体制（create/read/search/delete + helpers）
+- **高度な検索機能**: メタデータフィルタリング + カスタムスコアリング + Fuzzy Matching + 意味的検索
+- **ツール最適化**: 統合された7ツール体制（create/update/read/search/delete + find_related + analyze_sentiment）
 - **自動リカバリ**: Vector dimension mismatch自動検出・再構築
 - **クリーンな構造**: src/ + scripts/ + config/ 分離、-462行削除でシンプル化
+- **検索精度**: キーワード検索（100%）+ 意味的検索（復活準備完了）
 
 ---
 
 ## 完了フェーズ（新しい順）
+
+### ✅ Phase 31.2: read_memory Dimension Mismatch Fix (2025-11-04)
+
+**目的**: 意味的検索の復活、vector dimension mismatch エラー解消
+
+**問題**:
+- `read_memory`が動作せず（dimension error）
+- 意味的類似性検索が使えない状態
+- キーワード検索のみ動作
+
+**診断結果**:
+```
+✅ 強い: キーワード検索（100%マッチ）
+  - "Phase 28" → 5件ヒット
+  - "Qdrant" → 5件ヒット
+  - "らうらう" → 5件ヒット
+
+❌ 弱い: 意味的検索（次元エラー）
+  - "嬉しい出来事" → エラー（joyタグ記憶は存在）
+  - "非同期処理" → エラー（async記憶は存在）
+  - "最近の開発作業" → エラー
+```
+
+**根本原因**:
+- コード: `dim = cfg.get("embeddings_dim", 384)` （デフォルト384）
+- 実際: cl-nagoya/ruri-v3-30m = 256次元
+- Qdrantコレクション: 256次元で構築済み
+- エラー: "expected dim: 384, got 256"
+
+**実装内容**:
+1. **Dimension Detection修正**:
+   - `tools/crud_tools.py` (2箇所):
+     - `_search_memory_by_query()`
+     - `read_memory()`
+   - `tools/search_tools.py` (1箇所)
+   - 修正: `_get_embedding_dimension(model_name)` を使用
+
+2. **診断ツール作成**:
+   - `scripts/test_search_accuracy.py`: 10パターンの検索テスト
+   - `scripts/test_read_memory_fix.py`: read_memory専用テスト
+
+**期待される改善**（サーバー再起動後）:
+- ✨ 意味的類似性検索の復活
+- ✨ 類義語検索の有効化（"非同期" → "async"）
+- ✨ 抽象的クエリの動作（"最近の開発作業"）
+- ✨ 感情ベース検索の復活（"嬉しい出来事" → joy tags）
+
+**次のステップ**:
+1. サーバー再起動（コード反映）
+2. read_memoryテスト実行
+3. 意味的検索の動作確認
+
+**Files Changed**:
+- `tools/crud_tools.py`: 次元検出修正（2箇所）
+- `tools/search_tools.py`: 次元検出修正（1箇所）
+- `scripts/test_search_accuracy.py`: 新規追加
+- `scripts/test_read_memory_fix.py`: 新規追加
+
+**Commit**: bcbd78f
+
+---
 
 ### ✅ Phase 30: Project Structure Reorganization (2025-11-03)
 
