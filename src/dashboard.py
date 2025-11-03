@@ -338,7 +338,7 @@ def register_http_routes(mcp, templates):
     
     @mcp.custom_route("/api/admin/rebuild", methods=["POST"])
     async def admin_rebuild_vector_store(request: Request):
-        """Rebuild Qdrant collection from SQLite database."""
+        """Rebuild Qdrant collection from SQLite database (async background task)."""
         try:
             data = await request.json()
             persona = data.get("persona")
@@ -346,18 +346,28 @@ def register_http_routes(mcp, templates):
             if not persona:
                 raise HTTPException(status_code=400, detail="persona is required")
             
-            original_persona = current_persona.get()
-            current_persona.set(persona)
+            # Run in thread pool to avoid blocking
+            import asyncio
+            from concurrent.futures import ThreadPoolExecutor
             
-            try:
-                from src.utils.vector_utils import rebuild_vector_store
-                rebuild_vector_store()
-                return JSONResponse({
-                    "success": True,
-                    "message": f"Successfully rebuilt Qdrant collection for {persona}"
-                })
-            finally:
-                current_persona.set(original_persona)
+            def _rebuild():
+                original_persona = current_persona.get()
+                current_persona.set(persona)
+                try:
+                    from src.utils.vector_utils import rebuild_vector_store
+                    rebuild_vector_store()
+                finally:
+                    current_persona.set(original_persona)
+            
+            # Start async task
+            loop = asyncio.get_event_loop()
+            with ThreadPoolExecutor() as executor:
+                await loop.run_in_executor(executor, _rebuild)
+            
+            return JSONResponse({
+                "success": True,
+                "message": f"Successfully rebuilt Qdrant collection for {persona}"
+            })
                 
         except Exception as e:
             return JSONResponse({
@@ -385,12 +395,22 @@ def register_http_routes(mcp, templates):
             
             try:
                 if source == "sqlite" and target == "qdrant":
-                    from src.utils.vector_utils import migrate_sqlite_to_qdrant
-                    count = migrate_sqlite_to_qdrant()
+                    from tools.vector_tools import migrate_sqlite_to_qdrant_tool
+                    import asyncio
+                    result = asyncio.run(migrate_sqlite_to_qdrant_tool())
+                    # Extract count from result message (e.g., "✅ Migrated 174 memories...")
+                    import re
+                    match = re.search(r'Migrated (\d+) memories', result)
+                    count = int(match.group(1)) if match else 0
                     message = f"Migrated {count} memories from SQLite to Qdrant"
                 elif source == "qdrant" and target == "sqlite":
-                    from src.utils.vector_utils import migrate_qdrant_to_sqlite
-                    count = migrate_qdrant_to_sqlite()
+                    from tools.vector_tools import migrate_qdrant_to_sqlite_tool
+                    import asyncio
+                    result = asyncio.run(migrate_qdrant_to_sqlite_tool())
+                    # Extract count from result message
+                    import re
+                    match = re.search(r'Migrated (\d+) memories', result)
+                    count = int(match.group(1)) if match else 0
                     message = f"Migrated {count} memories from Qdrant to SQLite"
                 else:
                     raise HTTPException(status_code=400, detail="Invalid source/target combination")
@@ -411,7 +431,7 @@ def register_http_routes(mcp, templates):
     
     @mcp.custom_route("/api/admin/detect-duplicates", methods=["POST"])
     async def admin_detect_duplicates(request: Request):
-        """Detect duplicate or similar memories."""
+        """Detect duplicate or similar memories (async background task)."""
         try:
             data = await request.json()
             persona = data.get("persona")
@@ -421,18 +441,28 @@ def register_http_routes(mcp, templates):
             if not persona:
                 raise HTTPException(status_code=400, detail="persona is required")
             
-            original_persona = current_persona.get()
-            current_persona.set(persona)
+            # Run in thread pool to avoid blocking
+            import asyncio
+            from concurrent.futures import ThreadPoolExecutor
             
-            try:
-                from src.utils.analysis_utils import detect_duplicate_memories
-                duplicates = detect_duplicate_memories(threshold=threshold, max_pairs=max_pairs)
-                return JSONResponse({
-                    "success": True,
-                    "duplicates": duplicates
-                })
-            finally:
-                current_persona.set(original_persona)
+            def _detect():
+                original_persona = current_persona.get()
+                current_persona.set(persona)
+                try:
+                    from src.utils.analysis_utils import detect_duplicate_memories
+                    return detect_duplicate_memories(threshold=threshold, max_pairs=max_pairs)
+                finally:
+                    current_persona.set(original_persona)
+            
+            # Start async task
+            loop = asyncio.get_event_loop()
+            with ThreadPoolExecutor() as executor:
+                duplicates = await loop.run_in_executor(executor, _detect)
+            
+            return JSONResponse({
+                "success": True,
+                "duplicates": duplicates
+            })
                 
         except Exception as e:
             return JSONResponse({
@@ -481,7 +511,7 @@ def register_http_routes(mcp, templates):
     
     @mcp.custom_route("/api/admin/generate-graph", methods=["POST"])
     async def admin_generate_knowledge_graph(request: Request):
-        """Generate knowledge graph visualization."""
+        """Generate knowledge graph visualization (async background task)."""
         try:
             data = await request.json()
             persona = data.get("persona")
@@ -493,41 +523,52 @@ def register_http_routes(mcp, templates):
             if not persona:
                 raise HTTPException(status_code=400, detail="persona is required")
             
-            original_persona = current_persona.get()
-            current_persona.set(persona)
+            # Run in thread pool to avoid blocking
+            import asyncio
+            from concurrent.futures import ThreadPoolExecutor
             
-            try:
-                from src.utils.analysis_utils import build_knowledge_graph, export_graph_html, export_graph_json
-                
-                graph = build_knowledge_graph(
-                    min_count=min_count,
-                    min_cooccurrence=min_cooccurrence,
-                    remove_isolated=remove_isolated
-                )
-                
-                # Create output directory if not exists
-                output_dir = os.path.join(SCRIPT_DIR, "output")
-                os.makedirs(output_dir, exist_ok=True)
-                
-                if output_format == "html":
-                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    output_path = os.path.join(output_dir, f"knowledge_graph_{persona}_{timestamp}.html")
-                    export_graph_html(graph, output_path)
-                    filename = os.path.basename(output_path)
-                    return JSONResponse({
-                        "success": True,
-                        "message": f"Knowledge graph generated successfully",
-                        "url": f"/output/{filename}"
-                    })
-                else:  # json
-                    graph_json = export_graph_json(graph)
-                    return JSONResponse({
-                        "success": True,
-                        "message": "Knowledge graph generated successfully",
-                        "graph": graph_json
-                    })
-            finally:
-                current_persona.set(original_persona)
+            def _generate():
+                original_persona = current_persona.get()
+                current_persona.set(persona)
+                try:
+                    from src.utils.analysis_utils import build_knowledge_graph, export_graph_html, export_graph_json
+                    
+                    graph = build_knowledge_graph(
+                        min_count=min_count,
+                        min_cooccurrence=min_cooccurrence,
+                        remove_isolated=remove_isolated
+                    )
+                    
+                    # Create output directory if not exists
+                    output_dir = os.path.join(SCRIPT_DIR, "output")
+                    os.makedirs(output_dir, exist_ok=True)
+                    
+                    if output_format == "html":
+                        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                        output_path = os.path.join(output_dir, f"knowledge_graph_{persona}_{timestamp}.html")
+                        export_graph_html(graph, output_path)
+                        filename = os.path.basename(output_path)
+                        return {
+                            "success": True,
+                            "message": f"Knowledge graph generated successfully",
+                            "url": f"/output/{filename}"
+                        }
+                    else:  # json
+                        graph_json = export_graph_json(graph)
+                        return {
+                            "success": True,
+                            "message": "Knowledge graph generated successfully",
+                            "graph": graph_json
+                        }
+                finally:
+                    current_persona.set(original_persona)
+            
+            # Start async task
+            loop = asyncio.get_event_loop()
+            with ThreadPoolExecutor() as executor:
+                result = await loop.run_in_executor(executor, _generate)
+            
+            return JSONResponse(result)
                 
         except Exception as e:
             return JSONResponse({

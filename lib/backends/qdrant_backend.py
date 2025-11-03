@@ -50,13 +50,10 @@ class QdrantVectorStoreAdapter:
             
             if existing_dim != self.dim:
                 print(f"⚠️  Vector dimension mismatch: expected {self.dim}, got {existing_dim}")
-                print(f"🔄 Auto-rebuilding collection '{self.collection}' with correct dimensions...")
-                self.client.delete_collection(self.collection)
-                self.client.create_collection(
-                    collection_name=self.collection,
-                    vectors_config=rest.VectorParams(size=self.dim, distance=rest.Distance.COSINE),
-                )
-                print(f"✅ Collection '{self.collection}' recreated with dimension {self.dim}")
+                print(f"⚠️  Collection '{self.collection}' needs rebuild. Use dashboard or wait for idle rebuild.")
+                # ❌ Don't rebuild synchronously - it blocks requests
+                # ✅ Let idle rebuilder handle it asynchronously
+                return
         except Exception as e:
             # Collection doesn't exist, create it
             print(f"📝 Creating new collection '{self.collection}' with dimension {self.dim}")

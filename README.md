@@ -38,27 +38,19 @@ Model Context Protocol (MCP) に準拠した永続メモリサーバー。RAG (R
 
 ## クイックスタート
 
-### Docker Compose
-```bash
-docker compose up -d
-# ログ
-docker compose logs -f memory-mcp
-# 停止
-docker compose down
-```
-推奨ホストマウント:
-- `/data` (memory/, logs/, cache/ を含む全データ)
-
-デフォルトポート: `26262`
-
-アクセス: `http://localhost:26262`
-
 ### 公開イメージ
 ```bash
 docker run -d --name memory-mcp -p 26262:26262 \
   -e MEMORY_MCP_SERVER_PORT=26262 \
   ghcr.io/solidlime/memory-mcp:latest
 ```
+
+推奨ホストマウント:
+- `/data` (memory/, logs/, cache/ を含む全データ)
+
+デフォルトポート: `26262`
+
+アクセス: `http://localhost:26262`
 
 ## MCPクライアント設定例
 
@@ -80,6 +72,7 @@ docker run -d --name memory-mcp -p 26262:26262 \
 ```
 
 Personaを切り替えたいときは `Bearer <persona名>` の値を変更します。
+カスタムヘッダーX-Personaを使用することもできます。
 
 **レガシー方式（X-Persona）**:
 ```json
@@ -91,23 +84,6 @@ Personaを切り替えたいときは `Bearer <persona名>` の値を変更し�
         "url": "http://127.0.0.1:26262/mcp",
         "headers": {
           "X-Persona": "default"
-        }
-      }
-    }
-  }
-}
-```
-
-**NAS本番環境の場合**:
-```json
-{
-  "mcp": {
-    "servers": {
-      "memory-mcp": {
-        "type": "streamable-http",
-        "url": "http://nas:26262/mcp",
-        "headers": {
-          "Authorization": "Bearer nilou"
         }
       }
     }
@@ -187,7 +163,7 @@ export MEMORY_MCP_VECTOR_REBUILD_MODE=auto
   "reranker_model": "hotchpotch/japanese-reranker-xsmall-v2",
   "reranker_top_n": 10,
   "server_host": "0.0.0.0",
-  "server_port": 8000,
+  "server_port": 26262,
   "timezone": "Asia/Tokyo",
   "vector_rebuild": {
     "mode": "idle",
