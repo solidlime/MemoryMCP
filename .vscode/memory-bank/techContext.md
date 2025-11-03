@@ -33,7 +33,6 @@
 - **SQLite3**: メモリデータベース（標準ライブラリ）
   - テーブル: `memories`, `operations`
   - Personaごとに独立したDBファイル（`memory/{persona}/memory.sqlite`）
-- **FAISS**: ベクトルインデックス（`memory/{persona}/vector_store/`）
 - **Qdrant**: ベクトルインデックス（`collection: memory_{persona}`）
 - **JSON**: Personaコンテキスト（`memory/{persona}/persona_context.json`）
 - **JSONL**: 操作ログ（`logs/memory_operations.log`）

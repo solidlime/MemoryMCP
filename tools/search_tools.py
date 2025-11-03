@@ -306,7 +306,12 @@ async def search_memory_rag(
         
         # 🆕 Phase 26: Create vector store adapter (Phase 25 pattern)
         cfg = load_config()
-        dim = cfg.get("embeddings_dim", 384)
+        
+        # 🔧 Phase 31.2: Get correct dimension from model config
+        model_name = cfg.get("embeddings_model", "cl-nagoya/ruri-v3-30m")
+        from src.utils.vector_utils import _get_embedding_dimension
+        dim = _get_embedding_dimension(model_name)
+        
         url = cfg.get("qdrant_url", "http://localhost:6333")
         api_key = cfg.get("qdrant_api_key")
         prefix = cfg.get("qdrant_collection_prefix", "memory_")

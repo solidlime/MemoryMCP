@@ -53,7 +53,12 @@ async def _search_memory_by_query(query: str, top_k: int = 3) -> List[Dict]:
         
         persona = get_current_persona()
         cfg = load_config()
-        dim = cfg.get("embeddings_dim", 384)
+        
+        # 🔧 Phase 31.2: Get correct dimension from model config
+        model_name = cfg.get("embeddings_model", "cl-nagoya/ruri-v3-30m")
+        from src.utils.vector_utils import _get_embedding_dimension
+        dim = _get_embedding_dimension(model_name)
+        
         url = cfg.get("qdrant_url", "http://localhost:6333")
         api_key = cfg.get("qdrant_api_key")
         prefix = cfg.get("qdrant_collection_prefix", "memory_")
@@ -511,7 +516,12 @@ async def read_memory(
         
         # Create vector store adapter
         cfg = load_config()
-        dim = cfg.get("embeddings_dim", 384)
+        
+        # 🔧 Phase 31.2: Get correct dimension from model config
+        model_name = cfg.get("embeddings_model", "cl-nagoya/ruri-v3-30m")
+        from src.utils.vector_utils import _get_embedding_dimension
+        dim = _get_embedding_dimension(model_name)
+        
         url = cfg.get("qdrant_url", "http://localhost:6333")
         api_key = cfg.get("qdrant_api_key")
         prefix = cfg.get("qdrant_collection_prefix", "memory_")
