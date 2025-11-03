@@ -118,6 +118,14 @@ Personaを切り替えたいときは `X-Persona` の値を変更します。
 | `MEMORY_MCP_AUTO_CLEANUP_ENABLED` | `auto_cleanup.enabled` | boolean | `true` | 自動整理有効化 |
 | `MEMORY_MCP_AUTO_CLEANUP_IDLE_MINUTES` | `auto_cleanup.idle_minutes` | int | `30` | アイドル判定分数 |
 | `MEMORY_MCP_AUTO_CLEANUP_CHECK_INTERVAL_SECONDS` | `auto_cleanup.check_interval_seconds` | int | `300` | チェック間隔（秒） |
+| `MEMORY_MCP_SUMMARIZATION__ENABLED` | `summarization.enabled` | boolean | `true` | 要約機能有効化（Phase 28.4） |
+| `MEMORY_MCP_SUMMARIZATION__USE_LLM` | `summarization.use_llm` | boolean | `false` | LLM要約使用（false=統計テンプレート） |
+| `MEMORY_MCP_SUMMARIZATION__FREQUENCY_DAYS` | `summarization.frequency_days` | int | `1` | 要約頻度（日数） |
+| `MEMORY_MCP_SUMMARIZATION__MIN_IMPORTANCE` | `summarization.min_importance` | float | `0.3` | 要約対象最小重要度 |
+| `MEMORY_MCP_SUMMARIZATION__LLM_PROVIDER` | `summarization.llm_provider` | string | `openrouter` | LLMプロバイダー（openrouter/openai） |
+| `MEMORY_MCP_SUMMARIZATION__LLM_API_KEY` | `summarization.llm_api_key` | string | `null` | LLM API Key（未設定時はLLM無効） |
+| `MEMORY_MCP_SUMMARIZATION__LLM_MODEL` | `summarization.llm_model` | string | `anthropic/claude-3.5-sonnet` | 使用LLMモデル |
+| `MEMORY_MCP_SUMMARIZATION__LLM_MAX_TOKENS` | `summarization.llm_max_tokens` | int | `500` | LLM最大トークン数 |
 | `MEMORY_MCP_AUTO_CLEANUP_DUPLICATE_THRESHOLD` | `auto_cleanup.duplicate_threshold` | float | `0.90` | 重複検出閾値 |
 | `MEMORY_MCP_AUTO_CLEANUP_MIN_SIMILARITY_TO_REPORT` | `auto_cleanup.min_similarity_to_report` | float | `0.85` | レポート最小類似度 |
 | `MEMORY_MCP_AUTO_CLEANUP_MAX_SUGGESTIONS_PER_RUN` | `auto_cleanup.max_suggestions_per_run` | int | `20` | 1回の最大提案数 |

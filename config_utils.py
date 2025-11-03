@@ -18,6 +18,17 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "qdrant_url": "http://localhost:6333",
     "qdrant_api_key": None,
     "qdrant_collection_prefix": "memory_",
+    # Phase 28.4: 自己要約（メタメモリ）設定
+    "summarization": {
+        "enabled": True,
+        "use_llm": False,  # True: LLM要約, False: 統計テンプレート要約
+        "frequency_days": 1,  # 要約頻度（日数）
+        "min_importance": 0.3,  # 要約対象の最小重要度
+        "llm_provider": "openrouter",  # LLMプロバイダー (openrouter/openai)
+        "llm_api_key": None,  # OpenRouter/OpenAI APIキー
+        "llm_model": "anthropic/claude-3.5-sonnet",  # 使用モデル
+        "llm_max_tokens": 500,  # 最大トークン数
+    },
     "vector_rebuild": {
         "mode": "idle",
         "idle_seconds": 30,

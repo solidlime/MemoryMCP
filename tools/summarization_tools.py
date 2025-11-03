@@ -15,6 +15,96 @@ from persona_utils import get_db_path, get_current_persona
 from core.memory_db import save_memory_to_db, generate_auto_key
 
 
+def _call_llm_api(memories: List[Dict], period_description: str, config: Dict) -> Optional[str]:
+    """
+    Call LLM API to generate natural language summary.
+    
+    Args:
+        memories: List of memory dicts to summarize
+        period_description: Human-readable period description
+        config: Configuration dict with LLM settings
+    
+    Returns:
+        LLM-generated summary text, or None on failure
+    """
+    try:
+        import requests
+        
+        llm_provider = config.get("summarization", {}).get("llm_provider", "openrouter")
+        api_key = config.get("summarization", {}).get("llm_api_key")
+        model = config.get("summarization", {}).get("llm_model", "anthropic/claude-3.5-sonnet")
+        max_tokens = config.get("summarization", {}).get("llm_max_tokens", 500)
+        
+        if not api_key:
+            print("⚠️  LLM API key not configured")
+            return None
+        
+        # Prepare memory content for LLM
+        memory_texts = []
+        for mem in memories[:10]:  # Limit to top 10 to avoid token overflow
+            content = mem.get("content", "")[:200]  # First 200 chars
+            emotion = mem.get("emotion", "neutral")
+            intensity = mem.get("emotion_intensity", 0.0)
+            importance = mem.get("importance", 0.5)
+            memory_texts.append(f"- [{emotion}/{intensity:.1f}/重要度{importance:.1f}] {content}")
+        
+        memories_str = "\n".join(memory_texts)
+        
+        # Prepare prompt
+        prompt = f"""以下は{period_description}の記憶です。この期間全体の印象を自然な日本語で要約してください。
+
+記憶一覧:
+{memories_str}
+
+要件:
+- 200文字程度で簡潔に
+- 全体的な感情のトーンを含める
+- 主要な出来事やテーマを含める
+- 箇条書きではなく、自然な文章で"""
+
+        # OpenRouter API call (OpenAI API compatible)
+        if llm_provider == "openrouter":
+            api_url = "https://openrouter.ai/api/v1/chat/completions"
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "HTTP-Referer": "https://github.com/solidlime/MemoryMCP",
+                "Content-Type": "application/json"
+            }
+        else:  # openai
+            api_url = "https://api.openai.com/v1/chat/completions"
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json"
+            }
+        
+        payload = {
+            "model": model,
+            "messages": [
+                {"role": "user", "content": prompt}
+            ],
+            "max_tokens": max_tokens,
+            "temperature": 0.7
+        }
+        
+        response = requests.post(api_url, headers=headers, json=payload, timeout=30)
+        
+        if response.status_code != 200:
+            print(f"⚠️  LLM API error: {response.status_code} - {response.text}")
+            return None
+        
+        result = response.json()
+        summary = result["choices"][0]["message"]["content"].strip()
+        
+        print(f"✅ LLM summary generated ({len(summary)} chars)")
+        return summary
+    
+    except Exception as e:
+        print(f"⚠️  Failed to call LLM API: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
+
 def extract_memories_by_period(
     start_date: str,
     end_date: str,
@@ -109,7 +199,8 @@ def generate_summary_content(
     period_description: str = "この期間"
 ) -> str:
     """
-    Generate summary content from memories using LLM.
+    Generate summary content from memories.
+    Uses LLM if configured, otherwise falls back to structured template.
     
     Args:
         memories: List of memory dicts to summarize
@@ -117,13 +208,24 @@ def generate_summary_content(
     
     Returns:
         Summary text
-    
-    Note:
-        This is a simplified version. In production, this would call an LLM API.
-        For now, it creates a structured summary from memory metadata.
     """
     if not memories:
         return f"{period_description}の記憶なし"
+    
+    config = load_config()
+    use_llm = config.get("summarization", {}).get("use_llm", False)
+    
+    # Try LLM summary if enabled
+    if use_llm:
+        print("🤖 Attempting LLM-based summary generation...")
+        llm_summary = _call_llm_api(memories, period_description, config)
+        if llm_summary:
+            return llm_summary
+        else:
+            print("⚠️  LLM summary failed, falling back to structured template")
+    
+    # Fallback: Structured template summary
+    print("📊 Using structured template summary")
     
     # Extract key themes from tags
     all_tags = []
@@ -165,69 +267,68 @@ def generate_summary_content(
 
 def create_summary_node(
     memories: List[Dict],
-    period_start: str,
-    period_end: str,
-    period_description: str = "期間"
+    period_description: str,
+    persona_name: str = "default"
 ) -> Optional[str]:
     """
-    Create a summary (metamemory) node for a period of memories.
+    Create a summary metamemory node from a list of memories.
     
     Args:
         memories: List of memory dicts to summarize
-        period_start: Period start date (ISO 8601)
-        period_end: Period end date (ISO 8601)
         period_description: Human-readable period description
+        persona_name: Persona name
     
     Returns:
-        Summary node key if successful, None otherwise
+        Summary memory key, or None if summary generation failed
     """
     if not memories:
         print(f"⚠️  No memories to summarize for {period_description}")
         return None
     
-    try:
-        # Generate summary content
-        summary_content = generate_summary_content(memories, period_description)
-        
-        # Calculate summary metadata
-        avg_importance = sum(m.get("importance", 0.5) for m in memories) / len(memories)
-        dominant_emotion, avg_intensity = calculate_dominant_emotion(memories)
-        
-        # Extract all related keys
-        related_keys = [m["key"] for m in memories]
-        
-        # Collect all tags
-        all_tags = set()
-        for m in memories:
-            all_tags.update(m.get("tags", []))
-        
-        # Generate summary key
-        summary_key = f"summary_{period_start[:10].replace('-', '')}"
-        
-        # Save summary node to database
-        save_memory_to_db(
-            key=summary_key,
-            content=summary_content,
-            tags=list(all_tags),
-            importance=min(1.0, avg_importance * 1.2),  # Boost summary importance
-            emotion=dominant_emotion,
-            emotion_intensity=avg_intensity,
-            related_keys=related_keys,
-            summary_ref=None  # Summary nodes don't reference other summaries
-        )
-        
-        print(f"✅ Created summary node: {summary_key}")
-        print(f"   - Summarized {len(memories)} memories")
-        print(f"   - Emotion: {dominant_emotion} ({avg_intensity:.2f})")
-        print(f"   - Importance: {avg_importance:.2f}")
-        
-        return summary_key
+    # Generate summary content
+    summary_content = generate_summary_content(memories, period_description)
     
-    except Exception as e:
-        print(f"⚠️  Failed to create summary node: {e}")
-        import traceback
-        traceback.print_exc()
+    # Check if summary generation failed
+    if not summary_content or summary_content.startswith(f"{period_description}の記憶なし"):
+        print(f"❌ Summary generation failed for {period_description}")
         return None
+    
+    # Calculate aggregated metadata
+    avg_importance = sum(m.get("importance", 0.5) for m in memories) / len(memories)
+    dominant_emotion, emotion_intensity = calculate_dominant_emotion(memories)
+    
+    # Collect all unique tags
+    all_tags = set()
+    for mem in memories:
+        all_tags.update(mem.get("tags", []))
+    all_tags.add("summary")  # Mark as summary node
+    
+    # Create summary node
+    now = datetime.now().strftime("%Y%m%d%H%M%S")
+    summary_key = f"summary_{now}"
+    
+    success = save_memory_to_db(
+        key=summary_key,
+        content=summary_content,
+        tags=list(all_tags),
+        importance=avg_importance,
+        emotion=dominant_emotion,
+        emotion_intensity=emotion_intensity,
+        physical_state=None,
+        mental_state=None,
+        environment=None,
+        relationship_status=None,
+        action_tag=None,
+        related_keys=None,  # Will be set by link_memories_to_summary
+        summary_ref=None  # Summary nodes don't reference other summaries
+    )
+    
+    if not success:
+        print(f"❌ Failed to save summary node: {summary_key}")
+        return None
+    
+    print(f"✅ Created summary node: {summary_key}")
+    return summary_key
 
 
 def link_memories_to_summary(memory_keys: List[str], summary_key: str) -> int:
@@ -297,7 +398,7 @@ def summarize_period(
         return None
     
     # Create summary node
-    summary_key = create_summary_node(memories, period_start, period_end, period_description)
+    summary_key = create_summary_node(memories, period_description)
     
     if not summary_key:
         return None
