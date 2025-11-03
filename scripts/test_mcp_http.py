@@ -24,7 +24,7 @@ PERSONA = "default"
 HEADERS = {
     "Content-Type": "application/json",
     "Accept": "application/json, text/event-stream",
-    "X-Persona": PERSONA
+    "Authorization": f"Bearer {PERSONA}"  # Use Bearer token for persona (Open WebUI compatible)
 }
 
 # Test data

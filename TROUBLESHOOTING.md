@@ -4,7 +4,7 @@
 
 ### 症状
 - VS Code: "Waiting for server to respond to `initialize` request..."
-- エラー: "Error sending message to http://nas:26262/mcp: TypeError: fetch failed"
+- エラー: "Error sending message to http://localhost:26262/mcp: TypeError: fetch failed"
 
 ### 原因の可能性
 
@@ -24,7 +24,7 @@ netstat -tlnp | grep 26262
 curl http://localhost:26262/health
 
 # 外部からアクセスできるか（クライアントマシンから）
-curl http://nas:26262/health
+curl http://localhost:26262/health
 ```
 
 **修正方法**:
@@ -56,14 +56,31 @@ python memory_mcp.py
 
 #### 3. VS Code MCP Client設定 ⚙️
 
-**正しい設定例**:
+**正しい設定例（推奨: Authorization Bearer）**:
 ```json
 {
   "mcp": {
     "servers": {
       "memory-mcp": {
         "type": "streamable-http",
-        "url": "http://nas:26262/mcp",
+        "url": "http://localhost:26262/mcp",
+        "headers": {
+          "Authorization": "Bearer default"
+        }
+      }
+    }
+  }
+}
+```
+
+**レガシー設定（X-Persona）**:
+```json
+{
+  "mcp": {
+    "servers": {
+      "memory-mcp": {
+        "type": "streamable-http",
+        "url": "http://localhost:26262/mcp",
         "headers": {
           "X-Persona": "default"
         }
@@ -78,6 +95,7 @@ python memory_mcp.py
 - ✅ ポート番号は `26262` （デフォルト）またはカスタム設定と一致
 - ✅ ホスト名 `nas` が解決できる（`ping nas` で確認）
 - ✅ `type` は `streamable-http`
+- ✅ Persona指定は `Authorization: Bearer <persona>` または `X-Persona: <persona>`
 
 #### 4. タイムアウト設定 ⏱️
 
@@ -193,13 +211,30 @@ python test_mcp_http.py
 curl http://localhost:26262/health
 
 # 2. Initialize（セッションID取得）
-curl -v -X POST http://localhost:26262/mcp -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" -H "X-Persona: default" -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}'
-
+curl -v -X POST http://localhost:26262/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -H "Authorization: Bearer default" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}'
 
 # レスポンスヘッダーから mcp-session-id を抽出
 
 # 3. Tools list（セッションID使用）
-curl -X POST http://localhost:26262/mcp -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" -H "X-Persona: default" -H "mcp-session-id: <YOUR_SESSION_ID>" -d '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
+curl -X POST http://localhost:26262/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -H "Authorization: Bearer default" \
+  -H "mcp-session-id: <YOUR_SESSION_ID>" \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
+```
+
+**レガシー方式（X-Persona）も引き続き動作します**:
+```bash
+curl -X POST http://localhost:26262/mcp \
+  -H "Content-Type: application/json" \
+  -H "X-Persona: default" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{...}}'
+```
 
 ```
 
@@ -268,7 +303,7 @@ VS CodeのMCP Clientはデフォルトタイムアウトが短い可能性があ
       "type": "streamable-http",
       "url": "http://100.85.222.112:26262/mcp",
       "headers": {
-        "X-Persona": "nilou"
+        "Authorization": "Bearer nilou"
       }
     }
   }
@@ -317,9 +352,9 @@ curlテスト成功？
 1. **curlで動作確認**（基本テスト）:
    ```bash
    # Initialize
-   curl -v http://nas:26262/mcp -X POST \
+   curl -v http://localhost:26262/mcp -X POST \
      -H "Content-Type: application/json" \
-     -H "X-Persona: nilou" \
+     -H "Authorization: Bearer nilou" \
      -d '{"jsonrpc":"2.0","id":1,"method":"initialize",...}'
    ```
    
@@ -343,6 +378,7 @@ curlテスト成功？
        "type": "streamable-http",
        "url": "http://100.85.222.112:26262/mcp",  // ホスト名→IP
        "headers": {
+         "Authorization": "Bearer nilou"
          "X-Persona": "nilou"
        }
      }

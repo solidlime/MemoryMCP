@@ -11,14 +11,36 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 current_persona: ContextVar[str] = ContextVar('current_persona', default='default')
 
 def get_current_persona() -> str:
-    """Get current persona from HTTP request header or context variable"""
+    """
+    Get current persona from HTTP request header or context variable.
+    
+    Priority order:
+    1. Authorization header (Bearer token) - for Open WebUI compatibility
+    2. X-Persona header (legacy/fallback)
+    3. Context variable (default)
+    
+    Examples:
+        Authorization: Bearer nilou  -> persona = "nilou"
+        X-Persona: default           -> persona = "default"
+    """
     try:
         request = get_http_request()
         if request:
-            persona = request.headers.get('x-persona', 'default')
-            return persona
+            # 1. Try Authorization header (Bearer token)
+            auth_header = request.headers.get('authorization', '')
+            if auth_header.startswith('Bearer '):
+                persona = auth_header[7:].strip()  # Remove "Bearer " prefix
+                if persona:
+                    return persona
+            
+            # 2. Fallback to X-Persona header (backward compatibility)
+            persona = request.headers.get('x-persona', '')
+            if persona:
+                return persona
     except Exception:
         pass
+    
+    # 3. Fallback to context variable
     return current_persona.get()
 
 def get_persona_dir(persona: str | None = None) -> str:

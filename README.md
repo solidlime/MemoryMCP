@@ -61,7 +61,27 @@ docker run -d --name memory-mcp -p 26262:26262 \
 ```
 
 ## MCPクライアント設定例
-**VS Code**:
+
+**推奨方式（Authorization Bearer）**:
+```json
+{
+  "mcp": {
+    "servers": {
+      "memory-mcp": {
+        "type": "streamable-http",
+        "url": "http://127.0.0.1:26262/mcp",
+        "headers": {
+          "Authorization": "Bearer default"
+        }
+      }
+    }
+  }
+}
+```
+
+Personaを切り替えたいときは `Bearer <persona名>` の値を変更します。
+
+**レガシー方式（X-Persona）**:
 ```json
 {
   "mcp": {
@@ -78,8 +98,6 @@ docker run -d --name memory-mcp -p 26262:26262 \
 }
 ```
 
-Personaを切り替えたいときは `X-Persona` の値を変更します。
-
 **NAS本番環境の場合**:
 ```json
 {
@@ -89,7 +107,7 @@ Personaを切り替えたいときは `X-Persona` の値を変更します。
         "type": "streamable-http",
         "url": "http://nas:26262/mcp",
         "headers": {
-          "X-Persona": "default"
+          "Authorization": "Bearer nilou"
         }
       }
     }
