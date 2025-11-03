@@ -193,35 +193,14 @@ python test_mcp_http.py
 curl http://localhost:26262/health
 
 # 2. Initialize（セッションID取得）
-curl -v -X POST http://localhost:26262/mcp \
-  -H "Content-Type: application/json" \
-  -H "Accept: application/json, text/event-stream" \
-  -H "X-Persona: default" \
-  -d '{
-    "jsonrpc": "2.0",
-    "id": 1,
-    "method": "initialize",
-    "params": {
-      "protocolVersion": "2024-11-05",
-      "capabilities": {},
-      "clientInfo": {"name": "test", "version": "1.0"}
-    }
-  }'
+curl -v -X POST http://localhost:26262/mcp -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" -H "X-Persona: default" -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}'
+
 
 # レスポンスヘッダーから mcp-session-id を抽出
 
 # 3. Tools list（セッションID使用）
-curl -X POST http://localhost:26262/mcp \
-  -H "Content-Type: application/json" \
-  -H "Accept: application/json, text/event-stream" \
-  -H "X-Persona: default" \
-  -H "mcp-session-id: <YOUR_SESSION_ID>" \
-  -d '{
-    "jsonrpc": "2.0",
-    "id": 2,
-    "method": "tools/list",
-    "params": {}
-  }'
+curl -X POST http://localhost:26262/mcp -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" -H "X-Persona: default" -H "mcp-session-id: <YOUR_SESSION_ID>" -d '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
+
 ```
 
 ---
@@ -239,6 +218,156 @@ curl -X POST http://localhost:26262/mcp \
 - [ ] `MEMORY_MCP_EMBEDDINGS_DEVICE=cpu`設定（GPU環境の場合）
 - [ ] Qdrantが起動している
 - [ ] ログディレクトリ・データディレクトリの書き込み権限
+
+---
+
+## VS Code MCP Client特有の問題
+
+### curlでは動くがVS Codeで動かない場合
+
+**症状**:
+- `curl`コマンドでのテストは成功する
+- VS Codeでは "Waiting for server to respond to `initialize` request..." でタイムアウト
+
+**原因の可能性**:
+
+#### 1. VS Code MCP Clientのタイムアウト設定 ⏱️
+
+VS CodeのMCP Clientはデフォルトタイムアウトが短い可能性があります。
+
+**確認方法**:
+1. VS Codeで `Ctrl+Shift+P` → "Preferences: Open Settings (JSON)"
+2. MCP関連の設定を確認：
+   ```json
+   {
+     "mcp.timeout": 60000  // ミリ秒（60秒）
+   }
+   ```
+
+#### 2. VS Code Developer Toolsでログ確認 🔍
+
+**手順**:
+1. VS Codeで `Help` → `Toggle Developer Tools`
+2. `Console` タブを開く
+3. MCP接続を試行
+4. エラーメッセージ・ネットワークエラーを確認
+
+**よくあるエラー**:
+- `ETIMEDOUT`: タイムアウト → タイムアウト設定を延長
+- `ECONNREFUSED`: 接続拒否 → サーバー起動確認
+- `fetch failed`: ネットワークエラー → ファイアウォール・DNS確認
+
+#### 3. VS Code Remote (WSL/SSH) 環境の問題 🖥️
+
+**WSL環境の場合**:
+- VS CodeがWSL内で動作している場合、ホスト名解決が異なる場合があります
+- `nas`ではなくIPアドレス指定を試してください：
+  ```json
+  {
+    "memory-mcp": {
+      "type": "streamable-http",
+      "url": "http://100.85.222.112:26262/mcp",
+      "headers": {
+        "X-Persona": "nilou"
+      }
+    }
+  }
+  ```
+
+**SSH Remote環境の場合**:
+- ポートフォワーディングが必要な場合があります
+- `.ssh/config`で設定：
+  ```
+  Host nas
+    HostName nas.example.com
+    LocalForward 26262 localhost:26262
+  ```
+
+#### 4. VS Code拡張機能の問題 🔌
+
+**GitHub Copilot Chat拡張機能のバージョン確認**:
+1. `Ctrl+Shift+X` → "GitHub Copilot Chat"
+2. バージョンを確認（最新版推奨）
+3. 古い場合は更新
+
+#### 5. MCP設定ファイルの再読み込み 🔄
+
+**手順**:
+1. `mcp.json`を編集後、VS Codeを完全再起動
+2. または `Ctrl+Shift+P` → "Developer: Reload Window"
+
+### VS Code MCP接続診断フローチャート
+
+```
+curlテスト成功？
+├─ Yes → VS Code側の問題
+│   ├─ Developer Tools確認
+│   ├─ IPアドレス指定試行（WSL環境）
+│   ├─ タイムアウト設定延長
+│   └─ VS Code/拡張機能更新
+│
+└─ No → サーバー側の問題
+    ├─ サーバー起動確認
+    ├─ ファイアウォール確認
+    └─ ログ確認
+```
+
+### 推奨デバッグ手順（VS Codeで接続できない場合）
+
+1. **curlで動作確認**（基本テスト）:
+   ```bash
+   # Initialize
+   curl -v http://nas:26262/mcp -X POST \
+     -H "Content-Type: application/json" \
+     -H "X-Persona: nilou" \
+     -d '{"jsonrpc":"2.0","id":1,"method":"initialize",...}'
+   ```
+   
+   ✅ 成功 → VS Code側の問題（次のステップへ）
+   ❌ 失敗 → サーバー側の問題（セクション1-2参照）
+
+2. **VS Code Developer Toolsでエラー確認**:
+   - `Help` → `Toggle Developer Tools` → `Console`
+   - MCP接続試行時のエラーメッセージをコピー
+
+3. **IPアドレス指定に変更**（WSL環境の場合）:
+   ```bash
+   # まずIPアドレス確認
+   ping nas
+   ```
+   
+   `mcp.json`を編集：
+   ```json
+   {
+     "memory-mcp": {
+       "type": "streamable-http",
+       "url": "http://100.85.222.112:26262/mcp",  // ホスト名→IP
+       "headers": {
+         "X-Persona": "nilou"
+       }
+     }
+   }
+   ```
+
+4. **タイムアウト延長**（サーバー起動に時間がかかる場合）:
+   VS Code `settings.json`に追加：
+   ```json
+   {
+     "mcp.timeout": 90000  // 90秒
+   }
+   ```
+
+5. **GitHub Copilot Chat拡張機能更新**:
+   - 拡張機能タブ → "GitHub Copilot Chat"
+   - 最新版に更新
+   - VS Code再起動
+
+6. **それでもダメなら**:
+   - Issue報告用データ収集：
+     - VS Code Developer Toolsのエラーログ
+     - `curl`テスト結果
+     - `mcp.json`設定内容
+     - VS Codeバージョン、OS情報
 
 ---
 
