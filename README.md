@@ -105,6 +105,7 @@ Personaを切り替えたいときは `X-Persona` の値を変更します。
 | `MEMORY_MCP_EMBEDDINGS_DEVICE` | `embeddings_device` | string | `cpu` | 計算デバイス（cpu/cuda） |
 | `MEMORY_MCP_RERANKER_MODEL` | `reranker_model` | string | `hotchpotch/japanese-reranker-xsmall-v2` | リランカーモデル |
 | `MEMORY_MCP_RERANKER_TOP_N` | `reranker_top_n` | int | `5` | リランク後の返却件数 |
+| `MEMORY_MCP_SENTIMENT_MODEL` | `sentiment_model` | string | `cardiffnlp/twitter-xlm-roberta-base-sentiment` | 感情分析モデル |
 | `MEMORY_MCP_SERVER_HOST` | `server_host` | string | `0.0.0.0` | サーバーホスト（Dockerは0.0.0.0、開発環境は127.0.0.1を推奨） |
 | `MEMORY_MCP_SERVER_PORT` | `server_port` | int | `8000` (Docker: `26262`) | サーバーポート |
 | `MEMORY_MCP_TIMEZONE` | `timezone` | string | `Asia/Tokyo` | タイムゾーン |
