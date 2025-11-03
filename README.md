@@ -262,17 +262,17 @@ export MEMORY_MCP_EMBEDDINGS_DEVICE=cpu
 #### 作成（create_memory）
 ```python
 # 新規作成（高速、RAG検索なし）
-create_memory("ユーザーは[[Python]]が好き", importance=0.7, emotion="joy")
-create_memory("Phase 28完了したよ✨", context_tags=["technical_achievement"])
+create_memory("User likes [[Python]]", importance=0.7, emotion="joy")
+create_memory("Feature implementation completed", context_tags=["technical_achievement"])
 ```
 
-**Phase 28.5**: create_memoryは新規作成専用に最適化。RAG検索を行わないため高速です。
+create_memoryは新規作成専用に最適化。RAG検索を行わないため高速です。
 
 #### 更新（update_memory）
 ```python
 # 自然言語クエリで既存記憶を更新（RAG検索あり）
-update_memory("約束", content="明日10時に変更", importance=0.9)
-update_memory("プロジェクト進捗", content="Phase 28完了")
+update_memory("promise", content="Changed to tomorrow at 10am", importance=0.9)
+update_memory("project progress", content="Feature completed")
 ```
 
 **処理フロー**:
@@ -328,8 +328,8 @@ delete_memory("古いプロジェクトの記憶")
 
 ```json
 {
-  "user_info": {"name": "らうらう", "nickname": "らうらう"},
-  "persona_info": {"name": "ニィロウ", "nickname": "ニィロウ"},
+  "user_info": {"name": "User", "nickname": "User"},
+  "persona_info": {"name": "Assistant", "nickname": "Assistant"},
   "current_emotion": "joy",
   "physical_state": "energetic",
   "mental_state": "focused",
@@ -354,23 +354,23 @@ delete_memory("古いプロジェクトの記憶")
   - 💡 **推奨**: 毎応答時に呼ぶことでセッション間の記憶同期を行う
 
 **CRUD操作**:
-- `create_memory` - **🆕 記憶の新規作成（Phase 28.5: 最適化版）**
-  - 新規作成専用: `create_memory("ユーザーは [[苺]] が好き")`
+- `create_memory` - **記憶の新規作成（最適化版）**
+  - 新規作成専用: `create_memory("User likes [[strawberry]]")`
   - **RAG検索なし→高速** ⚡
   - 12カラム完全対応: importance, emotion, physical_state, mental_state, environment, relationship_status, action_tag
-- `update_memory` - **🆕 既存記憶の更新（Phase 28.5）**
-  - 自然言語クエリで更新: `update_memory("約束", content="明日10時に変更")`
+- `update_memory` - **既存記憶の更新**
+  - 自然言語クエリで更新: `update_memory("promise", content="Changed to tomorrow at 10am")`
   - 類似度 ≥ 0.80: 自動更新
   - 類似度 < 0.80: 候補表示して新規作成
   - RAG検索でベストマッチを自動検出 🔍
-- `read_memory` - **🆕 意味検索のメインツール**（旧search_memory_ragの機能）
-  - 自然言語で検索: `read_memory("ユーザーの好きな食べ物")`
+- `read_memory` - **意味検索のメインツール**
+  - 自然言語で検索: `read_memory("user's favorite food")`
   - メタデータフィルタリング＆カスタムスコアリング対応
   - メタデータフィルタ（7パラメータ）: `min_importance`, `emotion`, `action_tag`, `environment`, `physical_state`, `mental_state`, `relationship_status`
   - カスタムスコアリング（2パラメータ）: `importance_weight`, `recency_weight`
   - Fuzzy Matching: テキストフィルタが部分一致（大文字小文字無視）
-- `delete_memory` - **記憶を削除**（Phase 26.6の自然言語クエリ対応）
-  - 自然言語で削除: `delete_memory("古いプロジェクトの記憶")`
+- `delete_memory` - **記憶を削除（自然言語クエリ対応）**
+  - 自然言語で削除: `delete_memory("old project notes")`
   - 類似度 ≥ 0.90: 自動削除（安全性のため高閾値）
   - 類似度 < 0.90: 候補リスト表示
 
@@ -453,26 +453,14 @@ curl -X POST http://localhost:26262/api/admin/detect-duplicates \
 
 ---
 
-## アーキテクチャの変遷
+## 開発・運用
+- **開発要件**: Python 3.12以上
+- **Qdrant必須**: 開発環境でも `start_local_qdrant.sh` などでQdrantを起動してください
+- **Docker運用**: 詳しくは [DOCKER.md](DOCKER.md) を参照
+- **VS Code Tasks**: `.vscode/tasks.json` に起動スクリプト例あり
 
-### Phase 28.5: create/update分離（2025-01-XX）
-- **パフォーマンス改善**: create_memory()を新規作成専用に最適化（RAG検索除去）
-- **update_memory追加**: 既存記憶の更新専用ツール（RAG検索で自動検出）
-- **6ツール体制**: create, update, read, search, delete, session_context
+---
 
-### Phase 27: ツール統合・簡素化（2025-11-02 ~ 11-03）
-- **7ツール → 5ツール**: create/update統合、search_rag→readリネーム
-- **自然言語API**: create_memory/delete_memoryが自然言語クエリ対応
-- **本番安定化**: sentencepiece依存問題解決、エラーログ強化
+## ライセンス
 
-### Phase 25: Qdrant専用化（2025-11-01）
-- **FAISS完全削除**: Qdrant専用実装に統一
-- **list_memory廃止**: トークンオーバーフロー回避のため統計サマリーに変更
-
-### Phase 24: ペルソナ別動的Qdrant（2025-11-01）
-- **動的アダプター**: リクエストごとにペルソナ別Qdrantコレクション生成
-- **X-Personaヘッダー対応**: ペルソナ切り替え実装
-
-### Docker最適化（2025-10-30）
-- **イメージサイズ削減**: 8.28GB → 2.65GB（68.0%削減）
-- **CPU版PyTorch**: CUDA依存除外、Multi-stage build
+MIT License

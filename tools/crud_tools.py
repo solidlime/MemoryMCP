@@ -247,13 +247,13 @@ async def create_memory(
     
     2. **Linking**: ALWAYS add [[...]] to any people, concepts, technical terms, etc.
        This enables automatic linking and knowledge graph visualization in Obsidian.
-       - People: [[Claude]], [[John Smith]], [[らうらう]], [[ニィロウ]]
+       - People: [[Alice]], [[Bob]], [[User]]
        - Technologies: [[Python]], [[AWS]], [[MCP]], [[Jupyter]]
-       - Concepts: [[machine learning]], [[data science]], [[自然言語処理]]
+       - Concepts: [[machine learning]], [[data science]]
        - Tools: [[VS Code]], [[Obsidian]]
        - Companies: [[Anthropic]], [[OpenAI]]
 
-    **Format:** "User is [specific info]" (e.g. "User likes [[strawberry]]", "User is learning [[Python]]", "ユーザーは[[イチゴ]]が好き")
+    **Format:** "User is [specific info]" (e.g. "User likes [[strawberry]]", "User is learning [[Python]]")
 
     Args:
         content: Memory content to create
@@ -280,7 +280,7 @@ async def create_memory(
     Examples:
         # Create new memory
         create_memory("User likes [[strawberry]]")
-        create_memory("[[らうらう]]が[[Python]]の勉強を始めた", importance=0.7)
+        create_memory("User started learning [[Python]]", importance=0.7)
     """
     try:
         persona = get_current_persona()
@@ -732,7 +732,7 @@ async def update_memory(
     - Change previously saved preferences or facts
     
     Args:
-        query: Natural language query to find existing memory (e.g., "約束", "プロジェクト進捗")
+        query: Natural language query to find existing memory (e.g., "promise", "project progress")
         content: New content to replace the existing memory
         emotion_type: Optional emotion type to update
         context_tags: Optional tags to update
@@ -750,8 +750,8 @@ async def update_memory(
     
     Examples:
         # Update existing memory
-        update_memory("約束", "明日10時に変更")
-        update_memory("プロジェクト進捗", "Phase 28完了", importance=0.8)
+        update_memory("promise", "Changed to tomorrow at 10am")
+        update_memory("project progress", "Feature completed", importance=0.8)
         
         # If similarity < 0.80, shows candidates and creates new memory instead
     """
