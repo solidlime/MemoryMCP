@@ -312,7 +312,8 @@ def initialize_rag_sync():
     if CROSSENCODER_AVAILABLE:
         try:
             with tqdm(total=100, desc="📥 Reranker Model", unit="%", ncols=80) as pbar:
-                reranker = CrossEncoder(reranker_model)
+                # Force CPU device to avoid CUDA issues
+                reranker = CrossEncoder(reranker_model, device='cpu')
                 pbar.update(100)
         except Exception as e:
             print(f"❌ Failed to initialize reranker: {e}")
@@ -775,6 +776,12 @@ def detect_duplicate_memories(threshold: float = 0.85, max_pairs: int = 50) -> l
 def initialize_sentiment_analysis():
     """Initialize sentiment analysis pipeline."""
     global sentiment_pipeline
+    
+    # Ensure torch uses CPU only
+    import os
+    os.environ["TORCH_COMPILE_DISABLE"] = "1"
+    os.environ["CUDA_VISIBLE_DEVICES"] = ""
+    
     cfg = load_config()
     sentiment_model = cfg.get("sentiment_model", "lxyuan/distilbert-base-multilingual-cased-sentiments-student")
     
@@ -791,6 +798,8 @@ def initialize_sentiment_analysis():
     except Exception as e:
         sentiment_pipeline = None
         print(f"❌ Failed to initialize sentiment analysis: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 def analyze_sentiment_text(content: str) -> dict:

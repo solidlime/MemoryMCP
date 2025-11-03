@@ -191,7 +191,15 @@ if __name__ == "__main__":
     # Note: Memory database is loaded on-demand per request (no default persona loading at startup)
     # Initialize RAG synchronously before starting MCP server
     print("📥 Starting RAG system initialization...")
-    _initialize_rag_sync()
+    try:
+        _initialize_rag_sync()
+        print("✅ RAG system initialized successfully")
+    except Exception as e:
+        print(f"⚠️  RAG system initialization failed: {e}")
+        print("⚠️  Server will start anyway, but RAG features may not work")
+        import traceback
+        traceback.print_exc()
+    
     # Start idle rebuild worker
     try:
         start_idle_rebuilder_thread()

@@ -13,6 +13,73 @@
 
 ## 今日の作業（2025-11-03）
 
+### 公開準備: 個人情報削除・Phase番号削除 ✅
+**実装内容**:
+- ✅ 個人情報削除
+  - `tools/crud_tools.py`: docstring内の個人名削除（らうらう、ニィロウ → User, Assistant, Alice, Bob）
+  - `README.md`: 個人情報含むサンプルコード全削除、英語・汎用名に置換
+  - `.github/copilot-instructions.md`: ツール名変更（nilou-memory → memory-mcp）
+- ✅ Phase番号削除
+  - `README.md`: "アーキテクチャの変遷"セクション完全削除
+  - 全ドキュメント: "Phase XX"表記削除
+- ✅ 公開ドキュメント作成ルール追加
+  - `.github/copilot-instructions.md`: 新規セクション追加
+  - 個人情報、Phase番号、プライベート履歴の禁止を明文化
+  - サンプルコードは英語・汎用名使用を義務化
+- ✅ Git commit & push完了: `4baf53e`
+
+### MCP接続問題調査 ⚠️ 進行中→修正中
+**問題**:
+- NAS本番環境: "Waiting for server to respond to `initialize` request..."
+- エラー: "Error sending message to http://nas:26262/mcp: TypeError: fetch failed"
+- 症状: `initialize` requestに応答なし
+
+**調査内容**:
+- ⚠️ ローカル再現テスト: PyTorch CUDA依存により起動失敗 → ✅ 解決
+  - **原因特定**: Reranker (CrossEncoder) がデバイス指定なし → 自動的にCUDA選択
+  - **Sentiment分析**: 既に `device=-1` (CPU) 指定済み
+- ✅ RAG初期化エラーハンドリング追加（`memory_mcp.py` L192-200）
+  - try-exceptでエラー時もサーバー起動継続
+
+**実施した修正** ✅:
+1. **Reranker CPU強制** (`vector_utils.py` L316)
+   - `CrossEncoder(reranker_model, device='cpu')` に変更
+   - CUDA自動選択を防止
+   
+2. **Sentiment分析の環境変数強化** (`vector_utils.py` L779-783)
+   - `CUDA_VISIBLE_DEVICES = ""` 追加
+   - `TORCH_COMPILE_DISABLE = "1"` を関数内に移動
+   - tracebackを追加して詳細エラーログ出力
+
+**ローカルテスト結果** ✅:
+- Embeddings Model: CPU ✅
+- Reranker Model: CPU ✅（修正前: CUDA）
+- Sentiment Model: CPU ✅
+- サーバー起動: 成功 ✅（約13秒）
+
+**推測原因**（更新）:
+- ~~RAG初期化中のタイムアウト（特にsentiment modelロード）~~ → RerankerのCUDA依存が原因
+- ~~FastMCPの`initialize`ハンドラー未登録または応答遅延~~ → RAG初期化の問題だった
+- **真の原因**: CrossEncoderがデバイス指定なしでCUDA自動選択 → 修正完了 ✅
+
+**次のステップ**:
+1. ~~**Sentiment分析のバグ修正（最優先）**~~ ✅ 完了
+   - ~~PyTorch CUDA依存の解決~~ ✅
+   - ~~CPU専用環境での動作確認~~ ✅
+   - モデルロード時間の計測・最適化（後回し）
+2. **NAS本番環境への再デプロイ** 🚨
+   - Docker imageリビルド
+   - コンテナ再起動
+   - MCP接続確認
+3. **動作確認テスト**
+   - create_memory実行
+   - analyze_sentiment実行
+   - 知識グラフ生成確認
+
+---
+
+## 前回の作業（2025-11-03）
+
 ### Phase 28.1: DB Schema Extension ✅
 **実装内容**:
 - ✅ SQLite Schema拡張（15カラムに）
@@ -29,13 +96,6 @@
   - `vector_utils.py`: Qdrant payload更新（add/update/rebuild）
 - ✅ 動作確認: ローカルテスト完了、自動マイグレーション成功
 - ✅ Git commit & push完了: `463814a`
-
-**次のステップ (Phase 28.2)**:
-- 連想生成モジュール実装
-  - create_memory()時に類似記憶検索（top-3）。類似記憶検索は裏で実行することで返り値待ちを回避
-  - related_keysに保存
-  - 感情強度による重要度補正
-  - 感情文脈の算出
 
 ### Phase 28 設計メモ
  📝 **改善候補**
