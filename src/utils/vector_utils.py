@@ -740,8 +740,8 @@ def find_similar_memories(query_key: str, top_k: int = 5) -> list:
         for doc, score in results:
             key = doc.metadata.get("key")
             if key != query_key:  # Exclude the query memory itself
-                # Convert distance/score to similarity
-                similarity = 1.0 / (1.0 + float(score))
+                # Phase 31.2: score is now similarity directly (higher = more similar)
+                similarity = float(score)
                 similar.append((key, doc.page_content, similarity))
         
         # Return top_k results (excluding query itself)
@@ -796,8 +796,8 @@ def detect_duplicate_memories(threshold: float = 0.85, max_pairs: int = 50) -> l
                     if key1 >= key2:  # >= ensures we don't process the same pair twice
                         continue
                     
-                    # Convert distance-like score to similarity
-                    similarity = 1.0 / (1.0 + float(score))
+                    # Phase 31.2: score is now similarity directly (higher = more similar)
+                    similarity = float(score)
                     
                     # Check if above threshold
                     if similarity >= threshold:

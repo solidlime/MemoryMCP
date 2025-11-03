@@ -98,9 +98,13 @@ class QdrantVectorStoreAdapter:
 
     def similarity_search_with_score(self, query: str, k: int = 5) -> List[Tuple[Document, float]]:
         vec = self.embeddings.embed_query(query)
+        return self.similarity_search_with_score_by_vector(vec, k)
+    
+    def similarity_search_with_score_by_vector(self, query_vector: List[float], k: int = 5) -> List[Tuple[Document, float]]:
+        """Search by pre-computed embedding vector."""
         result = self.client.search(
             collection_name=self.collection,
-            query_vector=vec,
+            query_vector=query_vector,
             limit=k,
             with_payload=True
         )
