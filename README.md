@@ -23,7 +23,8 @@ Model Context Protocol (MCP) に準拠した永続メモリサーバー。RAG (R
 
 ### 便利機能
 - **簡単なAPI**: 
-  - `create_memory`: 作成・更新を一本化（自然言語クエリで既存記憶を自動更新）
+  - `create_memory`: 新規作成専用（RAG検索なし、高速）
+  - `update_memory`: 既存記憶の更新（RAG検索で自動検出）
   - `read_memory`: 意味検索で記憶を読み取り
   - `delete_memory`: 自然言語クエリで削除（安全閾値付き）
 - **自動整理**: アイドル時の重複検知・知識グラフ生成・感情推定
@@ -260,17 +261,24 @@ export MEMORY_MCP_EMBEDDINGS_DEVICE=cpu
 
 #### 作成（create_memory）
 ```python
-# 新規作成
+# 新規作成（高速、RAG検索なし）
 create_memory("ユーザーは[[Python]]が好き", importance=0.7, emotion="joy")
+create_memory("Phase 28完了したよ✨", context_tags=["technical_achievement"])
+```
 
-# 自然言語クエリで自動更新（類似度≥0.80なら更新、<0.80なら新規作成）
-create_memory("約束", content="明日10時に変更", importance=0.9)
+**Phase 28.5**: create_memoryは新規作成専用に最適化。RAG検索を行わないため高速です。
+
+#### 更新（update_memory）
+```python
+# 自然言語クエリで既存記憶を更新（RAG検索あり）
+update_memory("約束", content="明日10時に変更", importance=0.9)
+update_memory("プロジェクト進捗", content="Phase 28完了")
 ```
 
 **処理フロー**:
 1. クエリで類似記憶を検索（RAG）
 2. 類似度≥0.80: 既存記憶を更新（SQLite + Qdrant両方）
-3. 類似度<0.80: 新規記憶を作成（SQLite + Qdrant両方）
+3. 類似度<0.80: 候補表示して新規記憶を作成
 
 #### 読み取り（read_memory）
 ```python
@@ -335,7 +343,7 @@ delete_memory("古いプロジェクトの記憶")
 
 ## MCPリソースとツール
 
-### LLM用ツール（5個）
+### LLM用ツール（6個）
 会話型AIが直接使用するツールです。`/mcp`エンドポイント経由でアクセスできます。
 
 **セッション管理**:
@@ -346,13 +354,15 @@ delete_memory("古いプロジェクトの記憶")
   - 💡 **推奨**: 毎応答時に呼ぶことでセッション間の記憶同期を行う
 
 **CRUD操作**:
-- `create_memory` - **🆕 記憶の作成・更新**
-  - 新規作成: `create_memory("ユーザーは [[苺]] が好き")`
-  - 更新: `create_memory("約束", content="明日10時に変更")`
-  - 類似度 ≥ 0.80: 自動更新
-  - 類似度 < 0.80: 新規作成（低信頼度の場合）
-  - **見つからなければ自動的に新規作成** ✨
+- `create_memory` - **🆕 記憶の新規作成（Phase 28.5: 最適化版）**
+  - 新規作成専用: `create_memory("ユーザーは [[苺]] が好き")`
+  - **RAG検索なし→高速** ⚡
   - 12カラム完全対応: importance, emotion, physical_state, mental_state, environment, relationship_status, action_tag
+- `update_memory` - **🆕 既存記憶の更新（Phase 28.5）**
+  - 自然言語クエリで更新: `update_memory("約束", content="明日10時に変更")`
+  - 類似度 ≥ 0.80: 自動更新
+  - 類似度 < 0.80: 候補表示して新規作成
+  - RAG検索でベストマッチを自動検出 🔍
 - `read_memory` - **🆕 意味検索のメインツール**（旧search_memory_ragの機能）
   - 自然言語で検索: `read_memory("ユーザーの好きな食べ物")`
   - メタデータフィルタリング＆カスタムスコアリング対応
@@ -444,6 +454,11 @@ curl -X POST http://localhost:26262/api/admin/detect-duplicates \
 ---
 
 ## アーキテクチャの変遷
+
+### Phase 28.5: create/update分離（2025-01-XX）
+- **パフォーマンス改善**: create_memory()を新規作成専用に最適化（RAG検索除去）
+- **update_memory追加**: 既存記憶の更新専用ツール（RAG検索で自動検出）
+- **6ツール体制**: create, update, read, search, delete, session_context
 
 ### Phase 27: ツール統合・簡素化（2025-11-02 ~ 11-03）
 - **7ツール → 5ツール**: create/update統合、search_rag→readリネーム

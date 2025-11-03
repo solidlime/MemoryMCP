@@ -12,7 +12,7 @@ from typing import Any
 
 def register_tools(mcp: Any) -> None:
     # 遅延importして循環依存を回避
-    from tools.crud_tools import create_memory, read_memory, delete_memory
+    from tools.crud_tools import create_memory, update_memory, read_memory, delete_memory
     from tools.search_tools import search_memory
     from tools.analysis_tools import find_related_memories, analyze_sentiment
     from tools.context_tools import get_session_context
@@ -24,12 +24,14 @@ def register_tools(mcp: Any) -> None:
     # 以下3つのツールを統合: get_memory_stats, get_persona_context, get_time_since_last_conversation
     mcp.tool()(get_session_context)
     
-    # Phase 27: ツール統合・簡素化
-    # - create_memory: 作成・更新を一本化（自然言語クエリ＋自動作成・更新）
+    # Phase 28.5: create/update分離（パフォーマンス改善）
+    # - create_memory: 新規作成専用（RAG検索なし、高速）
+    # - update_memory: 更新専用（RAG検索あり、類似度0.80以上で更新）
     # - read_memory: 意味検索のメインツール（旧search_memory_ragの機能）
     # - search_memory: 構造化検索（完全一致、Fuzzy、タグ、日付範囲）
     # - delete_memory: 削除専用（自然言語クエリ対応）
     mcp.tool()(create_memory)
+    mcp.tool()(update_memory)
     mcp.tool()(read_memory)
     mcp.tool()(search_memory)
     mcp.tool()(delete_memory)

@@ -209,8 +209,7 @@ async def get_memory_stats() -> str:
 
 
 async def create_memory(
-    content_or_query: str,
-    content: Optional[str] = None,
+    content: str,
     emotion_type: Optional[str] = None,
     emotion_intensity: Optional[float] = None,
     context_tags: Optional[List[str]] = None,
@@ -224,12 +223,12 @@ async def create_memory(
     action_tag: Optional[str] = None
 ) -> str:
     """
-    🆕 Phase 27: Universal memory creation and update tool.
-    Create new memory OR update existing memory using natural language query.
+    Create new memory (optimized - no RAG search).
+    For updating existing memories, use update_memory() instead.
     
     **When to use:**
     - Save important user info found in conversation (preferences, interests, personal details, etc.)
-    - Update existing memory by describing what to find
+    - Create new memory entries
     - Use even if the user does not explicitly request saving
     
     **Examples to save:**
@@ -257,10 +256,7 @@ async def create_memory(
     **Format:** "User is [specific info]" (e.g. "User likes [[strawberry]]", "User is learning [[Python]]", "ユーザーは[[イチゴ]]が好き")
 
     Args:
-        content_or_query: 
-            - If `content` param is None: Memory content to create (traditional usage)
-            - If `content` param is provided: Natural language query to find existing memory
-        content: Optional new content for update mode. If provided, content_or_query becomes the search query.
+        content: Memory content to create
         emotion_type: Optional emotion type ("joy", "sadness", "anger", "surprise", "fear", "disgust", "neutral", etc.)
         context_tags: Optional tags for categorizing memories:
             - "important_event": Major milestones, achievements, significant moments
@@ -282,14 +278,9 @@ async def create_memory(
         action_tag: Optional action tag ("cooking", "coding", "kissing", "walking", "talking", etc.)
     
     Examples:
-        # Traditional: Create new memory
+        # Create new memory
         create_memory("User likes [[strawberry]]")
-        
-        # 🆕 Phase 27: Update existing memory by query
-        create_memory("約束", content="明日10時に変更")
-        create_memory("プロジェクト進捗", content="Phase 27完了")
-        
-        # If no match found, automatically creates new memory!
+        create_memory("[[らうらう]]が[[Python]]の勉強を始めた", importance=0.7)
     """
     try:
         persona = get_current_persona()
@@ -298,144 +289,7 @@ async def create_memory(
         # Ensure database and tables are initialized (handles empty database files)
         load_memory_from_db()
         
-        # Phase 27: Determine if this is create or update mode
-        is_update_mode = content is not None
-        
-        if is_update_mode:
-            # Update mode: content_or_query is search query, content is new content
-            search_query = content_or_query
-            new_content = content
-            
-            print(f"🔍 Searching for memory matching: '{search_query}'")
-            search_results = await _search_memory_by_query(search_query, top_k=3)
-            
-            if search_results and len(search_results) > 0:
-                # Check similarity score of best match
-                best_match = search_results[0]
-                similarity_score = best_match['score']
-                
-                if similarity_score >= 0.80:
-                    # High confidence - update existing memory
-                    key = best_match['key']
-                    print(f"✨ Updating existing memory: {key} (similarity: {similarity_score:.2f})")
-                    
-                    # Get existing data
-                    with sqlite3.connect(db_path) as conn:
-                        cursor = conn.cursor()
-                        cursor.execute('SELECT content, created_at, tags, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys, summary_ref FROM memories WHERE key = ?', (key,))
-                        row = cursor.fetchone()
-                    
-                    if row:
-                        old_content, created_at, tags_json, existing_importance, existing_emotion, existing_emotion_intensity, existing_physical, existing_mental, existing_env, existing_relation, existing_action, existing_related_keys_json, existing_summary_ref = row
-                        existing_entry = {
-                            "content": old_content,
-                            "created_at": created_at,
-                            "tags": json.loads(tags_json) if tags_json else [],
-                            "importance": existing_importance if existing_importance is not None else 0.5,
-                            "emotion": existing_emotion if existing_emotion else "neutral",
-                            "emotion_intensity": existing_emotion_intensity if existing_emotion_intensity is not None else 0.0,
-                            "physical_state": existing_physical if existing_physical else "normal",
-                            "mental_state": existing_mental if existing_mental else "calm",
-                            "environment": existing_env if existing_env else "unknown",
-                            "relationship_status": existing_relation if existing_relation else "normal",
-                            "action_tag": existing_action if existing_action else None,
-                            "related_keys": json.loads(existing_related_keys_json) if existing_related_keys_json else [],
-                            "summary_ref": existing_summary_ref if existing_summary_ref else None
-                        }
-                        
-                        # Use provided importance or preserve existing
-                        memory_importance = importance if importance is not None else existing_entry["importance"]
-                        
-                        now = datetime.now().isoformat()
-                        
-                        # Update in database (preserve all existing context fields unless explicitly provided)
-                        save_memory_to_db(
-                            key, 
-                            new_content, 
-                            created_at,  # Preserve original creation time
-                            now, 
-                            context_tags if context_tags else existing_entry["tags"],
-                            importance=memory_importance,
-                            emotion=emotion_type if emotion_type else existing_entry["emotion"],
-                            emotion_intensity=emotion_intensity if emotion_intensity is not None else existing_entry.get("emotion_intensity", 0.0),
-                            physical_state=physical_state if physical_state else existing_entry["physical_state"],
-                            mental_state=mental_state if mental_state else existing_entry["mental_state"],
-                            environment=environment if environment else existing_entry["environment"],
-                            relationship_status=relationship_status if relationship_status else existing_entry["relationship_status"],
-                            action_tag=action_tag if action_tag else existing_entry["action_tag"],
-                            related_keys=existing_entry.get("related_keys", []),  # Phase 28: Preserve existing associations
-                            summary_ref=existing_entry.get("summary_ref", None)  # Phase 28: Preserve existing summary ref
-                        )
-                        
-                        # Clear query cache
-                        clear_query_cache()
-                        
-                        update_memory_in_vector_store(key, new_content)
-                        
-                        # Update persona context if needed
-                        context_updated = False
-                        context = load_persona_context(persona)
-                        
-                        # Always update last_conversation_time
-                        config = load_config()
-                        context["last_conversation_time"] = datetime.now(ZoneInfo(config.get("timezone", "Asia/Tokyo"))).isoformat()
-                        context_updated = True
-                        
-                        # Update other context fields if provided
-                        if emotion_type:
-                            context["current_emotion"] = emotion_type
-                            context_updated = True
-                        if physical_state:
-                            context["physical_state"] = physical_state
-                            context_updated = True
-                        if mental_state:
-                            context["mental_state"] = mental_state
-                            context_updated = True
-                        if environment:
-                            context["environment"] = environment
-                            context_updated = True
-                        if user_info:
-                            if "user_info" not in context:
-                                context["user_info"] = {}
-                            for key_name, value in user_info.items():
-                                if key_name in ["name", "nickname", "preferred_address"]:
-                                    context["user_info"][key_name] = value
-                            context_updated = True
-                        if persona_info:
-                            if "persona_info" not in context:
-                                context["persona_info"] = {}
-                            for key_name, value in persona_info.items():
-                                if key_name in ["name", "nickname", "preferred_address"]:
-                                    context["persona_info"][key_name] = value
-                            context_updated = True
-                        if relationship_status:
-                            context["relationship_status"] = relationship_status
-                            context_updated = True
-                        
-                        if context_updated:
-                            save_persona_context(context, persona)
-                        
-                        log_operation("update", key=key, before=existing_entry, after={"content": new_content},
-                                     metadata={"old_content_length": len(old_content), "new_content_length": len(new_content), "persona": persona})
-                        
-                        return f"✅ Updated existing memory: '{key}' (persona: {persona})"
-                else:
-                    # Low confidence - show candidates
-                    candidates = "\n".join([
-                        f"  [{i+1}] {r['key']} (score: {r['score']:.2f})\n      Preview: {r['content'][:80]}..."
-                        for i, r in enumerate(search_results[:3])
-                    ])
-                    # Fall through to create mode with warning
-                    print(f"⚠️  Low similarity ({similarity_score:.2f}), creating new memory instead")
-            
-            # If no match found or low confidence, create new memory (fall through to create mode)
-            print(f"💡 Creating new memory with content: '{new_content}'")
-            final_content = new_content
-        else:
-            # Create mode: content_or_query is the content to save
-            final_content = content_or_query
-        
-        # === Create new memory ===
+        # === Create new memory (simple and fast) ===
         # Generate unique key by checking database
         key = generate_auto_key()
         original_key = key
@@ -451,7 +305,7 @@ async def create_memory(
                 key = f"{original_key}_{counter:02d}"
                 counter += 1
         
-        new_entry = create_memory_entry(final_content)
+        new_entry = create_memory_entry(content)
         new_entry["tags"] = context_tags if context_tags else []
         
         # Determine importance (default to 0.5 if not provided)
@@ -463,7 +317,7 @@ async def create_memory(
         emotion_intensity_value = emotion_intensity if emotion_intensity is not None else 0.0
         related_keys, adjusted_importance = generate_associations(
             new_key=key,
-            new_content=final_content,
+            new_content=content,
             emotion_intensity=emotion_intensity_value,
             base_importance=memory_importance
         )
@@ -475,7 +329,7 @@ async def create_memory(
         # Save to database with all context fields
         save_memory_to_db(
             key, 
-            final_content, 
+            content, 
             new_entry["created_at"], 
             new_entry["updated_at"], 
             context_tags,
@@ -495,7 +349,7 @@ async def create_memory(
         clear_query_cache()
         
         # Add to vector store
-        add_memory_to_vector_store(key, final_content)
+        add_memory_to_vector_store(key, content)
         
         # Update persona context if any context parameters are provided
         context_updated = False
@@ -554,7 +408,7 @@ async def create_memory(
         
         log_operation("create", key=key, after=new_entry, 
                      metadata={
-                         "content_length": len(final_content), 
+                         "content_length": len(content), 
                          "auto_generated_key": key, 
                          "persona": persona,
                          "emotion_type": emotion_type,
@@ -578,7 +432,7 @@ async def create_memory(
         return result
     except Exception as e:
         log_operation("create", success=False, error=str(e), 
-                     metadata={"attempted_content_length": len(content_or_query) if content_or_query else 0})
+                     metadata={"attempted_content_length": len(content) if content else 0})
         return f"Failed to save: {str(e)}"
 
 
@@ -851,6 +705,223 @@ async def read_memory(
         traceback.print_exc()
         log_operation("read", key=query, success=False, error=str(e))
         return f"Failed to read memories: {str(e)}"
+
+
+async def update_memory(
+    query: str,
+    content: str,
+    emotion_type: Optional[str] = None,
+    emotion_intensity: Optional[float] = None,
+    context_tags: Optional[List[str]] = None,
+    importance: Optional[float] = None,
+    physical_state: Optional[str] = None,
+    mental_state: Optional[str] = None,
+    environment: Optional[str] = None,
+    user_info: Optional[Dict] = None,
+    persona_info: Optional[Dict] = None,
+    relationship_status: Optional[str] = None,
+    action_tag: Optional[str] = None
+) -> str:
+    """
+    Update existing memory using natural language query.
+    Uses RAG search to find the best matching memory and updates it.
+    
+    **When to use:**
+    - Update existing promises, tasks, or information
+    - Modify project status or progress
+    - Change previously saved preferences or facts
+    
+    Args:
+        query: Natural language query to find existing memory (e.g., "約束", "プロジェクト進捗")
+        content: New content to replace the existing memory
+        emotion_type: Optional emotion type to update
+        context_tags: Optional tags to update
+        importance: Optional importance score to update (0.0-1.0)
+        physical_state: Optional physical state to update
+        mental_state: Optional mental state to update
+        environment: Optional environment to update
+        user_info: Optional user information dict to update
+        persona_info: Optional persona information dict to update
+        relationship_status: Optional relationship status to update
+        action_tag: Optional action tag to update
+    
+    Returns:
+        Success/failure message
+    
+    Examples:
+        # Update existing memory
+        update_memory("約束", "明日10時に変更")
+        update_memory("プロジェクト進捗", "Phase 28完了", importance=0.8)
+        
+        # If similarity < 0.80, shows candidates and creates new memory instead
+    """
+    try:
+        persona = get_current_persona()
+        db_path = get_db_path()
+        
+        # Ensure database and tables are initialized
+        load_memory_from_db()
+        
+        print(f"🔍 Searching for memory matching: '{query}'")
+        search_results = await _search_memory_by_query(query, top_k=3)
+        
+        if not search_results or len(search_results) == 0:
+            # No results - create new memory instead
+            print(f"💡 No matching memory found. Creating new memory instead.")
+            return await create_memory(
+                content=content,
+                emotion_type=emotion_type,
+                emotion_intensity=emotion_intensity,
+                context_tags=context_tags,
+                importance=importance,
+                physical_state=physical_state,
+                mental_state=mental_state,
+                environment=environment,
+                user_info=user_info,
+                persona_info=persona_info,
+                relationship_status=relationship_status,
+                action_tag=action_tag
+            )
+        
+        # Check similarity score of best match
+        best_match = search_results[0]
+        similarity_score = best_match['score']
+        
+        if similarity_score < 0.80:
+            # Low confidence - show candidates and create new
+            candidates = "\n".join([
+                f"  [{i+1}] {r['key']} (score: {r['score']:.2f})\n      Preview: {r['content'][:80]}..."
+                for i, r in enumerate(search_results[:3])
+            ])
+            print(f"⚠️  Low similarity ({similarity_score:.2f}), creating new memory instead")
+            print(f"📋 Candidates found:\n{candidates}")
+            
+            return await create_memory(
+                content=content,
+                emotion_type=emotion_type,
+                emotion_intensity=emotion_intensity,
+                context_tags=context_tags,
+                importance=importance,
+                physical_state=physical_state,
+                mental_state=mental_state,
+                environment=environment,
+                user_info=user_info,
+                persona_info=persona_info,
+                relationship_status=relationship_status,
+                action_tag=action_tag
+            )
+        
+        # High confidence - update existing memory
+        key = best_match['key']
+        print(f"✨ Updating existing memory: {key} (similarity: {similarity_score:.2f})")
+        
+        # Get existing data
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT content, created_at, tags, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys, summary_ref FROM memories WHERE key = ?', (key,))
+            row = cursor.fetchone()
+        
+        if not row:
+            return f"❌ Memory key '{key}' not found in database"
+        
+        old_content, created_at, tags_json, existing_importance, existing_emotion, existing_emotion_intensity, existing_physical, existing_mental, existing_env, existing_relation, existing_action, existing_related_keys_json, existing_summary_ref = row
+        existing_entry = {
+            "content": old_content,
+            "created_at": created_at,
+            "tags": json.loads(tags_json) if tags_json else [],
+            "importance": existing_importance if existing_importance is not None else 0.5,
+            "emotion": existing_emotion if existing_emotion else "neutral",
+            "emotion_intensity": existing_emotion_intensity if existing_emotion_intensity is not None else 0.0,
+            "physical_state": existing_physical if existing_physical else "normal",
+            "mental_state": existing_mental if existing_mental else "calm",
+            "environment": existing_env if existing_env else "unknown",
+            "relationship_status": existing_relation if existing_relation else "normal",
+            "action_tag": existing_action if existing_action else None,
+            "related_keys": json.loads(existing_related_keys_json) if existing_related_keys_json else [],
+            "summary_ref": existing_summary_ref if existing_summary_ref else None
+        }
+        
+        # Use provided importance or preserve existing
+        memory_importance = importance if importance is not None else existing_entry["importance"]
+        
+        now = datetime.now().isoformat()
+        
+        # Update in database (preserve all existing context fields unless explicitly provided)
+        save_memory_to_db(
+            key, 
+            content, 
+            created_at,  # Preserve original creation time
+            now, 
+            context_tags if context_tags else existing_entry["tags"],
+            importance=memory_importance,
+            emotion=emotion_type if emotion_type else existing_entry["emotion"],
+            emotion_intensity=emotion_intensity if emotion_intensity is not None else existing_entry.get("emotion_intensity", 0.0),
+            physical_state=physical_state if physical_state else existing_entry["physical_state"],
+            mental_state=mental_state if mental_state else existing_entry["mental_state"],
+            environment=environment if environment else existing_entry["environment"],
+            relationship_status=relationship_status if relationship_status else existing_entry["relationship_status"],
+            action_tag=action_tag if action_tag else existing_entry["action_tag"],
+            related_keys=existing_entry.get("related_keys", []),  # Preserve existing associations
+            summary_ref=existing_entry.get("summary_ref", None)  # Preserve existing summary ref
+        )
+        
+        # Clear query cache
+        clear_query_cache()
+        
+        update_memory_in_vector_store(key, content)
+        
+        # Update persona context if needed
+        context_updated = False
+        context = load_persona_context(persona)
+        
+        # Always update last_conversation_time
+        config = load_config()
+        context["last_conversation_time"] = datetime.now(ZoneInfo(config.get("timezone", "Asia/Tokyo"))).isoformat()
+        context_updated = True
+        
+        # Update other context fields if provided
+        if emotion_type:
+            context["current_emotion"] = emotion_type
+            context_updated = True
+        if physical_state:
+            context["physical_state"] = physical_state
+            context_updated = True
+        if mental_state:
+            context["mental_state"] = mental_state
+            context_updated = True
+        if environment:
+            context["environment"] = environment
+            context_updated = True
+        if user_info:
+            if "user_info" not in context:
+                context["user_info"] = {}
+            for key_name, value in user_info.items():
+                if key_name in ["name", "nickname", "preferred_address"]:
+                    context["user_info"][key_name] = value
+            context_updated = True
+        if persona_info:
+            if "persona_info" not in context:
+                context["persona_info"] = {}
+            for key_name, value in persona_info.items():
+                if key_name in ["name", "nickname", "preferred_address"]:
+                    context["persona_info"][key_name] = value
+            context_updated = True
+        if relationship_status:
+            context["relationship_status"] = relationship_status
+            context_updated = True
+        
+        if context_updated:
+            save_persona_context(context, persona)
+        
+        log_operation("update", key=key, before=existing_entry, after={"content": content},
+                     metadata={"old_content_length": len(old_content), "new_content_length": len(content), "persona": persona})
+        
+        return f"✅ Updated existing memory: '{key}' (persona: {persona})"
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        log_operation("update", success=False, error=str(e))
+        return f"Failed to update memory: {str(e)}"
 
 
 async def delete_memory(key_or_query: str) -> str:
