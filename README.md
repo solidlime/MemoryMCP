@@ -68,7 +68,7 @@ docker run -d --name memory-mcp -p 26262:26262 \
     "servers": {
       "memory-mcp": {
         "type": "streamable-http",
-        "url": "http://127.0.0.1:8000/mcp",
+        "url": "http://127.0.0.1:26262/mcp",
         "headers": {
           "X-Persona": "default"
         }
@@ -79,6 +79,25 @@ docker run -d --name memory-mcp -p 26262:26262 \
 ```
 
 Personaを切り替えたいときは `X-Persona` の値を変更します。
+
+**NAS本番環境の場合**:
+```json
+{
+  "mcp": {
+    "servers": {
+      "memory-mcp": {
+        "type": "streamable-http",
+        "url": "http://nas:26262/mcp",
+        "headers": {
+          "X-Persona": "default"
+        }
+      }
+    }
+  }
+}
+```
+
+接続問題が発生した場合は [TROUBLESHOOTING.md](TROUBLESHOOTING.md) を参照してください。
 
 ## 設定と環境変数
 
