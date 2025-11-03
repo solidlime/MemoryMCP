@@ -30,13 +30,18 @@ def _call_llm_api(memories: List[Dict], period_description: str, config: Dict) -
     try:
         import requests
         
-        llm_provider = config.get("summarization", {}).get("llm_provider", "openrouter")
+        api_url = config.get("summarization", {}).get("llm_api_url")
         api_key = config.get("summarization", {}).get("llm_api_key")
         model = config.get("summarization", {}).get("llm_model", "anthropic/claude-3.5-sonnet")
         max_tokens = config.get("summarization", {}).get("llm_max_tokens", 500)
+        custom_prompt = config.get("summarization", {}).get("llm_prompt")
         
         if not api_key:
             print("⚠️  LLM API key not configured")
+            return None
+        
+        if not api_url:
+            print("⚠️  LLM API URL not configured")
             return None
         
         # Prepare memory content for LLM
@@ -50,8 +55,13 @@ def _call_llm_api(memories: List[Dict], period_description: str, config: Dict) -
         
         memories_str = "\n".join(memory_texts)
         
-        # Prepare prompt
-        prompt = f"""以下は{period_description}の記憶です。この期間全体の印象を自然な日本語で要約してください。
+        # Use custom prompt if provided, otherwise use default
+        if custom_prompt:
+            # Replace placeholders in custom prompt
+            prompt = custom_prompt.replace("{period}", period_description).replace("{memories}", memories_str)
+        else:
+            # Default prompt
+            prompt = f"""以下は{period_description}の記憶です。この期間全体の印象を自然な日本語で要約してください。
 
 記憶一覧:
 {memories_str}
@@ -61,21 +71,16 @@ def _call_llm_api(memories: List[Dict], period_description: str, config: Dict) -
 - 全体的な感情のトーンを含める
 - 主要な出来事やテーマを含める
 - 箇条書きではなく、自然な文章で"""
-
-        # OpenRouter API call (OpenAI API compatible)
-        if llm_provider == "openrouter":
-            api_url = "https://openrouter.ai/api/v1/chat/completions"
-            headers = {
-                "Authorization": f"Bearer {api_key}",
-                "HTTP-Referer": "https://github.com/solidlime/MemoryMCP",
-                "Content-Type": "application/json"
-            }
-        else:  # openai
-            api_url = "https://api.openai.com/v1/chat/completions"
-            headers = {
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json"
-            }
+        
+        # Prepare headers
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        # Add HTTP-Referer for OpenRouter
+        if "openrouter.ai" in api_url:
+            headers["HTTP-Referer"] = "https://github.com/solidlime/MemoryMCP"
         
         payload = {
             "model": model,

@@ -122,10 +122,11 @@ Personaを切り替えたいときは `X-Persona` の値を変更します。
 | `MEMORY_MCP_SUMMARIZATION__USE_LLM` | `summarization.use_llm` | boolean | `false` | LLM要約使用（false=統計テンプレート） |
 | `MEMORY_MCP_SUMMARIZATION__FREQUENCY_DAYS` | `summarization.frequency_days` | int | `1` | 要約頻度（日数） |
 | `MEMORY_MCP_SUMMARIZATION__MIN_IMPORTANCE` | `summarization.min_importance` | float | `0.3` | 要約対象最小重要度 |
-| `MEMORY_MCP_SUMMARIZATION__LLM_PROVIDER` | `summarization.llm_provider` | string | `openrouter` | LLMプロバイダー（openrouter/openai） |
+| `MEMORY_MCP_SUMMARIZATION__LLM_API_URL` | `summarization.llm_api_url` | string | `null` | LLM API URL（例: https://openrouter.ai/api/v1, https://api.openai.com/v1） |
 | `MEMORY_MCP_SUMMARIZATION__LLM_API_KEY` | `summarization.llm_api_key` | string | `null` | LLM API Key（未設定時はLLM無効） |
 | `MEMORY_MCP_SUMMARIZATION__LLM_MODEL` | `summarization.llm_model` | string | `anthropic/claude-3.5-sonnet` | 使用LLMモデル |
 | `MEMORY_MCP_SUMMARIZATION__LLM_MAX_TOKENS` | `summarization.llm_max_tokens` | int | `500` | LLM最大トークン数 |
+| `MEMORY_MCP_SUMMARIZATION__LLM_PROMPT` | `summarization.llm_prompt` | string | `null` | カスタム要約プロンプト（{period}, {memories}を置換） |
 | `MEMORY_MCP_AUTO_CLEANUP_DUPLICATE_THRESHOLD` | `auto_cleanup.duplicate_threshold` | float | `0.90` | 重複検出閾値 |
 | `MEMORY_MCP_AUTO_CLEANUP_MIN_SIMILARITY_TO_REPORT` | `auto_cleanup.min_similarity_to_report` | float | `0.85` | レポート最小類似度 |
 | `MEMORY_MCP_AUTO_CLEANUP_MAX_SUGGESTIONS_PER_RUN` | `auto_cleanup.max_suggestions_per_run` | int | `20` | 1回の最大提案数 |
@@ -162,6 +163,17 @@ export MEMORY_MCP_VECTOR_REBUILD_MODE=auto
     "duplicate_threshold": 0.9,
     "min_similarity_to_report": 0.85,
     "max_suggestions_per_run": 20
+  },
+  "summarization": {
+    "enabled": true,
+    "use_llm": true,
+    "frequency_days": 1,
+    "min_importance": 0.3,
+    "llm_api_url": "https://openrouter.ai/api/v1/chat/completions",
+    "llm_api_key": "sk-or-v1-...",
+    "llm_model": "anthropic/claude-3.5-sonnet",
+    "llm_max_tokens": 500,
+    "llm_prompt": "以下は{period}の記憶です。全体の印象を簡潔に要約してください。\n\n{memories}\n\n要約（200文字程度）:"
   }
 }
 ```

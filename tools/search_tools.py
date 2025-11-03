@@ -75,14 +75,15 @@ async def search_memory(
         memories = {}
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute('SELECT key, content, created_at, updated_at, tags FROM memories')
+            cursor.execute('SELECT key, content, created_at, updated_at, tags, related_keys FROM memories')
             for row in cursor.fetchall():
-                key, content, created_at, updated_at, tags_json = row
+                key, content, created_at, updated_at, tags_json, related_keys_json = row
                 memories[key] = {
                     "content": content,
                     "created_at": created_at,
                     "updated_at": updated_at,
-                    "tags": json.loads(tags_json) if tags_json else []
+                    "tags": json.loads(tags_json) if tags_json else [],
+                    "related_keys": json.loads(related_keys_json) if related_keys_json else []
                 }
         
         # Phase 1: Start with all memories as candidates
@@ -188,10 +189,14 @@ async def search_memory(
                 entry_tags = entry.get('tags', [])
                 tags_str = f" [{', '.join(entry_tags)}]" if entry_tags else ""
                 
+                # Get related keys
+                related_keys = entry.get('related_keys', [])
+                related_str = f" 🔗{len(related_keys)}関連" if related_keys else ""
+                
                 # Show score if fuzzy or multiple results
                 score_str = f" (Match: {score:.0f}%)" if fuzzy_match or len(scored_results) > 1 else ""
                 
-                result += f"{i}. [{key}]{tags_str}{score_str}\n"
+                result += f"{i}. [{key}]{tags_str}{related_str}{score_str}\n"
                 
                 # Show snippet with keyword highlighting
                 if query.lower() in content.lower():
@@ -207,7 +212,19 @@ async def search_memory(
                 else:
                     result += f"   {content[:200]}{'...' if len(content) > 200 else ''}\n"
                 
-                result += f"   {created_date} {created_time}{time_ago}\n\n"
+                result += f"   {created_date} {created_time}{time_ago}\n"
+                
+                # Show related memories with content preview
+                if related_keys:
+                    result += f"   🔗 関連記憶:\n"
+                    for rel_key in related_keys[:3]:  # Show max 3
+                        if rel_key in memories:
+                            rel_content = memories[rel_key]['content'][:60]
+                            result += f"      • [{rel_key}] {rel_content}...\n"
+                    if len(related_keys) > 3:
+                        result += f"      (+{len(related_keys) - 3}件の関連記憶)\n"
+                
+                result += "\n"
             
             return result.rstrip()
         else:
@@ -410,19 +427,23 @@ async def search_memory_rag(
                 for i, doc in enumerate(docs, 1):
                     key = doc.metadata.get("key", "unknown")
                     content = doc.page_content
-                    # DBからメタデータ取得（全12フィールド）
+                    # DBからメタデータ取得（全フィールド + related_keys）
                     cursor.execute('''
                         SELECT created_at, importance, emotion, physical_state, 
-                               mental_state, environment, relationship_status, action_tag 
+                               mental_state, environment, relationship_status, action_tag,
+                               related_keys
                         FROM memories WHERE key = ?
                     ''', (key,))
                     row = cursor.fetchone()
                     if row:
-                        created_at, importance, emotion_db, physical, mental, env, relation, action = row
+                        created_at, importance, emotion_db, physical, mental, env, relation, action, related_keys_json = row
                         created_date = created_at[:10]
                         created_time = created_at[11:19]
                         time_diff = calculate_time_diff(created_at)
                         time_ago = f" ({time_diff['formatted_string']}前)"
+                        
+                        # Parse related_keys
+                        related_keys = json.loads(related_keys_json) if related_keys_json else []
                         
                         # Build metadata display
                         meta_parts = []
@@ -434,6 +455,8 @@ async def search_memory_rag(
                             meta_parts.append(f"🎭{action}")
                         if env and env != "unknown":
                             meta_parts.append(f"📍{env}")
+                        if related_keys:
+                            meta_parts.append(f"🔗{len(related_keys)}関連")
                         
                         meta_str = f" [{', '.join(meta_parts)}]" if meta_parts else ""
                         
@@ -449,10 +472,26 @@ async def search_memory_rag(
                         time_ago = ""
                         meta_str = ""
                         score_str = ""
+                        related_keys = []
                     
                     result += f"{i}. [{key}]{meta_str}{score_str}\n"
                     result += f"   {content[:200]}{'...' if len(content) > 200 else ''}\n"
-                    result += f"   {created_date} {created_time}{time_ago} ({len(content)} chars)\n\n"
+                    result += f"   {created_date} {created_time}{time_ago} ({len(content)} chars)\n"
+                    
+                    # Show related memories with content preview
+                    if related_keys:
+                        result += f"   🔗 関連記憶:\n"
+                        # Fetch related memory contents
+                        for rel_key in related_keys[:3]:  # Show max 3
+                            cursor.execute('SELECT content FROM memories WHERE key = ?', (rel_key,))
+                            rel_row = cursor.fetchone()
+                            if rel_row:
+                                rel_content = rel_row[0][:60]
+                                result += f"      • [{rel_key}] {rel_content}...\n"
+                        if len(related_keys) > 3:
+                            result += f"      (+{len(related_keys) - 3}件の関連記憶)\n"
+                    
+                    result += "\n"
             return result.rstrip()
         else:
             filter_desc = []

@@ -297,12 +297,13 @@ def test_llm_summarization_error_handling():
     print("="*60)
     
     try:
-        # Set use_llm=True but provide invalid API key
+        # Set use_llm=True but provide invalid API key/URL
         config = load_config()
         config["summarization"]["use_llm"] = True
+        config["summarization"]["llm_api_url"] = None  # Invalid
         config["summarization"]["llm_api_key"] = None  # Invalid
         
-        print(f"\n⚙️  Config: use_llm=True, api_key=None (should fail gracefully)")
+        print(f"\n⚙️  Config: use_llm=True, api_url=None, api_key=None (should fail gracefully)")
         
         # Attempt summary
         print(f"\n📝 Attempting LLM summary (expecting fallback to template)...")

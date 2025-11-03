@@ -24,10 +24,11 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "use_llm": False,  # True: LLM要約, False: 統計テンプレート要約
         "frequency_days": 1,  # 要約頻度（日数）
         "min_importance": 0.3,  # 要約対象の最小重要度
-        "llm_provider": "openrouter",  # LLMプロバイダー (openrouter/openai)
-        "llm_api_key": None,  # OpenRouter/OpenAI APIキー
+        "llm_api_url": None,  # LLM API URL (OpenRouter: https://openrouter.ai/api/v1, OpenAI: https://api.openai.com/v1)
+        "llm_api_key": None,  # LLM APIキー
         "llm_model": "anthropic/claude-3.5-sonnet",  # 使用モデル
         "llm_max_tokens": 500,  # 最大トークン数
+        "llm_prompt": None,  # カスタム要約プロンプト（Noneなら内部デフォルト使用）
     },
     "vector_rebuild": {
         "mode": "idle",
