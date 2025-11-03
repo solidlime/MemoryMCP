@@ -69,7 +69,8 @@ def _get_memory_info_data(persona: str) -> dict:
         # Get last conversation time
         last_conv = context.get("last_conversation_time")
         if last_conv:
-            last_conversation = calculate_time_diff(last_conv)
+            time_diff = calculate_time_diff(last_conv)
+            last_conversation = time_diff.get("formatted_string", "Unknown")
         else:
             last_conversation = "Never"
         
@@ -111,14 +112,13 @@ def _get_memory_metrics_data(persona: str) -> dict:
                 except:
                     pass
             
-            # Emotion distribution
-            context = load_persona_context()
-            emotion_history = context.get("emotion_history", [])
+            # Emotion distribution from memory emotion column
+            cursor.execute("SELECT emotion FROM memories WHERE emotion IS NOT NULL AND emotion != ''")
             emotion_counter = Counter()
-            for entry in emotion_history:
-                emotion_type = entry.get("emotion_type")
-                if emotion_type:
-                    emotion_counter[emotion_type] += 1
+            for row in cursor.fetchall():
+                emotion = row[0]
+                if emotion:
+                    emotion_counter[emotion] += 1
             
             # Tagged/Linked memory counts
             cursor.execute("SELECT COUNT(*) FROM memories WHERE tags IS NOT NULL AND tags != ''")

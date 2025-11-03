@@ -1,12 +1,12 @@
 # Memory MCP Server
 
-Model Context Protocol (MCP) に準拠した永続メモリサーバー。RAG (Retrieval-Augmented Generation)・意味検索・感情分析を組み合わせて、Personaごとの記憶を柔らかく管理します。
+Model Context Protocol (MCP) に準拠した永続メモリサーバー。RAG (Retrieval-Augmented Generation)・意味検索・感情分析を組み合わせて、Personaごとの記憶を管理します。
 
 ## 主な特徴
 
 ### コア機能
 - **永続メモリ**: SQLite + Qdrantでセッションを横断した記憶を保持
-- **Personaサポート**: `X-Persona` ヘッダーで人格ごとに独立したデータ空間
+- **Personaサポート**: `X-Persona` ヘッダーでPersonaごとに独立したデータ空間
 - **RAG検索とリランキング**: HuggingFace埋め込み + CrossEncoderで高精度検索
 - **完全コンテキスト保存**: 12カラムで記憶の完全な状況を記録
   - 重要度スコア (`importance`)、感情 (`emotion`)
@@ -37,17 +37,6 @@ Model Context Protocol (MCP) に準拠した永続メモリサーバー。RAG (R
 
 ## クイックスタート
 
-### ローカル環境
-```bash
-git clone <repository-url>
-cd memory-mcp
-python -m venv venv-rag
-source venv-rag/bin/activate  # Windowsは venv-rag\Scripts\activate
-pip install -r requirements.txt
-python memory_mcp.py
-```
-`http://127.0.0.1:8000` が開き、`/mcp` がMCPエンドポイントです。
-
 ### Docker Compose
 ```bash
 docker compose up -d
@@ -56,26 +45,22 @@ docker compose logs -f memory-mcp
 # 停止
 docker compose down
 ```
-デフォルトマウント:
-- `./data` → `/data` (memory/, logs/, cache/ を含む全データ)
-- `./config.json` → `/config/config.json`
+推奨ホストマウント:
+- `/data` (memory/, logs/, cache/ を含む全データ)
 
-デフォルトポート: `26262` (開発環境と競合しないため)
+デフォルトポート: `26262`
 
 アクセス: `http://localhost:26262`
 
-### 公開イメージ (例)
+### 公開イメージ
 ```bash
 docker run -d --name memory-mcp -p 26262:26262 \
-  -v $(pwd)/data:/data \
-  -v $(pwd)/config.json:/config/config.json:ro \
   -e MEMORY_MCP_SERVER_PORT=26262 \
   ghcr.io/solidlime/memory-mcp:latest
 ```
 
-## MCPクライアント設定例 (VS Code)
-
-**開発環境（ローカル起動）**:
+## MCPクライアント設定例
+**VS Code**:
 ```json
 {
   "mcp": {
@@ -83,23 +68,6 @@ docker run -d --name memory-mcp -p 26262:26262 \
       "memory-mcp": {
         "type": "streamable-http",
         "url": "http://127.0.0.1:8000/mcp",
-        "headers": {
-          "X-Persona": "default"
-        }
-      }
-    }
-  }
-}
-```
-
-**本番環境（Docker起動）**:
-```json
-{
-  "mcp": {
-    "servers": {
-      "memory-mcp": {
-        "type": "streamable-http",
-        "url": "http://127.0.0.1:26262/mcp",
         "headers": {
           "X-Persona": "default"
         }
@@ -118,9 +86,7 @@ Personaを切り替えたいときは `X-Persona` の値を変更します。
 
 1. デフォルト値（コード内に定義）
 2. 環境変数（`MEMORY_MCP_*`）
-3. **config.json（最優先）** ← これが最終的な設定値になります
-
-つまり、**config.jsonがあれば環境変数より優先**されます。
+3. **config.json（最優先）**
 
 注: 運用利便性のため、`server_host` と `server_port` に限っては、環境変数（`MEMORY_MCP_SERVER_HOST` / `MEMORY_MCP_SERVER_PORT`）が最優先で上書きします（Dockerでのポート競合回避のため）。
 
@@ -155,18 +121,6 @@ Personaを切り替えたいときは `X-Persona` の値を変更します。
 | `MEMORY_MCP_AUTO_CLEANUP_MIN_SIMILARITY_TO_REPORT` | `auto_cleanup.min_similarity_to_report` | float | `0.85` | レポート最小類似度 |
 | `MEMORY_MCP_AUTO_CLEANUP_MAX_SUGGESTIONS_PER_RUN` | `auto_cleanup.max_suggestions_per_run` | int | `20` | 1回の最大提案数 |
 
-### ネスト記法
-
-ネストされた設定（`vector_rebuild.*` や `auto_cleanup.*` など）は、環境変数でアンダースコアを使って表現します：
-
-```bash
-# vector_rebuild.mode を設定
-export MEMORY_MCP_VECTOR_REBUILD_MODE=manual
-
-# auto_cleanup.enabled を設定
-export MEMORY_MCP_AUTO_CLEANUP_ENABLED=false
-```
-
 ### 設定例
 
 #### パターン1: 環境変数のみ（config.jsonなし）
@@ -177,7 +131,6 @@ export MEMORY_MCP_EMBEDDINGS_DEVICE=cuda
 export MEMORY_MCP_VECTOR_REBUILD_MODE=auto
 ```
 
-#### パターン2: config.jsonのみ
 #### パターン2: config.jsonのみ
 ```json
 {
@@ -252,16 +205,117 @@ export MEMORY_MCP_EMBEDDINGS_DEVICE=cpu
 
 **Qdrant設定**: `MEMORY_MCP_QDRANT_URL` でQdrantサーバーを指定。Dockerの場合は `docker-compose.yml` にQdrantコンテナを含めることを推奨。
 
+## 記憶構造とその扱い
+
+### SQLiteデータベーススキーマ
+
+各Personaの記憶は **12カラム**の完全なコンテキストで保存されます：
+
+| カラム名 | 型 | デフォルト | 説明 |
+|---------|-----|-----------|------|
+| `key` | TEXT | (必須) | 一意識別子（`memory_YYYYMMDDHHMMSS`形式） |
+| `content` | TEXT | (必須) | 記憶本文（自然言語テキスト） |
+| `created_at` | TEXT | (必須) | 作成日時（ISO 8601形式） |
+| `updated_at` | TEXT | (必須) | 更新日時（ISO 8601形式） |
+| `tags` | TEXT | `[]` | タグのJSON配列（例: `["technical_achievement", "important_event"]`） |
+| `importance` | REAL | `0.5` | 重要度スコア（0.0〜1.0、0.7以上が高重要度） |
+| `emotion` | TEXT | `"neutral"` | 感情タグ（joy, sadness, love, neutral など） |
+| `physical_state` | TEXT | `"normal"` | 身体状態（energetic, tired, normal など） |
+| `mental_state` | TEXT | `"calm"` | 精神状態（focused, anxious, calm など） |
+| `environment` | TEXT | `"unknown"` | 環境（home, office, outdoors など） |
+| `relationship_status` | TEXT | `"normal"` | 関係性（closer, intimate, distant など） |
+| `action_tag` | TEXT | `NULL` | 行動タグ（coding, cooking, talking など） |
+
+### Qdrantベクトルストア
+
+**コレクション名**: `<qdrant_collection_prefix><persona>` (例: `memory_nilou`)
+
+各記憶は以下の形式でQdrantに保存：
+- **ベクトル**: `embeddings_model`（デフォルト: cl-nagoya/ruri-v3-30m）で生成された埋め込み
+- **ペイロード**: SQLiteの全12カラム + メタデータ
+- **ID**: SQLiteの `key` と同一
+
+### 記憶の作成・更新・削除
+
+#### 作成（create_memory）
+```python
+# 新規作成
+create_memory("ユーザーは[[Python]]が好き", importance=0.7, emotion="joy")
+
+# 自然言語クエリで自動更新（類似度≥0.80なら更新、<0.80なら新規作成）
+create_memory("約束", content="明日10時に変更", importance=0.9)
+```
+
+**処理フロー**:
+1. クエリで類似記憶を検索（RAG）
+2. 類似度≥0.80: 既存記憶を更新（SQLite + Qdrant両方）
+3. 類似度<0.80: 新規記憶を作成（SQLite + Qdrant両方）
+
+#### 読み取り（read_memory）
+```python
+# 自然言語検索
+read_memory("ユーザーの好きなプログラミング言語")
+
+# メタデータフィルタ
+read_memory("最近の成果", min_importance=0.7, emotion="joy", action_tag="coding")
+
+# カスタムスコアリング
+read_memory("重要なプロジェクト", importance_weight=0.3, recency_weight=0.2)
+```
+
+**検索プロセス**:
+1. Qdrantで意味検索（embeddings類似度）
+2. メタデータフィルタ適用（SQL後処理）
+3. カスタムスコアリング計算
+4. Rerankerで再ランク（hotchpotch/japanese-reranker-xsmall-v2）
+5. Top-K結果を返却
+
+#### 削除（delete_memory）
+```python
+# 自然言語クエリで削除
+delete_memory("古いプロジェクトの記憶")
+```
+
+**安全機構**:
+- 類似度≥0.90: 自動削除（高信頼度）
+- 類似度<0.90: 候補リスト表示（ユーザー確認）
+
+### 知識グラフ
+
+記憶本文中の `[[リンク]]` 記法で知識グラフを構築：
+
+```markdown
+ユーザーは[[Python]]と[[機械学習]]に興味がある。[[TensorFlow]]と[[PyTorch]]を使っている。
+```
+
+→ ノード: Python, 機械学習, TensorFlow, PyTorch  
+→ エッジ: 同一記憶内のリンク同士を接続
+
+**可視化**: ダッシュボードまたは `generate-graph` 管理ツールでHTML生成（vis.js使用）
+
+### Personaコンテキスト（persona_context.json）
+
+各Personaの状態を保存：
+
+```json
+{
+  "user_info": {"name": "らうらう", "nickname": "らうらう"},
+  "persona_info": {"name": "ニィロウ", "nickname": "ニィロウ"},
+  "current_emotion": "joy",
+  "physical_state": "energetic",
+  "mental_state": "focused",
+  "environment": "home",
+  "relationship_status": "closer",
+  "last_conversation_time": "2025-11-03T10:28:06.123456+09:00"
+}
+```
+
+**更新タイミング**: `create_memory`実行時に自動更新
+
 ## MCPリソースとツール
 
-### LLM用ツール（9個）
+### LLM用ツール（5個）
 会話型AIが直接使用するツールです。`/mcp`エンドポイント経由でアクセスできます。
-
-**リソース**:
-- `memory://info` - メモリ統計情報
-- `memory://metrics` - 詳細メトリクス
-- `memory://stats` - 統計データ
-- `memory://cleanup` - 自動整理レポート
 
 **セッション管理**:
 - `get_session_context` - **応答前の総合コンテキスト取得**
@@ -270,11 +324,9 @@ export MEMORY_MCP_EMBEDDINGS_DEVICE=cpu
   - 記憶統計（件数、最近の記憶、重要度/感情/タグ分布）
   - 💡 **推奨**: 毎応答時に呼ぶことでセッション間の記憶同期を行う
 
-**ツール一覧（5ツール）**:
-
 **CRUD操作**:
 - `create_memory` - **🆕 記憶の作成・更新**
-  - 新規作成: `create_memory("User likes [[strawberry]]")`
+  - 新規作成: `create_memory("ユーザーは [[苺]] が好き")`
   - 更新: `create_memory("約束", content="明日10時に変更")`
   - 類似度 ≥ 0.80: 自動更新
   - 類似度 < 0.80: 新規作成（低信頼度の場合）
@@ -282,7 +334,7 @@ export MEMORY_MCP_EMBEDDINGS_DEVICE=cpu
   - 12カラム完全対応: importance, emotion, physical_state, mental_state, environment, relationship_status, action_tag
 - `read_memory` - **🆕 意味検索のメインツール**（旧search_memory_ragの機能）
   - 自然言語で検索: `read_memory("ユーザーの好きな食べ物")`
-  - Phase 26のメタデータフィルタリング＆カスタムスコアリング対応
+  - メタデータフィルタリング＆カスタムスコアリング対応
   - メタデータフィルタ（7パラメータ）: `min_importance`, `emotion`, `action_tag`, `environment`, `physical_state`, `mental_state`, `relationship_status`
   - カスタムスコアリング（2パラメータ）: `importance_weight`, `recency_weight`
   - Fuzzy Matching: テキストフィルタが部分一致（大文字小文字無視）
@@ -299,7 +351,6 @@ export MEMORY_MCP_EMBEDDINGS_DEVICE=cpu
 - `analyze_sentiment` - 感情分析
 
 ### 管理者用ツール（7個）
-
 管理者がメンテナンスに使用するツールです。以下3つの方法でアクセスできます：
 
 #### 1. CLI（admin_tools.py）
@@ -389,10 +440,3 @@ curl -X POST http://localhost:26262/api/admin/detect-duplicates \
 ### Docker最適化（2025-10-30）
 - **イメージサイズ削減**: 8.28GB → 2.65GB（68.0%削減）
 - **CPU版PyTorch**: CUDA依存除外、Multi-stage build
-
-詳細は [activeContext.md](.vscode/memory-bank/activeContext.md) と [progress.md](.vscode/memory-bank/progress.md) を参照してください。
-
----
-
-**心地よい記憶管理を楽しんでね。必要があればいつでも `memory://info` に声をかけて状態を確認してみて。** 🌸
-
