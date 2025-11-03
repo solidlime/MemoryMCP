@@ -2,18 +2,42 @@
 
 ## 現在の状態
 
-- **現在フェーズ**: Phase 27（ツール統合・簡素化）完了 🎉
-- **次フェーズ**: Phase 28検討中
+- **現在フェーズ**: Phase 28.1（DB Schema Extension）完了 ✅
+- **次フェーズ**: Phase 28.2（Association Generation Module）
 - **本番環境**: Qdrant (http://nas:6333) 運用中、sentencepiece依存解決済み
 - **開発環境**: Qdrant専用（Phase 25でFAISS廃止完了）
-- **最新DB構造**: 12カラム（完全コンテキスト保存）
+- **最新DB構造**: 15カラム（Phase 28.1で3カラム追加: emotion_intensity, related_keys, summary_ref）
 - **最新ツール構成**: 5ツール（create_memory, read_memory, search_memory, delete_memory, helpers）
 
 ---
 
 ## 今日の作業（2025-11-03）
 
-### Phase 28
+### Phase 28.1: DB Schema Extension ✅
+**実装内容**:
+- ✅ SQLite Schema拡張（15カラムに）
+  - `emotion_intensity REAL DEFAULT 0.0` (感情強度 0-1スケール)
+  - `related_keys TEXT DEFAULT '[]'` (関連記憶のJSON配列)
+  - `summary_ref TEXT DEFAULT NULL` (要約ノードへの参照)
+- ✅ 自動マイグレーション実装
+  - 既存データベースに3カラム追加
+  - デフォルト値設定
+- ✅ CRUD操作更新
+  - `core/memory_db.py`: CREATE TABLE, load/save functions
+  - `tools/crud_tools.py`: create_memory()パラメータと呼び出し
+  - `db_utils.py`: db_get_entry()戻り値を14項目に拡張
+  - `vector_utils.py`: Qdrant payload更新（add/update/rebuild）
+- ✅ 動作確認: ローカルテスト完了、自動マイグレーション成功
+- ✅ Git commit & push完了: `463814a`
+
+**次のステップ (Phase 28.2)**:
+- 連想生成モジュール実装
+  - create_memory()時に類似記憶検索（top-3）。類似記憶検索は裏で実行することで返り値待ちを回避
+  - related_keysに保存
+  - 感情強度による重要度補正
+  - 感情文脈の算出
+
+### Phase 28 設計メモ
  📝 **改善候補**
    - 共通SQLクエリ関数の集約（db_utils.py）
    - 定数の一元管理（SQLスキーマ）

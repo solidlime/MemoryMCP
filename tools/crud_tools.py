@@ -457,6 +457,21 @@ async def create_memory(
         # Determine importance (default to 0.5 if not provided)
         memory_importance = importance if importance is not None else 0.5
         
+        # Phase 28.2: Generate associations and adjust importance
+        from tools.association import generate_associations
+        
+        emotion_intensity_value = emotion_intensity if emotion_intensity is not None else 0.0
+        related_keys, adjusted_importance = generate_associations(
+            new_key=key,
+            new_content=final_content,
+            emotion_intensity=emotion_intensity_value,
+            base_importance=memory_importance
+        )
+        
+        # Use adjusted importance if no explicit importance was provided
+        if importance is None:
+            memory_importance = adjusted_importance
+        
         # Save to database with all context fields
         save_memory_to_db(
             key, 
@@ -466,13 +481,13 @@ async def create_memory(
             context_tags,
             importance=memory_importance,
             emotion=emotion_type,  # Use emotion_type parameter as emotion field
-            emotion_intensity=emotion_intensity if emotion_intensity is not None else 0.0,
+            emotion_intensity=emotion_intensity_value,
             physical_state=physical_state,
             mental_state=mental_state,
             environment=environment,
             relationship_status=relationship_status,
             action_tag=action_tag,
-            related_keys=[],  # Phase 28.2: Will be populated by association module
+            related_keys=related_keys,  # Phase 28.2: Populated by association module
             summary_ref=None  # Phase 28.4: Will be populated by summarization module
         )
         
@@ -759,15 +774,16 @@ async def read_memory(
                 for i, doc in enumerate(docs, 1):
                     key = doc.metadata.get("key", "unknown")
                     content = doc.page_content
-                    # Get metadata from DB (all 12 fields)
+                    # Get metadata from DB (including Phase 28 fields)
                     cursor.execute('''
-                        SELECT created_at, importance, emotion, physical_state, 
-                               mental_state, environment, relationship_status, action_tag 
+                        SELECT created_at, importance, emotion, emotion_intensity,
+                               physical_state, mental_state, environment, 
+                               relationship_status, action_tag, related_keys
                         FROM memories WHERE key = ?
                     ''', (key,))
                     row = cursor.fetchone()
                     if row:
-                        created_at, importance_val, emotion_db, physical, mental, env, relation, action = row
+                        created_at, importance_val, emotion_db, emotion_intensity_val, physical, mental, env, relation, action, related_keys_json = row
                         created_date = created_at[:10]
                         created_time = created_at[11:19]
                         time_diff = calculate_time_diff(created_at)
@@ -778,11 +794,24 @@ async def read_memory(
                         if importance_val is not None and importance_val != 0.5:
                             meta_parts.append(f"⭐{importance_val:.1f}")
                         if emotion_db and emotion_db != "neutral":
-                            meta_parts.append(f"💭{emotion_db}")
+                            emotion_str = f"💭{emotion_db}"
+                            # Add intensity if significant
+                            if emotion_intensity_val and emotion_intensity_val >= 0.5:
+                                emotion_str += f"({emotion_intensity_val:.1f})"
+                            meta_parts.append(emotion_str)
                         if action:
                             meta_parts.append(f"🎭{action}")
                         if env and env != "unknown":
                             meta_parts.append(f"📍{env}")
+                        
+                        # Phase 28.2: Show related memories count
+                        if related_keys_json:
+                            try:
+                                related_keys_list = json.loads(related_keys_json)
+                                if related_keys_list:
+                                    meta_parts.append(f"🔗{len(related_keys_list)}")
+                            except:
+                                pass
                         
                         meta_str = f" [{', '.join(meta_parts)}]" if meta_parts else ""
                         
