@@ -48,6 +48,18 @@ async def search_memory(
     Structured search: keywords, dates, tags (exact/fuzzy match).
     For semantic search, use read_memory() instead.
     
+    **When to use this tool:**
+    - Need exact keyword matching
+    - Search by specific tags or categories
+    - Filter by date ranges
+    - Handle typos with fuzzy matching
+    - Want all memories (query="")
+    
+    **When NOT to use:**
+    - Semantic/meaning-based search → use read_memory()
+    - Just need context → already called get_context()
+    - Creating/updating → use create_memory()/update_memory()
+    
     Args:
         query: Keyword (default: "" = all)
         top_k: Max results (default: 5)

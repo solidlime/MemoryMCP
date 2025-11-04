@@ -25,6 +25,16 @@ async def get_context() -> str:
     """
     **CRITICAL: Call this EVERY response to sync latest context from other sessions.**
     
+    **When to use this tool:**
+    - At the START of EVERY conversation turn
+    - Before any other tool to get latest state
+    - After long periods of inactivity
+    - When context might have changed in another session
+    
+    **When NOT to use:**
+    - Already called it this turn
+    - In the middle of a complex operation
+    
     Returns current conversation state:
     - User/persona info & relationship status
     - Time since last conversation (auto-updates timestamp)
