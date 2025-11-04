@@ -21,21 +21,16 @@ def _log_progress(message: str) -> None:
     print(message, flush=True)
 
 
-async def get_session_context() -> str:
+async def get_context() -> str:
     """
-    Get comprehensive session context for conversation startup.
-    This single tool combines persona state, time tracking, and memory statistics.
+    **CRITICAL: Call this EVERY response to sync latest context from other sessions.**
     
-    Use this at the beginning of each conversation session to understand:
-    - Who the user is and current relationship status
-    - How much time has passed since last conversation
-    - What memories exist and their distribution
+    Returns current conversation state:
+    - User/persona info & relationship status
+    - Time since last conversation (auto-updates timestamp)
+    - Memory stats (count, distribution, recent entries)
     
-    Returns:
-        Formatted string containing:
-        - Persona context (user info, persona info, emotional/physical/mental states)
-        - Time since last conversation (automatically updates last conversation time)
-        - Memory statistics (count, recent entries, tag/emotion distribution)
+    Use: Every response start to stay synchronized.
     """
     try:
         persona = get_current_persona()
@@ -43,7 +38,7 @@ async def get_session_context() -> str:
         # ===== PART 1: Persona Context =====
         context = load_persona_context(persona)
         
-        result = f"📋 Session Context (persona: {persona})\n"
+        result = f"📋 Context (persona: {persona})\n"
         result += "=" * 60 + "\n\n"
         
         # User Information
@@ -184,12 +179,12 @@ async def get_session_context() -> str:
                     result += f"   {created_date} ({time_diff_mem['formatted_string']}前) | ⭐{importance_str} | 💭{emotion_str}\n"
         
         result += "\n" + "=" * 60 + "\n"
-        result += "💡 Tip: Use search_memory_rag(query) for detailed semantic search\n"
+        result += "💡 Tip: Use read_memory(query) for semantic search\n"
         
-        log_operation("get_session_context", metadata={"total_count": total_count, "persona": persona})
+        log_operation("get_context", metadata={"total_count": total_count, "persona": persona})
         return result
         
     except Exception as e:
-        _log_progress(f"❌ Failed to get session context: {e}")
-        log_operation("get_session_context", success=False, error=str(e))
-        return f"Failed to get session context: {str(e)}"
+        _log_progress(f"❌ Failed to get context: {e}")
+        log_operation("get_context", success=False, error=str(e))
+        return f"Failed to get context: {str(e)}"

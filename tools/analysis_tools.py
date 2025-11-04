@@ -106,20 +106,14 @@ async def find_related_memories(
     top_k: int = 5
 ) -> str:
     """
-    Find memories related to the specified memory using embeddings similarity.
-    
-    This tool helps discover connections between memories by analyzing semantic similarity.
-    Useful for:
-    - Finding relevant context for a specific memory
-    - Discovering related topics or experiences
-    - Understanding memory clusters and themes
+    Find semantically similar memories using embeddings.
     
     Args:
-        memory_key: The key of the memory to find related memories for (format: memory_YYYYMMDDHHMMSS)
-        top_k: Number of related memories to return (default: 5, max: 20)
+        memory_key: Memory key (format: memory_YYYYMMDDHHMMSS)
+        top_k: Results to return (default: 5, max: 20)
         
     Returns:
-        Formatted string with related memories and their similarity scores
+        Related memories with similarity scores
     """
     try:
         persona = get_current_persona()
@@ -385,13 +379,13 @@ async def merge_memories(
 
 async def analyze_sentiment(content: str) -> str:
     """
-    Analyze sentiment of text content using AI.
+    Analyze sentiment/emotion of text using AI.
     
     Args:
-        content: Text content to analyze for sentiment/emotion
+        content: Text to analyze
         
     Returns:
-        Formatted string with detected emotion, confidence score, and details
+        Emotion, confidence score, and details
     """
     try:
         _log_progress(f"🔍 Analyzing sentiment for text ({len(content)} chars)...")

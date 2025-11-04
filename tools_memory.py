@@ -15,14 +15,14 @@ def register_tools(mcp: Any) -> None:
     from tools.crud_tools import create_memory, update_memory, read_memory, delete_memory
     from tools.search_tools import search_memory
     from tools.analysis_tools import find_related_memories, analyze_sentiment
-    from tools.context_tools import get_session_context
+    from tools.context_tools import get_context
     # from tools.summarization_tools import summarize_last_week, summarize_last_day  # 管理者ツールに移行
 
     # === LLM用ツール（会話中に使用） ===
     
-    # Phase 26.5: セッションコンテキスト統合ツール
-    # 以下3つのツールを統合: get_memory_stats, get_persona_context, get_time_since_last_conversation
-    mcp.tool()(get_session_context)
+    # Context: Unified context retrieval (CALL EVERY RESPONSE)
+    # Combines: persona state, time tracking, memory statistics
+    mcp.tool()(get_context)
     
     # Phase 28.5: create/update分離（パフォーマンス改善）
     # - create_memory: 新規作成専用（RAG検索なし、高速）

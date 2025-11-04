@@ -6,7 +6,7 @@ Model Context Protocol (MCP) に準拠した永続メモリサーバー。RAG (R
 
 ### コア機能
 - **永続メモリ**: SQLite + Qdrantでセッションを横断した記憶を保持
-- **Personaサポート**: `X-Persona` ヘッダーでPersonaごとに独立したデータ空間
+- **Personaサポート**: `Authorization` or `X-Persona` ヘッダーでPersona指定、Persona毎に独立したデータ空間
 - **RAG検索とリランキング**: HuggingFace埋め込み + CrossEncoderで高精度検索
 - **完全コンテキスト保存**: 12カラムで記憶の完全な状況を記録
   - 重要度スコア (`importance`)、感情 (`emotion`)
@@ -41,7 +41,6 @@ Model Context Protocol (MCP) に準拠した永続メモリサーバー。RAG (R
 ### 公開イメージ
 ```bash
 docker run -d --name memory-mcp -p 26262:26262 \
-  -e MEMORY_MCP_SERVER_PORT=26262 \
   ghcr.io/solidlime/memory-mcp:latest
 ```
 
@@ -366,7 +365,7 @@ delete_memory("古いプロジェクトの記憶")
 会話型AIが直接使用するツールです。`/mcp`エンドポイント経由でアクセスできます。
 
 **セッション管理**:
-- `get_session_context` - **応答前の総合コンテキスト取得**
+- `get_context` - **応答前の総合コンテキスト取得**
   - ペルソナ状態（ユーザー情報、感情、関係性、環境など）
   - 最終会話からの経過時間（自動更新）
   - 記憶統計（件数、最近の記憶、重要度/感情/タグ分布）
@@ -375,7 +374,6 @@ delete_memory("古いプロジェクトの記憶")
 **CRUD操作**:
 - `create_memory` - **記憶の新規作成（最適化版）**
   - 新規作成専用: `create_memory("User likes [[strawberry]]")`
-  - **RAG検索なし→高速** ⚡
   - 12カラム完全対応: importance, emotion, physical_state, mental_state, environment, relationship_status, action_tag
 - `update_memory` - **既存記憶の更新**
   - 自然言語クエリで更新: `update_memory("promise", content="Changed to tomorrow at 10am")`
@@ -406,9 +404,6 @@ delete_memory("古いプロジェクトの記憶")
 #### 1. CLI（admin_tools.py）
 
 ```bash
-# 仮想環境を有効化
-source venv-rag/bin/activate
-
 # ヘルプ表示
 python3 admin_tools.py --help
 
@@ -466,17 +461,8 @@ curl -X POST http://localhost:26262/api/admin/detect-duplicates \
 
 ## 開発・運用
 - **開発要件**: Python 3.12以上
-- **Qdrant必須**: 開発環境でも `start_local_qdrant.sh` などでQdrantを起動してください
+- **Qdrant必須**
 - **Docker運用**: 詳しくは [DOCKER.md](DOCKER.md) を参照
-- **VS Code Tasks**: `.vscode/tasks.json` に起動スクリプト例あり
-
----
-
-## 開発・運用
-- **開発要件**: Python 3.12以上
-- **Qdrant必須**: 開発環境でも `start_local_qdrant.sh` などでQdrantを起動してください
-- **Docker運用**: 詳しくは [DOCKER.md](DOCKER.md) を参照
-- **VS Code Tasks**: `.vscode/tasks.json` に起動スクリプト例あり
 
 ---
 

@@ -106,7 +106,7 @@ async def get_memory_stats() -> str:
     Get memory statistics and summary instead of full list.
     Returns: total count, recent entries (max 10), tag distribution, date range.
     
-    For full memory access, use search_memory_rag or search_memory with specific queries.
+    For full memory access, use read_memory or search_memory with specific queries.
     """
     try:
         persona = get_current_persona()
@@ -203,7 +203,7 @@ async def get_memory_stats() -> str:
             result += f"{i}. [{key}] {preview}\n"
             result += f"   {created_date} ({time_diff['formatted_string']}前) | Importance: {importance_str} | Emotion: {emotion_str}\n"
         
-        result += f"\n💡 Tip: Use search_memory_rag(query) for semantic search"
+        result += f"\n💡 Tip: Use read_memory(query) for semantic search"
         
         log_operation("get_memory_stats", metadata={"total_count": total_count, "persona": persona})
         return result
@@ -228,64 +228,25 @@ async def create_memory(
     action_tag: Optional[str] = None
 ) -> str:
     """
-    Create new memory (optimized - no RAG search).
-    For updating existing memories, use update_memory() instead.
+    Create new memory (fast - no RAG search). For updates, use update_memory().
     
-    **When to use:**
-    - Save important user info found in conversation (preferences, interests, personal details, etc.)
-    - Create new memory entries
-    - Use even if the user does not explicitly request saving
+    **When to use:** New info about user (preferences, events, promises, feelings)
     
-    **Examples to save:**
-    - Preferences: food, music, hobbies, brands
-    - Interests: learning topics, concerns
-    - Personal info: job, expertise, location, family
-    - Current status: projects, goals, recent events
-    - Personality/values: thinking style, priorities
-    - Habits/lifestyle: routines
-
-    **CRITICAL RULES:**
-    1. **Language**: ALWAYS write memories in the SAME LANGUAGE as the conversation.
-       - Japanese conversation → Japanese memory (日本語)
-       - English conversation → English memory
-       - Never mix languages unless explicitly translating
+    **RULES:**
+    1. Write in SAME language as conversation (日本語 ↔ 日本語)
+    2. Add [[links]] for people, tech, concepts ([[Python]], [[Alice]], [[VS Code]])
     
-    2. **Linking**: ALWAYS add [[...]] to any people, concepts, technical terms, etc.
-       This enables automatic linking and knowledge graph visualization in Obsidian.
-       - People: [[Alice]], [[Bob]], [[User]]
-       - Technologies: [[Python]], [[AWS]], [[MCP]], [[Jupyter]]
-       - Concepts: [[machine learning]], [[data science]]
-       - Tools: [[VS Code]], [[Obsidian]]
-       - Companies: [[Anthropic]], [[OpenAI]]
-
-    **Format:** "User is [specific info]" (e.g. "User likes [[strawberry]]", "User is learning [[Python]]")
-
     Args:
-        content: Memory content to create
-        emotion_type: Optional emotion type ("joy", "sadness", "anger", "surprise", "fear", "disgust", "neutral", etc.)
-        context_tags: Optional tags for categorizing memories:
-            - "important_event": Major milestones, achievements, significant moments
-            - "relationship_update": Changes in relationship, promises, new ways of addressing each other
-            - "daily_memory": Routine conversations, everyday interactions
-            - "technical_achievement": Programming accomplishments, project completions, bug fixes
-            - "emotional_moment": Expressions of gratitude, love, sadness, joy
-        importance: Optional importance score (0.0-1.0, defaults to 0.5):
-            - 0.0-0.3: Low importance (routine, trivial)
-            - 0.4-0.6: Medium importance (normal conversations)
-            - 0.7-0.9: High importance (significant events, achievements)
-            - 0.9-1.0: Critical importance (life-changing moments, core values)
-        physical_state: Optional physical state ("normal", "tired", "energetic", "sick", etc.)
-        mental_state: Optional mental state ("calm", "anxious", "focused", "confused", etc.)
-        environment: Optional environment ("home", "office", "cafe", "outdoors", etc.)
-        user_info: Optional user information dict with keys: name, nickname, preferred_address
-        persona_info: Optional persona information dict with keys: name, nickname, preferred_address
-        relationship_status: Optional relationship status ("normal", "closer", "distant", etc.)
-        action_tag: Optional action tag ("cooking", "coding", "kissing", "walking", "talking", etc.)
+        content: Memory content (required)
+        emotion_type: "joy", "love", "neutral", etc.
+        context_tags: ["important_event", "technical_achievement", "emotional_moment", etc.]
+        importance: 0.0-1.0 (0.7+ = high, 0.4-0.7 = medium, <0.4 = low)
+        physical_state, mental_state, environment, relationship_status, action_tag: Optional context
+        user_info/persona_info: Dicts with name, nickname, preferred_address
     
     Examples:
-        # Create new memory
         create_memory("User likes [[strawberry]]")
-        create_memory("User started learning [[Python]]", importance=0.7)
+        create_memory("[[Python]] project completed", importance=0.8, context_tags=["technical_achievement"])
     """
     try:
         persona = get_current_persona()
@@ -444,7 +405,7 @@ async def create_memory(
 async def read_memory(
     query: str,
     top_k: int = 5,
-    # 🆕 Phase 27: Filtering parameters (from search_memory_rag)
+    # Filtering parameters
     min_importance: Optional[float] = None,
     emotion: Optional[str] = None,
     action_tag: Optional[str] = None,
@@ -452,50 +413,23 @@ async def read_memory(
     physical_state: Optional[str] = None,
     mental_state: Optional[str] = None,
     relationship_status: Optional[str] = None,
-    # 🆕 Phase 27: Custom scoring (from search_memory_rag)
+    # Custom scoring
     importance_weight: float = 0.0,
     recency_weight: float = 0.0
 ) -> str:
     """
-    🆕 Phase 27: Universal memory reading tool with RAG-based semantic search.
-    Replaces the old read_memory (key-based) and search_memory_rag (semantic search).
-    
-    **This is the main tool for reading memories.** Use natural language queries to find what you need.
-    More intelligent than keyword search - understands meaning and context.
+    Main semantic search tool - understands meaning, not just keywords.
     
     Args:
-        query: Natural language query to search for (e.g., "ユーザーの好きな食べ物", "最近のプロジェクト")
-        top_k: Number of top results to return (default: 5, recommended: 3-10)
-        
-        # Filtering (all optional, from Phase 26)
-        min_importance: Minimum importance score (0.0-1.0, e.g., 0.7 for important memories only)
-        emotion: Filter by emotion (e.g., "joy", "love", "neutral")
-        action_tag: Filter by activity (e.g., "coding", "kissing", "cooking")
-        environment: Filter by location (e.g., "home", "office")
-        physical_state: Filter by physical condition (e.g., "energetic", "tired")
-        mental_state: Filter by mental state (e.g., "focused", "calm")
-        relationship_status: Filter by relationship (e.g., "closer", "intimate")
-        
-        # Scoring (Phase 26.2)
-        importance_weight: Weight for importance score (0.0-1.0, default: 0.0)
-        recency_weight: Weight for recency (newer = higher, 0.0-1.0, default: 0.0)
+        query: Natural language (e.g., "ユーザーの好きな食べ物", "recent achievements")
+        top_k: Results to return (default: 5)
+        min_importance: Filter by importance 0.0-1.0 (e.g., 0.7 for important only)
+        emotion/action_tag/environment/physical_state/mental_state/relationship_status: Context filters
+        importance_weight/recency_weight: Custom scoring (0.0-1.0)
     
     Examples:
-        # Basic usage
-        read_memory("Python関連の成果")
-        read_memory("ユーザーの好きな食べ物")
-        
-        # Filter by importance
-        read_memory("最近の成果", min_importance=0.7)
-        
-        # Filter by emotion + action
-        read_memory("幸せな時間", emotion="joy", action_tag="kissing")
-        
-        # Multiple filters
-        read_memory("開発作業", min_importance=0.6, action_tag="coding", environment="home")
-        
-        # Custom scoring
-        read_memory("成果", importance_weight=0.3, recency_weight=0.1)
+        read_memory("Python関連")
+        read_memory("成果", min_importance=0.7, importance_weight=0.3)
     """
     try:
         persona = get_current_persona()
@@ -733,37 +667,20 @@ async def update_memory(
     action_tag: Optional[str] = None
 ) -> str:
     """
-    Update existing memory using natural language query.
-    Uses RAG search to find the best matching memory and updates it.
+    Update existing memory via natural language query (RAG search, threshold: 0.80).
     
-    **When to use:**
-    - Update existing promises, tasks, or information
-    - Modify project status or progress
-    - Change previously saved preferences or facts
+    **When to use:** Modify promises, tasks, project status, saved facts
     
     Args:
-        query: Natural language query to find existing memory (e.g., "promise", "project progress")
-        content: New content to replace the existing memory
-        emotion_type: Optional emotion type to update
-        context_tags: Optional tags to update
-        importance: Optional importance score to update (0.0-1.0)
-        physical_state: Optional physical state to update
-        mental_state: Optional mental state to update
-        environment: Optional environment to update
-        user_info: Optional user information dict to update
-        persona_info: Optional persona information dict to update
-        relationship_status: Optional relationship status to update
-        action_tag: Optional action tag to update
-    
-    Returns:
-        Success/failure message
+        query: Natural language to find memory (e.g., "promise", "project progress")
+        content: New content to replace
+        (other params same as create_memory)
     
     Examples:
-        # Update existing memory
-        update_memory("promise", "Changed to tomorrow at 10am")
-        update_memory("project progress", "Feature completed", importance=0.8)
-        
-        # If similarity < 0.80, shows candidates and creates new memory instead
+        update_memory("promise", "Changed to tomorrow 10am")
+        update_memory("project", "Feature completed", importance=0.8)
+    
+    Note: If similarity < 0.80, shows candidates and creates new memory instead.
     """
     try:
         persona = get_current_persona()
@@ -936,22 +853,16 @@ async def update_memory(
 
 async def delete_memory(key_or_query: str) -> str:
     """
-    Delete user info by key or natural language query.
-    
-    Phase 26.6: Now supports natural language queries! No need to know the exact memory key.
+    Delete memory by exact key or natural language query.
     
     Args:
-        key_or_query: Memory key (e.g., "memory_YYYYMMDDHHMMSS") OR natural language query (e.g., "古いプロジェクトの記憶")
+        key_or_query: Memory key ("memory_YYYYMMDDHHMMSS") OR natural language query
     
     Examples:
-        # Traditional way (still works)
         delete_memory("memory_20251102083918")
-        
-        # 🆕 Phase 26.6: Natural language query
         delete_memory("古いプロジェクトの記憶")
-        delete_memory("Phase 24の実装メモ")
-        
-        # Safety: Requires similarity score ≥ 0.90 for auto-deletion
+    
+    Safety: Natural language requires similarity ≥ 0.90 for auto-deletion.
     """
     try:
         persona = get_current_persona()

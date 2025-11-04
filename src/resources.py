@@ -63,7 +63,7 @@ def get_memory_info() -> str:
         f"- Database: {db_path}\n"
         f"- Persona: {persona}\n"
         f"- Vector Rebuild: mode={cfg.get('mode')}, idle_seconds={cfg.get('idle_seconds')}, min_interval={cfg.get('min_interval')}\n"
-        f"- Tools: create_memory, read_memory, update_memory, delete_memory, list_memory, search_memory, search_memory_rag, search_memory_by_date, clean_memory\n"
+        f"- Tools: create_memory, read_memory, update_memory, delete_memory, list_memory, search_memory, search_memory_by_date, clean_memory\n"
         f"- Key format: memory_YYYYMMDDHHMMSS\n"
         f"- Save format: 'User is ...'\n"
     )

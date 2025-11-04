@@ -11,7 +11,7 @@ from src.utils.vector_utils import rebuild_vector_store
 async def rebuild_vector_store_tool() -> str:
     """
     Rebuild vector store from database.
-    Use this when search_memory_rag returns outdated or missing results.
+    Use this when read_memory returns outdated or missing results.
     This will recreate the FAISS index from all memories in the current persona's database.
     """
     try:
