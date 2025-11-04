@@ -396,8 +396,7 @@ def register_http_routes(mcp, templates):
             try:
                 if source == "sqlite" and target == "qdrant":
                     from tools.vector_tools import migrate_sqlite_to_qdrant_tool
-                    import asyncio
-                    result = asyncio.run(migrate_sqlite_to_qdrant_tool())
+                    result = await migrate_sqlite_to_qdrant_tool()
                     # Extract count from result message (e.g., "✅ Migrated 174 memories...")
                     import re
                     match = re.search(r'Migrated (\d+) memories', result)
@@ -405,8 +404,7 @@ def register_http_routes(mcp, templates):
                     message = f"Migrated {count} memories from SQLite to Qdrant"
                 elif source == "qdrant" and target == "sqlite":
                     from tools.vector_tools import migrate_qdrant_to_sqlite_tool
-                    import asyncio
-                    result = asyncio.run(migrate_qdrant_to_sqlite_tool())
+                    result = await migrate_qdrant_to_sqlite_tool()
                     # Extract count from result message
                     import re
                     match = re.search(r'Migrated (\d+) memories', result)
