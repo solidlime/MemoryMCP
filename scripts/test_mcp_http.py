@@ -149,12 +149,12 @@ class MCPTester:
             print(f"  ❌ List tools error: {e}")
             return False
     
-    def test_get_session_context(self) -> bool:
-        """Test get_session_context tool"""
-        print("\n📋 Testing get_session_context...")
+    def test_get_context(self) -> bool:
+        """Test get_context tool"""
+        print("\n📋 Testing get_context...")
         try:
             result = self._send_request("tools/call", {
-                "name": "get_session_context",
+                "name": "get_context",
                 "arguments": {}
             })
             
@@ -163,16 +163,16 @@ class MCPTester:
                 if content and len(content) > 0:
                     text = content[0].get("text", "")
                     lines = text.split('\n')[:5]  # First 5 lines
-                    print("  ✅ Session context retrieved:")
+                    print("  ✅ Context retrieved:")
                     for line in lines:
                         print(f"     {line}")
                     return True
             
-            print(f"  ❌ Get session context failed: {result}")
+            print(f"  ❌ Get context failed: {result}")
             return False
             
         except Exception as e:
-            print(f"  ❌ Get session context error: {e}")
+            print(f"  ❌ Get context error: {e}")
             return False
     
     def test_create_memory(self) -> Optional[str]:
@@ -306,7 +306,7 @@ class MCPTester:
         results.append(("List Tools", self.test_list_tools()))
         
         # Tool tests
-        results.append(("Get Session Context", self.test_get_session_context()))
+        results.append(("Get Context", self.test_get_context()))
         
         # CRUD operations
         memory_key = self.test_create_memory()

@@ -88,9 +88,9 @@ python test_mcp_http.py
      - read_memory
      - search_memory
      - delete_memory
-     - get_session_context
+     - get_context
 
-📋 Testing get_session_context...
+📋 Testing get_context...
   ✅ Session context retrieved
 
 💾 Testing create_memory...
@@ -110,7 +110,7 @@ python test_mcp_http.py
 ✅ PASS - Health Check
 ✅ PASS - MCP Initialize
 ✅ PASS - List Tools
-✅ PASS - Get Session Context
+✅ PASS - Get Context
 ✅ PASS - Create Memory
 ✅ PASS - Read Memory
 ✅ PASS - Search Memory
@@ -320,7 +320,7 @@ kill -9 <PID>
 | read_memory | `test_mcp_http.py` | ✅ |
 | search_memory | `test_mcp_http.py` | ✅ |
 | delete_memory | `test_mcp_http.py` | ✅ |
-| get_session_context | `test_mcp_http.py` | ✅ |
+| get_context | `test_mcp_http.py` | ✅ |
 
 ## CI/CD Integration (Future)
 
