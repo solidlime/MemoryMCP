@@ -68,19 +68,45 @@ Persona切り替えは `Bearer <persona名>` で行います。
 
 注: `server_host` / `server_port` は環境変数が最優先 (Docker互換性のため)
 
-### 主要な設定項目
+### 全設定項目
 
 | 環境変数 | config.json | デフォルト | 説明 |
 |---------|------------|----------|------|
 | `MEMORY_MCP_DATA_DIR` | - | `./` (Docker: `/data`) | データディレクトリ |
+| `MEMORY_MCP_CONFIG_PATH` | - | `data/config.json` | 設定ファイルパス |
+| `MEMORY_MCP_LOG_FILE` | - | `data/logs/memory_operations.log` | ログファイルパス |
 | `MEMORY_MCP_EMBEDDINGS_MODEL` | `embeddings_model` | `cl-nagoya/ruri-v3-30m` | 埋め込みモデル |
 | `MEMORY_MCP_EMBEDDINGS_DEVICE` | `embeddings_device` | `cpu` | デバイス (cpu/cuda) |
 | `MEMORY_MCP_RERANKER_MODEL` | `reranker_model` | `hotchpotch/japanese-reranker-xsmall-v2` | Rerankerモデル |
-| `MEMORY_MCP_QDRANT_URL` | `qdrant_url` | `http://localhost:6333` | Qdrant接続URL |
+| `MEMORY_MCP_RERANKER_TOP_N` | `reranker_top_n` | `5` | Reranker候補数 |
+| `MEMORY_MCP_SENTIMENT_MODEL` | `sentiment_model` | `cardiffnlp/twitter-xlm-roberta-base-sentiment` | 感情分析モデル |
 | `MEMORY_MCP_SERVER_HOST` | `server_host` | `0.0.0.0` | サーバーホスト |
 | `MEMORY_MCP_SERVER_PORT` | `server_port` | `26262` | サーバーポート |
+| `MEMORY_MCP_TIMEZONE` | `timezone` | `Asia/Tokyo` | タイムゾーン |
+| `MEMORY_MCP_RECENT_MEMORIES_COUNT` | `recent_memories_count` | `5` | get_context表示件数 |
+| `MEMORY_MCP_QDRANT_URL` | `qdrant_url` | `http://localhost:6333` | Qdrant接続URL |
+| `MEMORY_MCP_QDRANT_API_KEY` | `qdrant_api_key` | `None` | Qdrant APIキー |
+| `MEMORY_MCP_QDRANT_COLLECTION_PREFIX` | `qdrant_collection_prefix` | `memory_` | Qdrantコレクションプレフィックス |
+| - | `summarization.enabled` | `True` | 要約機能有効化 |
+| - | `summarization.use_llm` | `False` | LLM要約 (False=統計要約) |
+| - | `summarization.frequency_days` | `1` | 要約頻度（日数） |
+| - | `summarization.min_importance` | `0.3` | 要約対象最小重要度 |
+| - | `summarization.llm_api_url` | `None` | LLM API URL |
+| - | `summarization.llm_api_key` | `None` | LLM APIキー |
+| - | `summarization.llm_model` | `anthropic/claude-3.5-sonnet` | LLMモデル名 |
+| - | `summarization.llm_max_tokens` | `500` | 最大トークン数 |
+| - | `summarization.llm_prompt` | `None` | カスタム要約プロンプト |
+| - | `vector_rebuild.mode` | `idle` | リビルドモード (idle/manual) |
+| - | `vector_rebuild.idle_seconds` | `30` | アイドル秒数 |
+| - | `vector_rebuild.min_interval` | `120` | 最小実行間隔（秒） |
+| - | `auto_cleanup.enabled` | `True` | 自動クリーンアップ |
+| - | `auto_cleanup.idle_minutes` | `30` | アイドル分数 |
+| - | `auto_cleanup.check_interval_seconds` | `300` | チェック間隔（秒） |
+| - | `auto_cleanup.duplicate_threshold` | `0.90` | 重複判定閾値 |
+| - | `auto_cleanup.min_similarity_to_report` | `0.85` | 報告最小類似度 |
+| - | `auto_cleanup.max_suggestions_per_run` | `20` | 実行あたり最大提案数 |
 
-完全な設定項目は元のREADMEまたはコード内のデフォルト値を参照してください。
+**注**: ネストされた設定項目 (`summarization.*`, `vector_rebuild.*`, `auto_cleanup.*`) は環境変数では設定できません。config.jsonを使用してください。
 
 ### 設定例
 

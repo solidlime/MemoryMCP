@@ -1,102 +1,94 @@
-# Product Context - なぜこのプロジェクトが存在するか# Product Context: Memory MCP
+# Product Context: Memory MCP
 
+## なぜこのプロジェクトが存在するか
 
+### 解決する問題
 
-## 問題空間## なぜこのプロジェクトが存在するか
+1. **記憶の断絶**: 会話セッションごとにAIの記憶が完全にリセットされる
+2. **文脈の喪失**: ユーザーの好み・過去のやり取り・成果が活用できない
+3. **検索の限界**: キーワード検索では意味的に関連する記憶を見つけにくい
+4. **Persona管理の複雑さ**: 複数AIペルソナの記憶を分離して管理するのが困難
+5. **可視化の不足**: 記憶や関係性・感情の変化を直感的に把握できない
+6. **整理の負担**: 重複や古い記憶の整理・統合が手作業で煩雑
 
+### 解決策
 
+**永続メモリシステム**:
+- SQLite (`memory/{persona}/memory.sqlite`) で記憶を永続化
+- JSONL (`logs/memory_operations.log`) で操作履歴を記録
+- Qdrant (`memory_{persona}` collection) でベクトル検索
 
-### 解決する問題### 問題解決
+**RAG (Retrieval-Augmented Generation)**:
+- HuggingFace Embeddings (`cl-nagoya/ruri-v3-30m`) でベクトル化
+- Qdrant で高速な類似性検索
+- CrossEncoder Reranking (`hotchpotch/japanese-reranker-xsmall-v2`) で精度向上
 
-1. **セッション限定の記憶**: 従来のAIは会話が終わると記憶を失う- **記憶の断絶**: AIアシスタントは会話セッションごとに完全にリセットされるため、継続的な文脈を保持できない
+**MCPサーバー**:
+- FastMCP で標準化プロトコル実装
+- VS Code Copilot から直接アクセス可能
+- 7つのLLMツール (create/update/read/search/delete + find_related + analyze_sentiment)
 
-2. **文脈理解の限界**: 単純なキーワード検索では意味的関連性を捉えられない- **文脈の喪失**: ユーザーの好み、過去のやり取り、技術的な成果が活用できない
+**Personaサポート**:
+- `Authorization: Bearer <persona>` でPersona切り替え
+- Persona別のSQLiteデータベースとベクトルストア
+- 完全に独立した記憶空間
 
-3. **Persona管理の難しさ**: 複数のAI人格を同一システムで管理できない- **検索の限界**: キーワード検索では意味的に関連する記憶を見つけにくい
+**リッチコンテキスト管理** (12カラム):
+- 重要度スコア (`importance`)
+- 感情タグ (`emotion`)
+- 身体/精神状態 (`physical_state`, `mental_state`)
+- 環境・関係性 (`environment`, `relationship_status`)
+- 行動タグ (`action_tag`)
 
-4. **感情コンテキストの欠如**: 感情や関係性の変化を記録・追跡できない- **Persona管理の複雑さ**: 複数のAIペルソナの記憶を分離して管理するのが困難
+**知識グラフ化**:
+- `[[]]` 形式で人名・技術・概念をリンク
+- Obsidian での可視化に対応
+- NetworkX + PyVis でグラフ生成
 
-5. **記憶の整理**: 時間経過とともに重複・矛盾する記憶が増加- **記憶の可視化不足**: 記憶や関係性・感情の変化を直感的に把握できない
+**AIアシスト機能**:
+- 感情分析 (sentiment analysis)
+- 重複検出 (duplicate detection)
+- 自動整理 (auto cleanup)
+- 記憶要約 (summarization)
 
-6. **スケーラビリティ**: ローカルFAISSだけでは大規模記憶管理が困難- **記憶の整理負担**: 重複や古い記憶の整理・統合が手作業で煩雑
+**Webダッシュボード**:
+- 記憶統計・日次推移グラフ
+- 知識グラフ可視化 (vis.js)
+- 管理ツール (rebuild/clean/merge/detect-duplicates)
 
+## ユニークバリュー
 
+- **日本語特化**: 日本語RAGに最適化されたモデル (`cl-nagoya/ruri-v3-30m`, `hotchpotch/japanese-reranker-xsmall-v2`)
+- **感情的知性**: 感情分析と感情コンテキストをメモリシステムに統合
+- **柔軟なバックエンド**: Qdrantによるスケーラブルなベクトル検索
+- **クリーンアーキテクチャ**: モジュール分離・保守性の高い設計
+- **軽量Docker**: 2.65GBの最適化イメージ (CPU版PyTorch)
+- **動的Personaサポート**: リクエストごとにPersona別ベクトルストア動的生成
 
-### ユーザーペインポイント### 解決策
+## ターゲットユーザー
 
-- 「前に話したことを覚えていてほしい」- **永続的なメモリシステム**: 
+1. **AI開発者**: 対話システムに永続記憶を追加したい
+2. **研究者**: RAG/感情分析の実験プラットフォームが必要
+3. **個人利用者**: カスタムAIアシスタントを構築したい
+4. **エンタープライズ**: スケーラブルな記憶管理システムが必要
 
-- 「似た話題を自動的に関連付けてほしい」  - SQLite (memory/{persona}/memory.sqlite) で記憶を永続化
+## ユーザーのペインポイント
 
-- 「異なるキャラクター設定ごとにデータを分けたい」  - JSONL (memory_operations.log) で操作履歴を記録
+- 「前に話したことを覚えていてほしい」
+- 「似た話題を自動的に関連付けてほしい」
+- 「異なるキャラクター設定ごとにデータを分けたい」
+- 「感情や関係性の変化を追跡したい」
+- 「古い記憶を自動的に整理してほしい」
+- 「クラウド環境でもスケールする仕組みが欲しい」
 
-- 「感情や関係性の変化を追跡したい」  - FAISS (vector_store/) で意味検索を可能に
+## コアバリュー
 
-- 「古い記憶を自動的に整理してほしい」  - 自動データベースマイグレーション
+- **記憶の柔らかさ**: 人間らしい記憶の流れを重視
+- **感情的知性**: 感情分析と感情コンテキストの統合
+- **Personaの独立性**: 各Personaが独自の記憶世界を持つ
+- **開発者フレンドリー**: クリーンアーキテクチャ・明確なモジュール分離
+- **日本語特化**: 日本語RAGに最適化されたモデル選択
 
-- 「クラウド環境でもスケールする仕組みが欲しい」  
-
-- **RAG (Retrieval-Augmented Generation)**:
-
-## ソリューション  - HuggingFace Embeddings (cl-nagoya/ruri-v3-30m) で記憶をベクトル化
-
-  - FAISS で高速な類似性検索
-
-### コア機能  - CrossEncoder Reranking (hotchpotch/japanese-reranker-xsmall-v2) で精度向上
-
-1. **永続メモリ**: SQLite + FAISS/Qdrantでセッション横断記憶  
-
-2. **意味検索**: HuggingFace埋め込み + CrossEncoderリランキング- **MCPサーバー**: 
-
-3. **Personaシステム**: X-Personaヘッダーで人格切り替え（完全分離）  - FastMCP で標準化されたプロトコル実装
-
-4. **コンテキスト管理**: 感情・体調・環境・関係性の統合記録  - VS Code Copilot から直接アクセス可能
-
-5. **自動整理**: アイドル時の重複検知・知識グラフ生成  - ツール: create, read, update, delete, list, search, search_rag, search_by_date, search_by_tags, clean, get_persona_context, get_time_since_last_conversation
-
-6. **可視化**: Webダッシュボードで記憶の全体像を把握  
-
-7. **マルチバックエンド**: FAISS（ローカル）とQdrant（スケーラブル）の両対応- **Personaサポート**:
-
-  - FastMCP依存関数 (get_http_request) によるX-Personaヘッダー取得
-
-### ユニークバリュー  - Persona別のSQLiteデータベースとベクトルストア
-
-- **日本語特化**: 日本語RAGに最適化されたモデル選択  - ミドルウェア不要のシンプル実装
-
-  - 埋め込み: `cl-nagoya/ruri-v3-30m` (軽量・高精度)  
-
-  - リランカー: `hotchpotch/japanese-reranker-xsmall-v2`- **タグ管理**:
-
-- **感情的知性**: 感情分析を記憶システムに統合  - 柔軟なタグ付けシステム
-
-- **柔軟なバックエンド**:   - 定義済みタグ: important_event, relationship_update, daily_memory, technical_achievement, emotional_moment
-
-  - FAISS（ローカル、高速、シンプル）  - タグベースの検索機能
-
-  - Qdrant（スケーラブル、クラウド対応、フィルタリング強力）  
-
-  - 双方向移行ツール（FAISS ↔ Qdrant）- **コンテキスト追跡**:
-
-- **クリーンアーキテクチャ**: Phase 1で90.6%のコード削減達成  - 感情状態（emotion_type）
-
-- **軽量Docker**: 2.65GBの最適化イメージ（68.0%削減）  - 体調状態（physical_state）
-
-- **動的Personaサポート**: リクエストごとにペルソナ別ベクトルストア動的生成  - 心理状態（mental_state）
-
-  - 環境（environment）
-
-## 市場とユーザー  - 関係性（relationship_status）
-
-  - 最終会話時刻（last_conversation_time）
-
-### ターゲットユーザー  
-
-1. **AI開発者**: 対話システムに永続記憶を追加したい- **知識グラフ化**: 
-
-2. **研究者**: RAG/感情分析の実験プラットフォームが必要  - `[[]]` 形式で人名・技術・概念をリンク
-
-3. **個人利用者**: カスタムAIアシスタントを構築したい  - Obsidian での可視化に対応
 
 4. **企業開発者**: 顧客対話履歴を管理したい
 

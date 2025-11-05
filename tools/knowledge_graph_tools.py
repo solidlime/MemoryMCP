@@ -33,8 +33,9 @@ async def generate_knowledge_graph(
         JSON string or HTML file path
     """
     try:
+        import os
         from src.utils.analysis_utils import build_knowledge_graph, export_graph_json, export_graph_html
-        from src.utils.persona_utils import get_current_persona
+        from src.utils.persona_utils import get_current_persona, get_db_path
         
         persona = get_current_persona()
         _log_progress(f"🔍 Generating knowledge graph for persona: {persona}...")
@@ -52,9 +53,16 @@ async def generate_knowledge_graph(
         
         # Export based on format
         if format.lower() == "html":
-            # Generate HTML file
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            output_path = f"output/knowledge_graph_{persona}_{timestamp}.html"
+            # Get persona memory directory
+            db_path = get_db_path()
+            persona_dir = os.path.dirname(db_path)
+            
+            # HTML file path (single file per persona)
+            output_path = os.path.join(persona_dir, f"knowledge_graph.html")
+            
+            # Remove old graph file if exists
+            if os.path.exists(output_path):
+                os.remove(output_path)
             
             file_path = export_graph_html(G, output_path, title=f"Knowledge Graph - {persona}")
             

@@ -62,7 +62,9 @@ def _get_memory_info_data(persona: str) -> dict:
         # Get database created date
         db_path = get_db_path()
         if os.path.exists(db_path):
-            created_at = datetime.fromtimestamp(os.path.getctime(db_path)).isoformat()
+            created_at_dt = datetime.fromtimestamp(os.path.getctime(db_path))
+            # Format: "YYYY-MM-DD HH:MM:SS"
+            created_at = created_at_dt.strftime("%Y-%m-%d %H:%M:%S")
         else:
             created_at = "Unknown"
         
@@ -200,16 +202,16 @@ def _get_memory_stats_data(persona: str) -> dict:
 
 
 def _get_latest_knowledge_graph(persona: str) -> str:
-    """Get the URL of the latest knowledge graph HTML file for a persona."""
-    pattern = os.path.join(SCRIPT_DIR, "output", f"knowledge_graph_{persona}_*.html")
-    files = glob.glob(pattern)
-    if not files:
+    """Get the URL of the knowledge graph HTML file for a persona."""
+    # Knowledge graph is now stored in persona memory directory
+    memory_dir = os.path.join(MEMORY_ROOT, persona)
+    kg_path = os.path.join(memory_dir, "knowledge_graph.html")
+    
+    if not os.path.exists(kg_path):
         return None
-    # Return the latest file (based on timestamp in filename)
-    latest = max(files)
+    
     # Return relative URL path
-    filename = os.path.basename(latest)
-    return f"/output/{filename}"
+    return f"/persona/{persona}/knowledge_graph.html"
 
 
 # ========================================
@@ -299,6 +301,22 @@ def register_http_routes(mcp, templates):
         
         if not os.path.exists(file_path):
             raise HTTPException(status_code=404, detail="File not found")
+        
+        return FileResponse(file_path)
+
+    @mcp.custom_route("/persona/{persona}/knowledge_graph.html", methods=["GET"])
+    async def serve_knowledge_graph(request: Request):
+        """Serve knowledge graph HTML file from persona memory directory."""
+        persona = request.path_params.get("persona")
+        
+        # Security: prevent directory traversal
+        if ".." in persona or "/" in persona or "\\" in persona:
+            raise HTTPException(status_code=403, detail="Invalid persona name")
+        
+        file_path = os.path.join(MEMORY_ROOT, persona, "knowledge_graph.html")
+        
+        if not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail="Knowledge graph not found")
         
         return FileResponse(file_path)
 
@@ -530,6 +548,7 @@ def register_http_routes(mcp, templates):
                 current_persona.set(persona)
                 try:
                     from src.utils.analysis_utils import build_knowledge_graph, export_graph_html, export_graph_json
+                    from src.utils.persona_utils import get_db_path
                     
                     graph = build_knowledge_graph(
                         min_count=min_count,
@@ -537,19 +556,23 @@ def register_http_routes(mcp, templates):
                         remove_isolated=remove_isolated
                     )
                     
-                    # Create output directory if not exists
-                    output_dir = os.path.join(SCRIPT_DIR, "output")
-                    os.makedirs(output_dir, exist_ok=True)
-                    
                     if output_format == "html":
-                        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                        output_path = os.path.join(output_dir, f"knowledge_graph_{persona}_{timestamp}.html")
+                        # Get persona memory directory
+                        db_path = get_db_path()
+                        persona_dir = os.path.dirname(db_path)
+                        
+                        # HTML file path (single file per persona)
+                        output_path = os.path.join(persona_dir, f"knowledge_graph.html")
+                        
+                        # Remove old graph file if exists
+                        if os.path.exists(output_path):
+                            os.remove(output_path)
+                        
                         export_graph_html(graph, output_path)
-                        filename = os.path.basename(output_path)
                         return {
                             "success": True,
                             "message": f"Knowledge graph generated successfully",
-                            "url": f"/output/{filename}"
+                            "url": f"/persona/{persona}/knowledge_graph.html"
                         }
                     else:  # json
                         graph_json = export_graph_json(graph)

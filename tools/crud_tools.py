@@ -230,26 +230,10 @@ async def create_memory(
     """
     Create new memory (fast - no RAG search). For updates, use update_memory().
     
-    **When to use this tool:**
-    - User shares new information (preferences, facts, experiences)
-    - User makes a promise or sets a goal
-    - Important events or achievements occur
-    - User expresses feelings or emotions worth remembering
-    - New relationships or status changes
-    
-    **When NOT to use:**
-    - Updating existing information → use update_memory()
-    - Just searching for info → use read_memory()
-    - General conversation without new facts
-    
-    **RULES:**
-    1. Write in SAME language as conversation (日本語 ↔ 日本語)
-    2. Add [[links]] for people, tech, concepts ([[Python]], [[Alice]], [[VS Code]])
-    
     Args:
         content: Memory content (required)
         emotion_type: "joy", "love", "neutral", etc.
-        context_tags: ["important_event", "technical_achievement", "emotional_moment", etc.]
+        context_tags: ["important_event", "technical_achievement", "emotional_moment", "daily_memory", "relationship_update"]
         importance: 0.0-1.0 (0.7+ = high, 0.4-0.7 = medium, <0.4 = low)
         physical_state, mental_state, environment, relationship_status, action_tag: Optional context
         user_info/persona_info: Dicts with name, nickname, preferred_address
@@ -428,19 +412,7 @@ async def read_memory(
     recency_weight: float = 0.0
 ) -> str:
     """
-    Main semantic search tool - understands meaning, not just keywords.
-    
-    **When to use this tool:**
-    - Need to find information from past conversations
-    - User asks "what did I say about X?"
-    - Looking for related memories on a topic
-    - Want memories matching certain emotions or context
-    - Understanding user's preferences or history
-    
-    **When NOT to use:**
-    - Creating new memories → use create_memory()
-    - Exact keyword search → use search_memory()
-    - Just need current context → already called get_context()
+    Semantic search for memories using embeddings and reranker.
     
     Args:
         query: Natural language (e.g., "ユーザーの好きな食べ物", "recent achievements")
@@ -691,18 +663,6 @@ async def update_memory(
     """
     Update existing memory via natural language query (RAG search, threshold: 0.80).
     
-    **When to use this tool:**
-    - User changes a previous statement or preference
-    - Updating status of ongoing tasks/projects
-    - Modifying promises or appointments
-    - Correcting previously saved information
-    - Task completion or progress updates
-    
-    **When NOT to use:**
-    - Saving completely new information → use create_memory()
-    - Just searching → use read_memory()
-    - If you know exact memory key → provide key in query
-    
     Args:
         query: Natural language to find memory (e.g., "promise", "project progress")
         content: New content to replace
@@ -886,17 +846,6 @@ async def update_memory(
 async def delete_memory(key_or_query: str) -> str:
     """
     Delete memory by exact key or natural language query.
-    
-    **When to use this tool:**
-    - User explicitly asks to forget or delete something
-    - Removing outdated or incorrect information
-    - Cleaning up duplicate memories
-    - User wants to remove sensitive information
-    
-    **When NOT to use:**
-    - User just wants to update info → use update_memory()
-    - Normal conversation → don't delete randomly
-    - Uncertain about what to delete → ask user first
     
     Args:
         key_or_query: Memory key ("memory_YYYYMMDDHHMMSS") OR natural language query

@@ -140,6 +140,7 @@ search_memory(query="プロジェクト", tags=["technical_achievement"], top_k=
 
 # プロジェクトメモリバンク（プロジェクト固有）
 **保存場所**: `<プロジェクトルート>/.vscode/memory-bank/`
+**目的**: プロジェクト固有のコンテキストと進捗を管理し、コアワークフローで活用。githubにプッシュしないでね。
 
 **読み込み順序**（グローバルメモリ[MCPメモリサーバー]読み込み後）:
 1. projectbrief.md → プロジェクトの基礎

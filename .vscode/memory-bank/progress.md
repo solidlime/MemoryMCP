@@ -1,103 +1,174 @@
 # Progress: Memory MCP
 
-## 最新更新: 2025-11-04
+## 現在の状態 (2025-11-04)
+
+- ✅ **Phase 31.2完了**: read_memory dimension fix、意味的検索復活
+- ✅ **Phase 30完了**: プロジェクト構造再編成、src/utils/導入
+- ✅ **Phase 29完了**: Vector dimension自動リビルド、キャッシュ対策
+- ✅ **公開準備完了**: 個人情報削除、Phase番号削除、公開ドキュメントポリシー
+- ✅ **Docker最適化完了**: 8.28GB → 2.65GB (68.0%削減)
+- ✅ **ツール最適化**: 7ツール体制 (create/update/read/search/delete + find_related + analyze_sentiment)
+- ✅ **本番運用**: Qdrant (http://nas:6333)、開発/本番環境分離
 
 ---
 
-## 現在の状態（要約）
+## 最近の完了フェーズ (新しい順)
 
-- **Phase 31.2完了** ✅: read_memory次元エラー修復、意味的検索復活準備完了
-- **Phase 30完了** ✅: プロジェクト構造再編成、src/utils/構造導入、要約ツール管理者専用化
-- **Phase 29完了** ✅: Vector dimension自動リビルド、MCPツールキャッシュ対策、ダッシュボードタイムゾーン表示改善
-- **公開準備完了** ✅: 個人情報削除、Phase番号削除、公開ドキュメントポリシー追加
-- **Phase 28.1完了** 🎉: DB Schema拡張（15カラム）、連想記憶基盤実装完了
-- **Phase 27完了** 🎉: ツール統合・簡素化（7→5ツール）、本番環境バグ修正完了
-- **Phase 26.3完了** 🎉: Fuzzy Matching（曖昧検索）実装完了
-- **Phase 26完了** 🎉: メタデータフィルタリング + カスタムスコアリング実装完了
-- **Docker最適化完了**: イメージサイズ 8.28GB → 2.65GB (68.0%削減)
-- **本番運用準備完了**: 開発/本番環境分離、VS Code Tasks、最適化済みDockerイメージ
-- **完全コンテキスト保存**: 15カラムで記憶の完全な状況・連想保存を実現
-- **高度な検索機能**: メタデータフィルタリング + カスタムスコアリング + Fuzzy Matching + 意味的検索
-- **ツール最適化**: 統合された7ツール体制（create/update/read/search/delete + find_related + analyze_sentiment）
-- **自動リカバリ**: Vector dimension mismatch自動検出・再構築
-- **クリーンな構造**: src/ + scripts/ + config/ 分離、-462行削除でシンプル化
-- **検索精度**: キーワード検索（100%）+ 意味的検索（復活準備完了）
+### Phase 31.2: read_memory Dimension Mismatch Fix (2025-11-04)
 
----
+**問題**: read_memory が動作せず (dimension error: expected 384, got 256)
 
-## 完了フェーズ（新しい順）
-
-### ✅ Phase 31.2: read_memory Dimension Mismatch Fix (2025-11-04)
-
-**目的**: 意味的検索の復活、vector dimension mismatch エラー解消
-
-**問題**:
-- `read_memory`が動作せず（dimension error）
-- 意味的類似性検索が使えない状態
-- キーワード検索のみ動作
-
-**診断結果**:
-```
-✅ 強い: キーワード検索（100%マッチ）
-  - "Phase 28" → 5件ヒット
-  - "Qdrant" → 5件ヒット
-  - "らうらう" → 5件ヒット
-
-❌ 弱い: 意味的検索（次元エラー）
-  - "嬉しい出来事" → エラー（joyタグ記憶は存在）
-  - "非同期処理" → エラー（async記憶は存在）
-  - "最近の開発作業" → エラー
-```
-
-**根本原因**:
-- コード: `dim = cfg.get("embeddings_dim", 384)` （デフォルト384）
+**原因**:
+- コード: `dim = cfg.get("embeddings_dim", 384)` (デフォルト384)
 - 実際: cl-nagoya/ruri-v3-30m = 256次元
-- Qdrantコレクション: 256次元で構築済み
-- エラー: "expected dim: 384, got 256"
+- Qdrant: 256次元コレクション構築済み
 
-**実装内容**:
-1. **Dimension Detection修正**:
-   - `tools/crud_tools.py` (2箇所):
-     - `_search_memory_by_query()`
-     - `read_memory()`
-   - `tools/search_tools.py` (1箇所)
-   - 修正: `_get_embedding_dimension(model_name)` を使用
+**修正**:
+- `_get_embedding_dimension(model_name)` で正しい次元取得
+- `tools/crud_tools.py` (2箇所) + `tools/search_tools.py` (1箇所)
 
-2. **診断ツール作成**:
-   - `scripts/test_search_accuracy.py`: 10パターンの検索テスト
-   - `scripts/test_read_memory_fix.py`: read_memory専用テスト
+**結果**:
+- ✨ 意味的検索復活
+- ✨ キーワード検索と併用可能
 
-**期待される改善**（サーバー再起動後）:
-- ✨ 意味的類似性検索の復活
-- ✨ 類義語検索の有効化（"非同期" → "async"）
-- ✨ 抽象的クエリの動作（"最近の開発作業"）
-- ✨ 感情ベース検索の復活（"嬉しい出来事" → joy tags）
-
-**次のステップ**:
-1. サーバー再起動（コード反映）
-2. read_memoryテスト実行
-3. 意味的検索の動作確認
-
-**Files Changed**:
-- `tools/crud_tools.py`: 次元検出修正（2箇所）
-- `tools/search_tools.py`: 次元検出修正（1箇所）
-- `scripts/test_search_accuracy.py`: 新規追加
-- `scripts/test_read_memory_fix.py`: 新規追加
+**診断ツール**:
+- `scripts/test_search_accuracy.py`: 10パターンの検索テスト
+- `scripts/test_read_memory_fix.py`: read_memory専用テスト
 
 **Commit**: bcbd78f
 
 ---
 
-### ✅ Phase 30: Project Structure Reorganization (2025-11-03)
+### Phase 30: Project Structure Reorganization (2025-11-03)
 
-**目的**: プロジェクト構造の整理、保守性向上、ツール責務明確化
+**目的**: プロジェクト構造整理、保守性向上
 
-#### 実施内容
+**実施内容**:
+1. **ディレクトリ構造再編成**
+   - src/utils/ 導入 (config/db/persona/vector/analysis utils)
+   - scripts/ へ開発スクリプト集約
+   - config/ で設定例をバージョン管理
 
-##### 1. Directory Structure Reorganization ✅
-**背景**:
-- ルートディレクトリに21個のファイルが混在（保守困難）
-- コアロジック、ユーティリティ、スクリプトが未分離
+2. **要約ツール管理者専用化**
+   - LLMツールから除外 (誤実行防止)
+   - 管理者CLIで実行可能
+
+3. **ツール構成最適化**
+   - 7ツール体制確立
+
+**結果**:
+- ✅ ルートディレクトリすっきり化
+- ✅ -462行削減
+- ✅ 保守性向上
+
+---
+
+### Phase 29: Vector Dimension Auto-Rebuild (2025-11-02)
+
+**実装内容**:
+1. **自動リビルド機能**
+   - Dimension不一致を自動検出
+   - コレクション削除→正しいdimensionで再作成
+
+2. **MCPツールキャッシュ対策**
+   - `get_mcp()` でツールリスト再構築
+   - MCPクライアントのキャッシュ問題解決
+
+3. **ダッシュボードUI改善**
+   - タイムゾーン表示追加 (Asia/Tokyo等)
+
+**結果**:
+- ✅ 自動リカバリ機能実装
+- ✅ 手動Qdrant操作不要
+
+---
+
+### Phase 27: Tool Consolidation (2025-10-30)
+
+**目的**: ツール簡素化、LLM体験向上
+
+**実施内容**:
+1. **ツール統合**
+   - read_memory: search_memory_rag統合 (自然言語クエリ)
+   - get_context: get_persona_context + get_time_since_last_conversation統合
+
+2. **ツール削減**
+   - Before: 9ツール
+   - After: 7ツール
+
+3. **本番環境バグ修正**
+   - get_persona_context エラー解消
+   - search_memory 修正
+
+**結果**:
+- ✅ LLMが使いやすいツール構成
+- ✅ 本番環境で安定動作
+
+---
+
+### Phase 26: Metadata Filtering & Custom Scoring (2025-10-28)
+
+**実装内容**:
+1. **メタデータフィルタリング** (7パラメータ)
+   - min_importance, emotion, action_tag, environment
+   - physical_state, mental_state, relationship_status
+
+2. **カスタムスコアリング** (2パラメータ)
+   - importance_weight: 重要度の重み
+   - recency_weight: 新しさの重み
+
+3. **Fuzzy Matching** (Phase 26.3)
+   - テキストフィルタ部分一致 (大文字小文字無視)
+   - search_memory で曖昧検索対応
+
+**結果**:
+- ✅ 高度な検索フィルタリング
+- ✅ カスタマイズ可能なスコアリング
+
+---
+
+## マイルストーン
+
+### 完了済み ✅
+- [x] MCP準拠サーバー実装
+- [x] Persona別記憶管理 (`Authorization: Bearer <persona>`)
+- [x] RAG検索 + Reranking
+- [x] 感情分析・コンテキスト管理
+- [x] Webダッシュボード
+- [x] Docker最適化 (2.65GB)
+- [x] Qdrantバックエンド実装
+- [x] 本番環境移行完了
+- [x] 自動リビルド機能
+- [x] メタデータフィルタリング
+- [x] Fuzzy Matching
+- [x] ツール統合・簡素化
+- [x] 公開ドキュメント整備
+
+### 計画中 📋
+- [ ] WebSocket/SSE (ダッシュボードプログレスバー)
+- [ ] API拡張 (REST API エンドポイント)
+- [ ] テスト強化 (pytest導入)
+- [ ] パフォーマンス最適化
+
+---
+
+## 技術的成果
+
+- **コード削減**: Phase 1で90.6%削減、Phase 30で追加462行削減
+- **Docker最適化**: 8.28GB → 2.65GB (68.0%削減)
+- **検索精度**: キーワード100%、意味的検索復活済み
+- **Persona分離**: 完全独立した記憶空間
+- **自動整理**: アイドル時の重複検知・感情分析
+
+---
+
+## 次のステップ
+
+1. **ダッシュボード強化**: プログレスバーリアルタイム更新 (WebSocket/SSE)
+2. **テスト拡充**: pytest導入、カバレッジ向上
+3. **API拡張**: REST API エンドポイント追加
+4. **ドキュメント完全化**: チュートリアル・API仕様書
+
 - 設定ファイルの配置が不明確
 
 **新構造**:

@@ -108,17 +108,6 @@ async def find_related_memories(
     """
     Find semantically similar memories using embeddings.
     
-    **When to use this tool:**
-    - Exploring connections between memories
-    - Finding context for a specific memory
-    - Discovering related topics or themes
-    - Building knowledge graphs or clusters
-    
-    **When NOT to use:**
-    - General search → use read_memory()
-    - Don't have a specific memory key
-    - Just browsing all memories → use search_memory()
-    
     Args:
         memory_key: Memory key (format: memory_YYYYMMDDHHMMSS)
         top_k: Results to return (default: 5, max: 20)
@@ -391,17 +380,6 @@ async def merge_memories(
 async def analyze_sentiment(content: str) -> str:
     """
     Analyze sentiment/emotion of text using AI.
-    
-    **When to use this tool:**
-    - Need to understand emotional tone of text
-    - Determining appropriate emotion tag for memory
-    - Analyzing user's emotional state from message
-    - Quality checking sentiment detection
-    
-    **When NOT to use:**
-    - Emotion is already obvious
-    - Just saving memory → create_memory() handles this
-    - Normal conversation flow
     
     Args:
         content: Text to analyze

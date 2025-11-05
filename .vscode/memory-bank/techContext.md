@@ -3,25 +3,24 @@
 ## 技術スタック
 
 ### コア技術
-- **Python 3.12+**: 最新の型ヒント、asyncio、contextvars
-- **FastMCP 0.9.0+**: Model Context Protocol framework、`get_http_request()`依存関数
-- **FastAPI**: Web UIとMCPエンドポイント
+- **Python 3.12+**: 最新型ヒント、asyncio、contextvars
+- **FastMCP 0.9.0+**: Model Context Protocol framework
+- **FastAPI**: Web UI・MCPエンドポイント
 - **Uvicorn**: ASGIサーバー
 
 ### RAG・検索エンジン
-- **LangChain**: RAGフレームワーク（langchain_community、langchain_core）
-- **FAISS (faiss-cpu)**: ローカルベクトル検索（デフォルト）
-- **Qdrant**: スケーラブルベクトルDB（本番環境）
-  - QdrantClient（REST API経由）
-  - コレクション: `memory_{persona}`（Personaごとに分離）
+- **LangChain**: RAGフレームワーク
+- **Qdrant**: スケーラブルベクトルDB
+  - QdrantClient (REST API)
+  - コレクション: `memory_{persona}`
 - **sentence-transformers 2.2.0+**: CrossEncoderリランカー
 
 ### モデル
 **Embeddings**:
 - モデル: `cl-nagoya/ruri-v3-30m`
-- 次元数: 384
+- 次元数: 256
 - 言語: 日本語特化
-- サイズ: ~30MB（軽量）
+- サイズ: ~30MB
 
 **Reranker**:
 - モデル: `hotchpotch/japanese-reranker-xsmall-v2`
@@ -30,74 +29,150 @@
 - サイズ: ~120MB
 
 ### データストレージ
-- **SQLite3**: メモリデータベース（標準ライブラリ）
-  - テーブル: `memories`, `operations`
-  - Personaごとに独立したDBファイル（`memory/{persona}/memory.sqlite`）
-- **Qdrant**: ベクトルインデックス（`collection: memory_{persona}`）
-- **JSON**: Personaコンテキスト（`memory/{persona}/persona_context.json`）
-- **JSONL**: 操作ログ（`logs/memory_operations.log`）
+- **SQLite3**: メモリデータベース (12カラム)
+  - テーブル: `memories`
+  - Persona別: `memory/{persona}/memory.sqlite`
+- **Qdrant**: ベクトルインデックス (`memory_{persona}` collection)
+- **JSON**: Personaコンテキスト (`memory/{persona}/persona_context.json`)
+- **JSONL**: 操作ログ (`logs/memory_operations.log`)
 
 ### Web UI・可視化
 - **Jinja2**: テンプレートエンジン
 - **Tailwind CSS**: CSSフレームワーク
-- **Chart.js**: 統計グラフ（日次推移、タグ分布等）
-- **PyVis**: 知識グラフ可視化
+- **Chart.js**: 統計グラフ
+- **vis.js**: 知識グラフ可視化
 - **NetworkX**: グラフ解析
 
 ### コンテナ化
-- **Docker**: コンテナイメージ（2.65GB、CPU版PyTorch）
+- **Docker**: 2.65GB (CPU版PyTorch)
 - **Docker Compose**: 開発環境オーケストレーション
 
 ## 依存関係
 
-### requirements.txt（主要）
+### requirements.txt (主要)
 ```
 fastmcp>=0.9.0
 langchain>=1.0
 langchain-community>=1.0
-faiss-cpu
 sentence-transformers>=2.2.0
 qdrant-client
 transformers
-torch  # CPU版（Docker）
+torch  # CPU版
 networkx
-pyvis
 jinja2
 ```
 
 ## データ形式
 
-### SQLite Schema
-**memories テーブル**:
+### SQLite Schema (12カラム)
 ```sql
 CREATE TABLE memories (
     key TEXT PRIMARY KEY,           -- memory_YYYYMMDDHHMMSS
-    content TEXT NOT NULL,          -- 記憶内容
+    content TEXT NOT NULL,
     created_at TEXT NOT NULL,       -- ISO 8601
-    updated_at TEXT NOT NULL,       -- ISO 8601
-    tags TEXT                       -- JSON配列 ["tag1", "tag2"]
+    updated_at TEXT NOT NULL,
+    tags TEXT,                      -- JSON配列
+    importance REAL DEFAULT 0.5,    -- 0.0-1.0
+    emotion TEXT DEFAULT 'neutral',
+    physical_state TEXT DEFAULT 'normal',
+    mental_state TEXT DEFAULT 'calm',
+    environment TEXT DEFAULT 'unknown',
+    relationship_status TEXT DEFAULT 'normal',
+    action_tag TEXT
 )
 ```
 
-**operations テーブル**:
-```sql
-CREATE TABLE operations (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    timestamp TEXT NOT NULL,
-    operation_id TEXT NOT NULL,
-    operation TEXT NOT NULL,       -- create/read/update/delete
-    key TEXT,
-    before TEXT,
-    after TEXT,
-    success INTEGER NOT NULL,      -- 1=成功、0=失敗
-    error TEXT,
-    metadata TEXT                  -- JSON
-)
-```
-
-### Persona Context（persona_context.json）
+### Persona Context (persona_context.json)
 ```json
 {
+  "user_info": {"name": "User", "nickname": "User"},
+  "persona_info": {"name": "Assistant", "nickname": "Assistant"},
+  "current_emotion": "joy",
+  "physical_state": "energetic",
+  "mental_state": "focused",
+  "environment": "home",
+  "relationship_status": "closer",
+  "last_conversation_time": "2025-11-04T10:00:00+09:00"
+}
+```
+
+## API エンドポイント
+
+### MCP エンドポイント
+- `POST /mcp`: MCP protocol messages
+- ヘッダー: `Authorization: Bearer <persona>` でPersona指定
+
+### ダッシュボード
+- `GET /`: Webダッシュボード
+- `GET /api/stats`: 統計データ (JSON)
+- `POST /api/admin/*`: 管理ツール
+
+## パフォーマンス最適化
+
+### 埋め込みキャッシュ
+- HuggingFaceモデル: `data/cache/huggingface/`
+- sentence-transformers: `data/cache/sentence_transformers/`
+- transformers: `data/cache/transformers/`
+
+### クエリキャッシュ
+- `db_utils.py`: LRUキャッシュで頻繁なクエリを高速化
+- `clear_query_cache()` で手動クリア可能
+
+### 非同期処理
+- FastAPI/Uvicornの非同期機能活用
+- ベクトル再構築はバックグラウンドタスク
+
+### リランキング戦略
+1. 初期検索: `top_k * 3` 件取得
+2. CrossEncoderで再スコアリング
+3. 上位 `top_k` 件返却
+
+## セキュリティ
+
+### Persona分離
+- SQLite: `memory/{persona}/memory.sqlite`
+- Qdrant: `memory_{persona}` collection
+- コンテキスト: `memory/{persona}/persona_context.json`
+
+### ファイルパス検証
+```python
+safe_persona = persona.replace("/", "_").replace("\\", "_")
+persona_dir = MEMORY_ROOT / safe_persona
+```
+
+## Docker最適化
+
+### イメージサイズ削減
+- **Before**: 8.28GB
+- **After**: 2.65GB (68.0%削減)
+
+### Multi-stage Build
+```dockerfile
+FROM python:3.12-slim as builder
+# 依存関係インストール
+
+FROM python:3.12-slim
+# 最小限のランタイム環境
+```
+
+### CPU版PyTorch
+- GPU不要な環境向けに最適化
+- `torch` (CPU版) でサイズ削減
+
+## 開発環境
+
+### VS Code Tasks
+- `.vscode/tasks.json`: ビルド・実行タスク定義
+- `Cmd+Shift+B` でDocker起動
+
+### テスト
+- `scripts/test_mcp_http.py`: MCP HTTPエンドポイントテスト
+- `scripts/test_search_accuracy.py`: 検索精度診断
+
+### デバッグ
+- FastAPI自動リロード (`--reload`)
+- ログ: `data/logs/memory_operations.log`
+
   "user_info": {
     "name": "らうらう",
     "nickname": "らうらう",

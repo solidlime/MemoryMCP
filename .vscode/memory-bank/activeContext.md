@@ -2,101 +2,93 @@
 
 ## 現在の状態
 
-- **現在フェーズ**: Phase 31.2（read_memory Dimension Fix）完了 ✅
-- **次フェーズ**: サーバー再起動 → 意味的検索テスト
-- **本番環境**: Qdrant (http://nas:6333) 運用中、256次元（cl-nagoya/ruri-v3-30m）
-- **開発環境**: Qdrant専用（Phase 25でFAISS廃止完了）
-- **最新DB構造**: 15カラム（Phase 28.1で3カラム追加: emotion_intensity, related_keys, summary_ref）
-- **最新ツール構成**: 7ツール（create/update/read/search/delete + find_related + analyze_sentiment）
-  - 要約ツール（summarize_last_day/week）は管理者専用に移行
-- **プロジェクト構造**: src/ + scripts/ + config/ 分離構成
+- **現在フェーズ**: 開発タスク完了、ドキュメント整理中
+- **本番環境**: Qdrant (http://nas:6333) 運用中、256次元 (cl-nagoya/ruri-v3-30m)
+- **DB構造**: 12カラム (key, content, created_at, updated_at, tags, importance, emotion, physical_state, mental_state, environment, relationship_status, action_tag)
+- **ツール構成**: 7ツール (create/update/read/search/delete + find_related + analyze_sentiment)
 
 ---
 
-## 今日の作業（2025-11-04）
+## 今日の作業 (2025-11-04)
 
-### Phase 31.2: read_memory Dimension Mismatch Fix ✅ 完了
+### ✅ 完了タスク
 
-#### 1. 問題発見：検索精度診断
-**診断ツール作成**: `scripts/test_search_accuracy.py`
+1. **docstring追加・改善**
+   - 全MCPツールに「When to use」セクション追加
+   - LLMが適切にツールを選択できるように明示
 
-**診断結果**:
-- ✅ **強い部分**（キーワード検索）:
-  - "Phase 28" → 100%マッチ、5件ヒット
-  - "Qdrant" → 100%マッチ、5件ヒット
-  - "らうらう" → 100%マッチ、5件ヒット
-  
-- ❌ **弱い部分**（意味的検索）:
-  - "嬉しい出来事" → ヒットなし（joyタグ記憶は存在）
-  - "非同期処理" → ヒットなし（async記憶は存在）
-  - "最近の開発作業" → ヒットなし
-  - "[[Authorization Bearer]]" → ヒットなし
+2. **get_session_context → get_context 改名**
+   - セッション開始時だけでなく、毎応答時に呼ぶべきことを明確化
+   - TESTING.md・テストスクリプト・ドキュメント全更新
 
-**結論**: 
-- `search_memory`（キーワード）は正常動作
-- `read_memory`（意味的検索）が停止中
-- 原因: Vector dimension mismatch
+3. **ダッシュボード: Migrate Backend 修正**
+   - asyncio.run() エラー解消
+   - FastAPI既存イベントループで直接await
 
-#### 2. 根本原因特定
-**問題箇所**:
-- `tools/crud_tools.py`: `dim = cfg.get("embeddings_dim", 384)` (2箇所)
-- `tools/search_tools.py`: `dim = cfg.get("embeddings_dim", 384)` (1箇所)
+4. **README全面書き直し**
+   - 472行 → 205行 (約70%削減)
+   - 冗長・重複を削除、簡潔で分かりやすい構成に
 
-**エラー**:
-```
-Vector dimension error: expected dim: 384, got 256
-```
+5. **メモリバンク整理中** (進行中)
+   - projectbrief.md: 完了
+   - productContext.md: 完了
+   - activeContext.md: 作業中
+   - systemPatterns.md: 次
+   - techContext.md: 次
+   - progress.md: 次
 
-**原因**:
-- コード: デフォルト384次元でQdrantに問い合わせ
-- 実際: cl-nagoya/ruri-v3-30mは256次元
-- Qdrantコレクション: 256次元で構築済み
+### ⏳ 残タスク
 
-#### 3. 修正実装
-**変更内容**:
-```python
-# Before
-dim = cfg.get("embeddings_dim", 384)
+- [ ] systemPatterns.md 整理
+- [ ] techContext.md 整理
+- [ ] progress.md 整理
+- [ ] ダッシュボード: プログレスバーリアルタイム更新 (WebSocket/SSE)
 
-# After
-model_name = cfg.get("embeddings_model", "cl-nagoya/ruri-v3-30m")
-from src.utils.vector_utils import _get_embedding_dimension
-dim = _get_embedding_dimension(model_name)
-```
+---
 
-**適用箇所**:
-- `tools/crud_tools.py`:
-  - `_search_memory_by_query()` 内
-  - `read_memory()` 内
-- `tools/search_tools.py`:
-  - `search_memory_rag()` 内（削除済み関数だが念のため）
+## 最近の主要完了フェーズ
 
-#### 4. テスト作成
-**テストツール**: `scripts/test_read_memory_fix.py`
+### Phase 31.2: read_memory Dimension Mismatch Fix
+- **問題**: read_memory が動作せず (dimension error: expected 384, got 256)
+- **原因**: コードがデフォルト384次元を使用、実際は256次元 (cl-nagoya/ruri-v3-30m)
+- **修正**: `_get_embedding_dimension(model_name)` で正しい次元を取得
+- **結果**: 意味的検索復活、キーワード検索と併用可能に
 
-**テストケース**:
-1. 意味的類似性（感情）: "嬉しい出来事"
-2. 類義語検索: "非同期処理"  
-3. 抽象的クエリ: "最近の開発作業"
-4. 固有名詞: "Phase 28"
+### Phase 30: Project Structure Reorganization
+- **目的**: プロジェクト構造整理、保守性向上
+- **実施内容**:
+  - src/utils/ 構造導入
+  - scripts/ へ開発スクリプト集約
+  - config/ で設定例をバージョン管理
+  - -462行削減
 
-**テスト結果（修正前）**:
-- 全て400エラー: "Vector dimension error: expected dim: 384, got 256"
+### Phase 29: Vector Dimension Auto-Rebuild
+- **機能**: Dimension不一致を自動検出・修復
+- **実装**: コレクション削除→正しいdimensionで再作成
 
-**次のステップ**:
-- サーバー再起動（コード反映）
-- テスト再実行
-- 意味的検索の復活確認
+---
 
-#### 5. Git Operations
-**Commit**: bcbd78f
-```
-Phase 31.2: Fix read_memory dimension mismatch
+## 現在のフォーカス
 
-- Fix vector dimension detection
-- Add diagnostic tools
-- Expected: Semantic search restoration
-```
+1. **ドキュメント整理**
+   - README: 完了 ✅
+   - メモリバンク: 進行中 (3/6完了)
+
+2. **次の大きなタスク**
+   - ダッシュボード: プログレスバーリアルタイム更新
+   - WebSocketまたはSSEでストリーミング実装
+
+---
+
+## 技術スタック (要約)
+
+- **Python 3.12+** / FastMCP / FastAPI / Uvicorn
+- **RAG**: HuggingFace Embeddings (cl-nagoya/ruri-v3-30m, 256次元)
+- **Reranker**: hotchpotch/japanese-reranker-xsmall-v2
+- **ベクトルDB**: Qdrant (collection: `memory_{persona}`)
+- **データDB**: SQLite (12カラム)
+- **Docker**: 2.65GB 最適化イメージ (CPU版PyTorch)
+
 
 **Push**: origin/main へ成功
 

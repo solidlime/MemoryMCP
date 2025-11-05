@@ -188,18 +188,32 @@ def generate_knowledge_graph(persona: str, output_format: str = "html",
         if output_format == "html":
             import os
             from datetime import datetime
+            from src.utils.persona_utils import get_db_path
             
-            # 出力パスを生成
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            output_dir = config_utils.get_data_dir()
-            output_path = os.path.join(output_dir, f"knowledge_graph_{persona}_{timestamp}.html")
+            # Temporarily override persona context
+            original_persona = current_persona.get()
+            current_persona.set(persona)
             
-            result = analysis_utils.export_graph_html(
-                graph, 
-                output_path=output_path,
-                title=f"Knowledge Graph - {persona}"
-            )
-            print(f"✅ Knowledge graph saved to: {result}")
+            try:
+                # Get persona memory directory
+                db_path = get_db_path()
+                persona_dir = os.path.dirname(db_path)
+                
+                # HTML file path (single file per persona)
+                output_path = os.path.join(persona_dir, f"knowledge_graph.html")
+                
+                # Remove old graph file if exists
+                if os.path.exists(output_path):
+                    os.remove(output_path)
+                
+                result = analysis_utils.export_graph_html(
+                    graph, 
+                    output_path=output_path,
+                    title=f"Knowledge Graph - {persona}"
+                )
+                print(f"✅ Knowledge graph saved to: {result}")
+            finally:
+                current_persona.set(original_persona)
         else:  # json
             result = analysis_utils.export_graph_json(graph)
             print(f"✅ Knowledge graph generated")

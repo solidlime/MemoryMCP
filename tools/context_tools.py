@@ -23,24 +23,8 @@ def _log_progress(message: str) -> None:
 
 async def get_context() -> str:
     """
-    **CRITICAL: Call this EVERY response to sync latest context from other sessions.**
-    
-    **When to use this tool:**
-    - At the START of EVERY conversation turn
-    - Before any other tool to get latest state
-    - After long periods of inactivity
-    - When context might have changed in another session
-    
-    **When NOT to use:**
-    - Already called it this turn
-    - In the middle of a complex operation
-    
-    Returns current conversation state:
-    - User/persona info & relationship status
-    - Time since last conversation (auto-updates timestamp)
-    - Memory stats (count, distribution, recent entries)
-    
-    Use: Every response start to stay synchronized.
+    Get current conversation state including user/persona info, time since last conversation, and memory stats.
+    Auto-updates last conversation timestamp.
     """
     try:
         persona = get_current_persona()
@@ -98,6 +82,11 @@ async def get_context() -> str:
         # ===== PART 3: Memory Statistics =====
         db_path = get_db_path()
         
+        # Load config for recent memories count
+        from src.utils.config_utils import load_config
+        cfg = load_config()
+        recent_count = cfg.get("recent_memories_count", 5)
+        
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
             
@@ -117,66 +106,15 @@ async def get_context() -> str:
                 cursor.execute('SELECT MIN(created_at), MAX(created_at) FROM memories')
                 min_date, max_date = cursor.fetchone()
                 
-                # Importance statistics
-                cursor.execute('SELECT AVG(importance), MIN(importance), MAX(importance) FROM memories WHERE importance IS NOT NULL')
-                importance_stats = cursor.fetchone()
-                avg_importance = importance_stats[0] if importance_stats[0] is not None else 0.5
-                min_importance = importance_stats[1] if importance_stats[1] is not None else 0.5
-                max_importance = importance_stats[2] if importance_stats[2] is not None else 0.5
-                
-                # Importance distribution (high/medium/low)
-                cursor.execute('SELECT COUNT(*) FROM memories WHERE importance >= 0.7')
-                high_importance_count = cursor.fetchone()[0]
-                cursor.execute('SELECT COUNT(*) FROM memories WHERE importance >= 0.4 AND importance < 0.7')
-                medium_importance_count = cursor.fetchone()[0]
-                cursor.execute('SELECT COUNT(*) FROM memories WHERE importance < 0.4')
-                low_importance_count = cursor.fetchone()[0]
-                
-                # Emotion distribution
-                cursor.execute('SELECT emotion, COUNT(*) FROM memories WHERE emotion IS NOT NULL GROUP BY emotion ORDER BY COUNT(*) DESC')
-                emotion_counts = cursor.fetchall()
-                
-                # Recent 10 entries
-                cursor.execute('SELECT key, content, created_at, importance, emotion FROM memories ORDER BY created_at DESC LIMIT 10')
+                # Recent entries
+                cursor.execute(f'SELECT key, content, created_at, importance, emotion FROM memories ORDER BY created_at DESC LIMIT {recent_count}')
                 recent = cursor.fetchall()
-                
-                # Tag distribution
-                cursor.execute('SELECT tags FROM memories WHERE tags IS NOT NULL AND tags != "[]"')
-                all_tags = []
-                for (tags_json,) in cursor.fetchall():
-                    try:
-                        tags = json.loads(tags_json)
-                        all_tags.extend(tags)
-                    except:
-                        pass
-                
-                tag_counts = {}
-                for tag in all_tags:
-                    tag_counts[tag] = tag_counts.get(tag, 0) + 1
                 
                 # Build memory statistics
                 result += f"\n📊 Memory Statistics:\n"
                 result += f"   Total Memories: {total_count}\n"
                 result += f"   Total Characters: {total_chars:,}\n"
                 result += f"   Date Range: {min_date[:10]} ~ {max_date[:10]}\n"
-                
-                result += f"\n⭐ Importance Distribution:\n"
-                result += f"   Average: {avg_importance:.2f}\n"
-                result += f"   Range: {min_importance:.2f} ~ {max_importance:.2f}\n"
-                result += f"   High (≥0.7): {high_importance_count}\n"
-                result += f"   Medium (0.4~0.7): {medium_importance_count}\n"
-                result += f"   Low (<0.4): {low_importance_count}\n"
-                
-                if emotion_counts:
-                    result += f"\n💭 Emotion Distribution:\n"
-                    for emotion, count in emotion_counts[:5]:  # Top 5 emotions
-                        result += f"   {emotion}: {count}\n"
-                
-                if tag_counts:
-                    result += f"\n🏷️  Tag Distribution:\n"
-                    sorted_tags = sorted(tag_counts.items(), key=lambda x: x[1], reverse=True)
-                    for tag, count in sorted_tags[:5]:  # Top 5 tags
-                        result += f"   {tag}: {count}\n"
                 
                 result += f"\n🕐 Recent {len(recent)} Memories:\n"
                 for i, (key, content, created_at, importance, emotion) in enumerate(recent, 1):
