@@ -176,19 +176,6 @@ Persona切り替えは `Bearer <persona名>` で行います。
 | `preferences` | dict | 好み | `{"loves": ["踊り", "水"], "dislikes": ["争い"]}` |
 | `special_moments` | list | 特別な瞬間 | `[{"content": "初めてのキス", "date": "2025-10-28", "emotion": "love"}]` |
 
-**使用例**:
-```python
-create_memory(
-    "らうらうから[[白いワンピース]]をプレゼントされた💕",
-    tags=["gift", "clothing"],
-    importance=0.9,
-    persona_info={
-        "current_equipment": {"clothing": "白いワンピース"},
-        "favorite_items": ["白いワンピース"]
-    }
-)
-```
-
 これらのフィールドは`get_context()`で自動的に表示されます。
 
 ### Qdrantベクトルストア

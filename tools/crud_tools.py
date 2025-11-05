@@ -236,11 +236,13 @@ async def create_memory(
         context_tags: ["important_event", "technical_achievement", "emotional_moment", "daily_memory", "relationship_update"]
         importance: 0.0-1.0 (0.7+ = high, 0.4-0.7 = medium, <0.4 = low)
         physical_state, mental_state, environment, relationship_status, action_tag: Optional context
-        user_info/persona_info: Dicts with name, nickname, preferred_address
+        user_info: Dict with name, nickname, preferred_address
+        persona_info: Dict with name, nickname, preferred_address, current_equipment, favorite_items, active_promises, current_goals, preferences, special_moments
     
     Examples:
         create_memory("User likes [[strawberry]]")
         create_memory("[[Python]] project completed", importance=0.8, context_tags=["technical_achievement"])
+        create_memory("プレゼントされた[[白いワンピース]]", persona_info={"current_equipment": {"clothing": "白いワンピース"}})
     """
     try:
         persona = get_current_persona()
@@ -671,11 +673,16 @@ async def update_memory(
     Args:
         query: Natural language to find memory (e.g., "promise", "project progress")
         content: New content to replace
-        (other params same as create_memory)
+        emotion_type: "joy", "love", "neutral", etc.
+        context_tags: ["important_event", "technical_achievement", "emotional_moment", etc.]
+        importance: 0.0-1.0 (0.7+ = high, 0.4-0.7 = medium, <0.4 = low)
+        physical_state, mental_state, environment, relationship_status, action_tag: Optional context
+        user_info/persona_info: Dicts with name, nickname, preferred_address, current_equipment, favorite_items, active_promises, current_goals, preferences, special_moments
     
     Examples:
         update_memory("promise", "Changed to tomorrow 10am")
         update_memory("project", "Feature completed", importance=0.8)
+        update_memory("装備", "[[銀の剣]]を装備した", persona_info={"current_equipment": {"weapon": "銀の剣"}})
     
     Note: If similarity < 0.80, shows candidates and creates new memory instead.
     """
