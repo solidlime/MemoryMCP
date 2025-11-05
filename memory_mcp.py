@@ -141,7 +141,7 @@ except Exception:
 # Initialize MCP server with configured host and port
 mcp = FastMCP(
     name="memory-mcp",
-    description="Personal memory and context management system with RAG-powered semantic search, multi-persona support, and emotional/relationship tracking",
+    instructions="Personal memory and context management system with RAG-powered semantic search, multi-persona support, and emotional/relationship tracking",
     host=_early_config.get("server_host", "127.0.0.1"),
     port=_early_config.get("server_port", 26262)
 )
