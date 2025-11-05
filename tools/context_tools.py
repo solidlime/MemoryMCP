@@ -61,6 +61,99 @@ async def get_context() -> str:
         result += f"   Environment: {context.get('environment', 'unknown')}\n"
         result += f"   Relationship: {context.get('relationship_status', 'normal')}\n"
         
+        # ===== PART 1.5: Extended Persona Context =====
+        # Current Equipment
+        if context.get('current_equipment'):
+            equipment = context['current_equipment']
+            result += f"\n👗 Current Equipment:\n"
+            if isinstance(equipment, dict):
+                for equip_type, item in equipment.items():
+                    if isinstance(item, list):
+                        result += f"   {equip_type}: {', '.join(item)}\n"
+                    else:
+                        result += f"   {equip_type}: {item}\n"
+            else:
+                result += f"   {equipment}\n"
+        
+        # Favorite Items
+        if context.get('favorite_items'):
+            items = context['favorite_items']
+            result += f"\n💕 Favorite Items:\n"
+            if isinstance(items, list):
+                for item in items:
+                    result += f"   - {item}\n"
+            else:
+                result += f"   {items}\n"
+        
+        # Active Promises
+        if context.get('active_promises'):
+            promises = context['active_promises']
+            result += f"\n🤝 Active Promises:\n"
+            if isinstance(promises, list):
+                for i, promise in enumerate(promises, 1):
+                    if isinstance(promise, dict):
+                        content = promise.get('content', '')
+                        date = promise.get('date', '')
+                        result += f"   {i}. {content}"
+                        if date:
+                            result += f" (due: {date})"
+                        result += "\n"
+                    else:
+                        result += f"   {i}. {promise}\n"
+            else:
+                result += f"   {promises}\n"
+        
+        # Current Goals
+        if context.get('current_goals'):
+            goals = context['current_goals']
+            result += f"\n🎯 Current Goals:\n"
+            if isinstance(goals, list):
+                for i, goal in enumerate(goals, 1):
+                    result += f"   {i}. {goal}\n"
+            else:
+                result += f"   {goals}\n"
+        
+        # Preferences
+        if context.get('preferences'):
+            prefs = context['preferences']
+            result += f"\n💖 Preferences:\n"
+            if isinstance(prefs, dict):
+                if prefs.get('loves'):
+                    loves = prefs['loves']
+                    if isinstance(loves, list):
+                        result += f"   Loves: {', '.join(loves)}\n"
+                    else:
+                        result += f"   Loves: {loves}\n"
+                if prefs.get('dislikes'):
+                    dislikes = prefs['dislikes']
+                    if isinstance(dislikes, list):
+                        result += f"   Dislikes: {', '.join(dislikes)}\n"
+                    else:
+                        result += f"   Dislikes: {dislikes}\n"
+            else:
+                result += f"   {prefs}\n"
+        
+        # Special Moments (最近のもの、数件)
+        if context.get('special_moments'):
+            moments = context['special_moments']
+            result += f"\n✨ Special Moments:\n"
+            if isinstance(moments, list):
+                for i, moment in enumerate(moments[-5:], 1):  # 最新5件まで
+                    if isinstance(moment, dict):
+                        content = moment.get('content', '')
+                        date = moment.get('date', '')
+                        emotion = moment.get('emotion', '')
+                        result += f"   {i}. {content}"
+                        if date:
+                            result += f" ({date})"
+                        if emotion:
+                            result += f" 💭{emotion}"
+                        result += "\n"
+                    else:
+                        result += f"   {i}. {moment}\n"
+            else:
+                result += f"   {moments}\n"
+        
         # ===== PART 2: Time Since Last Conversation =====
         last_time_str = context.get("last_conversation_time")
         current_time = get_current_time()

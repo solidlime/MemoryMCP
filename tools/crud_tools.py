@@ -354,8 +354,13 @@ async def create_memory(
             if "persona_info" not in context:
                 context["persona_info"] = {}
             for key_name, value in persona_info.items():
+                # Basic info fields (flat values)
                 if key_name in ["name", "nickname", "preferred_address"]:
                     context["persona_info"][key_name] = value
+                # Extended fields (can be nested dicts/lists)
+                elif key_name in ["current_equipment", "favorite_items", "active_promises", 
+                                   "current_goals", "preferences", "special_moments"]:
+                    context[key_name] = value
             context_updated = True
         
         # Update relationship status if provided
@@ -822,8 +827,13 @@ async def update_memory(
             if "persona_info" not in context:
                 context["persona_info"] = {}
             for key_name, value in persona_info.items():
+                # Basic info fields (flat values)
                 if key_name in ["name", "nickname", "preferred_address"]:
                     context["persona_info"][key_name] = value
+                # Extended fields (can be nested dicts/lists)
+                elif key_name in ["current_equipment", "favorite_items", "active_promises", 
+                                   "current_goals", "preferences", "special_moments"]:
+                    context[key_name] = value
             context_updated = True
         if relationship_status:
             context["relationship_status"] = relationship_status

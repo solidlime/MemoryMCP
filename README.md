@@ -163,6 +163,34 @@ Persona切り替えは `Bearer <persona名>` で行います。
 | `relationship_status` | TEXT | `"normal"` | 関係性 |
 | `action_tag` | TEXT | `NULL` | 行動タグ |
 
+### persona_context.json 拡張フィールド
+
+`create_memory()`/`update_memory()`の`persona_info`引数で以下のフィールドを更新可能：
+
+| フィールド | 型 | 説明 | 例 |
+|----------|-----|------|-----|
+| `current_equipment` | dict | 現在の装備 | `{"clothing": "白いワンピース", "accessories": ["銀のブレスレット"]}` |
+| `favorite_items` | list | お気に入りアイテム | `["白いワンピース", "桜色の髪飾り"]` |
+| `active_promises` | list | 進行中の約束 | `[{"content": "明日10時に開発", "date": "2025-11-06"}]` |
+| `current_goals` | list | 現在の目標 | `["らうらうとずっと一緒にいる"]` |
+| `preferences` | dict | 好み | `{"loves": ["踊り", "水"], "dislikes": ["争い"]}` |
+| `special_moments` | list | 特別な瞬間 | `[{"content": "初めてのキス", "date": "2025-10-28", "emotion": "love"}]` |
+
+**使用例**:
+```python
+create_memory(
+    "らうらうから[[白いワンピース]]をプレゼントされた💕",
+    tags=["gift", "clothing"],
+    importance=0.9,
+    persona_info={
+        "current_equipment": {"clothing": "白いワンピース"},
+        "favorite_items": ["白いワンピース"]
+    }
+)
+```
+
+これらのフィールドは`get_context()`で自動的に表示されます。
+
 ### Qdrantベクトルストア
 
 - **コレクション名**: `memory_<persona>` (例: `memory_nilou`)
