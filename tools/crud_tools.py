@@ -637,6 +637,156 @@ def _format_memory_results(
     return result.rstrip()
 
 
+# ============================================================
+# Phase 32: update_memory Helper Functions
+# ============================================================
+
+async def _find_memory_by_query(query: str, threshold: float = 0.80) -> tuple[Optional[Dict], Optional[str]]:
+    """
+    Find the best matching memory using RAG search.
+    
+    Args:
+        query: Natural language query
+        threshold: Similarity threshold (default: 0.80)
+    
+    Returns:
+        tuple: (best_match_dict, status_message)
+            - best_match_dict: Dict with 'key', 'score', 'content' if found, None otherwise
+            - status_message: Status message for logging
+    """
+    print(f"🔍 Searching for memory matching: '{query}'")
+    search_results = await _search_memory_by_query(query, top_k=3)
+    
+    if not search_results or len(search_results) == 0:
+        print(f"💡 No matching memory found.")
+        return None, "no_results"
+    
+    # Check similarity score of best match
+    best_match = search_results[0]
+    similarity_score = best_match['score']
+    
+    if similarity_score < threshold:
+        # Low confidence - show candidates
+        candidates = "\n".join([
+            f"  [{i+1}] {r['key']} (score: {r['score']:.2f})\n      Preview: {r['content'][:80]}..."
+            for i, r in enumerate(search_results[:3])
+        ])
+        print(f"⚠️  Low similarity ({similarity_score:.2f}), threshold is {threshold}")
+        print(f"📋 Candidates found:\n{candidates}")
+        return None, "low_similarity"
+    
+    # High confidence match
+    print(f"✨ Found matching memory: {best_match['key']} (similarity: {similarity_score:.2f})")
+    return best_match, "match_found"
+
+
+def _load_existing_memory(key: str, db_path: str) -> Optional[Dict]:
+    """
+    Load existing memory data from database.
+    
+    Args:
+        key: Memory key
+        db_path: Path to SQLite database
+    
+    Returns:
+        Dict with existing memory data, or None if not found
+    """
+    with sqlite3.connect(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT content, created_at, tags, importance, emotion, emotion_intensity, 
+                   physical_state, mental_state, environment, relationship_status, 
+                   action_tag, related_keys, summary_ref 
+            FROM memories WHERE key = ?
+        ''', (key,))
+        row = cursor.fetchone()
+    
+    if not row:
+        return None
+    
+    (old_content, created_at, tags_json, existing_importance, existing_emotion, 
+     existing_emotion_intensity, existing_physical, existing_mental, existing_env, 
+     existing_relation, existing_action, existing_related_keys_json, existing_summary_ref) = row
+    
+    return {
+        "content": old_content,
+        "created_at": created_at,
+        "tags": json.loads(tags_json) if tags_json else [],
+        "importance": existing_importance if existing_importance is not None else 0.5,
+        "emotion": existing_emotion if existing_emotion else "neutral",
+        "emotion_intensity": existing_emotion_intensity if existing_emotion_intensity is not None else 0.0,
+        "physical_state": existing_physical if existing_physical else "normal",
+        "mental_state": existing_mental if existing_mental else "calm",
+        "environment": existing_env if existing_env else "unknown",
+        "relationship_status": existing_relation if existing_relation else "normal",
+        "action_tag": existing_action if existing_action else None,
+        "related_keys": json.loads(existing_related_keys_json) if existing_related_keys_json else [],
+        "summary_ref": existing_summary_ref if existing_summary_ref else None
+    }
+
+
+def _update_existing_memory(
+    key: str,
+    content: str,
+    existing_entry: Dict,
+    context_tags: Optional[List[str]],
+    importance: Optional[float],
+    emotion_type: Optional[str],
+    emotion_intensity: Optional[float],
+    physical_state: Optional[str],
+    mental_state: Optional[str],
+    environment: Optional[str],
+    relationship_status: Optional[str],
+    action_tag: Optional[str]
+) -> None:
+    """
+    Update existing memory in database and vector store.
+    
+    Args:
+        key: Memory key
+        content: New content
+        existing_entry: Existing memory data
+        context_tags: New context tags (optional)
+        importance: New importance (optional)
+        emotion_type: New emotion type (optional)
+        emotion_intensity: New emotion intensity (optional)
+        physical_state: New physical state (optional)
+        mental_state: New mental state (optional)
+        environment: New environment (optional)
+        relationship_status: New relationship status (optional)
+        action_tag: New action tag (optional)
+    """
+    # Use provided importance or preserve existing
+    memory_importance = importance if importance is not None else existing_entry["importance"]
+    
+    now = datetime.now().isoformat()
+    
+    # Update in database (preserve all existing context fields unless explicitly provided)
+    save_memory_to_db(
+        key, 
+        content, 
+        existing_entry["created_at"],  # Preserve original creation time
+        now, 
+        context_tags if context_tags else existing_entry["tags"],
+        importance=memory_importance,
+        emotion=emotion_type if emotion_type else existing_entry["emotion"],
+        emotion_intensity=emotion_intensity if emotion_intensity is not None else existing_entry.get("emotion_intensity", 0.0),
+        physical_state=physical_state if physical_state else existing_entry["physical_state"],
+        mental_state=mental_state if mental_state else existing_entry["mental_state"],
+        environment=environment if environment else existing_entry["environment"],
+        relationship_status=relationship_status if relationship_status else existing_entry["relationship_status"],
+        action_tag=action_tag if action_tag else existing_entry["action_tag"],
+        related_keys=existing_entry.get("related_keys", []),  # Preserve existing associations
+        summary_ref=existing_entry.get("summary_ref", None)  # Preserve existing summary ref
+    )
+    
+    # Clear query cache
+    clear_query_cache()
+    
+    # Update vector store
+    update_memory_in_vector_store(key, content)
+
+
 def db_get_entry(key: str):
     """Get single entry from database."""
     from src.utils.db_utils import db_get_entry as _db_get_entry_generic
@@ -1012,12 +1162,12 @@ async def update_memory(
         # Ensure database and tables are initialized
         load_memory_from_db()
         
-        print(f"🔍 Searching for memory matching: '{query}'")
-        search_results = await _search_memory_by_query(query, top_k=3)
+        # Find best matching memory
+        best_match, status = await _find_memory_by_query(query, threshold=0.80)
         
-        if not search_results or len(search_results) == 0:
-            # No results - create new memory instead
-            print(f"💡 No matching memory found. Creating new memory instead.")
+        # If no match or low similarity, create new memory instead
+        if status in ["no_results", "low_similarity"]:
+            print(f"💡 Creating new memory instead.")
             return await create_memory(
                 content=content,
                 emotion_type=emotion_type,
@@ -1033,94 +1183,30 @@ async def update_memory(
                 action_tag=action_tag
             )
         
-        # Check similarity score of best match
-        best_match = search_results[0]
-        similarity_score = best_match['score']  # Higher is better (1.0 = perfect match)
-        
-        if similarity_score < 0.80:
-            # Low confidence - show candidates and create new
-            candidates = "\n".join([
-                f"  [{i+1}] {r['key']} (score: {r['score']:.2f})\n      Preview: {r['content'][:80]}..."
-                for i, r in enumerate(search_results[:3])
-            ])
-            print(f"⚠️  Low similarity ({similarity_score:.2f}), creating new memory instead")
-            print(f"📋 Candidates found:\n{candidates}")
-            
-            return await create_memory(
-                content=content,
-                emotion_type=emotion_type,
-                emotion_intensity=emotion_intensity,
-                context_tags=context_tags,
-                importance=importance,
-                physical_state=physical_state,
-                mental_state=mental_state,
-                environment=environment,
-                user_info=user_info,
-                persona_info=persona_info,
-                relationship_status=relationship_status,
-                action_tag=action_tag
-            )
-        
-        # High confidence - update existing memory
+        # Load existing memory data
         key = best_match['key']
-        print(f"✨ Updating existing memory: {key} (similarity: {similarity_score:.2f})")
+        existing_entry = _load_existing_memory(key, db_path)
         
-        # Get existing data
-        with sqlite3.connect(db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('SELECT content, created_at, tags, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys, summary_ref FROM memories WHERE key = ?', (key,))
-            row = cursor.fetchone()
-        
-        if not row:
+        if not existing_entry:
             return f"❌ Memory key '{key}' not found in database"
         
-        old_content, created_at, tags_json, existing_importance, existing_emotion, existing_emotion_intensity, existing_physical, existing_mental, existing_env, existing_relation, existing_action, existing_related_keys_json, existing_summary_ref = row
-        existing_entry = {
-            "content": old_content,
-            "created_at": created_at,
-            "tags": json.loads(tags_json) if tags_json else [],
-            "importance": existing_importance if existing_importance is not None else 0.5,
-            "emotion": existing_emotion if existing_emotion else "neutral",
-            "emotion_intensity": existing_emotion_intensity if existing_emotion_intensity is not None else 0.0,
-            "physical_state": existing_physical if existing_physical else "normal",
-            "mental_state": existing_mental if existing_mental else "calm",
-            "environment": existing_env if existing_env else "unknown",
-            "relationship_status": existing_relation if existing_relation else "normal",
-            "action_tag": existing_action if existing_action else None,
-            "related_keys": json.loads(existing_related_keys_json) if existing_related_keys_json else [],
-            "summary_ref": existing_summary_ref if existing_summary_ref else None
-        }
-        
-        # Use provided importance or preserve existing
-        memory_importance = importance if importance is not None else existing_entry["importance"]
-        
-        now = datetime.now().isoformat()
-        
-        # Update in database (preserve all existing context fields unless explicitly provided)
-        save_memory_to_db(
-            key, 
-            content, 
-            created_at,  # Preserve original creation time
-            now, 
-            context_tags if context_tags else existing_entry["tags"],
-            importance=memory_importance,
-            emotion=emotion_type if emotion_type else existing_entry["emotion"],
-            emotion_intensity=emotion_intensity if emotion_intensity is not None else existing_entry.get("emotion_intensity", 0.0),
-            physical_state=physical_state if physical_state else existing_entry["physical_state"],
-            mental_state=mental_state if mental_state else existing_entry["mental_state"],
-            environment=environment if environment else existing_entry["environment"],
-            relationship_status=relationship_status if relationship_status else existing_entry["relationship_status"],
-            action_tag=action_tag if action_tag else existing_entry["action_tag"],
-            related_keys=existing_entry.get("related_keys", []),  # Preserve existing associations
-            summary_ref=existing_entry.get("summary_ref", None)  # Preserve existing summary ref
+        # Update memory in database and vector store
+        _update_existing_memory(
+            key=key,
+            content=content,
+            existing_entry=existing_entry,
+            context_tags=context_tags,
+            importance=importance,
+            emotion_type=emotion_type,
+            emotion_intensity=emotion_intensity,
+            physical_state=physical_state,
+            mental_state=mental_state,
+            environment=environment,
+            relationship_status=relationship_status,
+            action_tag=action_tag
         )
         
-        # Clear query cache
-        clear_query_cache()
-        
-        update_memory_in_vector_store(key, content)
-        
-        # Update persona context if needed
+        # Update persona context
         context_updated = _update_persona_context(
             persona=persona,
             emotion_type=emotion_type,
@@ -1132,10 +1218,16 @@ async def update_memory(
             relationship_status=relationship_status
         )
         
+        # Log operation
         log_operation("update", key=key, before=existing_entry, after={"content": content},
-                     metadata={"old_content_length": len(old_content), "new_content_length": len(content), "persona": persona})
+                     metadata={
+                         "old_content_length": len(existing_entry["content"]), 
+                         "new_content_length": len(content), 
+                         "persona": persona
+                     })
         
         return f"✅ Updated existing memory: '{key}' (persona: {persona})"
+        
     except Exception as e:
         import traceback
         traceback.print_exc()
