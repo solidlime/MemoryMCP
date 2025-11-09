@@ -1,7 +1,31 @@
 """
 CRUD (Create, Read, Update, Delete, List) tools for memory-mcp.
 
-This module provides the basic memory management operations.
+This module provides the basic memory management operations with the following structure:
+
+**Internal Helper Functions (Phase 32 Refactoring):**
+- _search_memory_by_query(): RAG search for internal use
+- _update_persona_context(): Common persona context update logic
+- _generate_unique_key(): Unique memory key generation
+- _calculate_memory_importance(): Importance calculation with associations
+- _save_memory_to_stores(): DB and vector store save operations
+- _format_create_result(): Format create_memory result message
+- _initialize_vector_adapter(): Initialize Qdrant adapter
+- _filter_and_score_documents(): Filter and score search results
+- _rerank_documents(): Rerank documents with cross-encoder
+- _format_memory_results(): Format read_memory results
+- _find_memory_by_query(): Find best match for update/delete
+- _load_existing_memory(): Load existing memory from DB
+- _update_existing_memory(): Update memory in stores
+
+**Public Tool Functions:**
+- create_memory(): Create new memory
+- read_memory(): Semantic search with RAG
+- update_memory(): Update existing memory by query
+- delete_memory(): Delete memory by key or query
+- get_memory_stats(): Get memory statistics
+- db_get_entry(): Get single memory entry
+- db_recent_keys(): Get recent memory keys
 """
 
 import json
@@ -218,7 +242,7 @@ def _calculate_memory_importance(
     content: str,
     importance: Optional[float],
     emotion_intensity: Optional[float]
-) -> tuple[float, List[str]]:
+) -> tuple:
     """
     Calculate memory importance and generate associations.
     
@@ -641,7 +665,7 @@ def _format_memory_results(
 # Phase 32: update_memory Helper Functions
 # ============================================================
 
-async def _find_memory_by_query(query: str, threshold: float = 0.80) -> tuple[Optional[Dict], Optional[str]]:
+async def _find_memory_by_query(query: str, threshold: float = 0.80) -> tuple:
     """
     Find the best matching memory using RAG search.
     
