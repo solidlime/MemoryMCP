@@ -50,6 +50,19 @@ README.md
 tests/
 test_*.py
 *_test.py
+scripts/test_*.py
+
+# Output files (not needed in production)
+output/
+logs/
+
+# Additional documentation
+TESTING.md
+TROUBLESHOOTING.md
+*.md
+
+# Serena project files
+.serena/
 
 # IDE
 .idea/
