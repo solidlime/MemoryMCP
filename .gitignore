@@ -1,66 +1,29 @@
 # Python
 __pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-# lib/  # Commented out: we need lib/backends/ for custom modules
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
 
 # Virtual environments
 venv/
 venv-*/
-ENV/
-env/
-.venv
+.venv/
 
 # IDEs
 .vscode/
-.idea/
-*.swp
-*.swo
-*~
-.DS_Store
 
 # Memory MCP specific
 memory/
-data/config.json     # Actual config (personal settings)
-data/cache/          # Model caches
-data/logs/           # Log files
-data/memory/         # Memory databases
 output/
+data/
+logs/
+lib/
 .cache/
 *.log
 *.sqlite
-*.sqlite-journal
 
 # Temporary files
 *.tmp
 *.bak
 *.backup
-.pytest_cache/
-.coverage
-htmlcov/
 
-# OS
-Thumbs.db
-.DS_Store
-
-.gitignore_global
 copilot-instructions.md
 config.json
 
