@@ -343,6 +343,300 @@ def _format_create_result(
     return result
 
 
+# ============================================================
+# Phase 32: read_memory Helper Functions
+# ============================================================
+
+def _initialize_vector_adapter(persona: str):
+    """
+    Initialize Qdrant vector store adapter.
+    
+    Args:
+        persona: Current persona name
+    
+    Returns:
+        QdrantVectorStoreAdapter or None if initialization fails
+    
+    Raises:
+        Exception: If RAG system is not ready or adapter creation fails
+    """
+    from src.utils.vector_utils import embeddings
+    from lib.backends.qdrant_backend import QdrantVectorStoreAdapter
+    from qdrant_client import QdrantClient
+    
+    if embeddings is None:
+        raise Exception("RAG system not ready")
+    
+    cfg = load_config()
+    
+    # Phase 31.2: Get correct dimension from model config
+    model_name = cfg.get("embeddings_model", "cl-nagoya/ruri-v3-30m")
+    from src.utils.vector_utils import _get_embedding_dimension
+    dim = _get_embedding_dimension(model_name)
+    
+    url = cfg.get("qdrant_url", "http://localhost:6333")
+    api_key = cfg.get("qdrant_api_key")
+    prefix = cfg.get("qdrant_collection_prefix", "memory_")
+    collection = f"{prefix}{persona}"
+    
+    client = QdrantClient(url=url, api_key=api_key)
+    adapter = QdrantVectorStoreAdapter(client, collection, embeddings, dim)
+    
+    return adapter
+
+
+def _filter_and_score_documents(
+    docs_with_scores: list,
+    min_importance: Optional[float],
+    emotion: Optional[str],
+    action_tag: Optional[str],
+    environment: Optional[str],
+    physical_state: Optional[str],
+    mental_state: Optional[str],
+    relationship_status: Optional[str],
+    importance_weight: float,
+    recency_weight: float
+) -> list:
+    """
+    Filter documents based on metadata and calculate custom scores.
+    
+    Args:
+        docs_with_scores: List of (document, score) tuples from vector search
+        min_importance: Minimum importance filter
+        emotion: Emotion filter
+        action_tag: Action tag filter
+        environment: Environment filter
+        physical_state: Physical state filter
+        mental_state: Mental state filter
+        relationship_status: Relationship status filter
+        importance_weight: Weight for importance in scoring
+        recency_weight: Weight for recency in scoring
+    
+    Returns:
+        List of (document, final_score) tuples, sorted by score descending
+    """
+    filtered_docs = []
+    
+    for doc, score in docs_with_scores:
+        meta = doc.metadata
+        
+        # Apply filters
+        if min_importance is not None and meta.get("importance", 0) < min_importance:
+            continue
+        
+        # Fuzzy matching for text filters (case-insensitive partial match)
+        if emotion and emotion.lower() not in str(meta.get("emotion", "")).lower():
+            continue
+        if action_tag and action_tag.lower() not in str(meta.get("action_tag", "")).lower():
+            continue
+        if environment and environment.lower() not in str(meta.get("environment", "")).lower():
+            continue
+        if physical_state and physical_state.lower() not in str(meta.get("physical_state", "")).lower():
+            continue
+        if mental_state and mental_state.lower() not in str(meta.get("mental_state", "")).lower():
+            continue
+        if relationship_status and relationship_status.lower() not in str(meta.get("relationship_status", "")).lower():
+            continue
+        
+        # Calculate custom score
+        final_score = score  # Base vector similarity score
+        
+        if importance_weight > 0 and meta.get("importance") is not None:
+            final_score += importance_weight * meta["importance"]
+        
+        if recency_weight > 0 and meta.get("created_at"):
+            try:
+                created_at = datetime.fromisoformat(meta["created_at"])
+                now = datetime.now()
+                days_ago = (now - created_at).days
+                # Recency score: 1.0 for today, decreases over time (0 after 1 year)
+                recency_score = max(0, 1 - days_ago / 365.0)
+                final_score += recency_weight * recency_score
+            except:
+                pass
+        
+        doc.metadata["final_score"] = final_score
+        filtered_docs.append((doc, final_score))
+    
+    # Sort by final score (descending)
+    filtered_docs.sort(key=lambda x: x[1], reverse=True)
+    
+    return filtered_docs
+
+
+def _rerank_documents(query: str, docs: list, top_k: int):
+    """
+    Rerank documents using cross-encoder reranker.
+    
+    Args:
+        query: Search query
+        docs: List of documents to rerank
+        top_k: Number of top results to return
+    
+    Returns:
+        List of top_k reranked documents
+    """
+    from src.utils.vector_utils import reranker
+    
+    if reranker and docs:
+        # Prepare query-document pairs for reranking
+        pairs = [[query, doc.page_content] for doc in docs]
+        # Get reranking scores
+        scores = reranker.predict(pairs)
+        # Sort documents by score (descending)
+        ranked_docs = sorted(zip(docs, scores), key=lambda x: x[1], reverse=True)
+        # Take top_k after reranking
+        return [doc for doc, score in ranked_docs[:top_k]]
+    else:
+        # If no reranker, just take top_k from similarity search
+        return docs[:top_k]
+
+
+def _format_memory_results(
+    query: str,
+    docs: list,
+    persona: str,
+    min_importance: Optional[float],
+    emotion: Optional[str],
+    action_tag: Optional[str],
+    environment: Optional[str],
+    physical_state: Optional[str],
+    mental_state: Optional[str],
+    relationship_status: Optional[str],
+    importance_weight: float,
+    recency_weight: float
+) -> str:
+    """
+    Format search results into a readable string.
+    
+    Args:
+        query: Search query
+        docs: List of documents to format
+        persona: Current persona name
+        min_importance: Importance filter (for display)
+        emotion: Emotion filter (for display)
+        action_tag: Action tag filter (for display)
+        environment: Environment filter (for display)
+        physical_state: Physical state filter (for display)
+        mental_state: Mental state filter (for display)
+        relationship_status: Relationship status filter (for display)
+        importance_weight: Importance weight (for display)
+        recency_weight: Recency weight (for display)
+    
+    Returns:
+        Formatted result string
+    """
+    if not docs:
+        filter_desc = []
+        if min_importance is not None:
+            filter_desc.append(f"importance≥{min_importance}")
+        if emotion:
+            filter_desc.append(f"emotion={emotion}")
+        if action_tag:
+            filter_desc.append(f"action={action_tag}")
+        filter_str = f" (filters: {', '.join(filter_desc)})" if filter_desc else ""
+        
+        return f"📭 No relevant memories found for '{query}'{filter_str}."
+    
+    # Build filter description for display
+    filter_desc = []
+    if min_importance is not None:
+        filter_desc.append(f"importance≥{min_importance}")
+    if emotion:
+        filter_desc.append(f"emotion={emotion}")
+    if action_tag:
+        filter_desc.append(f"action={action_tag}")
+    if environment:
+        filter_desc.append(f"env={environment}")
+    if physical_state:
+        filter_desc.append(f"physical={physical_state}")
+    if mental_state:
+        filter_desc.append(f"mental={mental_state}")
+    if relationship_status:
+        filter_desc.append(f"relation={relationship_status}")
+    
+    filter_str = f" [filters: {', '.join(filter_desc)}]" if filter_desc else ""
+    
+    # Build scoring description
+    scoring_desc = []
+    if importance_weight > 0:
+        scoring_desc.append(f"importance×{importance_weight}")
+    if recency_weight > 0:
+        scoring_desc.append(f"recency×{recency_weight}")
+    
+    scoring_str = f" [scoring: vector + {' + '.join(scoring_desc)}]" if scoring_desc else ""
+    
+    result = f"🔍 Found {len(docs)} relevant memories for '{query}'{filter_str}{scoring_str}:\n\n"
+    
+    db_path = get_db_path()
+    with sqlite3.connect(db_path) as conn:
+        cursor = conn.cursor()
+        for i, doc in enumerate(docs, 1):
+            key = doc.metadata.get("key", "unknown")
+            content = doc.page_content
+            
+            # Get metadata from DB (including Phase 28 fields)
+            cursor.execute('''
+                SELECT created_at, importance, emotion, emotion_intensity,
+                       physical_state, mental_state, environment, 
+                       relationship_status, action_tag, related_keys
+                FROM memories WHERE key = ?
+            ''', (key,))
+            row = cursor.fetchone()
+            
+            if row:
+                created_at, importance_val, emotion_db, emotion_intensity_val, physical, mental, env, relation, action, related_keys_json = row
+                created_date = created_at[:10]
+                created_time = created_at[11:19]
+                time_diff = calculate_time_diff(created_at)
+                time_ago = f" ({time_diff['formatted_string']}前)"
+                
+                # Build metadata display
+                meta_parts = []
+                if importance_val is not None and importance_val != 0.5:
+                    meta_parts.append(f"⭐{importance_val:.1f}")
+                if emotion_db and emotion_db != "neutral":
+                    emotion_str = f"💭{emotion_db}"
+                    # Add intensity if significant
+                    if emotion_intensity_val and emotion_intensity_val >= 0.5:
+                        emotion_str += f"({emotion_intensity_val:.1f})"
+                    meta_parts.append(emotion_str)
+                if action:
+                    meta_parts.append(f"🎭{action}")
+                if env and env != "unknown":
+                    meta_parts.append(f"📍{env}")
+                
+                # Phase 28.2: Show related memories count
+                if related_keys_json:
+                    try:
+                        related_keys_list = json.loads(related_keys_json)
+                        if related_keys_list:
+                            meta_parts.append(f"🔗{len(related_keys_list)}")
+                    except:
+                        pass
+                
+                meta_str = f" [{', '.join(meta_parts)}]" if meta_parts else ""
+                
+                # Show final score if custom scoring was used
+                score_str = ""
+                if importance_weight > 0 or recency_weight > 0:
+                    final_score = doc.metadata.get("final_score")
+                    if final_score is not None:
+                        score_str = f" (score: {final_score:.3f})"
+            else:
+                created_date = "unknown"
+                created_time = "unknown"
+                time_ago = ""
+                meta_str = ""
+                score_str = ""
+            
+            result += f"{i}. [{key}]{meta_str}{score_str}\n"
+            result += f"   {content[:200]}{'...' if len(content) > 200 else ''}\n"
+            result += f"   {created_date} {created_time}{time_ago} ({len(content)} chars)\n\n"
+    
+    return result.rstrip()
+
+
 def db_get_entry(key: str):
     """Get single entry from database."""
     from src.utils.db_utils import db_get_entry as _db_get_entry_generic
@@ -616,213 +910,60 @@ async def read_memory(
         if not query:
             return "Please provide a query to search."
         
-        # Check if RAG system is ready, fallback to keyword search if not
-        from src.utils.vector_utils import embeddings, reranker
-        from lib.backends.qdrant_backend import QdrantVectorStoreAdapter
-        from qdrant_client import QdrantClient
-        
-        if embeddings is None:
-            print("⚠️  RAG system not ready, falling back to keyword search...")
-            # Use search_memory as fallback
-            from tools.search_tools import search_memory
-            return await search_memory(query, top_k)
-        
-        # Create vector store adapter
-        cfg = load_config()
-        
-        # 🔧 Phase 31.2: Get correct dimension from model config
-        model_name = cfg.get("embeddings_model", "cl-nagoya/ruri-v3-30m")
-        from src.utils.vector_utils import _get_embedding_dimension
-        dim = _get_embedding_dimension(model_name)
-        
-        url = cfg.get("qdrant_url", "http://localhost:6333")
-        api_key = cfg.get("qdrant_api_key")
-        prefix = cfg.get("qdrant_collection_prefix", "memory_")
-        collection = f"{prefix}{persona}"
-        
+        # Initialize vector adapter (with fallback to keyword search)
         try:
-            client = QdrantClient(url=url, api_key=api_key)
-            adapter = QdrantVectorStoreAdapter(client, collection, embeddings, dim)
+            adapter = _initialize_vector_adapter(persona)
         except Exception as e:
-            print(f"⚠️  Failed to create Qdrant adapter: {e}, falling back to keyword search...")
+            print(f"⚠️  RAG system not ready or failed: {e}, falling back to keyword search...")
             from tools.search_tools import search_memory
             return await search_memory(query, top_k)
         
         # Perform similarity search with more candidates for reranking and filtering
+        from src.utils.vector_utils import reranker
         initial_k = top_k * 3 if reranker else top_k
         
         # Get similarity search results with scores
         docs_with_scores = adapter.similarity_search_with_score(query, k=initial_k * 2)
         
-        # Filter results based on metadata
-        filtered_docs = []
-        for doc, score in docs_with_scores:
-            meta = doc.metadata
-            # Apply filters
-            if min_importance is not None and meta.get("importance", 0) < min_importance:
-                continue
-            # Fuzzy matching for text filters (case-insensitive partial match)
-            if emotion and emotion.lower() not in str(meta.get("emotion", "")).lower():
-                continue
-            if action_tag and action_tag.lower() not in str(meta.get("action_tag", "")).lower():
-                continue
-            if environment and environment.lower() not in str(meta.get("environment", "")).lower():
-                continue
-            if physical_state and physical_state.lower() not in str(meta.get("physical_state", "")).lower():
-                continue
-            if mental_state and mental_state.lower() not in str(meta.get("mental_state", "")).lower():
-                continue
-            if relationship_status and relationship_status.lower() not in str(meta.get("relationship_status", "")).lower():
-                continue
-            
-            # Calculate custom score
-            final_score = score  # Base vector similarity score
-            
-            if importance_weight > 0 and meta.get("importance") is not None:
-                final_score += importance_weight * meta["importance"]
-            
-            if recency_weight > 0 and meta.get("created_at"):
-                from datetime import datetime
-                try:
-                    created_at = datetime.fromisoformat(meta["created_at"])
-                    now = datetime.now()
-                    days_ago = (now - created_at).days
-                    # Recency score: 1.0 for today, decreases over time (0 after 1 year)
-                    recency_score = max(0, 1 - days_ago / 365.0)
-                    final_score += recency_weight * recency_score
-                except:
-                    pass
-            
-            doc.metadata["final_score"] = final_score
-            filtered_docs.append((doc, final_score))
+        # Filter and score documents
+        filtered_docs = _filter_and_score_documents(
+            docs_with_scores=docs_with_scores,
+            min_importance=min_importance,
+            emotion=emotion,
+            action_tag=action_tag,
+            environment=environment,
+            physical_state=physical_state,
+            mental_state=mental_state,
+            relationship_status=relationship_status,
+            importance_weight=importance_weight,
+            recency_weight=recency_weight
+        )
         
-        # Sort by final score (descending)
-        filtered_docs.sort(key=lambda x: x[1], reverse=True)
+        # Extract documents for reranking
         docs = [doc for doc, score in filtered_docs[:initial_k]]
         
         # Rerank if reranker is available
-        if reranker and docs:
-            # Prepare query-document pairs for reranking
-            pairs = [[query, doc.page_content] for doc in docs]
-            # Get reranking scores
-            scores = reranker.predict(pairs)
-            # Sort documents by score (descending)
-            ranked_docs = sorted(zip(docs, scores), key=lambda x: x[1], reverse=True)
-            # Take top_k after reranking
-            docs = [doc for doc, score in ranked_docs[:top_k]]
-        else:
-            # If no reranker, just take top_k from similarity search
-            docs = docs[:top_k]
+        docs = _rerank_documents(query, docs, top_k)
         
-        if docs:
-            # Build filter description for display
-            filter_desc = []
-            if min_importance is not None:
-                filter_desc.append(f"importance≥{min_importance}")
-            if emotion:
-                filter_desc.append(f"emotion={emotion}")
-            if action_tag:
-                filter_desc.append(f"action={action_tag}")
-            if environment:
-                filter_desc.append(f"env={environment}")
-            if physical_state:
-                filter_desc.append(f"physical={physical_state}")
-            if mental_state:
-                filter_desc.append(f"mental={mental_state}")
-            if relationship_status:
-                filter_desc.append(f"relation={relationship_status}")
-            
-            filter_str = f" [filters: {', '.join(filter_desc)}]" if filter_desc else ""
-            
-            # Build scoring description
-            scoring_desc = []
-            if importance_weight > 0:
-                scoring_desc.append(f"importance×{importance_weight}")
-            if recency_weight > 0:
-                scoring_desc.append(f"recency×{recency_weight}")
-            
-            scoring_str = f" [scoring: vector + {' + '.join(scoring_desc)}]" if scoring_desc else ""
-            
-            result = f"� Found {len(docs)} relevant memories for '{query}'{filter_str}{scoring_str}:\n\n"
-            
-            db_path = get_db_path()
-            with sqlite3.connect(db_path) as conn:
-                cursor = conn.cursor()
-                for i, doc in enumerate(docs, 1):
-                    key = doc.metadata.get("key", "unknown")
-                    content = doc.page_content
-                    # Get metadata from DB (including Phase 28 fields)
-                    cursor.execute('''
-                        SELECT created_at, importance, emotion, emotion_intensity,
-                               physical_state, mental_state, environment, 
-                               relationship_status, action_tag, related_keys
-                        FROM memories WHERE key = ?
-                    ''', (key,))
-                    row = cursor.fetchone()
-                    if row:
-                        created_at, importance_val, emotion_db, emotion_intensity_val, physical, mental, env, relation, action, related_keys_json = row
-                        created_date = created_at[:10]
-                        created_time = created_at[11:19]
-                        time_diff = calculate_time_diff(created_at)
-                        time_ago = f" ({time_diff['formatted_string']}前)"
-                        
-                        # Build metadata display
-                        meta_parts = []
-                        if importance_val is not None and importance_val != 0.5:
-                            meta_parts.append(f"⭐{importance_val:.1f}")
-                        if emotion_db and emotion_db != "neutral":
-                            emotion_str = f"💭{emotion_db}"
-                            # Add intensity if significant
-                            if emotion_intensity_val and emotion_intensity_val >= 0.5:
-                                emotion_str += f"({emotion_intensity_val:.1f})"
-                            meta_parts.append(emotion_str)
-                        if action:
-                            meta_parts.append(f"🎭{action}")
-                        if env and env != "unknown":
-                            meta_parts.append(f"📍{env}")
-                        
-                        # Phase 28.2: Show related memories count
-                        if related_keys_json:
-                            try:
-                                related_keys_list = json.loads(related_keys_json)
-                                if related_keys_list:
-                                    meta_parts.append(f"🔗{len(related_keys_list)}")
-                            except:
-                                pass
-                        
-                        meta_str = f" [{', '.join(meta_parts)}]" if meta_parts else ""
-                        
-                        # Show final score if custom scoring was used
-                        score_str = ""
-                        if importance_weight > 0 or recency_weight > 0:
-                            final_score = doc.metadata.get("final_score")
-                            if final_score is not None:
-                                score_str = f" (score: {final_score:.3f})"
-                    else:
-                        created_date = "unknown"
-                        created_time = "unknown"
-                        time_ago = ""
-                        meta_str = ""
-                        score_str = ""
-                    
-                    result += f"{i}. [{key}]{meta_str}{score_str}\n"
-                    result += f"   {content[:200]}{'...' if len(content) > 200 else ''}\n"
-                    result += f"   {created_date} {created_time}{time_ago} ({len(content)} chars)\n\n"
-            
-            log_operation("read", key=query, metadata={"results_count": len(docs), "persona": persona})
-            return result.rstrip()
-        else:
-            filter_desc = []
-            if min_importance is not None:
-                filter_desc.append(f"importance≥{min_importance}")
-            if emotion:
-                filter_desc.append(f"emotion={emotion}")
-            if action_tag:
-                filter_desc.append(f"action={action_tag}")
-            filter_str = f" (filters: {', '.join(filter_desc)})" if filter_desc else ""
-            
-            log_operation("read", key=query, success=False, error="No results")
-            return f"📭 No relevant memories found for '{query}'{filter_str}."
+        # Format and return results
+        result = _format_memory_results(
+            query=query,
+            docs=docs,
+            persona=persona,
+            min_importance=min_importance,
+            emotion=emotion,
+            action_tag=action_tag,
+            environment=environment,
+            physical_state=physical_state,
+            mental_state=mental_state,
+            relationship_status=relationship_status,
+            importance_weight=importance_weight,
+            recency_weight=recency_weight
+        )
+        
+        log_operation("read", key=query, metadata={"results_count": len(docs), "persona": persona})
+        return result
+        
     except Exception as e:
         import traceback
         traceback.print_exc()
