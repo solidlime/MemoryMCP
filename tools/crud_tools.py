@@ -89,6 +89,260 @@ async def _search_memory_by_query(query: str, top_k: int = 3) -> List[Dict]:
         return []
 
 
+# ============================================================
+# Phase 32: Persona Context Update Helper
+# ============================================================
+
+def _update_persona_context(
+    persona: str,
+    emotion_type: Optional[str] = None,
+    physical_state: Optional[str] = None,
+    mental_state: Optional[str] = None,
+    environment: Optional[str] = None,
+    user_info: Optional[Dict] = None,
+    persona_info: Optional[Dict] = None,
+    relationship_status: Optional[str] = None
+) -> bool:
+    """
+    Update persona context with provided parameters.
+    Always updates last_conversation_time.
+    
+    Args:
+        persona: Current persona name
+        emotion_type: Emotion to update (optional)
+        physical_state: Physical state to update (optional)
+        mental_state: Mental state to update (optional)
+        environment: Environment to update (optional)
+        user_info: User information dict (optional)
+        persona_info: Persona information dict (optional)
+        relationship_status: Relationship status to update (optional)
+    
+    Returns:
+        bool: True if context was updated, False otherwise
+    """
+    context_updated = False
+    context = load_persona_context(persona)
+    
+    # Always update last_conversation_time
+    config = load_config()
+    context["last_conversation_time"] = datetime.now(ZoneInfo(config.get("timezone", "Asia/Tokyo"))).isoformat()
+    context_updated = True
+    
+    # Update emotion if provided
+    if emotion_type:
+        context["current_emotion"] = emotion_type
+        context_updated = True
+    
+    # Update physical state if provided
+    if physical_state:
+        context["physical_state"] = physical_state
+        context_updated = True
+    
+    # Update mental state if provided
+    if mental_state:
+        context["mental_state"] = mental_state
+        context_updated = True
+    
+    # Update environment if provided
+    if environment:
+        context["environment"] = environment
+        context_updated = True
+    
+    # Update user info if provided
+    if user_info:
+        if "user_info" not in context:
+            context["user_info"] = {}
+        for key_name, value in user_info.items():
+            if key_name in ["name", "nickname", "preferred_address"]:
+                context["user_info"][key_name] = value
+        context_updated = True
+    
+    # Update persona info if provided
+    if persona_info:
+        if "persona_info" not in context:
+            context["persona_info"] = {}
+        for key_name, value in persona_info.items():
+            # Basic info fields (flat values)
+            if key_name in ["name", "nickname", "preferred_address"]:
+                context["persona_info"][key_name] = value
+            # Extended fields (can be nested dicts/lists)
+            elif key_name in ["current_equipment", "favorite_items", "active_promises", 
+                               "current_goals", "preferences", "special_moments"]:
+                context[key_name] = value
+        context_updated = True
+    
+    # Update relationship status if provided
+    if relationship_status:
+        context["relationship_status"] = relationship_status
+        context_updated = True
+    
+    if context_updated:
+        save_persona_context(context, persona)
+    
+    return context_updated
+
+
+# ============================================================
+# Phase 32: create_memory Helper Functions
+# ============================================================
+
+def _generate_unique_key(db_path: str) -> str:
+    """
+    Generate a unique memory key by checking the database.
+    
+    Args:
+        db_path: Path to the SQLite database
+    
+    Returns:
+        str: Unique memory key
+    """
+    key = generate_auto_key()
+    original_key = key
+    counter = 1
+    
+    with sqlite3.connect(db_path) as conn:
+        cursor = conn.cursor()
+        # Check if key exists in database
+        while True:
+            cursor.execute('SELECT COUNT(*) FROM memories WHERE key = ?', (key,))
+            if cursor.fetchone()[0] == 0:
+                break
+            key = f"{original_key}_{counter:02d}"
+            counter += 1
+    
+    return key
+
+
+def _calculate_memory_importance(
+    key: str,
+    content: str,
+    importance: Optional[float],
+    emotion_intensity: Optional[float]
+) -> tuple[float, List[str]]:
+    """
+    Calculate memory importance and generate associations.
+    
+    Args:
+        key: Memory key
+        content: Memory content
+        importance: Explicit importance (if provided)
+        emotion_intensity: Emotion intensity value
+    
+    Returns:
+        tuple: (final_importance, related_keys)
+    """
+    # Determine base importance (default to 0.5 if not provided)
+    base_importance = importance if importance is not None else 0.5
+    
+    # Phase 28.2: Generate associations and adjust importance
+    from tools.association import generate_associations
+    
+    emotion_intensity_value = emotion_intensity if emotion_intensity is not None else 0.0
+    related_keys, adjusted_importance = generate_associations(
+        new_key=key,
+        new_content=content,
+        emotion_intensity=emotion_intensity_value,
+        base_importance=base_importance
+    )
+    
+    # Use adjusted importance if no explicit importance was provided
+    final_importance = importance if importance is not None else adjusted_importance
+    
+    return final_importance, related_keys
+
+
+def _save_memory_to_stores(
+    key: str,
+    content: str,
+    created_at: str,
+    updated_at: str,
+    context_tags: Optional[List[str]],
+    importance: float,
+    emotion_type: Optional[str],
+    emotion_intensity: float,
+    physical_state: Optional[str],
+    mental_state: Optional[str],
+    environment: Optional[str],
+    relationship_status: Optional[str],
+    action_tag: Optional[str],
+    related_keys: List[str]
+) -> None:
+    """
+    Save memory to both database and vector store.
+    
+    Args:
+        key: Memory key
+        content: Memory content
+        created_at: Creation timestamp
+        updated_at: Update timestamp
+        context_tags: Context tags
+        importance: Importance score
+        emotion_type: Emotion type
+        emotion_intensity: Emotion intensity
+        physical_state: Physical state
+        mental_state: Mental state
+        environment: Environment
+        relationship_status: Relationship status
+        action_tag: Action tag
+        related_keys: Related memory keys
+    """
+    # Save to database with all context fields
+    save_memory_to_db(
+        key, 
+        content, 
+        created_at, 
+        updated_at, 
+        context_tags,
+        importance=importance,
+        emotion=emotion_type,
+        emotion_intensity=emotion_intensity,
+        physical_state=physical_state,
+        mental_state=mental_state,
+        environment=environment,
+        relationship_status=relationship_status,
+        action_tag=action_tag,
+        related_keys=related_keys,
+        summary_ref=None  # Phase 28.4: Will be populated by summarization module
+    )
+    
+    # Clear query cache
+    clear_query_cache()
+    
+    # Add to vector store
+    add_memory_to_vector_store(key, content)
+
+
+def _format_create_result(
+    key: str,
+    persona: str,
+    emotion_type: Optional[str],
+    context_tags: Optional[List[str]],
+    context_updated: bool
+) -> str:
+    """
+    Format the result message for create_memory.
+    
+    Args:
+        key: Memory key
+        persona: Persona name
+        emotion_type: Emotion type (optional)
+        context_tags: Context tags (optional)
+        context_updated: Whether context was updated
+    
+    Returns:
+        str: Formatted result message
+    """
+    result = f"✅ Created new memory: '{key}' (persona: {persona})"
+    if emotion_type:
+        result += f" [emotion: {emotion_type}]"
+    if context_tags:
+        result += f" [tags: {', '.join(context_tags)}]"
+    if context_updated:
+        result += " [context updated]"
+    
+    return result
+
+
 def db_get_entry(key: str):
     """Get single entry from database."""
     from src.utils.db_utils import db_get_entry as _db_get_entry_generic
@@ -251,128 +505,53 @@ async def create_memory(
         # Ensure database and tables are initialized (handles empty database files)
         load_memory_from_db()
         
-        # === Create new memory (simple and fast) ===
-        # Generate unique key by checking database
-        key = generate_auto_key()
-        original_key = key
-        counter = 1
+        # Generate unique key
+        key = _generate_unique_key(db_path)
         
-        with sqlite3.connect(db_path) as conn:
-            cursor = conn.cursor()
-            # Check if key exists in database
-            while True:
-                cursor.execute('SELECT COUNT(*) FROM memories WHERE key = ?', (key,))
-                if cursor.fetchone()[0] == 0:
-                    break
-                key = f"{original_key}_{counter:02d}"
-                counter += 1
-        
+        # Create memory entry with timestamps
         new_entry = create_memory_entry(content)
         new_entry["tags"] = context_tags if context_tags else []
         
-        # Determine importance (default to 0.5 if not provided)
-        memory_importance = importance if importance is not None else 0.5
-        
-        # Phase 28.2: Generate associations and adjust importance
-        from tools.association import generate_associations
-        
-        emotion_intensity_value = emotion_intensity if emotion_intensity is not None else 0.0
-        related_keys, adjusted_importance = generate_associations(
-            new_key=key,
-            new_content=content,
-            emotion_intensity=emotion_intensity_value,
-            base_importance=memory_importance
+        # Calculate importance and generate associations
+        memory_importance, related_keys = _calculate_memory_importance(
+            key=key,
+            content=content,
+            importance=importance,
+            emotion_intensity=emotion_intensity
         )
         
-        # Use adjusted importance if no explicit importance was provided
-        if importance is None:
-            memory_importance = adjusted_importance
-        
-        # Save to database with all context fields
-        save_memory_to_db(
-            key, 
-            content, 
-            new_entry["created_at"], 
-            new_entry["updated_at"], 
-            context_tags,
+        # Save to database and vector store
+        emotion_intensity_value = emotion_intensity if emotion_intensity is not None else 0.0
+        _save_memory_to_stores(
+            key=key,
+            content=content,
+            created_at=new_entry["created_at"],
+            updated_at=new_entry["updated_at"],
+            context_tags=context_tags,
             importance=memory_importance,
-            emotion=emotion_type,  # Use emotion_type parameter as emotion field
+            emotion_type=emotion_type,
             emotion_intensity=emotion_intensity_value,
             physical_state=physical_state,
             mental_state=mental_state,
             environment=environment,
             relationship_status=relationship_status,
             action_tag=action_tag,
-            related_keys=related_keys,  # Phase 28.2: Populated by association module
-            summary_ref=None  # Phase 28.4: Will be populated by summarization module
+            related_keys=related_keys
         )
         
-        # Clear query cache
-        clear_query_cache()
+        # Update persona context
+        context_updated = _update_persona_context(
+            persona=persona,
+            emotion_type=emotion_type,
+            physical_state=physical_state,
+            mental_state=mental_state,
+            environment=environment,
+            user_info=user_info,
+            persona_info=persona_info,
+            relationship_status=relationship_status
+        )
         
-        # Add to vector store
-        add_memory_to_vector_store(key, content)
-        
-        # Update persona context if any context parameters are provided
-        context_updated = False
-        context = load_persona_context(persona)
-        
-        # Always update last_conversation_time
-        config = load_config()
-        context["last_conversation_time"] = datetime.now(ZoneInfo(config.get("timezone", "Asia/Tokyo"))).isoformat()
-        context_updated = True
-        
-        # Update emotion if provided
-        if emotion_type:
-            context["current_emotion"] = emotion_type
-            context_updated = True
-        
-        # Update physical state if provided
-        if physical_state:
-            context["physical_state"] = physical_state
-            context_updated = True
-        
-        # Update mental state if provided
-        if mental_state:
-            context["mental_state"] = mental_state
-            context_updated = True
-        
-        # Update environment if provided
-        if environment:
-            context["environment"] = environment
-            context_updated = True
-        
-        # Update user info if provided
-        if user_info:
-            if "user_info" not in context:
-                context["user_info"] = {}
-            for key_name, value in user_info.items():
-                if key_name in ["name", "nickname", "preferred_address"]:
-                    context["user_info"][key_name] = value
-            context_updated = True
-        
-        # Update persona info if provided
-        if persona_info:
-            if "persona_info" not in context:
-                context["persona_info"] = {}
-            for key_name, value in persona_info.items():
-                # Basic info fields (flat values)
-                if key_name in ["name", "nickname", "preferred_address"]:
-                    context["persona_info"][key_name] = value
-                # Extended fields (can be nested dicts/lists)
-                elif key_name in ["current_equipment", "favorite_items", "active_promises", 
-                                   "current_goals", "preferences", "special_moments"]:
-                    context[key_name] = value
-            context_updated = True
-        
-        # Update relationship status if provided
-        if relationship_status:
-            context["relationship_status"] = relationship_status
-            context_updated = True
-        
-        if context_updated:
-            save_persona_context(context, persona)
-        
+        # Log operation
         log_operation("create", key=key, after=new_entry, 
                      metadata={
                          "content_length": len(content), 
@@ -388,15 +567,14 @@ async def create_memory(
                          "relationship_status": relationship_status
                      })
         
-        result = f"✅ Created new memory: '{key}' (persona: {persona})"
-        if emotion_type:
-            result += f" [emotion: {emotion_type}]"
-        if context_tags:
-            result += f" [tags: {', '.join(context_tags)}]"
-        if context_updated:
-            result += " [context updated]"
-        
-        return result
+        # Format and return result
+        return _format_create_result(
+            key=key,
+            persona=persona,
+            emotion_type=emotion_type,
+            context_tags=context_tags,
+            context_updated=context_updated
+        )
     except Exception as e:
         log_operation("create", success=False, error=str(e), 
                      metadata={"attempted_content_length": len(content) if content else 0})
@@ -802,52 +980,16 @@ async def update_memory(
         update_memory_in_vector_store(key, content)
         
         # Update persona context if needed
-        context_updated = False
-        context = load_persona_context(persona)
-        
-        # Always update last_conversation_time
-        config = load_config()
-        context["last_conversation_time"] = datetime.now(ZoneInfo(config.get("timezone", "Asia/Tokyo"))).isoformat()
-        context_updated = True
-        
-        # Update other context fields if provided
-        if emotion_type:
-            context["current_emotion"] = emotion_type
-            context_updated = True
-        if physical_state:
-            context["physical_state"] = physical_state
-            context_updated = True
-        if mental_state:
-            context["mental_state"] = mental_state
-            context_updated = True
-        if environment:
-            context["environment"] = environment
-            context_updated = True
-        if user_info:
-            if "user_info" not in context:
-                context["user_info"] = {}
-            for key_name, value in user_info.items():
-                if key_name in ["name", "nickname", "preferred_address"]:
-                    context["user_info"][key_name] = value
-            context_updated = True
-        if persona_info:
-            if "persona_info" not in context:
-                context["persona_info"] = {}
-            for key_name, value in persona_info.items():
-                # Basic info fields (flat values)
-                if key_name in ["name", "nickname", "preferred_address"]:
-                    context["persona_info"][key_name] = value
-                # Extended fields (can be nested dicts/lists)
-                elif key_name in ["current_equipment", "favorite_items", "active_promises", 
-                                   "current_goals", "preferences", "special_moments"]:
-                    context[key_name] = value
-            context_updated = True
-        if relationship_status:
-            context["relationship_status"] = relationship_status
-            context_updated = True
-        
-        if context_updated:
-            save_persona_context(context, persona)
+        context_updated = _update_persona_context(
+            persona=persona,
+            emotion_type=emotion_type,
+            physical_state=physical_state,
+            mental_state=mental_state,
+            environment=environment,
+            user_info=user_info,
+            persona_info=persona_info,
+            relationship_status=relationship_status
+        )
         
         log_operation("update", key=key, before=existing_entry, after={"content": content},
                      metadata={"old_content_length": len(old_content), "new_content_length": len(content), "persona": persona})

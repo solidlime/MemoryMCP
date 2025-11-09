@@ -1,7 +1,11 @@
 # Progress: Memory MCP
 
-## 現在の状態 (2025-11-04)
+## 現在の状態 (2025-11-06)
 
+- ✅ **機能拡張完了**: persona_context.json拡張フィールド対応 (装備・所持品・約束・目標など)
+- ✅ **UI改善完了**: Knowledge Graph単一ファイル化、ダッシュボード時間統一
+- ✅ **ドキュメント整理**: ツールdocstring簡潔化、README全設定項目化
+- ✅ **最適化**: get_context出力整理、recent_memories_count設定可能化
 - ✅ **Phase 31.2完了**: read_memory dimension fix、意味的検索復活
 - ✅ **Phase 30完了**: プロジェクト構造再編成、src/utils/導入
 - ✅ **Phase 29完了**: Vector dimension自動リビルド、キャッシュ対策
@@ -13,6 +17,56 @@
 ---
 
 ## 最近の完了フェーズ (新しい順)
+
+### 2025-11-06: UI/UX改善と機能拡張
+
+**実施内容**:
+
+1. **Knowledge Graph最適化**
+   - 各ペルソナ最新1件のみ保持 (memory/[persona]/knowledge_graph.html)
+   - タイムスタンプファイル削除、シンプルな管理
+   - dashboard.pyに専用ルート追加
+
+2. **ダッシュボード時間統一**
+   - 全タイムスタンプを"YYYY-MM-DD HH:MM:SS"形式に統一
+   - ISO 8601 (2025-11-05T09:18:25.878518) から読みやすい形式へ
+
+3. **ツールdocstring簡潔化**
+   - "When to use" / "When NOT to use" セクション削除
+   - 引数と例のみに集中、LLMの判断に委ねる
+   - 全6ツール更新 (create/update/read/search/delete/find_related)
+
+4. **get_context出力最適化**
+   - Importance Distribution / Emotion Distribution / Tag Distribution 削除
+   - 基本統計のみ表示（総数、文字数、日付範囲）
+   - `recent_memories_count` 設定追加 (デフォルト: 5)
+
+5. **persona_context.json拡張フィールド**
+   - 装備状態: `current_equipment` (dict)
+   - お気に入り: `favorite_items` (list)
+   - 進行中の約束: `active_promises` (list)
+   - 現在の目標: `current_goals` (list)
+   - 好み: `preferences` (dict)
+   - 特別な瞬間: `special_moments` (list)
+   - `create_memory`/`update_memory`の`persona_info`引数で更新
+   - `get_context`で自動表示
+
+6. **README全設定項目化**
+   - "主要な設定項目" → "全設定項目" (35項目)
+   - ネストされた設定の明記 (summarization.*, vector_rebuild.*, auto_cleanup.*)
+   - persona_context.json拡張フィールドのドキュメント追加
+
+**効果**:
+- ✨ ストレージ効率向上 (KG履歴不要)
+- ✨ ダッシュボードの一貫性
+- ✨ ツールドキュメントの見通し改善
+- ✨ get_contextレスポンス簡潔化
+- ✨ 装備・所持品・約束などの状態管理が可能に
+- ✨ 設定の全体像が把握可能に
+
+**Commit**: 6284e2a, 6d50bc6
+
+---
 
 ### Phase 31.2: read_memory Dimension Mismatch Fix (2025-11-04)
 
