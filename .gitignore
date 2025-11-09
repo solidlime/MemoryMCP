@@ -61,4 +61,7 @@ Thumbs.db
 .DS_Store
 
 .gitignore_global
-copilot-instructions.mdconfig.json
+copilot-instructions.md
+config.json
+
+.serena/
