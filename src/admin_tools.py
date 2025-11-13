@@ -37,10 +37,8 @@ import sqlite3
 from pathlib import Path
 
 # プロジェクトモジュールをインポート
-import config_utils
-import persona_utils
-import vector_utils
-import analysis_utils
+from src.utils import config_utils, persona_utils, vector_utils, analysis_utils
+from src.utils.persona_utils import current_persona
 
 
 def clean_memory(persona: str, key: str) -> None:
