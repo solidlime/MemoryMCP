@@ -185,3 +185,47 @@ def calculate_time_diff(start_time: str, end_time: Optional[str] = None) -> dict
             "total_hours": 0,
             "formatted_string": "計算エラー"
         }
+
+
+def format_datetime_for_display(dt_str: str) -> str:
+    """
+    Convert ISO format datetime to user-friendly format with weekday.
+    
+    Args:
+        dt_str: ISO format datetime string (RFC 3339)
+    
+    Returns:
+        Formatted string like "2025-10-29(Wed) 22:03:47 JST"
+    
+    Example:
+        >>> format_datetime_for_display("2025-10-29T22:03:47+09:00")
+        "2025-10-29(Wed) 22:03:47 JST"
+    """
+    try:
+        dt = datetime.fromisoformat(dt_str)
+        
+        # Get weekday abbreviation
+        weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        weekday_abbr = weekdays[dt.weekday()]
+        
+        # Get timezone abbreviation
+        tz_name = dt.tzname() or "UTC"
+        
+        # Format: YYYY-MM-DD(Weekday) HH:MM:SS TZ
+        formatted = f"{dt.strftime('%Y-%m-%d')}({weekday_abbr}) {dt.strftime('%H:%M:%S')} {tz_name}"
+        
+        return formatted
+    except Exception as e:
+        _log_progress(f"❌ Failed to format datetime: {e}")
+        return dt_str
+
+
+def get_current_time_display() -> str:
+    """
+    Get current time in user-friendly display format with weekday.
+    
+    Returns:
+        Formatted string like "2025-10-29(Wed) 22:03:47 JST"
+    """
+    current = get_current_time()
+    return format_datetime_for_display(current.isoformat())

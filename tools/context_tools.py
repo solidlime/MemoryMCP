@@ -9,6 +9,8 @@ import sqlite3
 from core import (
     get_current_time,
     calculate_time_diff,
+    format_datetime_for_display,
+    get_current_time_display,
     load_persona_context,
     save_persona_context,
     log_operation,
@@ -161,15 +163,20 @@ async def get_context() -> str:
         last_time_str = context.get("last_conversation_time")
         current_time = get_current_time()
         
-        result += f"\n⏰ Time Information:\n"
+        result += f"
+⏰ Time Information:
+"
+        result += f"   Current: {get_current_time_display()}
+"
         if last_time_str:
             time_diff = calculate_time_diff(last_time_str)
-            result += f"   Last Conversation: {time_diff['formatted_string']}前\n"
-            result += f"   Previous: {last_time_str[:19]}\n"
-            result += f"   Current: {current_time.isoformat()[:19]}\n"
+            result += f"   Last Conversation: {time_diff['formatted_string']}前
+"
+            result += f"   Previous: {format_datetime_for_display(last_time_str)}
+"
         else:
-            result += f"   Status: First conversation! 🆕\n"
-            result += f"   Current: {current_time.isoformat()[:19]}\n"
+            result += f"   Status: First conversation! 🆕
+"
         
         # Update last conversation time
         context["last_conversation_time"] = current_time.isoformat()
@@ -212,15 +219,18 @@ async def get_context() -> str:
                 result += f"   Total Characters: {total_chars:,}\n"
                 result += f"   Date Range: {min_date[:10]} ~ {max_date[:10]}\n"
                 
-                result += f"\n🕐 Recent {len(recent)} Memories:\n"
+                result += f"
+🕐 Recent {len(recent)} Memories:
+"
                 for i, (key, content, created_at, importance, emotion) in enumerate(recent, 1):
                     preview = content[:50] + "..." if len(content) > 50 else content
-                    created_date = created_at[:10]
                     time_diff_mem = calculate_time_diff(created_at)
                     importance_str = f"{importance:.2f}" if importance is not None else "0.50"
                     emotion_str = emotion if emotion else "neutral"
-                    result += f"{i}. [{key}] {preview}\n"
-                    result += f"   {created_date} ({time_diff_mem['formatted_string']}前) | ⭐{importance_str} | 💭{emotion_str}\n"
+                    result += f"{i}. [{key}] {preview}
+"
+                    result += f"   {format_datetime_for_display(created_at)} ({time_diff_mem['formatted_string']}前) | ⭐{importance_str} | 💭{emotion_str}
+"
         
         result += "\n" + "=" * 60 + "\n"
         result += "💡 Tip: Use read_memory(query) for semantic search\n"
