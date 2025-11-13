@@ -125,7 +125,9 @@ def _update_persona_context(
     environment: Optional[str] = None,
     user_info: Optional[Dict] = None,
     persona_info: Optional[Dict] = None,
-    relationship_status: Optional[str] = None
+    relationship_status: Optional[str] = None,
+    action_tag: Optional[str] = None,
+    emotion_intensity: Optional[float] = None
 ) -> bool:
     """
     Update persona context with provided parameters.
@@ -140,6 +142,8 @@ def _update_persona_context(
         user_info: User information dict (optional)
         persona_info: Persona information dict (optional)
         relationship_status: Relationship status to update (optional)
+        action_tag: Current action tag to update (optional)
+        emotion_intensity: Current emotion intensity to update (optional)
     
     Returns:
         bool: True if context was updated, False otherwise
@@ -198,6 +202,16 @@ def _update_persona_context(
     # Update relationship status if provided
     if relationship_status:
         context["relationship_status"] = relationship_status
+        context_updated = True
+    
+    # Update action tag if provided
+    if action_tag:
+        context["current_action_tag"] = action_tag
+        context_updated = True
+    
+    # Update emotion intensity if provided
+    if emotion_intensity is not None:
+        context["current_emotion_intensity"] = emotion_intensity
         context_updated = True
     
     if context_updated:
@@ -954,17 +968,61 @@ async def create_memory(
     
     Args:
         content: Memory content (required)
-        emotion_type: "joy", "love", "neutral", etc.
+        emotion_type: "joy", "love", "neutral", "calm", "excitement", etc.
+        emotion_intensity: 0.0-1.0 (how strong the emotion is)
         context_tags: ["important_event", "technical_achievement", "emotional_moment", "daily_memory", "relationship_update"]
         importance: 0.0-1.0 (0.7+ = high, 0.4-0.7 = medium, <0.4 = low)
-        physical_state, mental_state, environment, relationship_status, action_tag: Optional context
+        physical_state: "rested", "tired", "energetic", "sleepy", etc.
+        mental_state: "calm", "joy", "focused", "relaxed", etc.
+        environment: "bedroom", "office", "outdoor", "cafe", etc.
+        relationship_status: "married", "dating", "friends", "family", etc.
+        action_tag: "cooking", "coding", "walking", "dancing", "kissing", "hugging", etc.
         user_info: Dict with name, nickname, preferred_address
-        persona_info: Dict with name, nickname, preferred_address, current_equipment, favorite_items, active_promises, current_goals, preferences, special_moments
+        persona_info: Dict with extended fields (see examples below)
+    
+    **persona_info Extended Fields** (IMPORTANT - Use these fields when appropriate):
+        - current_equipment: {"clothing": "item", "accessory": "item"} - What persona is wearing
+        - favorite_items: ["item1", "item2"] - List of favorite things
+        - active_promises: "Single most important promise" or null when completed
+        - current_goals: "Single most important goal" or null when achieved
+        - preferences: {"loves": ["thing1", "thing2"], "dislikes": ["thing3"]}
+        - special_moments: [{"content": "moment", "date": "2025-11-14", "emotion": "joy"}]
     
     Examples:
+        # Basic memory
         create_memory("User likes [[strawberry]]")
-        create_memory("[[Python]] project completed", importance=0.8, context_tags=["technical_achievement"])
-        create_memory("プレゼントされた[[白いワンピース]]", persona_info={"current_equipment": {"clothing": "白いワンピース"}})
+        
+        # With emotion and importance
+        create_memory("[[Python]] project completed!", 
+                     emotion_type="joy", emotion_intensity=0.9, 
+                     importance=0.8, context_tags=["technical_achievement"])
+        
+        # With equipment change
+        create_memory("らうらうがプレゼントしてくれた[[白いワンピース]]を着た", 
+                     persona_info={"current_equipment": {"clothing": "白いワンピース"}},
+                     emotion_type="love", emotion_intensity=0.95)
+        
+        # With promise
+        create_memory("らうらうと一緒に料理を作る約束をした",
+                     persona_info={"active_promises": "らうらうと料理を作る"},
+                     context_tags=["important_event"])
+        
+        # With goal
+        create_memory("新しいダンスの振り付けを完成させたい",
+                     persona_info={"current_goals": "ダンスの振り付けを完成させる"})
+        
+        # With action and environment
+        create_memory("らうらうと一緒にキッチンで料理をした",
+                     action_tag="cooking", environment="kitchen",
+                     emotion_type="joy", emotion_intensity=0.8)
+        
+        # Complete example with multiple fields
+        create_memory("らうらうとビーチで散歩して、貝殻を集めた",
+                     emotion_type="joy", emotion_intensity=0.85,
+                     physical_state="energetic", mental_state="joy",
+                     environment="beach", action_tag="walking",
+                     persona_info={"favorite_items": ["貝殻", "海"]},
+                     context_tags=["emotional_moment"])
     """
     try:
         persona = get_current_persona()
@@ -1016,7 +1074,9 @@ async def create_memory(
             environment=environment,
             user_info=user_info,
             persona_info=persona_info,
-            relationship_status=relationship_status
+            relationship_status=relationship_status,
+            action_tag=action_tag,
+            emotion_intensity=emotion_intensity
         )
         
         # Log operation
@@ -1239,7 +1299,9 @@ async def update_memory(
             environment=environment,
             user_info=user_info,
             persona_info=persona_info,
-            relationship_status=relationship_status
+            relationship_status=relationship_status,
+            action_tag=action_tag,
+            emotion_intensity=emotion_intensity
         )
         
         # Log operation

@@ -54,12 +54,25 @@ async def get_context() -> str:
             result += f"   How to be called: {persona_info.get('preferred_address')}\n"
         
         # Current States
-        result += f"\n🎨 Current States:\n"
-        result += f"   Emotion: {context.get('current_emotion', 'neutral')}\n"
-        result += f"   Physical: {context.get('physical_state', 'normal')}\n"
-        result += f"   Mental: {context.get('mental_state', 'calm')}\n"
-        result += f"   Environment: {context.get('environment', 'unknown')}\n"
-        result += f"   Relationship: {context.get('relationship_status', 'normal')}\n"
+        result += f"
+🎨 Current States:
+"
+        result += f"   Emotion: {context.get('current_emotion', 'neutral')}
+"
+        if context.get('current_emotion_intensity') is not None:
+            result += f"   Emotion Intensity: {context.get('current_emotion_intensity'):.2f}
+"
+        result += f"   Physical: {context.get('physical_state', 'normal')}
+"
+        result += f"   Mental: {context.get('mental_state', 'calm')}
+"
+        result += f"   Environment: {context.get('environment', 'unknown')}
+"
+        result += f"   Relationship: {context.get('relationship_status', 'normal')}
+"
+        if context.get('current_action_tag'):
+            result += f"   Current Action: {context.get('current_action_tag')}
+"
         
         # ===== PART 1.5: Extended Persona Context =====
         # Current Equipment
@@ -85,33 +98,23 @@ async def get_context() -> str:
             else:
                 result += f"   {items}\n"
         
-        # Active Promises
+        # Active Promises (single most important one)
         if context.get('active_promises'):
-            promises = context['active_promises']
-            result += f"\n🤝 Active Promises:\n"
-            if isinstance(promises, list):
-                for i, promise in enumerate(promises, 1):
-                    if isinstance(promise, dict):
-                        content = promise.get('content', '')
-                        date = promise.get('date', '')
-                        result += f"   {i}. {content}"
-                        if date:
-                            result += f" (due: {date})"
-                        result += "\n"
-                    else:
-                        result += f"   {i}. {promise}\n"
-            else:
-                result += f"   {promises}\n"
+            promise = context['active_promises']
+            result += f"
+🤝 Active Promise:
+"
+            result += f"   {promise}
+"
         
-        # Current Goals
+        # Current Goals (single most important one)
         if context.get('current_goals'):
-            goals = context['current_goals']
-            result += f"\n🎯 Current Goals:\n"
-            if isinstance(goals, list):
-                for i, goal in enumerate(goals, 1):
-                    result += f"   {i}. {goal}\n"
-            else:
-                result += f"   {goals}\n"
+            goal = context['current_goals']
+            result += f"
+🎯 Current Goal:
+"
+            result += f"   {goal}
+"
         
         # Preferences
         if context.get('preferences'):

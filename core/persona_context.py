@@ -46,10 +46,12 @@ def load_persona_context(persona: Optional[str] = None) -> dict:
         },
         "last_conversation_time": None,
         "current_emotion": "neutral",
+        "current_emotion_intensity": None,
         "physical_state": "normal",
         "mental_state": "calm",
         "environment": "unknown",
-        "relationship_status": "normal"
+        "relationship_status": "normal",
+        "current_action_tag": None
     }
     
     try:

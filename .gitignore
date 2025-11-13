@@ -1,30 +1,76 @@
-# Python
+# Docker build exclusions for memory-mcp
+
+# Data directory (bind-mounted at runtime)
+data/
+
+# Model cache (will be bind-mounted from host)
+.cache/
+
+# Python cache
 __pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
 
-# Virtual environments
-venv/
-venv-*/
-.venv/
-
-# IDEs
+# Development environment
+.github/
 .vscode/
 
-# Memory MCP specific
+# Runtime data (generated at runtime or bind-mounted)
 memory/
-output/
-data/
-logs/
-lib/
-.cache/
-*.log
 *.sqlite
+*.sqlite-journal
 
-# Temporary files
-*.tmp
-*.bak
-*.backup
+# Virtual environment
+venv-rag/
+venv/
+env/
+ENV/
 
-copilot-instructions.md
-config.json
+# OS files
+.DS_Store
+Thumbs.db
+.AppleDouble
+.LSOverride
 
+# Logs (bind-mounted)
+*.log
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Documentation (not needed in container)
+DOCKER.md
+README.md
+
+# Test files
+tests/
+test_*.py
+*_test.py
+scripts/test_*.py
+
+# Output files (not needed in production)
+output/
+logs/
+
+# Additional documentation
+TESTING.md
+TROUBLESHOOTING.md
+*.md
+
+# Serena project files
 .serena/
+
+# IDE
+.idea/
+*.swp
+*.swo
+*~
+
+# Docker files themselves
+Dockerfile
+docker-compose.yml
+.dockerignore
