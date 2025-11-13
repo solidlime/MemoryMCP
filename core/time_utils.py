@@ -220,6 +220,65 @@ def format_datetime_for_display(dt_str: str) -> str:
         return dt_str
 
 
+def get_datetime_context(dt_str: str) -> dict:
+    """
+    Extract searchable datetime context from ISO format datetime.
+    
+    Args:
+        dt_str: ISO format datetime string (RFC 3339)
+    
+    Returns:
+        dict with weekday, month, year, formatted strings for search
+    
+    Example:
+        >>> get_datetime_context("2025-10-29T22:03:47+09:00")
+        {
+            "weekday_en": "Wednesday",
+            "weekday_ja": "水曜日",
+            "weekday_abbr": "Wed",
+            "month": "10",
+            "month_name": "October",
+            "year": "2025",
+            "date": "2025-10-29",
+            "display": "2025-10-29(Wed) 22:03:47 JST"
+        }
+    """
+    try:
+        dt = datetime.fromisoformat(dt_str)
+        
+        # Weekday names
+        weekdays_en = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+        weekdays_ja = ["月曜日", "火曜日", "水曜日", "木曜日", "金曜日", "土曜日", "日曜日"]
+        weekdays_abbr = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        
+        # Month names
+        months_en = ["January", "February", "March", "April", "May", "June", 
+                    "July", "August", "September", "October", "November", "December"]
+        
+        return {
+            "weekday_en": weekdays_en[dt.weekday()],
+            "weekday_ja": weekdays_ja[dt.weekday()],
+            "weekday_abbr": weekdays_abbr[dt.weekday()],
+            "month": dt.strftime('%m'),
+            "month_name": months_en[dt.month - 1],
+            "year": dt.strftime('%Y'),
+            "date": dt.strftime('%Y-%m-%d'),
+            "display": format_datetime_for_display(dt_str)
+        }
+    except Exception as e:
+        _log_progress(f"❌ Failed to get datetime context: {e}")
+        return {
+            "weekday_en": "Unknown",
+            "weekday_ja": "不明",
+            "weekday_abbr": "Unknown",
+            "month": "00",
+            "month_name": "Unknown",
+            "year": "0000",
+            "date": "0000-00-00",
+            "display": dt_str
+        }
+
+
 def get_current_time_display() -> str:
     """
     Get current time in user-friendly display format with weekday.

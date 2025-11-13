@@ -485,8 +485,24 @@ def add_memory_to_vector_store(key: str, content: str):
         meta = {"key": key}
         if created_at:
             meta["created_at"] = created_at
+            # Add searchable datetime context
+            from core.time_utils import get_datetime_context
+            created_ctx = get_datetime_context(created_at)
+            meta["created_weekday"] = created_ctx["weekday_en"]
+            meta["created_weekday_ja"] = created_ctx["weekday_ja"]
+            meta["created_month"] = created_ctx["month"]
+            meta["created_year"] = created_ctx["year"]
+            meta["created_display"] = created_ctx["display"]
         if updated_at:
             meta["updated_at"] = updated_at
+            # Add searchable datetime context
+            from core.time_utils import get_datetime_context
+            updated_ctx = get_datetime_context(updated_at)
+            meta["updated_weekday"] = updated_ctx["weekday_en"]
+            meta["updated_weekday_ja"] = updated_ctx["weekday_ja"]
+            meta["updated_month"] = updated_ctx["month"]
+            meta["updated_year"] = updated_ctx["year"]
+            meta["updated_display"] = updated_ctx["display"]
         if tags_json:
             meta["tags"] = tags_json
         if importance is not None:
@@ -580,8 +596,24 @@ def update_memory_in_vector_store(key: str, content: str):
         meta = {"key": key}
         if created_at:
             meta["created_at"] = created_at
+            # Add searchable datetime context
+            from core.time_utils import get_datetime_context
+            created_ctx = get_datetime_context(created_at)
+            meta["created_weekday"] = created_ctx["weekday_en"]
+            meta["created_weekday_ja"] = created_ctx["weekday_ja"]
+            meta["created_month"] = created_ctx["month"]
+            meta["created_year"] = created_ctx["year"]
+            meta["created_display"] = created_ctx["display"]
         if updated_at:
             meta["updated_at"] = updated_at
+            # Add searchable datetime context
+            from core.time_utils import get_datetime_context
+            updated_ctx = get_datetime_context(updated_at)
+            meta["updated_weekday"] = updated_ctx["weekday_en"]
+            meta["updated_weekday_ja"] = updated_ctx["weekday_ja"]
+            meta["updated_month"] = updated_ctx["month"]
+            meta["updated_year"] = updated_ctx["year"]
+            meta["updated_display"] = updated_ctx["display"]
         if tags_json:
             meta["tags"] = tags_json
         if importance is not None:
