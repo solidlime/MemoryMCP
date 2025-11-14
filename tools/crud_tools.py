@@ -303,7 +303,8 @@ def _save_memory_to_stores(
     environment: Optional[str],
     relationship_status: Optional[str],
     action_tag: Optional[str],
-    related_keys: List[str]
+    related_keys: List[str],
+    equipped_items: Optional[Dict[str, str]] = None
 ) -> None:
     """
     Save memory to both database and vector store.
@@ -323,6 +324,7 @@ def _save_memory_to_stores(
         relationship_status: Relationship status
         action_tag: Action tag
         related_keys: Related memory keys
+        equipped_items: Currently equipped items {slot: item_name}
     """
     # Save to database with all context fields
     save_memory_to_db(
@@ -340,7 +342,8 @@ def _save_memory_to_stores(
         relationship_status=relationship_status,
         action_tag=action_tag,
         related_keys=related_keys,
-        summary_ref=None  # Phase 28.4: Will be populated by summarization module
+        summary_ref=None,  # Phase 28.4: Will be populated by summarization module
+        equipped_items=equipped_items
     )
     
     # Clear query cache
@@ -1031,6 +1034,18 @@ async def create_memory(
         # Ensure database and tables are initialized (handles empty database files)
         load_memory_from_db()
         
+        # Get current equipped items
+        equipped_items = None
+        try:
+            from core.equipment_db import EquipmentDB
+            db = EquipmentDB(persona)
+            equipped_items = db.get_equipped_items()
+            if equipped_items:
+                log_operation("create_memory", metadata={"auto_captured_equipment": equipped_items})
+        except Exception as e:
+            # Equipment system is optional, don't fail if it's not available
+            log_operation("create_memory", metadata={"equipment_capture_failed": str(e)})
+        
         # Generate unique key
         key = _generate_unique_key(db_path)
         
@@ -1062,7 +1077,8 @@ async def create_memory(
             environment=environment,
             relationship_status=relationship_status,
             action_tag=action_tag,
-            related_keys=related_keys
+            related_keys=related_keys,
+            equipped_items=equipped_items
         )
         
         # Update persona context
