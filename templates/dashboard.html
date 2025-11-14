@@ -95,20 +95,6 @@
     <div class="glass-card rounded-2xl p-6 mb-6">
         <h2 class="text-2xl font-bold text-white mb-4">🛠️ Admin Tools</h2>
         
-        <!-- Progress Display Area -->
-        <div id="progressContainer" class="mb-4 hidden">
-            <div class="glass-card rounded-lg p-4">
-                <div class="flex items-center justify-between mb-2">
-                    <h3 class="text-lg font-semibold text-white" id="progressTitle">Processing...</h3>
-                    <span class="text-purple-200 font-semibold" id="progressPercent">0%</span>
-                </div>
-                <div class="w-full bg-white/20 rounded-full h-4 overflow-hidden">
-                    <div id="progressBar" class="bg-gradient-to-r from-purple-400 to-pink-400 h-4 rounded-full transition-all duration-300" style="width: 0%"></div>
-                </div>
-                <p class="text-purple-200 text-sm mt-2" id="progressMessage">Starting...</p>
-            </div>
-        </div>
-        
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <!-- Clean Memory -->
             <div class="glass-card rounded-lg p-4">
@@ -204,6 +190,21 @@
         <div id="adminResult" class="mt-4 hidden">
             <div class="glass-card rounded-lg p-4">
                 <h3 class="text-lg font-semibold text-white mb-2">Result</h3>
+                
+                <!-- Progress Display Area (moved here) -->
+                <div id="progressContainer" class="mb-4 hidden">
+                    <div class="glass-card rounded-lg p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <h3 class="text-lg font-semibold text-white" id="progressTitle">Processing...</h3>
+                            <span class="text-purple-200 font-semibold" id="progressPercent">0%</span>
+                        </div>
+                        <div class="w-full bg-white/20 rounded-full h-4 overflow-hidden">
+                            <div id="progressBar" class="bg-gradient-to-r from-purple-400 to-pink-400 h-4 rounded-full transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                        <p class="text-purple-200 text-sm mt-2" id="progressMessage">Starting...</p>
+                    </div>
+                </div>
+                
                 <pre id="adminResultContent" class="text-white text-sm overflow-auto max-h-96"></pre>
             </div>
         </div>
@@ -441,11 +442,15 @@
         
         // Progress bar functions
         function showProgress(title = 'Processing...', message = 'Starting...') {
+            const resultDiv = document.getElementById('adminResult');
             const container = document.getElementById('progressContainer');
             const titleEl = document.getElementById('progressTitle');
             const messageEl = document.getElementById('progressMessage');
             const percentEl = document.getElementById('progressPercent');
             const bar = document.getElementById('progressBar');
+            
+            // Show result area first
+            resultDiv.classList.remove('hidden');
             
             titleEl.textContent = title;
             messageEl.textContent = message;
@@ -467,8 +472,8 @@
         }
         
         function hideProgress() {
-            const container = document.getElementById('progressContainer');
-            container.classList.add('hidden');
+            // Keep progress bar visible to show completion state
+            // It will remain in the result area
         }
         
         function showAdminResult(result, isError = false) {

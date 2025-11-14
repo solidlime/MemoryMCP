@@ -122,7 +122,7 @@ def equip_item(
     
     old_item = context["current_equipment"].get(slot)
     context["current_equipment"][slot] = item_name
-    save_persona_context(persona, context)
+    save_persona_context(context, persona)
     
     # 装備履歴に記録
     db.log_equipment_change(slot, item_name, "equip")
@@ -159,7 +159,7 @@ def unequip_item(slot: str) -> str:
         return f"❌ No item equipped in slot '{slot}'"
     
     old_item = context["current_equipment"].pop(slot)
-    save_persona_context(persona, context)
+    save_persona_context(context, persona)
     
     # 装備履歴に記録
     db.log_equipment_change(slot, None, "unequip")
