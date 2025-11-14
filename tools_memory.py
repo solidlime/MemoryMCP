@@ -19,8 +19,11 @@ def register_tools(mcp: Any) -> None:
     from tools.equipment_tools import (
         add_to_inventory, remove_from_inventory, 
         equip_item, unequip_item, 
-        update_item_info, change_equipment_slot,
+        update_item, 
         search_inventory, get_equipment_history
+    )
+    from tools.item_memory_tools import (
+        get_memories_with_item, get_item_usage_stats
     )
     # from tools.summarization_tools import summarize_last_week, summarize_last_day  # 管理者ツールに移行
 
@@ -51,10 +54,13 @@ def register_tools(mcp: Any) -> None:
     mcp.tool()(remove_from_inventory)
     mcp.tool()(equip_item)
     mcp.tool()(unequip_item)
-    mcp.tool()(update_item_info)
-    mcp.tool()(change_equipment_slot)
+    mcp.tool()(update_item)
     mcp.tool()(search_inventory)
     mcp.tool()(get_equipment_history)
+    
+    # アイテム-記憶関連付けツール（Phase 34: 装備品自動記録）
+    mcp.tool()(get_memories_with_item)
+    mcp.tool()(get_item_usage_stats)
     
     # Phase 28.4: 自己要約（メタメモリ）→ 管理者ツールに移行
     # mcp.tool()(summarize_last_week)  # ❌ LLM用ツールから除外

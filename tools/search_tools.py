@@ -42,7 +42,8 @@ async def search_memory(
     fuzzy_threshold: int = 70,
     tags: Optional[List[str]] = None,
     tag_match_mode: str = "any",
-    date_range: Optional[str] = None
+    date_range: Optional[str] = None,
+    equipped_item: Optional[str] = None
 ) -> str:
     """
     Keyword, tag, and date-based search with optional fuzzy matching.
@@ -55,12 +56,14 @@ async def search_memory(
         tags: Filter by tags (default: None)
         tag_match_mode: "any" (OR) or "all" (AND) (default: "any")
         date_range: Date filter (e.g., "今日", "2025-10-01..2025-10-31")
+        equipped_item: Filter by equipped item name (partial match)
     
     Examples:
         search_memory("Python")
         search_memory("Pythn", fuzzy_match=True)
         search_memory("", tags=["technical_achievement"])
         search_memory("Phase", tags=["important_event"], date_range="今月")
+        search_memory("", equipped_item="白いドレス")
     """
     try:
         persona = get_current_persona()
@@ -71,15 +74,16 @@ async def search_memory(
         memories = {}
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute('SELECT key, content, created_at, updated_at, tags, related_keys FROM memories')
+            cursor.execute('SELECT key, content, created_at, updated_at, tags, related_keys, equipped_items FROM memories')
             for row in cursor.fetchall():
-                key, content, created_at, updated_at, tags_json, related_keys_json = row
+                key, content, created_at, updated_at, tags_json, related_keys_json, equipped_items_json = row
                 memories[key] = {
                     "content": content,
                     "created_at": created_at,
                     "updated_at": updated_at,
                     "tags": json.loads(tags_json) if tags_json else [],
-                    "related_keys": json.loads(related_keys_json) if related_keys_json else []
+                    "related_keys": json.loads(related_keys_json) if related_keys_json else [],
+                    "equipped_items": json.loads(equipped_items_json) if equipped_items_json else {}
                 }
         
         # Phase 1: Start with all memories as candidates
@@ -123,6 +127,19 @@ async def search_memory(
             candidate_keys &= tag_filtered
             logic_str = "ALL" if tag_match_mode == "all" else "ANY"
             filter_descriptions.append(f"🏷️  {logic_str} of {tags}")
+        
+        # Phase 3.5: Apply equipped item filter if specified
+        if equipped_item:
+            equipment_filtered = set()
+            for key in candidate_keys:
+                entry = memories[key]
+                equipped_items = entry.get('equipped_items', {})
+                # Check if any equipped item contains the search term (partial match)
+                if any(equipped_item.lower() in item_name.lower() for item_name in equipped_items.values() if item_name):
+                    equipment_filtered.add(key)
+            
+            candidate_keys &= equipment_filtered
+            filter_descriptions.append(f"👗 Equipped: '{equipped_item}'")
         
         # Phase 4: Apply keyword/fuzzy search (if query provided)
         scored_results = []

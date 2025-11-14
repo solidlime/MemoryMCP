@@ -435,6 +435,7 @@ def _filter_and_score_documents(
     physical_state: Optional[str],
     mental_state: Optional[str],
     relationship_status: Optional[str],
+    equipped_item: Optional[str],
     importance_weight: float,
     recency_weight: float
 ) -> list:
@@ -450,6 +451,7 @@ def _filter_and_score_documents(
         physical_state: Physical state filter
         mental_state: Mental state filter
         relationship_status: Relationship status filter
+        equipped_item: Equipped item filter (partial match)
         importance_weight: Weight for importance in scoring
         recency_weight: Weight for recency in scoring
     
@@ -478,6 +480,12 @@ def _filter_and_score_documents(
             continue
         if relationship_status and relationship_status.lower() not in str(meta.get("relationship_status", "")).lower():
             continue
+        
+        # Filter by equipped item (partial match in any slot)
+        if equipped_item:
+            equipped_items = meta.get("equipped_items", {})
+            if not equipped_items or not any(equipped_item.lower() in str(item_name).lower() for item_name in equipped_items.values() if item_name):
+                continue
         
         # Calculate custom score
         final_score = score  # Base vector similarity score
@@ -544,6 +552,7 @@ def _format_memory_results(
     physical_state: Optional[str],
     mental_state: Optional[str],
     relationship_status: Optional[str],
+    equipped_item: Optional[str],
     importance_weight: float,
     recency_weight: float
 ) -> str:
@@ -561,6 +570,7 @@ def _format_memory_results(
         physical_state: Physical state filter (for display)
         mental_state: Mental state filter (for display)
         relationship_status: Relationship status filter (for display)
+        equipped_item: Equipped item filter (for display)
         importance_weight: Importance weight (for display)
         recency_weight: Recency weight (for display)
     
@@ -595,6 +605,8 @@ def _format_memory_results(
         filter_desc.append(f"mental={mental_state}")
     if relationship_status:
         filter_desc.append(f"relation={relationship_status}")
+    if equipped_item:
+        filter_desc.append(f"equipped='{equipped_item}'")
     
     filter_str = f" [filters: {', '.join(filter_desc)}]" if filter_desc else ""
     
@@ -1136,6 +1148,7 @@ async def read_memory(
     physical_state: Optional[str] = None,
     mental_state: Optional[str] = None,
     relationship_status: Optional[str] = None,
+    equipped_item: Optional[str] = None,
     # Custom scoring
     importance_weight: float = 0.0,
     recency_weight: float = 0.0
@@ -1148,11 +1161,13 @@ async def read_memory(
         top_k: Results to return (default: 5)
         min_importance: Filter by importance 0.0-1.0 (e.g., 0.7 for important only)
         emotion/action_tag/environment/physical_state/mental_state/relationship_status: Context filters
+        equipped_item: Filter by equipped item name (partial match)
         importance_weight/recency_weight: Custom scoring (0.0-1.0)
     
     Examples:
         read_memory("Python関連")
         read_memory("成果", min_importance=0.7, importance_weight=0.3)
+        read_memory("楽しかった思い出", equipped_item="白いドレス")
     """
     try:
         persona = get_current_persona()
@@ -1185,6 +1200,7 @@ async def read_memory(
             physical_state=physical_state,
             mental_state=mental_state,
             relationship_status=relationship_status,
+            equipped_item=equipped_item,
             importance_weight=importance_weight,
             recency_weight=recency_weight
         )
@@ -1207,6 +1223,7 @@ async def read_memory(
             physical_state=physical_state,
             mental_state=mental_state,
             relationship_status=relationship_status,
+            equipped_item=equipped_item,
             importance_weight=importance_weight,
             recency_weight=recency_weight
         )
