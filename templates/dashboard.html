@@ -94,6 +94,21 @@
     <!-- Admin Tools Card -->
     <div class="glass-card rounded-2xl p-6 mb-6">
         <h2 class="text-2xl font-bold text-white mb-4">🛠️ Admin Tools</h2>
+        
+        <!-- Progress Display Area -->
+        <div id="progressContainer" class="mb-4 hidden">
+            <div class="glass-card rounded-lg p-4">
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-lg font-semibold text-white" id="progressTitle">Processing...</h3>
+                    <span class="text-purple-200 font-semibold" id="progressPercent">0%</span>
+                </div>
+                <div class="w-full bg-white/20 rounded-full h-4 overflow-hidden">
+                    <div id="progressBar" class="bg-gradient-to-r from-purple-400 to-pink-400 h-4 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+                <p class="text-purple-200 text-sm mt-2" id="progressMessage">Starting...</p>
+            </div>
+        </div>
+        
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <!-- Clean Memory -->
             <div class="glass-card rounded-lg p-4">
@@ -167,6 +182,20 @@
                 <button onclick="generateGraph()" 
                         class="w-full glass-card rounded-lg px-4 py-2 text-white font-semibold hover:bg-white/20 transition mt-8">
                     Generate
+                </button>
+            </div>
+            
+            <!-- Create Summary -->
+            <div class="glass-card rounded-lg p-4">
+                <h3 class="text-lg font-semibold text-white mb-2">📝 Create Summary</h3>
+                <p class="text-purple-200 text-sm mb-3">Generate memory summary</p>
+                <select id="summaryPeriod" class="w-full px-3 py-2 rounded-lg bg-white/20 text-white mb-2">
+                    <option value="day">Last Day</option>
+                    <option value="week">Last Week</option>
+                </select>
+                <button onclick="createSummary()" 
+                        class="w-full glass-card rounded-lg px-4 py-2 text-white font-semibold hover:bg-white/20 transition">
+                    Create
                 </button>
             </div>
         </div>
@@ -410,6 +439,38 @@
         // Admin Tools Functions
         // ========================================
         
+        // Progress bar functions
+        function showProgress(title = 'Processing...', message = 'Starting...') {
+            const container = document.getElementById('progressContainer');
+            const titleEl = document.getElementById('progressTitle');
+            const messageEl = document.getElementById('progressMessage');
+            const percentEl = document.getElementById('progressPercent');
+            const bar = document.getElementById('progressBar');
+            
+            titleEl.textContent = title;
+            messageEl.textContent = message;
+            percentEl.textContent = '0%';
+            bar.style.width = '0%';
+            container.classList.remove('hidden');
+        }
+        
+        function updateProgress(percent, message = '') {
+            const percentEl = document.getElementById('progressPercent');
+            const messageEl = document.getElementById('progressMessage');
+            const bar = document.getElementById('progressBar');
+            
+            percentEl.textContent = `${percent}%`;
+            bar.style.width = `${percent}%`;
+            if (message) {
+                messageEl.textContent = message;
+            }
+        }
+        
+        function hideProgress() {
+            const container = document.getElementById('progressContainer');
+            container.classList.add('hidden');
+        }
+        
         function showAdminResult(result, isError = false) {
             const resultDiv = document.getElementById('adminResult');
             const resultContent = document.getElementById('adminResultContent');
@@ -464,20 +525,47 @@
         async function rebuildVectorStore() {
             if (!confirm(`Rebuild Qdrant collection for persona "${currentPersona}"?`)) return;
             
+            showProgress('Rebuilding Vector Store', 'Initializing...');
+            
             try {
-                const response = await fetch('/api/admin/rebuild', {
+                const response = await fetch('/api/admin/rebuild-stream', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ persona: currentPersona })
                 });
-                const result = await response.json();
                 
-                if (result.success) {
-                    showAdminResult(result.message);
-                } else {
-                    showAdminResult(`Error: ${result.error}`, true);
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n');
+                    
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = JSON.parse(line.substring(6));
+                            
+                            if (data.status === 'progress') {
+                                updateProgress(data.percent, data.message);
+                            } else if (data.status === 'completed') {
+                                updateProgress(100, data.message);
+                                setTimeout(() => {
+                                    hideProgress();
+                                    showAdminResult(data.message);
+                                    refreshData();
+                                }, 1000);
+                            } else if (data.status === 'error') {
+                                hideProgress();
+                                showAdminResult(`Error: ${data.message}`, true);
+                            }
+                        }
+                    }
                 }
             } catch (error) {
+                hideProgress();
                 showAdminResult(`Error: ${error.message}`, true);
             }
         }
@@ -620,6 +708,65 @@
                 showAdminResult(`Error: ${error.message}`, true);
             }
         }
+        
+        async function createSummary() {
+            const period = document.getElementById('summaryPeriod').value;
+            
+            if (!confirm(`Create ${period} summary for persona "${currentPersona}"?\nThis may take a moment.`)) {
+                return;
+            }
+            
+            showProgress('Creating Summary', 'Starting summarization...');
+            
+            try {
+                const response = await fetch('/api/admin/summarize-stream', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        persona: currentPersona,
+                        period: period
+                    })
+                });
+                
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n');
+                    
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = JSON.parse(line.substring(6));
+                            
+                            if (data.status === 'progress') {
+                                updateProgress(data.percent, data.message);
+                            } else if (data.status === 'completed') {
+                                updateProgress(100, data.message);
+                                setTimeout(() => {
+                                    hideProgress();
+                                    const summaryInfo = data.summary_key 
+                                        ? `\n\n📋 Summary Key: ${data.summary_key}` 
+                                        : '';
+                                    showAdminResult(`${data.message}${summaryInfo}`);
+                                    refreshData();
+                                }, 1000);
+                            } else if (data.status === 'error') {
+                                hideProgress();
+                                showAdminResult(`Error: ${data.message}`, true);
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                hideProgress();
+                showAdminResult(`Error: ${error.message}`, true);
+            }
+        }
     </script>
 </body>
 </html>
+

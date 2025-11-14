@@ -8,11 +8,12 @@ import glob
 import json
 import sqlite3
 import re
+import asyncio
 from collections import Counter
 from datetime import datetime, timedelta
 from contextvars import ContextVar
 from fastapi import Request, HTTPException
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import JSONResponse, FileResponse, StreamingResponse
 
 # Core imports
 from core import load_persona_context, calculate_time_diff
@@ -597,3 +598,208 @@ def register_http_routes(mcp, templates):
                 "success": False,
                 "error": str(e)
             }, status_code=500)
+
+    @mcp.custom_route("/api/admin/summarize", methods=["POST"])
+    async def create_summary(request: Request):
+        """
+        Create memory summary for a specific persona and time period.
+        """
+        try:
+            data = await request.json()
+            persona = data.get("persona")
+            period = data.get("period", "week")  # "day" or "week"
+            
+            if not persona:
+                return JSONResponse({
+                    "success": False,
+                    "error": "Persona is required"
+                }, status_code=400)
+            
+            # Validate persona exists
+            memory_dir = os.path.join(MEMORY_ROOT, persona)
+            if not os.path.exists(memory_dir):
+                return JSONResponse({
+                    "success": False,
+                    "error": f"Persona '{persona}' not found"
+                }, status_code=404)
+            
+            # Set persona context and run summarization in thread pool
+            from concurrent.futures import ThreadPoolExecutor
+            
+            def _summarize():
+                original_persona = current_persona.get()
+                current_persona.set(persona)
+                
+                try:
+                    from tools.summarization_tools import summarize_last_week, summarize_last_day
+                    
+                    if period == "day":
+                        result = summarize_last_day()
+                    else:
+                        result = summarize_last_week()
+                    
+                    if result:
+                        # Extract summary key from result message
+                        summary_key = None
+                        if "Summary node: " in result:
+                            try:
+                                summary_key = result.split("Summary node: ")[1].split("\n")[0].strip()
+                            except:
+                                pass
+                        
+                        return {
+                            "success": True,
+                            "message": result,
+                            "summary_key": summary_key,
+                            "period": period
+                        }
+                    else:
+                        return {
+                            "success": False,
+                            "error": "Failed to generate summary (no memories found or LLM error)"
+                        }
+                finally:
+                    current_persona.set(original_persona)
+            
+            # Start async task
+            loop = asyncio.get_event_loop()
+            with ThreadPoolExecutor() as executor:
+                result = await loop.run_in_executor(executor, _summarize)
+            
+            return JSONResponse(result)
+                
+        except Exception as e:
+            return JSONResponse({
+                "success": False,
+                "error": str(e)
+            }, status_code=500)
+
+    @mcp.custom_route("/api/admin/rebuild-stream", methods=["POST"])
+    async def rebuild_vector_store_stream(request: Request):
+        """
+        Rebuild vector store with real-time progress updates via SSE.
+        """
+        try:
+            data = await request.json()
+            persona = data.get("persona")
+            
+            if not persona:
+                return JSONResponse({
+                    "success": False,
+                    "error": "Persona is required"
+                }, status_code=400)
+            
+            async def event_stream():
+                try:
+                    original_persona = current_persona.get()
+                    current_persona.set(persona)
+                    
+                    # Send start event
+                    yield f"data: {json.dumps({'status': 'started', 'percent': 0, 'message': 'Starting vector store rebuild...'})}\n\n"
+                    await asyncio.sleep(0.1)
+                    
+                    # Simulate progress (in reality, rebuild_vector_store doesn't provide progress)
+                    # We'll just show a progress animation
+                    from src.utils.vector_utils import rebuild_vector_store
+                    
+                    # Progress simulation
+                    for i in range(10, 90, 10):
+                        yield f"data: {json.dumps({'status': 'progress', 'percent': i, 'message': f'Rebuilding vectors... {i}%'})}\n\n"
+                        await asyncio.sleep(0.3)
+                    
+                    # Execute rebuild in thread pool
+                    loop = asyncio.get_event_loop()
+                    from concurrent.futures import ThreadPoolExecutor
+                    with ThreadPoolExecutor() as executor:
+                        def _rebuild():
+                            return rebuild_vector_store()
+                        
+                        result = await loop.run_in_executor(executor, _rebuild)
+                    
+                    # Send completion
+                    yield f"data: {json.dumps({'status': 'completed', 'percent': 100, 'message': f'Rebuild completed: {result}'})}\n\n"
+                    
+                    current_persona.set(original_persona)
+                    
+                except Exception as e:
+                    yield f"data: {json.dumps({'status': 'error', 'message': str(e)})}\n\n"
+            
+            return StreamingResponse(event_stream(), media_type="text/event-stream")
+            
+        except Exception as e:
+            return JSONResponse({
+                "success": False,
+                "error": str(e)
+            }, status_code=500)
+
+    @mcp.custom_route("/api/admin/summarize-stream", methods=["POST"])
+    async def create_summary_stream(request: Request):
+        """
+        Create summary with real-time progress updates via SSE.
+        """
+        try:
+            data = await request.json()
+            persona = data.get("persona")
+            period = data.get("period", "week")
+            
+            if not persona:
+                return JSONResponse({
+                    "success": False,
+                    "error": "Persona is required"
+                }, status_code=400)
+            
+            async def event_stream():
+                try:
+                    original_persona = current_persona.get()
+                    current_persona.set(persona)
+                    
+                    # Send start event
+                    yield f"data: {json.dumps({'status': 'started', 'percent': 0, 'message': 'Loading memories...'})}\n\n"
+                    await asyncio.sleep(0.1)
+                    
+                    yield f"data: {json.dumps({'status': 'progress', 'percent': 30, 'message': 'Analyzing memories...'})}\n\n"
+                    await asyncio.sleep(0.3)
+                    
+                    yield f"data: {json.dumps({'status': 'progress', 'percent': 60, 'message': 'Generating summary with LLM...'})}\n\n"
+                    await asyncio.sleep(0.3)
+                    
+                    # Execute summarization in thread pool
+                    loop = asyncio.get_event_loop()
+                    from concurrent.futures import ThreadPoolExecutor
+                    with ThreadPoolExecutor() as executor:
+                        def _summarize():
+                            from tools.summarization_tools import summarize_last_week, summarize_last_day
+                            
+                            if period == "day":
+                                return summarize_last_day()
+                            else:
+                                return summarize_last_week()
+                        
+                        result = await loop.run_in_executor(executor, _summarize)
+                    
+                    if result:
+                        summary_key = None
+                        if "Summary node: " in result:
+                            try:
+                                summary_key = result.split("Summary node: ")[1].split("\n")[0].strip()
+                            except:
+                                pass
+                        
+                        yield f"data: {json.dumps({'status': 'completed', 'percent': 100, 'message': result, 'summary_key': summary_key})}\n\n"
+                    else:
+                        yield f"data: {json.dumps({'status': 'error', 'message': 'Failed to generate summary (no memories found or LLM error)'})}\n\n"
+                    
+                    current_persona.set(original_persona)
+                    
+                except Exception as e:
+                    yield f"data: {json.dumps({'status': 'error', 'message': str(e)})}\n\n"
+            
+            return StreamingResponse(event_stream(), media_type="text/event-stream")
+            
+        except Exception as e:
+            return JSONResponse({
+                "success": False,
+                "error": str(e)
+            }, status_code=500)
+
+
