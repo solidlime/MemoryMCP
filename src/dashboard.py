@@ -748,7 +748,7 @@ def register_http_routes(mcp, templates):
                     "error": "Persona is required"
                 }, status_code=400)
             
-            async def event_stream():
+                async def event_stream():
                 try:
                     original_persona = current_persona.get()
                     current_persona.set(persona)
@@ -760,7 +760,13 @@ def register_http_routes(mcp, templates):
                     yield f"data: {json.dumps({'status': 'progress', 'percent': 30, 'message': 'Analyzing memories...'})}\n\n"
                     await asyncio.sleep(0.3)
                     
-                    yield f"data: {json.dumps({'status': 'progress', 'percent': 60, 'message': 'Generating summary with LLM...'})}\n\n"
+                    # Check if LLM is enabled
+                    from src.utils.config_utils import load_config
+                    config = load_config()
+                    use_llm = config.get("summarization", {}).get("use_llm", False)
+                    
+                    message = 'Generating summary with LLM...' if use_llm else 'Generating summary...'
+                    yield f"data: {json.dumps({'status': 'progress', 'percent': 60, 'message': message})}\n\n"
                     await asyncio.sleep(0.3)
                     
                     # Execute summarization in thread pool
@@ -771,9 +777,16 @@ def register_http_routes(mcp, templates):
                             from tools.summarization_tools import summarize_last_week, summarize_last_day
                             
                             if period == "day":
-                                return summarize_last_day()
+                                summary_key = summarize_last_day()
                             else:
-                                return summarize_last_week()
+                                summary_key = summarize_last_week()
+                            
+                            # Return success message
+                            if summary_key:
+                                period_name = "last day" if period == "day" else "last week"
+                                return f"✅ Summary created successfully for {period_name}\nSummary node: {summary_key}"
+                            else:
+                                return None
                         
                         result = await loop.run_in_executor(executor, _summarize)
                     
@@ -787,16 +800,14 @@ def register_http_routes(mcp, templates):
                         
                         yield f"data: {json.dumps({'status': 'completed', 'percent': 100, 'message': result, 'summary_key': summary_key})}\n\n"
                     else:
-                        yield f"data: {json.dumps({'status': 'error', 'message': 'Failed to generate summary (no memories found or LLM error)'})}\n\n"
+                        yield f"data: {json.dumps({'status': 'error', 'message': 'Failed to generate summary (no memories found in the selected period)'})}\n\n"
                     
                     current_persona.set(original_persona)
                     
                 except Exception as e:
                     yield f"data: {json.dumps({'status': 'error', 'message': str(e)})}\n\n"
             
-            return StreamingResponse(event_stream(), media_type="text/event-stream")
-            
-        except Exception as e:
+            return StreamingResponse(event_stream(), media_type="text/event-stream")        except Exception as e:
             return JSONResponse({
                 "success": False,
                 "error": str(e)
