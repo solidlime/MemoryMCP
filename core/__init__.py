@@ -5,7 +5,14 @@ This package provides essential utilities for time operations, persona context m
 and memory database operations.
 """
 
-from .time_utils import get_current_time, parse_date_query, calculate_time_diff
+from .time_utils import (
+    get_current_time,
+    parse_date_query,
+    calculate_time_diff,
+    format_datetime_for_display,
+    get_current_time_display,
+    get_datetime_context,
+)
 from .persona_context import load_persona_context, save_persona_context
 from .memory_db import (
     load_memory_from_db,
@@ -21,6 +28,9 @@ __all__ = [
     'get_current_time',
     'parse_date_query', 
     'calculate_time_diff',
+    'format_datetime_for_display',
+    'get_current_time_display',
+    'get_datetime_context',
     # Persona context
     'load_persona_context',
     'save_persona_context',

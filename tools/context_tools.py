@@ -56,25 +56,16 @@ async def get_context() -> str:
             result += f"   How to be called: {persona_info.get('preferred_address')}\n"
         
         # Current States
-        result += f"
-🎨 Current States:
-"
-        result += f"   Emotion: {context.get('current_emotion', 'neutral')}
-"
+        result += "\n🎨 Current States:\n"
+        result += f"   Emotion: {context.get('current_emotion', 'neutral')}\n"
         if context.get('current_emotion_intensity') is not None:
-            result += f"   Emotion Intensity: {context.get('current_emotion_intensity'):.2f}
-"
-        result += f"   Physical: {context.get('physical_state', 'normal')}
-"
-        result += f"   Mental: {context.get('mental_state', 'calm')}
-"
-        result += f"   Environment: {context.get('environment', 'unknown')}
-"
-        result += f"   Relationship: {context.get('relationship_status', 'normal')}
-"
+            result += f"   Emotion Intensity: {context.get('current_emotion_intensity'):.2f}\n"
+        result += f"   Physical: {context.get('physical_state', 'normal')}\n"
+        result += f"   Mental: {context.get('mental_state', 'calm')}\n"
+        result += f"   Environment: {context.get('environment', 'unknown')}\n"
+        result += f"   Relationship: {context.get('relationship_status', 'normal')}\n"
         if context.get('current_action_tag'):
-            result += f"   Current Action: {context.get('current_action_tag')}
-"
+            result += f"   Current Action: {context.get('current_action_tag')}\n"
         
         # ===== PART 1.5: Extended Persona Context =====
         # Current Equipment
@@ -103,20 +94,14 @@ async def get_context() -> str:
         # Active Promises (single most important one)
         if context.get('active_promises'):
             promise = context['active_promises']
-            result += f"
-🤝 Active Promise:
-"
-            result += f"   {promise}
-"
+            result += "\n🤝 Active Promise:\n"
+            result += f"   {promise}\n"
         
         # Current Goals (single most important one)
         if context.get('current_goals'):
             goal = context['current_goals']
-            result += f"
-🎯 Current Goal:
-"
-            result += f"   {goal}
-"
+            result += "\n🎯 Current Goal:\n"
+            result += f"   {goal}\n"
         
         # Preferences
         if context.get('preferences'):
@@ -163,20 +148,14 @@ async def get_context() -> str:
         last_time_str = context.get("last_conversation_time")
         current_time = get_current_time()
         
-        result += f"
-⏰ Time Information:
-"
-        result += f"   Current: {get_current_time_display()}
-"
+        result += "\n⏰ Time Information:\n"
+        result += f"   Current: {get_current_time_display()}\n"
         if last_time_str:
             time_diff = calculate_time_diff(last_time_str)
-            result += f"   Last Conversation: {time_diff['formatted_string']}前
-"
-            result += f"   Previous: {format_datetime_for_display(last_time_str)}
-"
+            result += f"   Last Conversation: {time_diff['formatted_string']}前\n"
+            result += f"   Previous: {format_datetime_for_display(last_time_str)}\n"
         else:
-            result += f"   Status: First conversation! 🆕
-"
+            result += "   Status: First conversation! 🆕\n"
         
         # Update last conversation time
         context["last_conversation_time"] = current_time.isoformat()
@@ -219,18 +198,14 @@ async def get_context() -> str:
                 result += f"   Total Characters: {total_chars:,}\n"
                 result += f"   Date Range: {min_date[:10]} ~ {max_date[:10]}\n"
                 
-                result += f"
-🕐 Recent {len(recent)} Memories:
-"
+                result += f"\n🕐 Recent {len(recent)} Memories:\n"
                 for i, (key, content, created_at, importance, emotion) in enumerate(recent, 1):
                     preview = content[:50] + "..." if len(content) > 50 else content
                     time_diff_mem = calculate_time_diff(created_at)
                     importance_str = f"{importance:.2f}" if importance is not None else "0.50"
                     emotion_str = emotion if emotion else "neutral"
-                    result += f"{i}. [{key}] {preview}
-"
-                    result += f"   {format_datetime_for_display(created_at)} ({time_diff_mem['formatted_string']}前) | ⭐{importance_str} | 💭{emotion_str}
-"
+                    result += f"{i}. [{key}] {preview}\n"
+                    result += f"   {format_datetime_for_display(created_at)} ({time_diff_mem['formatted_string']}前) | ⭐{importance_str} | 💭{emotion_str}\n"
         
         result += "\n" + "=" * 60 + "\n"
         result += "💡 Tip: Use read_memory(query) for semantic search\n"

@@ -57,10 +57,15 @@ def register_tools(mcp: Any) -> None:
 
 
 def register_resources(mcp: Any) -> None:
-    import memory_mcp as impl
-    mcp.resource("memory://info")(impl.get_memory_info)
-    mcp.resource("memory://metrics")(impl.get_memory_metrics)
-    mcp.resource("memory://stats")(impl.get_memory_stats)
+    from src.resources import (
+        get_memory_info,
+        get_memory_metrics,
+        get_memory_stats,
+        get_cleanup_suggestions,
+    )
+    mcp.resource("memory://info")(get_memory_info)
+    mcp.resource("memory://metrics")(get_memory_metrics)
+    mcp.resource("memory://stats")(get_memory_stats)
     # Phase 21: Cleanup Suggestions
-    mcp.resource("memory://cleanup")(impl.get_cleanup_suggestions)
+    mcp.resource("memory://cleanup")(get_cleanup_suggestions)
 
