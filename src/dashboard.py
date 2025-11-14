@@ -807,7 +807,8 @@ def register_http_routes(mcp, templates):
                 except Exception as e:
                     yield f"data: {json.dumps({'status': 'error', 'message': str(e)})}\n\n"
             
-            return StreamingResponse(event_stream(), media_type="text/event-stream")        except Exception as e:
+            return StreamingResponse(event_stream(), media_type="text/event-stream")
+        except Exception as e:
             return JSONResponse({
                 "success": False,
                 "error": str(e)
