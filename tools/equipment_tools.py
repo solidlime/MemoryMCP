@@ -1,13 +1,12 @@
-"""
-所持品管理ツール - 完全版実装
+"""Equipment Management Tools - Full Implementation
 
-提供機能:
-1. add_to_inventory: 所持品に追加
-2. remove_from_inventory: 所持品から削除
-3. equip_item: アイテムを装備（inventory → equipment）
-4. unequip_item: 装備を解除（equipment → inventory）
-5. search_inventory: 所持品検索
-6. get_equipment_history: 装備履歴取得
+Provides:
+1. add_to_inventory: Add items to inventory
+2. remove_from_inventory: Remove items from inventory
+3. equip_item: Equip items (inventory → equipment)
+4. unequip_item: Unequip items (equipment → persona_context)
+5. search_inventory: Search inventory
+6. get_equipment_history: Get equipment change history
 """
 
 from typing import Optional
@@ -21,28 +20,26 @@ def add_to_inventory(
     quantity: int = 1,
     category: str = "misc"
 ) -> str:
-    """
-    所持品にアイテムを追加する。
+    """Add item to inventory.
     
     Args:
-        item_name: アイテム名
-        description: アイテムの説明（オプション）
-        quantity: 追加する数量（デフォルト: 1）
-        category: カテゴリ（weapon, armor, consumable, misc など）
+        item_name: Item name
+        description: Item description (optional)
+        quantity: Quantity to add (default: 1)
+        category: Category (weapon, armor, consumable, clothing, accessory, misc)
     
     Returns:
-        追加結果のメッセージ
+        Result message
     
     Examples:
-        add_to_inventory("ポーション", "HP回復薬", 5, "consumable")
-        add_to_inventory("銀の剣", "魔物に有効な剣", 1, "weapon")
+        add_to_inventory("Health Potion", "Restores HP", 5, "consumable")
+        add_to_inventory("Steel Sword", "Sharp blade", 1, "weapon")
     """
     persona = get_current_persona()
     db = EquipmentDB(persona)
     
     item_id = db.add_to_inventory(item_name, quantity, description, category)
     
-    # 所持品リストを取得して確認
     inventory = db.get_inventory()
     item_data = next((i for i in inventory if i["item_id"] == item_id), None)
     
@@ -57,19 +54,18 @@ def remove_from_inventory(
     item_name: str,
     quantity: int = 1
 ) -> str:
-    """
-    所持品からアイテムを削除する。
+    """Remove item from inventory.
     
     Args:
-        item_name: アイテム名
-        quantity: 削除する数量（デフォルト: 1）
+        item_name: Item name
+        quantity: Quantity to remove (default: 1)
     
     Returns:
-        削除結果のメッセージ
+        Result message
     
     Examples:
-        remove_from_inventory("ポーション", 3)
-        remove_from_inventory("銀の剣")
+        remove_from_inventory("Health Potion", 3)
+        remove_from_inventory("Steel Sword")
     """
     persona = get_current_persona()
     db = EquipmentDB(persona)
@@ -86,27 +82,26 @@ def equip_item(
     item_name: str,
     slot: str
 ) -> str:
-    """
-    所持品からアイテムを装備する。
+    """Equip item from inventory.
     
-    アイテムは所持品に残り、persona_context.jsonのcurrent_equipmentに登録される。
-    装備履歴にも記録される。
+    Item remains in inventory. Updates persona_context.json current_equipment.
+    Logs to equipment history.
     
     Args:
-        item_name: 装備するアイテム名
-        slot: 装備スロット（weapon, armor, clothing, accessory など）
+        item_name: Item name to equip
+        slot: Equipment slot (weapon, armor, clothing, accessory, etc.)
     
     Returns:
-        装備結果のメッセージ
+        Result message
     
     Examples:
-        equip_item("銀の剣", "weapon")
-        equip_item("白いワンピース", "clothing")
+        equip_item("Steel Sword", "weapon")
+        equip_item("Leather Armor", "armor")
     """
     persona = get_current_persona()
     db = EquipmentDB(persona)
     
-    # アイテムが所持品にあるか確認
+    # Check if item exists in database
     item = db.get_item_by_name(item_name)
     if not item:
         return f"❌ Item '{item_name}' not found in database"
@@ -115,16 +110,16 @@ def equip_item(
     if not any(i["item_name"] == item_name for i in inventory):
         return f"❌ Item '{item_name}' not in inventory. Add it first with add_to_inventory()"
     
-    # persona_contextに装備を記録
+    # Update persona_context
     context = load_persona_context(persona)
     if "current_equipment" not in context:
         context["current_equipment"] = {}
     
     old_item = context["current_equipment"].get(slot)
     context["current_equipment"][slot] = item_name
-    save_persona_context(context, persona)
+    save_persona_context(persona, context)
     
-    # 装備履歴に記録
+    # Log to history
     db.log_equipment_change(slot, item_name, "equip")
     
     if old_item:
@@ -134,34 +129,33 @@ def equip_item(
 
 
 def unequip_item(slot: str) -> str:
-    """
-    装備を解除する。
+    """Unequip item.
     
-    アイテムは所持品に残る。persona_context.jsonから装備が削除される。
-    装備履歴にも記録される。
+    Item remains in inventory. Removes from persona_context.json.
+    Logs to equipment history.
     
     Args:
-        slot: 解除する装備スロット（weapon, armor, clothing, accessory など）
+        slot: Equipment slot to unequip (weapon, armor, clothing, accessory, etc.)
     
     Returns:
-        解除結果のメッセージ
+        Result message
     
     Examples:
         unequip_item("weapon")
-        unequip_item("clothing")
+        unequip_item("armor")
     """
     persona = get_current_persona()
     db = EquipmentDB(persona)
     
-    # persona_contextから装備を削除
+    # Remove from persona_context
     context = load_persona_context(persona)
     if "current_equipment" not in context or slot not in context["current_equipment"]:
         return f"❌ No item equipped in slot '{slot}'"
     
     old_item = context["current_equipment"].pop(slot)
-    save_persona_context(context, persona)
+    save_persona_context(persona, context)
     
-    # 装備履歴に記録
+    # Log to history
     db.log_equipment_change(slot, None, "unequip")
     
     return f"✅ Unequipped '{old_item}' from {slot}"
@@ -171,27 +165,26 @@ def search_inventory(
     query: str = None,
     category: str = None
 ) -> str:
-    """
-    所持品を検索する。
+    """Search inventory.
     
     Args:
-        query: 検索キーワード（アイテム名に部分一致、オプション）
-        category: カテゴリフィルタ（weapon, armor, consumable, misc など、オプション）
+        query: Search keyword (partial match on item name, optional)
+        category: Category filter (weapon, armor, consumable, clothing, accessory, misc)
     
     Returns:
-        所持品リストの整形済み文字列
+        Formatted inventory list
     
     Examples:
-        search_inventory()  # 全て表示
-        search_inventory(category="weapon")  # 武器のみ
-        search_inventory(query="剣")  # "剣"を含むアイテム
+        search_inventory()  # Show all
+        search_inventory(category="weapon")  # Weapons only
+        search_inventory(query="sword")  # Items containing "sword"
     """
     persona = get_current_persona()
     db = EquipmentDB(persona)
     
     inventory = db.get_inventory(category)
     
-    # クエリでフィルタ
+    # Filter by query
     if query:
         inventory = [
             item for item in inventory 
@@ -202,7 +195,7 @@ def search_inventory(
     if not inventory:
         return "📦 Inventory is empty"
     
-    # 整形して出力
+    # Format output
     lines = [f"📦 **Inventory** ({len(inventory)} items):\n"]
     for item in inventory:
         desc = f" - {item['description']}" if item["description"] else ""
@@ -218,19 +211,18 @@ def get_equipment_history(
     slot: str = None,
     days: int = 7
 ) -> str:
-    """
-    装備変更履歴を取得する。
+    """Get equipment change history.
     
     Args:
-        slot: スロット指定（オプション、指定すると特定スロットのみ）
-        days: 取得する日数（デフォルト: 7日）
+        slot: Slot filter (optional, shows specific slot only)
+        days: Number of days to retrieve (default: 7)
     
     Returns:
-        装備履歴の整形済み文字列
+        Formatted equipment history
     
     Examples:
-        get_equipment_history()  # 全スロットの7日分
-        get_equipment_history(slot="weapon", days=30)  # 武器スロットの30日分
+        get_equipment_history()  # All slots, last 7 days
+        get_equipment_history(slot="weapon", days=30)  # Weapon slot, last 30 days
     """
     persona = get_current_persona()
     db = EquipmentDB(persona)
@@ -241,7 +233,7 @@ def get_equipment_history(
         slot_str = f" for slot '{slot}'" if slot else ""
         return f"📜 No equipment history found{slot_str} in the last {days} days"
     
-    # 整形して出力
+    # Format output
     lines = [f"📜 **Equipment History** (last {days} days):\n"]
     for entry in history:
         action_icon = "⚔️" if entry["action"] == "equip" else "🔓"

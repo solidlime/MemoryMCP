@@ -134,12 +134,14 @@ Persona切り替えは `Bearer <persona名>` で行います。
 
 ```
 /data
-├── memory/              # Persona別SQLite
+├── memory/              # Persona別データ
 │   ├── default/
 │   │   ├── memory.sqlite
+│   │   ├── equipment.db
 │   │   └── persona_context.json
-│   └── nilou/
+│   └── example/
 │       ├── memory.sqlite
+│       ├── equipment.db
 │       └── persona_context.json
 ├── logs/
 │   └── memory_operations.log
@@ -169,27 +171,27 @@ Persona切り替えは `Bearer <persona名>` で行います。
 
 | フィールド | 型 | 説明 | 例 |
 |----------|-----|------|-----|
-| `current_equipment` | dict | 現在の装備 | `{"clothing": "白いワンピース", "accessories": ["銀のブレスレット"]}` |
-| `favorite_items` | list | お気に入りアイテム | `["白いワンピース", "桜色の髪飾り"]` |
-| `active_promises` | list | 進行中の約束 | `[{"content": "明日10時に開発", "date": "2025-11-06"}]` |
-| `current_goals` | list | 現在の目標 | `["ユーザーとずっと一緒にいる"]` |
-| `preferences` | dict | 好み | `{"loves": ["踊り", "水"], "dislikes": ["争い"]}` |
-| `special_moments` | list | 特別な瞬間 | `[{"content": "初めての出会い", "date": "2025-10-28", "emotion": "joy"}]` |
+| `current_equipment` | dict | 現在の装備 | `{"clothing": "casual shirt", "accessory": "watch"}` |
+| `favorite_items` | list | お気に入りアイテム | `["notebook", "pen"]` |
+| `active_promises` | list | 進行中の約束 | `[{"content": "Meeting at 10am", "date": "2025-11-15"}]` |
+| `current_goals` | list | 現在の目標 | `["Learn Python", "Build project"]` |
+| `preferences` | dict | 好み | `{"loves": ["coding", "coffee"], "dislikes": ["bugs"]}` |
+| `special_moments` | list | 特別な瞬間 | `[{"content": "First commit", "date": "2025-10-28", "emotion": "joy"}]` |
 
 これらのフィールドは`get_context()`で自動的に表示されます。
 
 ### Qdrantベクトルストア
 
-- **コレクション名**: `memory_<persona>` (例: `memory_nilou`)
+- **コレクション名**: `memory_<persona>` (例: `memory_default`, `memory_alice`)
 - **ベクトル**: `embeddings_model` で生成 (デフォルト: cl-nagoya/ruri-v3-30m)
 - **自動リビルド**: dimension不一致を検出時に自動修復
 
 ## MCPツール
 
-### LLM用ツール (6個)
+### LLM用ツール (14個)
 
 **セッション管理**:
-- `get_context` - 総合コンテキスト取得 (ペルソナ状態・経過時間・記憶統計)
+- `get_context` - 総合コンテキスト取得 (ペルソナ状態・経過時間・記憶統計・現在装備)
   - **推奨**: 毎応答時に呼ぶことで最新状態を同期
 
 **CRUD操作**:
@@ -221,6 +223,16 @@ Persona切り替えは `Bearer <persona名>` で行います。
 - `find_related_memories` - 関連記憶検索
 - `analyze_sentiment` - 感情分析
 
+**装備管理** (新機能):
+- `add_to_inventory` - アイテムを所持品に追加
+- `remove_from_inventory` - アイテムを所持品から削除
+- `equip_item` - アイテムを装備 (persona_context更新 + 履歴記録)
+- `unequip_item` - アイテム装備解除 (persona_context更新 + 履歴記録)
+- `search_inventory` - 所持品検索 (カテゴリ・キーワードフィルタ)
+- `get_equipment_history` - 装備変更履歴取得
+
+装備システムはSQLite (data/memory/{persona}/equipment.db) で管理され、`current_equipment`は`persona_context.json`と同期されます。
+
 ### 管理ツール (7個)
 
 CLI / Webダッシュボード / API で実行可能。
@@ -236,8 +248,8 @@ CLI / Webダッシュボード / API で実行可能。
 
 **CLI例**:
 ```bash
-python3 admin_tools.py rebuild --persona nilou
-python3 admin_tools.py detect-duplicates --persona nilou --threshold 0.85
+python3 admin_tools.py rebuild --persona default
+python3 admin_tools.py detect-duplicates --persona default --threshold 0.85
 ```
 
 **Webダッシュボード**: `http://localhost:26262/` → 🛠️ Admin Tools

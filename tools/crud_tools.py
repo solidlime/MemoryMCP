@@ -998,30 +998,30 @@ async def create_memory(
                      importance=0.8, context_tags=["technical_achievement"])
         
         # With equipment change
-        create_memory("らうらうがプレゼントしてくれた[[白いワンピース]]を着た", 
-                     persona_info={"current_equipment": {"clothing": "白いワンピース"}},
+        create_memory("Received [[white dress]] as gift and wore it", 
+                     persona_info={"current_equipment": {"clothing": "white dress"}},
                      emotion_type="love", emotion_intensity=0.95)
         
         # With promise
-        create_memory("らうらうと一緒に料理を作る約束をした",
-                     persona_info={"active_promises": "らうらうと料理を作る"},
+        create_memory("Made promise to cook together",
+                     persona_info={"active_promises": "Cook together with user"},
                      context_tags=["important_event"])
         
         # With goal
-        create_memory("新しいダンスの振り付けを完成させたい",
-                     persona_info={"current_goals": "ダンスの振り付けを完成させる"})
+        create_memory("Want to complete new dance choreography",
+                     persona_info={"current_goals": "Complete dance choreography"})
         
         # With action and environment
-        create_memory("らうらうと一緒にキッチンで料理をした",
+        create_memory("Cooked together in kitchen",
                      action_tag="cooking", environment="kitchen",
                      emotion_type="joy", emotion_intensity=0.8)
         
         # Complete example with multiple fields
-        create_memory("らうらうとビーチで散歩して、貝殻を集めた",
+        create_memory("Walked on beach and collected seashells",
                      emotion_type="joy", emotion_intensity=0.85,
                      physical_state="energetic", mental_state="joy",
                      environment="beach", action_tag="walking",
-                     persona_info={"favorite_items": ["貝殻", "海"]},
+                     persona_info={"favorite_items": ["seashells", "ocean"]},
                      context_tags=["emotional_moment"])
     """
     try:

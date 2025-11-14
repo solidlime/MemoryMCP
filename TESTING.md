@@ -83,12 +83,21 @@ python test_mcp_http.py
   ✅ Initialize: Memory Service v1.19.0
 
 🔧 Testing tools/list...
-  ✅ Found 5 tools:
+  ✅ Found 14 tools:
+     - get_context
      - create_memory
+     - update_memory
      - read_memory
      - search_memory
      - delete_memory
-     - get_context
+     - find_related_memories
+     - analyze_sentiment
+     - add_to_inventory
+     - remove_from_inventory
+     - equip_item
+     - unequip_item
+     - search_inventory
+     - get_equipment_history
 
 📋 Testing get_context...
   ✅ Session context retrieved
