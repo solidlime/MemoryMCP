@@ -748,7 +748,7 @@ def register_http_routes(mcp, templates):
                     "error": "Persona is required"
                 }, status_code=400)
             
-                async def event_stream():
+            async def event_stream():
                 try:
                     original_persona = current_persona.get()
                     current_persona.set(persona)
