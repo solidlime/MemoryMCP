@@ -16,6 +16,11 @@ def register_tools(mcp: Any) -> None:
     from tools.search_tools import search_memory
     from tools.analysis_tools import find_related_memories, analyze_sentiment
     from tools.context_tools import get_context
+    from tools.equipment_tools import (
+        add_to_inventory, remove_from_inventory, 
+        equip_item, unequip_item, 
+        search_inventory, get_equipment_history
+    )
     # from tools.summarization_tools import summarize_last_week, summarize_last_day  # 管理者ツールに移行
 
     # === LLM用ツール（会話中に使用） ===
@@ -39,6 +44,14 @@ def register_tools(mcp: Any) -> None:
     # 検索・分析
     mcp.tool()(find_related_memories)
     mcp.tool()(analyze_sentiment)
+    
+    # 所持品管理ツール（Phase 32）
+    mcp.tool()(add_to_inventory)
+    mcp.tool()(remove_from_inventory)
+    mcp.tool()(equip_item)
+    mcp.tool()(unequip_item)
+    mcp.tool()(search_inventory)
+    mcp.tool()(get_equipment_history)
     
     # Phase 28.4: 自己要約（メタメモリ）→ 管理者ツールに移行
     # mcp.tool()(summarize_last_week)  # ❌ LLM用ツールから除外
