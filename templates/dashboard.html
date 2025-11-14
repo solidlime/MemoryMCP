@@ -219,7 +219,9 @@
 
         // Persona selection change
         document.getElementById('personaSelect').addEventListener('change', async (e) => {
-            currentPersona = e.target.value;
+            const newPersona = e.target.value;
+            console.log(`Persona changed from "${currentPersona}" to "${newPersona}"`);
+            currentPersona = newPersona;
             await loadDashboardData(currentPersona);
         });
 
@@ -232,9 +234,14 @@
 
         // Load dashboard data
         async function loadDashboardData(persona) {
+            console.log(`Loading dashboard data for persona: ${persona}`);
             try {
                 const response = await fetch(`/api/dashboard/${persona}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
                 const data = await response.json();
+                console.log('Dashboard data loaded:', data);
                 
                 // Update Info
                 renderInfo(data.info);
@@ -250,6 +257,7 @@
                 
             } catch (error) {
                 console.error('Failed to load dashboard data:', error);
+                showAdminResult(`Failed to load data: ${error.message}`, true);
             }
         }
 
@@ -264,6 +272,7 @@
                     <p><span class="font-semibold">😊 Current Emotion:</span> ${info.current_emotion || 'neutral'}</p>
                     <p><span class="font-semibold">🏃 Physical State:</span> ${info.physical_state || 'normal'}</p>
                     <p><span class="font-semibold">🧠 Mental State:</span> ${info.mental_state || 'calm'}</p>
+                    <p><span class="font-semibold">🌟 Relationship:</span> ${info.relationship_status || 'normal'}</p>
                 </div>
             `;
         }
@@ -429,6 +438,10 @@
                 return;
             }
             
+            if (!confirm(`Clean memory "${key}" for persona "${currentPersona}"?\nThis will remove duplicate entries.`)) {
+                return;
+            }
+            
             try {
                 const response = await fetch('/api/admin/clean', {
                     method: 'POST',
@@ -507,6 +520,10 @@
             
             if (isNaN(threshold) || threshold < 0 || threshold > 1) {
                 showAdminResult('Error: Threshold must be between 0.0 and 1.0', true);
+                return;
+            }
+            
+            if (!confirm(`Detect duplicates with threshold ${threshold.toFixed(2)} for persona "${currentPersona}"?`)) {
                 return;
             }
             
