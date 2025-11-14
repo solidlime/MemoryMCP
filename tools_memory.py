@@ -19,6 +19,7 @@ def register_tools(mcp: Any) -> None:
     from tools.equipment_tools import (
         add_to_inventory, remove_from_inventory, 
         equip_item, unequip_item, 
+        update_item_info, change_equipment_slot,
         search_inventory, get_equipment_history
     )
     # from tools.summarization_tools import summarize_last_week, summarize_last_day  # 管理者ツールに移行
@@ -50,6 +51,8 @@ def register_tools(mcp: Any) -> None:
     mcp.tool()(remove_from_inventory)
     mcp.tool()(equip_item)
     mcp.tool()(unequip_item)
+    mcp.tool()(update_item_info)
+    mcp.tool()(change_equipment_slot)
     mcp.tool()(search_inventory)
     mcp.tool()(get_equipment_history)
     

@@ -144,6 +144,43 @@ class EquipmentDB:
             return existing["item_id"]
         return self.add_item(item_name, description, category)
     
+    def update_item_info(
+        self,
+        item_name: str,
+        description: str = None,
+        category: str = None
+    ) -> bool:
+        """アイテム情報を更新"""
+        item = self.get_item_by_name(item_name)
+        if not item:
+            return False
+        
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        updates = []
+        params = []
+        
+        if description is not None:
+            updates.append("description = ?")
+            params.append(description)
+        
+        if category is not None:
+            updates.append("category = ?")
+            params.append(category)
+        
+        if not updates:
+            conn.close()
+            return False
+        
+        params.append(item["item_id"])
+        query = f"UPDATE items SET {', '.join(updates)} WHERE item_id = ?"
+        
+        cursor.execute(query, params)
+        conn.commit()
+        conn.close()
+        return True
+    
     # ==================== 所持品管理 ====================
     
     def add_to_inventory(

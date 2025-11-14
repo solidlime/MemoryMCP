@@ -5,8 +5,10 @@ Provides:
 2. remove_from_inventory: Remove items from inventory
 3. equip_item: Equip items (inventory → equipment)
 4. unequip_item: Unequip items (equipment → persona_context)
-5. search_inventory: Search inventory
-6. get_equipment_history: Get equipment change history
+5. update_item_info: Update item description/category
+6. change_equipment_slot: Change equipment slot for equipped item
+7. search_inventory: Search inventory
+8. get_equipment_history: Get equipment change history
 """
 
 from typing import Optional
@@ -117,7 +119,7 @@ def equip_item(
     
     old_item = context["current_equipment"].get(slot)
     context["current_equipment"][slot] = item_name
-    save_persona_context(persona, context)
+    save_persona_context(context, persona)
     
     # Log to history
     db.log_equipment_change(slot, item_name, "equip")
@@ -153,12 +155,101 @@ def unequip_item(slot: str) -> str:
         return f"❌ No item equipped in slot '{slot}'"
     
     old_item = context["current_equipment"].pop(slot)
-    save_persona_context(persona, context)
+    save_persona_context(context, persona)
     
     # Log to history
     db.log_equipment_change(slot, None, "unequip")
     
     return f"✅ Unequipped '{old_item}' from {slot}"
+
+
+def update_item_info(
+    item_name: str,
+    description: str = None,
+    category: str = None
+) -> str:
+    """Update item information.
+    
+    Args:
+        item_name: Item name to update
+        description: New description (optional)
+        category: New category (optional)
+    
+    Returns:
+        Result message
+    
+    Examples:
+        update_item_info("Steel Sword", description="A very sharp blade")
+        update_item_info("Health Potion", category="consumable")
+        update_item_info("Magic Ring", "Increases mana", "accessory")
+    """
+    persona = get_current_persona()
+    db = EquipmentDB(persona)
+    
+    success = db.update_item_info(item_name, description, category)
+    
+    if success:
+        updates = []
+        if description is not None:
+            updates.append("description")
+        if category is not None:
+            updates.append("category")
+        return f"✅ Updated {', '.join(updates)} for '{item_name}'"
+    else:
+        return f"❌ Item '{item_name}' not found"
+
+
+def change_equipment_slot(
+    item_name: str,
+    new_slot: str
+) -> str:
+    """Change equipment slot for equipped item.
+    
+    Args:
+        item_name: Item name currently equipped
+        new_slot: New equipment slot
+    
+    Returns:
+        Result message
+    
+    Examples:
+        change_equipment_slot("Steel Sword", "accessory")
+        change_equipment_slot("Magic Ring", "weapon")
+    """
+    persona = get_current_persona()
+    db = EquipmentDB(persona)
+    
+    # Find current slot
+    context = load_persona_context(persona)
+    if "current_equipment" not in context:
+        return f"❌ Item '{item_name}' is not equipped"
+    
+    old_slot = None
+    for slot, equipped_item in context["current_equipment"].items():
+        if equipped_item == item_name:
+            old_slot = slot
+            break
+    
+    if not old_slot:
+        return f"❌ Item '{item_name}' is not equipped"
+    
+    if old_slot == new_slot:
+        return f"⚠️ Item '{item_name}' is already in slot '{new_slot}'"
+    
+    # Move to new slot
+    context["current_equipment"].pop(old_slot)
+    old_item_in_new_slot = context["current_equipment"].get(new_slot)
+    context["current_equipment"][new_slot] = item_name
+    save_persona_context(context, persona)
+    
+    # Log changes
+    db.log_equipment_change(old_slot, None, "unequip")
+    db.log_equipment_change(new_slot, item_name, "equip")
+    
+    if old_item_in_new_slot:
+        return f"✅ Moved '{item_name}' from {old_slot} to {new_slot} (replaced '{old_item_in_new_slot}')"
+    else:
+        return f"✅ Moved '{item_name}' from {old_slot} to {new_slot}"
 
 
 def search_inventory(
