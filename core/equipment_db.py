@@ -5,6 +5,8 @@
 - items: アイテムマスター（全アイテムの定義）
 - inventory: 所持品リスト（persona別の所持数量）
 - equipment_history: 装備履歴（装備/解除のログ）
+
+Note: item.sqliteはmemory.sqliteと同じディレクトリに保存される
 """
 
 import sqlite3
@@ -16,10 +18,25 @@ from .time_utils import get_current_time
 
 
 def get_equipment_db_path(persona: str) -> Path:
-    """ペルソナ別の装備DBパスを取得"""
-    base_dir = Path("data/memory") / persona
-    base_dir.mkdir(parents=True, exist_ok=True)
-    return base_dir / "equipment.db"
+    """ペルソナ別の装備DBパスを取得
+    
+    memory.sqliteと同じディレクトリにitem.sqliteとして保存
+    Docker環境でもホストマウントされるディレクトリ
+    """
+    from src.utils.persona_utils import get_persona_dir
+    persona_dir = Path(get_persona_dir(persona))
+    new_path = persona_dir / "item.sqlite"
+    
+    # Legacy migration: equipment.db -> item.sqlite
+    legacy_path = persona_dir / "equipment.db"
+    if legacy_path.exists() and not new_path.exists():
+        try:
+            legacy_path.rename(new_path)
+            print(f"✅ Migrated {legacy_path} -> {new_path}")
+        except Exception as e:
+            print(f"⚠️ Failed to migrate equipment.db: {e}")
+    
+    return new_path
 
 
 def init_equipment_db(persona: str) -> None:

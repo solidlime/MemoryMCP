@@ -294,6 +294,17 @@
         function renderInfo(info) {
             const content = document.getElementById('infoContent');
             content.classList.remove('loading');
+            
+            // 装備品表示を作成
+            let equipmentHtml = '';
+            if (info.current_equipment && Object.keys(info.current_equipment).length > 0) {
+                equipmentHtml = '<div class="mt-3 pt-3 border-t border-white/20"><p class="font-semibold mb-2">👗 Current Equipment:</p><div class="space-y-1 text-sm">';
+                for (const [slot, item] of Object.entries(info.current_equipment)) {
+                    equipmentHtml += `<p class="ml-2">⚔️ <span class="text-purple-200">${slot}:</span> ${item}</p>`;
+                }
+                equipmentHtml += '</div></div>';
+            }
+            
             content.innerHTML = `
                 <div class="space-y-2">
                     <p class="text-lg"><span class="font-semibold">💭 Total Memories:</span> ${info.total_memories || 0}</p>
@@ -303,6 +314,7 @@
                     <p><span class="font-semibold">🏃 Physical State:</span> ${info.physical_state || 'normal'}</p>
                     <p><span class="font-semibold">🧠 Mental State:</span> ${info.mental_state || 'calm'}</p>
                     <p><span class="font-semibold">🌟 Relationship:</span> ${info.relationship_status || 'normal'}</p>
+                    ${equipmentHtml}
                 </div>
             `;
         }
