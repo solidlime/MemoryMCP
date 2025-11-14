@@ -20,7 +20,8 @@ def add_to_inventory(
     item_name: str,
     description: str = None,
     quantity: int = 1,
-    category: str = "misc"
+    category: str = "misc",
+    tags: list = None
 ) -> str:
     """Add item to inventory.
     
@@ -29,6 +30,7 @@ def add_to_inventory(
         description: Item description (optional)
         quantity: Quantity to add (default: 1)
         category: Category (weapon, armor, consumable, clothing, accessory, misc)
+        tags: Tags for grouping items (optional, e.g., ["星月の祈り", "clothing_set"])
     
     Returns:
         Result message
@@ -36,18 +38,20 @@ def add_to_inventory(
     Examples:
         add_to_inventory("Health Potion", "Restores HP", 5, "consumable")
         add_to_inventory("Steel Sword", "Sharp blade", 1, "weapon")
+        add_to_inventory("White Dress", "Beautiful dress", 1, "clothing", ["星月の祈り"])
     """
     persona = get_current_persona()
     db = EquipmentDB(persona)
     
-    item_id = db.add_to_inventory(item_name, quantity, description, category)
+    item_id = db.add_to_inventory(item_name, quantity, description, category, tags)
     
     inventory = db.get_inventory()
     item_data = next((i for i in inventory if i["item_id"] == item_id), None)
     
     if item_data:
         total_qty = item_data["quantity"]
-        return f"✅ Added {quantity}x '{item_name}' to inventory (total: {total_qty})"
+        tags_str = f" 🏷️{tags}" if tags else ""
+        return f"✅ Added {quantity}x '{item_name}' to inventory (total: {total_qty}){tags_str}"
     else:
         return f"⚠️ Failed to add '{item_name}' to inventory"
 
@@ -86,8 +90,7 @@ def equip_item(
 ) -> str:
     """Equip item from inventory.
     
-    Item remains in inventory. Updates persona_context.json current_equipment.
-    Logs to equipment history.
+    Sets equipped flag in database only. persona_context.json will be updated on get_context().
     
     Args:
         item_name: Item name to equip
@@ -103,31 +106,18 @@ def equip_item(
     persona = get_current_persona()
     db = EquipmentDB(persona)
     
-    # Check if item exists in database
-    item = db.get_item_by_name(item_name)
-    if not item:
-        return f"❌ Item '{item_name}' not found in database"
-    
+    # Check if item exists in inventory
     inventory = db.get_inventory()
     if not any(i["item_name"] == item_name for i in inventory):
         return f"❌ Item '{item_name}' not in inventory. Add it first with add_to_inventory()"
     
-    # Update persona_context
-    context = load_persona_context(persona)
-    if "current_equipment" not in context:
-        context["current_equipment"] = {}
+    # Equip item (flag only)
+    success = db.equip_item(item_name, slot)
     
-    old_item = context["current_equipment"].get(slot)
-    context["current_equipment"][slot] = item_name
-    save_persona_context(context, persona)
-    
-    # Log to history
-    db.log_equipment_change(slot, item_name, "equip")
-    
-    if old_item:
-        return f"✅ Equipped '{item_name}' to {slot} (replaced '{old_item}')"
-    else:
+    if success:
         return f"✅ Equipped '{item_name}' to {slot}"
+    else:
+        return f"❌ Failed to equip '{item_name}'"
 
 
 def unequip_item(slot: str) -> str:
@@ -163,104 +153,90 @@ def unequip_item(slot: str) -> str:
     return f"✅ Unequipped '{old_item}' from {slot}"
 
 
-def update_item_info(
+def update_item(
     item_name: str,
     description: str = None,
-    category: str = None
+    category: str = None,
+    tags: list = None,
+    new_slot: str = None
 ) -> str:
-    """Update item information.
+    """Update item information and/or change equipment slot.
+    
+    Can update item metadata (description, category, tags) and change equipped slot.
+    All parameters are optional - specify only what you want to change.
     
     Args:
         item_name: Item name to update
         description: New description (optional)
         category: New category (optional)
+        tags: New tags list (optional)
+        new_slot: New equipment slot if currently equipped (optional)
     
     Returns:
         Result message
     
     Examples:
-        update_item_info("Steel Sword", description="A very sharp blade")
-        update_item_info("Health Potion", category="consumable")
-        update_item_info("Magic Ring", "Increases mana", "accessory")
+        update_item("Steel Sword", description="A very sharp blade")
+        update_item("Health Potion", category="consumable", tags=["healing"])
+        update_item("White Dress", tags=["星月の祈り", "clothing_set"])
+        update_item("Magic Ring", new_slot="weapon")  # Change equipped slot
     """
     persona = get_current_persona()
     db = EquipmentDB(persona)
     
-    success = db.update_item_info(item_name, description, category)
+    updates = []
     
-    if success:
-        updates = []
+    # Update item metadata
+    if description is not None or category is not None or tags is not None:
+        success = db.update_item_info(item_name, description, category, tags)
+        if not success:
+            return f"❌ Item '{item_name}' not found"
+        
         if description is not None:
             updates.append("description")
         if category is not None:
             updates.append("category")
+        if tags is not None:
+            updates.append("tags")
+    
+    # Change equipment slot if specified
+    if new_slot is not None:
+        # Check if item is currently equipped
+        equipped = db.get_equipped_items()
+        old_slot = None
+        for slot, name in equipped.items():
+            if name == item_name:
+                old_slot = slot
+                break
+        
+        if not old_slot:
+            return f"❌ Item '{item_name}' is not equipped"
+        
+        if old_slot == new_slot:
+            return f"⚠️ Item '{item_name}' is already in slot '{new_slot}'"
+        
+        # Unequip from old slot and equip to new slot
+        db.unequip_item(old_slot)
+        db.equip_item(item_name, new_slot)
+        updates.append(f"slot: {old_slot} → {new_slot}")
+    
+    if updates:
         return f"✅ Updated {', '.join(updates)} for '{item_name}'"
     else:
-        return f"❌ Item '{item_name}' not found"
-
-
-def change_equipment_slot(
-    item_name: str,
-    new_slot: str
-) -> str:
-    """Change equipment slot for equipped item.
-    
-    Args:
-        item_name: Item name currently equipped
-        new_slot: New equipment slot
-    
-    Returns:
-        Result message
-    
-    Examples:
-        change_equipment_slot("Steel Sword", "accessory")
-        change_equipment_slot("Magic Ring", "weapon")
-    """
-    persona = get_current_persona()
-    db = EquipmentDB(persona)
-    
-    # Find current slot
-    context = load_persona_context(persona)
-    if "current_equipment" not in context:
-        return f"❌ Item '{item_name}' is not equipped"
-    
-    old_slot = None
-    for slot, equipped_item in context["current_equipment"].items():
-        if equipped_item == item_name:
-            old_slot = slot
-            break
-    
-    if not old_slot:
-        return f"❌ Item '{item_name}' is not equipped"
-    
-    if old_slot == new_slot:
-        return f"⚠️ Item '{item_name}' is already in slot '{new_slot}'"
-    
-    # Move to new slot
-    context["current_equipment"].pop(old_slot)
-    old_item_in_new_slot = context["current_equipment"].get(new_slot)
-    context["current_equipment"][new_slot] = item_name
-    save_persona_context(context, persona)
-    
-    # Log changes
-    db.log_equipment_change(old_slot, None, "unequip")
-    db.log_equipment_change(new_slot, item_name, "equip")
-    
-    if old_item_in_new_slot:
-        return f"✅ Moved '{item_name}' from {old_slot} to {new_slot} (replaced '{old_item_in_new_slot}')"
-    else:
-        return f"✅ Moved '{item_name}' from {old_slot} to {new_slot}"
+        return f"⚠️ No changes specified for '{item_name}'"
 
 
 def search_inventory(
     query: str = None,
-    category: str = None
+    category: str = None,
+    tags: list = None
 ) -> str:
     """Search inventory.
     
     Args:
         query: Search keyword (partial match on item name, optional)
         category: Category filter (weapon, armor, consumable, clothing, accessory, misc)
+        tags: Tag filter (match any of the specified tags, optional)
     
     Returns:
         Formatted inventory list
@@ -269,11 +245,12 @@ def search_inventory(
         search_inventory()  # Show all
         search_inventory(category="weapon")  # Weapons only
         search_inventory(query="sword")  # Items containing "sword"
+        search_inventory(tags=["星月の祈り"])  # Items with specific tag
     """
     persona = get_current_persona()
     db = EquipmentDB(persona)
     
-    inventory = db.get_inventory(category)
+    inventory = db.get_inventory(category, tags)
     
     # Filter by query
     if query:
@@ -290,9 +267,11 @@ def search_inventory(
     lines = [f"📦 **Inventory** ({len(inventory)} items):\n"]
     for item in inventory:
         desc = f" - {item['description']}" if item["description"] else ""
+        tags_str = f" 🏷️{item['tags']}" if item.get('tags') else ""
+        equipped_str = f" ⚔️[{item['equipped_slot']}]" if item.get('is_equipped') else ""
         lines.append(
             f"- **{item['item_name']}** x{item['quantity']} "
-            f"[{item['category']}]{desc}"
+            f"[{item['category']}]{desc}{tags_str}{equipped_str}"
         )
     
     return "\n".join(lines)

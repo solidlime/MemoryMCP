@@ -34,6 +34,14 @@ async def get_context() -> str:
         # ===== PART 1: Persona Context =====
         context = load_persona_context(persona)
         
+        # Load equipment state from DB and update context
+        from core.equipment_db import EquipmentDB
+        db = EquipmentDB(persona)
+        equipped_items = db.get_equipped_items()
+        if equipped_items:
+            context['current_equipment'] = equipped_items
+            save_persona_context(context, persona)
+        
         result = f"📋 Context (persona: {persona})\n"
         result += "=" * 60 + "\n\n"
         

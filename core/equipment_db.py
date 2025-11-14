@@ -35,6 +35,7 @@ def init_equipment_db(persona: str) -> None:
             item_name TEXT NOT NULL,
             description TEXT,
             category TEXT,
+            tags TEXT,
             created_at TEXT NOT NULL
         )
     """)
@@ -45,6 +46,8 @@ def init_equipment_db(persona: str) -> None:
             persona TEXT NOT NULL,
             item_id TEXT NOT NULL,
             quantity INTEGER DEFAULT 1,
+            is_equipped INTEGER DEFAULT 0,
+            equipped_slot TEXT,
             acquired_at TEXT NOT NULL,
             PRIMARY KEY (persona, item_id),
             FOREIGN KEY (item_id) REFERENCES items(item_id)
@@ -74,8 +77,36 @@ def init_equipment_db(persona: str) -> None:
         ON equipment_history(persona, timestamp)
     """)
     
+    # マイグレーション: 既存DBに新カラムを追加
+    _migrate_equipment_db(conn)
+    
     conn.commit()
     conn.close()
+
+
+def _migrate_equipment_db(conn: sqlite3.Connection) -> None:
+    """既存DBスキーマをマイグレーション"""
+    cursor = conn.cursor()
+    
+    # items テーブルに tags カラムがあるか確認
+    cursor.execute("PRAGMA table_info(items)")
+    columns = [row[1] for row in cursor.fetchall()]
+    
+    if "tags" not in columns:
+        cursor.execute("ALTER TABLE items ADD COLUMN tags TEXT")
+        conn.commit()
+    
+    # inventory テーブルに is_equipped, equipped_slot カラムがあるか確認
+    cursor.execute("PRAGMA table_info(inventory)")
+    columns = [row[1] for row in cursor.fetchall()]
+    
+    if "is_equipped" not in columns:
+        cursor.execute("ALTER TABLE inventory ADD COLUMN is_equipped INTEGER DEFAULT 0")
+        conn.commit()
+    
+    if "equipped_slot" not in columns:
+        cursor.execute("ALTER TABLE inventory ADD COLUMN equipped_slot TEXT")
+        conn.commit()
 
 
 class EquipmentDB:
@@ -98,19 +129,22 @@ class EquipmentDB:
         self, 
         item_name: str, 
         description: str = None, 
-        category: str = "misc"
+        category: str = "misc",
+        tags: list = None
     ) -> str:
         """アイテムマスターに新規アイテムを追加"""
+        import json
         item_id = str(uuid.uuid4())
         created_at = get_current_time().isoformat()
+        tags_json = json.dumps(tags or [], ensure_ascii=False)
         
         conn = self._get_connection()
         cursor = conn.cursor()
         
         cursor.execute("""
-            INSERT INTO items (item_id, item_name, description, category, created_at)
-            VALUES (?, ?, ?, ?, ?)
-        """, (item_id, item_name, description, category, created_at))
+            INSERT INTO items (item_id, item_name, description, category, tags, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (item_id, item_name, description, category, tags_json, created_at))
         
         conn.commit()
         conn.close()
@@ -136,21 +170,24 @@ class EquipmentDB:
         self, 
         item_name: str, 
         description: str = None, 
-        category: str = "misc"
+        category: str = "misc",
+        tags: list = None
     ) -> str:
         """アイテムを取得、存在しなければ作成"""
         existing = self.get_item_by_name(item_name)
         if existing:
             return existing["item_id"]
-        return self.add_item(item_name, description, category)
+        return self.add_item(item_name, description, category, tags)
     
     def update_item_info(
         self,
         item_name: str,
         description: str = None,
-        category: str = None
+        category: str = None,
+        tags: list = None
     ) -> bool:
         """アイテム情報を更新"""
+        import json
         item = self.get_item_by_name(item_name)
         if not item:
             return False
@@ -168,6 +205,10 @@ class EquipmentDB:
         if category is not None:
             updates.append("category = ?")
             params.append(category)
+        
+        if tags is not None:
+            updates.append("tags = ?")
+            params.append(json.dumps(tags, ensure_ascii=False))
         
         if not updates:
             conn.close()
@@ -188,10 +229,11 @@ class EquipmentDB:
         item_name: str, 
         quantity: int = 1,
         description: str = None,
-        category: str = "misc"
+        category: str = "misc",
+        tags: list = None
     ) -> str:
         """所持品に追加"""
-        item_id = self.get_or_create_item(item_name, description, category)
+        item_id = self.get_or_create_item(item_name, description, category, tags)
         acquired_at = get_current_time().isoformat()
         
         conn = self._get_connection()
@@ -249,14 +291,15 @@ class EquipmentDB:
         conn.close()
         return True
     
-    def get_inventory(self, category: str = None) -> List[Dict[str, Any]]:
+    def get_inventory(self, category: str = None, tags: list = None) -> List[Dict[str, Any]]:
         """所持品リストを取得"""
+        import json
         conn = self._get_connection()
         cursor = conn.cursor()
         
         if category:
             cursor.execute("""
-                SELECT i.*, inv.quantity, inv.acquired_at
+                SELECT i.*, inv.quantity, inv.is_equipped, inv.equipped_slot, inv.acquired_at
                 FROM items i
                 JOIN inventory inv ON i.item_id = inv.item_id
                 WHERE inv.persona = ? AND i.category = ?
@@ -264,7 +307,7 @@ class EquipmentDB:
             """, (self.persona, category))
         else:
             cursor.execute("""
-                SELECT i.*, inv.quantity, inv.acquired_at
+                SELECT i.*, inv.quantity, inv.is_equipped, inv.equipped_slot, inv.acquired_at
                 FROM items i
                 JOIN inventory inv ON i.item_id = inv.item_id
                 WHERE inv.persona = ?
@@ -274,7 +317,101 @@ class EquipmentDB:
         rows = cursor.fetchall()
         conn.close()
         
-        return [dict(row) for row in rows]
+        items = []
+        for row in rows:
+            item = dict(row)
+            # tags を JSON から list に変換
+            if item.get("tags"):
+                try:
+                    item["tags"] = json.loads(item["tags"])
+                except:
+                    item["tags"] = []
+            else:
+                item["tags"] = []
+            
+            # タグフィルタがある場合は絞り込み
+            if tags:
+                if not any(tag in item["tags"] for tag in tags):
+                    continue
+            
+            items.append(item)
+        
+        return items
+    
+    def equip_item(self, item_name: str, slot: str) -> bool:
+        """アイテムを装備（フラグのみ変更）"""
+        item = self.get_item_by_name(item_name)
+        if not item:
+            return False
+        
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        # 該当アイテムを装備状態にする
+        cursor.execute("""
+            UPDATE inventory
+            SET is_equipped = 1, equipped_slot = ?
+            WHERE persona = ? AND item_id = ?
+        """, (slot, self.persona, item["item_id"]))
+        
+        affected = cursor.rowcount
+        conn.commit()
+        conn.close()
+        
+        if affected > 0:
+            self.log_equipment_change(slot, item_name, "equip")
+            return True
+        return False
+    
+    def unequip_item(self, slot: str) -> Optional[str]:
+        """アイテムを装備解除（フラグのみ変更）"""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        # 該当スロットの装備を探す
+        cursor.execute("""
+            SELECT i.item_name
+            FROM inventory inv
+            JOIN items i ON inv.item_id = i.item_id
+            WHERE inv.persona = ? AND inv.equipped_slot = ? AND inv.is_equipped = 1
+        """, (self.persona, slot))
+        
+        row = cursor.fetchone()
+        if not row:
+            conn.close()
+            return None
+        
+        item_name = row["item_name"]
+        
+        # 装備解除
+        cursor.execute("""
+            UPDATE inventory
+            SET is_equipped = 0, equipped_slot = NULL
+            WHERE persona = ? AND equipped_slot = ? AND is_equipped = 1
+        """, (self.persona, slot))
+        
+        conn.commit()
+        conn.close()
+        
+        self.log_equipment_change(slot, None, "unequip")
+        return item_name
+    
+    def get_equipped_items(self) -> Dict[str, str]:
+        """現在装備中のアイテム一覧を取得"""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT inv.equipped_slot, i.item_name
+            FROM inventory inv
+            JOIN items i ON inv.item_id = i.item_id
+            WHERE inv.persona = ? AND inv.is_equipped = 1
+        """, (self.persona,))
+        
+        rows = cursor.fetchall()
+        conn.close()
+        
+        return {row["equipped_slot"]: row["item_name"] for row in rows}
     
     # ==================== 装備履歴管理 ====================
     
