@@ -501,7 +501,8 @@ def _filter_and_score_documents(
                 # Recency score: 1.0 for today, decreases over time (0 after 1 year)
                 recency_score = max(0, 1 - days_ago / 365.0)
                 final_score += recency_weight * recency_score
-            except:
+            except (ValueError, TypeError) as e:
+                # Date parsing failed, skip recency scoring
                 pass
         
         doc.metadata["final_score"] = final_score
@@ -665,7 +666,7 @@ def _format_memory_results(
                         related_keys_list = json.loads(related_keys_json)
                         if related_keys_list:
                             meta_parts.append(f"🔗{len(related_keys_list)}")
-                    except:
+                    except (json.JSONDecodeError, TypeError):
                         pass
                 
                 meta_str = f" [{', '.join(meta_parts)}]" if meta_parts else ""
@@ -911,7 +912,7 @@ async def get_memory_stats() -> str:
                 try:
                     tags = json.loads(tags_json)
                     all_tags.extend(tags)
-                except:
+                except (json.JSONDecodeError, TypeError):
                     pass
             
             tag_counts = {}

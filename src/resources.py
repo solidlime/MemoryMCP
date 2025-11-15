@@ -170,7 +170,7 @@ def get_memory_stats() -> str:
                 try:
                     tags_list = json.loads(tags_json)
                     tag_counter.update(tags_list)
-                except:
+                except (json.JSONDecodeError, TypeError):
                     pass
             
             # ========== Emotion Distribution ==========

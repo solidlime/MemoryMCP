@@ -13,7 +13,7 @@ import sqlite3
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 from .time_utils import get_current_time
 
 
@@ -341,7 +341,7 @@ class EquipmentDB:
             if item.get("tags"):
                 try:
                     item["tags"] = json.loads(item["tags"])
-                except:
+                except (json.JSONDecodeError, TypeError):
                     item["tags"] = []
             else:
                 item["tags"] = []
@@ -380,6 +380,26 @@ class EquipmentDB:
             return True
         return False
     
+    def equip_items_batch(self, equipment_dict: Dict[str, str]) -> Dict[str, bool]:
+        """複数のアイテムを一括装備（全装備リセット後に実行）
+        
+        Args:
+            equipment_dict: {slot: item_name} の辞書
+        
+        Returns:
+            Dict[str, bool]: 各スロットの装備成否
+        """
+        results = {}
+        
+        for slot, item_name in equipment_dict.items():
+            if item_name:  # item_nameがNoneや空文字でない場合のみ装備
+                success = self.equip_item(item_name, slot)
+                results[slot] = success
+            else:
+                results[slot] = True  # 空スロットは成功扱い
+        
+        return results
+    
     def unequip_item(self, slot: str) -> Optional[str]:
         """アイテムを装備解除（フラグのみ変更）"""
         conn = self._get_connection()
@@ -412,6 +432,42 @@ class EquipmentDB:
         
         self.log_equipment_change(slot, None, "unequip")
         return item_name
+
+    def unequip_all(self) -> List[Tuple[str, str]]:
+        """全てのアイテムを装備解除（フラグのみ変更）
+        
+        Returns:
+            List[Tuple[str, str]]: 解除されたアイテムの(slot, item_name)のリスト
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        # 現在装備中のアイテムを取得
+        cursor.execute("""
+            SELECT inv.equipped_slot, i.item_name
+            FROM inventory inv
+            JOIN items i ON inv.item_id = i.item_id
+            WHERE inv.persona = ? AND inv.is_equipped = 1
+        """, (self.persona,))
+        
+        equipped_items = [(row["equipped_slot"], row["item_name"]) for row in cursor.fetchall()]
+        
+        if equipped_items:
+            # 全ての装備を解除
+            cursor.execute("""
+                UPDATE inventory
+                SET is_equipped = 0, equipped_slot = NULL
+                WHERE persona = ? AND is_equipped = 1
+            """, (self.persona,))
+            
+            conn.commit()
+            
+            # 各装備解除をログに記録
+            for slot, item_name in equipped_items:
+                self.log_equipment_change(slot, None, "unequip")
+        
+        conn.close()
+        return equipped_items
     
     def get_equipped_items(self) -> Dict[str, str]:
         """現在装備中のアイテム一覧を取得"""

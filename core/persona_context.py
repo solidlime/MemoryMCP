@@ -10,11 +10,7 @@ import shutil
 from typing import Optional
 
 from src.utils.persona_utils import get_current_persona, get_persona_context_path
-
-
-def _log_progress(message: str) -> None:
-    """Internal logging function."""
-    print(message, flush=True)
+from src.utils.logging_utils import log_progress
 
 
 def load_persona_context(persona: Optional[str] = None) -> dict:
@@ -58,15 +54,15 @@ def load_persona_context(persona: Optional[str] = None) -> dict:
         if os.path.exists(context_path):
             with open(context_path, 'r', encoding='utf-8') as f:
                 context = json.load(f)
-                _log_progress(f"✅ Loaded persona context from {context_path}")
+                log_progress(f"✅ Loaded persona context from {context_path}")
                 return context
         else:
             # Create default context file
             save_persona_context(default_context, persona)
-            _log_progress(f"✅ Created default persona context at {context_path}")
+            log_progress(f"✅ Created default persona context at {context_path}")
             return default_context
     except Exception as e:
-        _log_progress(f"❌ Failed to load persona context: {e}")
+        log_progress(f"❌ Failed to load persona context: {e}")
         return default_context
 
 
@@ -96,8 +92,8 @@ def save_persona_context(context: dict, persona: Optional[str] = None) -> bool:
         with open(context_path, 'w', encoding='utf-8') as f:
             json.dump(context, f, indent=2, ensure_ascii=False)
         
-        _log_progress(f"✅ Saved persona context to {context_path}")
+        log_progress(f"✅ Saved persona context to {context_path}")
         return True
     except Exception as e:
-        _log_progress(f"❌ Failed to save persona context: {e}")
+        log_progress(f"❌ Failed to save persona context: {e}")
         return False

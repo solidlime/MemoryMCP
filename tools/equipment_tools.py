@@ -11,7 +11,7 @@ Provides:
 8. get_equipment_history: Get equipment change history
 """
 
-from typing import Optional
+from typing import Optional, Tuple
 from core.equipment_db import EquipmentDB
 from core.persona_context import get_current_persona, load_persona_context, save_persona_context
 
@@ -85,39 +85,61 @@ def remove_from_inventory(
 
 
 def equip_item(
-    item_name: str,
-    slot: str
+    equipment: dict[str, str]
 ) -> str:
-    """Equip item from inventory.
+    """Equip items from inventory (batch mode).
     
-    Sets equipped flag in database only. persona_context.json will be updated on get_context().
+    Unequips all current equipment first, then equips specified items.
+    Prevents forgetting to unequip previous items when changing outfits.
     
     Args:
-        item_name: Item name to equip
-        slot: Equipment slot (weapon, armor, clothing, accessory, etc.)
+        equipment: Dictionary of {slot: item_name}
+                   Example: {"top": "囁きのシフォンドレス", "foot": "蓮花サンダル"}
     
     Returns:
         Result message
     
     Examples:
-        equip_item("Steel Sword", "weapon")
-        equip_item("Leather Armor", "armor")
+        equip_item({"weapon": "Steel Sword", "armor": "Leather Armor"})
+        equip_item({"top": "白いドレス", "foot": "サンダル"})
     """
     persona = get_current_persona()
     db = EquipmentDB(persona)
     
-    # Check if item exists in inventory
+    # Check if all items exist in inventory
     inventory = db.get_inventory()
-    if not any(i["item_name"] == item_name for i in inventory):
-        return f"❌ Item '{item_name}' not in inventory. Add it first with add_to_inventory()"
+    inventory_items = {i["item_name"] for i in inventory}
     
-    # Equip item (flag only)
-    success = db.equip_item(item_name, slot)
+    missing_items = []
+    for slot, item_name in equipment.items():
+        if item_name and item_name not in inventory_items:
+            missing_items.append(item_name)
     
-    if success:
-        return f"✅ Equipped '{item_name}' to {slot}"
-    else:
-        return f"❌ Failed to equip '{item_name}'"
+    if missing_items:
+        return f"❌ Items not in inventory: {', '.join(missing_items)}. Add them first with add_to_inventory()"
+    
+    # Unequip all current equipment
+    unequipped = db.unequip_all()
+    
+    # Equip new items
+    results = db.equip_items_batch(equipment)
+    
+    # Format result message
+    success_items = [f"{slot}: {item}" for slot, item in equipment.items() if results.get(slot, False)]
+    failed_items = [f"{slot}: {item}" for slot, item in equipment.items() if not results.get(slot, True)]
+    
+    message_parts = []
+    if unequipped:
+        unequipped_str = ", ".join([f"{slot}({item})" for slot, item in unequipped])
+        message_parts.append(f"🔄 Unequipped: {unequipped_str}")
+    
+    if success_items:
+        message_parts.append(f"✅ Equipped: {', '.join(success_items)}")
+    
+    if failed_items:
+        message_parts.append(f"❌ Failed: {', '.join(failed_items)}")
+    
+    return "\n".join(message_parts) if message_parts else "✅ Equipment reset completed"
 
 
 def unequip_item(slot: str) -> str:
@@ -234,7 +256,7 @@ def search_inventory(
     """Search inventory.
     
     Args:
-        query: Search keyword (partial match on item name, optional)
+        query: Search keyword (partial match on item name, description, and tags)
         category: Category filter (weapon, armor, consumable, clothing, accessory, misc)
         tags: Tag filter (match any of the specified tags, optional)
     
@@ -244,7 +266,7 @@ def search_inventory(
     Examples:
         search_inventory()  # Show all
         search_inventory(category="weapon")  # Weapons only
-        search_inventory(query="sword")  # Items containing "sword"
+        search_inventory(query="sword")  # Items containing "sword" in name, desc, or tags
         search_inventory(tags=["星月の祈り"])  # Items with specific tag
     """
     persona = get_current_persona()
@@ -252,12 +274,13 @@ def search_inventory(
     
     inventory = db.get_inventory(category, tags)
     
-    # Filter by query
+    # Filter by query - search in name, description, AND tags
     if query:
         inventory = [
             item for item in inventory 
             if query.lower() in item["item_name"].lower() or 
-               (item["description"] and query.lower() in item["description"].lower())
+               (item["description"] and query.lower() in item["description"].lower()) or
+               any(query.lower() in tag.lower() for tag in item.get("tags", []))
         ]
     
     if not inventory:

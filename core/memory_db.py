@@ -12,11 +12,7 @@ from datetime import datetime
 from typing import Optional, List, Dict, Any
 
 from src.utils.persona_utils import get_current_persona, get_db_path
-
-
-def _log_progress(message: str) -> None:
-    """Internal logging function."""
-    print(message, flush=True)
+from src.utils.logging_utils import log_progress
 
 
 def load_memory_from_db() -> Dict[str, Any]:

@@ -116,7 +116,7 @@ def _get_memory_metrics_data(persona: str) -> dict:
                 try:
                     tags_list = json.loads(tags_json)
                     tag_counter.update(tags_list)
-                except:
+                except (json.JSONDecodeError, TypeError):
                     pass
             
             # Emotion distribution from memory emotion column
@@ -182,7 +182,7 @@ def _get_memory_stats_data(persona: str) -> dict:
                 try:
                     tags_list = json.loads(tags_json)
                     tag_counter.update(tags_list)
-                except:
+                except (json.JSONDecodeError, TypeError):
                     pass
             
             # Link analysis
@@ -645,7 +645,7 @@ def register_http_routes(mcp, templates):
                         if "Summary node: " in result:
                             try:
                                 summary_key = result.split("Summary node: ")[1].split("\n")[0].strip()
-                            except:
+                            except (IndexError, AttributeError):
                                 pass
                         
                         return {
@@ -796,7 +796,7 @@ def register_http_routes(mcp, templates):
                         if "Summary node: " in result:
                             try:
                                 summary_key = result.split("Summary node: ")[1].split("\n")[0].strip()
-                            except:
+                            except (IndexError, AttributeError):
                                 pass
                         
                         yield f"data: {json.dumps({'status': 'completed', 'percent': 100, 'message': result, 'summary_key': summary_key})}\n\n"
