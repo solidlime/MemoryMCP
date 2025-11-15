@@ -650,9 +650,9 @@ def register_http_routes(mcp, templates):
                     from tools.summarization_tools import summarize_last_week, summarize_last_day
                     
                     if period == "day":
-                        result = summarize_last_day()
+                        result = summarize_last_day(persona=persona)
                     else:
-                        result = summarize_last_week()
+                        result = summarize_last_week(persona=persona)
                     
                     if result:
                         # Extract summary key from result message
@@ -793,9 +793,9 @@ def register_http_routes(mcp, templates):
                             from tools.summarization_tools import summarize_last_week, summarize_last_day
                             
                             if period == "day":
-                                summary_key = summarize_last_day()
+                                summary_key = summarize_last_day(persona=persona)
                             else:
-                                summary_key = summarize_last_week()
+                                summary_key = summarize_last_week(persona=persona)
                             
                             # Return success message
                             if summary_key:
