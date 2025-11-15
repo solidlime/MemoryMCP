@@ -37,214 +37,262 @@ except ImportError:
 
 async def search_memory(
     query: str = "",
+    mode: str = "keyword",
     top_k: int = 5,
+    # Keyword mode parameters
     fuzzy_match: bool = False,
     fuzzy_threshold: int = 70,
     tags: Optional[List[str]] = None,
     tag_match_mode: str = "any",
     date_range: Optional[str] = None,
-    equipped_item: Optional[str] = None
+    # Semantic mode parameters
+    min_importance: Optional[float] = None,
+    emotion: Optional[str] = None,
+    action_tag: Optional[str] = None,
+    environment: Optional[str] = None,
+    physical_state: Optional[str] = None,
+    mental_state: Optional[str] = None,
+    relationship_status: Optional[str] = None,
+    equipped_item: Optional[str] = None,
+    importance_weight: float = 0.0,
+    recency_weight: float = 0.0,
+    # Related mode parameter
+    memory_key: Optional[str] = None
 ) -> str:
     """
-    Keyword, tag, and date-based search with optional fuzzy matching.
+    Unified search interface supporting keyword, semantic (RAG), and related searches.
     
     Args:
-        query: Keyword (default: "" = all)
+        query: Search query or keyword (required for semantic/keyword modes)
+        mode: Search mode - "keyword" (default), "semantic", or "related"
         top_k: Max results (default: 5)
+        
+        # Keyword mode only:
         fuzzy_match: Typo tolerance (default: False)
         fuzzy_threshold: Fuzzy score 0-100 (default: 70)
         tags: Filter by tags (default: None)
         tag_match_mode: "any" (OR) or "all" (AND) (default: "any")
         date_range: Date filter (e.g., "今日", "2025-10-01..2025-10-31")
+        
+        # Semantic mode only:
+        min_importance: Filter by importance 0.0-1.0 (e.g., 0.7 for important only)
+        emotion/action_tag/environment/physical_state/mental_state/relationship_status: Context filters
+        importance_weight/recency_weight: Custom scoring (0.0-1.0)
+        
+        # Related mode only:
+        memory_key: Memory key to find related memories for (required for mode="related")
+        
+        # Common filter:
         equipped_item: Filter by equipped item name (partial match)
     
     Examples:
-        search_memory("Python")
-        search_memory("Pythn", fuzzy_match=True)
-        search_memory("", tags=["technical_achievement"])
-        search_memory("Phase", tags=["important_event"], date_range="今月")
-        search_memory("", equipped_item="白いドレス")
+        # Keyword search
+        search_memory("Python", mode="keyword")
+        search_memory("Pythn", mode="keyword", fuzzy_match=True)
+        search_memory("", mode="keyword", tags=["technical_achievement"])
+        
+        # Semantic search
+        search_memory("ユーザーの好きな食べ物", mode="semantic")
+        search_memory("成果", mode="semantic", min_importance=0.7)
+        
+        # Related memories
+        search_memory(mode="related", memory_key="memory_20251031123045")
     """
     try:
-        persona = get_current_persona()
-        current_time = get_current_time()
-        db_path = get_db_path()
-        
-        # Read all memories from database
-        memories = {}
-        with sqlite3.connect(db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('SELECT key, content, created_at, updated_at, tags, related_keys, equipped_items FROM memories')
-            for row in cursor.fetchall():
-                key, content, created_at, updated_at, tags_json, related_keys_json, equipped_items_json = row
-                memories[key] = {
-                    "content": content,
-                    "created_at": created_at,
-                    "updated_at": updated_at,
-                    "tags": json.loads(tags_json) if tags_json else [],
-                    "related_keys": json.loads(related_keys_json) if related_keys_json else [],
-                    "equipped_items": json.loads(equipped_items_json) if equipped_items_json else {}
-                }
-        
-        # Phase 1: Start with all memories as candidates
-        candidate_keys = set(memories.keys())
-        filter_descriptions = []
-        
-        # Phase 2: Apply date filter if specified
-        if date_range:
+        if mode == "semantic":
+            # Delegate to RAG-based semantic search
+            from tools.crud_tools import read_memory
             try:
-                start_date, end_date = parse_date_query(date_range)
-                date_filtered = set()
+                return await read_memory(
+                    query=query,
+                    top_k=top_k,
+                    min_importance=min_importance,
+                    emotion=emotion,
+                    action_tag=action_tag,
+                    environment=environment,
+                    physical_state=physical_state,
+                    mental_state=mental_state,
+                    relationship_status=relationship_status,
+                    equipped_item=equipped_item,
+                    importance_weight=importance_weight,
+                    recency_weight=recency_weight
+                )
+            except Exception as e:
+                # Fallback to keyword search if RAG fails
+                print(f"⚠️  RAG failed ({e}), falling back to keyword search...")
+                return await search_memory(
+                    query=query,
+                    mode="keyword",
+                    top_k=top_k,
+                    equipped_item=equipped_item
+                )
+        
+        elif mode == "related":
+            # Delegate to similarity-based related search
+            from tools.analysis_tools import find_related_memories
+            if not memory_key:
+                return "❌ mode='related' requires memory_key parameter"
+            return await find_related_memories(memory_key, top_k)
+        
+        elif mode == "keyword":
+            # Original keyword search implementation
+            persona = get_current_persona()
+            current_time = get_current_time()
+            db_path = get_db_path()
+            
+            # Read all memories from database
+            memories = {}
+            with sqlite3.connect(db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('SELECT key, content, created_at, updated_at, tags, related_keys, equipped_items FROM memories')
+                for row in cursor.fetchall():
+                    key, content, created_at, updated_at, tags_json, related_keys_json, equipped_items_json = row
+                    memories[key] = {
+                        "content": content,
+                        "created_at": created_at,
+                        "updated_at": updated_at,
+                        "tags": json.loads(tags_json) if tags_json else [],
+                        "related_keys": json.loads(related_keys_json) if related_keys_json else [],
+                        "equipped_items": json.loads(equipped_items_json) if equipped_items_json else {}
+                    }
+            
+            # Phase 1: Start with all memories as candidates
+            candidate_keys = set(memories.keys())
+            filter_descriptions = []
+            
+            # Phase 2: Apply date filter if specified
+            if date_range:
+                try:
+                    start_date, end_date = parse_date_query(date_range)
+                    date_filtered = set()
+                    for key in candidate_keys:
+                        entry = memories[key]
+                        created_dt = datetime.fromisoformat(entry['created_at'])
+                        # Make timezone-aware if naive
+                        if created_dt.tzinfo is None:
+                            from src.utils.config_utils import load_config
+                            from zoneinfo import ZoneInfo
+                            cfg = load_config()
+                            tz = ZoneInfo(cfg.get("timezone", "Asia/Tokyo"))
+                            created_dt = created_dt.replace(tzinfo=tz)
+                        
+                        if start_date <= created_dt <= end_date:
+                            date_filtered.add(key)
+                    
+                    candidate_keys = date_filtered
+                    filter_descriptions.append(f"date_range={date_range}")
+                except (ValueError, TypeError) as e:
+                    return f"❌ Invalid date range '{date_range}': {e}"
+            
+            # Phase 3: Apply tag filter if specified
+            if tags:
+                tag_filtered = set()
                 for key in candidate_keys:
                     entry = memories[key]
-                    created_dt = datetime.fromisoformat(entry['created_at'])
-                    # Make timezone-aware if naive
-                    if created_dt.tzinfo is None:
-                        created_dt = created_dt.replace(tzinfo=start_date.tzinfo)
-                    if start_date <= created_dt <= end_date:
-                        date_filtered.add(key)
-                candidate_keys &= date_filtered
-                filter_descriptions.append(f"📅 {start_date.strftime('%Y-%m-%d')} ~ {end_date.strftime('%Y-%m-%d')}")
-            except ValueError as e:
-                return str(e)
-        
-        # Phase 3: Apply tag filter if specified
-        if tags:
-            tag_filtered = set()
-            for key in candidate_keys:
-                entry = memories[key]
-                entry_tags = entry.get('tags', [])
+                    entry_tags = entry.get('tags', [])
+                    
+                    if tag_match_mode == "all":
+                        # AND mode: entry must have all specified tags
+                        if all(tag in entry_tags for tag in tags):
+                            tag_filtered.add(key)
+                    else:
+                        # OR mode (default): entry must have at least one specified tag
+                        if any(tag in entry_tags for tag in tags):
+                            tag_filtered.add(key)
                 
-                if tag_match_mode == "all":
-                    # AND logic: all tags must be present
-                    if entry_tags and all(tag in entry_tags for tag in tags):
-                        tag_filtered.add(key)
-                else:
-                    # OR logic: any tag must be present (default)
-                    if entry_tags and any(tag in entry_tags for tag in tags):
-                        tag_filtered.add(key)
+                candidate_keys = tag_filtered
+                filter_descriptions.append(f"tags={tags} (mode={tag_match_mode})")
             
-            candidate_keys &= tag_filtered
-            logic_str = "ALL" if tag_match_mode == "all" else "ANY"
-            filter_descriptions.append(f"🏷️  {logic_str} of {tags}")
-        
-        # Phase 3.5: Apply equipped item filter if specified
-        if equipped_item:
-            equipment_filtered = set()
-            for key in candidate_keys:
+            # Phase 4: Apply equipped_item filter if specified
+            if equipped_item:
+                item_filtered = set()
+                for key in candidate_keys:
+                    entry = memories[key]
+                    equipped_items = entry.get('equipped_items', {})
+                    
+                    # Search in equipped item values (partial match, case-insensitive)
+                    if any(equipped_item.lower() in item.lower() 
+                           for item in equipped_items.values() if item):
+                        item_filtered.add(key)
+                
+                candidate_keys = item_filtered
+                filter_descriptions.append(f"equipped_item={equipped_item}")
+            
+            # Phase 5: Keyword matching
+            if query:
+                keyword_matches = []
+                for key in candidate_keys:
+                    entry = memories[key]
+                    content = entry['content']
+                    
+                    # Exact or fuzzy match
+                    if fuzzy_match and RAPIDFUZZ_AVAILABLE:
+                        score = fuzz.partial_ratio(query.lower(), content.lower())
+                        if score >= fuzzy_threshold:
+                            keyword_matches.append((key, score))
+                    else:
+                        # Simple substring search (case-insensitive)
+                        if query.lower() in content.lower():
+                            # Score by position (earlier = higher score)
+                            pos = content.lower().index(query.lower())
+                            score = 100 - min(pos, 100)
+                            keyword_matches.append((key, score))
+                
+                # Sort by score (descending)
+                keyword_matches.sort(key=lambda x: x[1], reverse=True)
+                result_keys = [k for k, s in keyword_matches[:top_k]]
+            else:
+                # No query: return all candidates sorted by recency
+                sorted_keys = sorted(candidate_keys, 
+                                   key=lambda k: memories[k]['created_at'], 
+                                   reverse=True)
+                result_keys = sorted_keys[:top_k]
+            
+            # Phase 6: Format results
+            if not result_keys:
+                filter_str = f" (filters: {', '.join(filter_descriptions)})" if filter_descriptions else ""
+                return f"🔍 No memories found for query '{query}'{filter_str}"
+            
+            result = f"🔍 Keyword Search Results ({len(result_keys)}/{len(candidate_keys)} memories):\n"
+            if filter_descriptions:
+                result += f"📌 Filters: {', '.join(filter_descriptions)}\n"
+            result += f"🔎 Query: '{query}'\n\n"
+            result += f"{'='*50}\n\n"
+            
+            for idx, key in enumerate(result_keys, 1):
                 entry = memories[key]
+                content = entry['content']
+                created_at = entry['created_at']
+                entry_tags = entry.get('tags', [])
                 equipped_items = entry.get('equipped_items', {})
-                # Check if any equipped item contains the search term (partial match)
-                if any(equipped_item.lower() in item_name.lower() for item_name in equipped_items.values() if item_name):
-                    equipment_filtered.add(key)
-            
-            candidate_keys &= equipment_filtered
-            filter_descriptions.append(f"👗 Equipped: '{equipped_item}'")
-        
-        # Phase 4: Apply keyword/fuzzy search (if query provided)
-        scored_results = []
-        
-        if not query:
-            # No query: return all candidates (filtered by date/tags only)
-            for key in candidate_keys:
-                entry = memories[key]
-                created_dt = datetime.fromisoformat(entry['created_at'])
-                scored_results.append((key, entry, created_dt, 100))  # Score 100 for all
-        elif fuzzy_match and RAPIDFUZZ_AVAILABLE:
-            # Fuzzy matching mode
-            for key in candidate_keys:
-                entry = memories[key]
-                content = entry['content']
-                # Use partial_ratio + word-by-word matching
-                partial_score = fuzz.partial_ratio(query.lower(), content.lower())
-                words = content.split()
-                word_scores = [fuzz.ratio(query.lower(), word.lower()) for word in words if len(word) >= 2]
-                best_word_score = max(word_scores) if word_scores else 0
-                score = max(partial_score, best_word_score)
                 
-                if score >= fuzzy_threshold:
-                    created_dt = datetime.fromisoformat(entry['created_at'])
-                    scored_results.append((key, entry, created_dt, score))
-            
-            filter_descriptions.append(f"🔍 Fuzzy: '{query}' (≥{fuzzy_threshold}%)")
-        else:
-            # Exact keyword matching mode
-            if fuzzy_match and not RAPIDFUZZ_AVAILABLE:
-                print("⚠️  Fuzzy matching requested but rapidfuzz not available, using exact match...")
-            
-            for key in candidate_keys:
-                entry = memories[key]
-                if query.lower() in entry['content'].lower():
-                    created_dt = datetime.fromisoformat(entry['created_at'])
-                    scored_results.append((key, entry, created_dt, 100))  # Score 100 for exact match
-            
-            filter_descriptions.append(f"🔍 Keyword: '{query}'")
-        
-        # Phase 5: Sort and format results
-        # Sort by score (desc), then by date (desc)
-        scored_results.sort(key=lambda x: (x[3], x[2]), reverse=True)
-        scored_results = scored_results[:top_k]
-        
-        if scored_results:
-            filter_str = " + ".join(filter_descriptions) if filter_descriptions else "No filters"
-            result = f"Found {len(scored_results)} memories ({filter_str}, persona: {persona}):\n\n"
-            
-            for i, (key, entry, created_dt, score) in enumerate(scored_results, 1):
-                created_date = entry['created_at'][:10]
-                created_time = entry['created_at'][11:19]
-                content = entry['content']
+                # Calculate time difference
+                time_diff = calculate_time_diff(created_at)
                 
-                # Calculate time elapsed
-                time_diff = calculate_time_diff(entry['created_at'])
-                time_ago = f" ({time_diff['formatted_string']}前)"
+                result += f"{idx}. [{key}]\n"
+                result += f"   📅 {time_diff['formatted_string']}前\n"
+                result += f"   📝 {content[:150]}{'...' if len(content) > 150 else ''}\n"
                 
-                # Get tags
-                entry_tags = entry.get('tags', [])
-                tags_str = f" [{', '.join(entry_tags)}]" if entry_tags else ""
+                if entry_tags:
+                    result += f"   🏷️  Tags: {', '.join(entry_tags)}\n"
                 
-                # Get related keys
-                related_keys = entry.get('related_keys', [])
-                related_str = f" 🔗{len(related_keys)}関連" if related_keys else ""
-                
-                # Show score if fuzzy or multiple results
-                score_str = f" (Match: {score:.0f}%)" if fuzzy_match or len(scored_results) > 1 else ""
-                
-                result += f"{i}. [{key}]{tags_str}{related_str}{score_str}\n"
-                
-                # Show snippet with keyword highlighting
-                if query.lower() in content.lower():
-                    start = content.lower().find(query.lower())
-                    snippet_start = max(0, start - 50)
-                    snippet_end = min(len(content), start + len(query) + 50)
-                    snippet = content[snippet_start:snippet_end]
-                    if snippet_start > 0:
-                        snippet = "..." + snippet
-                    if snippet_end < len(content):
-                        snippet = snippet + "..."
-                    result += f"   \"{snippet}\"\n"
-                else:
-                    result += f"   {content[:200]}{'...' if len(content) > 200 else ''}\n"
-                
-                result += f"   {created_date} {created_time}{time_ago}\n"
-                
-                # Show related memories with content preview
-                if related_keys:
-                    result += f"   🔗 関連記憶:\n"
-                    for rel_key in related_keys[:3]:  # Show max 3
-                        if rel_key in memories:
-                            rel_content = memories[rel_key]['content'][:60]
-                            result += f"      • [{rel_key}] {rel_content}...\n"
-                    if len(related_keys) > 3:
-                        result += f"      (+{len(related_keys) - 3}件の関連記憶)\n"
+                if equipped_items:
+                    equipped_str = ', '.join(f"{slot}:{item}" for slot, item in equipped_items.items() if item)
+                    if equipped_str:
+                        result += f"   ⚔️  Equipped: {equipped_str}\n"
                 
                 result += "\n"
             
-            return result.rstrip()
+            result += f"💡 Persona: {persona}"
+            return result
+        
         else:
-            filter_str = " + ".join(filter_descriptions) if filter_descriptions else "No filters applied"
-            return f"No memories found ({filter_str}, persona: {persona})."
+            return f"❌ Invalid mode '{mode}'. Use 'keyword', 'semantic', or 'related'."
+            
     except Exception as e:
-        return f"Failed to search memories: {str(e)}"
+        import traceback
+        traceback.print_exc()
+        return f"❌ Search failed: {str(e)}"
 
 
 async def search_memory_rag(

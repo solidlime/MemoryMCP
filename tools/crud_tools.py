@@ -1175,13 +1175,8 @@ async def read_memory(
         if not query:
             return "Please provide a query to search."
         
-        # Initialize vector adapter (with fallback to keyword search)
-        try:
-            adapter = _initialize_vector_adapter(persona)
-        except Exception as e:
-            print(f"⚠️  RAG system not ready or failed: {e}, falling back to keyword search...")
-            from tools.search_tools import search_memory
-            return await search_memory(query, top_k)
+        # Initialize vector adapter
+        adapter = _initialize_vector_adapter(persona)
         
         # Perform similarity search with more candidates for reranking and filtering
         from src.utils.vector_utils import reranker

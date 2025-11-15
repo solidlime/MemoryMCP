@@ -12,18 +12,18 @@ from typing import Any
 
 def register_tools(mcp: Any) -> None:
     # 遅延importして循環依存を回避
-    from tools.crud_tools import create_memory, update_memory, read_memory, delete_memory
+    from tools.crud_tools import create_memory, update_memory, delete_memory
     from tools.search_tools import search_memory
-    from tools.analysis_tools import find_related_memories, analyze_sentiment
+
     from tools.context_tools import get_context
     from tools.equipment_tools import (
         add_to_inventory, remove_from_inventory, 
-        equip_item, unequip_item, 
+        equip_item, 
         update_item, 
         search_inventory, get_equipment_history
     )
     from tools.item_memory_tools import (
-        get_memories_with_item, get_item_usage_stats
+        analyze_item
     )
     # from tools.summarization_tools import summarize_last_week, summarize_last_day  # 管理者ツールに移行
 
@@ -33,34 +33,26 @@ def register_tools(mcp: Any) -> None:
     # Combines: persona state, time tracking, memory statistics
     mcp.tool()(get_context)
     
-    # Phase 28.5: create/update分離（パフォーマンス改善）
+    # Phase 28.5: Unified search interface
     # - create_memory: 新規作成専用（RAG検索なし、高速）
     # - update_memory: 更新専用（RAG検索あり、類似度0.80以上で更新）
-    # - read_memory: 意味検索のメインツール（旧search_memory_ragの機能）
-    # - search_memory: 構造化検索（完全一致、Fuzzy、タグ、日付範囲）
+    # - search_memory: 統合検索（semantic/keyword/related modes）
     # - delete_memory: 削除専用（自然言語クエリ対応）
     mcp.tool()(create_memory)
     mcp.tool()(update_memory)
-    mcp.tool()(read_memory)
     mcp.tool()(search_memory)
     mcp.tool()(delete_memory)
-    
-    # 検索・分析
-    mcp.tool()(find_related_memories)
-    mcp.tool()(analyze_sentiment)
     
     # 所持品管理ツール（Phase 32）
     mcp.tool()(add_to_inventory)
     mcp.tool()(remove_from_inventory)
     mcp.tool()(equip_item)
-    mcp.tool()(unequip_item)
     mcp.tool()(update_item)
     mcp.tool()(search_inventory)
     mcp.tool()(get_equipment_history)
     
     # アイテム-記憶関連付けツール（Phase 34: 装備品自動記録）
-    mcp.tool()(get_memories_with_item)
-    mcp.tool()(get_item_usage_stats)
+    mcp.tool()(analyze_item)
     
     # Phase 28.4: 自己要約（メタメモリ）→ 管理者ツールに移行
     # mcp.tool()(summarize_last_week)  # ❌ LLM用ツールから除外
