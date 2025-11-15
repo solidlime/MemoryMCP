@@ -42,10 +42,6 @@ Thumbs.db
 .gitignore
 .gitattributes
 
-# Documentation (not needed in container)
-DOCKER.md
-README.md
-
 # Test files
 tests/
 test_*.py
@@ -59,7 +55,8 @@ logs/
 # Additional documentation
 TESTING.md
 TROUBLESHOOTING.md
-*.md
+# Local env files
+.env
 
 # Serena project files
 .serena/
@@ -70,7 +67,5 @@ TROUBLESHOOTING.md
 *.swo
 *~
 
-# Docker files themselves
-Dockerfile
-docker-compose.yml
-.dockerignore
+# Dockerfiles: keep tracked
+# (Don't ignore Dockerfile/docker-compose.yml here - they should be versioned)

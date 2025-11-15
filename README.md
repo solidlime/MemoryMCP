@@ -90,26 +90,26 @@ Persona切り替えは `Bearer <persona名>` で行います。
 | `MEMORY_MCP_QDRANT_URL` | `qdrant_url` | `http://localhost:6333` | Qdrant接続URL |
 | `MEMORY_MCP_QDRANT_API_KEY` | `qdrant_api_key` | `None` | Qdrant APIキー |
 | `MEMORY_MCP_QDRANT_COLLECTION_PREFIX` | `qdrant_collection_prefix` | `memory_` | Qdrantコレクションプレフィックス |
-| - | `summarization.enabled` | `True` | 要約機能有効化 |
-| - | `summarization.use_llm` | `False` | LLM要約 (False=統計要約) |
-| - | `summarization.frequency_days` | `1` | 要約頻度（日数） |
-| - | `summarization.min_importance` | `0.3` | 要約対象最小重要度 |
-| - | `summarization.llm_api_url` | `None` | LLM API URL |
-| - | `summarization.llm_api_key` | `None` | LLM APIキー |
-| - | `summarization.llm_model` | `anthropic/claude-3.5-sonnet` | LLMモデル名 |
-| - | `summarization.llm_max_tokens` | `500` | 最大トークン数 |
-| - | `summarization.llm_prompt` | `None` | カスタム要約プロンプト |
-| - | `vector_rebuild.mode` | `idle` | リビルドモード (idle/manual) |
-| - | `vector_rebuild.idle_seconds` | `30` | アイドル秒数 |
-| - | `vector_rebuild.min_interval` | `120` | 最小実行間隔（秒） |
-| - | `auto_cleanup.enabled` | `True` | 自動クリーンアップ |
-| - | `auto_cleanup.idle_minutes` | `30` | アイドル分数 |
-| - | `auto_cleanup.check_interval_seconds` | `300` | チェック間隔（秒） |
-| - | `auto_cleanup.duplicate_threshold` | `0.90` | 重複判定閾値 |
-| - | `auto_cleanup.min_similarity_to_report` | `0.85` | 報告最小類似度 |
-| - | `auto_cleanup.max_suggestions_per_run` | `20` | 実行あたり最大提案数 |
-
-**注**: ネストされた設定項目 (`summarization.*`, `vector_rebuild.*`, `auto_cleanup.*`) は環境変数では設定できません。config.jsonを使用してください。
+| `MEMORY_MCP_SUMMARIZATION_ENABLED` | `summarization.enabled` | `True` | 要約機能有効化 |
+| `MEMORY_MCP_SUMMARIZATION_USE_LLM` | `summarization.use_llm` | `False` | LLM要約 (False=統計要約) |
+| `MEMORY_MCP_SUMMARIZATION_FREQUENCY_DAYS` | `summarization.frequency_days` | `1` | 要約頻度（日数） |
+| `MEMORY_MCP_SUMMARIZATION_MIN_IMPORTANCE` | `summarization.min_importance` | `0.3` | 要約対象最小重要度 |
+| `MEMORY_MCP_SUMMARIZATION_IDLE_MINUTES` | `summarization.idle_minutes` | `30` | 自動要約トリガーのアイドル分数 |
+| `MEMORY_MCP_SUMMARIZATION_CHECK_INTERVAL_SECONDS` | `summarization.check_interval_seconds` | `3600` | 自動要約チェック間隔（秒） |
+| `MEMORY_MCP_SUMMARIZATION_LLM_API_URL` | `summarization.llm_api_url` | `None` | LLM API URL |
+| `MEMORY_MCP_SUMMARIZATION_LLM_API_KEY` | `summarization.llm_api_key` | `None` | LLM APIキー |
+| `MEMORY_MCP_SUMMARIZATION_LLM_MODEL` | `summarization.llm_model` | `anthropic/claude-3.5-sonnet` | LLMモデル名 |
+| `MEMORY_MCP_SUMMARIZATION_LLM_MAX_TOKENS` | `summarization.llm_max_tokens` | `500` | 最大トークン数 |
+| `MEMORY_MCP_SUMMARIZATION_LLM_PROMPT` | `summarization.llm_prompt` | `None` | カスタム要約プロンプト |
+| `MEMORY_MCP_VECTOR_REBUILD_MODE` | `vector_rebuild.mode` | `idle` | リビルドモード (idle/manual) |
+| `MEMORY_MCP_VECTOR_REBUILD_IDLE_SECONDS` | `vector_rebuild.idle_seconds` | `30` | アイドル秒数 |
+| `MEMORY_MCP_VECTOR_REBUILD_MIN_INTERVAL` | `vector_rebuild.min_interval` | `120` | 最小実行間隔（秒） |
+| `MEMORY_MCP_AUTO_CLEANUP_ENABLED` | `auto_cleanup.enabled` | `True` | 自動クリーンアップ |
+| `MEMORY_MCP_AUTO_CLEANUP_IDLE_MINUTES` | `auto_cleanup.idle_minutes` | `30` | アイドル分数 |
+| `MEMORY_MCP_AUTO_CLEANUP_CHECK_INTERVAL_SECONDS` | `auto_cleanup.check_interval_seconds` | `300` | チェック間隔（秒） |
+| `MEMORY_MCP_AUTO_CLEANUP_DUPLICATE_THRESHOLD` | `auto_cleanup.duplicate_threshold` | `0.90` | 重複判定閾値 |
+| `MEMORY_MCP_AUTO_CLEANUP_MIN_SIMILARITY_TO_REPORT` | `auto_cleanup.min_similarity_to_report` | `0.85` | 報告最小類似度 |
+| `MEMORY_MCP_AUTO_CLEANUP_MAX_SUGGESTIONS_PER_RUN` | `auto_cleanup.max_suggestions_per_run` | `20` | 実行あたり最大提案数 |
 
 ### 設定例
 

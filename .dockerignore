@@ -42,8 +42,6 @@ Thumbs.db
 .gitignore
 .gitattributes
 
-# Documentation (not needed in container)
-DOCKER.md
 README.md
 
 # Test files
@@ -70,7 +68,8 @@ TROUBLESHOOTING.md
 *.swo
 *~
 
-# Docker files themselves
-Dockerfile
-docker-compose.yml
-.dockerignore
+# Keep Dockerfile and compose within the build context (they should not be excluded)
+# Exclude only large runtime artifacts and local caches
+# Keep Dockerfile and docker-compose.yml in the build context
+# docker-compose.yml
+# .dockerignore

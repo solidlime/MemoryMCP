@@ -70,15 +70,13 @@ ENV HF_HOME=${DATA_HOME}/cache/huggingface \
     SENTENCE_TRANSFORMERS_HOME=${DATA_HOME}/cache/sentence_transformers \
     TORCH_HOME=${DATA_HOME}/cache/torch \
     MEMORY_MCP_DATA_DIR=${DATA_HOME} \
-    MEMORY_MCP_CONFIG_PATH=${DATA_HOME}/config.json \
     MEMORY_MCP_SERVER_HOST=0.0.0.0 \
     MEMORY_MCP_SERVER_PORT=26262 \
     MEMORY_MCP_EMBEDDINGS_MODEL=cl-nagoya/ruri-v3-30m \
     MEMORY_MCP_EMBEDDINGS_DEVICE=cpu \
     MEMORY_MCP_RERANKER_MODEL=hotchpotch/japanese-reranker-xsmall-v2 \
     MEMORY_MCP_RERANKER_TOP_N=5 \
-    MEMORY_MCP_STORAGE_BACKEND=qdrant \
-    MEMORY_MCP_QDRANT_URL=http://nas:6333 \
+    MEMORY_MCP_QDRANT_URL=http://localhost:6333 \
     MEMORY_MCP_QDRANT_COLLECTION_PREFIX=memory_ \
     MEMORY_MCP_VECTOR_REBUILD_MODE=idle \
     MEMORY_MCP_VECTOR_REBUILD_IDLE_SECONDS=30 \
@@ -89,6 +87,17 @@ ENV HF_HOME=${DATA_HOME}/cache/huggingface \
     MEMORY_MCP_AUTO_CLEANUP_DUPLICATE_THRESHOLD=0.90 \
     MEMORY_MCP_AUTO_CLEANUP_MIN_SIMILARITY_TO_REPORT=0.85 \
     MEMORY_MCP_AUTO_CLEANUP_MAX_SUGGESTIONS_PER_RUN=20 \
+    MEMORY_MCP_SUMMARIZATION_ENABLED=true \
+    MEMORY_MCP_SUMMARIZATION_USE_LLM=false \
+    MEMORY_MCP_SUMMARIZATION_FREQUENCY_DAYS=1 \
+    MEMORY_MCP_SUMMARIZATION_MIN_IMPORTANCE=0.3 \
+    MEMORY_MCP_SUMMARIZATION_IDLE_MINUTES=30 \
+    MEMORY_MCP_SUMMARIZATION_CHECK_INTERVAL_SECONDS=3600 \
+    MEMORY_MCP_SUMMARIZATION_LLM_API_URL= \
+    MEMORY_MCP_SUMMARIZATION_LLM_API_KEY= \
+    MEMORY_MCP_SUMMARIZATION_LLM_MODEL=anthropic/claude-3.5-sonnet \
+    MEMORY_MCP_SUMMARIZATION_LLM_MAX_TOKENS=500 \
+    MEMORY_MCP_SUMMARIZATION_LLM_PROMPT= \
     PYTHONUNBUFFERED=1
 
 # Expose FastMCP HTTP port
@@ -100,3 +109,8 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
 
 # Run the MCP server
 CMD ["python", "memory_mcp.py"]
+
+# Notes:
+# - Development tip: place environment overrides in a top-level `.env` (or use Compose `env_file:`)
+#   and add to `.gitignore` to avoid checking secrets into git.
+# - `docker-compose.yml` has an `env_file:` line so `.env` values will be injected into the container.

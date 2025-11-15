@@ -12,6 +12,9 @@ services:
       # Persist all data (memory, logs, cache) on host
       - ./data:/data
     restart: unless-stopped
+    # Load env vars from .env file (ignored by git) so you can override Dockerfile defaults
+    env_file:
+      - .env
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:26262/health"]
       interval: 30s
