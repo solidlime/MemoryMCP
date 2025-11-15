@@ -22,6 +22,7 @@ from .memory_db import (
     generate_auto_key,
     log_operation,
 )
+from src.utils.logging_utils import log_progress
 
 __all__ = [
     # Time utilities
@@ -41,4 +42,6 @@ __all__ = [
     'create_memory_entry',
     'generate_auto_key',
     'log_operation',
+    # Logging
+    'log_progress',
 ]
