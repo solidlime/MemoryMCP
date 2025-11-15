@@ -113,7 +113,8 @@ def _call_llm_api(memories: List[Dict], period_description: str, config: Dict) -
 def extract_memories_by_period(
     start_date: str,
     end_date: str,
-    min_importance: float = 0.3
+    min_importance: float = 0.3,
+    persona: str | None = None
 ) -> List[Dict]:
     """
     Extract memories from a specific time period.
@@ -122,11 +123,12 @@ def extract_memories_by_period(
         start_date: Start date (ISO 8601 format)
         end_date: End date (ISO 8601 format)
         min_importance: Minimum importance threshold (default: 0.3)
+        persona: Persona name (None = use current context)
     
     Returns:
         List of memory dicts sorted by importance × emotion_intensity
     """
-    db_path = get_db_path()
+    db_path = get_db_path(persona)
     memories = []
     
     try:
@@ -138,6 +140,7 @@ def extract_memories_by_period(
             total_count, min_date, max_date = cursor.fetchone()
             print(f"📊 Total memories: {total_count}, Date range: {min_date} to {max_date}")
             print(f"🔍 Searching period: {start_date} to {end_date} (min_importance={min_importance})")
+            print(f"📂 Database: {db_path}")
             
             cursor.execute('''
                 SELECT key, content, created_at, importance, emotion, emotion_intensity, tags
@@ -345,18 +348,19 @@ def create_summary_node(
     return summary_key
 
 
-def link_memories_to_summary(memory_keys: List[str], summary_key: str) -> int:
+def link_memories_to_summary(memory_keys: List[str], summary_key: str, persona: str | None = None) -> int:
     """
     Link memories to their summary node.
     
     Args:
         memory_keys: List of memory keys to link
         summary_key: Summary node key
+        persona: Persona name (None = use current context)
     
     Returns:
         Number of memories successfully linked
     """
-    db_path = get_db_path()
+    db_path = get_db_path(persona)
     linked_count = 0
     
     try:
@@ -386,7 +390,8 @@ def summarize_period(
     period_end: str,
     period_description: str = "期間",
     min_importance: float = 0.3,
-    link_memories: bool = True
+    link_memories: bool = True,
+    persona: str | None = None
 ) -> Optional[str]:
     """
     Complete workflow: Extract, summarize, and link memories for a period.
@@ -397,6 +402,7 @@ def summarize_period(
         period_description: Human-readable description
         min_importance: Minimum importance threshold
         link_memories: Whether to link memories to summary
+        persona: Persona name (None = use current context)
     
     Returns:
         Summary key if successful, None otherwise
@@ -405,7 +411,7 @@ def summarize_period(
     print(f"   Range: {period_start} to {period_end}")
     
     # Extract memories
-    memories = extract_memories_by_period(period_start, period_end, min_importance)
+    memories = extract_memories_by_period(period_start, period_end, min_importance, persona)
     
     if not memories:
         print(f"❌ Error: Failed to generate summary (no memories found in the selected period)")
@@ -424,14 +430,17 @@ def summarize_period(
     # Link memories to summary
     if link_memories:
         memory_keys = [m["key"] for m in memories]
-        link_memories_to_summary(memory_keys, summary_key)
+        link_memories_to_summary(memory_keys, summary_key, persona)
     
     return summary_key
 
 
-def summarize_last_week() -> Optional[str]:
+def summarize_last_week(persona: str | None = None) -> Optional[str]:
     """
     Summarize memories from the last 7 days.
+    
+    Args:
+        persona: Persona name (None = use current context)
     
     Returns:
         Summary key if successful, None otherwise
@@ -445,12 +454,15 @@ def summarize_last_week() -> Optional[str]:
     
     period_desc = f"{now.year}年{now.month}月第{(now.day-1)//7+1}週"
     
-    return summarize_period(start_date, end_date, period_desc)
+    return summarize_period(start_date, end_date, period_desc, persona=persona)
 
 
-def summarize_last_day() -> Optional[str]:
+def summarize_last_day(persona: str | None = None) -> Optional[str]:
     """
     Summarize memories from the last 24 hours.
+    
+    Args:
+        persona: Persona name (None = use current context)
     
     Returns:
         Summary key if successful, None otherwise
@@ -464,4 +476,4 @@ def summarize_last_day() -> Optional[str]:
     
     period_desc = f"{now.year}年{now.month}月{now.day}日"
     
-    return summarize_period(start_date, end_date, period_desc)
+    return summarize_period(start_date, end_date, period_desc, persona=persona)

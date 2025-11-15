@@ -313,18 +313,14 @@ def main():
     
     elif args.command == 'summarize':
         # Phase 28.4: 期間要約コマンド
-        from src.utils.persona_utils import current_persona
         from tools.summarization_tools import summarize_last_day, summarize_last_week
-        
-        # Set persona context
-        current_persona.set(args.persona)
         
         if args.period == 'day':
             print(f"📝 Summarizing last day for persona: {args.persona}")
-            summary_key = summarize_last_day()
+            summary_key = summarize_last_day(persona=args.persona)
         else:  # week
             print(f"📝 Summarizing last week for persona: {args.persona}")
-            summary_key = summarize_last_week()
+            summary_key = summarize_last_week(persona=args.persona)
         
         if summary_key:
             print(f"✅ Summary created: {summary_key}")
