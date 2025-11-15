@@ -148,7 +148,7 @@ Persona切り替えは `Bearer <persona名>` で行います。
 └── cache/               # HuggingFaceモデルキャッシュ
 ```
 
-### SQLiteスキーマ (12カラム)
+### SQLiteスキーマ (13カラム)
 
 | カラム | 型 | デフォルト | 説明 |
 |-------|-----|----------|------|
@@ -164,6 +164,9 @@ Persona切り替えは `Bearer <persona名>` で行います。
 | `environment` | TEXT | `"unknown"` | 環境 |
 | `relationship_status` | TEXT | `"normal"` | 関係性 |
 | `action_tag` | TEXT | `NULL` | 行動タグ |
+| `equipped_items` | TEXT | `NULL` | 記憶作成時の装備品 (JSON) |
+
+**注**: `equipped_items`は`create_memory()`時に自動的にEquipmentDBから取得され、記録されます。
 
 ### persona_context.json 拡張フィールド
 
@@ -188,7 +191,7 @@ Persona切り替えは `Bearer <persona名>` で行います。
 
 ## MCPツール
 
-### LLM用ツール (14個)
+### LLM用ツール (12個)
 
 **セッション管理**:
 - `get_context` - 総合コンテキスト取得 (ペルソナ状態・経過時間・記憶統計・現在装備)
@@ -199,6 +202,7 @@ Persona切り替えは `Bearer <persona名>` で行います。
   ```python
   create_memory("User likes [[Python]]", importance=0.7, emotion="joy")
   ```
+  - 装備品は自動的にDBから取得して記憶に記録
 
 - `update_memory` - 既存更新 (自然言語クエリで自動検出)
   ```python
@@ -206,32 +210,50 @@ Persona切り替えは `Bearer <persona名>` で行います。
   ```
   - 類似度 ≥ 0.80: 更新 / < 0.80: 新規作成
 
-- `read_memory` - 意味検索 (メタデータフィルタ・カスタムスコアリング対応)
-  ```python
-  read_memory("user's favorite language")
-  read_memory("achievements", min_importance=0.7, emotion="joy")
-  ```
-
 - `delete_memory` - 削除 (自然言語クエリ対応)
   ```python
   delete_memory("old project notes")
   ```
   - 類似度 ≥ 0.90: 自動削除 / < 0.90: 候補表示
 
-**検索・分析**:
-- `search_memory` - 構造化検索 (キーワード・Fuzzy・タグ・日付範囲)
-- `find_related_memories` - 関連記憶検索
-- `analyze_sentiment` - 感情分析
+**検索**:
+- `search_memory` - 統合検索 (semantic/keyword/related の3モード対応)
+  ```python
+  # セマンティック検索（デフォルト）
+  search_memory("ユーザーの好きな食べ物", mode="semantic")
+  
+  # キーワード検索（Fuzzy対応・タグ・日付範囲）
+  search_memory("Python", mode="keyword", fuzzy_match=True)
+  search_memory("", mode="keyword", tags=["technical_achievement"])
+  
+  # 関連記憶検索
+  search_memory(mode="related", memory_key="memory_20251031123045")
+  ```
+  - メタデータフィルタ・カスタムスコアリング対応
+  - 装備品フィルタ (`equipped_item`) 対応
 
-**装備管理** (新機能):
+**装備管理**:
 - `add_to_inventory` - アイテムを所持品に追加
 - `remove_from_inventory` - アイテムを所持品から削除
-- `equip_item` - アイテムを装備 (persona_context更新 + 履歴記録)
-- `unequip_item` - アイテム装備解除 (persona_context更新 + 履歴記録)
+- `equip_item` - バッチ装備変更 (一括リセット→装備)
+  ```python
+  # 全装備を一度リセットしてから指定アイテムを装備
+  equip_item({"top": "囁きのシフォンドレス", "foot": "蓮花サンダル"})
+  
+  # 全装備解除
+  equip_item({})
+  ```
+- `update_item` - アイテム情報更新（説明・カテゴリ・タグ・装備スロット変更）
 - `search_inventory` - 所持品検索 (カテゴリ・キーワードフィルタ)
 - `get_equipment_history` - 装備変更履歴取得
+- `analyze_item` - アイテム分析（記憶検索 + 使用統計）
+  ```python
+  # アイテムに関する記憶と使用統計を取得
+  analyze_item("白いドレス", mode="both")
+  ```
 
-装備システムはSQLite (data/memory/{persona}/equipment.db) で管理され、`current_equipment`は`persona_context.json`と同期されます。
+装備システムはSQLite (`data/memory/{persona}/equipment.db`) で管理され、`current_equipment`は`persona_context.json`と同期されます。
+記憶作成時には装備品が自動的にDBから取得され、`equipped_items`として記録されます。
 
 ### 管理ツール (7個)
 
