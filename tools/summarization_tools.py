@@ -337,7 +337,8 @@ def create_summary_node(
         relationship_status=None,
         action_tag=None,
         related_keys=None,  # Will be set by link_memories_to_summary
-        summary_ref=None  # Summary nodes don't reference other summaries
+        summary_ref=None,  # Summary nodes don't reference other summaries
+        persona=persona_name
     )
     
     if not success:
@@ -422,7 +423,7 @@ def summarize_period(
         return None
     
     # Create summary node
-    summary_key = create_summary_node(memories, period_description)
+    summary_key = create_summary_node(memories, period_description, persona_name=persona)
     
     if not summary_key:
         return None

@@ -202,7 +202,8 @@ def save_memory_to_db(
     action_tag: Optional[str] = None,
     related_keys: Optional[List[str]] = None,
     summary_ref: Optional[str] = None,
-    equipped_items: Optional[Dict[str, str]] = None
+    equipped_items: Optional[Dict[str, str]] = None,
+    persona: Optional[str] = None
 ) -> bool:
     """
     Save memory to SQLite database (persona-scoped).
@@ -224,13 +225,15 @@ def save_memory_to_db(
         related_keys: Optional list of related memory keys (defaults to [])
         summary_ref: Optional reference to summary node (defaults to None)
         equipped_items: Optional dict of equipped items {slot: item_name} (defaults to None)
+        persona: Persona name (None = use current context)
     
     Returns:
         bool: Success status
     """
     try:
-        persona = get_current_persona()
-        db_path = get_db_path()
+        if persona is None:
+            persona = get_current_persona()
+        db_path = get_db_path(persona)
         log_progress(f"💾 Attempting to save to DB: {db_path} (persona: {persona})")
         
         now = datetime.now().isoformat()

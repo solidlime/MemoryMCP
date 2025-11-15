@@ -59,6 +59,10 @@ from src.utils.vector_utils import (
     get_vector_count,
     get_vector_metrics,
 )
+from src.utils.summarization_worker import (
+    start_summarization_worker_thread,
+    mark_summarization_dirty,
+)
 from src.utils.vector_utils import reranker as _reranker
 from tools.vector_tools import (
     rebuild_vector_store_tool,
@@ -214,6 +218,13 @@ if __name__ == "__main__":
         print("🧹 Cleanup worker started")
     except Exception as e:
         print(f"⚠️  Failed to start cleanup worker: {e}")
+    
+    # Phase 28.4: Start summarization worker
+    try:
+        start_summarization_worker_thread()
+        print("📝 Summarization worker started")
+    except Exception as e:
+        print(f"⚠️  Failed to start summarization worker: {e}")
     
     # Register dashboard HTTP routes
     try:
