@@ -676,39 +676,3 @@ kill -9 <PID>
 | search_memory | `test_mcp_http.py` | ✅ |
 | delete_memory | `test_mcp_http.py` | ✅ |
 | get_context | `test_mcp_http.py` | ✅ |
-
-## CI/CD Integration (Future)
-
-These scripts can be integrated into GitHub Actions:
-
-```yaml
-# .github/workflows/test.yml
-name: Test
-on: [push, pull_request]
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.12'
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-      - name: Start Qdrant
-        run: docker-compose up -d qdrant
-      - name: Run tests
-        run: |
-          ./test_local_environment.sh &
-          sleep 20
-          python test_mcp_http.py
-```
-
-## Best Practices
-
-1. **Always test locally first** - Never test experimental features in production
-2. **Use test persona** - Set `X-Persona: test` to avoid polluting default data
-3. **Cleanup after tests** - Scripts include automatic cleanup
-4. **Check logs** - Always review logs for warnings/errors
-5. **Verify Qdrant** - Ensure Qdrant is healthy before starting MCP server
