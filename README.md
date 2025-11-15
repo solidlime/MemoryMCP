@@ -12,6 +12,20 @@ MCP (Model Context Protocol) 準拠の永続メモリサーバー。RAG検索と
 - **Webダッシュボード**: 統計・日次推移・知識グラフの可視化
 - **最適化Docker**: 2.65GB (CPU版PyTorch)
 
+## プロジェクト構成 (簡易)
+
+主要なコード/ドキュメントの配置:
+
+- `memory_mcp.py` — サーバーのエントリポイント (MCP起動/ワーカー起動/ツール登録)
+- `src/` — アプリケーションのユーティリティ、リソース、ダッシュボード、設定ユーティリティ
+- `core/` — メモリの永続化・更新・検索などのコアロジック
+- `tools/` — MCPツール（CRUD、検索、分析ツールなど）
+- `scripts/` — ローカルテストやスタートアップ用のスクリプト（`test_local_environment.sh` など）
+- `data/` — 実行時データディレクトリ (persona 毎の SQLite、ログ、キャッシュ)
+- `Dockerfile` / `docker-compose.yml` — コンテナ実行設定
+
+これらの配置はプロジェクトの主要な作業フローを示し、`src/` と `tools/` がロジックの中心になっています。
+
 ## クイックスタート
 
 ### Docker (推奨)
@@ -46,10 +60,8 @@ docker run -d --name memory-mcp -p 26262:26262 \
 
 誤ってキャッシュや出力ファイルをコミットしてしまった場合、履歴から完全に削除するには `git-filter-repo` または `BFG` を使ってリポジトリの履歴を書き換える必要があります。
 
-このリポジトリには実行用ヘルパースクリプトが含まれています（リポジトリをバックアップした上で実行して下さい）。
-
-- `scripts/cleanup_history_gitfilterrepo.sh` — `git-filter-repo` を使う（推奨）
-- `scripts/cleanup_history_bfg.sh` — BFG を使う
+このリポジトリでは過去に履歴削除用の補助スクリプトが追加されたことがありますが、現在は同等のスクリプトが存在しないか移動している可能性があります。
+履歴置換を行う場合は公式ドキュメントやコミュニティガイドを参照し、必ずバックアップとチームへの告知を行ってください。
 
 使うときの基本手順:
 
@@ -75,7 +87,7 @@ Persona切り替えは `Bearer <persona名>` で行います。
 }
 ```
 
-接続トラブルは [TROUBLESHOOTING.md](TROUBLESHOOTING.md) を参照してください。
+接続トラブルは `logs` のログや `scripts/test_local_environment.sh` を参照して問題切り分けしてください。
 
 ## 設定ファイル
 
@@ -85,10 +97,8 @@ Persona切り替えは `Bearer <persona名>` で行います。
 
 #### セットアップ
 
-1. `config.json.example` を `../data/config.json` にコピー:
-   ```bash
-   cp config/config.json.example data/config.json
-   ```
+1. `data/config.json` を作成:
+  - `data` ディレクトリに `config.json` を新規作成し、READMEの「設定例」セクションを参考に設定を追記してください。
 
 2. `data/config.json` をあなたの設定で編集
 
@@ -96,7 +106,7 @@ Persona切り替えは `Bearer <persona名>` で行います。
 
 #### デフォルトの場所
 
-- **例**: `config/config.json.example` (バージョン管理対象)
+-- **例**: （このリポジトリでは `config/config.json.example` は提供していないため） `data/config.json` を作成してください
 - **実際**: `data/config.json` (gitignored, 実行時に作成)
 
 #### 環境変数
@@ -702,9 +712,3 @@ jobs:
 3. **Cleanup after tests** - Scripts include automatic cleanup
 4. **Check logs** - Always review logs for warnings/errors
 5. **Verify Qdrant** - Ensure Qdrant is healthy before starting MCP server
-
-## See Also
-
-- [README.md](README.md) - Project overview and setup
-- [DOCKER.md](DOCKER.md) - Docker deployment guide
-- `.vscode/memory-bank/techContext.md` - Debug commands reference

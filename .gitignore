@@ -52,9 +52,6 @@ scripts/test_*.py
 output/
 logs/
 
-# Additional documentation
-TESTING.md
-TROUBLESHOOTING.md
 # Local env files
 .env
 
