@@ -142,10 +142,12 @@ def equip_item(
     return "\n".join(message_parts) if message_parts else "✅ Equipment reset completed"
 
 
-def unequip_item(slot: str) -> str:
+def unequip_item(
+    slot: str
+) -> str:
     """Unequip item.
     
-    Item remains in inventory. Removes from persona_context.json.
+    Item remains in inventory. Removes equipment from database.
     Logs to equipment history.
     
     Args:
@@ -161,18 +163,13 @@ def unequip_item(slot: str) -> str:
     persona = get_current_persona()
     db = EquipmentDB(persona)
     
-    # Remove from persona_context
-    context = load_persona_context(persona)
-    if "current_equipment" not in context or slot not in context["current_equipment"]:
+    # Unequip from database
+    item_name = db.unequip_item(slot)
+    
+    if item_name:
+        return f"✅ Unequipped '{item_name}' from {slot}"
+    else:
         return f"❌ No item equipped in slot '{slot}'"
-    
-    old_item = context["current_equipment"].pop(slot)
-    save_persona_context(context, persona)
-    
-    # Log to history
-    db.log_equipment_change(slot, None, "unequip")
-    
-    return f"✅ Unequipped '{old_item}' from {slot}"
 
 
 def update_item(

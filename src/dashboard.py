@@ -42,6 +42,21 @@ def db_sum_content_chars() -> int:
     return db_sum_impl(get_db_path())
 
 
+def _get_current_equipment(persona: str) -> dict:
+    """Get current equipment from item.sqlite database.
+    
+    Args:
+        persona: Persona name
+        
+    Returns:
+        Dictionary of {slot: item_name} for currently equipped items
+    """
+    from core.equipment_db import EquipmentDB
+    
+    db = EquipmentDB(persona)
+    return db.get_equipped_items()
+
+
 # ========================================
 # Dashboard Data Helper Functions
 # ========================================
@@ -91,7 +106,7 @@ def _get_memory_info_data(persona: str) -> dict:
             "mental_state": context.get("mental_state", "calm"),
             "environment": context.get("environment", "unknown"),
             "relationship_status": context.get("relationship_status", "normal"),
-            "current_equipment": context.get("current_equipment", {})
+            "current_equipment": _get_current_equipment(persona)
         }
     finally:
         current_persona.set(original_persona)

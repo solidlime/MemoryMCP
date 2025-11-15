@@ -10,11 +10,7 @@ from zoneinfo import ZoneInfo
 from typing import Optional, Tuple
 
 from src.utils.config_utils import load_config
-
-
-def _log_progress(message: str) -> None:
-    """Internal logging function."""
-    print(message, flush=True)
+from src.utils.logging_utils import log_progress
 
 
 def get_current_time() -> datetime:
@@ -28,7 +24,7 @@ def get_current_time() -> datetime:
         tz = ZoneInfo(timezone_str)
         return datetime.now(tz)
     except Exception as e:
-        _log_progress(f"⚠️  Invalid timezone '{timezone_str}', using UTC: {e}")
+        log_progress(f"⚠️  Invalid timezone '{timezone_str}', using UTC: {e}")
         return datetime.now(ZoneInfo("UTC"))
 
 
@@ -177,7 +173,7 @@ def calculate_time_diff(start_time: str, end_time: Optional[str] = None) -> dict
             "formatted_string": formatted
         }
     except Exception as e:
-        _log_progress(f"❌ Failed to calculate time diff: {e}")
+        log_progress(f"❌ Failed to calculate time diff: {e}")
         return {
             "days": 0,
             "hours": 0,
@@ -216,7 +212,7 @@ def format_datetime_for_display(dt_str: str) -> str:
         
         return formatted
     except Exception as e:
-        _log_progress(f"❌ Failed to format datetime: {e}")
+        log_progress(f"❌ Failed to format datetime: {e}")
         return dt_str
 
 
@@ -266,7 +262,7 @@ def get_datetime_context(dt_str: str) -> dict:
             "display": format_datetime_for_display(dt_str)
         }
     except Exception as e:
-        _log_progress(f"❌ Failed to get datetime context: {e}")
+        log_progress(f"❌ Failed to get datetime context: {e}")
         return {
             "weekday_en": "Unknown",
             "weekday_ja": "不明",

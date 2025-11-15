@@ -16,11 +16,7 @@ from core import (
     log_operation,
 )
 from src.utils.persona_utils import get_current_persona, get_db_path
-
-
-def _log_progress(message: str) -> None:
-    """Internal logging function."""
-    print(message, flush=True)
+from src.utils.logging_utils import log_progress
 
 
 async def get_context() -> str:
@@ -34,13 +30,10 @@ async def get_context() -> str:
         # ===== PART 1: Persona Context =====
         context = load_persona_context(persona)
         
-        # Load equipment state from DB and update context
+        # Load equipment state from DB (not saved to persona_context.json)
         from core.equipment_db import EquipmentDB
         db = EquipmentDB(persona)
         equipped_items = db.get_equipped_items()
-        if equipped_items:
-            context['current_equipment'] = equipped_items
-            save_persona_context(context, persona)
         
         result = f"📋 Context (persona: {persona})\n"
         result += "=" * 60 + "\n\n"
@@ -76,9 +69,9 @@ async def get_context() -> str:
             result += f"   Current Action: {context.get('current_action_tag')}\n"
         
         # ===== PART 1.5: Extended Persona Context =====
-        # Current Equipment
-        if context.get('current_equipment'):
-            equipment = context['current_equipment']
+        # Current Equipment (always from DB, not from context)
+        if equipped_items:
+            equipment = equipped_items
             result += f"\n👗 Current Equipment:\n"
             if isinstance(equipment, dict):
                 for equip_type, item in equipment.items():
@@ -222,6 +215,6 @@ async def get_context() -> str:
         return result
         
     except Exception as e:
-        _log_progress(f"❌ Failed to get context: {e}")
+        log_progress(f"❌ Failed to get context: {e}")
         log_operation("get_context", success=False, error=str(e))
         return f"Failed to get context: {str(e)}"

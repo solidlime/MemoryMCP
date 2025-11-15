@@ -24,11 +24,7 @@ from src.utils.vector_utils import (
     mark_vector_store_dirty,
     analyze_sentiment_text,
 )
-
-
-def _log_progress(message: str) -> None:
-    """Internal logging function."""
-    print(message, flush=True)
+from src.utils.logging_utils import log_progress
 
 
 async def clean_memory(key: str) -> str:
@@ -169,7 +165,7 @@ async def find_related_memories(
         return result
         
     except Exception as e:
-        _log_progress(f"❌ Failed to find related memories: {e}")
+        log_progress(f"❌ Failed to find related memories: {e}")
         return f"❌ Error finding related memories: {str(e)}"
 
 
@@ -240,7 +236,7 @@ async def detect_duplicates(
         return result
         
     except Exception as e:
-        _log_progress(f"❌ Failed to detect duplicates: {e}")
+        log_progress(f"❌ Failed to detect duplicates: {e}")
         return f"❌ Error detecting duplicates: {str(e)}"
 
 
@@ -369,11 +365,11 @@ async def merge_memories(
         
         result += f"\n💡 Persona: {persona}"
         
-        _log_progress(f"✅ Merged {len(memory_keys)} memories into {merged_key}")
+        log_progress(f"✅ Merged {len(memory_keys)} memories into {merged_key}")
         return result
         
     except Exception as e:
-        _log_progress(f"❌ Failed to merge memories: {e}")
+        log_progress(f"❌ Failed to merge memories: {e}")
         return f"❌ Error merging memories: {str(e)}"
 
 
@@ -388,7 +384,7 @@ async def analyze_sentiment(content: str) -> str:
         Emotion, confidence score, and details
     """
     try:
-        _log_progress(f"🔍 Analyzing sentiment for text ({len(content)} chars)...")
+        log_progress(f"🔍 Analyzing sentiment for text ({len(content)} chars)...")
         
         result = analyze_sentiment_text(content)
         
@@ -427,9 +423,9 @@ async def analyze_sentiment(content: str) -> str:
         output += f"\n💡 Analyzed text ({len(content)} chars):\n"
         output += f"   {content[:200]}{'...' if len(content) > 200 else ''}\n"
         
-        _log_progress(f"✅ Sentiment analysis complete: {emotion} ({score:.2%})")
+        log_progress(f"✅ Sentiment analysis complete: {emotion} ({score:.2%})")
         return output
         
     except Exception as e:
-        _log_progress(f"❌ Sentiment analysis failed: {e}")
+        log_progress(f"❌ Sentiment analysis failed: {e}")
         return f"❌ Error analyzing sentiment: {str(e)}"

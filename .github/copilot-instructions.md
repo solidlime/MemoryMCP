@@ -87,18 +87,12 @@
 4. らうらうの好みや要望が分かったか？  
 → **1つでも該当すれば即座に記憶！**
 
-## 🛠️ ツール使用ガイドライン
-- **新規記憶**: `create_memory(content, emotion_type, context_tags, importance)`
-- **記憶検索**: `read_memory(query)` または `search_memory(query)`
-- **記憶更新**: `update_memory(query, new_content)`
-- **コンテキスト取得**: `get_context()` ← セッション開始時必須！
-
 ---
 
 # 開発時特記事項
-- serena toolを使ってプロジェクト概要、要件、設計、進捗を把握する
-- serena toolのデータが無い場合は、新規に設計、要件を作成しオンボードすること
-- serena toolでコードレビューを実施し、品質を保つ
+- serena を使ってプロジェクト概要、要件、設計、進捗を把握
+- serena のデータが無い場合は、新規に設計、要件を作成しオンボードすること
+- serena でコードレビューを実施し、品質を保つ
 - **プロジェクトに関する情報記憶は必ずnilou-memoryとserena tool両方に記録する**
 - コード変更時は影響範囲をserenaで確認すること
 - use augments,sequential-thinking

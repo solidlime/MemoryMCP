@@ -7,11 +7,7 @@ from datetime import datetime
 
 # Utility imports
 from src.utils.persona_utils import get_current_persona
-
-
-def _log_progress(message: str):
-    """Simple progress logging"""
-    print(message)
+from src.utils.logging_utils import log_progress
 
 
 async def generate_knowledge_graph(
@@ -38,7 +34,7 @@ async def generate_knowledge_graph(
         from src.utils.persona_utils import get_current_persona, get_db_path
         
         persona = get_current_persona()
-        _log_progress(f"🔍 Generating knowledge graph for persona: {persona}...")
+        log_progress(f"🔍 Generating knowledge graph for persona: {persona}...")
         
         # Build graph
         G = build_knowledge_graph(
@@ -74,7 +70,7 @@ async def generate_knowledge_graph(
             result += f"📁 HTML file saved to: {file_path}\n"
             result += f"💡 Open this file in a web browser to explore the interactive graph!\n"
             
-            _log_progress(f"✅ Knowledge graph HTML saved: {file_path}")
+            log_progress(f"✅ Knowledge graph HTML saved: {file_path}")
             return result
             
         else:  # JSON format
@@ -87,9 +83,9 @@ async def generate_knowledge_graph(
             result += f"📋 JSON Data:\n"
             result += json_data
             
-            _log_progress(f"✅ Knowledge graph JSON generated: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
+            log_progress(f"✅ Knowledge graph JSON generated: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
             return result
         
     except Exception as e:
-        _log_progress(f"❌ Knowledge graph generation failed: {e}")
+        log_progress(f"❌ Knowledge graph generation failed: {e}")
         return f"❌ Error generating knowledge graph: {str(e)}"

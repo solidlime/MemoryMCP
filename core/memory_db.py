@@ -69,7 +69,7 @@ def load_memory_from_db() -> Dict[str, Any]:
             
             if not os.path.exists(db_path) or os.path.getsize(db_path) < 100:
                 print(f"Initialized SQLite database at {db_path}")
-                _log_progress(f"Initialized SQLite database at {db_path}")
+                log_progress(f"Initialized SQLite database at {db_path}")
         
         # Load existing data and migrate schema if needed
         with sqlite3.connect(db_path) as conn:
@@ -80,79 +80,79 @@ def load_memory_from_db() -> Dict[str, Any]:
             columns = [col[1] for col in cursor.fetchall()]
             
             if 'tags' not in columns:
-                _log_progress("🔄 Migrating database: Adding tags column...")
+                log_progress("🔄 Migrating database: Adding tags column...")
                 cursor.execute('ALTER TABLE memories ADD COLUMN tags TEXT')
                 conn.commit()
-                _log_progress("✅ Database migration complete: tags column added")
+                log_progress("✅ Database migration complete: tags column added")
             
             # Phase 25.5: Add importance and emotion columns
             if 'importance' not in columns:
-                _log_progress("🔄 Migrating database: Adding importance column...")
+                log_progress("🔄 Migrating database: Adding importance column...")
                 cursor.execute('ALTER TABLE memories ADD COLUMN importance REAL DEFAULT 0.5')
                 conn.commit()
-                _log_progress("✅ Database migration complete: importance column added")
+                log_progress("✅ Database migration complete: importance column added")
             
             if 'emotion' not in columns:
-                _log_progress("🔄 Migrating database: Adding emotion column...")
+                log_progress("🔄 Migrating database: Adding emotion column...")
                 cursor.execute('ALTER TABLE memories ADD COLUMN emotion TEXT DEFAULT "neutral"')
                 conn.commit()
-                _log_progress("✅ Database migration complete: emotion column added")
+                log_progress("✅ Database migration complete: emotion column added")
             
             # Phase 25.5 Extended: Add context state columns
             if 'physical_state' not in columns:
-                _log_progress("🔄 Migrating database: Adding physical_state column...")
+                log_progress("🔄 Migrating database: Adding physical_state column...")
                 cursor.execute('ALTER TABLE memories ADD COLUMN physical_state TEXT DEFAULT "normal"')
                 conn.commit()
-                _log_progress("✅ Database migration complete: physical_state column added")
+                log_progress("✅ Database migration complete: physical_state column added")
             
             if 'mental_state' not in columns:
-                _log_progress("🔄 Migrating database: Adding mental_state column...")
+                log_progress("🔄 Migrating database: Adding mental_state column...")
                 cursor.execute('ALTER TABLE memories ADD COLUMN mental_state TEXT DEFAULT "calm"')
                 conn.commit()
-                _log_progress("✅ Database migration complete: mental_state column added")
+                log_progress("✅ Database migration complete: mental_state column added")
             
             if 'environment' not in columns:
-                _log_progress("🔄 Migrating database: Adding environment column...")
+                log_progress("🔄 Migrating database: Adding environment column...")
                 cursor.execute('ALTER TABLE memories ADD COLUMN environment TEXT DEFAULT "unknown"')
                 conn.commit()
-                _log_progress("✅ Database migration complete: environment column added")
+                log_progress("✅ Database migration complete: environment column added")
             
             if 'relationship_status' not in columns:
-                _log_progress("🔄 Migrating database: Adding relationship_status column...")
+                log_progress("🔄 Migrating database: Adding relationship_status column...")
                 cursor.execute('ALTER TABLE memories ADD COLUMN relationship_status TEXT DEFAULT "normal"')
                 conn.commit()
-                _log_progress("✅ Database migration complete: relationship_status column added")
+                log_progress("✅ Database migration complete: relationship_status column added")
             
             if 'action_tag' not in columns:
-                _log_progress("🔄 Migrating database: Adding action_tag column...")
+                log_progress("🔄 Migrating database: Adding action_tag column...")
                 cursor.execute('ALTER TABLE memories ADD COLUMN action_tag TEXT DEFAULT NULL')
                 conn.commit()
-                _log_progress("✅ Database migration complete: action_tag column added")
+                log_progress("✅ Database migration complete: action_tag column added")
             
             # Phase 28.1: Add emotion intensity, related keys, and summary reference columns
             if 'emotion_intensity' not in columns:
-                _log_progress("🔄 Migrating database: Adding emotion_intensity column...")
+                log_progress("🔄 Migrating database: Adding emotion_intensity column...")
                 cursor.execute('ALTER TABLE memories ADD COLUMN emotion_intensity REAL DEFAULT 0.0')
                 conn.commit()
-                _log_progress("✅ Database migration complete: emotion_intensity column added")
+                log_progress("✅ Database migration complete: emotion_intensity column added")
             
             if 'related_keys' not in columns:
-                _log_progress("🔄 Migrating database: Adding related_keys column...")
+                log_progress("🔄 Migrating database: Adding related_keys column...")
                 cursor.execute('ALTER TABLE memories ADD COLUMN related_keys TEXT DEFAULT "[]"')
                 conn.commit()
-                _log_progress("✅ Database migration complete: related_keys column added")
+                log_progress("✅ Database migration complete: related_keys column added")
             
             if 'summary_ref' not in columns:
-                _log_progress("🔄 Migrating database: Adding summary_ref column...")
+                log_progress("🔄 Migrating database: Adding summary_ref column...")
                 cursor.execute('ALTER TABLE memories ADD COLUMN summary_ref TEXT DEFAULT NULL')
                 conn.commit()
-                _log_progress("✅ Database migration complete: summary_ref column added")
+                log_progress("✅ Database migration complete: summary_ref column added")
             
             if 'equipped_items' not in columns:
-                _log_progress("🔄 Migrating database: Adding equipped_items column...")
+                log_progress("🔄 Migrating database: Adding equipped_items column...")
                 cursor.execute('ALTER TABLE memories ADD COLUMN equipped_items TEXT DEFAULT NULL')
                 conn.commit()
-                _log_progress("✅ Database migration complete: equipped_items column added")
+                log_progress("✅ Database migration complete: equipped_items column added")
             
             cursor.execute('SELECT key, content, created_at, updated_at, tags, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys, summary_ref, equipped_items FROM memories')
             rows = cursor.fetchall()
@@ -178,10 +178,10 @@ def load_memory_from_db() -> Dict[str, Any]:
                 }
         
         print(f"Loaded {len(memory_store)} memory entries from {db_path}")
-        _log_progress(f"Loaded {len(memory_store)} memory entries from {db_path}")
+        log_progress(f"Loaded {len(memory_store)} memory entries from {db_path}")
     except Exception as e:
         print(f"Failed to load memory database: {e}")
-        _log_progress(f"Failed to load memory database: {e}")
+        log_progress(f"Failed to load memory database: {e}")
     
     return memory_store
 
@@ -231,7 +231,7 @@ def save_memory_to_db(
     try:
         persona = get_current_persona()
         db_path = get_db_path()
-        _log_progress(f"💾 Attempting to save to DB: {db_path} (persona: {persona})")
+        log_progress(f"💾 Attempting to save to DB: {db_path} (persona: {persona})")
         
         now = datetime.now().isoformat()
         
@@ -269,7 +269,7 @@ def save_memory_to_db(
         tags_json = json.dumps(tags, ensure_ascii=False) if tags else None
         related_keys_json = json.dumps(related_keys, ensure_ascii=False)
         equipped_items_json = json.dumps(equipped_items, ensure_ascii=False) if equipped_items else None
-        _log_progress(f"💾 Tags JSON: {tags_json}, importance: {importance}, emotion: {emotion}, emotion_intensity: {emotion_intensity}, physical: {physical_state}, mental: {mental_state}, env: {environment}, relation: {relationship_status}, action: {action_tag}, related_keys: {related_keys_json}, summary_ref: {summary_ref}, equipped_items: {equipped_items_json}")
+        log_progress(f"💾 Tags JSON: {tags_json}, importance: {importance}, emotion: {emotion}, emotion_intensity: {emotion_intensity}, physical: {physical_state}, mental: {mental_state}, env: {environment}, relation: {relationship_status}, action: {action_tag}, related_keys: {related_keys_json}, summary_ref: {summary_ref}, equipped_items: {equipped_items_json}")
         
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
@@ -277,22 +277,22 @@ def save_memory_to_db(
             # Check schema before insert
             cursor.execute("PRAGMA table_info(memories)")
             columns = [col[1] for col in cursor.fetchall()]
-            _log_progress(f"💾 DB columns: {columns}")
+            log_progress(f"💾 DB columns: {columns}")
             
             cursor.execute('''
                 INSERT OR REPLACE INTO memories (key, content, created_at, updated_at, tags, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys, summary_ref, equipped_items)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (key, content, created_at, updated_at, tags_json, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys_json, summary_ref, equipped_items_json))
             conn.commit()
-            _log_progress(f"✅ Successfully saved {key} to DB")
+            log_progress(f"✅ Successfully saved {key} to DB")
         
         return True
     except Exception as e:
         print(f"Failed to save memory to database: {e}")
-        _log_progress(f"❌ Failed to save memory to database: {e}")
-        _log_progress(f"❌ DB path was: {db_path}")
+        log_progress(f"❌ Failed to save memory to database: {e}")
+        log_progress(f"❌ DB path was: {db_path}")
         import traceback
-        _log_progress(f"❌ Traceback: {traceback.format_exc()}")
+        log_progress(f"❌ Traceback: {traceback.format_exc()}")
         return False
 
 
@@ -317,7 +317,7 @@ def delete_memory_from_db(key: str) -> bool:
         return True
     except Exception as e:
         print(f"Failed to delete memory from database: {e}")
-        _log_progress(f"Failed to delete memory from database: {e}")
+        log_progress(f"Failed to delete memory from database: {e}")
         return False
 
 

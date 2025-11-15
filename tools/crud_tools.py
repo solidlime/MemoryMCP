@@ -194,9 +194,14 @@ def _update_persona_context(
             if key_name in ["name", "nickname", "preferred_address"]:
                 context["persona_info"][key_name] = value
             # Extended fields (can be nested dicts/lists)
-            elif key_name in ["current_equipment", "favorite_items", "active_promises", 
+            # Note: current_equipment is NOT saved to persona_context.json
+            # It's always fetched from item.sqlite database
+            elif key_name in ["favorite_items", "active_promises", 
                                "current_goals", "preferences", "special_moments"]:
                 context[key_name] = value
+            elif key_name == "current_equipment":
+                # Skip: current_equipment is managed by equipment_db, not persona_context
+                pass
         context_updated = True
     
     # Update relationship status if provided
@@ -997,7 +1002,6 @@ async def create_memory(
         persona_info: Dict with extended fields (see examples below)
     
     **persona_info Extended Fields** (IMPORTANT - Use these fields when appropriate):
-        - current_equipment: {"clothing": "item", "accessory": "item"} - What persona is wearing
         - favorite_items: ["item1", "item2"] - List of favorite things
         - active_promises: "Single most important promise" or null when completed
         - current_goals: "Single most important goal" or null when achieved
@@ -1013,12 +1017,7 @@ async def create_memory(
                      emotion_type="joy", emotion_intensity=0.9, 
                      importance=0.8, context_tags=["technical_achievement"])
         
-        # With equipment change
-        create_memory("Received [[white dress]] as gift and wore it", 
-                     persona_info={"current_equipment": {"clothing": "white dress"}},
-                     emotion_type="love", emotion_intensity=0.95)
-        
-        # With promise
+        # With promise (use equip_item() tool for equipment changes)
         create_memory("Made promise to cook together",
                      persona_info={"active_promises": "Cook together with user"},
                      context_tags=["important_event"])
@@ -1264,12 +1263,12 @@ async def update_memory(
         context_tags: ["important_event", "technical_achievement", "emotional_moment", etc.]
         importance: 0.0-1.0 (0.7+ = high, 0.4-0.7 = medium, <0.4 = low)
         physical_state, mental_state, environment, relationship_status, action_tag: Optional context
-        user_info/persona_info: Dicts with name, nickname, preferred_address, current_equipment, favorite_items, active_promises, current_goals, preferences, special_moments
+        user_info/persona_info: Dicts with name, nickname, preferred_address, favorite_items, active_promises, current_goals, preferences, special_moments
+        Note: Use equip_item() tool for equipment changes, not persona_info
     
     Examples:
         update_memory("promise", "Changed to tomorrow 10am")
         update_memory("project", "Feature completed", importance=0.8)
-        update_memory("装備", "[[銀の剣]]を装備した", persona_info={"current_equipment": {"weapon": "銀の剣"}})
     
     Note: If similarity < 0.80, shows candidates and creates new memory instead.
     """
