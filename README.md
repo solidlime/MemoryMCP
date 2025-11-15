@@ -66,7 +66,10 @@ Persona切り替えは `Bearer <persona名>` で行います。
 2. 環境変数 (`MEMORY_MCP_*`)
 3. **config.json (最優先)**
 
-注: `server_host` / `server_port` は環境変数が最優先 (Docker互換性のため)
+**注**:
+- 設定ファイルパスは `DATA_DIR/config.json` に固定
+- ログファイルパスは `DATA_DIR/logs/memory_operations.log` に固定
+- `server_host` / `server_port` は環境変数が最優先 (Docker互換性のため)
 
 ### 全設定項目
 
@@ -137,11 +140,11 @@ Persona切り替えは `Bearer <persona名>` で行います。
 ├── memory/              # Persona別データ
 │   ├── default/
 │   │   ├── memory.sqlite
-│   │   ├── equipment.db
+│   │   ├── inventory.sqlite
 │   │   └── persona_context.json
 │   └── example/
 │       ├── memory.sqlite
-│       ├── equipment.db
+│       ├── inventory.sqlite
 │       └── persona_context.json
 ├── logs/
 │   └── memory_operations.log

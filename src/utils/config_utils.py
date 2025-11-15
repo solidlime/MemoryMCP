@@ -49,9 +49,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
 
 _ENV_PREFIX = "MEMORY_MCP_"
 _RESERVED_ENV_KEYS = {
-    f"{_ENV_PREFIX}CONFIG_PATH",
     f"{_ENV_PREFIX}DATA_DIR",
-    f"{_ENV_PREFIX}LOG_FILE",
 }
 
 _config_cache: Dict[str, Any] = {}
@@ -119,6 +117,10 @@ def _load_env_overrides() -> Dict[str, Any]:
             continue
 
         # Friendly one-underscore mapping for known 2-level sections
+        if lower.startswith("summarization_"):
+            leaf = lower[len("summarization_") :]
+            _assign_nested(overrides, ["summarization", leaf], value)
+            continue
         if lower.startswith("vector_rebuild_"):
             leaf = lower[len("vector_rebuild_") :]
             _assign_nested(overrides, ["vector_rebuild", leaf], value)
@@ -134,10 +136,7 @@ def _load_env_overrides() -> Dict[str, Any]:
 
 
 def get_config_path() -> str:
-    env_path = os.environ.get(f"{_ENV_PREFIX}CONFIG_PATH")
-    if env_path:
-        return os.path.abspath(env_path)
-    # Default to data/config.json instead of root config.json
+    """設定ファイルパスを取得（常にDATA_DIR/config.json）"""
     data_dir = get_data_dir()
     return os.path.join(data_dir, "config.json")
 
@@ -179,15 +178,10 @@ def ensure_memory_root() -> str:
 
 
 def get_log_file_path() -> str:
-    env_path = os.environ.get(f"{_ENV_PREFIX}LOG_FILE")
-    if env_path:
-        path = os.path.abspath(env_path)
-    else:
-        logs_dir = get_logs_dir()
-        ensure_directory(logs_dir)
-        path = os.path.join(logs_dir, "memory_operations.log")
-    ensure_directory(os.path.dirname(path) or BASE_DIR)
-    return path
+    """ログファイルパスを取得（常にDATA_DIR/logs/memory_operations.log）"""
+    logs_dir = get_logs_dir()
+    ensure_directory(logs_dir)
+    return os.path.join(logs_dir, "memory_operations.log")
 
 
 def _load_file_config(path: str) -> Dict[str, Any]:

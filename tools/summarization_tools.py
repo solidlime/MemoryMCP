@@ -133,14 +133,21 @@ def extract_memories_by_period(
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
             
+            # Debug: 全記憶の総数と日付範囲を確認
+            cursor.execute('SELECT COUNT(*), MIN(created_at), MAX(created_at) FROM memories')
+            total_count, min_date, max_date = cursor.fetchone()
+            print(f"📊 Total memories: {total_count}, Date range: {min_date} to {max_date}")
+            print(f"🔍 Searching period: {start_date} to {end_date} (min_importance={min_importance})")
+            
             cursor.execute('''
                 SELECT key, content, created_at, importance, emotion, emotion_intensity, tags
                 FROM memories
-                WHERE created_at >= ? AND created_at <= ? AND importance >= ?
-                ORDER BY (importance * COALESCE(emotion_intensity, 0.5)) DESC
+                WHERE created_at >= ? AND created_at <= ? AND COALESCE(importance, 0.5) >= ?
+                ORDER BY (COALESCE(importance, 0.5) * COALESCE(emotion_intensity, 0.5)) DESC
             ''', (start_date, end_date, min_importance))
             
             rows = cursor.fetchall()
+            print(f"✅ Found {len(rows)} memories in period")
             
             for row in rows:
                 key, content, created_at, importance, emotion, emotion_intensity, tags_json = row
@@ -159,6 +166,8 @@ def extract_memories_by_period(
     
     except Exception as e:
         print(f"⚠️  Failed to extract memories by period: {e}")
+        import traceback
+        traceback.print_exc()
         return []
 
 
@@ -399,7 +408,11 @@ def summarize_period(
     memories = extract_memories_by_period(period_start, period_end, min_importance)
     
     if not memories:
-        print(f"⚠️  No memories found for period")
+        print(f"❌ Error: Failed to generate summary (no memories found in the selected period)")
+        print(f"   This may be due to:")
+        print(f"   - No memories exist in the date range {period_start} to {period_end}")
+        print(f"   - All memories have importance < {min_importance}")
+        print(f"   - Date format mismatch (expected ISO 8601)")
         return None
     
     # Create summary node
