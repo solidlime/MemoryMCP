@@ -388,7 +388,16 @@
                 const ctx = document.getElementById('tagChart');
                 if (tagChart) tagChart.destroy();
                 
-                const tagEntries = Object.entries(stats.tag_distribution).slice(0, 5);
+                // Show top 8 tags + "Others" for remaining tags
+                const allTags = Object.entries(stats.tag_distribution).sort((a, b) => b[1] - a[1]);
+                const topTags = allTags.slice(0, 8);
+                const otherTags = allTags.slice(8);
+                
+                let tagEntries = topTags;
+                if (otherTags.length > 0) {
+                    const otherCount = otherTags.reduce((sum, [_, count]) => sum + count, 0);
+                    tagEntries.push(['Others', otherCount]);
+                }
                 const labels = tagEntries.map(([tag, _]) => tag);
                 const data = tagEntries.map(([_, count]) => count);
                 
@@ -403,7 +412,11 @@
                                 'rgba(54, 162, 235, 0.7)',
                                 'rgba(255, 206, 86, 0.7)',
                                 'rgba(75, 192, 192, 0.7)',
-                                'rgba(153, 102, 255, 0.7)'
+                                'rgba(153, 102, 255, 0.7)',
+                                'rgba(255, 159, 64, 0.7)',
+                                'rgba(201, 203, 207, 0.7)',
+                                'rgba(255, 99, 255, 0.7)',
+                                'rgba(128, 128, 128, 0.7)'  // Others in gray
                             ],
                             borderWidth: 2,
                             borderColor: '#fff'

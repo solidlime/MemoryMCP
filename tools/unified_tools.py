@@ -83,9 +83,29 @@ async def memory(
         - "search": Keyword/semantic/related search (requires query or memory_key for related mode)
         - "stats": Get memory statistics
     
+    **Recommended Tags** (Use English consistently):
+        - Technical: "technical_achievement", "bug_fix", "code_refactor", "learning"
+        - Emotional: "emotional_moment", "intimate_moment", "happy_moment", "sad_moment"
+        - Events: "important_event", "promise", "plan", "milestone"
+        - Relationship: "relationship_update", "conversation", "disagreement"
+        - Daily: "daily_activity", "routine", "meal", "rest"
+    
     Examples:
-        # Create
-        memory(operation="create", content="User likes strawberry", emotion_type="joy")
+        # Create with recommended tags
+        memory(operation="create", content="User completed Python project", 
+               emotion_type="joy", importance=0.8, 
+               context_tags=["technical_achievement", "milestone"])
+        
+        # Create with all available fields
+        memory(operation="create", 
+               content="Walked together in the park at sunset",
+               emotion_type="joy", emotion_intensity=0.85,
+               physical_state="energized", mental_state="peaceful",
+               environment="park", relationship_status="married",
+               action_tag="walking", importance=0.7,
+               context_tags=["emotional_moment", "daily_activity"],
+               persona_info={"favorite_items": ["sunset", "nature"]},
+               user_info={"name": "User"})
         
         # Read (semantic search)
         memory(operation="read", query="ユーザーの好きな食べ物", top_k=5)

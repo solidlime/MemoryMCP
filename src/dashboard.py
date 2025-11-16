@@ -212,7 +212,7 @@ def _get_memory_stats_data(persona: str) -> dict:
             return {
                 "persona": persona,
                 "last_7_days": timeline,
-                "tag_distribution": dict(tag_counter.most_common(10)),
+                "tag_distribution": dict(tag_counter),  # Send all tags instead of top 10
                 "top_links": dict(link_counter.most_common(10))
             }
     finally:
