@@ -472,13 +472,14 @@ def add_memory_to_vector_store(key: str, content: str):
         action_tag = None
         related_keys_json = None
         summary_ref = None
+        equipped_items_json = None
         try:
             with sqlite3.connect(get_db_path()) as conn:
                 cur = conn.cursor()
-                cur.execute('SELECT created_at, updated_at, tags, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys, summary_ref FROM memories WHERE key = ?', (key,))
+                cur.execute('SELECT created_at, updated_at, tags, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys, summary_ref, equipped_items FROM memories WHERE key = ?', (key,))
                 row = cur.fetchone()
                 if row:
-                    created_at, updated_at, tags_json, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys_json, summary_ref = row
+                    created_at, updated_at, tags_json, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys_json, summary_ref, equipped_items_json = row
         except Exception:
             pass
 
@@ -525,6 +526,8 @@ def add_memory_to_vector_store(key: str, content: str):
             meta["related_keys"] = related_keys_json
         if summary_ref:
             meta["summary_ref"] = summary_ref
+        if equipped_items_json:
+            meta["equipped_items"] = equipped_items_json
 
         # Create document with metadata
         doc = Document(page_content=content, metadata=meta)
@@ -583,13 +586,14 @@ def update_memory_in_vector_store(key: str, content: str):
         action_tag = None
         related_keys_json = None
         summary_ref = None
+        equipped_items_json = None
         try:
             with sqlite3.connect(get_db_path()) as conn:
                 cur = conn.cursor()
-                cur.execute('SELECT created_at, updated_at, tags, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys, summary_ref FROM memories WHERE key = ?', (key,))
+                cur.execute('SELECT created_at, updated_at, tags, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys, summary_ref, equipped_items FROM memories WHERE key = ?', (key,))
                 row = cur.fetchone()
                 if row:
-                    created_at, updated_at, tags_json, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys_json, summary_ref = row
+                    created_at, updated_at, tags_json, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys_json, summary_ref, equipped_items_json = row
         except Exception:
             pass
 
