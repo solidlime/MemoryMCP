@@ -387,7 +387,19 @@ def rebuild_vector_store():
         # Fetch all memories from SQLite
         with sqlite3.connect(get_db_path()) as conn:
             cur = conn.cursor()
-            cur.execute('SELECT key, content, created_at, updated_at, tags, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys, summary_ref FROM memories')
+            # Check if importance column exists (backward compatibility)
+            cur.execute("PRAGMA table_info(memories)")
+            columns = [col[1] for col in cur.fetchall()]
+            has_importance = 'importance' in columns
+            has_equipped_items = 'equipped_items' in columns
+            
+            if has_importance and has_equipped_items:
+                cur.execute('SELECT key, content, created_at, updated_at, tags, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys, summary_ref, equipped_items FROM memories')
+            elif has_importance:
+                cur.execute('SELECT key, content, created_at, updated_at, tags, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys, summary_ref FROM memories')
+            else:
+                # Old schema without importance
+                cur.execute('SELECT key, content, created_at, updated_at, tags FROM memories')
             rows = cur.fetchall()
         
         if not rows:
@@ -397,7 +409,21 @@ def rebuild_vector_store():
         docs = []
         ids = []
         for row in rows:
-            key, content, created_at, updated_at, tags_json, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys_json, summary_ref = row
+            # Handle different schema versions
+            if has_importance and has_equipped_items:
+                key, content, created_at, updated_at, tags_json, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys_json, summary_ref, equipped_items_json = row
+            elif has_importance:
+                key, content, created_at, updated_at, tags_json, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys_json, summary_ref = row
+                equipped_items_json = None
+            else:
+                # Old schema: only key, content, created_at, updated_at, tags
+                key, content, created_at, updated_at, tags_json = row
+                importance = 0.5
+                emotion = 'neutral'
+                emotion_intensity = 0.5
+                physical_state = mental_state = environment = relationship_status = action_tag = None
+                related_keys_json = summary_ref = equipped_items_json = None
+            
             meta = {"key": key}
             if created_at:
                 meta["created_at"] = created_at
@@ -425,6 +451,8 @@ def rebuild_vector_store():
                 meta["related_keys"] = related_keys_json
             if summary_ref:
                 meta["summary_ref"] = summary_ref
+            if equipped_items_json:
+                meta["equipped_items"] = equipped_items_json
             
             docs.append(Document(page_content=content, metadata=meta))
             ids.append(key)

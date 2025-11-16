@@ -225,6 +225,7 @@ export MEMORY_MCP_SERVER_PORT=26262
 | `tags` | TEXT | `[]` | タグ配列 (JSON) |
 | `importance` | REAL | `0.5` | 重要度 (0.0-1.0) |
 | `emotion` | TEXT | `"neutral"` | 感情タグ |
+| `emotion_intensity` | REAL | `0.5` | 感情強度 (0.0-1.0, デフォルト中程度) |
 | `physical_state` | TEXT | `"normal"` | 身体状態 |
 | `mental_state` | TEXT | `"calm"` | 精神状態 |
 | `environment` | TEXT | `"unknown"` | 環境 |
@@ -256,6 +257,18 @@ export MEMORY_MCP_SERVER_PORT=26262
 - **自動リビルド**: dimension不一致を検出時に自動修復
 
 ## MCPツール
+
+### 推奨タグ (英語統一)
+
+記憶作成時には以下のタグを使用することを推奨します：
+
+- **Technical**: `technical_achievement`, `bug_fix`, `code_refactor`, `learning`
+- **Emotional**: `emotional_moment`, `intimate_moment`, `happy_moment`, `sad_moment`
+- **Events**: `important_event`, `promise`, `plan`, `milestone`
+- **Relationship**: `relationship_update`, `conversation`, `disagreement`
+- **Daily**: `daily_activity`, `routine`, `meal`, `rest`
+
+タグを統一することで、検索やダッシュボードでの可視化が効果的になります。
 
 ### LLM用ツール (12個)
 
@@ -321,7 +334,7 @@ export MEMORY_MCP_SERVER_PORT=26262
 装備システムはSQLite (`data/memory/{persona}/equipment.db`) で管理され、`current_equipment`は`persona_context.json`と同期されます。
 記憶作成時には装備品が自動的にDBから取得され、`equipped_items`として記録されます。
 
-### 管理ツール (7個)
+### 管理ツール (8個)
 
 CLI / Webダッシュボード / API で実行可能。
 
@@ -333,16 +346,63 @@ CLI / Webダッシュボード / API で実行可能。
 - `generate-graph` - 知識グラフ生成
 - `migrate` - SQLite⇔Qdrant移行
 - `summarize` - 記憶要約生成
+- `migrate-schema` - スキーママイグレーション (不足カラム追加)
 
 **CLI例**:
 ```bash
 python3 admin_tools.py rebuild --persona default
 python3 admin_tools.py detect-duplicates --persona default --threshold 0.85
+python3 admin_tools.py migrate-schema --persona default
+# または全Personaを一括マイグレーション
+python3 scripts/migrate_schema.py
 ```
 
 **Webダッシュボード**: `http://localhost:26262/` → 🛠️ Admin Tools
 
 詳細は元のREADMEまたは `python3 admin_tools.py --help` を参照してください。
+
+## スキーママイグレーション
+
+古いバージョンからアップデートした場合、データベーススキーマの更新が必要な場合があります。
+
+### いつマイグレーションが必要か
+
+以下のような症状がある場合、スキーママイグレーションを実行してください：
+
+- Rebuildで「no such column: importance」エラーが出る
+- 装備品情報がQdrantに保存されない
+- emotion_intensityが常に0.0になる
+
+### マイグレーション方法
+
+**方法1: Webダッシュボード** (推奨)
+```
+http://localhost:26262/ → 🛠️ Admin Tools → 🔧 Migrate Schema
+```
+
+**方法2: CLI**
+```bash
+# 全Personaを一括マイグレーション
+python3 scripts/migrate_schema.py
+
+# 特定のPersonaのみ
+python3 scripts/migrate_schema.py --persona nilou
+python3 admin_tools.py migrate-schema --persona nilou
+```
+
+### マイグレーション内容
+
+- 不足カラムを自動追加（importance, emotion_intensity, equipped_items等）
+- 既存の`emotion_intensity=0.0`を0.5（中程度）に更新
+- 安全で冪等（何度実行してもOK）
+
+### マイグレーション後の推奨手順
+
+1. スキーママイグレーション実行
+2. Rebuild実行（装備品情報をQdrantに反映）
+   ```bash
+   python3 admin_tools.py rebuild --persona nilou
+   ```
 
 ## Testing
 
