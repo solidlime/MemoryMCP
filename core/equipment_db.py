@@ -139,12 +139,83 @@ class EquipmentDB:
         self.persona = persona
         self.db_path = get_equipment_db_path(persona)
         init_equipment_db(persona)
+        # 旧スキーマからの移行で items のみが存在し、inventory が空の場合は
+        # 現在のペルソナ用に在庫をバックフィル（数量=1, 未装備）
+        try:
+            self._backfill_inventory_if_empty()
+        except Exception:
+            # バックフィル失敗は致命的ではないため無視
+            pass
     
     def _get_connection(self) -> sqlite3.Connection:
         """DB接続を取得"""
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row  # dict-like access
         return conn
+
+    def _backfill_inventory_if_empty(self) -> None:
+        """inventory が空で items が存在する場合、現在のペルソナ用に在庫をバックフィルする。
+        旧DB (equipment.db / item.sqlite) からの移行時に items のみが存在するケースを救済。
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        try:
+            # 現在ペルソナの在庫件数
+            cursor.execute("SELECT COUNT(1) FROM inventory WHERE persona = ?", (self.persona,))
+            inv_count = cursor.fetchone()[0]
+            if inv_count and inv_count > 0:
+                conn.close()
+                return
+
+            # items テーブルの確認（レガシーからの移行で items のみが存在する可能性）
+            cursor.execute("SELECT item_id FROM items")
+            item_rows = cursor.fetchall()
+
+            # まず persona_context の current_equipment からバックフィルを試みる
+            seeded = False
+            try:
+                from core.persona_context import load_persona_context
+                ctx = load_persona_context(self.persona)
+                current_eq = ctx.get("current_equipment") if isinstance(ctx, dict) else None
+                if isinstance(current_eq, dict) and current_eq:
+                    acquired_at = get_current_time().isoformat()
+                    for slot, item_name in current_eq.items():
+                        if not item_name:
+                            continue
+                        # アイテムを登録し、在庫に数量1で追加 + 装備状態を反映
+                        item_id = self.get_or_create_item(item_name)
+                        cursor.execute(
+                            """
+                            INSERT INTO inventory (persona, item_id, quantity, is_equipped, equipped_slot, acquired_at)
+                            VALUES (?, ?, 1, 1, ?, ?)
+                            ON CONFLICT(persona, item_id) DO UPDATE SET
+                                is_equipped = 1,
+                                equipped_slot = excluded.equipped_slot
+                            """,
+                            (self.persona, item_id, slot, acquired_at)
+                        )
+                    conn.commit()
+                    seeded = True
+            except Exception:
+                # persona_context が無い/読み込めない場合は無視
+                pass
+
+            if not seeded and item_rows:
+                # items が存在し、inventory が空の場合は items 全件を数量1で在庫化（未装備）
+                acquired_at = get_current_time().isoformat()
+                for row in item_rows:
+                    item_id = row[0]
+                    cursor.execute(
+                        """
+                        INSERT INTO inventory (persona, item_id, quantity, is_equipped, acquired_at)
+                        VALUES (?, ?, ?, 0, ?)
+                        ON CONFLICT(persona, item_id) DO NOTHING
+                        """,
+                        (self.persona, item_id, 1, acquired_at)
+                    )
+                conn.commit()
+        finally:
+            conn.close()
     
     # ==================== アイテム管理 ====================
     

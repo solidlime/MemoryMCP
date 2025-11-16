@@ -209,7 +209,7 @@ async def item(
     # Add/Update parameters
     description: Optional[str] = None,
     quantity: int = 1,
-    category: str = "misc",
+    category: Optional[str] = None,
     tags: Optional[list] = None,
     # Equip parameters
     equipment: Optional[Dict[str, str]] = None,
@@ -278,7 +278,7 @@ async def item(
             item_name=item_name,
             description=description,
             quantity=quantity,
-            category=category,
+            category=category or "misc",
             tags=tags
         )
     
