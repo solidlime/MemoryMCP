@@ -222,6 +222,28 @@ def generate_knowledge_graph(persona: str, output_format: str = "html",
         traceback.print_exc()
 
 
+def migrate_schema(persona: Optional[str] = None) -> None:
+    """SQLiteスキーマをマイグレーション（不足カラムを追加）"""
+    from scripts.migrate_schema import migrate_database
+    import os
+    
+    if persona:
+        print(f"🔧 Migrating schema for persona: {persona}")
+        current_persona.set(persona)
+        db_path = persona_utils.get_db_path(persona)
+        
+        if not os.path.exists(db_path):
+            print(f"❌ Database not found: {db_path}")
+            return
+        
+        migrate_database(db_path)
+    else:
+        # Migrate all personas
+        from scripts.migrate_schema import migrate_all_personas
+        print("🔧 Migrating schema for all personas...")
+        migrate_all_personas()
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Memory MCP 管理者用ツール",
@@ -273,6 +295,10 @@ def main():
     summarize_parser = subparsers.add_parser('summarize', help='期間別メモリを要約')
     summarize_parser.add_argument('--persona', required=True, help='Persona名')
     summarize_parser.add_argument('--period', required=True, choices=['day', 'week'], help='要約期間')
+    
+    # migrate-schema コマンド
+    schema_parser = subparsers.add_parser('migrate-schema', help='SQLiteスキーマをマイグレーション')
+    schema_parser.add_argument('--persona', help='Persona名（指定しない場合は全Persona）')
     
     args = parser.parse_args()
     
@@ -326,6 +352,9 @@ def main():
             print(f"✅ Summary created: {summary_key}")
         else:
             print(f"⚠️  Failed to create summary")
+    
+    elif args.command == 'migrate-schema':
+        migrate_schema(args.persona)
 
 
 if __name__ == '__main__':

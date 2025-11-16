@@ -184,6 +184,16 @@
                     Create
                 </button>
             </div>
+            
+            <!-- Migrate Schema -->
+            <div class="glass-card rounded-lg p-4">
+                <h3 class="text-lg font-semibold text-white mb-2">🔧 Migrate Schema</h3>
+                <p class="text-purple-200 text-sm mb-3">Update database schema (add missing columns)</p>
+                <button onclick="migrateSchema()" 
+                        class="w-full glass-card rounded-lg px-4 py-2 text-white font-semibold hover:bg-white/20 transition mt-8">
+                    Migrate
+                </button>
+            </div>
         </div>
         
         <!-- Result Display Area -->
@@ -794,6 +804,32 @@
             } catch (error) {
                 hideProgress();
                 showAdminResult(`Error: ${error.message}`, true);
+            }
+        }
+        
+        async function migrateSchema() {
+            if (!confirm(`Migrate database schema for persona "${currentPersona}"?\nThis will add missing columns (importance, equipped_items, etc.)`)) {
+                return;
+            }
+            
+            showAdminResult('Migrating schema...', false);
+            
+            try {
+                const response = await fetch('/api/admin/migrate-schema', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ persona: currentPersona })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAdminResult(`✅ ${result.message}`, false);
+                } else {
+                    showAdminResult(`❌ ${result.error}`, true);
+                }
+            } catch (error) {
+                showAdminResult(`❌ Error: ${error.message}`, true);
             }
         }
     </script>

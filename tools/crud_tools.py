@@ -1078,7 +1078,7 @@ async def create_memory(
         )
         
         # Save to database and vector store
-        emotion_intensity_value = emotion_intensity if emotion_intensity is not None else 0.0
+        emotion_intensity_value = emotion_intensity if emotion_intensity is not None else 0.5
         _save_memory_to_stores(
             key=key,
             content=content,

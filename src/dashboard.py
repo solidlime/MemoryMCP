@@ -463,6 +463,49 @@ def register_http_routes(mcp, templates):
                 "error": str(e)
             }, status_code=500)
     
+    @mcp.custom_route("/api/admin/migrate-schema", methods=["POST"])
+    async def admin_migrate_schema(request: Request):
+        """Migrate SQLite schema to add missing columns."""
+        try:
+            data = await request.json()
+            persona = data.get("persona")  # Optional - if None, migrate all
+            
+            # Run in thread pool to avoid blocking
+            import asyncio
+            from concurrent.futures import ThreadPoolExecutor
+            
+            def _migrate():
+                if persona:
+                    original_persona = current_persona.get()
+                    current_persona.set(persona)
+                try:
+                    from scripts.migrate_schema import migrate_database, migrate_all_personas
+                    import os
+                    
+                    if persona:
+                        db_path = os.path.join(MEMORY_ROOT, persona, "memory.sqlite")
+                        if not os.path.exists(db_path):
+                            return {"success": False, "error": f"Database not found: {db_path}"}
+                        migrate_database(db_path)
+                        return {"success": True, "message": f"Schema migrated for persona: {persona}"}
+                    else:
+                        migrate_all_personas()
+                        return {"success": True, "message": "Schema migrated for all personas"}
+                finally:
+                    if persona:
+                        current_persona.set(original_persona)
+            
+            loop = asyncio.get_event_loop()
+            with ThreadPoolExecutor() as executor:
+                result = await loop.run_in_executor(executor, _migrate)
+            
+            return JSONResponse(result)
+        except Exception as e:
+            return JSONResponse({
+                "success": False,
+                "error": str(e)
+            }, status_code=500)
+
     @mcp.custom_route("/api/admin/detect-duplicates", methods=["POST"])
     async def admin_detect_duplicates(request: Request):
         """Detect duplicate or similar memories (async background task)."""
