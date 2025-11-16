@@ -15,46 +15,47 @@ from core import calculate_time_diff
 from src.utils.persona_utils import get_db_path, get_current_persona
 
 
-async def analyze_item(
-    item_name: str,
-    mode: str = "both",
-    slot: Optional[str] = None,
-    top_k: int = 10
-) -> str:
-    """Analyze item usage in memories and statistics.
-    
-    Combines memory search and usage statistics for comprehensive item analysis.
-    
-    Args:
-        item_name: Item name to analyze (partial match)
-        mode: Analysis mode - "memories", "stats", or "both" (default: "both")
-        slot: Filter by equipment slot (optional, only for memories mode)
-        top_k: Maximum memories to return (default: 10)
-    
-    Returns:
-        Formatted analysis results
-    
-    Examples:
-        analyze_item("白いドレス")
-        analyze_item("星月の祈り", mode="memories", slot="clothing")
-        analyze_item("ソード", mode="stats")
-    """
-    if mode not in ["memories", "stats", "both"]:
-        return f"❌ Invalid mode '{mode}'. Use 'memories', 'stats', or 'both'."
-    
-    results = []
-    
-    # Get memories with item
-    if mode in ["memories", "both"]:
-        memories_result = await get_memories_with_item(item_name, slot, top_k)
-        results.append(f"📚 **Memories with Item:**\n{memories_result}")
-    
-    # Get usage statistics
-    if mode in ["stats", "both"]:
-        stats_result = await get_item_usage_stats(item_name)
-        results.append(f"\n\n📊 **Usage Statistics:**\n{stats_result}")
-    
-    return "\n".join(results)
+# DEPRECATED: Use unified tool instead - item(operation="memories") or item(operation="stats")
+# async def analyze_item(
+#     item_name: str,
+#     mode: str = "both",
+#     slot: Optional[str] = None,
+#     top_k: int = 10
+# ) -> str:
+#     """Analyze item usage in memories and statistics.
+#     
+#     Combines memory search and usage statistics for comprehensive item analysis.
+#     
+#     Args:
+#         item_name: Item name to analyze (partial match)
+#         mode: Analysis mode - "memories", "stats", or "both" (default: "both")
+#         slot: Filter by equipment slot (optional, only for memories mode)
+#         top_k: Maximum memories to return (default: 10)
+#     
+#     Returns:
+#         Formatted analysis results
+#     
+#     Examples:
+#         analyze_item("白いドレス")
+#         analyze_item("星月の祈り", mode="memories", slot="clothing")
+#         analyze_item("ソード", mode="stats")
+#     """
+#     if mode not in ["memories", "stats", "both"]:
+#         return f"❌ Invalid mode '{mode}'. Use 'memories', 'stats', or 'both'."
+#     
+#     results = []
+#     
+#     # Get memories with item
+#     if mode in ["memories", "both"]:
+#         memories_result = await get_memories_with_item(item_name, slot, top_k)
+#         results.append(f"📚 **Memories with Item:**\n{memories_result}")
+#     
+#     # Get usage statistics
+#     if mode in ["stats", "both"]:
+#         stats_result = await get_item_usage_stats(item_name)
+#         results.append(f"\n\n📊 **Usage Statistics:**\n{stats_result}")
+#     
+#     return "\n".join(results)
 
 
 async def get_memories_with_item(
