@@ -12,52 +12,27 @@ from typing import Any
 
 def register_tools(mcp: Any) -> None:
     # 遅延importして循環依存を回避
-    from tools.crud_tools import create_memory, update_memory, delete_memory
-    from tools.search_tools import search_memory
-
+    
+    # Phase 35: Unified tool interface (context reduction)
+    from tools.unified_tools import memory, item
     from tools.context_tools import get_context
-    from tools.equipment_tools import (
-        add_to_inventory, remove_from_inventory, 
-        equip_item, 
-        update_item, 
-        search_inventory, get_equipment_history
-    )
-    from tools.item_memory_tools import (
-        analyze_item
-    )
-    # from tools.summarization_tools import summarize_last_week, summarize_last_day  # 管理者ツールに移行
-
+    
     # === LLM用ツール（会話中に使用） ===
     
     # Context: Unified context retrieval (CALL EVERY RESPONSE)
     # Combines: persona state, time tracking, memory statistics
     mcp.tool()(get_context)
     
-    # Phase 28.5: Unified search interface
-    # - create_memory: 新規作成専用（RAG検索なし、高速）
-    # - update_memory: 更新専用（RAG検索あり、類似度0.80以上で更新）
-    # - search_memory: 統合検索（semantic/keyword/related modes）
-    # - delete_memory: 削除専用（自然言語クエリ対応）
-    mcp.tool()(create_memory)
-    mcp.tool()(update_memory)
-    mcp.tool()(search_memory)
-    mcp.tool()(delete_memory)
+    # Phase 35: Unified memory interface
+    # Single tool with operation parameter: create, read, update, delete, search, stats
+    # Replaces: create_memory, update_memory, search_memory, delete_memory
+    mcp.tool()(memory)
     
-    # 所持品管理ツール（Phase 32）
-    mcp.tool()(add_to_inventory)
-    mcp.tool()(remove_from_inventory)
-    mcp.tool()(equip_item)
-    mcp.tool()(update_item)
-    mcp.tool()(search_inventory)
-    mcp.tool()(get_equipment_history)
-    
-    # アイテム-記憶関連付けツール（Phase 34: 装備品自動記録）
-    mcp.tool()(analyze_item)
-    
-    # Phase 28.4: 自己要約（メタメモリ）→ 管理者ツールに移行
-    # mcp.tool()(summarize_last_week)  # ❌ LLM用ツールから除外
-    # mcp.tool()(summarize_last_day)   # ❌ LLM用ツールから除外
-    # ✅ admin_tools.py + ダッシュボードから実行可能
+    # Phase 35: Unified item interface
+    # Single tool with operation parameter: add, remove, equip, update, search, history, memories, stats
+    # Replaces: add_to_inventory, remove_from_inventory, equip_item, update_item, 
+    #           search_inventory, get_equipment_history, analyze_item
+    mcp.tool()(item)
     
     # === 管理者用ツールはMCPから除外 ===
     # 以下のツールは admin_tools.py CLIコマンド または ダッシュボードから実行：
