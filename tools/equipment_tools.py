@@ -132,8 +132,7 @@ def equip_item(
     if failed_items:
         message_parts.append(f"❌ Failed: {', '.join(failed_items)}")
     
-    return "
-".join(message_parts) if message_parts else "✅ Equipment completed"
+    return "\n".join(message_parts) if message_parts else "✅ Equipment completed"
 
 
 def unequip_item(
@@ -182,8 +181,7 @@ def unequip_item(
     if not_equipped:
         message_parts.append(f"⚠️ No items in: {', '.join(not_equipped)}")
     
-    return "
-".join(message_parts) if message_parts else "❌ No slots specified"
+    return "\n".join(message_parts) if message_parts else "❌ No slots specified"
 
 
 def update_item(
