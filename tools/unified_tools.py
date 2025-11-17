@@ -59,7 +59,7 @@ async def memory(
     mode: str = "keyword",
     fuzzy_match: bool = False,
     fuzzy_threshold: int = 70,
-    tags: Optional[List[str]] = None,
+    search_tags: Optional[List[str]] = None,
     tag_match_mode: str = "any",
     date_range: Optional[str] = None,
     min_importance: Optional[float] = None,
@@ -118,7 +118,7 @@ async def memory(
         memory(operation="delete", query="memory_20251102083918")
         
         # Search (keyword)
-        memory(operation="search", query="Python", mode="keyword", tags=["technical_achievement"])
+        memory(operation="search", query="Python", mode="keyword", search_tags=["technical_achievement"])
         
         # Search (semantic)
         memory(operation="search", query="成果", mode="semantic", min_importance=0.7)
@@ -200,7 +200,7 @@ async def memory(
             top_k=top_k,
             fuzzy_match=fuzzy_match,
             fuzzy_threshold=fuzzy_threshold,
-            tags=tags,
+            tags=search_tags,
             tag_match_mode=tag_match_mode,
             date_range=date_range,
             min_importance=min_importance,
@@ -231,14 +231,14 @@ async def item(
     description: Optional[str] = None,
     quantity: int = 1,
     category: Optional[str] = None,
-    tags: Optional[list] = None,
+    tags: Optional[List[str]] = None,
     # Equip/Unequip parameters
     equipment: Optional[Dict[str, str]] = None,
-    slot: Optional[str] = None,
-    slots: Optional[List[str]] = None,
+    slots: Optional[List[str] | str] = None,
     # Search parameters
     query: Optional[str] = None,
     # History parameters
+    history_slot: Optional[str] = None,
     days: int = 7,
     # Analysis parameters
     mode: str = "memories",
@@ -274,7 +274,7 @@ async def item(
         item(operation="equip", equipment={"top": "White Dress", "foot": "Sandals"})
         
         # Unequip single slot
-        item(operation="unequip", slot="weapon")
+        item(operation="unequip", slots="weapon")
         
         # Unequip multiple slots
         item(operation="unequip", slots=["top", "foot"])
@@ -290,7 +290,7 @@ async def item(
         item(operation="search", query="sword")
         
         # History
-        item(operation="history", slot="weapon", days=30)
+        item(operation="history", history_slot="weapon", days=30)
         
         # Memories with item
         item(operation="memories", item_name="白いドレス", top_k=10)
@@ -325,10 +325,9 @@ async def item(
         return _equip_item(equipment=equipment)
     
     elif operation == "unequip":
-        if not slot and not slots:
-            return "❌ Error: 'slot' or 'slots' is required for unequip operation"
-        unequip_slots = slots if slots else slot
-        return _unequip_item(slots=unequip_slots)
+        if not slots:
+            return "❌ Error: 'slots' is required for unequip operation (string or list)"
+        return _unequip_item(slots=slots)
     
     elif operation == "update":
         if not item_name:
@@ -350,7 +349,7 @@ async def item(
     
     elif operation == "history":
         return _get_equipment_history(
-            slot=slot,
+            slot=history_slot,
             days=days
         )
     

@@ -66,11 +66,17 @@ item(operation="add", item_name="Health Potion", quantity=5)
 # 装備
 item(operation="equip", equipment={"weapon": "Sword", "armor": "Shield"})
 
-# 装備解除
+# 装備解除（単一）
+item(operation="unequip", slots="weapon")
+
+# 装備解除（複数）
 item(operation="unequip", slots=["weapon", "armor"])
 
 # 検索
 item(operation="search", category="weapon")
+
+# 装備履歴（特定スロット）
+item(operation="history", history_slot="weapon", days=30)
 ```
 
 ### 内部実装
