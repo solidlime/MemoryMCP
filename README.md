@@ -11,6 +11,71 @@ MCP (Model Context Protocol) 準拠の永続メモリサーバー。RAG検索と
 - **自動整理**: アイドル時の重複検知と知識グラフ生成
 - **Webダッシュボード**: 統計・日次推移・知識グラフの可視化
 - **最適化Docker**: 2.65GB (CPU版PyTorch)
+- **統合API**: 3つの統合ツールで簡潔なインターフェース (75%削減)
+
+## MCPツール API
+
+### 公開ツール (3つ)
+
+#### 1. `get_context()`
+現在のペルソナの状態、時刻、メモリ統計を取得。**毎回のレスポンス時に呼び出すこと**。
+
+#### 2. `memory(operation, ...)`
+統合メモリ操作インターフェース。
+
+**Operations:**
+- `create`: 新規メモリ作成
+- `read`: セマンティック検索（RAG）
+- `update`: メモリ更新
+- `delete`: メモリ削除
+- `search`: キーワード/セマンティック/関連検索
+- `stats`: メモリ統計取得
+
+**例:**
+```python
+# 作成
+memory(operation="create", content="User likes strawberry", 
+       emotion_type="joy", importance=0.8)
+
+# 読み取り
+memory(operation="read", query="好きな食べ物", top_k=5)
+
+# 検索
+memory(operation="search", query="Python", mode="keyword")
+```
+
+#### 3. `item(operation, ...)`
+統合アイテム/装備操作インターフェース。
+
+**Operations:**
+- `add`: インベントリにアイテム追加
+- `remove`: インベントリからアイテム削除
+- `equip`: アイテム装備（指定スロットのみ）
+- `unequip`: アイテム装備解除（単一/複数スロット）
+- `update`: アイテムメタデータ更新
+- `search`: インベントリ検索
+- `history`: 装備変更履歴取得
+- `memories`: アイテムを含むメモリ検索
+- `stats`: アイテム使用統計
+
+**例:**
+```python
+# 追加
+item(operation="add", item_name="Health Potion", quantity=5)
+
+# 装備
+item(operation="equip", equipment={"weapon": "Sword", "armor": "Shield"})
+
+# 装備解除
+item(operation="unequip", slots=["weapon", "armor"])
+
+# 検索
+item(operation="search", category="weapon")
+```
+
+### 内部実装
+
+個別のツール実装は `tools/` ディレクトリに保存されていますが、MCPインターフェースとしては上記3つの統合ツールのみが公開されています。
 
 ## プロジェクト構成 (簡易)
 

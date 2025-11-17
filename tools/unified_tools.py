@@ -24,6 +24,7 @@ from tools.equipment_tools import (
     add_to_inventory as _add_to_inventory,
     remove_from_inventory as _remove_from_inventory,
     equip_item as _equip_item,
+    unequip_item as _unequip_item,
     update_item as _update_item,
     search_inventory as _search_inventory,
     get_equipment_history as _get_equipment_history
@@ -231,12 +232,13 @@ async def item(
     quantity: int = 1,
     category: Optional[str] = None,
     tags: Optional[list] = None,
-    # Equip parameters
+    # Equip/Unequip parameters
     equipment: Optional[Dict[str, str]] = None,
+    slot: Optional[str] = None,
+    slots: Optional[List[str]] = None,
     # Search parameters
     query: Optional[str] = None,
     # History parameters
-    slot: Optional[str] = None,
     days: int = 7,
     # Analysis parameters
     mode: str = "memories",
@@ -246,13 +248,14 @@ async def item(
     Unified item operations interface.
     
     Args:
-        operation: Operation type - "add", "remove", "equip", "update", "search", "history", "memories", "stats"
+        operation: Operation type - "add", "remove", "equip", "unequip", "update", "search", "history", "memories", "stats"
         item_name: Item name (required for most operations)
         
     Operations:
         - "add": Add item to inventory
         - "remove": Remove item from inventory
-        - "equip": Equip items (batch mode, unequips all first)
+        - "equip": Equip items (only affects specified slots, keeps others equipped)
+        - "unequip": Unequip items from specified slot(s)
         - "update": Update item metadata
         - "search": Search inventory
         - "history": Get equipment change history
@@ -267,8 +270,14 @@ async def item(
         # Remove
         item(operation="remove", item_name="Health Potion", quantity=2)
         
-        # Equip (batch)
-        item(operation="equip", equipment={"weapon": "Steel Sword", "armor": "Leather Armor"})
+        # Equip (keeps other slots)
+        item(operation="equip", equipment={"top": "White Dress", "foot": "Sandals"})
+        
+        # Unequip single slot
+        item(operation="unequip", slot="weapon")
+        
+        # Unequip multiple slots
+        item(operation="unequip", slots=["top", "foot"])
         
         # Update
         item(operation="update", item_name="Steel Sword", description="Very sharp blade")
@@ -315,6 +324,12 @@ async def item(
             return "❌ Error: 'equipment' dict is required for equip operation (e.g., {'weapon': 'Sword'})"
         return _equip_item(equipment=equipment)
     
+    elif operation == "unequip":
+        if not slot and not slots:
+            return "❌ Error: 'slot' or 'slots' is required for unequip operation"
+        unequip_slots = slots if slots else slot
+        return _unequip_item(slots=unequip_slots)
+    
     elif operation == "update":
         if not item_name:
             return "❌ Error: 'item_name' is required for update operation"
@@ -354,4 +369,4 @@ async def item(
         return await _get_item_usage_stats(item_name=item_name)
     
     else:
-        return f"❌ Error: Unknown operation '{operation}'. Valid: add, remove, equip, update, search, history, memories, stats"
+        return f"❌ Error: Unknown operation '{operation}'. Valid: add, remove, equip, unequip, update, search, history, memories, stats"
