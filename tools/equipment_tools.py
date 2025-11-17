@@ -11,17 +11,17 @@ Provides:
 8. get_equipment_history: Get equipment change history
 """
 
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List, Dict
 from core.equipment_db import EquipmentDB
 from core.persona_context import get_current_persona, load_persona_context, save_persona_context
 
 
 def add_to_inventory(
     item_name: str,
-    description: str = None,
+    description: Optional[str] = None,
     quantity: int = 1,
     category: str = "misc",
-    tags: list = None
+    tags: Optional[List[str]] = None
 ) -> str:
     """Add item to inventory.
     
@@ -85,12 +85,11 @@ def remove_from_inventory(
 
 
 def equip_item(
-    equipment: dict[str, str]
+    equipment: Dict[str, str]
 ) -> str:
-    """Equip items from inventory (batch mode).
+    """Equip items from inventory (single-slot mode).
     
-    Unequips all current equipment first, then equips specified items.
-    Prevents forgetting to unequip previous items when changing outfits.
+    Equips specified items to specified slots without unequipping others.
     
     Args:
         equipment: Dictionary of {slot: item_name}
@@ -118,10 +117,7 @@ def equip_item(
     if missing_items:
         return f"❌ Items not in inventory: {', '.join(missing_items)}. Add them first with add_to_inventory()"
     
-    # Unequip all current equipment
-    unequipped = db.unequip_all()
-    
-    # Equip new items
+    # Equip items (no auto-unequip)
     results = db.equip_items_batch(equipment)
     
     # Format result message
@@ -129,9 +125,6 @@ def equip_item(
     failed_items = [f"{slot}: {item}" for slot, item in equipment.items() if not results.get(slot, True)]
     
     message_parts = []
-    if unequipped:
-        unequipped_str = ", ".join([f"{slot}({item})" for slot, item in unequipped])
-        message_parts.append(f"🔄 Unequipped: {unequipped_str}")
     
     if success_items:
         message_parts.append(f"✅ Equipped: {', '.join(success_items)}")
@@ -139,45 +132,66 @@ def equip_item(
     if failed_items:
         message_parts.append(f"❌ Failed: {', '.join(failed_items)}")
     
-    return "\n".join(message_parts) if message_parts else "✅ Equipment reset completed"
+    return "
+".join(message_parts) if message_parts else "✅ Equipment completed"
 
 
 def unequip_item(
-    slot: str
+    slots: List[str] | str
 ) -> str:
-    """Unequip item.
+    """Unequip item(s).
     
     Item remains in inventory. Removes equipment from database.
     Logs to equipment history.
     
     Args:
-        slot: Equipment slot to unequip (weapon, armor, clothing, accessory, etc.)
+        slots: Single slot name or list of slot names to unequip
+               Example: "weapon" or ["top", "foot"]
     
     Returns:
         Result message
     
     Examples:
         unequip_item("weapon")
-        unequip_item("armor")
+        unequip_item(["top", "foot"])
     """
     persona = get_current_persona()
     db = EquipmentDB(persona)
     
-    # Unequip from database
-    item_name = db.unequip_item(slot)
+    # Convert single slot to list
+    if isinstance(slots, str):
+        slots = [slots]
     
-    if item_name:
-        return f"✅ Unequipped '{item_name}' from {slot}"
-    else:
-        return f"❌ No item equipped in slot '{slot}'"
+    # Unequip from database
+    unequipped = []
+    not_equipped = []
+    
+    for slot in slots:
+        item_name = db.unequip_item(slot)
+        if item_name:
+            unequipped.append(f"{slot}({item_name})")
+        else:
+            not_equipped.append(slot)
+    
+    # Format result message
+    message_parts = []
+    
+    if unequipped:
+        message_parts.append(f"✅ Unequipped: {', '.join(unequipped)}")
+    
+    if not_equipped:
+        message_parts.append(f"⚠️ No items in: {', '.join(not_equipped)}")
+    
+    return "
+".join(message_parts) if message_parts else "❌ No slots specified"
 
 
 def update_item(
     item_name: str,
-    description: str = None,
-    category: str = None,
-    tags: list = None,
-    new_slot: str = None
+    description: Optional[str] = None,
+    category: Optional[str] = None,
+    tags: Optional[List[str]] = None,
+    new_slot: Optional[str] = None
 ) -> str:
     """Update item information and/or change equipment slot.
     
@@ -246,9 +260,9 @@ def update_item(
 
 
 def search_inventory(
-    query: str = None,
-    category: str = None,
-    tags: list = None
+    query: Optional[str] = None,
+    category: Optional[str] = None,
+    tags: Optional[List[str]] = None
 ) -> str:
     """Search inventory.
     
@@ -298,7 +312,7 @@ def search_inventory(
 
 
 def get_equipment_history(
-    slot: str = None,
+    slot: Optional[str] = None,
     days: int = 7
 ) -> str:
     """Get equipment change history.

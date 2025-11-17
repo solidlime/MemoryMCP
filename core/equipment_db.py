@@ -222,9 +222,9 @@ class EquipmentDB:
     def add_item(
         self, 
         item_name: str, 
-        description: str = None, 
+        description: Optional[str] = None, 
         category: str = "misc",
-        tags: list = None
+        tags: Optional[List[str]] = None
     ) -> str:
         """アイテムマスターに新規アイテムを追加"""
         import json
@@ -263,9 +263,9 @@ class EquipmentDB:
     def get_or_create_item(
         self, 
         item_name: str, 
-        description: str = None, 
+        description: Optional[str] = None, 
         category: str = "misc",
-        tags: list = None
+        tags: Optional[List[str]] = None
     ) -> str:
         """アイテムを取得、存在しなければ作成"""
         existing = self.get_item_by_name(item_name)
@@ -276,9 +276,9 @@ class EquipmentDB:
     def update_item_info(
         self,
         item_name: str,
-        description: str = None,
-        category: str = None,
-        tags: list = None
+        description: Optional[str] = None,
+        category: Optional[str] = None,
+        tags: Optional[List[str]] = None
     ) -> bool:
         """アイテム情報を更新"""
         import json
@@ -322,9 +322,9 @@ class EquipmentDB:
         self, 
         item_name: str, 
         quantity: int = 1,
-        description: str = None,
+        description: Optional[str] = None,
         category: str = "misc",
-        tags: list = None
+        tags: Optional[List[str]] = None
     ) -> str:
         """所持品に追加"""
         item_id = self.get_or_create_item(item_name, description, category, tags)
@@ -385,7 +385,7 @@ class EquipmentDB:
         conn.close()
         return True
     
-    def get_inventory(self, category: str = None, tags: list = None) -> List[Dict[str, Any]]:
+    def get_inventory(self, category: Optional[str] = None, tags: Optional[List[str]] = None) -> List[Dict[str, Any]]:
         """所持品リストを取得"""
         import json
         conn = self._get_connection()
