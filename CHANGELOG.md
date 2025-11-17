@@ -4,6 +4,36 @@ All notable changes to Memory-MCP will be documented in this file.
 
 ## [Unreleased]
 
+### Changed - 2025-11-17 (Equipment Tools Enhancement)
+
+#### Equipment System Improvements
+
+Enhanced equipment management with more flexible unequip and equip operations.
+
+**Changes:**
+1. **`unequip_item()` enhancement**:
+   - Now accepts single slot or list of slots
+   - Can unequip multiple items at once
+   - Example: `unequip_item(["top", "foot"])` or `unequip_item("weapon")`
+
+2. **`equip_item()` behavior change**:
+   - No longer automatically unequips all equipment
+   - Only equips specified slots
+   - More granular control over equipment changes
+   - Example: `equip_item({"top": "White Dress"})` keeps other slots equipped
+
+3. **Type hints consistency**:
+   - Unified to use `Optional[...]`, `List[...]`, `Dict[...]` style
+   - Improved code readability and IDE support
+
+**Migration:**
+- Old: `equip_item({...})` auto-unequipped everything → Now: only affects specified slots
+- To unequip all: Use `item(operation="equip", equipment={})` in unified tool
+
+**Files Changed:**
+- `tools/equipment_tools.py`: Updated `equip_item()` and `unequip_item()` signatures
+- `core/equipment_db.py`: Improved type hints
+
 ### Changed - 2025-11-16 (Phase 35: Tool Consolidation)
 
 #### Tool Count Reduction (75% reduction: 12 → 3 tools)

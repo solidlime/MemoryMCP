@@ -105,7 +105,7 @@ async def get_memories_with_item(
                 
                 try:
                     equipped_items = json.loads(equipped_items_json)
-                except:
+                except (json.JSONDecodeError, TypeError):
                     continue
                 
                 # Check if item matches
