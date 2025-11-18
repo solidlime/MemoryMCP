@@ -433,13 +433,20 @@ class EquipmentDB:
         return items
     
     def equip_item(self, item_name: str, slot: str) -> bool:
-        """アイテムを装備（フラグのみ変更）"""
+        """アイテムを装備（同じスロットの既存装備を自動的に外す）"""
         item = self.get_item_by_name(item_name)
         if not item:
             return False
         
         conn = self._get_connection()
         cursor = conn.cursor()
+        
+        # 同じスロットに装備中のアイテムを先に外す
+        cursor.execute("""
+            UPDATE inventory
+            SET is_equipped = 0, equipped_slot = NULL
+            WHERE persona = ? AND is_equipped = 1 AND equipped_slot = ?
+        """, (self.persona, slot))
         
         # 該当アイテムを装備状態にする
         cursor.execute("""
