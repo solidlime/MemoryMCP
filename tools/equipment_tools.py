@@ -132,6 +132,14 @@ def equip_item(
     if failed_items:
         message_parts.append(f"❌ Failed: {', '.join(failed_items)}")
     
+    # Show current equipment
+    equipped = db.get_equipped_items()
+    if equipped:
+        equipped_list = [f"{slot}: {item}" for slot, item in equipped.items()]
+        message_parts.append(f"\n👗 Current Equipment:\n  " + "\n  ".join(equipped_list))
+    else:
+        message_parts.append("\n👗 Current Equipment: (none)")
+    
     return "\n".join(message_parts) if message_parts else "✅ Equipment completed"
 
 
@@ -180,6 +188,14 @@ def unequip_item(
     
     if not_equipped:
         message_parts.append(f"⚠️ No items in: {', '.join(not_equipped)}")
+    
+    # Show current equipment
+    equipped = db.get_equipped_items()
+    if equipped:
+        equipped_list = [f"{slot}: {item}" for slot, item in equipped.items()]
+        message_parts.append(f"\n👗 Current Equipment:\n  " + "\n  ".join(equipped_list))
+    else:
+        message_parts.append("\n👗 Current Equipment: (none)")
     
     return "\n".join(message_parts) if message_parts else "❌ No slots specified"
 
