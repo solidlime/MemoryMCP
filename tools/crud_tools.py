@@ -37,7 +37,6 @@ from typing import Optional, List, Dict
 from src.utils.config_utils import load_config
 from src.utils.persona_utils import get_current_persona, get_db_path
 from src.utils.db_utils import clear_query_cache
-from src.utils.summarization_worker import mark_summarization_dirty
 from core import (
     calculate_time_diff,
     load_persona_context,
@@ -357,9 +356,6 @@ def _save_memory_to_stores(
     
     # Add to vector store
     add_memory_to_vector_store(key, content)
-    
-    # Mark for auto-summarization
-    mark_summarization_dirty()
 
 
 def _format_create_result(
