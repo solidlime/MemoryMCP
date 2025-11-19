@@ -6,9 +6,16 @@ MCP (Model Context Protocol) 準拠の永続メモリサーバー。RAG検索と
 
 - **永続メモリ**: SQLite (データ) + Qdrant (ベクトルインデックス)
 - **Personaサポート**: `Authorization: Bearer <persona>` でPersona分離
-- **RAG検索**: 埋め込み + Rerankerで高精度な意味検索
-- **リッチコンテキスト**: 重要度・感情・状態・環境・行動タグなど12カラムで記録
-- **自動整理**: アイドル時の重複検知と知識グラフ生成
+- **高精度RAG検索**: 
+  - セマンティック検索（埋め込み + Reranker）
+  - ハイブリッド検索（セマンティック70% + キーワード30%）
+  - 時間フィルタリング（「昨日」「先週」などの自然言語対応）
+  - メタデータエンリッチメント（タグ、感情、環境、状態を埋め込みに含める）
+- **リッチコンテキスト**: 重要度・感情・状態・環境・行動タグなど13カラムで記録
+- **自動整理**: 
+  - アイドル時の重複検知（類似度90%以上）
+  - 自動要約（日次/週次/LLM対応）
+  - ベクトルストア自動リビルド
 - **Webダッシュボード**: 統計・日次推移・知識グラフの可視化
 - **最適化Docker**: 2.65GB (CPU版PyTorch)
 - **統合API**: 3つの統合ツールで簡潔なインターフェース (75%削減)
@@ -25,11 +32,21 @@ MCP (Model Context Protocol) 準拠の永続メモリサーバー。RAG検索と
 
 **Operations:**
 - `create`: 新規メモリ作成
-- `read`: セマンティック検索（RAG）
 - `update`: メモリ更新
 - `delete`: メモリ削除
-- `search`: キーワード/セマンティック/関連検索
+- `search`: 統合検索（semantic/keyword/hybrid/related）
 - `stats`: メモリ統計取得
+
+**検索モード:**
+- `semantic`: セマンティック検索（デフォルト、RAG）
+- `keyword`: キーワード検索（Fuzzy対応）
+- `hybrid`: ハイブリッド検索（semantic 70% + keyword 30%）
+- `related`: 関連記憶検索（指定記憶と類似）
+
+**時間フィルタリング:**
+- 自然言語対応: 「今日」「昨日」「先週」「今週」「今月」「3日前」
+- 日付範囲指定: `date_range="2025-11-01,2025-11-15"`
+- semantic/hybrid/keywordモード全対応
 
 **例:**
 ```python
@@ -37,11 +54,22 @@ MCP (Model Context Protocol) 準拠の永続メモリサーバー。RAG検索と
 memory(operation="create", content="User likes strawberry", 
        emotion_type="joy", importance=0.8)
 
-# 読み取り
-memory(operation="read", query="好きな食べ物", top_k=5)
+# セマンティック検索（デフォルト）
+memory(operation="search", query="好きな食べ物", mode="semantic", top_k=5)
 
-# 検索
-memory(operation="search", query="Python", mode="keyword")
+# キーワード検索
+memory(operation="search", query="Python", mode="keyword", fuzzy_match=True)
+
+# ハイブリッド検索（semantic 70% + keyword 30%）
+memory(operation="search", query="プロジェクト", mode="hybrid")
+
+# 時間フィルタリング
+memory(operation="search", query="成果", mode="semantic", date_range="昨日")
+memory(operation="search", query="", mode="keyword", date_range="先週")
+
+# タグ検索
+memory(operation="search", query="", mode="keyword", 
+       search_tags=["technical_achievement"], tag_match_mode="all")
 ```
 
 #### 3. `item(operation, ...)`
@@ -285,7 +313,7 @@ export MEMORY_MCP_SERVER_PORT=26262
 └── cache/               # HuggingFaceモデルキャッシュ
 ```
 
-### SQLiteスキーマ (13カラム)
+### SQLiteスキーマ (14カラム)
 
 | カラム | 型 | デフォルト | 説明 |
 |-------|-----|----------|------|
@@ -302,6 +330,8 @@ export MEMORY_MCP_SERVER_PORT=26262
 | `environment` | TEXT | `"unknown"` | 環境 |
 | `relationship_status` | TEXT | `"normal"` | 関係性 |
 | `action_tag` | TEXT | `NULL` | 行動タグ |
+| `related_keys` | TEXT | `NULL` | 関連記憶キー (JSON配列) |
+| `summary_ref` | TEXT | `NULL` | 要約記憶への参照キー |
 | `equipped_items` | TEXT | `NULL` | 記憶作成時の装備品 (JSON) |
 
 **注**: `equipped_items`は`create_memory()`時に自動的にEquipmentDBから取得され、記録されます。

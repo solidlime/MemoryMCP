@@ -4,6 +4,83 @@ All notable changes to Memory-MCP will be documented in this file.
 
 ## [Unreleased]
 
+### Added - 2025-11-19 (Phase 36: Enhanced Search & Auto-Cleanup)
+
+#### Hybrid Search & Temporal Filtering
+
+統合検索機能の大幅強化。セマンティック検索とキーワード検索を組み合わせたハイブリッド検索、自然言語での時間フィルタリングに対応。
+
+**新機能:**
+
+1. **ハイブリッド検索モード**:
+   - セマンティック検索（70%）とキーワード検索（30%）を統合
+   - 両方の利点を活用した高精度検索
+   - `mode="hybrid"` で利用可能
+
+2. **時間フィルタリング**:
+   - 自然言語対応: 「今日」「昨日」「先週」「今週」「今月」「3日前」
+   - 日付範囲指定: `date_range="2025-11-01,2025-11-15"`
+   - semantic/hybrid/keywordモード全対応
+   - `parse_date_query()` による柔軟な日時解析
+
+3. **メタデータエンリッチメント**:
+   - ベクトル埋め込みにメタデータを含める
+   - 検索対象: tags, emotion, action_tag, environment, physical_state, mental_state, relationship_status
+   - `_build_enriched_content()` ヘルパー関数で統一実装
+   - 約120行のコード重複を削減
+
+4. **検索モード統合**:
+   - `read` operation廃止 → `search` に統合
+   - デフォルトモード変更: `keyword` → `semantic`
+   - 4モード対応: semantic, keyword, hybrid, related
+
+**設定追加:**
+
+```json
+{
+  "auto_cleanup": {
+    "enabled": true,
+    "idle_minutes": 30,
+    "check_interval_seconds": 300,
+    "duplicate_threshold": 0.90,
+    "min_similarity_to_report": 0.85,
+    "max_suggestions_per_run": 20
+  }
+}
+```
+
+**使用例:**
+
+```python
+# ハイブリッド検索
+memory(operation="search", query="プロジェクト進捗", mode="hybrid")
+
+# 時間フィルタリング
+memory(operation="search", query="成果", mode="semantic", date_range="昨日")
+memory(operation="search", query="", mode="keyword", date_range="先週")
+
+# タグ + 時間フィルタ
+memory(operation="search", query="", mode="keyword", 
+       search_tags=["technical_achievement"], 
+       date_range="今週")
+```
+
+**Files Changed:**
+- `lib/backends/qdrant_backend.py`: Qdrant client.search() 互換性修正
+- `tools/search_tools.py`: ハイブリッド検索実装、時間フィルタリング統合
+- `tools/crud_tools.py`: read_memory() に date_range パラメータ追加
+- `tools/unified_tools.py`: 'read' operation 廃止
+- `src/utils/vector_utils.py`: _build_enriched_content() 抽出、コード重複削減
+- `scripts/test_date_filter.py`: 時間フィルタリングテスト
+- `scripts/test_enriched_search.py`: メタデータ検索精度テスト
+
+**Performance:**
+- ベクトル検索精度向上（メタデータ含有により）
+- コードメンテナンス性向上（重複削減）
+- テストカバレッジ拡充（時間フィルタ、エンリッチ検索）
+
+---
+
 ### Changed - 2025-11-17 (Equipment Tools Enhancement)
 
 #### Equipment System Improvements
