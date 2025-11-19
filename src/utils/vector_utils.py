@@ -243,7 +243,7 @@ def _get_cleanup_config():
         "auto_merge_threshold": float(ac.get("auto_merge_threshold", 0.95)),
     }
 
-def _get_summarization_config():
+def _get_auto_summarization_config():
     """Get auto_summarization configuration from config.json"""
     cfg = load_config()
     su = cfg.get("auto_summarization", {})
@@ -266,22 +266,22 @@ def start_cleanup_worker_thread():
     t.start()
     return t
 
-def start_summarization_worker_thread():
-    """Start background summarization worker thread"""
-    cfg = _get_summarization_config()
+def start_auto_summarization_scheduler():
+    """Start background auto-summarization scheduler (scheduled daily/weekly summaries)"""
+    cfg = _get_auto_summarization_config()
     if not cfg.get("enabled", False):
         return None
-    t = threading.Thread(target=_summarization_worker_loop, daemon=True)
+    t = threading.Thread(target=_auto_summarization_scheduler_loop, daemon=True)
     t.start()
     return t
 
-def _summarization_worker_loop():
-    """Background loop that runs periodic summarization"""
+def _auto_summarization_scheduler_loop():
+    """Background loop that runs scheduled periodic summarization (daily/weekly)"""
     global _last_summarization_check
     
     while True:
         try:
-            cfg = _get_summarization_config()
+            cfg = _get_auto_summarization_config()
             if not cfg.get("enabled", False):
                 time.sleep(60)
                 continue

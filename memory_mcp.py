@@ -56,6 +56,7 @@ from src.utils.vector_utils import (
     rebuild_vector_store,
     start_idle_rebuilder_thread,
     start_cleanup_worker_thread,
+    start_auto_summarization_scheduler,
     get_vector_count,
     get_vector_metrics,
 )
@@ -219,12 +220,19 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"⚠️  Failed to start cleanup worker: {e}")
     
-    # Phase 28.4: Start summarization worker
+    # Phase 28.4: Start idle-based summarization worker
     try:
         start_summarization_worker_thread()
-        print("📝 Summarization worker started")
+        print("📝 Idle summarization worker started")
     except Exception as e:
-        print(f"⚠️  Failed to start summarization worker: {e}")
+        print(f"⚠️  Failed to start idle summarization worker: {e}")
+    
+    # Phase 38: Start scheduled auto-summarization (daily/weekly)
+    try:
+        start_auto_summarization_scheduler()
+        print("📅 Auto-summarization scheduler started")
+    except Exception as e:
+        print(f"⚠️  Failed to start auto-summarization scheduler: {e}")
     
     # Register dashboard HTTP routes
     try:
