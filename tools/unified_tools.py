@@ -97,17 +97,18 @@ async def memory(
                emotion_type="joy", importance=0.8, 
                context_tags=["technical_achievement"])
         
-        # Read (Specific Key)
-        memory(operation="read", query="memory_20251119123456")
+        # Read (Semantic search with RAG)
+        memory(operation="read", query="ユーザーの好きな食べ物", top_k=5)
+        memory(operation="read", query="Python関連", min_importance=0.7)
         
-        # Read (Recent)
-        memory(operation="read", top_k=5)
-        
-        # Search (Integrated - RAG + Keyword)
-        memory(operation="search", query="Python project", mode="hybrid")
-        
-        # Search (Keyword with AND/OR)
+        # Search (Keyword mode)
         memory(operation="search", query="Python OR Rust", mode="keyword")
+        
+        # Search (Semantic mode)
+        memory(operation="search", query="成果", mode="semantic", min_importance=0.7)
+        
+        # Search (Related memories)
+        memory(operation="search", mode="related", memory_key="memory_20251119123456")
         
         # Update
         memory(operation="update", query="promise", content="Changed to tomorrow 10am")
