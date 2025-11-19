@@ -314,6 +314,10 @@ def _save_memory_to_stores(
     """
     Save memory to both database and vector store.
     
+    Phase 38: No longer calls mark_summarization_dirty() - auto-summarization 
+    now uses time-based scheduler (daily 3am, weekly Monday 3am) instead of 
+    tracking individual write operations.
+    
     Args:
         key: Memory key
         content: Memory content
