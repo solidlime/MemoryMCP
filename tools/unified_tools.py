@@ -56,7 +56,7 @@ async def memory(
     relationship_status: Optional[str] = None,
     action_tag: Optional[str] = None,
     # Search-specific parameters
-    mode: str = "keyword",
+    mode: str = "hybrid",  # Changed default to hybrid
     fuzzy_match: bool = False,
     fuzzy_threshold: int = 70,
     search_tags: Optional[List[str]] = None,
@@ -73,15 +73,15 @@ async def memory(
     
     Args:
         operation: Operation type - "create", "read", "update", "delete", "search", "stats"
-        query: Search query or natural language for update/delete
+        query: Search query (for search/update/delete) or Memory Key (for read)
         content: Memory content (required for create/update)
         
     Operations:
         - "create": Create new memory (requires content)
-        - "read": Semantic search with RAG (requires query)
+        - "read": Read specific memory by key or recent memories (query=key or None)
         - "update": Update memory by query (requires query, content)
         - "delete": Delete memory by key or query (requires query)
-        - "search": Keyword/semantic/related search (requires query or memory_key for related mode)
+        - "search": Integrated search (RAG + Keyword)
         - "stats": Get memory statistics
     
     **Recommended Tags** (Use English consistently):
@@ -92,39 +92,28 @@ async def memory(
         - Daily: "daily_activity", "routine", "meal", "rest"
     
     Examples:
-        # Create with recommended tags
+        # Create
         memory(operation="create", content="User completed Python project", 
                emotion_type="joy", importance=0.8, 
-               context_tags=["technical_achievement", "milestone"])
+               context_tags=["technical_achievement"])
         
-        # Create with all available fields
-        memory(operation="create", 
-               content="Walked together in the park at sunset",
-               emotion_type="joy", emotion_intensity=0.85,
-               physical_state="energized", mental_state="peaceful",
-               environment="park", relationship_status="married",
-               action_tag="walking", importance=0.7,
-               context_tags=["emotional_moment", "daily_activity"],
-               persona_info={"favorite_items": ["sunset", "nature"]},
-               user_info={"name": "User"})
+        # Read (Specific Key)
+        memory(operation="read", query="memory_20251119123456")
         
-        # Read (semantic search)
-        memory(operation="read", query="ユーザーの好きな食べ物", top_k=5)
+        # Read (Recent)
+        memory(operation="read", top_k=5)
+        
+        # Search (Integrated - RAG + Keyword)
+        memory(operation="search", query="Python project", mode="hybrid")
+        
+        # Search (Keyword with AND/OR)
+        memory(operation="search", query="Python OR Rust", mode="keyword")
         
         # Update
         memory(operation="update", query="promise", content="Changed to tomorrow 10am")
         
         # Delete
         memory(operation="delete", query="memory_20251102083918")
-        
-        # Search (keyword)
-        memory(operation="search", query="Python", mode="keyword", search_tags=["technical_achievement"])
-        
-        # Search (semantic)
-        memory(operation="search", query="成果", mode="semantic", min_importance=0.7)
-        
-        # Search (related)
-        memory(operation="search", mode="related", memory_key="memory_20251031123045")
         
         # Stats
         memory(operation="stats")
@@ -150,22 +139,35 @@ async def memory(
         )
     
     elif operation == "read":
-        if not query:
-            return "❌ Error: 'query' is required for read operation"
-        return await _read_memory(
-            query=query,
-            top_k=top_k,
-            min_importance=min_importance,
-            emotion=emotion_type,
-            action_tag=action_tag,
-            environment=environment,
-            physical_state=physical_state,
-            mental_state=mental_state,
-            relationship_status=relationship_status,
-            equipped_item=equipped_item,
-            importance_weight=importance_weight,
-            recency_weight=recency_weight
-        )
+        # Phase 33: Read operation now focuses on direct retrieval
+        if query and query.startswith("memory_"):
+            # Direct key read
+            from tools.crud_tools import db_get_entry
+            entry = db_get_entry(query)
+            if entry:
+                # Format single entry
+                result = f"📖 Memory {query}:\n"
+                result += f"   {entry['content']}\n"
+                result += f"   (Created: {entry['created_at']}, Tags: {entry.get('tags', [])})"
+                return result
+            else:
+                return f"❌ Memory {query} not found."
+        elif query:
+             return "❌ For search queries, please use operation='search'. 'read' is for reading specific memories by key (query='memory_...') or recent memories (query=None)."
+        
+        # If no query, return recent memories
+        from tools.crud_tools import db_recent_keys, db_get_entry
+        recent_keys = db_recent_keys(limit=top_k)
+        if not recent_keys:
+            return "📭 No memories found."
+            
+        result = f"🕐 Recent {len(recent_keys)} Memories:\n"
+        for i, key in enumerate(recent_keys, 1):
+            entry = db_get_entry(key)
+            if entry:
+                preview = entry['content'][:100] + "..." if len(entry['content']) > 100 else entry['content']
+                result += f"{i}. [{key}] {preview}\n"
+        return result
     
     elif operation == "update":
         if not query:

@@ -102,12 +102,33 @@ class QdrantVectorStoreAdapter:
     
     def similarity_search_with_score_by_vector(self, query_vector: List[float], k: int = 5) -> List[Tuple[Document, float]]:
         """Search by pre-computed embedding vector."""
-        result = self.client.search(
-            collection_name=self.collection,
-            query_vector=query_vector,
-            limit=k,
-            with_payload=True
-        )
+        # Phase 33: Fix for QdrantClient attribute error and support newer API
+        try:
+            # Try newer query_points API (v1.10+)
+            if hasattr(self.client, 'query_points'):
+                response = self.client.query_points(
+                    collection_name=self.collection,
+                    query=query_vector,
+                    limit=k,
+                    with_payload=True
+                )
+                result = response.points
+            # Fallback to search API (v1.7+)
+            elif hasattr(self.client, 'search'):
+                result = self.client.search(
+                    collection_name=self.collection,
+                    query_vector=query_vector,
+                    limit=k,
+                    with_payload=True
+                )
+            else:
+                # Fallback for very old clients (should not happen with requirements.txt)
+                raise AttributeError("QdrantClient missing search methods")
+                
+        except Exception as e:
+            print(f"⚠️  Vector search failed: {e}")
+            return []
+
         out: List[Tuple[Document, float]] = []
         for sp in result:
             payload = sp.payload or {}

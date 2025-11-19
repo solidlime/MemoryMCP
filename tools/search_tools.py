@@ -37,7 +37,7 @@ except ImportError:
 
 async def search_memory(
     query: str = "",
-    mode: str = "keyword",
+    mode: str = "hybrid",  # Changed default to hybrid
     top_k: int = 5,
     # Keyword mode parameters
     fuzzy_match: bool = False,
@@ -64,7 +64,7 @@ async def search_memory(
     
     Args:
         query: Search query or keyword (required for semantic/keyword modes)
-        mode: Search mode - "keyword" (default), "semantic", or "related"
+        mode: Search mode - "hybrid" (default), "keyword", "semantic", or "related"
         top_k: Max results (default: 5)
         
         # Keyword mode only:
@@ -86,14 +86,15 @@ async def search_memory(
         equipped_item: Filter by equipped item name (partial match)
     
     Examples:
-        # Keyword search
-        search_memory("Python", mode="keyword")
-        search_memory("Pythn", mode="keyword", fuzzy_match=True)
-        search_memory("", mode="keyword", tags=["technical_achievement"])
+        # Hybrid search (Recommended)
+        search_memory("Python project")
         
-        # Semantic search
+        # Keyword search (with AND/OR)
+        search_memory("Python OR Rust", mode="keyword")
+        search_memory("Python coding", mode="keyword") # Implies AND
+        
+        # Semantic search (RAG only)
         search_memory("ユーザーの好きな食べ物", mode="semantic")
-        search_memory("成果", mode="semantic", min_importance=0.7)
         
         # Related memories
         search_memory(mode="related", memory_key="memory_20251031123045")
@@ -133,6 +134,64 @@ async def search_memory(
             if not memory_key:
                 return "❌ mode='related' requires memory_key parameter"
             return await find_related_memories(memory_key, top_k)
+            
+        elif mode == "hybrid" or mode == "integrated":
+            # Phase 33: Hybrid Search (RAG + Keyword)
+            # 1. Run Semantic Search (RAG)
+            semantic_result = ""
+            try:
+                from tools.crud_tools import read_memory
+                semantic_result = await read_memory(
+                    query=query,
+                    top_k=top_k,
+                    min_importance=min_importance,
+                    emotion=emotion,
+                    action_tag=action_tag,
+                    environment=environment,
+                    physical_state=physical_state,
+                    mental_state=mental_state,
+                    relationship_status=relationship_status,
+                    equipped_item=equipped_item,
+                    importance_weight=importance_weight,
+                    recency_weight=recency_weight
+                )
+            except Exception as e:
+                semantic_result = f"⚠️ Semantic search failed: {e}"
+
+            # 2. Run Keyword Search (if query provided)
+            keyword_result = ""
+            if query:
+                keyword_result = await search_memory(
+                    query=query,
+                    mode="keyword",
+                    top_k=top_k,
+                    fuzzy_match=fuzzy_match,
+                    fuzzy_threshold=fuzzy_threshold,
+                    tags=tags,
+                    tag_match_mode=tag_match_mode,
+                    date_range=date_range,
+                    equipped_item=equipped_item
+                )
+            
+            # 3. Combine Results
+            result = f"🔍 Hybrid Search Results for '{query}':\n\n"
+            
+            if "Found" in semantic_result:
+                result += "🧠 Semantic Matches (RAG):\n"
+                # Indent semantic results
+                result += "\n".join(["  " + line for line in semantic_result.split("\n")])
+                result += "\n\n"
+            
+            if "Found" in keyword_result:
+                result += "📝 Keyword Matches (Exact/Boolean):\n"
+                # Indent keyword results
+                result += "\n".join(["  " + line for line in keyword_result.split("\n")])
+                result += "\n"
+                
+            if "Found" not in semantic_result and "Found" not in keyword_result:
+                return f"📭 No memories found for '{query}' (checked both semantic and keyword)."
+                
+            return result
         
         elif mode == "keyword":
             # Original keyword search implementation
@@ -218,25 +277,41 @@ async def search_memory(
                 candidate_keys = item_filtered
                 filter_descriptions.append(f"equipped_item={equipped_item}")
             
-            # Phase 5: Keyword matching
+            # Phase 5: Keyword matching with Boolean support
             if query:
                 keyword_matches = []
+                
+                # Parse query for Boolean logic
+                # "A OR B" -> match A or B
+                # "A B" -> match A and B (implicit AND)
+                
+                or_terms = [t.strip() for t in query.split(" OR ")]
+                
                 for key in candidate_keys:
                     entry = memories[key]
                     content = entry['content']
+                    content_lower = content.lower()
                     
-                    # Exact or fuzzy match
-                    if fuzzy_match and RAPIDFUZZ_AVAILABLE:
-                        score = fuzz.partial_ratio(query.lower(), content.lower())
-                        if score >= fuzzy_threshold:
-                            keyword_matches.append((key, score))
-                    else:
-                        # Simple substring search (case-insensitive)
-                        if query.lower() in content.lower():
-                            # Score by position (earlier = higher score)
-                            pos = content.lower().index(query.lower())
-                            score = 100 - min(pos, 100)
-                            keyword_matches.append((key, score))
+                    is_match = False
+                    match_score = 0
+                    
+                    # Check each OR term
+                    for or_term in or_terms:
+                        # Check AND terms within OR term (space separated)
+                        and_terms = [t.strip() for t in or_term.split(" ") if t.strip()]
+                        if not and_terms: continue
+                        
+                        # All AND terms must be present
+                        if all(term.lower() in content_lower for term in and_terms):
+                            is_match = True
+                            # Score based on first term position
+                            first_term = and_terms[0]
+                            pos = content_lower.find(first_term.lower())
+                            match_score = max(match_score, 100 - min(pos, 100))
+                            break # Found a matching OR term
+                    
+                    if is_match:
+                        keyword_matches.append((key, match_score))
                 
                 # Sort by score (descending)
                 keyword_matches.sort(key=lambda x: x[1], reverse=True)
@@ -287,7 +362,7 @@ async def search_memory(
             return result
         
         else:
-            return f"❌ Invalid mode '{mode}'. Use 'keyword', 'semantic', or 'related'."
+            return f"❌ Invalid mode '{mode}'. Use 'hybrid', 'keyword', 'semantic', or 'related'."
             
     except Exception as e:
         import traceback
