@@ -248,7 +248,7 @@ def _get_auto_summarization_config():
     cfg = load_config()
     su = cfg.get("auto_summarization", {})
     return {
-        "enabled": su.get("enabled", False),
+        "enabled": su.get("enabled", True),  # Changed default to True (Phase 38: replaces idle-based worker)
         "schedule_daily": su.get("schedule_daily", True),
         "schedule_weekly": su.get("schedule_weekly", True),
         "daily_hour": int(su.get("daily_hour", 3)),
@@ -282,7 +282,7 @@ def _auto_summarization_scheduler_loop():
     while True:
         try:
             cfg = _get_auto_summarization_config()
-            if not cfg.get("enabled", False):
+            if not cfg.get("enabled", True):
                 time.sleep(60)
                 continue
             

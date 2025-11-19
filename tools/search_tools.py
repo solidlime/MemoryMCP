@@ -369,38 +369,3 @@ async def search_memory(
         traceback.print_exc()
         return f"❌ Search failed: {str(e)}"
 
-
-async def search_memory_rag(
-    query: str, 
-    top_k: int = 5,
-    min_importance: Optional[float] = None,
-    emotion: Optional[str] = None,
-    action_tag: Optional[str] = None,
-    environment: Optional[str] = None,
-    physical_state: Optional[str] = None,
-    mental_state: Optional[str] = None,
-    relationship_status: Optional[str] = None,
-    importance_weight: float = 0.0,
-    recency_weight: float = 0.0
-) -> str:
-    """
-    DEPRECATED: Use read_memory() instead.
-    This function exists for backward compatibility only.
-    """
-    # Import the new read_memory function
-    from tools.crud_tools import read_memory
-    
-    # Forward all parameters to read_memory
-    return await read_memory(
-        query=query,
-        top_k=top_k,
-        min_importance=min_importance,
-        emotion=emotion,
-        action_tag=action_tag,
-        environment=environment,
-        physical_state=physical_state,
-        mental_state=mental_state,
-        relationship_status=relationship_status,
-        importance_weight=importance_weight,
-        recency_weight=recency_weight
-    )

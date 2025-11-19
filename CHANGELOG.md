@@ -4,6 +4,58 @@ All notable changes to Memory-MCP will be documented in this file.
 
 ## [Unreleased]
 
+### Removed - 2025-11-19 (Code Cleanup & Consolidation)
+
+#### 重複機能の削除
+
+コードベースの健全性向上のため、重複・非推奨機能を削除。
+
+**削除項目:**
+
+1. **アイドル式要約ワーカー廃止**:
+   - `src/utils/summarization_worker.py` 削除
+   - Phase 28.4 の機能をPhase 38 のスケジュール式に統合
+   - 設定: `summarization.enabled` → `auto_summarization.enabled` に移行
+   - スケジューラーをデフォルト有効化（`auto_summarization.enabled = true`）
+
+2. **非推奨関数削除**:
+   - `search_memory_rag()` 削除（`read_memory()` を使用）
+   - DEPRECATED マーカーのあった後方互換関数を完全削除
+
+**変更点:**
+
+- バックグラウンドワーカー: 4つ→3つに整理
+  1. Idle rebuilder (ベクトルストア再構築)
+  2. Cleanup worker (重複検知・自動マージ)
+  3. Auto-summarization scheduler (日次・週次要約) ← 統合後
+
+**マイグレーションガイド:**
+
+古い設定から新しい設定への移行:
+```json
+// 旧設定（Phase 28.4）
+{
+  "summarization": {
+    "enabled": true,
+    "idle_minutes": 30,
+    "frequency_days": 1
+  }
+}
+
+// 新設定（Phase 38）
+{
+  "auto_summarization": {
+    "enabled": true,           // デフォルトで有効
+    "schedule_daily": true,     // 日次要約
+    "schedule_weekly": true,    // 週次要約
+    "daily_hour": 3,           // 午前3時実行
+    "weekly_day": 0            // 月曜実行
+  }
+}
+```
+
+---
+
 ### Added - 2025-11-19 (Phase 38: Auto-Summarization Scheduler & Priority Scoring)
 
 #### 自動要約スケジューラー

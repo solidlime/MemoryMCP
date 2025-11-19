@@ -60,10 +60,6 @@ from src.utils.vector_utils import (
     get_vector_count,
     get_vector_metrics,
 )
-from src.utils.summarization_worker import (
-    start_summarization_worker_thread,
-    mark_summarization_dirty,
-)
 from src.utils.vector_utils import reranker as _reranker
 from tools.vector_tools import (
     rebuild_vector_store_tool,
@@ -220,14 +216,7 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"⚠️  Failed to start cleanup worker: {e}")
     
-    # Phase 28.4: Start idle-based summarization worker
-    try:
-        start_summarization_worker_thread()
-        print("📝 Idle summarization worker started")
-    except Exception as e:
-        print(f"⚠️  Failed to start idle summarization worker: {e}")
-    
-    # Phase 38: Start scheduled auto-summarization (daily/weekly)
+    # Phase 38: Start auto-summarization scheduler (daily/weekly)
     try:
         start_auto_summarization_scheduler()
         print("📅 Auto-summarization scheduler started")
