@@ -78,10 +78,10 @@ async def memory(
         
     Operations:
         - "create": Create new memory (requires content)
-        - "read": Read specific memory by key or recent memories (query=key or None)
+        - "read": Semantic search with RAG (requires query)
         - "update": Update memory by query (requires query, content)
         - "delete": Delete memory by key or query (requires query)
-        - "search": Integrated search (RAG + Keyword)
+        - "search": Advanced search (keyword, semantic, related modes)
         - "stats": Get memory statistics
     
     **Recommended Tags** (Use English consistently):
