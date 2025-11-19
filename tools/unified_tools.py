@@ -73,15 +73,15 @@ async def memory(
     
     Args:
         operation: Operation type - "create", "read", "update", "delete", "search", "stats"
-        query: Search query (for search/update/delete) or Memory Key (for read)
+        query: Search query or natural language for update/delete
         content: Memory content (required for create/update)
         
     Operations:
         - "create": Create new memory (requires content)
-        - "read": Semantic search with RAG (requires query)
+        - "read": Retrieve specific memory by key or recent memories
         - "update": Update memory by query (requires query, content)
         - "delete": Delete memory by key or query (requires query)
-        - "search": Advanced search (keyword, semantic, related modes)
+        - "search": Keyword/semantic/related search (requires query or memory_key for related mode)
         - "stats": Get memory statistics
     
     **Recommended Tags** (Use English consistently):
@@ -92,29 +92,42 @@ async def memory(
         - Daily: "daily_activity", "routine", "meal", "rest"
     
     Examples:
-        # Create
+        # Create with recommended tags
         memory(operation="create", content="User completed Python project", 
                emotion_type="joy", importance=0.8, 
-               context_tags=["technical_achievement"])
+               context_tags=["technical_achievement", "milestone"])
         
-        # Read (Semantic search with RAG)
-        memory(operation="read", query="ユーザーの好きな食べ物", top_k=5)
-        memory(operation="read", query="Python関連", min_importance=0.7)
+        # Create with all available fields
+        memory(operation="create", 
+               content="Walked together in the park at sunset",
+               emotion_type="joy", emotion_intensity=0.85,
+               physical_state="energized", mental_state="peaceful",
+               environment="park", relationship_status="married",
+               action_tag="walking", importance=0.7,
+               context_tags=["emotional_moment", "daily_activity"],
+               persona_info={"favorite_items": ["sunset", "nature"]},
+               user_info={"name": "User"})
         
-        # Search (Keyword mode)
-        memory(operation="search", query="Python OR Rust", mode="keyword")
+        # Read (specific memory by key)
+        memory(operation="read", query="memory_20251119123456")
         
-        # Search (Semantic mode)
-        memory(operation="search", query="成果", mode="semantic", min_importance=0.7)
-        
-        # Search (Related memories)
-        memory(operation="search", mode="related", memory_key="memory_20251119123456")
+        # Read (recent memories)
+        memory(operation="read", top_k=5)
         
         # Update
         memory(operation="update", query="promise", content="Changed to tomorrow 10am")
         
         # Delete
         memory(operation="delete", query="memory_20251102083918")
+        
+        # Search (keyword)
+        memory(operation="search", query="Python", mode="keyword", search_tags=["technical_achievement"])
+        
+        # Search (semantic)
+        memory(operation="search", query="成果", mode="semantic", min_importance=0.7)
+        
+        # Search (related)
+        memory(operation="search", mode="related", memory_key="memory_20251031123045")
         
         # Stats
         memory(operation="stats")
@@ -253,6 +266,17 @@ async def item(
     Args:
         operation: Operation type - "add", "remove", "equip", "unequip", "update", "search", "history", "memories", "stats"
         item_name: Item name (required for most operations)
+        description: Item description (for add/update)
+        quantity: Number of items to add/remove (default: 1)
+        category: Item category (e.g., "weapon", "consumable", "clothing")
+        tags: List of tags for categorization
+        equipment: Dict mapping slot names to item names (for equip operation)
+        slots: Slot name(s) to unequip (string or list, for unequip operation)
+        query: Search query string (for search operation)
+        history_slot: Equipment slot to get history for (for history operation)
+        days: Number of days to look back in history (default: 7)
+        mode: Analysis mode (currently "memories")
+        top_k: Number of results to return (for memories operation, default: 10)
         
     Operations:
         - "add": Add item to inventory
