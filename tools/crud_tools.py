@@ -445,6 +445,7 @@ def _filter_and_score_documents(
     mental_state: Optional[str],
     relationship_status: Optional[str],
     equipped_item: Optional[str],
+    date_range: Optional[str],
     importance_weight: float,
     recency_weight: float
 ) -> list:
@@ -461,6 +462,7 @@ def _filter_and_score_documents(
         mental_state: Mental state filter
         relationship_status: Relationship status filter
         equipped_item: Equipped item filter (partial match)
+        date_range: Date range filter (e.g., "今日", "昨日", "先週")
         importance_weight: Weight for importance in scoring
         recency_weight: Weight for recency in scoring
     
@@ -469,12 +471,42 @@ def _filter_and_score_documents(
     """
     filtered_docs = []
     
+    # Parse date range if provided
+    start_date = None
+    end_date = None
+    if date_range:
+        try:
+            from core.time_utils import parse_date_query
+            start_date, end_date = parse_date_query(date_range)
+        except Exception as e:
+            print(f"⚠️  Failed to parse date_range '{date_range}': {e}")
+    
     for doc, score in docs_with_scores:
         meta = doc.metadata
         
         # Apply filters
         if min_importance is not None and meta.get("importance", 0) < min_importance:
             continue
+        
+        # Date range filter
+        if start_date and end_date:
+            created_at_str = meta.get("created_at")
+            if created_at_str:
+                try:
+                    from datetime import datetime
+                    from zoneinfo import ZoneInfo
+                    from src.utils.config_utils import load_config
+                    
+                    created_dt = datetime.fromisoformat(created_at_str)
+                    if created_dt.tzinfo is None:
+                        cfg = load_config()
+                        tz = ZoneInfo(cfg.get("timezone", "Asia/Tokyo"))
+                        created_dt = created_dt.replace(tzinfo=tz)
+                    
+                    if not (start_date <= created_dt <= end_date):
+                        continue
+                except (ValueError, TypeError):
+                    pass  # Skip date filtering for this document
         
         # Fuzzy matching for text filters (case-insensitive partial match)
         if emotion and emotion.lower() not in str(meta.get("emotion", "")).lower():
@@ -1153,6 +1185,7 @@ async def read_memory(
     mental_state: Optional[str] = None,
     relationship_status: Optional[str] = None,
     equipped_item: Optional[str] = None,
+    date_range: Optional[str] = None,
     # Custom scoring
     importance_weight: float = 0.0,
     recency_weight: float = 0.0
@@ -1166,12 +1199,15 @@ async def read_memory(
         min_importance: Filter by importance 0.0-1.0 (e.g., 0.7 for important only)
         emotion/action_tag/environment/physical_state/mental_state/relationship_status: Context filters
         equipped_item: Filter by equipped item name (partial match)
+        date_range: Date filter (e.g., "今日", "昨日", "先週", "2025-10-01..2025-10-31")
         importance_weight/recency_weight: Custom scoring (0.0-1.0)
     
     Examples:
         read_memory("Python関連")
         read_memory("成果", min_importance=0.7, importance_weight=0.3)
         read_memory("楽しかった思い出", equipped_item="白いドレス")
+        read_memory("今日の予定", date_range="今日")
+        read_memory("Python作業", date_range="先週")
     """
     try:
         persona = get_current_persona()
@@ -1200,6 +1236,7 @@ async def read_memory(
             mental_state=mental_state,
             relationship_status=relationship_status,
             equipped_item=equipped_item,
+            date_range=date_range,
             importance_weight=importance_weight,
             recency_weight=recency_weight
         )
