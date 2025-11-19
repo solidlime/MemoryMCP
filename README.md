@@ -14,6 +14,7 @@ MCP (Model Context Protocol) 準拠の永続メモリサーバー。RAG検索と
 - **リッチコンテキスト**: 重要度・感情・状態・環境・行動タグなど13カラムで記録
 - **自動整理**: 
   - アイドル時の重複検知（類似度90%以上）
+  - 自動マージ（類似度95%以上、オプション）
   - 自動要約（日次/週次/LLM対応）
   - ベクトルストア自動リビルド
 - **Webダッシュボード**: 統計・日次推移・知識グラフの可視化
@@ -272,6 +273,8 @@ export MEMORY_MCP_SERVER_PORT=26262
 | `MEMORY_MCP_AUTO_CLEANUP_DUPLICATE_THRESHOLD` | `auto_cleanup.duplicate_threshold` | `0.90` | 重複判定閾値 |
 | `MEMORY_MCP_AUTO_CLEANUP_MIN_SIMILARITY_TO_REPORT` | `auto_cleanup.min_similarity_to_report` | `0.85` | 報告最小類似度 |
 | `MEMORY_MCP_AUTO_CLEANUP_MAX_SUGGESTIONS_PER_RUN` | `auto_cleanup.max_suggestions_per_run` | `20` | 実行あたり最大提案数 |
+| `MEMORY_MCP_AUTO_CLEANUP_AUTO_MERGE_ENABLED` | `auto_cleanup.auto_merge_enabled` | `False` | 自動マージ有効化 |
+| `MEMORY_MCP_AUTO_CLEANUP_AUTO_MERGE_THRESHOLD` | `auto_cleanup.auto_merge_threshold` | `0.95` | 自動マージ閾値 |
 
 ### 設定例
 
@@ -286,9 +289,11 @@ export MEMORY_MCP_SERVER_PORT=26262
     "mode": "idle",
     "idle_seconds": 30
   },
-  "auto_cleanup": {
-    "enabled": true,
-    "idle_minutes": 30
+  \"auto_cleanup\": {
+    \"enabled\": true,
+    \"idle_minutes\": 30,
+    \"auto_merge_enabled\": false,
+    \"auto_merge_threshold\": 0.95
   }
 }
 ```

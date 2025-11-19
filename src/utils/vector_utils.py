@@ -235,6 +235,8 @@ def _get_cleanup_config():
         "duplicate_threshold": float(ac.get("duplicate_threshold", 0.90)),
         "min_similarity_to_report": float(ac.get("min_similarity_to_report", 0.85)),
         "max_suggestions_per_run": int(ac.get("max_suggestions_per_run", 20)),
+        "auto_merge_enabled": ac.get("auto_merge_enabled", False),
+        "auto_merge_threshold": float(ac.get("auto_merge_threshold", 0.95)),
     }
 
 def start_cleanup_worker_thread():
@@ -284,13 +286,15 @@ def _cleanup_worker_loop():
             time.sleep(60)
 
 def _detect_and_save_cleanup_suggestions(cfg):
-    """Detect duplicates and save suggestions to file"""
+    """Detect duplicates and save suggestions to file. Auto-merge if enabled."""
     try:
         from src.utils.persona_utils import get_current_persona, get_persona_dir
         
         persona = get_current_persona()
         threshold = cfg.get("duplicate_threshold", 0.90)
         max_pairs = cfg.get("max_suggestions_per_run", 20)
+        auto_merge_enabled = cfg.get("auto_merge_enabled", False)
+        auto_merge_threshold = cfg.get("auto_merge_threshold", 0.95)
         
         print(f"🧹 Running cleanup check for persona: {persona} (threshold: {threshold:.2f})...")
         
@@ -301,7 +305,17 @@ def _detect_and_save_cleanup_suggestions(cfg):
             print(f"✅ No cleanup suggestions (threshold: {threshold:.2f})")
             return
         
-        # Group duplicates into suggestion groups
+        # Auto-merge if enabled
+        merged_count = 0
+        if auto_merge_enabled:
+            print(f"🔗 Auto-merge enabled (threshold: {auto_merge_threshold:.2f})")
+            merged_count = _auto_merge_duplicates(duplicates, auto_merge_threshold)
+            if merged_count > 0:
+                print(f"✅ Auto-merged {merged_count} duplicate pairs")
+                # Re-detect after merging
+                duplicates = detect_duplicate_memories(threshold, max_pairs)
+        
+        # Group remaining duplicates into suggestion groups
         groups = _create_cleanup_groups(duplicates, cfg)
         
         # Save to file
@@ -318,6 +332,7 @@ def _detect_and_save_cleanup_suggestions(cfg):
             "generated_at": now.isoformat(),
             "persona": persona,
             "total_memories": _count_total_memories(),
+            "auto_merged": merged_count,
             "groups": groups,
             "summary": {
                 "total_groups": len(groups),
@@ -331,6 +346,8 @@ def _detect_and_save_cleanup_suggestions(cfg):
             json.dump(suggestions_data, f, indent=2, ensure_ascii=False)
         
         print(f"💾 Cleanup suggestions saved: {len(groups)} groups found")
+        if merged_count > 0:
+            print(f"   🔗 Auto-merged: {merged_count} pairs")
         print(f"   📁 {suggestions_file}")
         
     except Exception as e:
@@ -381,6 +398,98 @@ def _count_total_memories():
             return cursor.fetchone()[0]
     except Exception:
         return 0
+
+
+def _auto_merge_duplicates(duplicates: list, threshold: float) -> int:
+    """Auto-merge duplicate pairs above threshold.
+    
+    Args:
+        duplicates: List of tuples [(key1, key2, content1, content2, similarity), ...]
+        threshold: Minimum similarity to auto-merge (0.0-1.0)
+        
+    Returns:
+        Number of pairs merged
+    """
+    from core.memory_db import load_memory_from_db, save_memory_to_db, delete_memory_from_db, generate_auto_key
+    from datetime import datetime
+    
+    merged_count = 0
+    
+    for key1, key2, content1, content2, similarity in duplicates:
+        if similarity < threshold:
+            continue
+        
+        try:
+            # Load both memories
+            memory1 = load_memory_from_db(key1)
+            memory2 = load_memory_from_db(key2)
+            
+            if not memory1 or not memory2:
+                continue
+            
+            # Merge contents (concatenate with separator)
+            merged_content = f"{content1}\n\n{content2}"
+            
+            # Merge tags
+            tags1 = set(memory1.get("tags", []))
+            tags2 = set(memory2.get("tags", []))
+            merged_tags = list(tags1.union(tags2))
+            
+            # Use earliest created_at
+            created1 = datetime.fromisoformat(memory1["created_at"])
+            created2 = datetime.fromisoformat(memory2["created_at"])
+            earliest = min(created1, created2)
+            
+            # Use higher importance
+            importance1 = memory1.get("importance", 0.5)
+            importance2 = memory2.get("importance", 0.5)
+            merged_importance = max(importance1, importance2)
+            
+            # Use stronger emotion
+            emotion1 = memory1.get("emotion", "neutral")
+            emotion2 = memory2.get("emotion", "neutral")
+            intensity1 = memory1.get("emotion_intensity", 0.5)
+            intensity2 = memory2.get("emotion_intensity", 0.5)
+            
+            if intensity1 >= intensity2:
+                merged_emotion = emotion1
+                merged_intensity = intensity1
+            else:
+                merged_emotion = emotion2
+                merged_intensity = intensity2
+            
+            # Generate new key
+            new_key = generate_auto_key()
+            
+            # Save merged memory
+            save_memory_to_db(
+                key=new_key,
+                content=merged_content,
+                tags=merged_tags,
+                importance=merged_importance,
+                emotion=merged_emotion,
+                emotion_intensity=merged_intensity,
+                physical_state=memory1.get("physical_state"),
+                mental_state=memory1.get("mental_state"),
+                environment=memory1.get("environment"),
+                relationship_status=memory1.get("relationship_status"),
+                action_tag=memory1.get("action_tag"),
+                related_keys=None,
+                summary_ref=None
+            )
+            
+            # Delete originals
+            delete_memory_from_db(key1)
+            delete_memory_from_db(key2)
+            
+            merged_count += 1
+            print(f"   ✅ Merged {key1} + {key2} → {new_key} (similarity: {similarity:.3f})")
+            
+        except Exception as e:
+            print(f"   ⚠️  Failed to merge {key1} + {key2}: {e}")
+            continue
+    
+    return merged_count
 
 def _get_embedding_dimension(model_name: str) -> int:
     try:
