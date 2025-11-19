@@ -1,5 +1,6 @@
 import os
 import json
+import os
 import sqlite3
 import threading
 import time
@@ -109,6 +110,90 @@ def _get_qdrant_adapter(persona: str = None):
     dim = _get_embedding_dimension(cfg.get("embeddings_model", "cl-nagoya/ruri-v3-30m"))
     
     return QdrantVectorStoreAdapter(client, collection, embeddings, dim)
+
+
+def _build_enriched_content(
+    content: str,
+    tags_json: str = None,
+    emotion: str = None,
+    emotion_intensity: float = None,
+    action_tag: str = None,
+    environment: str = None,
+    physical_state: str = None,
+    mental_state: str = None,
+    relationship_status: str = None
+) -> str:
+    """
+    Build enriched content for vector embedding by including metadata.
+    
+    This function adds searchable metadata context to the base content,
+    improving semantic search accuracy by making tags, emotions, and other
+    contextual information available to the embedding model.
+    
+    Args:
+        content: Base content text
+        tags_json: JSON string of tags list
+        emotion: Emotion type
+        emotion_intensity: Emotion intensity (0.0-1.0)
+        action_tag: Action tag
+        environment: Environment description
+        physical_state: Physical state
+        mental_state: Mental state
+        relationship_status: Relationship status
+        
+    Returns:
+        Enriched content string with metadata annotations
+        
+    Example:
+        >>> _build_enriched_content(
+        ...     "今日はPythonを勉強した。",
+        ...     tags_json='["learning", "programming"]',
+        ...     emotion="joy",
+        ...     emotion_intensity=0.8
+        ... )
+        '今日はPythonを勉強した。\\n[Tags: learning, programming]\\n[Emotion: joy (intensity: 0.8)]'
+    """
+    enriched_content = content
+    
+    # Add tags to searchable content
+    if tags_json:
+        try:
+            tags_list = json.loads(tags_json)
+            if tags_list:
+                enriched_content += f"\n[Tags: {', '.join(tags_list)}]"
+        except:
+            pass
+    
+    # Add emotional context
+    if emotion and emotion != "neutral":
+        enriched_content += f"\n[Emotion: {emotion}"
+        if emotion_intensity and emotion_intensity > 0.5:
+            enriched_content += f" (intensity: {emotion_intensity:.1f})"
+        enriched_content += "]"
+    
+    # Add action context
+    if action_tag:
+        enriched_content += f"\n[Action: {action_tag}]"
+    
+    # Add environment context
+    if environment and environment != "unknown":
+        enriched_content += f"\n[Environment: {environment}]"
+    
+    # Add physical/mental state context
+    states = []
+    if physical_state and physical_state != "normal":
+        states.append(f"physical:{physical_state}")
+    if mental_state and mental_state != "calm":
+        states.append(f"mental:{mental_state}")
+    if states:
+        enriched_content += f"\n[State: {', '.join(states)}]"
+    
+    # Add relationship context
+    if relationship_status and relationship_status != "normal":
+        enriched_content += f"\n[Relationship: {relationship_status}]"
+    
+    return enriched_content
+
 
 def start_idle_rebuilder_thread():
     t = threading.Thread(target=_idle_rebuilder_loop, daemon=True)
@@ -455,45 +540,17 @@ def rebuild_vector_store():
                 meta["equipped_items"] = equipped_items_json
             
             # Build enriched content for vector embedding
-            enriched_content = content
-            
-            # Add tags to searchable content
-            if tags_json:
-                try:
-                    import json
-                    tags_list = json.loads(tags_json)
-                    if tags_list:
-                        enriched_content += f"\n[Tags: {', '.join(tags_list)}]"
-                except:
-                    pass
-            
-            # Add emotional context
-            if emotion and emotion != "neutral":
-                enriched_content += f"\n[Emotion: {emotion}"
-                if emotion_intensity and emotion_intensity > 0.5:
-                    enriched_content += f" (intensity: {emotion_intensity:.1f})"
-                enriched_content += "]"
-            
-            # Add action context
-            if action_tag:
-                enriched_content += f"\n[Action: {action_tag}]"
-            
-            # Add environment context
-            if environment and environment != "unknown":
-                enriched_content += f"\n[Environment: {environment}]"
-            
-            # Add physical/mental state context
-            states = []
-            if physical_state and physical_state != "normal":
-                states.append(f"physical:{physical_state}")
-            if mental_state and mental_state != "calm":
-                states.append(f"mental:{mental_state}")
-            if states:
-                enriched_content += f"\n[State: {', '.join(states)}]"
-            
-            # Add relationship context
-            if relationship_status and relationship_status != "normal":
-                enriched_content += f"\n[Relationship: {relationship_status}]"
+            enriched_content = _build_enriched_content(
+                content=content,
+                tags_json=tags_json,
+                emotion=emotion,
+                emotion_intensity=emotion_intensity,
+                action_tag=action_tag,
+                environment=environment,
+                physical_state=physical_state,
+                mental_state=mental_state,
+                relationship_status=relationship_status
+            )
             
             docs.append(Document(page_content=enriched_content, metadata=meta))
             ids.append(key)
@@ -599,46 +656,17 @@ def add_memory_to_vector_store(key: str, content: str):
             meta["equipped_items"] = equipped_items_json
 
         # Build enriched content for vector embedding
-        # Include metadata in searchable text for better semantic matching
-        enriched_content = content
-        
-        # Add tags to searchable content
-        if tags_json:
-            try:
-                import json
-                tags_list = json.loads(tags_json)
-                if tags_list:
-                    enriched_content += f"\n[Tags: {', '.join(tags_list)}]"
-            except:
-                pass
-        
-        # Add emotional context
-        if emotion and emotion != "neutral":
-            enriched_content += f"\n[Emotion: {emotion}"
-            if emotion_intensity and emotion_intensity > 0.5:
-                enriched_content += f" (intensity: {emotion_intensity:.1f})"
-            enriched_content += "]"
-        
-        # Add action context
-        if action_tag:
-            enriched_content += f"\n[Action: {action_tag}]"
-        
-        # Add environment context
-        if environment and environment != "unknown":
-            enriched_content += f"\n[Environment: {environment}]"
-        
-        # Add physical/mental state context
-        states = []
-        if physical_state and physical_state != "normal":
-            states.append(f"physical:{physical_state}")
-        if mental_state and mental_state != "calm":
-            states.append(f"mental:{mental_state}")
-        if states:
-            enriched_content += f"\n[State: {', '.join(states)}]"
-        
-        # Add relationship context
-        if relationship_status and relationship_status != "normal":
-            enriched_content += f"\n[Relationship: {relationship_status}]"
+        enriched_content = _build_enriched_content(
+            content=content,
+            tags_json=tags_json,
+            emotion=emotion,
+            emotion_intensity=emotion_intensity,
+            action_tag=action_tag,
+            environment=environment,
+            physical_state=physical_state,
+            mental_state=mental_state,
+            relationship_status=relationship_status
+        )
 
         # Create document with enriched content and metadata
         doc = Document(page_content=enriched_content, metadata=meta)
@@ -753,46 +781,17 @@ def update_memory_in_vector_store(key: str, content: str):
             meta["summary_ref"] = summary_ref
 
         # Build enriched content for vector embedding
-        # Include metadata in searchable text for better semantic matching
-        enriched_content = content
-        
-        # Add tags to searchable content
-        if tags_json:
-            try:
-                import json
-                tags_list = json.loads(tags_json)
-                if tags_list:
-                    enriched_content += f"\n[Tags: {', '.join(tags_list)}]"
-            except:
-                pass
-        
-        # Add emotional context
-        if emotion and emotion != "neutral":
-            enriched_content += f"\n[Emotion: {emotion}"
-            if emotion_intensity and emotion_intensity > 0.5:
-                enriched_content += f" (intensity: {emotion_intensity:.1f})"
-            enriched_content += "]"
-        
-        # Add action context
-        if action_tag:
-            enriched_content += f"\n[Action: {action_tag}]"
-        
-        # Add environment context
-        if environment and environment != "unknown":
-            enriched_content += f"\n[Environment: {environment}]"
-        
-        # Add physical/mental state context
-        states = []
-        if physical_state and physical_state != "normal":
-            states.append(f"physical:{physical_state}")
-        if mental_state and mental_state != "calm":
-            states.append(f"mental:{mental_state}")
-        if states:
-            enriched_content += f"\n[State: {', '.join(states)}]"
-        
-        # Add relationship context
-        if relationship_status and relationship_status != "normal":
-            enriched_content += f"\n[Relationship: {relationship_status}]"
+        enriched_content = _build_enriched_content(
+            content=content,
+            tags_json=tags_json,
+            emotion=emotion,
+            emotion_intensity=emotion_intensity,
+            action_tag=action_tag,
+            environment=environment,
+            physical_state=physical_state,
+            mental_state=mental_state,
+            relationship_status=relationship_status
+        )
 
         # Add new version with enriched content
         doc = Document(page_content=enriched_content, metadata=meta)
