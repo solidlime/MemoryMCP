@@ -1,5 +1,5 @@
 import sqlite3
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Dict, Any
 from cachetools import TTLCache
 from threading import Lock
 
@@ -15,12 +15,36 @@ def clear_query_cache():
 
 # These helpers are kept generic: caller passes db_path
 
-def db_get_entry(db_path: str, key: str) -> Optional[Tuple[str, str, str, str, float, str, float, str, str, str, str, str, str, str]]:
-    """Return (content, created_at, updated_at, tags_json, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys_json, summary_ref) for a key, or None"""
+def db_get_entry(db_path: str, key: str) -> Optional[Dict[str, Any]]:
+    """Return a dictionary with memory data for a key, or None"""
     with sqlite3.connect(db_path) as conn:
         cursor = conn.cursor()
         cursor.execute('SELECT content, created_at, updated_at, tags, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys, summary_ref FROM memories WHERE key = ?', (key,))
-        return cursor.fetchone()
+        row = cursor.fetchone()
+        if row is None:
+            return None
+        
+        # Convert tuple to dictionary
+        import json
+        tags = json.loads(row[3]) if row[3] else []
+        related_keys = json.loads(row[12]) if row[12] else []
+        
+        return {
+            'content': row[0],
+            'created_at': row[1],
+            'updated_at': row[2],
+            'tags': tags,
+            'importance': row[4],
+            'emotion': row[5],
+            'emotion_intensity': row[6],
+            'physical_state': row[7],
+            'mental_state': row[8],
+            'environment': row[9],
+            'relationship_status': row[10],
+            'action_tag': row[11],
+            'related_keys': related_keys,
+            'summary_ref': row[13]
+        }
 
 
 def db_recent_keys(db_path: str, limit: int = 5) -> List[str]:
