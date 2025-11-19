@@ -4,6 +4,70 @@ All notable changes to Memory-MCP will be documented in this file.
 
 ## [Unreleased]
 
+### Added - 2025-11-19 (Phase 38: Auto-Summarization Scheduler & Priority Scoring)
+
+#### 自動要約スケジューラー
+
+バックグラウンドで日次・週次の自動要約を実行するスケジューラーを追加。メモリを定期的に圧縮してメタメモリとして保存。
+
+**新機能:**
+
+1. **自動要約スケジューラー**:
+   - バックグラウンドワーカースレッドで定期実行
+   - 日次要約: 設定した時刻（デフォルト3時）に実行
+   - 週次要約: 設定した曜日（デフォルト月曜）に実行
+   - 既存の要約ツール群を活用
+
+2. **スケジューラー設定**:
+   - `auto_summarization.enabled`: スケジューラー有効化（デフォルト: false）
+   - `auto_summarization.schedule_daily`: 日次要約（デフォルト: true）
+   - `auto_summarization.schedule_weekly`: 週次要約（デフォルト: true）
+   - `auto_summarization.daily_hour`: 実行時刻（デフォルト: 3）
+   - `auto_summarization.weekly_day`: 実行曜日（デフォルト: 0=月曜）
+   - `auto_summarization.check_interval_seconds`: チェック間隔（デフォルト: 3600秒）
+
+#### 優先度スコアリング
+
+アクセス頻度を考慮した複合スコアリングシステムを実装。重要度・時間減衰・アクセス頻度で記憶に優先度を付与。
+
+**新機能:**
+
+1. **アクセストラッキング**:
+   - DBスキーマに `access_count`, `last_accessed` カラム追加
+   - `increment_access_count()`: アクセス時に自動カウント
+   - 検索結果取得時に自動更新
+
+2. **複合スコアリング**:
+   - ベクトル類似度 + 重要度重み + 時間減衰重み + アクセス頻度
+   - アクセス頻度: `log1p(access_count) / 10.0` で正規化（10%の重み）
+   - 既存の importance_weight, recency_weight と統合
+
+3. **自動マイグレーション**:
+   - 既存DBに自動でカラム追加
+   - `load_memory_from_db()` で透過的に処理
+
+**設定追加:**
+
+```json
+{
+  "auto_summarization": {
+    "enabled": false,
+    "schedule_daily": true,
+    "schedule_weekly": true,
+    "daily_hour": 3,
+    "weekly_day": 0,
+    "check_interval_seconds": 3600,
+    "min_importance": 0.3
+  }
+}
+```
+
+**テスト:**
+- `scripts/test_auto_summary.py`: 要約機能のユニットテスト（5テスト）
+- `scripts/test_priority_scoring.py`: 優先度スコアリングのユニットテスト（4テスト）
+
+---
+
 ### Added - 2025-11-19 (Phase 36: Enhanced Search & Auto-Cleanup)
 
 #### Hybrid Search & Temporal Filtering

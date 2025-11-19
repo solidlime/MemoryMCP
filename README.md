@@ -11,12 +11,13 @@ MCP (Model Context Protocol) 準拠の永続メモリサーバー。RAG検索と
   - ハイブリッド検索（セマンティック70% + キーワード30%）
   - 時間フィルタリング（「昨日」「先週」などの自然言語対応）
   - メタデータエンリッチメント（タグ、感情、環境、状態を埋め込みに含める）
-- **リッチコンテキスト**: 重要度・感情・状態・環境・行動タグなど13カラムで記録
+- **リッチコンテキスト**: 重要度・感情・状態・環境・行動タグなど15カラムで記録
 - **自動整理**: 
   - アイドル時の重複検知（類似度90%以上）
   - 自動マージ（類似度95%以上、オプション）
-  - 自動要約（日次/週次/LLM対応）
+  - 自動要約スケジューラー（日次/週次/LLM対応、オプション）
   - ベクトルストア自動リビルド
+- **優先度スコアリング**: 重要度 × 時間減衰 × アクセス頻度の複合スコア
 - **Webダッシュボード**: 統計・日次推移・知識グラフの可視化
 - **最適化Docker**: 2.65GB (CPU版PyTorch)
 - **統合API**: 3つの統合ツールで簡潔なインターフェース (75%削減)
@@ -269,6 +270,18 @@ export MEMORY_MCP_SERVER_PORT=26262
 | `MEMORY_MCP_VECTOR_REBUILD_MIN_INTERVAL` | `vector_rebuild.min_interval` | `120` | 最小実行間隔（秒） |
 | `MEMORY_MCP_AUTO_CLEANUP_ENABLED` | `auto_cleanup.enabled` | `True` | 自動クリーンアップ |
 | `MEMORY_MCP_AUTO_CLEANUP_IDLE_MINUTES` | `auto_cleanup.idle_minutes` | `30` | アイドル分数 |
+| `MEMORY_MCP_AUTO_CLEANUP_CHECK_INTERVAL_SECONDS` | `auto_cleanup.check_interval_seconds` | `300` | チェック間隔（秒） |
+| `MEMORY_MCP_AUTO_CLEANUP_DUPLICATE_THRESHOLD` | `auto_cleanup.duplicate_threshold` | `0.90` | 重複検知閾値 |
+| `MEMORY_MCP_AUTO_CLEANUP_MIN_SIMILARITY_TO_REPORT` | `auto_cleanup.min_similarity_to_report` | `0.85` | レポート最小類似度 |
+| `MEMORY_MCP_AUTO_CLEANUP_AUTO_MERGE_ENABLED` | `auto_cleanup.auto_merge_enabled` | `False` | 自動マージ有効化 |
+| `MEMORY_MCP_AUTO_CLEANUP_AUTO_MERGE_THRESHOLD` | `auto_cleanup.auto_merge_threshold` | `0.95` | 自動マージ閾値 |
+| `MEMORY_MCP_AUTO_SUMMARIZATION_ENABLED` | `auto_summarization.enabled` | `False` | 自動要約スケジューラー |
+| `MEMORY_MCP_AUTO_SUMMARIZATION_SCHEDULE_DAILY` | `auto_summarization.schedule_daily` | `True` | 日次要約有効化 |
+| `MEMORY_MCP_AUTO_SUMMARIZATION_SCHEDULE_WEEKLY` | `auto_summarization.schedule_weekly` | `True` | 週次要約有効化 |
+| `MEMORY_MCP_AUTO_SUMMARIZATION_DAILY_HOUR` | `auto_summarization.daily_hour` | `3` | 日次要約実行時刻（時） |
+| `MEMORY_MCP_AUTO_SUMMARIZATION_WEEKLY_DAY` | `auto_summarization.weekly_day` | `0` | 週次要約実行曜日（0=月曜） |
+| `MEMORY_MCP_AUTO_SUMMARIZATION_CHECK_INTERVAL_SECONDS` | `auto_summarization.check_interval_seconds` | `3600` | チェック間隔（秒） |
+| `MEMORY_MCP_AUTO_SUMMARIZATION_MIN_IMPORTANCE` | `auto_summarization.min_importance` | `0.3` | 要約対象最小重要度 |
 | `MEMORY_MCP_AUTO_CLEANUP_CHECK_INTERVAL_SECONDS` | `auto_cleanup.check_interval_seconds` | `300` | チェック間隔（秒） |
 | `MEMORY_MCP_AUTO_CLEANUP_DUPLICATE_THRESHOLD` | `auto_cleanup.duplicate_threshold` | `0.90` | 重複判定閾値 |
 | `MEMORY_MCP_AUTO_CLEANUP_MIN_SIMILARITY_TO_REPORT` | `auto_cleanup.min_similarity_to_report` | `0.85` | 報告最小類似度 |

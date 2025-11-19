@@ -81,6 +81,10 @@ _rebuild_lock = threading.Lock()
 _last_cleanup_check: float = 0.0
 _cleanup_lock = threading.Lock()
 
+# Phase 37: Auto-summarization controls
+_last_summarization_check: float = 0.0
+_summarization_lock = threading.Lock()
+
 def mark_vector_store_dirty():
     global _dirty, _last_write_ts
     _dirty = True
@@ -239,6 +243,20 @@ def _get_cleanup_config():
         "auto_merge_threshold": float(ac.get("auto_merge_threshold", 0.95)),
     }
 
+def _get_summarization_config():
+    """Get auto_summarization configuration from config.json"""
+    cfg = load_config()
+    su = cfg.get("auto_summarization", {})
+    return {
+        "enabled": su.get("enabled", False),
+        "schedule_daily": su.get("schedule_daily", True),
+        "schedule_weekly": su.get("schedule_weekly", True),
+        "daily_hour": int(su.get("daily_hour", 3)),
+        "weekly_day": int(su.get("weekly_day", 0)),  # 0=Monday
+        "check_interval_seconds": int(su.get("check_interval_seconds", 3600)),
+        "min_importance": float(su.get("min_importance", 0.3)),
+    }
+
 def start_cleanup_worker_thread():
     """Start background cleanup worker thread"""
     cfg = _get_cleanup_config()
@@ -247,6 +265,81 @@ def start_cleanup_worker_thread():
     t = threading.Thread(target=_cleanup_worker_loop, daemon=True)
     t.start()
     return t
+
+def start_summarization_worker_thread():
+    """Start background summarization worker thread"""
+    cfg = _get_summarization_config()
+    if not cfg.get("enabled", False):
+        return None
+    t = threading.Thread(target=_summarization_worker_loop, daemon=True)
+    t.start()
+    return t
+
+def _summarization_worker_loop():
+    """Background loop that runs periodic summarization"""
+    global _last_summarization_check
+    
+    while True:
+        try:
+            cfg = _get_summarization_config()
+            if not cfg.get("enabled", False):
+                time.sleep(60)
+                continue
+            
+            now = time.time()
+            check_interval = cfg.get("check_interval_seconds", 3600)
+            
+            # Wait for check interval
+            if (now - _last_summarization_check) < check_interval:
+                time.sleep(60)
+                continue
+            
+            # Run summarization check
+            with _summarization_lock:
+                _last_summarization_check = now
+                _run_scheduled_summarization(cfg)
+            
+            # Sleep after check
+            time.sleep(check_interval)
+            
+        except Exception as e:
+            print(f"⚠️ Summarization worker error: {e}")
+            time.sleep(60)
+
+def _run_scheduled_summarization(cfg):
+    """Run scheduled summarization if due"""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    from tools.summarization_tools import summarize_last_day, summarize_last_week
+    from src.utils.persona_utils import get_current_persona
+    
+    try:
+        timezone = load_config().get("timezone", "Asia/Tokyo")
+        now = datetime.now(ZoneInfo(timezone))
+        persona = get_current_persona()
+        
+        # Check daily summary
+        if cfg.get("schedule_daily", True):
+            target_hour = cfg.get("daily_hour", 3)
+            if now.hour == target_hour:
+                print(f"📝 Running daily summary for {persona}...")
+                result = summarize_last_day(persona=persona)
+                if result:
+                    print(f"✅ Daily summary created: {result}")
+        
+        # Check weekly summary
+        if cfg.get("schedule_weekly", True):
+            target_day = cfg.get("weekly_day", 0)  # 0=Monday
+            if now.weekday() == target_day and now.hour == 3:
+                print(f"📝 Running weekly summary for {persona}...")
+                result = summarize_last_week(persona=persona)
+                if result:
+                    print(f"✅ Weekly summary created: {result}")
+                    
+    except Exception as e:
+        print(f"❌ Scheduled summarization error: {e}")
+        import traceback
+        traceback.print_exc()
 
 def _cleanup_worker_loop():
     """Background loop that checks for cleanup opportunities during idle time"""

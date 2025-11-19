@@ -48,7 +48,9 @@ def load_memory_from_db() -> Dict[str, Any]:
                     action_tag TEXT DEFAULT NULL,
                     related_keys TEXT DEFAULT '[]',
                     summary_ref TEXT DEFAULT NULL,
-                    equipped_items TEXT DEFAULT NULL
+                    equipped_items TEXT DEFAULT NULL,
+                    access_count INTEGER DEFAULT 0,
+                    last_accessed TEXT DEFAULT NULL
                 )
             ''')
             cursor.execute('''
@@ -154,11 +156,24 @@ def load_memory_from_db() -> Dict[str, Any]:
                 conn.commit()
                 log_progress("✅ Database migration complete: equipped_items column added")
             
-            cursor.execute('SELECT key, content, created_at, updated_at, tags, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys, summary_ref, equipped_items FROM memories')
+            # Phase 38: Add access tracking columns
+            if 'access_count' not in columns:
+                log_progress("🔄 Migrating database: Adding access_count column...")
+                cursor.execute('ALTER TABLE memories ADD COLUMN access_count INTEGER DEFAULT 0')
+                conn.commit()
+                log_progress("✅ Database migration complete: access_count column added")
+            
+            if 'last_accessed' not in columns:
+                log_progress("🔄 Migrating database: Adding last_accessed column...")
+                cursor.execute('ALTER TABLE memories ADD COLUMN last_accessed TEXT DEFAULT NULL')
+                conn.commit()
+                log_progress("✅ Database migration complete: last_accessed column added")
+            
+            cursor.execute('SELECT key, content, created_at, updated_at, tags, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys, summary_ref, equipped_items, access_count, last_accessed FROM memories')
             rows = cursor.fetchall()
             
             for row in rows:
-                key, content, created_at, updated_at, tags_json, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys_json, summary_ref, equipped_items_json = row
+                key, content, created_at, updated_at, tags_json, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys_json, summary_ref, equipped_items_json, access_count, last_accessed = row
                 memory_store[key] = {
                     "content": content,
                     "created_at": created_at,
@@ -174,7 +189,9 @@ def load_memory_from_db() -> Dict[str, Any]:
                     "action_tag": action_tag if action_tag else None,
                     "related_keys": json.loads(related_keys_json) if related_keys_json else [],
                     "summary_ref": summary_ref if summary_ref else None,
-                    "equipped_items": json.loads(equipped_items_json) if equipped_items_json else None
+                    "equipped_items": json.loads(equipped_items_json) if equipped_items_json else None,
+                    "access_count": access_count if access_count is not None else 0,
+                    "last_accessed": last_accessed if last_accessed else None
                 }
         
         print(f"Loaded {len(memory_store)} memory entries from {db_path}")
@@ -408,3 +425,32 @@ def log_operation(
             conn.commit()
     except Exception as e:
         print(f"Failed to log operation: {str(e)}")
+
+
+def increment_access_count(key: str) -> bool:
+    """
+    Increment access count and update last accessed timestamp.
+    
+    Args:
+        key: Memory key
+    
+    Returns:
+        bool: True if successful
+    """
+    try:
+        db_path = get_db_path()
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            from datetime import datetime
+            now = datetime.now().isoformat()
+            cursor.execute('''
+                UPDATE memories
+                SET access_count = access_count + 1,
+                    last_accessed = ?
+                WHERE key = ?
+            ''', (now, key))
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        print(f"Failed to increment access count for {key}: {e}")
+        return False

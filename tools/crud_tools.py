@@ -546,6 +546,14 @@ def _filter_and_score_documents(
                 # Date parsing failed, skip recency scoring
                 pass
         
+        # Phase 38: Access frequency scoring
+        access_count = meta.get("access_count", 0)
+        if access_count > 0:
+            # Normalize access count (log scale to prevent over-weighting)
+            import math
+            access_score = math.log1p(access_count) / 10.0  # log1p prevents log(0)
+            final_score += 0.1 * access_score  # 10% weight for access frequency
+        
         doc.metadata["final_score"] = final_score
         filtered_docs.append((doc, final_score))
     
@@ -1246,6 +1254,13 @@ async def read_memory(
         
         # Rerank if reranker is available
         docs = _rerank_documents(query, docs, top_k)
+        
+        # Update access counts for returned memories
+        from core.memory_db import increment_access_count
+        for doc in docs:
+            key = doc.metadata.get("key")
+            if key:
+                increment_access_count(key)
         
         # Format and return results
         result = _format_memory_results(
