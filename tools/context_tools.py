@@ -68,6 +68,28 @@ async def get_context() -> str:
         if context.get('current_action_tag'):
             result += f"   Current Action: {context.get('current_action_tag')}\n"
         
+        # Physical Sensations (新規追加)
+        if context.get('physical_sensations'):
+            sens = context['physical_sensations']
+            result += "\n💫 Physical Sensations:\n"
+            result += f"   Fatigue: {sens.get('fatigue', 0.0):.2f} | Warmth: {sens.get('warmth', 0.5):.2f} | Arousal: {sens.get('arousal', 0.0):.2f}\n"
+            result += f"   Touch Response: {sens.get('touch_response', 'normal')} | Heart Rate: {sens.get('heart_rate_metaphor', 'calm')}\n"
+        
+        # Recent Emotion Changes (新規追加)
+        if context.get('emotion_history'):
+            history = context['emotion_history']
+            if len(history) > 0:
+                result += "\n📊 Recent Emotion Changes (last 5):\n"
+                for i, entry in enumerate(reversed(history[-5:]), 1):
+                    emo = entry.get('emotion_type', 'neutral')
+                    intensity = entry.get('intensity', 0.5)
+                    timestamp = entry.get('timestamp', '')
+                    if timestamp:
+                        time_diff = calc_time_diff(timestamp)
+                        result += f"   {i}. {emo} ({intensity:.2f}) - {time_diff['formatted_string']}前\n"
+                    else:
+                        result += f"   {i}. {emo} ({intensity:.2f})\n"
+        
         # ===== PART 1.5: Extended Persona Context =====
         # Current Equipment (always from DB, not from context)
         result += f"\n👗 Current Equipment:\n"

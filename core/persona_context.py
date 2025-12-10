@@ -47,7 +47,15 @@ def load_persona_context(persona: Optional[str] = None) -> dict:
         "mental_state": "calm",
         "environment": "unknown",
         "relationship_status": "normal",
-        "current_action_tag": None
+        "current_action_tag": None,
+        "physical_sensations": {
+            "fatigue": 0.0,
+            "warmth": 0.5,
+            "arousal": 0.0,
+            "touch_response": "normal",
+            "heart_rate_metaphor": "calm"
+        },
+        "emotion_history": []
     }
     
     try:

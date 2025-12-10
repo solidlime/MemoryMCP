@@ -4,6 +4,33 @@ All notable changes to Memory-MCP will be documented in this file.
 
 ## [Unreleased]
 
+### Added - 2025-12-10 (Phase 1: Enhanced Context Tracking)
+
+#### 身体感覚記録システム
+
+**physical_sensations フィールド:**
+- fatigue: 疲労度 (0.0-1.0)
+- warmth: 温かさ (0.0-1.0)
+- arousal: 覚醒度 (0.0-1.0)
+- touch_response: 触覚反応 ("normal", "sensitive", "resistant")
+- heart_rate_metaphor: 心拍数メタファー ("calm", "elevated", "racing")
+
+**sensation 操作:**
+- 身体感覚の表示・更新
+- get_context()に💫 Physical Sensationsセクション追加
+- リアルタイムな身体状態の追跡
+
+#### 感情変化追跡システム
+
+**emotion_history フィールド:**
+- 最新50件の感情変化を記録
+- タイムスタンプ、感情タイプ、強度を保存
+
+**emotion_flow 操作:**
+- 感情変化の記録・履歴表示
+- get_context()に📊 Recent Emotion Changesセクション追加
+- 感情の流れを時系列で把握可能
+
 ### Added - 2025-12-10 (Smart Search & Anniversary Features)
 
 #### スマート検索の汎用化

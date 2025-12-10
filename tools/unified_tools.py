@@ -92,6 +92,8 @@ async def memory(
         - "preference": Update preferences (loves/dislikes)
         - "moment": Add special moment
         - "anniversary": Manage anniversaries (add/remove/list)
+        - "sensation": Update physical sensations
+        - "emotion_flow": Record emotion change
         - "update_context": Batch update multiple fields
     
     Examples:
@@ -114,6 +116,8 @@ async def memory(
         memory(operation="anniversary", content="結婚記念日", persona_info={"date": "10-28"})  # Add anniversary
         memory(operation="anniversary")  # List all
         memory(operation="anniversary", content="結婚記念日")  # Remove
+        memory(operation="sensation", persona_info={"fatigue": 0.3, "warmth": 0.8, "arousal": 0.6})  # Update sensations
+        memory(operation="emotion_flow", emotion_type="love", emotion_intensity=0.95)  # Record emotion change
     """
     operation = operation.lower()
     
@@ -666,8 +670,96 @@ async def memory(
         
         return "❌ Error: Provide content (name) and persona_info={'date': 'MM-DD'} to add, or just content to remove"
     
+    elif operation == "sensation":
+        """Update physical sensations."""
+        from core.persona_context import load_persona_context, save_persona_context
+        from src.utils.persona_utils import get_current_persona
+        
+        persona = get_current_persona()
+        context = load_persona_context(persona)
+        
+        # Initialize if not exists
+        if "physical_sensations" not in context:
+            context["physical_sensations"] = {
+                "fatigue": 0.0,
+                "warmth": 0.5,
+                "arousal": 0.0,
+                "touch_response": "normal",
+                "heart_rate_metaphor": "calm"
+            }
+        
+        if not persona_info:
+            # Display current sensations
+            sens = context["physical_sensations"]
+            result = "💫 Current Physical Sensations:\n"
+            result += f"   Fatigue: {sens.get('fatigue', 0.0):.2f}\n"
+            result += f"   Warmth: {sens.get('warmth', 0.5):.2f}\n"
+            result += f"   Arousal: {sens.get('arousal', 0.0):.2f}\n"
+            result += f"   Touch Response: {sens.get('touch_response', 'normal')}\n"
+            result += f"   Heart Rate: {sens.get('heart_rate_metaphor', 'calm')}\n"
+            return result
+        
+        # Update sensations
+        updated = []
+        for key in ["fatigue", "warmth", "arousal"]:
+            if key in persona_info:
+                context["physical_sensations"][key] = max(0.0, min(1.0, float(persona_info[key])))
+                updated.append(key)
+        
+        for key in ["touch_response", "heart_rate_metaphor"]:
+            if key in persona_info:
+                context["physical_sensations"][key] = persona_info[key]
+                updated.append(key)
+        
+        if updated:
+            save_persona_context(context, persona)
+            return f"✅ Physical sensations updated: {', '.join(updated)}"
+        else:
+            return "ℹ️ No sensations to update"
+    
+    elif operation == "emotion_flow":
+        """Record emotion change to history."""
+        from core.persona_context import load_persona_context, save_persona_context
+        from src.utils.persona_utils import get_current_persona
+        from core import get_current_time
+        
+        persona = get_current_persona()
+        context = load_persona_context(persona)
+        
+        # Initialize if not exists
+        if "emotion_history" not in context:
+            context["emotion_history"] = []
+        
+        if not emotion_type:
+            # Display emotion history
+            if not context["emotion_history"]:
+                return "📊 No emotion history yet."
+            
+            result = "📊 Recent Emotion Changes (last 10):\n"
+            for i, entry in enumerate(reversed(context["emotion_history"][-10:]), 1):
+                timestamp = entry.get("timestamp", "Unknown")
+                emo = entry.get("emotion_type", "neutral")
+                intensity = entry.get("intensity", 0.5)
+                result += f"{i}. {emo} ({intensity:.2f}) - {timestamp}\n"
+            return result
+        
+        # Add new emotion to history
+        current_time = get_current_time()
+        context["emotion_history"].append({
+            "timestamp": current_time.isoformat(),
+            "emotion_type": emotion_type,
+            "intensity": emotion_intensity if emotion_intensity is not None else 0.5
+        })
+        
+        # Keep only last 50 entries
+        if len(context["emotion_history"]) > 50:
+            context["emotion_history"] = context["emotion_history"][-50:]
+        
+        save_persona_context(context, persona)
+        return f"✅ Emotion recorded: {emotion_type} ({emotion_intensity if emotion_intensity else 0.5:.2f})"
+    
     else:
-        return f"❌ Error: Unknown operation '{operation}'. Valid: create, read, update, delete, search, stats, check_routines, promise, goal, favorite, preference, moment, update_context, anniversary"
+        return f"❌ Error: Unknown operation '{operation}'. Valid: create, read, update, delete, search, stats, check_routines, promise, goal, favorite, preference, moment, update_context, anniversary, sensation, emotion_flow"
 
 
 async def item(

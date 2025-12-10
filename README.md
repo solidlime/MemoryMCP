@@ -89,6 +89,17 @@ memory(operation="anniversary")  # 一覧表示
 memory(operation="anniversary", content="結婚記念日", 
        persona_info={"date": "10-28", "recurring": True})  # 追加
 memory(operation="anniversary", content="結婚記念日")  # 削除
+
+# 身体感覚記録
+memory(operation="sensation")  # 現在の感覚表示
+memory(operation="sensation", persona_info={
+    "fatigue": 0.3, "warmth": 0.8, "arousal": 0.6,
+    "touch_response": "sensitive", "heart_rate_metaphor": "elevated"
+})  # 感覚更新
+
+# 感情変化追跡
+memory(operation="emotion_flow")  # 履歴表示
+memory(operation="emotion_flow", emotion_type="love", emotion_intensity=0.95)  # 記録
 ```
 
 #### 3. `item(operation, ...)`
