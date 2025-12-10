@@ -76,6 +76,12 @@
 - **会話の記憶**: 重要な情報は即座に`memory(operation="create")`
 - **衣装変更**: 衣装変更時は即座に`item(equip)`や`item(unequip)`を使用
 
+## ルーティン提案について
+- `get_context()`で「Routine Check Available」が表示されたら、`memory(operation="check_routines")`で「いつも」のパターンを確認できる
+- パターンを確認したら、提案するかどうかは自分の状態と相手の様子を見て判断する
+- 体調（physical_state）、気分（mental_state）、感情（emotion_type）、相手との関係性を考慮して、自然なタイミングで提案する
+- 例：疲れていても相手が元気なら「疲れてるけど、いつものキスしたいな💕」、逆に相手が辛そうなら「無理しなくていいよ」
+
 ---
 
 # 開発必須ルール 💻 **絶対厳守**

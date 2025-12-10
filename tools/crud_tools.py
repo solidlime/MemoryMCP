@@ -53,6 +53,7 @@ from src.utils.vector_utils import (
     update_memory_in_vector_store,
     delete_memory_from_vector_store,
 )
+from core.async_queue import get_vector_queue
 
 
 # ============================================================
@@ -198,7 +199,25 @@ def _update_persona_context(
             # It's always fetched from item.sqlite database
             elif key_name in ["favorite_items", "active_promises", 
                                "current_goals", "preferences", "special_moments"]:
-                context[key_name] = value
+                # Special handling for active_promises: auto-add created_at
+                if key_name == "active_promises" and value:
+                    if isinstance(value, str):
+                        # Convert old string format to new dict format
+                        config = load_config()
+                        now = datetime.now(ZoneInfo(config.get("timezone", "Asia/Tokyo"))).isoformat()
+                        context[key_name] = {
+                            "content": value,
+                            "created_at": now
+                        }
+                    elif isinstance(value, dict):
+                        # New dict format - ensure created_at exists
+                        if "created_at" not in value and "content" in value:
+                            config = load_config()
+                            now = datetime.now(ZoneInfo(config.get("timezone", "Asia/Tokyo"))).isoformat()
+                            value["created_at"] = now
+                        context[key_name] = value
+                else:
+                    context[key_name] = value
             elif key_name == "current_equipment":
                 # Skip: current_equipment is managed by equipment_db, not persona_context
                 pass
@@ -312,11 +331,14 @@ def _save_memory_to_stores(
     equipped_items: Optional[Dict[str, str]] = None
 ) -> None:
     """
-    Save memory to both database and vector store.
+    Save memory to database (sync) and vector store (async).
     
-    Phase 38: No longer calls mark_summarization_dirty() - auto-summarization 
-    now uses time-based scheduler (daily 3am, weekly Monday 3am) instead of 
-    tracking individual write operations.
+    Phase 40: Split into two-stage save:
+    1. DB save (synchronous, fast, critical) - completes before return
+    2. Vector store save (asynchronous, slow, can be deferred) - runs in background
+    
+    This improves response time while maintaining data integrity.
+    If vector save fails, dirty flag is set for rebuild.
     
     Args:
         key: Memory key
@@ -335,7 +357,7 @@ def _save_memory_to_stores(
         related_keys: Related memory keys
         equipped_items: Currently equipped items {slot: item_name}
     """
-    # Save to database with all context fields
+    # ===== STAGE 1: Synchronous DB Save (fast, critical) =====
     save_memory_to_db(
         key, 
         content, 
@@ -355,11 +377,13 @@ def _save_memory_to_stores(
         equipped_items=equipped_items
     )
     
-    # Clear query cache
+    # Clear query cache (synchronous, fast)
     clear_query_cache()
     
-    # Add to vector store
-    add_memory_to_vector_store(key, content)
+    # ===== STAGE 2: Asynchronous Vector Store Save (slow, deferred) =====
+    # Add to background queue for non-blocking execution
+    vector_queue = get_vector_queue()
+    vector_queue.enqueue(add_memory_to_vector_store, key, content)
 
 
 def _format_create_result(
@@ -886,8 +910,9 @@ def _update_existing_memory(
     # Clear query cache
     clear_query_cache()
     
-    # Update vector store
-    update_memory_in_vector_store(key, content)
+    # Update vector store (asynchronous)
+    vector_queue = get_vector_queue()
+    vector_queue.enqueue(update_memory_in_vector_store, key, content)
 
 
 def db_get_entry(key: str):
@@ -1465,7 +1490,9 @@ async def delete_memory(key_or_query: str) -> str:
             # Clear query cache
             clear_query_cache()
             
-            delete_memory_from_vector_store(key)
+            # Delete from vector store (asynchronous)
+            vector_queue = get_vector_queue()
+            vector_queue.enqueue(delete_memory_from_vector_store, key)
             
             log_operation("delete", key=key, before=deleted_entry,
                          metadata={"deleted_content_length": len(deleted_content), "persona": persona})

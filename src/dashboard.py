@@ -873,4 +873,103 @@ def register_http_routes(mcp, templates):
                 "error": str(e)
             }, status_code=500)
 
+    @mcp.custom_route("/api/emotion-timeline/{persona}", methods=["GET"])
+    async def emotion_timeline(request: Request, persona: str):
+        """
+        Get emotion timeline data for visualization.
+        Returns daily and weekly emotion distribution.
+        """
+        try:
+            # Validate persona exists
+            memory_dir = os.path.join(MEMORY_ROOT, persona)
+            if not os.path.exists(memory_dir):
+                return JSONResponse({
+                    "success": False,
+                    "error": f"Persona '{persona}' not found"
+                }, status_code=404)
+            
+            # Set persona context
+            original_persona = current_persona.get()
+            current_persona.set(persona)
+            
+            try:
+                db_path = get_db_path()
+                
+                # Get emotion data from database
+                with sqlite3.connect(db_path) as conn:
+                    cursor = conn.cursor()
+                    
+                    # Get all memories with emotions
+                    cursor.execute('''
+                        SELECT 
+                            DATE(created_at) as date,
+                            emotion,
+                            COUNT(*) as count
+                        FROM memories
+                        WHERE emotion IS NOT NULL AND emotion != 'neutral'
+                        GROUP BY DATE(created_at), emotion
+                        ORDER BY DATE(created_at)
+                    ''')
+                    
+                    daily_data = {}
+                    emotion_types = set()
+                    
+                    for row in cursor.fetchall():
+                        date_str, emotion, count = row
+                        if date_str not in daily_data:
+                            daily_data[date_str] = {}
+                        daily_data[date_str][emotion] = count
+                        emotion_types.add(emotion)
+                    
+                    # Get weekly aggregation
+                    cursor.execute('''
+                        SELECT 
+                            strftime('%Y-W%W', created_at) as week,
+                            emotion,
+                            COUNT(*) as count
+                        FROM memories
+                        WHERE emotion IS NOT NULL AND emotion != 'neutral'
+                        GROUP BY strftime('%Y-W%W', created_at), emotion
+                        ORDER BY strftime('%Y-W%W', created_at)
+                    ''')
+                    
+                    weekly_data = {}
+                    
+                    for row in cursor.fetchall():
+                        week_str, emotion, count = row
+                        if week_str not in weekly_data:
+                            weekly_data[week_str] = {}
+                        weekly_data[week_str][emotion] = count
+                
+                # Format for Chart.js
+                daily_timeline = []
+                for date_str, emotions in sorted(daily_data.items()):
+                    daily_timeline.append({
+                        "date": date_str,
+                        **{emotion: emotions.get(emotion, 0) for emotion in emotion_types}
+                    })
+                
+                weekly_timeline = []
+                for week_str, emotions in sorted(weekly_data.items()):
+                    weekly_timeline.append({
+                        "week": week_str,
+                        **{emotion: emotions.get(emotion, 0) for emotion in emotion_types}
+                    })
+                
+                return JSONResponse({
+                    "success": True,
+                    "daily": daily_timeline,
+                    "weekly": weekly_timeline,
+                    "emotion_types": sorted(list(emotion_types))
+                })
+                
+            finally:
+                current_persona.set(original_persona)
+                
+        except Exception as e:
+            return JSONResponse({
+                "success": False,
+                "error": str(e)
+            }, status_code=500)
+
 

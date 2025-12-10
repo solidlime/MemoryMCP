@@ -91,6 +91,27 @@
         </div>
     </div>
 
+    <!-- Emotion Timeline Card (NEW) -->
+    <div class="glass-card rounded-2xl p-6 mb-6">
+        <h2 class="text-2xl font-bold text-white mb-4">💭 Emotion Timeline</h2>
+        <div class="mb-4 flex gap-4">
+            <button id="showDaily" onclick="showEmotionView('daily')" 
+                    class="glass-card rounded-lg px-4 py-2 text-white font-semibold hover:bg-white/20 transition">
+                📅 Daily
+            </button>
+            <button id="showWeekly" onclick="showEmotionView('weekly')" 
+                    class="glass-card rounded-lg px-4 py-2 text-white font-semibold hover:bg-white/20 transition bg-white/20">
+                📊 Weekly
+            </button>
+        </div>
+        <div>
+            <canvas id="emotionChart" style="max-height: 400px;"></canvas>
+        </div>
+        <div id="emotionLegend" class="mt-4 text-white text-sm">
+            Loading emotion data...
+        </div>
+    </div>
+
     <!-- Admin Tools Card -->
     <div class="glass-card rounded-2xl p-6 mb-6">
         <h2 class="text-2xl font-bold text-white mb-4">🛠️ Admin Tools</h2>
@@ -234,6 +255,9 @@
         let currentPersona = '';
         let timelineChart = null;
         let tagChart = null;
+        let emotionChart = null;
+        let emotionData = null;
+        let emotionView = 'weekly'; // 'daily' or 'weekly'
 
         // Load personas on page load
         async function loadPersonas() {
@@ -294,6 +318,9 @@
                 
                 // Update Knowledge Graph
                 renderKnowledgeGraph(data.knowledge_graph_url);
+                
+                // Load Emotion Timeline
+                await loadEmotionData(persona);
                 
             } catch (error) {
                 console.error('Failed to load dashboard data:', error);
@@ -466,6 +493,116 @@
                     </div>
                 `;
             }
+        }
+
+        // Load emotion timeline data
+        async function loadEmotionData(persona) {
+            try {
+                const response = await fetch(`/api/emotion-timeline/${persona}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    emotionData = result;
+                    renderEmotionChart();
+                } else {
+                    document.getElementById('emotionLegend').innerHTML = 
+                        `<p class="text-red-300">Failed to load emotion data: ${result.error}</p>`;
+                }
+            } catch (error) {
+                console.error('Failed to load emotion data:', error);
+                document.getElementById('emotionLegend').innerHTML = 
+                    '<p class="text-red-300">Error loading emotion data</p>';
+            }
+        }
+
+        // Render emotion chart based on current view (daily/weekly)
+        function renderEmotionChart() {
+            if (!emotionData) return;
+            
+            const ctx = document.getElementById('emotionChart');
+            if (emotionChart) emotionChart.destroy();
+            
+            const data = emotionView === 'daily' ? emotionData.daily : emotionData.weekly;
+            const labelKey = emotionView === 'daily' ? 'date' : 'week';
+            
+            if (!data || data.length === 0) {
+                document.getElementById('emotionLegend').innerHTML = 
+                    '<p class="text-purple-200">No emotion data available</p>';
+                return;
+            }
+            
+            // Prepare datasets for each emotion
+            const emotionColors = {
+                'joy': 'rgba(255, 206, 86, 0.8)',
+                'love': 'rgba(255, 99, 132, 0.8)',
+                'sadness': 'rgba(54, 162, 235, 0.8)',
+                'anger': 'rgba(255, 99, 71, 0.8)',
+                'fear': 'rgba(153, 102, 255, 0.8)',
+                'surprise': 'rgba(255, 159, 64, 0.8)',
+                'calm': 'rgba(75, 192, 192, 0.8)',
+                'excitement': 'rgba(255, 140, 0, 0.8)'
+            };
+            
+            const labels = data.map(item => item[labelKey]);
+            const datasets = emotionData.emotion_types.map(emotion => ({
+                label: emotion.charAt(0).toUpperCase() + emotion.slice(1),
+                data: data.map(item => item[emotion] || 0),
+                backgroundColor: emotionColors[emotion] || 'rgba(200, 200, 200, 0.8)',
+                borderColor: emotionColors[emotion]?.replace('0.8', '1') || 'rgba(200, 200, 200, 1)',
+                borderWidth: 2,
+                fill: true
+            }));
+            
+            emotionChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: 'white', padding: 15 }
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: 'white' },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            ticks: { color: 'white' },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        }
+                    }
+                }
+            });
+            
+            // Update legend info
+            const totalEmotions = data.reduce((sum, item) => {
+                return sum + emotionData.emotion_types.reduce((s, e) => s + (item[e] || 0), 0);
+            }, 0);
+            document.getElementById('emotionLegend').innerHTML = 
+                `<p>📊 Total emotional memories: ${totalEmotions} | View: ${emotionView === 'daily' ? 'Daily' : 'Weekly'}</p>`;
+        }
+
+        // Toggle emotion view (daily/weekly)
+        function showEmotionView(view) {
+            emotionView = view;
+            
+            // Update button styles
+            document.getElementById('showDaily').classList.toggle('bg-white/20', view === 'daily');
+            document.getElementById('showWeekly').classList.toggle('bg-white/20', view === 'weekly');
+            
+            renderEmotionChart();
         }
 
         // Initialize on page load

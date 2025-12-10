@@ -8,8 +8,6 @@ import json
 import sqlite3
 from core import (
     get_current_time,
-    calculate_time_diff,
-    format_datetime_for_display,
     get_current_time_display,
     load_persona_context,
     save_persona_context,
@@ -25,6 +23,8 @@ async def get_context() -> str:
     Auto-updates last conversation timestamp.
     """
     try:
+        from core.time_utils import calculate_time_diff as calc_time_diff, format_datetime_for_display as format_dt
+        
         persona = get_current_persona()
         
         # ===== PART 1: Persona Context =====
@@ -70,9 +70,9 @@ async def get_context() -> str:
         
         # ===== PART 1.5: Extended Persona Context =====
         # Current Equipment (always from DB, not from context)
+        result += f"\n👗 Current Equipment:\n"
         if equipped_items:
             equipment = equipped_items
-            result += f"\n👗 Current Equipment:\n"
             if isinstance(equipment, dict):
                 for equip_type, item in equipment.items():
                     if isinstance(item, list):
@@ -81,6 +81,8 @@ async def get_context() -> str:
                         result += f"   {equip_type}: {item}\n"
             else:
                 result += f"   {equipment}\n"
+        else:
+            result += "   (装備なし)\n"
         
         # Favorite Items
         if context.get('favorite_items'):
@@ -96,7 +98,37 @@ async def get_context() -> str:
         if context.get('active_promises'):
             promise = context['active_promises']
             result += "\n🤝 Active Promise:\n"
-            result += f"   {promise}\n"
+            
+            # Handle both old string format and new dict format
+            if isinstance(promise, dict):
+                content = promise.get('content', '')
+                created_at = promise.get('created_at')
+                due_date = promise.get('due_date')
+                
+                result += f"   {content}\n"
+                
+                if created_at:
+                    # Calculate days elapsed
+                    time_diff = calc_time_diff(created_at)
+                    days_elapsed = time_diff.get('days', 0)
+                    
+                    result += f"   Created: {time_diff['formatted_string']}前 ({format_dt(created_at)[:10]})\n"
+                    
+                    # Warning if promise is old (7+ days)
+                    if days_elapsed >= 7:
+                        result += f"   ⚠️ 注意: {days_elapsed}日経過しています\n"
+                    
+                    # Show due date if set
+                    if due_date:
+                        due_diff = calc_time_diff(due_date)
+                        if due_diff['total_seconds'] > 0:
+                            result += f"   期限まで: {due_diff['formatted_string']}\n"
+                        else:
+                            result += f"   ⚠️ 期限切れ: {abs(due_diff['days'])}日前\n"
+            else:
+                # Old string format
+                result += f"   {promise}\n"
+                result += f"   💡 Tip: 約束の経過日数を追跡するには、作成日時を含めて保存してください\n"
         
         # Current Goals (single most important one)
         if context.get('current_goals'):
@@ -152,9 +184,9 @@ async def get_context() -> str:
         result += "\n⏰ Time Information:\n"
         result += f"   Current: {get_current_time_display()}\n"
         if last_time_str:
-            time_diff = calculate_time_diff(last_time_str)
+            time_diff = calc_time_diff(last_time_str)
             result += f"   Last Conversation: {time_diff['formatted_string']}前\n"
-            result += f"   Previous: {format_datetime_for_display(last_time_str)}\n"
+            result += f"   Previous: {format_dt(last_time_str)}\n"
         else:
             result += "   Status: First conversation! 🆕\n"
         
@@ -169,6 +201,25 @@ async def get_context() -> str:
         from src.utils.config_utils import load_config
         cfg = load_config()
         recent_count = cfg.get("recent_memories_count", 5)
+        
+        # Check for routine suggestions (lightweight)
+        routine_suggestions_available = False
+        try:
+            current_hour = current_time.hour
+            with sqlite3.connect(db_path) as conn:
+                cursor = conn.cursor()
+                # Check if there are recurring patterns at this time (±1 hour)
+                cursor.execute('''
+                    SELECT COUNT(*) FROM memories
+                    WHERE created_at > datetime('now', '-30 days')
+                    AND CAST(strftime('%H', created_at) AS INTEGER) BETWEEN ? AND ?
+                    AND emotion IN ('joy', 'love', 'peaceful', 'excitement')
+                ''', (current_hour - 1, current_hour + 1))
+                count = cursor.fetchone()[0]
+                if count >= 5:
+                    routine_suggestions_available = True
+        except Exception:
+            pass  # Silently fail, not critical
         
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
@@ -202,11 +253,16 @@ async def get_context() -> str:
                 result += f"\n🕐 Recent {len(recent)} Memories:\n"
                 for i, (key, content, created_at, importance, emotion) in enumerate(recent, 1):
                     preview = content[:50] + "..." if len(content) > 50 else content
-                    time_diff_mem = calculate_time_diff(created_at)
+                    time_diff_mem = calc_time_diff(created_at)
                     importance_str = f"{importance:.2f}" if importance is not None else "0.50"
                     emotion_str = emotion if emotion else "neutral"
                     result += f"{i}. [{key}] {preview}\n"
-                    result += f"   {format_datetime_for_display(created_at)} ({time_diff_mem['formatted_string']}前) | ⭐{importance_str} | 💭{emotion_str}\n"
+                    result += f"   {format_dt(created_at)} ({time_diff_mem['formatted_string']}前) | ⭐{importance_str} | 💭{emotion_str}\n"
+        
+        # Add routine suggestion hint if available
+        if routine_suggestions_available:
+            result += f"\n💫 Routine Check Available:\n"
+            result += f"   check_routines()で「いつも」のパターンを確認できます\n"
         
         result += "\n" + "=" * 60 + "\n"
         result += "💡 Tip: Use read_memory(query) for semantic search\n"

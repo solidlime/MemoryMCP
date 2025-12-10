@@ -72,65 +72,43 @@ async def memory(
     Unified memory operations interface.
     
     Args:
-        operation: Operation type - "create", "read", "update", "delete", "search", "stats"
-        query: Search query or natural language for update/delete
-        content: Memory content (required for create/update)
+        operation: Operation type (see below)
+        query: Search query or memory key
+        content: Memory content or context value
         
-    Operations:
-        - "create": Create new memory (requires content)
-        - "read": Retrieve specific memory by key or recent memories
-        - "update": Update memory by query (requires query, content)
-        - "delete": Delete memory by key or query (requires query)
-        - "search": Keyword/semantic/related search (requires query or memory_key for related mode)
+    Memory Operations:
+        - "create": Create new memory
+        - "read": Retrieve memory by key or recent memories
+        - "update": Update existing memory
+        - "delete": Delete memory
+        - "search": Search memories (keyword/semantic/hybrid/related/smart)
         - "stats": Get memory statistics
-    
-    **Recommended Tags** (Use English consistently):
-        - Technical: "technical_achievement", "bug_fix", "code_refactor", "learning"
-        - Emotional: "emotional_moment", "intimate_moment", "happy_moment", "sad_moment"
-        - Events: "important_event", "promise", "plan", "milestone"
-        - Relationship: "relationship_update", "conversation", "disagreement"
-        - Daily: "daily_activity", "routine", "meal", "rest"
+        - "check_routines": Find recurring patterns at current time
+        
+    Context Operations (Simplified):
+        - "promise": Update/clear active promise
+        - "goal": Update/clear current goal
+        - "favorite": Add to favorites
+        - "preference": Update preferences (loves/dislikes)
+        - "moment": Add special moment
+        - "update_context": Batch update multiple fields
     
     Examples:
-        # Create with recommended tags
-        memory(operation="create", content="User completed Python project", 
-               emotion_type="joy", importance=0.8, 
-               context_tags=["technical_achievement", "milestone"])
-        
-        # Create with all available fields
-        memory(operation="create", 
-               content="Walked together in the park at sunset",
-               emotion_type="joy", emotion_intensity=0.85,
-               physical_state="energized", mental_state="peaceful",
-               environment="park", relationship_status="married",
-               action_tag="walking", importance=0.7,
-               context_tags=["emotional_moment", "daily_activity"],
-               persona_info={"favorite_items": ["sunset", "nature"]},
-               user_info={"name": "User"})
-        
-        # Read (specific memory by key)
-        memory(operation="read", query="memory_20251119123456")
-        
-        # Read (recent memories)
-        memory(operation="read", top_k=5)
-        
-        # Update
-        memory(operation="update", query="promise", content="Changed to tomorrow 10am")
-        
-        # Delete
-        memory(operation="delete", query="memory_20251102083918")
-        
-        # Search (keyword)
-        memory(operation="search", query="Python", mode="keyword", search_tags=["technical_achievement"])
-        
-        # Search (semantic)
-        memory(operation="search", query="成果", mode="semantic", min_importance=0.7)
-        
-        # Search (related)
-        memory(operation="search", mode="related", memory_key="memory_20251031123045")
-        
-        # Stats
+        # Memory operations
+        memory(operation="create", content="Completed project", emotion_type="joy")
+        memory(operation="read", query="memory_20251210123456")
+        memory(operation="search", query="Python", emotion_type="joy")
+        memory(operation="search", query="いつものあれ", mode="smart")  # Smart search
+        memory(operation="check_routines")  # Check routine patterns
         memory(operation="stats")
+        
+        # Context operations (easy!)
+        memory(operation="promise", content="週末に買い物")  # Update promise
+        memory(operation="promise", content=None)  # Complete promise
+        memory(operation="goal", content="新しいダンス")  # Update goal
+        memory(operation="favorite", content="苺")  # Add favorite
+        memory(operation="preference", persona_info={"loves": ["苺"], "dislikes": ["辛い"]})
+        memory(operation="moment", content="Beautiful sunset together", emotion_type="joy")
     """
     operation = operation.lower()
     
@@ -210,33 +188,376 @@ async def memory(
         return await _delete_memory(query)
     
     elif operation == "search":
-        return await _search_memory(
-            query=query or "",
-            mode=mode,
-            top_k=top_k,
-            fuzzy_match=fuzzy_match,
-            fuzzy_threshold=fuzzy_threshold,
-            tags=search_tags,
-            tag_match_mode=tag_match_mode,
-            date_range=date_range,
-            min_importance=min_importance,
-            emotion=emotion_type,
-            action_tag=action_tag,
-            environment=environment,
-            physical_state=physical_state,
-            mental_state=mental_state,
-            relationship_status=relationship_status,
-            equipped_item=equipped_item,
-            importance_weight=importance_weight,
-            recency_weight=recency_weight,
-            memory_key=memory_key
-        )
+        # Smart mode: auto-expand context for ambiguous queries
+        if mode == "smart":
+            from datetime import datetime
+            from zoneinfo import ZoneInfo
+            from src.utils.config_utils import load_config
+            
+            cfg = load_config()
+            now = datetime.now(ZoneInfo(cfg.get("timezone", "Asia/Tokyo")))
+            
+            # Build expanded query with context
+            expanded_parts = []
+            if query:
+                expanded_parts.append(query)
+            
+            # Add time context
+            hour = now.hour
+            if 6 <= hour < 12:
+                expanded_parts.append("朝")
+            elif 12 <= hour < 18:
+                expanded_parts.append("昼")
+            elif 18 <= hour < 22:
+                expanded_parts.append("夜")
+            else:
+                expanded_parts.append("深夜")
+            
+            # Add day context
+            weekday = now.weekday()
+            if weekday < 5:
+                expanded_parts.append("平日")
+            else:
+                expanded_parts.append("週末")
+            
+            # Use expanded query
+            expanded_query = " ".join(expanded_parts)
+            
+            # Search with hybrid mode
+            return await _search_memory(
+                query=expanded_query,
+                mode="hybrid",
+                top_k=top_k,
+                fuzzy_match=fuzzy_match,
+                fuzzy_threshold=fuzzy_threshold,
+                tags=search_tags,
+                tag_match_mode=tag_match_mode,
+                date_range=date_range or "last_30_days",
+                min_importance=min_importance,
+                emotion=emotion_type,
+                action_tag=action_tag,
+                environment=environment,
+                physical_state=physical_state,
+                mental_state=mental_state,
+                relationship_status=relationship_status,
+                equipped_item=equipped_item,
+                importance_weight=importance_weight,
+                recency_weight=recency_weight,
+                memory_key=memory_key
+            )
+        else:
+            return await _search_memory(
+                query=query or "",
+                mode=mode,
+                top_k=top_k,
+                fuzzy_match=fuzzy_match,
+                fuzzy_threshold=fuzzy_threshold,
+                tags=search_tags,
+                tag_match_mode=tag_match_mode,
+                date_range=date_range,
+                min_importance=min_importance,
+                emotion=emotion_type,
+                action_tag=action_tag,
+                environment=environment,
+                physical_state=physical_state,
+                mental_state=mental_state,
+                relationship_status=relationship_status,
+                equipped_item=equipped_item,
+                importance_weight=importance_weight,
+                recency_weight=recency_weight,
+                memory_key=memory_key
+            )
     
     elif operation == "stats":
         return await _get_memory_stats()
     
+    elif operation == "check_routines":
+        """Check for routine patterns at current time."""
+        import sqlite3
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        from src.utils.config_utils import load_config
+        from src.utils.persona_utils import get_current_persona, get_db_path
+        from core.time_utils import calculate_time_diff
+        
+        persona = get_current_persona()
+        cfg = load_config()
+        now = datetime.now(ZoneInfo(cfg.get("timezone", "Asia/Tokyo")))
+        current_hour = now.hour
+        current_weekday = now.strftime("%A")
+        
+        db_path = get_db_path()
+        
+        try:
+            with sqlite3.connect(db_path) as conn:
+                cursor = conn.cursor()
+                
+                # Find recurring patterns at this time
+                cursor.execute('''
+                    SELECT 
+                        action_tag,
+                        tags,
+                        content,
+                        COUNT(*) as frequency,
+                        MAX(created_at) as last_occurrence,
+                        AVG(importance) as avg_importance
+                    FROM memories
+                    WHERE created_at > datetime('now', '-30 days')
+                    AND CAST(strftime('%H', created_at) AS INTEGER) BETWEEN ? AND ?
+                    AND emotion IN ('joy', 'love', 'peaceful', 'excitement')
+                    GROUP BY action_tag, tags
+                    HAVING frequency >= 5
+                    ORDER BY frequency DESC, avg_importance DESC
+                    LIMIT ?
+                ''', (current_hour - 1, current_hour + 1, top_k))
+                
+                patterns = cursor.fetchall()
+                
+                if not patterns:
+                    return "📭 定期的なパターンは見つかりませんでした"
+                
+                result = f"💫 いつものパターン (現在: {current_hour}時台, {current_weekday}):\n"
+                result += "=" * 60 + "\n\n"
+                
+                for i, (action, tags, sample_content, freq, last_time, avg_imp) in enumerate(patterns, 1):
+                    result += f"{i}. "
+                    
+                    # Pattern description
+                    if action:
+                        result += f"**{action}**"
+                    elif tags:
+                        result += f"**{tags}**"
+                    else:
+                        preview = sample_content[:30] + "..." if len(sample_content) > 30 else sample_content
+                        result += f"**{preview}**"
+                    
+                    result += "\n"
+                    result += f"   頻度: {freq}回 (過去30日)\n"
+                    
+                    if last_time:
+                        time_diff = calculate_time_diff(last_time)
+                        result += f"   最終: {time_diff['formatted_string']}前\n"
+                    
+                    if avg_imp:
+                        result += f"   重要度: {avg_imp:.2f}\n"
+                    
+                    result += "\n"
+                
+                result += "💡 提案するかどうかは、今の自分の状態と相手の様子を見て判断してね\n"
+                
+                return result
+                
+        except Exception as e:
+            return f"❌ Error checking routines: {str(e)}"
+    
+    # ===== Context Update Operations (Simplified) =====
+    elif operation == "promise":
+        """Update or clear active promise."""
+        from core.persona_context import load_persona_context, save_persona_context
+        from core.time_utils import get_current_time
+        
+        persona = get_current_persona()
+        context = load_persona_context(persona)
+        
+        if content is None or content == "":
+            # Clear promise
+            if "active_promises" in context:
+                del context["active_promises"]
+                save_persona_context(context, persona)
+                return "✅ Promise completed and cleared!"
+            else:
+                return "ℹ️ No active promise to clear."
+        else:
+            # Set new promise
+            from datetime import datetime
+            from zoneinfo import ZoneInfo
+            from src.utils.config_utils import load_config
+            
+            cfg = load_config()
+            now = datetime.now(ZoneInfo(cfg.get("timezone", "Asia/Tokyo"))).isoformat()
+            
+            context["active_promises"] = {
+                "content": content,
+                "created_at": now
+            }
+            save_persona_context(context, persona)
+            return f"✅ Promise updated: {content}"
+    
+    elif operation == "goal":
+        """Update or clear current goal."""
+        from core.persona_context import load_persona_context, save_persona_context
+        
+        persona = get_current_persona()
+        context = load_persona_context(persona)
+        
+        if content is None or content == "":
+            # Clear goal
+            if "current_goals" in context:
+                del context["current_goals"]
+                save_persona_context(context, persona)
+                return "✅ Goal achieved and cleared!"
+            else:
+                return "ℹ️ No active goal to clear."
+        else:
+            # Set new goal
+            context["current_goals"] = content
+            save_persona_context(context, persona)
+            return f"✅ Goal updated: {content}"
+    
+    elif operation == "favorite":
+        """Add item to favorites list."""
+        from core.persona_context import load_persona_context, save_persona_context
+        
+        if not content:
+            return "❌ Error: 'content' is required for favorite operation"
+        
+        persona = get_current_persona()
+        context = load_persona_context(persona)
+        
+        if "favorite_items" not in context:
+            context["favorite_items"] = []
+        
+        if isinstance(context["favorite_items"], str):
+            context["favorite_items"] = [context["favorite_items"]]
+        
+        if content not in context["favorite_items"]:
+            context["favorite_items"].append(content)
+            save_persona_context(context, persona)
+            return f"✅ Added to favorites: {content}"
+        else:
+            return f"ℹ️ Already in favorites: {content}"
+    
+    elif operation == "preference":
+        """Update preferences (loves/dislikes)."""
+        from core.persona_context import load_persona_context, save_persona_context
+        
+        persona = get_current_persona()
+        context = load_persona_context(persona)
+        
+        if "preferences" not in context:
+            context["preferences"] = {}
+        
+        updated = []
+        
+        # persona_info contains preferences dict
+        if persona_info and "preferences" in persona_info:
+            prefs = persona_info["preferences"]
+            if "loves" in prefs:
+                context["preferences"]["loves"] = prefs["loves"]
+                updated.append("loves")
+            if "dislikes" in prefs:
+                context["preferences"]["dislikes"] = prefs["dislikes"]
+                updated.append("dislikes")
+        
+        # Or use direct parameters (loves/dislikes from persona_info)
+        elif persona_info:
+            if "loves" in persona_info:
+                context["preferences"]["loves"] = persona_info["loves"]
+                updated.append("loves")
+            if "dislikes" in persona_info:
+                context["preferences"]["dislikes"] = persona_info["dislikes"]
+                updated.append("dislikes")
+        
+        if updated:
+            save_persona_context(context, persona)
+            return f"✅ Preferences updated: {', '.join(updated)}"
+        else:
+            return "❌ Error: No preferences to update. Use persona_info={'loves': [...], 'dislikes': [...]}"
+    
+    elif operation == "moment":
+        """Add a special moment."""
+        from core.persona_context import load_persona_context, save_persona_context
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        from src.utils.config_utils import load_config
+        
+        if not content:
+            return "❌ Error: 'content' is required for moment operation"
+        
+        persona = get_current_persona()
+        context = load_persona_context(persona)
+        
+        if "special_moments" not in context:
+            context["special_moments"] = []
+        
+        cfg = load_config()
+        now = datetime.now(ZoneInfo(cfg.get("timezone", "Asia/Tokyo")))
+        
+        moment = {
+            "content": content,
+            "date": now.strftime("%Y-%m-%d"),
+            "emotion": emotion_type if emotion_type else "joy"
+        }
+        
+        context["special_moments"].append(moment)
+        
+        # Keep only last 20 moments
+        if len(context["special_moments"]) > 20:
+            context["special_moments"] = context["special_moments"][-20:]
+        
+        save_persona_context(context, persona)
+        return f"✅ Special moment added: {content}"
+    
+    elif operation == "update_context":
+        """Batch update multiple context fields."""
+        from core.persona_context import load_persona_context, save_persona_context
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        from src.utils.config_utils import load_config
+        
+        persona = get_current_persona()
+        context = load_persona_context(persona)
+        updated_fields = []
+        
+        cfg = load_config()
+        now = datetime.now(ZoneInfo(cfg.get("timezone", "Asia/Tokyo"))).isoformat()
+        
+        # Update promise
+        if persona_info and "active_promises" in persona_info:
+            promise = persona_info["active_promises"]
+            if promise:
+                if isinstance(promise, str):
+                    context["active_promises"] = {
+                        "content": promise,
+                        "created_at": now
+                    }
+                else:
+                    context["active_promises"] = promise
+                updated_fields.append("promise")
+            else:
+                if "active_promises" in context:
+                    del context["active_promises"]
+                updated_fields.append("promise (cleared)")
+        
+        # Update goal
+        if persona_info and "current_goals" in persona_info:
+            goal = persona_info["current_goals"]
+            if goal:
+                context["current_goals"] = goal
+                updated_fields.append("goal")
+            else:
+                if "current_goals" in context:
+                    del context["current_goals"]
+                updated_fields.append("goal (cleared)")
+        
+        # Update favorites
+        if persona_info and "favorite_items" in persona_info:
+            context["favorite_items"] = persona_info["favorite_items"]
+            updated_fields.append("favorites")
+        
+        # Update preferences
+        if persona_info and "preferences" in persona_info:
+            context["preferences"] = persona_info["preferences"]
+            updated_fields.append("preferences")
+        
+        if updated_fields:
+            save_persona_context(context, persona)
+            return f"✅ Context updated: {', '.join(updated_fields)}"
+        else:
+            return "ℹ️ No context fields to update"
+    
     else:
-        return f"❌ Error: Unknown operation '{operation}'. Valid: create, read, update, delete, search, stats"
+        return f"❌ Error: Unknown operation '{operation}'. Valid: create, read, update, delete, search, stats, check_routines, promise, goal, favorite, preference, moment, update_context"
 
 
 async def item(
