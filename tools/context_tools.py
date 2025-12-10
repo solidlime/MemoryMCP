@@ -177,6 +177,44 @@ async def get_context() -> str:
             else:
                 result += f"   {moments}\n"
         
+        # Anniversaries
+        if context.get('anniversaries'):
+            anniversaries = context['anniversaries']
+            result += f"\n🎂 Anniversaries:\n"
+            
+            from datetime import datetime
+            today = datetime.now()
+            today_str = f"{today.month:02d}-{today.day:02d}"
+            
+            # Display anniversaries with proximity indicators
+            for i, anniv in enumerate(anniversaries, 1):
+                if isinstance(anniv, dict):
+                    name = anniv.get('name', '')
+                    date = anniv.get('date', '')
+                    recurring = anniv.get('recurring', True)
+                    
+                    # Check if today or upcoming
+                    indicator = ""
+                    if date == today_str:
+                        indicator = " 🎉 TODAY!"
+                    elif date:
+                        # Calculate days until (simple month-day comparison)
+                        try:
+                            month, day = map(int, date.split('-'))
+                            anniv_date = datetime(today.year, month, day)
+                            if anniv_date < today:
+                                anniv_date = datetime(today.year + 1, month, day)
+                            days_until = (anniv_date - today).days
+                            if 0 < days_until <= 7:
+                                indicator = f" 📅 in {days_until} days"
+                        except:
+                            pass
+                    
+                    recurring_mark = "🔄" if recurring else ""
+                    result += f"   {i}. {name} ({date}) {recurring_mark}{indicator}\n"
+                else:
+                    result += f"   {i}. {anniv}\n"
+        
         # ===== PART 2: Time Since Last Conversation =====
         last_time_str = context.get("last_conversation_time")
         current_time = get_current_time()

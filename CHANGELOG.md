@@ -4,6 +4,36 @@ All notable changes to Memory-MCP will be documented in this file.
 
 ## [Unreleased]
 
+### Added - 2025-12-10 (Smart Search & Anniversary Features)
+
+#### スマート検索の汎用化
+
+**曖昧クエリ自動検出:**
+- 短いクエリ（5文字未満）または曖昧なフレーズを自動検出
+- 日本語対応: "いつものあれ", "いつもの", "あれ", "例の件", "いつも通り"
+- 英語対応: "that thing", "the usual", "you know", "usual thing", "same as always"
+- 曖昧なクエリのみ時間・曜日コンテキストを自動拡張
+
+**バイリンガルコンテキスト拡張:**
+- 時間帯: 朝/morning, 昼/afternoon, 夕方/evening, 夜/night, 深夜/midnight
+- 曜日: 平日/weekday, 週末/weekend
+
+**約束事検索統合:**
+- "約束" または "promise" を含むクエリに自動でpromiseタグ追加
+- 約束関連の検索精度向上
+
+#### 記念日機能
+
+**anniversary操作:**
+- 記念日の追加・削除・一覧表示
+- MM-DD形式での日付管理
+- 繰り返し設定（recurring: true/false）
+
+**get_context()表示:**
+- 🎉 TODAY! - 当日の記念日
+- 📅 in X days - 7日以内の記念日
+- 🔄 - 繰り返し記念日のマーク
+
 ### Removed - 2025-11-19 (Code Cleanup & Consolidation)
 
 #### 重複機能の削除

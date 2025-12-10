@@ -36,7 +36,9 @@ MCP (Model Context Protocol) 準拠の永続メモリサーバー。RAG検索と
 - `create`: 新規メモリ作成
 - `update`: メモリ更新
 - `delete`: メモリ削除
-- `search`: 統合検索（semantic/keyword/hybrid/related）
+- `search`: 統合検索（semantic/keyword/hybrid/related/smart）
+- `check_routines`: 現在時刻の繰り返しパターン検出
+- `anniversary`: 記念日管理（追加/削除/一覧）
 - `stats`: メモリ統計取得
 
 **検索モード:**
@@ -44,6 +46,7 @@ MCP (Model Context Protocol) 準拠の永続メモリサーバー。RAG検索と
 - `keyword`: キーワード検索（Fuzzy対応）
 - `hybrid`: ハイブリッド検索（semantic 70% + keyword 30%）
 - `related`: 関連記憶検索（指定記憶と類似）
+- `smart`: スマート検索（曖昧なクエリを自動的にコンテキスト拡張）
 
 **時間フィルタリング:**
 - 自然言語対応: 「今日」「昨日」「先週」「今週」「今月」「3日前」
@@ -72,6 +75,20 @@ memory(operation="search", query="", mode="keyword", date_range="先週")
 # タグ検索
 memory(operation="search", query="", mode="keyword", 
        search_tags=["technical_achievement"], tag_match_mode="all")
+
+# スマート検索（曖昧クエリ自動拡張、日英対応）
+memory(operation="search", query="いつものあれ", mode="smart")  # 日本語
+memory(operation="search", query="the usual", mode="smart")  # English
+memory(operation="search", query="約束", mode="smart")  # 自動でpromiseタグ追加
+
+# ルーティンチェック
+memory(operation="check_routines")  # 現在時刻の繰り返しパターン検出
+
+# 記念日管理
+memory(operation="anniversary")  # 一覧表示
+memory(operation="anniversary", content="結婚記念日", 
+       persona_info={"date": "10-28", "recurring": True})  # 追加
+memory(operation="anniversary", content="結婚記念日")  # 削除
 ```
 
 #### 3. `item(operation, ...)`

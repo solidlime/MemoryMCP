@@ -91,6 +91,7 @@ async def memory(
         - "favorite": Add to favorites
         - "preference": Update preferences (loves/dislikes)
         - "moment": Add special moment
+        - "anniversary": Manage anniversaries (add/remove/list)
         - "update_context": Batch update multiple fields
     
     Examples:
@@ -99,6 +100,7 @@ async def memory(
         memory(operation="read", query="memory_20251210123456")
         memory(operation="search", query="Python", emotion_type="joy")
         memory(operation="search", query="いつものあれ", mode="smart")  # Smart search
+        memory(operation="search", query="the usual", mode="smart")  # English support
         memory(operation="check_routines")  # Check routine patterns
         memory(operation="stats")
         
@@ -109,6 +111,9 @@ async def memory(
         memory(operation="favorite", content="苺")  # Add favorite
         memory(operation="preference", persona_info={"loves": ["苺"], "dislikes": ["辛い"]})
         memory(operation="moment", content="Beautiful sunset together", emotion_type="joy")
+        memory(operation="anniversary", content="結婚記念日", persona_info={"date": "10-28"})  # Add anniversary
+        memory(operation="anniversary")  # List all
+        memory(operation="anniversary", content="結婚記念日")  # Remove
     """
     operation = operation.lower()
     
@@ -194,34 +199,78 @@ async def memory(
             from zoneinfo import ZoneInfo
             from src.utils.config_utils import load_config
             
+            def is_ambiguous_query(q: str) -> bool:
+                """Check if query is ambiguous and needs context expansion."""
+                if not q or len(q.strip()) < 5:
+                    return True
+                
+                q_lower = q.lower().strip()
+                
+                # Ambiguous phrases (Japanese)
+                ambiguous_jp = [
+                    "いつものあれ", "いつもの", "あれ", "例の件", "あのこと",
+                    "あの件", "さっきの", "前の", "また"
+                ]
+                
+                # Ambiguous phrases (English)
+                ambiguous_en = [
+                    "that thing", "the usual", "you know", "that", "it",
+                    "the thing", "usual stuff", "same thing"
+                ]
+                
+                for phrase in ambiguous_jp + ambiguous_en:
+                    if phrase in q_lower:
+                        return True
+                
+                return False
+            
             cfg = load_config()
             now = datetime.now(ZoneInfo(cfg.get("timezone", "Asia/Tokyo")))
+            
+            # Check if query needs expansion
+            needs_expansion = is_ambiguous_query(query or "")
             
             # Build expanded query with context
             expanded_parts = []
             if query:
                 expanded_parts.append(query)
             
-            # Add time context
-            hour = now.hour
-            if 6 <= hour < 12:
-                expanded_parts.append("朝")
-            elif 12 <= hour < 18:
-                expanded_parts.append("昼")
-            elif 18 <= hour < 22:
-                expanded_parts.append("夜")
-            else:
-                expanded_parts.append("深夜")
+            # Only add time/day context for ambiguous queries
+            if needs_expansion:
+                # Add time context
+                hour = now.hour
+                if 6 <= hour < 12:
+                    expanded_parts.append("朝")
+                    expanded_parts.append("morning")
+                elif 12 <= hour < 18:
+                    expanded_parts.append("昼")
+                    expanded_parts.append("afternoon")
+                elif 18 <= hour < 22:
+                    expanded_parts.append("夜")
+                    expanded_parts.append("evening")
+                else:
+                    expanded_parts.append("深夜")
+                    expanded_parts.append("night")
+                
+                # Add day context
+                weekday = now.weekday()
+                if weekday < 5:
+                    expanded_parts.append("平日")
+                    expanded_parts.append("weekday")
+                else:
+                    expanded_parts.append("週末")
+                    expanded_parts.append("weekend")
             
-            # Add day context
-            weekday = now.weekday()
-            if weekday < 5:
-                expanded_parts.append("平日")
-            else:
-                expanded_parts.append("週末")
+            # Check for promise-related keywords
+            query_lower = (query or "").lower()
+            if "約束" in query_lower or "promise" in query_lower:
+                # Add promise tag for better results
+                if not search_tags:
+                    search_tags = []
+                search_tags.append("promise")
             
             # Use expanded query
-            expanded_query = " ".join(expanded_parts)
+            expanded_query = " ".join(expanded_parts) if expanded_parts else query or ""
             
             # Search with hybrid mode
             return await _search_memory(
@@ -556,8 +605,69 @@ async def memory(
         else:
             return "ℹ️ No context fields to update"
     
+    elif operation == "anniversary":
+        """Manage anniversaries (add, remove, list)."""
+        from core.persona_context import load_persona_context, save_persona_context
+        from src.utils.persona_utils import get_current_persona
+        
+        persona = get_current_persona()
+        context = load_persona_context(persona)
+        
+        # Initialize anniversaries list if not exists
+        if "anniversaries" not in context:
+            context["anniversaries"] = []
+        
+        # List all anniversaries (no parameters)
+        if not content and not persona_info:
+            if not context["anniversaries"]:
+                return "📅 No anniversaries registered."
+            
+            result = "📅 Registered Anniversaries:\n"
+            for i, ann in enumerate(context["anniversaries"], 1):
+                name = ann.get("name", "Unknown")
+                date = ann.get("date", "??-??")
+                recurring = ann.get("recurring", True)
+                recur_text = " (毎年)" if recurring else " (一度きり)"
+                result += f"{i}. {name}: {date}{recur_text}\n"
+            return result
+        
+        # Add anniversary
+        if content and persona_info and "date" in persona_info:
+            date_str = persona_info["date"]
+            recurring = persona_info.get("recurring", True)
+            
+            # Check if already exists
+            for ann in context["anniversaries"]:
+                if ann.get("name") == content:
+                    # Update existing
+                    ann["date"] = date_str
+                    ann["recurring"] = recurring
+                    save_persona_context(context, persona)
+                    return f"✅ Anniversary updated: {content} ({date_str})"
+            
+            # Add new
+            context["anniversaries"].append({
+                "name": content,
+                "date": date_str,  # MM-DD format
+                "recurring": recurring
+            })
+            save_persona_context(context, persona)
+            return f"✅ Anniversary added: {content} ({date_str})"
+        
+        # Remove anniversary
+        if content and (not persona_info or "date" not in persona_info):
+            # Find and remove
+            for i, ann in enumerate(context["anniversaries"]):
+                if ann.get("name") == content:
+                    context["anniversaries"].pop(i)
+                    save_persona_context(context, persona)
+                    return f"✅ Anniversary removed: {content}"
+            return f"❌ Anniversary not found: {content}"
+        
+        return "❌ Error: Provide content (name) and persona_info={'date': 'MM-DD'} to add, or just content to remove"
+    
     else:
-        return f"❌ Error: Unknown operation '{operation}'. Valid: create, read, update, delete, search, stats, check_routines, promise, goal, favorite, preference, moment, update_context"
+        return f"❌ Error: Unknown operation '{operation}'. Valid: create, read, update, delete, search, stats, check_routines, promise, goal, favorite, preference, moment, update_context, anniversary"
 
 
 async def item(
