@@ -83,6 +83,7 @@ memory(operation="search", query="約束", mode="smart")  # 自動でpromiseタ�
 
 # ルーティンチェック
 memory(operation="check_routines")  # 現在時刻の繰り返しパターン検出
+memory(operation="check_routines", mode="detailed")  # 詳細：時間帯別パターン分析
 
 # 記念日管理
 memory(operation="anniversary")  # 一覧表示
@@ -100,6 +101,9 @@ memory(operation="sensation", persona_info={
 # 感情変化追跡
 memory(operation="emotion_flow")  # 履歴表示
 memory(operation="emotion_flow", emotion_type="love", emotion_intensity=0.95)  # 記録
+
+# 状況分析（情報提供）
+memory(operation="situation_context")  # 現在の状況分析と類似記憶
 ```
 
 #### 3. `item(operation, ...)`

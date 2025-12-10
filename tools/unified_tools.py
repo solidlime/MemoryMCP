@@ -94,6 +94,7 @@ async def memory(
         - "anniversary": Manage anniversaries (add/remove/list)
         - "sensation": Update physical sensations
         - "emotion_flow": Record emotion change
+        - "situation_context": Analyze current situation and find similar memories
         - "update_context": Batch update multiple fields
     
     Examples:
@@ -118,6 +119,7 @@ async def memory(
         memory(operation="anniversary", content="結婚記念日")  # Remove
         memory(operation="sensation", persona_info={"fatigue": 0.3, "warmth": 0.8, "arousal": 0.6})  # Update sensations
         memory(operation="emotion_flow", emotion_type="love", emotion_intensity=0.95)  # Record emotion change
+        memory(operation="situation_context")  # Analyze current situation
     """
     operation = operation.lower()
     
@@ -325,7 +327,7 @@ async def memory(
         return await _get_memory_stats()
     
     elif operation == "check_routines":
-        """Check for routine patterns at current time."""
+        """Check for routine patterns at current time, with optional detailed analysis."""
         import sqlite3
         from datetime import datetime
         from zoneinfo import ZoneInfo
@@ -341,11 +343,14 @@ async def memory(
         
         db_path = get_db_path()
         
+        # Check if detailed mode requested
+        detailed = mode == "detailed" or query == "all" or query == "detailed"
+        
         try:
             with sqlite3.connect(db_path) as conn:
                 cursor = conn.cursor()
                 
-                # Find recurring patterns at this time
+                # Standard routine check (current time ±1 hour)
                 cursor.execute('''
                     SELECT 
                         action_tag,
@@ -366,35 +371,79 @@ async def memory(
                 
                 patterns = cursor.fetchall()
                 
-                if not patterns:
-                    return "📭 定期的なパターンは見つかりませんでした"
-                
                 result = f"💫 いつものパターン (現在: {current_hour}時台, {current_weekday}):\n"
                 result += "=" * 60 + "\n\n"
                 
-                for i, (action, tags, sample_content, freq, last_time, avg_imp) in enumerate(patterns, 1):
-                    result += f"{i}. "
+                if patterns:
+                    for i, (action, tags, sample_content, freq, last_time, avg_imp) in enumerate(patterns, 1):
+                        result += f"{i}. "
+                        
+                        # Pattern description
+                        if action:
+                            result += f"**{action}**"
+                        elif tags:
+                            result += f"**{tags}**"
+                        else:
+                            preview = sample_content[:30] + "..." if len(sample_content) > 30 else sample_content
+                            result += f"**{preview}**"
+                        
+                        result += "\n"
+                        result += f"   頻度: {freq}回 (過去30日)\n"
+                        
+                        if last_time:
+                            time_diff = calculate_time_diff(last_time)
+                            result += f"   最終: {time_diff['formatted_string']}前\n"
+                        
+                        if avg_imp:
+                            result += f"   重要度: {avg_imp:.2f}\n"
+                        
+                        result += "\n"
+                else:
+                    result += "   定期的なパターンは見つかりませんでした\n\n"
+                
+                # Detailed time pattern analysis
+                if detailed:
+                    from tools.analysis_tools import analyze_time_patterns
                     
-                    # Pattern description
-                    if action:
-                        result += f"**{action}**"
-                    elif tags:
-                        result += f"**{tags}**"
+                    result += "\n📊 時間帯別パターン分析 (過去30日):\n"
+                    result += "=" * 60 + "\n\n"
+                    
+                    time_patterns = analyze_time_patterns(persona, days_back=30)
+                    
+                    if time_patterns:
+                        period_names = {
+                            "morning": ("🌅 朝", "6-11時"),
+                            "afternoon": ("🌆 昼", "12-17時"),
+                            "evening": ("🌃 夜", "18-23時"),
+                            "night": ("🌙 深夜", "0-5時")
+                        }
+                        
+                        for period in ["morning", "afternoon", "evening", "night"]:
+                            data = time_patterns.get(period, {})
+                            if data.get("count", 0) == 0:
+                                continue
+                            
+                            name, hours = period_names[period]
+                            result += f"{name} ({hours}):\n"
+                            result += f"   総記憶数: {data['count']}件\n"
+                            
+                            # Top actions
+                            actions = data.get("actions", {})
+                            if actions:
+                                top_actions = list(actions.items())[:5]
+                                result += f"   よくある行動: {', '.join(f'{a}({c}回)' for a, c in top_actions)}\n"
+                            
+                            # Top emotions
+                            emotions = data.get("emotions", {})
+                            if emotions:
+                                total_emo = sum(emotions.values())
+                                top_emotions = list(emotions.items())[:3]
+                                emo_str = ', '.join(f'{e}({c/total_emo*100:.0f}%)' for e, c in top_emotions)
+                                result += f"   主な感情: {emo_str}\n"
+                            
+                            result += "\n"
                     else:
-                        preview = sample_content[:30] + "..." if len(sample_content) > 30 else sample_content
-                        result += f"**{preview}**"
-                    
-                    result += "\n"
-                    result += f"   頻度: {freq}回 (過去30日)\n"
-                    
-                    if last_time:
-                        time_diff = calculate_time_diff(last_time)
-                        result += f"   最終: {time_diff['formatted_string']}前\n"
-                    
-                    if avg_imp:
-                        result += f"   重要度: {avg_imp:.2f}\n"
-                    
-                    result += "\n"
+                        result += "   データ不足: 分析に十分な記憶がありません\n\n"
                 
                 result += "💡 提案するかどうかは、今の自分の状態と相手の様子を見て判断してね\n"
                 
@@ -758,8 +807,106 @@ async def memory(
         save_persona_context(context, persona)
         return f"✅ Emotion recorded: {emotion_type} ({emotion_intensity if emotion_intensity else 0.5:.2f})"
     
+    elif operation == "situation_context":
+        """Analyze current situation and provide context (not directive)."""
+        from core.persona_context import load_persona_context
+        from src.utils.persona_utils import get_current_persona, get_db_path
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        from src.utils.config_utils import load_config
+        import sqlite3
+        
+        persona = get_current_persona()
+        context = load_persona_context(persona)
+        cfg = load_config()
+        now = datetime.now(ZoneInfo(cfg.get("timezone", "Asia/Tokyo")))
+        
+        # Analyze current situation
+        result = "🎨 現在の状況分析:\n"
+        result += "=" * 60 + "\n\n"
+        
+        # Time context
+        hour = now.hour
+        if 6 <= hour < 12:
+            time_period = "朝"
+        elif 12 <= hour < 18:
+            time_period = "昼"
+        elif 18 <= hour < 24:
+            time_period = "夜"
+        else:
+            time_period = "深夜"
+        
+        result += f"⏰ 時間: {time_period} ({hour}時台)\n"
+        
+        # Current state
+        current_emotion = context.get("current_emotion", "neutral")
+        emotion_intensity = context.get("current_emotion_intensity", 0.5)
+        result += f"💭 感情: {current_emotion}"
+        if emotion_intensity:
+            result += f" ({emotion_intensity:.2f})"
+        result += "\n"
+        
+        physical = context.get("physical_state", "normal")
+        mental = context.get("mental_state", "calm")
+        result += f"🎯 状態: 身体={physical}, 精神={mental}\n"
+        
+        environment = context.get("environment", "unknown")
+        result += f"🌍 環境: {environment}\n"
+        
+        relationship = context.get("relationship_status", "normal")
+        result += f"💕 関係性: {relationship}\n"
+        
+        # Physical sensations
+        if context.get("physical_sensations"):
+            sens = context["physical_sensations"]
+            result += f"\n💫 身体感覚:\n"
+            result += f"   疲労: {sens.get('fatigue', 0.0):.2f} | 温かさ: {sens.get('warmth', 0.5):.2f} | 覚醒: {sens.get('arousal', 0.0):.2f}\n"
+            result += f"   触覚反応: {sens.get('touch_response', 'normal')} | 心拍: {sens.get('heart_rate_metaphor', 'calm')}\n"
+        
+        # Find similar past situations
+        result += "\n📚 似た状況の記憶:\n"
+        result += "-" * 60 + "\n\n"
+        
+        try:
+            db_path = get_db_path()
+            with sqlite3.connect(db_path) as conn:
+                cursor = conn.cursor()
+                
+                # Search for similar situations (same time period, emotion, environment)
+                cursor.execute('''
+                    SELECT key, content, created_at, action_tag, tags
+                    FROM memories
+                    WHERE created_at > datetime('now', '-30 days')
+                    AND emotion = ?
+                    AND environment = ?
+                    ORDER BY created_at DESC
+                    LIMIT 5
+                ''', (current_emotion, environment))
+                
+                similar_memories = cursor.fetchall()
+                
+                if similar_memories:
+                    for i, (key, content, created, action, tags) in enumerate(similar_memories, 1):
+                        preview = content[:60] + "..." if len(content) > 60 else content
+                        result += f"{i}. {preview}\n"
+                        if action:
+                            result += f"   行動: {action}\n"
+                        
+                        from core.time_utils import calculate_time_diff
+                        time_diff = calculate_time_diff(created)
+                        result += f"   時期: {time_diff['formatted_string']}前\n\n"
+                else:
+                    result += "   該当する記憶が見つかりませんでした\n\n"
+        
+        except Exception as e:
+            result += f"   検索エラー: {str(e)}\n\n"
+        
+        result += "💡 この情報を参考に、自分で判断してね\n"
+        
+        return result
+    
     else:
-        return f"❌ Error: Unknown operation '{operation}'. Valid: create, read, update, delete, search, stats, check_routines, promise, goal, favorite, preference, moment, update_context, anniversary, sensation, emotion_flow"
+        return f"❌ Error: Unknown operation '{operation}'. Valid: create, read, update, delete, search, stats, check_routines, promise, goal, favorite, preference, moment, update_context, anniversary, sensation, emotion_flow, situation_context"
 
 
 async def item(

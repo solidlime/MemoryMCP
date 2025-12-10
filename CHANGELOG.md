@@ -4,6 +4,34 @@ All notable changes to Memory-MCP will be documented in this file.
 
 ## [Unreleased]
 
+### Added - 2025-12-11 (Phase 2-3: Pattern Learning & Situation Analysis)
+
+#### 時間帯別パターン学習
+
+**check_routines 詳細モード:**
+- mode="detailed" または query="all" で時間帯別分析を表示
+- 時間帯分類：朝(6-11)、昼(12-17)、夜(18-23)、深夜(0-5)
+- 各時間帯のよくある行動、主な感情を分析
+- 過去30日分のデータからパターンを抽出
+
+**analyze_time_patterns 関数:**
+- tools/analysis_tools.py に時間帯分析関数追加
+- action_tag、emotionの頻度分析
+- トップ10行動、トップ5感情を返却
+
+#### 状況分析システム
+
+**situation_context 操作:**
+- 現在の状況を分析（時間、感情、環境、身体感覚）
+- 似た状況の過去の記憶を検索
+- **指示ではなく情報提供** - 判断はユーザーが行う
+- 衣装や会話トーンの参考情報として利用可能
+
+**設計哲学:**
+- システムは情報を提供するだけ
+- 選択や判断は利用者（Persona）が自分で行う
+- 自然な振る舞いを阻害しない設計
+
 ### Added - 2025-12-10 (Phase 1: Enhanced Context Tracking)
 
 #### 身体感覚記録システム

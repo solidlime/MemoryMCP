@@ -429,3 +429,105 @@ async def analyze_sentiment(content: str) -> str:
     except Exception as e:
         log_progress(f"❌ Sentiment analysis failed: {e}")
         return f"❌ Error analyzing sentiment: {str(e)}"
+
+
+def analyze_time_patterns(persona: Optional[str] = None, days_back: int = 30) -> dict:
+    """
+    Analyze memory patterns by time of day.
+    
+    Args:
+        persona: Persona name (defaults to current)
+        days_back: Number of days to analyze
+        
+    Returns:
+        dict with time period patterns
+    """
+    if persona is None:
+        persona = get_current_persona()
+    
+    def get_time_period(hour: int) -> str:
+        """Classify hour into time period."""
+        if 6 <= hour < 12:
+            return "morning"
+        elif 12 <= hour < 18:
+            return "afternoon"
+        elif 18 <= hour < 24:
+            return "evening"
+        else:
+            return "night"
+    
+    try:
+        db_path = get_db_path()
+        current_time = get_current_time()
+        
+        # Calculate cutoff date
+        from datetime import timedelta
+        cutoff_date = (current_time - timedelta(days=days_back)).isoformat()
+        
+        # Get memories from database
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT created_at, action_tag, emotion
+                FROM memories
+                WHERE created_at >= ?
+                ORDER BY created_at DESC
+            ''', (cutoff_date,))
+            rows = cursor.fetchall()
+        
+        if not rows:
+            return {}
+        
+        # Initialize pattern storage
+        patterns = {
+            "morning": {"actions": {}, "emotions": {}, "count": 0},
+            "afternoon": {"actions": {}, "emotions": {}, "count": 0},
+            "evening": {"actions": {}, "emotions": {}, "count": 0},
+            "night": {"actions": {}, "emotions": {}, "count": 0}
+        }
+        
+        # Analyze each memory
+        for created_at, action_tag, emotion in rows:
+            try:
+                # Parse timestamp
+                dt = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                hour = dt.hour
+                period = get_time_period(hour)
+                
+                # Count
+                patterns[period]["count"] += 1
+                
+                # Track action tags
+                if action_tag:
+                    if action_tag not in patterns[period]["actions"]:
+                        patterns[period]["actions"][action_tag] = 0
+                    patterns[period]["actions"][action_tag] += 1
+                
+                # Track emotions
+                if emotion:
+                    if emotion not in patterns[period]["emotions"]:
+                        patterns[period]["emotions"][emotion] = 0
+                    patterns[period]["emotions"][emotion] += 1
+                    
+            except Exception as e:
+                log_progress(f"⚠️ Error parsing memory: {e}")
+                continue
+        
+        # Sort and limit top items
+        for period in patterns:
+            # Sort actions by frequency
+            patterns[period]["actions"] = dict(
+                sorted(patterns[period]["actions"].items(), 
+                       key=lambda x: x[1], reverse=True)[:10]
+            )
+            # Sort emotions by frequency
+            patterns[period]["emotions"] = dict(
+                sorted(patterns[period]["emotions"].items(),
+                       key=lambda x: x[1], reverse=True)[:5]
+            )
+        
+        return patterns
+        
+    except Exception as e:
+        log_progress(f"❌ Time pattern analysis failed: {e}")
+        return {}
