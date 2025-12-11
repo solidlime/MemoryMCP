@@ -656,28 +656,120 @@ async def memory(
     
     # ===== Context Update Operations (Simplified) =====
     elif operation == "promise":
-        """Update or clear active promise."""
+        """Manage promises (Phase 41: SQLite-based, multiple promises).
+        
+        Usage:
+            memory(operation="promise")  # List active promises
+            memory(operation="promise", content="Buy groceries")  # Add promise
+            memory(operation="promise", query="complete:1")  # Complete promise by ID
+            memory(operation="promise", query="list:all")  # List all promises
+        """
+        from core.memory_db import save_promise, get_promises, update_promise_status
+        from core import calculate_time_diff
+        
+        # Parse query for actions
+        if query:
+            if query.startswith("complete:"):
+                promise_id = int(query.split(":")[1])
+                if update_promise_status(promise_id, "completed"):
+                    return f"✅ Promise #{promise_id} completed!"
+                return f"❌ Failed to complete promise #{promise_id}"
+            
+            elif query.startswith("cancel:"):
+                promise_id = int(query.split(":")[1])
+                if update_promise_status(promise_id, "cancelled"):
+                    return f"✅ Promise #{promise_id} cancelled"
+                return f"❌ Failed to cancel promise #{promise_id}"
+            
+            elif query.startswith("list:"):
+                status = query.split(":")[1]
+                promises = get_promises(status=status)
+                if not promises:
+                    return f"📝 No {status} promises."
+                
+                result = f"📝 {status.capitalize()} Promises ({len(promises)}):\n"
+                for p in promises:
+                    result += f"  #{p['id']}: {p['content']}"
+                    if p['due_date']:
+                        result += f" (due: {p['due_date'][:10]})"
+                    result += f" [priority: {p['priority']}]\n"
+                return result
+        
+        # No query: Add new promise or list active
         if content:
-            value = {"content": content, "created_at": _get_current_timestamp()}
-            return _update_single_field(
-                "active_promises", value,
-                f"✅ Promise updated: {content}",
-                "✅ Promise completed and cleared!"
-            )
-        else:
-            return _update_single_field(
-                "active_promises", None,
-                "",
-                "✅ Promise completed and cleared!"
-            )
+            promise_id = save_promise(content, priority=importance or 0)
+            return f"✅ Promise added: {content} (ID: {promise_id})"
+        
+        # List active promises
+        promises = get_promises(status="active")
+        if not promises:
+            return "📝 No active promises."
+        
+        result = f"📝 Active Promises ({len(promises)}):\n"
+        for p in promises:
+            time_diff = calculate_time_diff(p['created_at'])
+            result += f"  #{p['id']}: {p['content']}"
+            if p['due_date']:
+                result += f" (due: {p['due_date'][:10]})"
+            result += f" - {time_diff['formatted_string']}前\n"
+        return result
     
     elif operation == "goal":
-        """Update or clear current goal."""
-        return _update_single_field(
-            "current_goals", content or None,
-            f"✅ Goal updated: {content}",
-            "✅ Goal achieved and cleared!"
-        )
+        """Manage goals (Phase 41: SQLite-based, multiple goals with progress).
+        
+        Usage:
+            memory(operation="goal")  # List active goals
+            memory(operation="goal", content="Learn Python")  # Add goal
+            memory(operation="goal", query="progress:1:50")  # Update progress (ID:percentage)
+            memory(operation="goal", query="list:all")  # List all goals
+        """
+        from core.memory_db import save_goal, get_goals, update_goal_progress
+        from core import calculate_time_diff
+        
+        # Parse query for actions
+        if query:
+            if query.startswith("progress:"):
+                parts = query.split(":")
+                goal_id = int(parts[1])
+                progress = int(parts[2])
+                if update_goal_progress(goal_id, progress):
+                    if progress >= 100:
+                        return f"✅ Goal #{goal_id} completed! (100%)"
+                    return f"✅ Goal #{goal_id} progress updated: {progress}%"
+                return f"❌ Failed to update goal #{goal_id}"
+            
+            elif query.startswith("list:"):
+                status = query.split(":")[1]
+                goals = get_goals(status=status)
+                if not goals:
+                    return f"🎯 No {status} goals."
+                
+                result = f"🎯 {status.capitalize()} Goals ({len(goals)}):\n"
+                for g in goals:
+                    result += f"  #{g['id']}: {g['content']} [{g['progress']}%]"
+                    if g['target_date']:
+                        result += f" (target: {g['target_date'][:10]})"
+                    result += "\n"
+                return result
+        
+        # No query: Add new goal or list active
+        if content:
+            goal_id = save_goal(content)
+            return f"✅ Goal added: {content} (ID: {goal_id})"
+        
+        # List active goals
+        goals = get_goals(status="active")
+        if not goals:
+            return "🎯 No active goals."
+        
+        result = f"🎯 Active Goals ({len(goals)}):\n"
+        for g in goals:
+            time_diff = calculate_time_diff(g['created_at'])
+            result += f"  #{g['id']}: {g['content']} [{g['progress']}%]"
+            if g['target_date']:
+                result += f" (target: {g['target_date'][:10]})"
+            result += f" - {time_diff['formatted_string']}前\n"
+        return result
     
     elif operation == "favorite":
         """Add item to favorites list."""
@@ -900,36 +992,35 @@ async def memory(
         return "ℹ️ No sensations to update"
     
     elif operation == "emotion_flow":
-        """Record emotion change to history."""
+        """Record emotion change to history (Phase 41: SQLite only)."""
         if not emotion_type:
-            # Display emotion history
-            from core.persona_context import load_persona_context
-            from src.utils.persona_utils import get_current_persona
+            # Display emotion history from database
+            from core.memory_db import get_emotion_history_from_db
+            from core import calculate_time_diff
             
-            persona = get_current_persona()
-            context = load_persona_context(persona)
-            
-            if not context.get("emotion_history"):
+            history = get_emotion_history_from_db(limit=10)
+            if not history:
                 return "📊 No emotion history yet."
             
             result = "📊 Recent Emotion Changes (last 10):\n"
-            for i, entry in enumerate(reversed(context["emotion_history"][-10:]), 1):
-                emo = entry.get("emotion_type", "neutral")
-                intensity = entry.get("intensity", 0.5)
-                timestamp = entry.get("timestamp", "Unknown")
-                result += f"{i}. {emo} ({intensity:.2f}) - {timestamp}\n"
+            for i, entry in enumerate(history, 1):
+                emo = entry['emotion']
+                intensity = entry['emotion_intensity']
+                timestamp = entry['timestamp']
+                time_diff = calculate_time_diff(timestamp)
+                result += f"{i}. {emo} ({intensity:.2f}) - {time_diff['formatted_string']}前\n"
             return result
         
-        # Add new emotion
-        entry = {
-            "timestamp": _get_current_timestamp(),
-            "emotion_type": emotion_type,
-            "intensity": emotion_intensity if emotion_intensity is not None else 0.5
-        }
-        return _append_to_list_field(
-            "emotion_history", entry, max_length=50,
-            success_msg=f"✅ Emotion recorded: {emotion_type} ({entry['intensity']:.2f})"
+        # Save to database (not persona_context.json)
+        from core.memory_db import save_emotion_history
+        
+        intensity = emotion_intensity if emotion_intensity is not None else 0.5
+        save_emotion_history(
+            emotion=emotion_type,
+            emotion_intensity=intensity,
+            memory_key=None
         )
+        return f"✅ Emotion recorded: {emotion_type} ({intensity:.2f})"
     
     elif operation == "situation_context":
         """Analyze current situation and provide context (not directive)."""

@@ -94,6 +94,33 @@ def load_memory_from_db() -> Dict[str, Any]:
                 )
             ''')
             
+            # Phase 41: Promises and Goals tables for multiple task management
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS promises (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    content TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    due_date TEXT,
+                    status TEXT DEFAULT 'active',
+                    completed_at TEXT,
+                    priority INTEGER DEFAULT 0,
+                    notes TEXT
+                )
+            ''')
+            
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS goals (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    content TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    target_date TEXT,
+                    status TEXT DEFAULT 'active',
+                    completed_at TEXT,
+                    progress INTEGER DEFAULT 0,
+                    notes TEXT
+                )
+            ''')
+            
             conn.commit()
             
             if not os.path.exists(db_path) or os.path.getsize(db_path) < 100:
@@ -833,4 +860,318 @@ def get_anniversaries(persona: Optional[str] = None) -> List[Dict[str, Any]]:
             return result
     except Exception as e:
         log_progress(f"❌ Failed to get anniversaries: {e}")
+        return []
+
+
+# ===== Phase 41: Promises and Goals Management =====
+
+def save_promise(content: str, due_date: str = None, priority: int = 0, notes: str = None, persona: str = None) -> int:
+    """
+    Save a new promise to database.
+    
+    Args:
+        content: Promise content
+        due_date: Optional due date (ISO format)
+        priority: Priority level (default 0)
+        notes: Optional notes
+        persona: Persona name (defaults to current)
+    
+    Returns:
+        Promise ID
+    """
+    try:
+        if persona is None:
+            persona = get_current_persona()
+        db_path = get_db_path(persona)
+        
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        from src.utils.config_utils import load_config
+        cfg = load_config()
+        now = datetime.now(ZoneInfo(cfg.get("timezone", "Asia/Tokyo"))).isoformat()
+        
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO promises (content, created_at, due_date, priority, notes)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (content, now, due_date, priority, notes))
+            conn.commit()
+            return cursor.lastrowid
+    except Exception as e:
+        log_progress(f"❌ Failed to save promise: {e}")
+        return -1
+
+
+def get_promises(status: str = 'active', persona: str = None) -> list:
+    """
+    Get promises from database.
+    
+    Args:
+        status: Filter by status ('active', 'completed', 'cancelled', or 'all')
+        persona: Persona name (defaults to current)
+    
+    Returns:
+        List of promise dicts
+    """
+    try:
+        if persona is None:
+            persona = get_current_persona()
+        db_path = get_db_path(persona)
+        
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            
+            if status == 'all':
+                cursor.execute('''
+                    SELECT id, content, created_at, due_date, status, completed_at, priority, notes
+                    FROM promises
+                    ORDER BY priority DESC, created_at DESC
+                ''')
+            else:
+                cursor.execute('''
+                    SELECT id, content, created_at, due_date, status, completed_at, priority, notes
+                    FROM promises
+                    WHERE status = ?
+                    ORDER BY priority DESC, created_at DESC
+                ''', (status,))
+            
+            promises = []
+            for row in cursor.fetchall():
+                promises.append({
+                    'id': row[0],
+                    'content': row[1],
+                    'created_at': row[2],
+                    'due_date': row[3],
+                    'status': row[4],
+                    'completed_at': row[5],
+                    'priority': row[6],
+                    'notes': row[7]
+                })
+            return promises
+    except Exception as e:
+        log_progress(f"❌ Failed to get promises: {e}")
+        return []
+
+
+def update_promise_status(promise_id: int, status: str, persona: str = None) -> bool:
+    """
+    Update promise status.
+    
+    Args:
+        promise_id: Promise ID
+        status: New status ('active', 'completed', 'cancelled')
+        persona: Persona name (defaults to current)
+    
+    Returns:
+        Success boolean
+    """
+    try:
+        if persona is None:
+            persona = get_current_persona()
+        db_path = get_db_path(persona)
+        
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        from src.utils.config_utils import load_config
+        cfg = load_config()
+        now = datetime.now(ZoneInfo(cfg.get("timezone", "Asia/Tokyo"))).isoformat()
+        
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            
+            if status == 'completed':
+                cursor.execute('''
+                    UPDATE promises
+                    SET status = ?, completed_at = ?
+                    WHERE id = ?
+                ''', (status, now, promise_id))
+            else:
+                cursor.execute('''
+                    UPDATE promises
+                    SET status = ?, completed_at = NULL
+                    WHERE id = ?
+                ''', (status, promise_id))
+            
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        log_progress(f"❌ Failed to update promise status: {e}")
+        return False
+
+
+def save_goal(content: str, target_date: str = None, progress: int = 0, notes: str = None, persona: str = None) -> int:
+    """
+    Save a new goal to database.
+    
+    Args:
+        content: Goal content
+        target_date: Optional target date (ISO format)
+        progress: Progress percentage 0-100 (default 0)
+        notes: Optional notes
+        persona: Persona name (defaults to current)
+    
+    Returns:
+        Goal ID
+    """
+    try:
+        if persona is None:
+            persona = get_current_persona()
+        db_path = get_db_path(persona)
+        
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        from src.utils.config_utils import load_config
+        cfg = load_config()
+        now = datetime.now(ZoneInfo(cfg.get("timezone", "Asia/Tokyo"))).isoformat()
+        
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO goals (content, created_at, target_date, progress, notes)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (content, now, target_date, progress, notes))
+            conn.commit()
+            return cursor.lastrowid
+    except Exception as e:
+        log_progress(f"❌ Failed to save goal: {e}")
+        return -1
+
+
+def get_goals(status: str = 'active', persona: str = None) -> list:
+    """
+    Get goals from database.
+    
+    Args:
+        status: Filter by status ('active', 'completed', 'cancelled', or 'all')
+        persona: Persona name (defaults to current)
+    
+    Returns:
+        List of goal dicts
+    """
+    try:
+        if persona is None:
+            persona = get_current_persona()
+        db_path = get_db_path(persona)
+        
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            
+            if status == 'all':
+                cursor.execute('''
+                    SELECT id, content, created_at, target_date, status, completed_at, progress, notes
+                    FROM goals
+                    ORDER BY progress ASC, created_at DESC
+                ''')
+            else:
+                cursor.execute('''
+                    SELECT id, content, created_at, target_date, status, completed_at, progress, notes
+                    FROM goals
+                    WHERE status = ?
+                    ORDER BY progress ASC, created_at DESC
+                ''', (status,))
+            
+            goals = []
+            for row in cursor.fetchall():
+                goals.append({
+                    'id': row[0],
+                    'content': row[1],
+                    'created_at': row[2],
+                    'target_date': row[3],
+                    'status': row[4],
+                    'completed_at': row[5],
+                    'progress': row[6],
+                    'notes': row[7]
+                })
+            return goals
+    except Exception as e:
+        log_progress(f"❌ Failed to get goals: {e}")
+        return []
+
+
+def update_goal_progress(goal_id: int, progress: int, persona: str = None) -> bool:
+    """
+    Update goal progress.
+    
+    Args:
+        goal_id: Goal ID
+        progress: Progress percentage 0-100
+        persona: Persona name (defaults to current)
+    
+    Returns:
+        Success boolean
+    """
+    try:
+        if persona is None:
+            persona = get_current_persona()
+        db_path = get_db_path(persona)
+        
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        from src.utils.config_utils import load_config
+        cfg = load_config()
+        now = datetime.now(ZoneInfo(cfg.get("timezone", "Asia/Tokyo"))).isoformat()
+        
+        # Auto-complete if progress reaches 100
+        status = 'completed' if progress >= 100 else 'active'
+        
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            
+            if status == 'completed':
+                cursor.execute('''
+                    UPDATE goals
+                    SET progress = ?, status = ?, completed_at = ?
+                    WHERE id = ?
+                ''', (progress, status, now, goal_id))
+            else:
+                cursor.execute('''
+                    UPDATE goals
+                    SET progress = ?, status = ?
+                    WHERE id = ?
+                ''', (progress, status, goal_id))
+            
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        log_progress(f"❌ Failed to update goal progress: {e}")
+        return False
+
+
+def get_emotion_history_from_db(limit: int = 10, persona: str = None) -> list:
+    """
+    Get emotion history from database.
+    
+    Args:
+        limit: Number of recent entries to return
+        persona: Persona name (defaults to current)
+    
+    Returns:
+        List of emotion history entries
+    """
+    try:
+        if persona is None:
+            persona = get_current_persona()
+        db_path = get_db_path(persona)
+        
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT timestamp, emotion, emotion_intensity, memory_key
+                FROM emotion_history
+                ORDER BY timestamp DESC
+                LIMIT ?
+            ''', (limit,))
+            
+            history = []
+            for row in cursor.fetchall():
+                history.append({
+                    'timestamp': row[0],
+                    'emotion': row[1],
+                    'emotion_intensity': row[2],
+                    'memory_key': row[3]
+                })
+            return history
+    except Exception as e:
+        log_progress(f"❌ Failed to get emotion history: {e}")
         return []
