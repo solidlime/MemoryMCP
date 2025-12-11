@@ -461,6 +461,7 @@ async def memory(
         """Update or clear active promise."""
         from core.persona_context import load_persona_context, save_persona_context
         from core.time_utils import get_current_time
+        from src.utils.persona_utils import get_current_persona
         
         persona = get_current_persona()
         context = load_persona_context(persona)
@@ -492,6 +493,7 @@ async def memory(
     elif operation == "goal":
         """Update or clear current goal."""
         from core.persona_context import load_persona_context, save_persona_context
+        from src.utils.persona_utils import get_current_persona
         
         persona = get_current_persona()
         context = load_persona_context(persona)
@@ -513,6 +515,7 @@ async def memory(
     elif operation == "favorite":
         """Add item to favorites list."""
         from core.persona_context import load_persona_context, save_persona_context
+        from src.utils.persona_utils import get_current_persona
         
         if not content:
             return "❌ Error: 'content' is required for favorite operation"
@@ -536,6 +539,7 @@ async def memory(
     elif operation == "preference":
         """Update preferences (loves/dislikes)."""
         from core.persona_context import load_persona_context, save_persona_context
+        from src.utils.persona_utils import get_current_persona
         
         persona = get_current_persona()
         context = load_persona_context(persona)
@@ -576,6 +580,7 @@ async def memory(
         from datetime import datetime
         from zoneinfo import ZoneInfo
         from src.utils.config_utils import load_config
+        from src.utils.persona_utils import get_current_persona
         
         if not content:
             return "❌ Error: 'content' is required for moment operation"
@@ -610,6 +615,7 @@ async def memory(
         from datetime import datetime
         from zoneinfo import ZoneInfo
         from src.utils.config_utils import load_config
+        from src.utils.persona_utils import get_current_persona
         
         persona = get_current_persona()
         context = load_persona_context(persona)
