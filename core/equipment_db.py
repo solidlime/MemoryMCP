@@ -315,6 +315,43 @@ class EquipmentDB:
         conn.commit()
         conn.close()
         return True
+
+    
+    def rename_item(
+        self,
+        old_name: str,
+        new_name: str
+    ) -> bool:
+        """アイテム名を変更
+        
+        Args:
+            old_name: 現在のアイテム名
+            new_name: 新しいアイテム名
+        
+        Returns:
+            bool: 成功した場合True
+        """
+        # 既存アイテムの確認
+        item = self.get_item_by_name(old_name)
+        if not item:
+            return False
+        
+        # 新しい名前が既に存在するかチェック
+        existing_new = self.get_item_by_name(new_name)
+        if existing_new:
+            return False  # 新しい名前が既に使われている
+        
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        # item_name を更新
+        cursor.execute("""
+            UPDATE items SET item_name = ? WHERE item_id = ?
+        """, (new_name, item["item_id"]))
+        
+        conn.commit()
+        conn.close()
+        return True
     
     # ==================== 所持品管理 ====================
     

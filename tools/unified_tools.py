@@ -26,6 +26,7 @@ from tools.equipment_tools import (
     equip_item as _equip_item,
     unequip_item as _unequip_item,
     update_item as _update_item,
+    rename_item as _rename_item,
     search_inventory as _search_inventory,
     get_equipment_history as _get_equipment_history
 )
@@ -918,6 +919,8 @@ async def item(
     quantity: int = 1,
     category: Optional[str] = None,
     tags: Optional[List[str]] = None,
+    # Rename parameters
+    new_name: Optional[str] = None,
     # Equip/Unequip parameters
     equipment: Optional[Dict[str, str]] = None,
     slots: Optional[List[str] | str] = None,
@@ -934,12 +937,13 @@ async def item(
     Unified item operations interface.
     
     Args:
-        operation: Operation type - "add", "remove", "equip", "unequip", "update", "search", "history", "memories", "stats"
+        operation: Operation type - "add", "remove", "equip", "unequip", "update", "rename", "search", "history", "memories", "stats"
         item_name: Item name (required for most operations)
         description: Item description (for add/update)
         quantity: Number of items to add/remove (default: 1)
         category: Item category (e.g., "weapon", "consumable", "clothing")
         tags: List of tags for categorization
+        new_name: New item name (for rename operation)
         equipment: Dict mapping slot names to item names (for equip operation)
         slots: Slot name(s) to unequip (string or list, for unequip operation)
         query: Search query string (for search operation)
@@ -954,6 +958,7 @@ async def item(
         - "equip": Equip items (only affects specified slots, keeps others equipped)
         - "unequip": Unequip items from specified slot(s)
         - "update": Update item metadata
+        - "rename": Rename an item
         - "search": Search inventory
         - "history": Get equipment change history
         - "memories": Find memories containing item
@@ -978,6 +983,9 @@ async def item(
         
         # Update
         item(operation="update", item_name="Steel Sword", description="Very sharp blade")
+        
+        # Rename
+        item(operation="rename", item_name="新しいえっちな服", new_name="魅惑のルージュシフォンドレス")
         
         # Search (all items)
         item(operation="search")
@@ -1036,6 +1044,16 @@ async def item(
             tags=tags
         )
     
+    elif operation == "rename":
+        if not item_name:
+            return "❌ Error: 'item_name' is required for rename operation"
+        if not new_name:
+            return "❌ Error: 'new_name' is required for rename operation"
+        return _rename_item(
+            old_name=item_name,
+            new_name=new_name
+        )
+    
     elif operation == "search":
         # Allow search without any parameters to list all items
         return _search_inventory(
@@ -1065,4 +1083,4 @@ async def item(
         return await _get_item_usage_stats(item_name=item_name)
     
     else:
-        return f"❌ Error: Unknown operation '{operation}'. Valid: add, remove, equip, unequip, update, search, history, memories, stats"
+        return f"❌ Error: Unknown operation '{operation}'. Valid: add, remove, equip, unequip, update, rename, search, history, memories, stats"

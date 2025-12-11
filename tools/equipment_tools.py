@@ -273,6 +273,43 @@ def update_item(
         return f"⚠️ No changes specified for '{item_name}'"
 
 
+def rename_item(
+    old_name: str,
+    new_name: str
+) -> str:
+    """Rename an item in inventory.
+    
+    Changes the display name of an item. All references (inventory, equipment)
+    are automatically updated.
+    
+    Args:
+        old_name: Current item name
+        new_name: New item name
+    
+    Returns:
+        Result message
+    
+    Examples:
+        rename_item("新しいえっちな服", "魅惑のルージュシフォンドレス")
+        rename_item("Old Sword", "Legendary Blade")
+    """
+    persona = get_current_persona()
+    db = EquipmentDB(persona)
+    
+    success = db.rename_item(old_name, new_name)
+    
+    if not success:
+        # Check if old item exists
+        if not db.get_item_by_name(old_name):
+            return f"❌ Item '{old_name}' not found"
+        # Check if new name is already taken
+        if db.get_item_by_name(new_name):
+            return f"❌ Item name '{new_name}' is already in use"
+        return f"❌ Failed to rename '{old_name}'"
+    
+    return f"✅ Renamed '{old_name}' → '{new_name}'"
+
+
 def search_inventory(
     query: Optional[str] = None,
     category: Optional[str] = None,
