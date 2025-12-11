@@ -136,7 +136,9 @@ async def get_context() -> str:
             else:
                 result += f"   {equipment}\n"
         else:
-            result += "   (装備なし)\n"            result += "　 💡 ヒント: 状況に応じて衣装を検討してください\n"        
+            result += "   (装備なし)\n"
+            result += "   💡 ヒント: 状況に応じて衣装を検討してください\n"
+        
         # Favorite Items
         if context.get('favorite_items'):
             items = context['favorite_items']
