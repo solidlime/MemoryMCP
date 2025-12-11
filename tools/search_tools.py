@@ -64,7 +64,7 @@ async def search_memory(
     
     Args:
         query: Search query or keyword (required for semantic/keyword modes)
-        mode: Search mode - "hybrid" (default), "keyword", "semantic", or "related"
+        mode: Search mode - "hybrid" (default), "keyword", "semantic", "related", "task", or "plan"
         top_k: Max results (default: 5)
         
         # Keyword mode only:
@@ -98,8 +98,101 @@ async def search_memory(
         
         # Related memories
         search_memory(mode="related", memory_key="memory_20251031123045")
+        
+        # Task/Plan search (未完了のタスクや予定を検索)
+        search_memory(mode="task")  # All tasks
+        search_memory(mode="plan")  # All plans
+        search_memory("dashboard", mode="task")  # Search tasks containing "dashboard"
     """
     try:
+        if mode == "task" or mode == "plan":
+            # Task/Plan専用検索
+            persona = get_current_persona()
+            db_path = get_db_path()
+            
+            # Task/Planに関連するタグ
+            task_tags = ["plan", "TODO", "todo", "task", "タスク", "予定", "実装予定", "milestone"]
+            plan_tags = ["plan", "予定", "計画", "future", "upcoming"]
+            
+            target_tags = task_tags if mode == "task" else plan_tags
+            
+            memories = {}
+            with sqlite3.connect(db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('SELECT key, content, created_at, updated_at, tags, importance FROM memories ORDER BY created_at DESC')
+                for row in cursor.fetchall():
+                    key, content, created_at, updated_at, tags_json, imp = row
+                    tags_list = json.loads(tags_json) if tags_json else []
+                    
+                    # Check if any tag matches
+                    has_tag = any(tag in tags_list for tag in target_tags)
+                    
+                    # Also check content for keywords
+                    content_lower = content.lower()
+                    has_keyword = any(keyword in content_lower for keyword in [
+                        "実装", "予定", "タスク", "todo", "plan", "優先度", "milestone",
+                        "やりたい", "実装する", "追加する", "改善", "機能"
+                    ])
+                    
+                    if has_tag or has_keyword:
+                        memories[key] = {
+                            "content": content,
+                            "created_at": created_at,
+                            "updated_at": updated_at,
+                            "tags": tags_list,
+                            "importance": imp if imp else 0.5
+                        }
+            
+            if query:
+                # Filter by query
+                filtered = {}
+                for key, entry in memories.items():
+                    if query.lower() in entry['content'].lower():
+                        filtered[key] = entry
+                memories = filtered
+            
+            if not memories:
+                mode_jp = "タスク" if mode == "task" else "予定・計画"
+                query_str = f" containing '{query}'" if query else ""
+                return f"📋 No {mode_jp} found{query_str}"
+            
+            # Sort by importance and recency
+            sorted_keys = sorted(
+                memories.keys(),
+                key=lambda k: (memories[k].get('importance', 0.5), memories[k]['created_at']),
+                reverse=True
+            )[:top_k]
+            
+            mode_icon = "📋" if mode == "task" else "📅"
+            mode_jp = "タスク" if mode == "task" else "予定・計画"
+            result = f"{mode_icon} {mode_jp} Search Results ({len(sorted_keys)} found):\n"
+            if query:
+                result += f"🔎 Query: '{query}'\n"
+            result += "=" * 60 + "\n\n"
+            
+            for idx, key in enumerate(sorted_keys, 1):
+                entry = memories[key]
+                content = entry['content']
+                created_at = entry['created_at']
+                importance = entry.get('importance', 0.5)
+                tags_list = entry.get('tags', [])
+                
+                time_diff = calculate_time_diff(created_at)
+                
+                result += f"{idx}. [{key}]\n"
+                result += f"   📅 {time_diff['formatted_string']}前\n"
+                result += f"   ⭐ 重要度: {importance:.2f}\n"
+                result += f"   📝 {content[:200]}{'...' if len(content) > 200 else ''}\n"
+                
+                if tags_list:
+                    result += f"   🏷️  Tags: {', '.join(tags_list)}\n"
+                
+                result += "\n"
+            
+            result += f"💡 Persona: {persona}"
+            return result
+        
+        elif mode == "semantic":
         if mode == "semantic":
             # Delegate to RAG-based semantic search
             from tools.crud_tools import read_memory

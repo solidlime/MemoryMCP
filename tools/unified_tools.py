@@ -105,6 +105,9 @@ async def memory(
         memory(operation="search", query="Python", emotion_type="joy")
         memory(operation="search", query="いつものあれ", mode="smart")  # Smart search
         memory(operation="search", query="the usual", mode="smart")  # English support
+        memory(operation="search", mode="task")  # Search all tasks/TODOs
+        memory(operation="search", mode="plan")  # Search all plans
+        memory(operation="search", query="dashboard", mode="task")  # Search specific task
         memory(operation="check_routines")  # Check routine patterns
         memory(operation="stats")
         

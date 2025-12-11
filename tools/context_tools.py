@@ -324,6 +324,43 @@ async def get_context() -> str:
             result += f"\n💫 Routine Check Available:\n"
             result += f"   check_routines()で「いつも」のパターンを確認できます\n"
         
+        # Check for pending tasks/plans
+        pending_tasks_available = False
+        try:
+            task_tags = ["plan", "TODO", "todo", "task", "タスク", "予定", "実装予定", "milestone"]
+            
+            with sqlite3.connect(db_path) as conn:
+                cursor = conn.cursor()
+                # Check for recent task/plan memories
+                for tag in task_tags:
+                    cursor.execute('''
+                        SELECT COUNT(*) FROM memories
+                        WHERE tags LIKE ?
+                        AND created_at > datetime('now', '-60 days')
+                    ''', (f'%"{tag}"%',))
+                    count = cursor.fetchone()[0]
+                    if count > 0:
+                        pending_tasks_available = True
+                        break
+                
+                # Also check content for task keywords
+                if not pending_tasks_available:
+                    cursor.execute('''
+                        SELECT COUNT(*) FROM memories
+                        WHERE (content LIKE '%実装予定%' OR content LIKE '%タスク%' OR content LIKE '%TODO%' OR content LIKE '%優先度%')
+                        AND created_at > datetime('now', '-60 days')
+                    ''')
+                    count = cursor.fetchone()[0]
+                    if count > 0:
+                        pending_tasks_available = True
+        except Exception:
+            pass  # Silently fail, not critical
+        
+        if pending_tasks_available:
+            result += f"\n📋 Pending Tasks/Plans Found:\n"
+            result += f"   memory(operation='search', mode='task')でタスク一覧表示\n"
+            result += f"   memory(operation='search', mode='plan')で予定・計画一覧表示\n"
+        
         result += "\n" + "=" * 60 + "\n"
         result += "💡 Tip: Use read_memory(query) for semantic search\n"
         
