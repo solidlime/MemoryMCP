@@ -4,6 +4,53 @@ All notable changes to Memory-MCP will be documented in this file.
 
 ## [Unreleased]
 
+### Added - 2025-12-11 (Phase 40-41: Timeline Visualization & Anniversary System)
+
+#### Physical Sensations Timeline (Phase 40)
+
+**ダッシュボード可視化:**
+- Physical Sensations Timeline カード追加
+- Chart.jsによる5指標の時系列グラフ（過去7日間）
+  - fatigue（疲労度）- Red
+  - warmth（温かさ）- Orange
+  - arousal（覚醒度）- Pink
+  - touch_response（触覚反応）- Purple
+  - heart_rate_metaphor（心拍数メタファー）- Yellow
+- physical_sensations_history テーブルからデータ取得
+- `/api/physical-sensations-timeline/{persona}` REST API追加
+
+#### Emotion Flow Timeline改善
+
+**emotion_history テーブル統合:**
+- `/api/emotion-timeline/{persona}` を emotion_history テーブル対応に改善
+- Phase 40 の emotion_history テーブルから感情変化を取得
+- memories テーブルへのフォールバック機能（下位互換性）
+- テーブル存在チェックで自動判定
+
+#### Anniversary Calendar System
+
+**タグベース記念日管理:**
+- `get_anniversaries()` 関数追加（core/memory_db.py）
+- タグベース検出: `anniversary`, `milestone`, `first_time`
+- MM-DD形式で月日ごとにグループ化
+- `/api/anniversaries/{persona}` REST API追加
+
+**ダッシュボード可視化:**
+- Anniversary Calendar カード追加
+- 月別カード表示（記念日がある月のみ）
+- 日付バッジでクリック可能な UI
+- モーダルで記念日の詳細表示（年、プレビュー、importance、emotion、tags）
+
+**推奨タグ使い分け:**
+- `anniversary`: 特別な記念日（初めて会った日、関係性のマイルストーン）
+- `milestone`: 重要な達成や人生のイベント
+- `first_time`: 初めての体験で覚えておきたいこと
+
+**Files Changed:**
+- `core/memory_db.py`: get_anniversaries() 関数追加
+- `src/dashboard.py`: emotion_timeline改善, anniversaries/physical_sensations_timeline エンドポイント追加
+- `templates/dashboard.html`: 3つの新規カードとJavaScript関数追加
+
 ### Added - 2025-12-11 (Phase 2-3: Pattern Learning & Situation Analysis)
 
 #### 時間帯別パターン学習

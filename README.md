@@ -59,6 +59,15 @@ MCP (Model Context Protocol) 準拠の永続メモリサーバー。RAG検索と
 memory(operation="create", content="User likes strawberry", 
        emotion_type="joy", importance=0.8)
 
+# 記念日タグ付き作成
+memory(operation="create", content="初めて一緒に映画を見た日", 
+       emotion_type="joy", importance=0.9, 
+       context_tags=["first_time", "anniversary"])
+
+memory(operation="create", content="プロジェクトのリリース完了", 
+       emotion_type="accomplishment", importance=0.85, 
+       context_tags=["milestone", "technical_achievement"])
+
 # セマンティック検索（デフォルト）
 memory(operation="search", query="好きな食べ物", mode="semantic", top_k=5)
 
@@ -415,9 +424,14 @@ export MEMORY_MCP_SERVER_PORT=26262
 
 - **Technical**: `technical_achievement`, `bug_fix`, `code_refactor`, `learning`
 - **Emotional**: `emotional_moment`, `intimate_moment`, `happy_moment`, `sad_moment`
-- **Events**: `important_event`, `promise`, `plan`, `milestone`
+- **Events**: `important_event`, `promise`, `plan`, `milestone`, `anniversary`, `first_time`
 - **Relationship**: `relationship_update`, `conversation`, `disagreement`
 - **Daily**: `daily_activity`, `routine`, `meal`, `rest`
+
+**記念日カレンダー用タグ**（Dashboard Anniversary機能）：
+- `anniversary`: 記念すべき日（誕生日、記念日など）
+- `milestone`: 達成・成果の記録（プロジェクト完成、目標達成など）
+- `first_time`: 初めての体験（初デート、初成功など）
 
 タグを統一することで、検索やダッシュボードでの可視化が効果的になります。
 

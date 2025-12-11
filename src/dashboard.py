@@ -877,7 +877,8 @@ def register_http_routes(mcp, templates):
     async def emotion_timeline(request: Request, persona: str):
         """
         Get emotion timeline data for visualization.
-        Returns daily and weekly emotion distribution.
+        Returns daily and weekly emotion distribution from emotion_history table (Phase 40).
+        Falls back to memories table for backward compatibility.
         """
         try:
             # Validate persona exists
@@ -895,51 +896,101 @@ def register_http_routes(mcp, templates):
             try:
                 db_path = get_db_path()
                 
-                # Get emotion data from database
+                # Get emotion data from emotion_history table (Phase 40)
                 with sqlite3.connect(db_path) as conn:
                     cursor = conn.cursor()
                     
-                    # Get all memories with emotions
-                    cursor.execute('''
-                        SELECT 
-                            DATE(created_at) as date,
-                            emotion,
-                            COUNT(*) as count
-                        FROM memories
-                        WHERE emotion IS NOT NULL AND emotion != 'neutral'
-                        GROUP BY DATE(created_at), emotion
-                        ORDER BY DATE(created_at)
-                    ''')
+                    # Check if emotion_history table exists
+                    cursor.execute("""
+                        SELECT name FROM sqlite_master 
+                        WHERE type='table' AND name='emotion_history'
+                    """)
+                    has_history_table = cursor.fetchone() is not None
                     
-                    daily_data = {}
-                    emotion_types = set()
-                    
-                    for row in cursor.fetchall():
-                        date_str, emotion, count = row
-                        if date_str not in daily_data:
-                            daily_data[date_str] = {}
-                        daily_data[date_str][emotion] = count
-                        emotion_types.add(emotion)
-                    
-                    # Get weekly aggregation
-                    cursor.execute('''
-                        SELECT 
-                            strftime('%Y-W%W', created_at) as week,
-                            emotion,
-                            COUNT(*) as count
-                        FROM memories
-                        WHERE emotion IS NOT NULL AND emotion != 'neutral'
-                        GROUP BY strftime('%Y-W%W', created_at), emotion
-                        ORDER BY strftime('%Y-W%W', created_at)
-                    ''')
-                    
-                    weekly_data = {}
-                    
-                    for row in cursor.fetchall():
-                        week_str, emotion, count = row
-                        if week_str not in weekly_data:
-                            weekly_data[week_str] = {}
-                        weekly_data[week_str][emotion] = count
+                    if has_history_table:
+                        # Use emotion_history table (Phase 40)
+                        cursor.execute('''
+                            SELECT 
+                                DATE(timestamp) as date,
+                                emotion,
+                                COUNT(*) as count
+                            FROM emotion_history
+                            WHERE emotion IS NOT NULL AND emotion != 'neutral'
+                            GROUP BY DATE(timestamp), emotion
+                            ORDER BY DATE(timestamp)
+                        ''')
+                        
+                        daily_data = {}
+                        emotion_types = set()
+                        
+                        for row in cursor.fetchall():
+                            date_str, emotion, count = row
+                            if date_str not in daily_data:
+                                daily_data[date_str] = {}
+                            daily_data[date_str][emotion] = count
+                            emotion_types.add(emotion)
+                        
+                        # Get weekly aggregation from emotion_history
+                        cursor.execute('''
+                            SELECT 
+                                strftime('%Y-W%W', timestamp) as week,
+                                emotion,
+                                COUNT(*) as count
+                            FROM emotion_history
+                            WHERE emotion IS NOT NULL AND emotion != 'neutral'
+                            GROUP BY strftime('%Y-W%W', timestamp), emotion
+                            ORDER BY strftime('%Y-W%W', timestamp)
+                        ''')
+                        
+                        weekly_data = {}
+                        
+                        for row in cursor.fetchall():
+                            week_str, emotion, count = row
+                            if week_str not in weekly_data:
+                                weekly_data[week_str] = {}
+                            weekly_data[week_str][emotion] = count
+                    else:
+                        # Fallback to memories table (backward compatibility)
+                        cursor.execute('''
+                            SELECT 
+                                DATE(created_at) as date,
+                                emotion,
+                                COUNT(*) as count
+                            FROM memories
+                            WHERE emotion IS NOT NULL AND emotion != 'neutral'
+                            GROUP BY DATE(created_at), emotion
+                            ORDER BY DATE(created_at)
+                        ''')
+                        
+                        daily_data = {}
+                        emotion_types = set()
+                        
+                        for row in cursor.fetchall():
+                            date_str, emotion, count = row
+                            if date_str not in daily_data:
+                                daily_data[date_str] = {}
+                            daily_data[date_str][emotion] = count
+                            emotion_types.add(emotion)
+                        
+                        # Get weekly aggregation from memories
+                        cursor.execute('''
+                            SELECT 
+                                strftime('%Y-W%W', created_at) as week,
+                                emotion,
+                                COUNT(*) as count
+                            FROM memories
+                            WHERE emotion IS NOT NULL AND emotion != 'neutral'
+                            GROUP BY strftime('%Y-W%W', created_at), emotion
+                            ORDER BY strftime('%Y-W%W', created_at)
+                        ''')
+                        
+                        weekly_data = {}
+                        
+                        for row in cursor.fetchall():
+                            week_str, emotion, count = row
+                            if week_str not in weekly_data:
+                                weekly_data[week_str] = {}
+                            weekly_data[week_str][emotion] = count
                 
                 # Format for Chart.js
                 daily_timeline = []
@@ -1023,6 +1074,45 @@ def register_http_routes(mcp, templates):
                     "success": True,
                     "timeline": formatted_timeline,
                     "metrics": ["fatigue", "warmth", "arousal", "touch_response", "heart_rate_metaphor"]
+                })
+                
+            finally:
+                current_persona.set(original_persona)
+                
+        except Exception as e:
+            return JSONResponse({
+                "success": False,
+                "error": str(e)
+            }, status_code=500)
+
+
+    @mcp.custom_route("/api/anniversaries/{persona}", methods=["GET"])
+    async def anniversaries(request: Request, persona: str):
+        """
+        Get anniversaries (important memories grouped by month-day).
+        Returns list of anniversary dates with associated memories.
+        """
+        try:
+            # Validate persona exists
+            memory_dir = os.path.join(MEMORY_ROOT, persona)
+            if not os.path.exists(memory_dir):
+                return JSONResponse({
+                    "success": False,
+                    "error": f"Persona '{persona}' not found"
+                }, status_code=404)
+            
+            # Set persona context
+            original_persona = current_persona.get()
+            current_persona.set(persona)
+            
+            try:
+                from core.memory_db import get_anniversaries
+                
+                anniversaries_data = get_anniversaries(persona=persona)
+                
+                return JSONResponse({
+                    "success": True,
+                    "anniversaries": anniversaries_data
                 })
                 
             finally:

@@ -750,3 +750,87 @@ def get_emotion_timeline(
     except Exception as e:
         log_progress(f"❌ Failed to get emotion timeline: {e}")
         return []
+
+
+def get_anniversaries(persona: Optional[str] = None) -> List[Dict[str, Any]]:
+    """
+    Get anniversary memories grouped by month-day for calendar display.
+    Returns memories tagged with 'anniversary', 'milestone', or 'first_time' grouped by MM-DD format.
+    
+    Anniversary tags should be used for:
+    - anniversary: Special commemorative dates (first meeting, relationship milestones)
+    - milestone: Important achievements or life events
+    - first_time: First time experiences worth remembering
+    
+    Args:
+        persona: Persona name (defaults to current)
+    
+    Returns:
+        List of anniversary records with date and associated memories
+    """
+    try:
+        if persona is None:
+            persona = get_current_persona()
+        db_path = get_db_path(persona)
+        
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT 
+                    key,
+                    content,
+                    created_at,
+                    importance,
+                    emotion,
+                    emotion_intensity,
+                    tags
+                FROM memories
+                WHERE tags LIKE '%anniversary%' 
+                   OR tags LIKE '%milestone%' 
+                   OR tags LIKE '%first_time%'
+                ORDER BY created_at DESC
+            ''')
+            
+            # Group by month-day
+            anniversaries = {}
+            for row in cursor.fetchall():
+                key, content, created_at, importance, emotion, emotion_intensity, tags_json = row
+                
+                # Extract month-day from created_at (YYYY-MM-DD format)
+                date_obj = datetime.fromisoformat(created_at)
+                month_day = date_obj.strftime("%m-%d")  # "MM-DD"
+                year = date_obj.year
+                
+                # Parse tags
+                tags = json.loads(tags_json) if tags_json else []
+                
+                # Create short preview (first 100 chars)
+                preview = content[:100] + "..." if len(content) > 100 else content
+                
+                if month_day not in anniversaries:
+                    anniversaries[month_day] = []
+                
+                anniversaries[month_day].append({
+                    "key": key,
+                    "year": year,
+                    "date": created_at[:10],  # "YYYY-MM-DD"
+                    "preview": preview,
+                    "importance": importance,
+                    "emotion": emotion,
+                    "emotion_intensity": emotion_intensity,
+                    "tags": tags
+                })
+            
+            # Convert to list format for API
+            result = []
+            for month_day, memories in sorted(anniversaries.items()):
+                result.append({
+                    "month_day": month_day,  # "MM-DD"
+                    "count": len(memories),
+                    "memories": memories
+                })
+            
+            return result
+    except Exception as e:
+        log_progress(f"❌ Failed to get anniversaries: {e}")
+        return []

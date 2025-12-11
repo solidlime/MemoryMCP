@@ -123,6 +123,28 @@
         </div>
     </div>
 
+    <!-- Anniversary Calendar Card (NEW) -->
+    <div class="glass-card rounded-2xl p-6 mb-6">
+        <h2 class="text-2xl font-bold text-white mb-4">🎂 Anniversary Calendar</h2>
+        <div id="anniversaryCalendar" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <p class="text-white loading col-span-full">Loading anniversaries...</p>
+        </div>
+        <div id="anniversaryLegend" class="mt-4 text-white text-sm">
+            Memories tagged with 'anniversary', 'milestone', or 'first_time' grouped by month and day
+        </div>
+    </div>
+
+    <!-- Anniversary Modal -->
+    <div id="anniversaryModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+        <div class="glass-card rounded-2xl p-6 max-w-2xl w-full max-h-[80vh] overflow-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-2xl font-bold text-white" id="modalTitle">Memories</h3>
+                <button onclick="closeAnniversaryModal()" class="text-white hover:text-purple-200 text-2xl">&times;</button>
+            </div>
+            <div id="modalContent" class="space-y-4"></div>
+        </div>
+    </div>
+
     <!-- Admin Tools Card -->
     <div class="glass-card rounded-2xl p-6 mb-6">
         <h2 class="text-2xl font-bold text-white mb-4">🛠️ Admin Tools</h2>
@@ -271,6 +293,7 @@
         let emotionView = 'weekly'; // 'daily' or 'weekly'
         let physicalSensationsChart = null;
         let physicalSensationsData = null;
+        let anniversariesData = null;
 
         // Load personas on page load
         async function loadPersonas() {
@@ -337,6 +360,9 @@
                 
                 // Load Physical Sensations Timeline
                 await loadPhysicalSensationsData(persona);
+                
+                // Load Anniversaries
+                await loadAnniversariesData(persona);
                 
             } catch (error) {
                 console.error('Failed to load dashboard data:', error);
@@ -744,6 +770,137 @@
             // Update legend info
             document.getElementById('physicalSensationsLegend').innerHTML = 
                 `<p>💫 Physical Sensations Timeline (Last 7 days) | Total data points: ${physicalSensationsData.timeline.length}</p>`;
+        }
+
+        // Load anniversaries data
+        async function loadAnniversariesData(persona) {
+            try {
+                const response = await fetch(`/api/anniversaries/${persona}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    anniversariesData = result.anniversaries;
+                    renderAnniversariesCalendar();
+                } else {
+                    document.getElementById('anniversaryLegend').innerHTML = 
+                        `<p class="text-red-300">Failed to load anniversaries: ${result.error}</p>`;
+                }
+            } catch (error) {
+                console.error('Failed to load anniversaries:', error);
+                document.getElementById('anniversaryLegend').innerHTML = 
+                    '<p class="text-red-300">Error loading anniversaries</p>';
+            }
+        }
+
+        // Render anniversaries calendar
+        function renderAnniversariesCalendar() {
+            const calendar = document.getElementById('anniversaryCalendar');
+            
+            if (!anniversariesData || anniversariesData.length === 0) {
+                calendar.innerHTML = '<p class="text-white col-span-full">No anniversaries found. Use tags: anniversary, milestone, first_time</p>';
+                return;
+            }
+            
+            // Create month cards
+            const monthNames = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
+            const monthNamesFull = ['January', 'February', 'March', 'April', 'May', 'June', 
+                                     'July', 'August', 'September', 'October', 'November', 'December'];
+            
+            // Group by month
+            const byMonth = {};
+            anniversariesData.forEach(item => {
+                const month = item.month_day.split('-')[0];
+                if (!byMonth[month]) {
+                    byMonth[month] = [];
+                }
+                byMonth[month].push(item);
+            });
+            
+            // Generate month cards
+            let html = '';
+            monthNames.forEach((month, idx) => {
+                const monthData = byMonth[month] || [];
+                const totalCount = monthData.reduce((sum, item) => sum + item.count, 0);
+                
+                if (totalCount > 0) {
+                    html += `
+                        <div class="glass-card rounded-lg p-4 hover:bg-white/20 transition cursor-pointer" 
+                             onclick="showMonthAnniversaries('${month}', '${monthNamesFull[idx]}')">
+                            <h3 class="text-xl font-bold text-white mb-2">${monthNamesFull[idx]}</h3>
+                            <p class="text-purple-200 text-sm mb-2">${monthData.length} anniversaries</p>
+                            <div class="flex flex-wrap gap-1">
+                                ${monthData.map(item => {
+                                    const day = item.month_day.split('-')[1];
+                                    return `<span class="inline-block bg-purple-400 rounded-full w-8 h-8 text-center leading-8 text-white text-xs font-semibold" title="${item.count} memories">${day}</span>`;
+                                }).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+            
+            if (html === '') {
+                calendar.innerHTML = '<p class="text-white col-span-full">No important anniversaries found</p>';
+            } else {
+                calendar.innerHTML = html;
+                document.getElementById('anniversaryLegend').innerHTML = 
+                    `<p>🎂 Total anniversaries: ${anniversariesData.length} days with anniversary/milestone/first_time tags</p>`;
+            }
+        }
+
+        // Show anniversaries for a specific month
+        function showMonthAnniversaries(month, monthName) {
+            const monthData = anniversariesData.filter(item => item.month_day.startsWith(month + '-'));
+            
+            const modal = document.getElementById('anniversaryModal');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalContent = document.getElementById('modalContent');
+            
+            modalTitle.textContent = `${monthName} Anniversaries`;
+            
+            let html = '';
+            monthData.forEach(dayData => {
+                const day = dayData.month_day.split('-')[1];
+                html += `
+                    <div class="glass-card rounded-lg p-4">
+                        <h4 class="text-lg font-semibold text-white mb-2">${monthName} ${day} (${dayData.count} memories)</h4>
+                        <div class="space-y-2">
+                            ${dayData.memories.map(mem => {
+                                const emotionIcon = {
+                                    'joy': '😊', 'love': '💕', 'sadness': '😢', 
+                                    'anger': '😠', 'fear': '😨', 'surprise': '😲',
+                                    'calm': '😌', 'excitement': '🤩'
+                                }[mem.emotion] || '💭';
+                                
+                                const tagsHtml = mem.tags && mem.tags.length > 0 
+                                    ? `<div class="flex flex-wrap gap-1 mt-1">
+                                        ${mem.tags.map(tag => `<span class="inline-block bg-white/20 rounded-full px-2 py-0.5 text-xs">${tag}</span>`).join('')}
+                                       </div>`
+                                    : '';
+                                
+                                return `
+                                    <div class="bg-white/10 rounded p-3">
+                                        <div class="flex justify-between items-start mb-1">
+                                            <span class="text-purple-200 text-xs">${mem.year} ${emotionIcon}</span>
+                                            <span class="text-yellow-300 text-xs">⭐ ${mem.importance.toFixed(2)}</span>
+                                        </div>
+                                        <p class="text-white text-sm">${mem.preview}${mem.preview.length >= 100 ? '...' : ''}</p>
+                                        ${tagsHtml}
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            modalContent.innerHTML = html;
+            modal.classList.remove('hidden');
+        }
+
+        // Close anniversary modal
+        function closeAnniversaryModal() {
+            document.getElementById('anniversaryModal').classList.add('hidden');
         }
 
         // Initialize on page load
