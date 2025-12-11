@@ -233,6 +233,7 @@ async def get_context() -> str:
                 result += f"   {moments}\n"
         
         # Anniversaries
+        upcoming_anniversaries = []  # Track upcoming anniversaries for later hint
         if context.get('anniversaries'):
             anniversaries = context['anniversaries']
             result += f"\n🎂 Anniversaries:\n"
@@ -252,6 +253,7 @@ async def get_context() -> str:
                     indicator = ""
                     if date == today_str:
                         indicator = " 🎉 TODAY!"
+                        upcoming_anniversaries.append((name, 0))
                     elif date:
                         # Calculate days until (simple month-day comparison)
                         try:
@@ -260,7 +262,10 @@ async def get_context() -> str:
                             if anniv_date < today:
                                 anniv_date = datetime(today.year + 1, month, day)
                             days_until = (anniv_date - today).days
-                            if 0 < days_until <= 7:
+                            if 0 < days_until <= 3:
+                                indicator = f" 🔔 in {days_until} days"
+                                upcoming_anniversaries.append((name, days_until))
+                            elif 0 < days_until <= 7:
                                 indicator = f" 📅 in {days_until} days"
                         except:
                             pass
@@ -398,6 +403,15 @@ async def get_context() -> str:
         result += f"\n🤝 Promises & Goals:\n"
         result += f"   memory(operation='promise')で約束を確認\n"
         result += f"   memory(operation='goal')で目標を確認\n"
+        
+        # Anniversary proximity hint
+        if upcoming_anniversaries:
+            result += f"\n🎉 Upcoming Anniversaries:\n"
+            for name, days in upcoming_anniversaries:
+                if days == 0:
+                    result += f"   🎊 今日は{name}！\n"
+                else:
+                    result += f"   🔔 {name}まであと{days}日\n"
         
         result += "\n" + "=" * 60 + "\n"
         result += "💡 Tip: Use read_memory(query) for semantic search\n"
