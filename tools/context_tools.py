@@ -393,6 +393,11 @@ async def get_context() -> str:
             result += f"   memory(operation='search', mode='task')でタスク一覧表示\n"
             result += f"   memory(operation='search', mode='plan')で予定・計画一覧表示\n"
         
+        # Phase 41: Promises & Goals hint
+        result += f"\n🤝 Promises & Goals:\n"
+        result += f"   memory(operation='promise')で約束を確認\n"
+        result += f"   memory(operation='goal')で目標を確認\n"
+        
         result += "\n" + "=" * 60 + "\n"
         result += "💡 Tip: Use read_memory(query) for semantic search\n"
         
