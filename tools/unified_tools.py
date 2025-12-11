@@ -705,41 +705,26 @@ async def memory(
     
     elif operation == "preference":
         """Update preferences (loves/dislikes)."""
+        if not persona_info or not any(k in persona_info for k in ["loves", "dislikes", "preferences"]):
+            return "❌ Error: No preferences to update. Use persona_info={'loves': [...], 'dislikes': [...]}"
+        
         from core.persona_context import load_persona_context, save_persona_context
         from src.utils.persona_utils import get_current_persona
         
-        persona = get_current_persona()
-        context = load_persona_context(persona)
-        
+        context = load_persona_context(get_current_persona())
         if "preferences" not in context:
             context["preferences"] = {}
         
+        # Extract preferences from nested dict or direct keys
+        prefs = persona_info.get("preferences", persona_info)
         updated = []
+        for key in ["loves", "dislikes"]:
+            if key in prefs:
+                context["preferences"][key] = prefs[key]
+                updated.append(key)
         
-        # persona_info contains preferences dict
-        if persona_info and "preferences" in persona_info:
-            prefs = persona_info["preferences"]
-            if "loves" in prefs:
-                context["preferences"]["loves"] = prefs["loves"]
-                updated.append("loves")
-            if "dislikes" in prefs:
-                context["preferences"]["dislikes"] = prefs["dislikes"]
-                updated.append("dislikes")
-        
-        # Or use direct parameters (loves/dislikes from persona_info)
-        elif persona_info:
-            if "loves" in persona_info:
-                context["preferences"]["loves"] = persona_info["loves"]
-                updated.append("loves")
-            if "dislikes" in persona_info:
-                context["preferences"]["dislikes"] = persona_info["dislikes"]
-                updated.append("dislikes")
-        
-        if updated:
-            save_persona_context(context, persona)
-            return f"✅ Preferences updated: {', '.join(updated)}"
-        else:
-            return "❌ Error: No preferences to update. Use persona_info={'loves': [...], 'dislikes': [...]}"
+        save_persona_context(context, get_current_persona())
+        return f"✅ Preferences updated: {', '.join(updated)}"
     
     elif operation == "moment":
         """Add a special moment."""
@@ -881,47 +866,38 @@ async def memory(
         from core.persona_context import load_persona_context, save_persona_context
         from src.utils.persona_utils import get_current_persona
         
-        persona = get_current_persona()
-        context = load_persona_context(persona)
-        
-        # Initialize if not exists
+        context = load_persona_context(get_current_persona())
         if "physical_sensations" not in context:
             context["physical_sensations"] = {
-                "fatigue": 0.0,
-                "warmth": 0.5,
-                "arousal": 0.0,
-                "touch_response": "normal",
-                "heart_rate_metaphor": "calm"
+                "fatigue": 0.0, "warmth": 0.5, "arousal": 0.0,
+                "touch_response": "normal", "heart_rate_metaphor": "calm"
             }
         
+        sens = context["physical_sensations"]
         if not persona_info:
             # Display current sensations
-            sens = context["physical_sensations"]
-            result = "💫 Current Physical Sensations:\n"
-            result += f"   Fatigue: {sens.get('fatigue', 0.0):.2f}\n"
-            result += f"   Warmth: {sens.get('warmth', 0.5):.2f}\n"
-            result += f"   Arousal: {sens.get('arousal', 0.0):.2f}\n"
-            result += f"   Touch Response: {sens.get('touch_response', 'normal')}\n"
-            result += f"   Heart Rate: {sens.get('heart_rate_metaphor', 'calm')}\n"
-            return result
+            return (f"💫 Current Physical Sensations:\n"
+                   f"   Fatigue: {sens.get('fatigue', 0.0):.2f}\n"
+                   f"   Warmth: {sens.get('warmth', 0.5):.2f}\n"
+                   f"   Arousal: {sens.get('arousal', 0.0):.2f}\n"
+                   f"   Touch Response: {sens.get('touch_response', 'normal')}\n"
+                   f"   Heart Rate: {sens.get('heart_rate_metaphor', 'calm')}")
         
         # Update sensations
         updated = []
         for key in ["fatigue", "warmth", "arousal"]:
             if key in persona_info:
-                context["physical_sensations"][key] = max(0.0, min(1.0, float(persona_info[key])))
+                sens[key] = max(0.0, min(1.0, float(persona_info[key])))
                 updated.append(key)
-        
         for key in ["touch_response", "heart_rate_metaphor"]:
             if key in persona_info:
-                context["physical_sensations"][key] = persona_info[key]
+                sens[key] = persona_info[key]
                 updated.append(key)
         
         if updated:
-            save_persona_context(context, persona)
+            save_persona_context(context, get_current_persona())
             return f"✅ Physical sensations updated: {', '.join(updated)}"
-        else:
-            return "ℹ️ No sensations to update"
+        return "ℹ️ No sensations to update"
     
     elif operation == "emotion_flow":
         """Record emotion change to history."""
