@@ -67,6 +67,33 @@ def load_memory_from_db() -> Dict[str, Any]:
                     metadata TEXT
                 )
             ''')
+            
+            # Phase 40: State history tables for time-series visualization
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS physical_sensations_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TEXT NOT NULL,
+                    memory_key TEXT,
+                    fatigue REAL DEFAULT 0.0,
+                    warmth REAL DEFAULT 0.5,
+                    arousal REAL DEFAULT 0.0,
+                    touch_response TEXT DEFAULT 'normal',
+                    heart_rate_metaphor TEXT DEFAULT 'calm',
+                    FOREIGN KEY (memory_key) REFERENCES memories(key) ON DELETE SET NULL
+                )
+            ''')
+            
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS emotion_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TEXT NOT NULL,
+                    memory_key TEXT,
+                    emotion TEXT NOT NULL,
+                    emotion_intensity REAL DEFAULT 0.0,
+                    FOREIGN KEY (memory_key) REFERENCES memories(key) ON DELETE SET NULL
+                )
+            ''')
+            
             conn.commit()
             
             if not os.path.exists(db_path) or os.path.getsize(db_path) < 100:
@@ -454,3 +481,272 @@ def increment_access_count(key: str) -> bool:
     except Exception as e:
         print(f"Failed to increment access count for {key}: {e}")
         return False
+
+
+
+def save_physical_sensations_history(
+    memory_key: Optional[str],
+    fatigue: float = 0.0,
+    warmth: float = 0.5,
+    arousal: float = 0.0,
+    touch_response: str = "normal",
+    heart_rate_metaphor: str = "calm",
+    timestamp: Optional[str] = None,
+    persona: Optional[str] = None
+) -> bool:
+    """
+    Save physical sensations state to history table.
+    
+    Args:
+        memory_key: Associated memory key (optional)
+        fatigue: Fatigue level (0.0-1.0)
+        warmth: Warmth level (0.0-1.0)
+        arousal: Arousal level (0.0-1.0)
+        touch_response: Touch response state
+        heart_rate_metaphor: Heart rate metaphor
+        timestamp: Timestamp (defaults to now)
+        persona: Persona name (defaults to current)
+    
+    Returns:
+        bool: Success status
+    """
+    try:
+        if persona is None:
+            persona = get_current_persona()
+        db_path = get_db_path(persona)
+        
+        if timestamp is None:
+            timestamp = datetime.now().isoformat()
+        
+        # Validate ranges
+        fatigue = max(0.0, min(1.0, fatigue))
+        warmth = max(0.0, min(1.0, warmth))
+        arousal = max(0.0, min(1.0, arousal))
+        
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO physical_sensations_history 
+                (timestamp, memory_key, fatigue, warmth, arousal, touch_response, heart_rate_metaphor)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (timestamp, memory_key, fatigue, warmth, arousal, touch_response, heart_rate_metaphor))
+            conn.commit()
+        
+        return True
+    except Exception as e:
+        log_progress(f"❌ Failed to save physical sensations history: {e}")
+        return False
+
+
+def save_emotion_history(
+    memory_key: Optional[str],
+    emotion: str,
+    emotion_intensity: float = 0.0,
+    timestamp: Optional[str] = None,
+    persona: Optional[str] = None
+) -> bool:
+    """
+    Save emotion state to history table.
+    
+    Args:
+        memory_key: Associated memory key (optional)
+        emotion: Emotion label
+        emotion_intensity: Emotion intensity (0.0-1.0)
+        timestamp: Timestamp (defaults to now)
+        persona: Persona name (defaults to current)
+    
+    Returns:
+        bool: Success status
+    """
+    try:
+        if persona is None:
+            persona = get_current_persona()
+        db_path = get_db_path(persona)
+        
+        if timestamp is None:
+            timestamp = datetime.now().isoformat()
+        
+        # Validate range
+        emotion_intensity = max(0.0, min(1.0, emotion_intensity))
+        
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO emotion_history 
+                (timestamp, memory_key, emotion, emotion_intensity)
+                VALUES (?, ?, ?, ?)
+            ''', (timestamp, memory_key, emotion, emotion_intensity))
+            conn.commit()
+        
+        return True
+    except Exception as e:
+        log_progress(f"❌ Failed to save emotion history: {e}")
+        return False
+
+
+def get_latest_physical_sensations(persona: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """
+    Get latest physical sensations state from history table.
+    
+    Args:
+        persona: Persona name (defaults to current)
+    
+    Returns:
+        Dict with physical sensations data, or None if no history
+    """
+    try:
+        if persona is None:
+            persona = get_current_persona()
+        db_path = get_db_path(persona)
+        
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT timestamp, fatigue, warmth, arousal, touch_response, heart_rate_metaphor
+                FROM physical_sensations_history
+                ORDER BY timestamp DESC
+                LIMIT 1
+            ''')
+            row = cursor.fetchone()
+            
+            if row:
+                return {
+                    "timestamp": row[0],
+                    "fatigue": row[1],
+                    "warmth": row[2],
+                    "arousal": row[3],
+                    "touch_response": row[4],
+                    "heart_rate_metaphor": row[5]
+                }
+            return None
+    except Exception as e:
+        log_progress(f"❌ Failed to get latest physical sensations: {e}")
+        return None
+
+
+def get_latest_emotion(persona: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """
+    Get latest emotion state from history table.
+    
+    Args:
+        persona: Persona name (defaults to current)
+    
+    Returns:
+        Dict with emotion data, or None if no history
+    """
+    try:
+        if persona is None:
+            persona = get_current_persona()
+        db_path = get_db_path(persona)
+        
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT timestamp, emotion, emotion_intensity
+                FROM emotion_history
+                ORDER BY timestamp DESC
+                LIMIT 1
+            ''')
+            row = cursor.fetchone()
+            
+            if row:
+                return {
+                    "timestamp": row[0],
+                    "emotion": row[1],
+                    "emotion_intensity": row[2]
+                }
+            return None
+    except Exception as e:
+        log_progress(f"❌ Failed to get latest emotion: {e}")
+        return None
+
+
+def get_physical_sensations_timeline(
+    days: int = 7,
+    persona: Optional[str] = None
+) -> List[Dict[str, Any]]:
+    """
+    Get physical sensations timeline for visualization.
+    
+    Args:
+        days: Number of days to retrieve (default: 7)
+        persona: Persona name (defaults to current)
+    
+    Returns:
+        List of physical sensations records
+    """
+    try:
+        if persona is None:
+            persona = get_current_persona()
+        db_path = get_db_path(persona)
+        
+        from datetime import timedelta
+        cutoff = (datetime.now() - timedelta(days=days)).isoformat()
+        
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT timestamp, fatigue, warmth, arousal, touch_response, heart_rate_metaphor
+                FROM physical_sensations_history
+                WHERE timestamp >= ?
+                ORDER BY timestamp ASC
+            ''', (cutoff,))
+            
+            results = []
+            for row in cursor.fetchall():
+                results.append({
+                    "timestamp": row[0],
+                    "fatigue": row[1],
+                    "warmth": row[2],
+                    "arousal": row[3],
+                    "touch_response": row[4],
+                    "heart_rate_metaphor": row[5]
+                })
+            return results
+    except Exception as e:
+        log_progress(f"❌ Failed to get physical sensations timeline: {e}")
+        return []
+
+
+def get_emotion_timeline(
+    days: int = 7,
+    persona: Optional[str] = None
+) -> List[Dict[str, Any]]:
+    """
+    Get emotion timeline for visualization.
+    
+    Args:
+        days: Number of days to retrieve (default: 7)
+        persona: Persona name (defaults to current)
+    
+    Returns:
+        List of emotion records
+    """
+    try:
+        if persona is None:
+            persona = get_current_persona()
+        db_path = get_db_path(persona)
+        
+        from datetime import timedelta
+        cutoff = (datetime.now() - timedelta(days=days)).isoformat()
+        
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT timestamp, emotion, emotion_intensity
+                FROM emotion_history
+                WHERE timestamp >= ?
+                ORDER BY timestamp ASC
+            ''', (cutoff,))
+            
+            results = []
+            for row in cursor.fetchall():
+                results.append({
+                    "timestamp": row[0],
+                    "emotion": row[1],
+                    "emotion_intensity": row[2]
+                })
+            return results
+    except Exception as e:
+        log_progress(f"❌ Failed to get emotion timeline: {e}")
+        return []

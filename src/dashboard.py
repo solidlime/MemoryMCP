@@ -972,4 +972,66 @@ def register_http_routes(mcp, templates):
                 "error": str(e)
             }, status_code=500)
 
+    @mcp.custom_route("/api/physical-sensations-timeline/{persona}", methods=["GET"])
+    async def physical_sensations_timeline(request: Request, persona: str):
+        """
+        Get physical sensations timeline data for visualization.
+        Returns time-series data for fatigue, warmth, arousal, touch_response, and heart_rate_metaphor.
+        """
+        try:
+            # Validate persona exists
+            memory_dir = os.path.join(MEMORY_ROOT, persona)
+            if not os.path.exists(memory_dir):
+                return JSONResponse({
+                    "success": False,
+                    "error": f"Persona '{persona}' not found"
+                }, status_code=404)
+            
+            # Set persona context
+            original_persona = current_persona.get()
+            current_persona.set(persona)
+            
+            try:
+                # Import Phase 40 timeline function
+                from core.memory_db import get_physical_sensations_timeline
+                
+                # Get 7 days of physical sensations data
+                timeline_data = get_physical_sensations_timeline(days=7, persona=persona)
+                
+                if not timeline_data:
+                    # Return empty data with proper structure
+                    return JSONResponse({
+                        "success": True,
+                        "timeline": [],
+                        "metrics": ["fatigue", "warmth", "arousal", "touch_response", "heart_rate_metaphor"]
+                    })
+                
+                # Format timeline data for Chart.js
+                formatted_timeline = []
+                for entry in timeline_data:
+                    formatted_timeline.append({
+                        "timestamp": entry["timestamp"],
+                        "fatigue": entry.get("fatigue"),
+                        "warmth": entry.get("warmth"),
+                        "arousal": entry.get("arousal"),
+                        "touch_response": entry.get("touch_response"),
+                        "heart_rate_metaphor": entry.get("heart_rate_metaphor"),
+                        "memory_key": entry.get("memory_key")
+                    })
+                
+                return JSONResponse({
+                    "success": True,
+                    "timeline": formatted_timeline,
+                    "metrics": ["fatigue", "warmth", "arousal", "touch_response", "heart_rate_metaphor"]
+                })
+                
+            finally:
+                current_persona.set(original_persona)
+                
+        except Exception as e:
+            return JSONResponse({
+                "success": False,
+                "error": str(e)
+            }, status_code=500)
+
 

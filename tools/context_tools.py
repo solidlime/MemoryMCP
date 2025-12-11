@@ -58,9 +58,21 @@ async def get_context() -> str:
         
         # Current States
         result += "\n🎨 Current States:\n"
-        result += f"   Emotion: {context.get('current_emotion', 'neutral')}\n"
-        if context.get('current_emotion_intensity') is not None:
-            result += f"   Emotion Intensity: {context.get('current_emotion_intensity'):.2f}\n"
+        
+        # Phase 40: Get emotion and physical sensations from history tables
+        from core.memory_db import get_latest_emotion, get_latest_physical_sensations
+        
+        latest_emotion = get_latest_emotion(persona)
+        if latest_emotion:
+            result += f"   Emotion: {latest_emotion['emotion']}\n"
+            if latest_emotion.get('emotion_intensity') is not None:
+                result += f"   Emotion Intensity: {latest_emotion['emotion_intensity']:.2f}\n"
+        else:
+            # Fallback to persona_context if no history
+            result += f"   Emotion: {context.get('current_emotion', 'neutral')}\n"
+            if context.get('current_emotion_intensity') is not None:
+                result += f"   Emotion Intensity: {context.get('current_emotion_intensity'):.2f}\n"
+        
         result += f"   Physical: {context.get('physical_state', 'normal')}\n"
         result += f"   Mental: {context.get('mental_state', 'calm')}\n"
         result += f"   Environment: {context.get('environment', 'unknown')}\n"
@@ -68,15 +80,35 @@ async def get_context() -> str:
         if context.get('current_action_tag'):
             result += f"   Current Action: {context.get('current_action_tag')}\n"
         
-        # Physical Sensations (新規追加)
-        if context.get('physical_sensations'):
+        # Physical Sensations from history table
+        latest_sensations = get_latest_physical_sensations(persona)
+        if latest_sensations:
+            result += "\n💫 Physical Sensations:\n"
+            result += f"   Fatigue: {latest_sensations['fatigue']:.2f} | Warmth: {latest_sensations['warmth']:.2f} | Arousal: {latest_sensations['arousal']:.2f}\n"
+            result += f"   Touch Response: {latest_sensations['touch_response']} | Heart Rate: {latest_sensations['heart_rate_metaphor']}\n"
+        elif context.get('physical_sensations'):
+            # Fallback to persona_context if no history
             sens = context['physical_sensations']
             result += "\n💫 Physical Sensations:\n"
             result += f"   Fatigue: {sens.get('fatigue', 0.0):.2f} | Warmth: {sens.get('warmth', 0.5):.2f} | Arousal: {sens.get('arousal', 0.0):.2f}\n"
             result += f"   Touch Response: {sens.get('touch_response', 'normal')} | Heart Rate: {sens.get('heart_rate_metaphor', 'calm')}\n"
         
-        # Recent Emotion Changes (新規追加)
-        if context.get('emotion_history'):
+        # Recent Emotion Changes from emotion_history table
+        from core.memory_db import get_emotion_timeline
+        emotion_timeline = get_emotion_timeline(days=7, persona=persona)
+        if emotion_timeline and len(emotion_timeline) > 0:
+            result += "\n📊 Recent Emotion Changes (last 5):\n"
+            for i, entry in enumerate(reversed(emotion_timeline[-5:]), 1):
+                emo = entry.get('emotion', 'neutral')
+                intensity = entry.get('emotion_intensity', 0.5)
+                timestamp = entry.get('timestamp', '')
+                if timestamp:
+                    time_diff = calc_time_diff(timestamp)
+                    result += f"   {i}. {emo} ({intensity:.2f}) - {time_diff['formatted_string']}前\n"
+                else:
+                    result += f"   {i}. {emo} ({intensity:.2f})\n"
+        elif context.get('emotion_history'):
+            # Fallback to persona_context if no history table
             history = context['emotion_history']
             if len(history) > 0:
                 result += "\n📊 Recent Emotion Changes (last 5):\n"

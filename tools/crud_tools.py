@@ -1176,6 +1176,34 @@ async def create_memory(
             emotion_intensity=emotion_intensity
         )
         
+        # Phase 40: Save state history for time-series visualization
+        from core.memory_db import save_physical_sensations_history, save_emotion_history
+        
+        # Load physical sensations from persona_context to save history
+        context = load_persona_context(persona)
+        physical_sensations = context.get("physical_sensations", {})
+        
+        save_physical_sensations_history(
+            memory_key=key,
+            fatigue=physical_sensations.get("fatigue", 0.0),
+            warmth=physical_sensations.get("warmth", 0.5),
+            arousal=physical_sensations.get("arousal", 0.0),
+            touch_response=physical_sensations.get("touch_response", "normal"),
+            heart_rate_metaphor=physical_sensations.get("heart_rate_metaphor", "calm"),
+            timestamp=new_entry["created_at"],
+            persona=persona
+        )
+        
+        # Save emotion history
+        if emotion_type:
+            save_emotion_history(
+                memory_key=key,
+                emotion=emotion_type,
+                emotion_intensity=emotion_intensity_value,
+                timestamp=new_entry["created_at"],
+                persona=persona
+            )
+        
         # Log operation
         log_operation("create", key=key, after=new_entry, 
                      metadata={
@@ -1412,6 +1440,37 @@ async def update_memory(
             action_tag=action_tag,
             emotion_intensity=emotion_intensity
         )
+        
+        # Phase 40: Save state history for time-series visualization
+        from core.memory_db import save_physical_sensations_history, save_emotion_history
+        from datetime import datetime
+        
+        # Load physical sensations from persona_context to save history
+        context = load_persona_context(persona)
+        physical_sensations = context.get("physical_sensations", {})
+        now = datetime.now().isoformat()
+        
+        save_physical_sensations_history(
+            memory_key=key,
+            fatigue=physical_sensations.get("fatigue", 0.0),
+            warmth=physical_sensations.get("warmth", 0.5),
+            arousal=physical_sensations.get("arousal", 0.0),
+            touch_response=physical_sensations.get("touch_response", "normal"),
+            heart_rate_metaphor=physical_sensations.get("heart_rate_metaphor", "calm"),
+            timestamp=now,
+            persona=persona
+        )
+        
+        # Save emotion history
+        if emotion_type:
+            emotion_intensity_value = emotion_intensity if emotion_intensity is not None else 0.5
+            save_emotion_history(
+                memory_key=key,
+                emotion=emotion_type,
+                emotion_intensity=emotion_intensity_value,
+                timestamp=now,
+                persona=persona
+            )
         
         # Log operation
         log_operation("update", key=key, before=existing_entry, after={"content": content},
