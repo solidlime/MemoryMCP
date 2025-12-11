@@ -182,7 +182,7 @@ async def search_memory(
                 result += f"{idx}. [{key}]\n"
                 result += f"   📅 {time_diff['formatted_string']}前\n"
                 result += f"   ⭐ 重要度: {importance:.2f}\n"
-                result += f"   📝 {content[:200]}{'...' if len(content) > 200 else ''}\n"
+                result += f"   📝 {content}\n"
                 
                 if tags_list:
                     result += f"   🏷️  Tags: {', '.join(tags_list)}\n"
@@ -438,7 +438,7 @@ async def search_memory(
                 
                 result += f"{idx}. [{key}]\n"
                 result += f"   📅 {time_diff['formatted_string']}前\n"
-                result += f"   📝 {content[:150]}{'...' if len(content) > 150 else ''}\n"
+                result += f"   📝 {content}\n"
                 
                 if entry_tags:
                     result += f"   🏷️  Tags: {', '.join(entry_tags)}\n"
