@@ -192,7 +192,6 @@ async def search_memory(
             result += f"💡 Persona: {persona}"
             return result
         
-        elif mode == "semantic":
         if mode == "semantic":
             # Delegate to RAG-based semantic search
             from tools.crud_tools import read_memory
