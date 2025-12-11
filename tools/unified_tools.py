@@ -66,6 +66,80 @@ def _is_ambiguous_query(q: str) -> bool:
     return False
 
 
+def _get_current_timestamp() -> str:
+    """Get current timestamp in ISO format."""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    from src.utils.config_utils import load_config
+    cfg = load_config()
+    return datetime.now(ZoneInfo(cfg.get("timezone", "Asia/Tokyo"))).isoformat()
+
+
+def _update_single_field(field_name: str, value, success_msg: str, clear_msg: str = None) -> str:
+    """Update or clear a single context field.
+    
+    Args:
+        field_name: Name of the context field
+        value: New value (None or "" to clear)
+        success_msg: Message when field is updated
+        clear_msg: Message when field is cleared
+    
+    Returns:
+        Status message
+    """
+    from core.persona_context import load_persona_context, save_persona_context
+    from src.utils.persona_utils import get_current_persona
+    
+    persona = get_current_persona()
+    context = load_persona_context(persona)
+    
+    if value is None or value == "":
+        # Clear field
+        if field_name in context:
+            del context[field_name]
+            save_persona_context(context, persona)
+            return clear_msg or f"✅ {field_name} cleared!"
+        else:
+            return f"ℹ️ No {field_name} to clear."
+    else:
+        # Update field
+        context[field_name] = value
+        save_persona_context(context, persona)
+        return success_msg
+
+
+def _append_to_list_field(field_name: str, item: dict, max_length: int = None, 
+                         success_msg: str = None) -> str:
+    """Append item to a list field in context.
+    
+    Args:
+        field_name: Name of the list field
+        item: Item to append
+        max_length: Maximum list length (trim if exceeded)
+        success_msg: Custom success message
+    
+    Returns:
+        Status message
+    """
+    from core.persona_context import load_persona_context, save_persona_context
+    from src.utils.persona_utils import get_current_persona
+    
+    persona = get_current_persona()
+    context = load_persona_context(persona)
+    
+    if field_name not in context:
+        context[field_name] = []
+    
+    context[field_name].append(item)
+    
+    # Trim if needed
+    if max_length and len(context[field_name]) > max_length:
+        context[field_name] = context[field_name][-max_length:]
+    
+    save_persona_context(context, persona)
+    return success_msg or f"✅ {field_name} updated"
+
+
 # ===== Unified Tool Functions =====
 
 async def _analyze_situation_context(persona: str, context: dict, now, db_path: str) -> str:
@@ -583,58 +657,27 @@ async def memory(
     # ===== Context Update Operations (Simplified) =====
     elif operation == "promise":
         """Update or clear active promise."""
-        from core.persona_context import load_persona_context, save_persona_context
-        from core.time_utils import get_current_time
-        from src.utils.persona_utils import get_current_persona
-        
-        persona = get_current_persona()
-        context = load_persona_context(persona)
-        
-        if content is None or content == "":
-            # Clear promise
-            if "active_promises" in context:
-                del context["active_promises"]
-                save_persona_context(context, persona)
-                return "✅ Promise completed and cleared!"
-            else:
-                return "ℹ️ No active promise to clear."
+        if content:
+            value = {"content": content, "created_at": _get_current_timestamp()}
+            return _update_single_field(
+                "active_promises", value,
+                f"✅ Promise updated: {content}",
+                "✅ Promise completed and cleared!"
+            )
         else:
-            # Set new promise
-            from datetime import datetime
-            from zoneinfo import ZoneInfo
-            from src.utils.config_utils import load_config
-            
-            cfg = load_config()
-            now = datetime.now(ZoneInfo(cfg.get("timezone", "Asia/Tokyo"))).isoformat()
-            
-            context["active_promises"] = {
-                "content": content,
-                "created_at": now
-            }
-            save_persona_context(context, persona)
-            return f"✅ Promise updated: {content}"
+            return _update_single_field(
+                "active_promises", None,
+                "",
+                "✅ Promise completed and cleared!"
+            )
     
     elif operation == "goal":
         """Update or clear current goal."""
-        from core.persona_context import load_persona_context, save_persona_context
-        from src.utils.persona_utils import get_current_persona
-        
-        persona = get_current_persona()
-        context = load_persona_context(persona)
-        
-        if content is None or content == "":
-            # Clear goal
-            if "current_goals" in context:
-                del context["current_goals"]
-                save_persona_context(context, persona)
-                return "✅ Goal achieved and cleared!"
-            else:
-                return "ℹ️ No active goal to clear."
-        else:
-            # Set new goal
-            context["current_goals"] = content
-            save_persona_context(context, persona)
-            return f"✅ Goal updated: {content}"
+        return _update_single_field(
+            "current_goals", content or None,
+            f"✅ Goal updated: {content}",
+            "✅ Goal achieved and cleared!"
+        )
     
     elif operation == "favorite":
         """Add item to favorites list."""
@@ -700,38 +743,18 @@ async def memory(
     
     elif operation == "moment":
         """Add a special moment."""
-        from core.persona_context import load_persona_context, save_persona_context
-        from datetime import datetime
-        from zoneinfo import ZoneInfo
-        from src.utils.config_utils import load_config
-        from src.utils.persona_utils import get_current_persona
-        
         if not content:
             return "❌ Error: 'content' is required for moment operation"
         
-        persona = get_current_persona()
-        context = load_persona_context(persona)
-        
-        if "special_moments" not in context:
-            context["special_moments"] = []
-        
-        cfg = load_config()
-        now = datetime.now(ZoneInfo(cfg.get("timezone", "Asia/Tokyo")))
-        
         moment = {
             "content": content,
-            "date": now.strftime("%Y-%m-%d"),
-            "emotion": emotion_type if emotion_type else "joy"
+            "date": _get_current_timestamp()[:10],  # YYYY-MM-DD
+            "emotion": emotion_type or "joy"
         }
-        
-        context["special_moments"].append(moment)
-        
-        # Keep only last 20 moments
-        if len(context["special_moments"]) > 20:
-            context["special_moments"] = context["special_moments"][-20:]
-        
-        save_persona_context(context, persona)
-        return f"✅ Special moment added: {content}"
+        return _append_to_list_field(
+            "special_moments", moment, max_length=20,
+            success_msg=f"✅ Special moment added: {content}"
+        )
     
     elif operation == "update_context":
         """Batch update multiple context fields."""
@@ -902,44 +925,35 @@ async def memory(
     
     elif operation == "emotion_flow":
         """Record emotion change to history."""
-        from core.persona_context import load_persona_context, save_persona_context
-        from src.utils.persona_utils import get_current_persona
-        from core import get_current_time
-        
-        persona = get_current_persona()
-        context = load_persona_context(persona)
-        
-        # Initialize if not exists
-        if "emotion_history" not in context:
-            context["emotion_history"] = []
-        
         if not emotion_type:
             # Display emotion history
-            if not context["emotion_history"]:
+            from core.persona_context import load_persona_context
+            from src.utils.persona_utils import get_current_persona
+            
+            persona = get_current_persona()
+            context = load_persona_context(persona)
+            
+            if not context.get("emotion_history"):
                 return "📊 No emotion history yet."
             
             result = "📊 Recent Emotion Changes (last 10):\n"
             for i, entry in enumerate(reversed(context["emotion_history"][-10:]), 1):
-                timestamp = entry.get("timestamp", "Unknown")
                 emo = entry.get("emotion_type", "neutral")
                 intensity = entry.get("intensity", 0.5)
+                timestamp = entry.get("timestamp", "Unknown")
                 result += f"{i}. {emo} ({intensity:.2f}) - {timestamp}\n"
             return result
         
-        # Add new emotion to history
-        current_time = get_current_time()
-        context["emotion_history"].append({
-            "timestamp": current_time.isoformat(),
+        # Add new emotion
+        entry = {
+            "timestamp": _get_current_timestamp(),
             "emotion_type": emotion_type,
             "intensity": emotion_intensity if emotion_intensity is not None else 0.5
-        })
-        
-        # Keep only last 50 entries
-        if len(context["emotion_history"]) > 50:
-            context["emotion_history"] = context["emotion_history"][-50:]
-        
-        save_persona_context(context, persona)
-        return f"✅ Emotion recorded: {emotion_type} ({emotion_intensity if emotion_intensity else 0.5:.2f})"
+        }
+        return _append_to_list_field(
+            "emotion_history", entry, max_length=50,
+            success_msg=f"✅ Emotion recorded: {emotion_type} ({entry['intensity']:.2f})"
+        )
     
     elif operation == "situation_context":
         """Analyze current situation and provide context (not directive)."""
