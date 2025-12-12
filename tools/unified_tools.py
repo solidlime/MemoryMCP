@@ -66,80 +66,6 @@ def _is_ambiguous_query(q: str) -> bool:
     return False
 
 
-def _get_current_timestamp() -> str:
-    """Get current timestamp in ISO format."""
-    from datetime import datetime
-    from zoneinfo import ZoneInfo
-    from src.utils.config_utils import load_config
-    cfg = load_config()
-    return datetime.now(ZoneInfo(cfg.get("timezone", "Asia/Tokyo"))).isoformat()
-
-
-def _update_single_field(field_name: str, value, success_msg: str, clear_msg: str = None) -> str:
-    """Update or clear a single context field.
-    
-    Args:
-        field_name: Name of the context field
-        value: New value (None or "" to clear)
-        success_msg: Message when field is updated
-        clear_msg: Message when field is cleared
-    
-    Returns:
-        Status message
-    """
-    from core.persona_context import load_persona_context, save_persona_context
-    from src.utils.persona_utils import get_current_persona
-    
-    persona = get_current_persona()
-    context = load_persona_context(persona)
-    
-    if value is None or value == "":
-        # Clear field
-        if field_name in context:
-            del context[field_name]
-            save_persona_context(context, persona)
-            return clear_msg or f"✅ {field_name} cleared!"
-        else:
-            return f"ℹ️ No {field_name} to clear."
-    else:
-        # Update field
-        context[field_name] = value
-        save_persona_context(context, persona)
-        return success_msg
-
-
-def _append_to_list_field(field_name: str, item: dict, max_length: int = None, 
-                         success_msg: str = None) -> str:
-    """Append item to a list field in context.
-    
-    Args:
-        field_name: Name of the list field
-        item: Item to append
-        max_length: Maximum list length (trim if exceeded)
-        success_msg: Custom success message
-    
-    Returns:
-        Status message
-    """
-    from core.persona_context import load_persona_context, save_persona_context
-    from src.utils.persona_utils import get_current_persona
-    
-    persona = get_current_persona()
-    context = load_persona_context(persona)
-    
-    if field_name not in context:
-        context[field_name] = []
-    
-    context[field_name].append(item)
-    
-    # Trim if needed
-    if max_length and len(context[field_name]) > max_length:
-        context[field_name] = context[field_name][-max_length:]
-    
-    save_persona_context(context, persona)
-    return success_msg or f"✅ {field_name} updated"
-
-
 # ===== Unified Tool Functions =====
 
 async def _analyze_situation_context(persona: str, context: dict, now, db_path: str) -> str:
@@ -420,7 +346,6 @@ async def memory(
         - "goal": Update/clear current goal
         - "favorite": Add to favorites
         - "preference": Update preferences (loves/dislikes)
-        - "moment": Add special moment
         - "anniversary": Manage anniversaries (add/remove/list)
         - "sensation": Update physical sensations
         - "emotion_flow": Record emotion change
@@ -446,8 +371,7 @@ async def memory(
         memory(operation="goal", content="新しいダンス")  # Update goal
         memory(operation="favorite", content="苺")  # Add favorite
         memory(operation="preference", persona_info={"loves": ["苺"], "dislikes": ["辛い"]})
-        memory(operation="moment", content="Beautiful sunset together", emotion_type="joy")
-        memory(operation="anniversary", content="結婚記念日", persona_info={"date": "10-28"})  # Add anniversary
+        memory(operation="anniversary", content="結婚記念日", persona_info={"date": "2025-11-10"})  # Add anniversary
         memory(operation="anniversary")  # List all
         memory(operation="anniversary", content="結婚記念日")  # Remove
         memory(operation="sensation", persona_info={"fatigue": 0.3, "warmth": 0.8, "arousal": 0.6})  # Update sensations
@@ -818,21 +742,6 @@ async def memory(
         save_persona_context(context, get_current_persona())
         return f"✅ Preferences updated: {', '.join(updated)}"
     
-    elif operation == "moment":
-        """Add a special moment."""
-        if not content:
-            return "❌ Error: 'content' is required for moment operation"
-        
-        moment = {
-            "content": content,
-            "date": _get_current_timestamp()[:10],  # YYYY-MM-DD
-            "emotion": emotion_type or "joy"
-        }
-        return _append_to_list_field(
-            "special_moments", moment, max_length=20,
-            success_msg=f"✅ Special moment added: {content}"
-        )
-    
     elif operation == "update_context":
         """Batch update multiple context fields."""
         from core.persona_context import load_persona_context, save_persona_context
@@ -896,6 +805,8 @@ async def memory(
         """Manage anniversaries (add, remove, list)."""
         from core.persona_context import load_persona_context, save_persona_context
         from src.utils.persona_utils import get_current_persona
+        from src.utils.logging_utils import log_progress
+        from datetime import datetime
         
         persona = get_current_persona()
         context = load_persona_context(persona)
@@ -904,24 +815,52 @@ async def memory(
         if "anniversaries" not in context:
             context["anniversaries"] = []
         
+        # Migrate old MM-DD format to YYYY-MM-DD (assume 2025 for existing data)
+        migrated = False
+        for ann in context["anniversaries"]:
+            date_str = ann.get("date", "")
+            if date_str and len(date_str) == 5 and date_str[2] == '-':  # MM-DD format
+                ann["date"] = f"2025-{date_str}"
+                migrated = True
+        if migrated:
+            save_persona_context(context, persona)
+            log_progress("✅ Migrated anniversary dates to YYYY-MM-DD format")
+        
         # List all anniversaries (no parameters)
         if not content and not persona_info:
             if not context["anniversaries"]:
                 return "📅 No anniversaries registered."
             
             result = "📅 Registered Anniversaries:\n"
+            current_year = datetime.now().year
             for i, ann in enumerate(context["anniversaries"], 1):
                 name = ann.get("name", "Unknown")
-                date = ann.get("date", "??-??")
+                date = ann.get("date", "????-??-??")
                 recurring = ann.get("recurring", True)
                 recur_text = " (毎年)" if recurring else " (一度きり)"
-                result += f"{i}. {name}: {date}{recur_text}\n"
+                
+                # Calculate years if possible
+                try:
+                    ann_date = datetime.strptime(date, "%Y-%m-%d")
+                    years = current_year - ann_date.year
+                    if years > 0:
+                        result += f"{i}. {name}: {date} ({years}年目){recur_text}\n"
+                    else:
+                        result += f"{i}. {name}: {date}{recur_text}\n"
+                except:
+                    result += f"{i}. {name}: {date}{recur_text}\n"
             return result
         
         # Add anniversary
         if content and persona_info and "date" in persona_info:
             date_str = persona_info["date"]
             recurring = persona_info.get("recurring", True)
+            
+            # Validate date format (YYYY-MM-DD)
+            try:
+                datetime.strptime(date_str, "%Y-%m-%d")
+            except ValueError:
+                return f"❌ Error: Invalid date format. Use YYYY-MM-DD (e.g., 2025-11-10)"
             
             # Check if already exists
             for ann in context["anniversaries"]:
@@ -935,7 +874,7 @@ async def memory(
             # Add new
             context["anniversaries"].append({
                 "name": content,
-                "date": date_str,  # MM-DD format
+                "date": date_str,  # YYYY-MM-DD format
                 "recurring": recurring
             })
             save_persona_context(context, persona)
@@ -951,7 +890,7 @@ async def memory(
                     return f"✅ Anniversary removed: {content}"
             return f"❌ Anniversary not found: {content}"
         
-        return "❌ Error: Provide content (name) and persona_info={'date': 'MM-DD'} to add, or just content to remove"
+        return "❌ Error: Provide content (name) and persona_info={'date': 'YYYY-MM-DD'} to add, or just content to remove"
     
     elif operation == "sensation":
         """Update physical sensations."""
@@ -1039,7 +978,7 @@ async def memory(
         return await _analyze_situation_context(persona, context, now, db_path)
     
     else:
-        return f"❌ Error: Unknown operation '{operation}'. Valid: create, read, update, delete, search, stats, check_routines, promise, goal, favorite, preference, moment, update_context, anniversary, sensation, emotion_flow, situation_context"
+        return f"❌ Error: Unknown operation '{operation}'. Valid: create, read, update, delete, search, stats, check_routines, promise, goal, favorite, preference, update_context, anniversary, sensation, emotion_flow, situation_context"
 
 
 async def item(

@@ -211,27 +211,6 @@ async def get_context() -> str:
             else:
                 result += f"   {prefs}\n"
         
-        # Special Moments (最近のもの、数件)
-        if context.get('special_moments'):
-            moments = context['special_moments']
-            result += f"\n✨ Special Moments:\n"
-            if isinstance(moments, list):
-                for i, moment in enumerate(moments[-5:], 1):  # 最新5件まで
-                    if isinstance(moment, dict):
-                        content = moment.get('content', '')
-                        date = moment.get('date', '')
-                        emotion = moment.get('emotion', '')
-                        result += f"   {i}. {content}"
-                        if date:
-                            result += f" ({date})"
-                        if emotion:
-                            result += f" 💭{emotion}"
-                        result += "\n"
-                    else:
-                        result += f"   {i}. {moment}\n"
-            else:
-                result += f"   {moments}\n"
-        
         # Anniversaries
         upcoming_anniversaries = []  # Track upcoming anniversaries for later hint
         if context.get('anniversaries'):
@@ -249,15 +228,29 @@ async def get_context() -> str:
                     date = anniv.get('date', '')
                     recurring = anniv.get('recurring', True)
                     
+                    # Parse date (YYYY-MM-DD format)
+                    try:
+                        anniv_dt = datetime.strptime(date, "%Y-%m-%d")
+                        date_display = f"{anniv_dt.month:02d}-{anniv_dt.day:02d}"
+                        years_passed = today.year - anniv_dt.year
+                    except:
+                        # Fallback for old MM-DD format
+                        date_display = date
+                        years_passed = 0
+                    
                     # Check if today or upcoming
                     indicator = ""
-                    if date == today_str:
+                    years_text = ""
+                    if date_display == today_str:
                         indicator = " 🎉 TODAY!"
+                        if years_passed > 0:
+                            years_text = f" ({years_passed}周年)"
                         upcoming_anniversaries.append((name, 0))
                     elif date:
                         # Calculate days until (simple month-day comparison)
                         try:
-                            month, day = map(int, date.split('-'))
+                            month, day = date_display.split('-')
+                            month, day = int(month), int(day)
                             anniv_date = datetime(today.year, month, day)
                             if anniv_date < today:
                                 anniv_date = datetime(today.year + 1, month, day)
@@ -271,7 +264,7 @@ async def get_context() -> str:
                             pass
                     
                     recurring_mark = "🔄" if recurring else ""
-                    result += f"   {i}. {name} ({date}) {recurring_mark}{indicator}\n"
+                    result += f"   {i}. {name} ({date_display}){years_text} {recurring_mark}{indicator}\n"
                 else:
                     result += f"   {i}. {anniv}\n"
         

@@ -198,7 +198,7 @@ def _update_persona_context(
             # Note: current_equipment is NOT saved to persona_context.json
             # It's always fetched from item.sqlite database
             elif key_name in ["favorite_items", "active_promises", 
-                               "current_goals", "preferences", "special_moments"]:
+                               "current_goals", "preferences"]:
                 # Special handling for active_promises: auto-add created_at
                 if key_name == "active_promises" and value:
                     if isinstance(value, str):
@@ -1367,7 +1367,7 @@ async def update_memory(
         context_tags: ["important_event", "technical_achievement", "emotional_moment", etc.]
         importance: 0.0-1.0 (0.7+ = high, 0.4-0.7 = medium, <0.4 = low)
         physical_state, mental_state, environment, relationship_status, action_tag: Optional context
-        user_info/persona_info: Dicts with name, nickname, preferred_address, favorite_items, active_promises, current_goals, preferences, special_moments
+        user_info/persona_info: Dicts with name, nickname, preferred_address, favorite_items, active_promises, current_goals, preferences
         Note: Use equip_item() tool for equipment changes, not persona_info
     
     Examples:

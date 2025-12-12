@@ -406,7 +406,6 @@ export MEMORY_MCP_SERVER_PORT=26262
 | `active_promises` | list | 進行中の約束 | `[{"content": "Meeting at 10am", "date": "2025-11-15"}]` |
 | `current_goals` | list | 現在の目標 | `["Learn Python", "Build project"]` |
 | `preferences` | dict | 好み | `{"loves": ["coding", "coffee"], "dislikes": ["bugs"]}` |
-| `special_moments` | list | 特別な瞬間 | `[{"content": "First commit", "date": "2025-10-28", "emotion": "joy"}]` |
 
 これらのフィールドは`get_context()`で自動的に表示されます。
 

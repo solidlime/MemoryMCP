@@ -179,35 +179,6 @@ def generate_associations(
         print(f"   Importance: {base_importance:.2f} → {adjusted_importance:.2f} (+{importance_adjustment:.2f})")
     
     return related_keys, adjusted_importance
-
-
-def update_related_keys(key: str, related_keys: List[str]) -> bool:
-    """
-    Update the related_keys field for an existing memory.
-    
-    Args:
-        key: Memory key to update
-        related_keys: List of related memory keys
-    
-    Returns:
-        True if successful, False otherwise
-    """
-    import sqlite3
-    from src.utils.persona_utils import get_db_path
-    
-    try:
-        db_path = get_db_path()
-        related_keys_json = json.dumps(related_keys, ensure_ascii=False)
-        
-        with sqlite3.connect(db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                'UPDATE memories SET related_keys = ? WHERE key = ?',
-                (related_keys_json, key)
-            )
-            conn.commit()
-        
-        return True
     
     except Exception as e:
         print(f"❌ Failed to update related_keys for {key}: {e}")
