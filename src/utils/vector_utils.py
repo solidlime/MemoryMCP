@@ -820,6 +820,77 @@ def rebuild_vector_store():
         import traceback
         traceback.print_exc()
 
+def _fetch_memory_metadata(key: str) -> dict:
+    """Fetch metadata for a memory from SQLite database."""
+    metadata = {
+        "created_at": None, "updated_at": None, "tags_json": None, "importance": None,
+        "emotion": None, "emotion_intensity": None, "physical_state": None,
+        "mental_state": None, "environment": None, "relationship_status": None,
+        "action_tag": None, "related_keys_json": None, "summary_ref": None,
+        "equipped_items_json": None
+    }
+    
+    try:
+        with sqlite3.connect(get_db_path()) as conn:
+            cur = conn.cursor()
+            cur.execute('''
+                SELECT created_at, updated_at, tags, importance, emotion, emotion_intensity, 
+                       physical_state, mental_state, environment, relationship_status, 
+                       action_tag, related_keys, summary_ref, equipped_items 
+                FROM memories WHERE key = ?
+            ''', (key,))
+            row = cur.fetchone()
+            if row:
+                metadata["created_at"], metadata["updated_at"], metadata["tags_json"], \
+                metadata["importance"], metadata["emotion"], metadata["emotion_intensity"], \
+                metadata["physical_state"], metadata["mental_state"], metadata["environment"], \
+                metadata["relationship_status"], metadata["action_tag"], metadata["related_keys_json"], \
+                metadata["summary_ref"], metadata["equipped_items_json"] = row
+    except Exception:
+        pass
+    
+    return metadata
+
+
+def _add_datetime_context(meta: dict, timestamp: str, prefix: str):
+    """Add searchable datetime context to metadata (weekday, month, year, display)."""
+    from core.time_utils import get_datetime_context
+    ctx = get_datetime_context(timestamp)
+    meta[f"{prefix}_weekday"] = ctx["weekday_en"]
+    meta[f"{prefix}_weekday_ja"] = ctx["weekday_ja"]
+    meta[f"{prefix}_month"] = ctx["month"]
+    meta[f"{prefix}_year"] = ctx["year"]
+    meta[f"{prefix}_display"] = ctx["display"]
+
+
+def _build_full_metadata(key: str, db_metadata: dict) -> dict:
+    """Build complete metadata dict with datetime context."""
+    meta = {"key": key}
+    
+    # Add all non-None metadata fields
+    field_mapping = {
+        "created_at": "created_at", "updated_at": "updated_at", "tags_json": "tags",
+        "importance": "importance", "emotion": "emotion", "emotion_intensity": "emotion_intensity",
+        "physical_state": "physical_state", "mental_state": "mental_state",
+        "environment": "environment", "relationship_status": "relationship_status",
+        "action_tag": "action_tag", "related_keys_json": "related_keys",
+        "summary_ref": "summary_ref", "equipped_items_json": "equipped_items"
+    }
+    
+    for src_key, dest_key in field_mapping.items():
+        value = db_metadata.get(src_key)
+        if value is not None:
+            meta[dest_key] = value
+            
+            # Add datetime context for timestamp fields
+            if src_key == "created_at":
+                _add_datetime_context(meta, value, "created")
+            elif src_key == "updated_at":
+                _add_datetime_context(meta, value, "updated")
+    
+    return meta
+
+
 def add_memory_to_vector_store(key: str, content: str):
     """
     Add a new memory to Qdrant incrementally.
@@ -831,90 +902,25 @@ def add_memory_to_vector_store(key: str, content: str):
         return
     
     try:
-        # Fetch metadata for richer payload
-        created_at = None
-        updated_at = None
-        tags_json = None
-        importance = None
-        emotion = None
-        emotion_intensity = None
-        physical_state = None
-        mental_state = None
-        environment = None
-        relationship_status = None
-        action_tag = None
-        related_keys_json = None
-        summary_ref = None
-        equipped_items_json = None
-        try:
-            with sqlite3.connect(get_db_path()) as conn:
-                cur = conn.cursor()
-                cur.execute('SELECT created_at, updated_at, tags, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys, summary_ref, equipped_items FROM memories WHERE key = ?', (key,))
-                row = cur.fetchone()
-                if row:
-                    created_at, updated_at, tags_json, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys_json, summary_ref, equipped_items_json = row
-        except Exception:
-            pass
-
-        meta = {"key": key}
-        if created_at:
-            meta["created_at"] = created_at
-            # Add searchable datetime context
-            from core.time_utils import get_datetime_context
-            created_ctx = get_datetime_context(created_at)
-            meta["created_weekday"] = created_ctx["weekday_en"]
-            meta["created_weekday_ja"] = created_ctx["weekday_ja"]
-            meta["created_month"] = created_ctx["month"]
-            meta["created_year"] = created_ctx["year"]
-            meta["created_display"] = created_ctx["display"]
-        if updated_at:
-            meta["updated_at"] = updated_at
-            # Add searchable datetime context
-            from core.time_utils import get_datetime_context
-            updated_ctx = get_datetime_context(updated_at)
-            meta["updated_weekday"] = updated_ctx["weekday_en"]
-            meta["updated_weekday_ja"] = updated_ctx["weekday_ja"]
-            meta["updated_month"] = updated_ctx["month"]
-            meta["updated_year"] = updated_ctx["year"]
-            meta["updated_display"] = updated_ctx["display"]
-        if tags_json:
-            meta["tags"] = tags_json
-        if importance is not None:
-            meta["importance"] = importance
-        if emotion:
-            meta["emotion"] = emotion
-        if emotion_intensity is not None:
-            meta["emotion_intensity"] = emotion_intensity
-        if physical_state:
-            meta["physical_state"] = physical_state
-        if mental_state:
-            meta["mental_state"] = mental_state
-        if environment:
-            meta["environment"] = environment
-        if relationship_status:
-            meta["relationship_status"] = relationship_status
-        if action_tag:
-            meta["action_tag"] = action_tag
-        if related_keys_json:
-            meta["related_keys"] = related_keys_json
-        if summary_ref:
-            meta["summary_ref"] = summary_ref
-        if equipped_items_json:
-            meta["equipped_items"] = equipped_items_json
-
+        # Fetch metadata from database
+        db_metadata = _fetch_memory_metadata(key)
+        
+        # Build complete metadata with datetime context
+        meta = _build_full_metadata(key, db_metadata)
+        
         # Build enriched content for vector embedding
         enriched_content = _build_enriched_content(
             content=content,
-            tags_json=tags_json,
-            emotion=emotion,
-            emotion_intensity=emotion_intensity,
-            action_tag=action_tag,
-            environment=environment,
-            physical_state=physical_state,
-            mental_state=mental_state,
-            relationship_status=relationship_status
+            tags_json=db_metadata["tags_json"],
+            emotion=db_metadata["emotion"],
+            emotion_intensity=db_metadata["emotion_intensity"],
+            action_tag=db_metadata["action_tag"],
+            environment=db_metadata["environment"],
+            physical_state=db_metadata["physical_state"],
+            mental_state=db_metadata["mental_state"],
+            relationship_status=db_metadata["relationship_status"]
         )
-
+        
         # Create document with enriched content and metadata
         doc = Document(page_content=enriched_content, metadata=meta)
         
