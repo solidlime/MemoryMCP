@@ -179,7 +179,3 @@ def generate_associations(
         print(f"   Importance: {base_importance:.2f} → {adjusted_importance:.2f} (+{importance_adjustment:.2f})")
     
     return related_keys, adjusted_importance
-    
-    except Exception as e:
-        print(f"❌ Failed to update related_keys for {key}: {e}")
-        return False
