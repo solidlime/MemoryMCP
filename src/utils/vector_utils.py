@@ -660,19 +660,19 @@ def _check_schema_compatibility(cursor) -> tuple[bool, bool]:
 def _fetch_memories_from_db(cursor, has_importance: bool, has_equipped_items: bool) -> list:
     """Fetch all memories with appropriate schema version."""
     if has_importance and has_equipped_items:
-        cursor.execute('''
+        cursor.execute("""
             SELECT key, content, created_at, updated_at, tags, importance, emotion, 
                    emotion_intensity, physical_state, mental_state, environment, 
                    relationship_status, action_tag, related_keys, summary_ref, equipped_items 
             FROM memories
-        ''')
+        """)
     elif has_importance:
-        cursor.execute('''
+        cursor.execute("""
             SELECT key, content, created_at, updated_at, tags, importance, emotion, 
                    emotion_intensity, physical_state, mental_state, environment, 
                    relationship_status, action_tag, related_keys, summary_ref 
             FROM memories
-        ''')
+        """)
     else:
         # Old schema without importance
         cursor.execute('SELECT key, content, created_at, updated_at, tags FROM memories')
@@ -833,12 +833,12 @@ def _fetch_memory_metadata(key: str) -> dict:
     try:
         with sqlite3.connect(get_db_path()) as conn:
             cur = conn.cursor()
-            cur.execute('''
+            cur.execute("""
                 SELECT created_at, updated_at, tags, importance, emotion, emotion_intensity, 
                        physical_state, mental_state, environment, relationship_status, 
                        action_tag, related_keys, summary_ref, equipped_items 
                 FROM memories WHERE key = ?
-            ''', (key,))
+            """, (key,))
             row = cur.fetchone()
             if row:
                 metadata["created_at"], metadata["updated_at"], metadata["tags_json"], \

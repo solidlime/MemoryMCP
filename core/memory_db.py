@@ -31,7 +31,7 @@ def load_memory_from_db() -> Dict[str, Any]:
             cursor = conn.cursor()
             
             # Create tables if they don't exist
-            cursor.execute('''
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS memories (
                     key TEXT PRIMARY KEY,
                     content TEXT NOT NULL,
@@ -52,8 +52,8 @@ def load_memory_from_db() -> Dict[str, Any]:
                     access_count INTEGER DEFAULT 0,
                     last_accessed TEXT DEFAULT NULL
                 )
-            ''')
-            cursor.execute('''
+            """)
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS operations (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     timestamp TEXT NOT NULL,
@@ -66,10 +66,10 @@ def load_memory_from_db() -> Dict[str, Any]:
                     error TEXT,
                     metadata TEXT
                 )
-            ''')
+            """)
             
             # Phase 40: State history tables for time-series visualization
-            cursor.execute('''
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS physical_sensations_history (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     timestamp TEXT NOT NULL,
@@ -81,9 +81,9 @@ def load_memory_from_db() -> Dict[str, Any]:
                     heart_rate_metaphor TEXT DEFAULT 'calm',
                     FOREIGN KEY (memory_key) REFERENCES memories(key) ON DELETE SET NULL
                 )
-            ''')
+            """)
             
-            cursor.execute('''
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS emotion_history (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     timestamp TEXT NOT NULL,
@@ -92,10 +92,10 @@ def load_memory_from_db() -> Dict[str, Any]:
                     emotion_intensity REAL DEFAULT 0.0,
                     FOREIGN KEY (memory_key) REFERENCES memories(key) ON DELETE SET NULL
                 )
-            ''')
+            """)
             
             # Phase 41: Promises and Goals tables for multiple task management
-            cursor.execute('''
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS promises (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     content TEXT NOT NULL,
@@ -106,9 +106,9 @@ def load_memory_from_db() -> Dict[str, Any]:
                     priority INTEGER DEFAULT 0,
                     notes TEXT
                 )
-            ''')
+            """)
             
-            cursor.execute('''
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS goals (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     content TEXT NOT NULL,
@@ -119,7 +119,7 @@ def load_memory_from_db() -> Dict[str, Any]:
                     progress INTEGER DEFAULT 0,
                     notes TEXT
                 )
-            ''')
+            """)
             
             conn.commit()
             
@@ -353,10 +353,10 @@ def save_memory_to_db(
             columns = [col[1] for col in cursor.fetchall()]
             log_progress(f"💾 DB columns: {columns}")
             
-            cursor.execute('''
+            cursor.execute("""
                 INSERT OR REPLACE INTO memories (key, content, created_at, updated_at, tags, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys, summary_ref, equipped_items)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (key, content, created_at, updated_at, tags_json, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys_json, summary_ref, equipped_items_json))
+            """, (key, content, created_at, updated_at, tags_json, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys_json, summary_ref, equipped_items_json))
             conn.commit()
             log_progress(f"✅ Successfully saved {key} to DB")
         
@@ -461,11 +461,11 @@ def log_operation(
         
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute('''
+            cursor.execute("""
                 INSERT INTO operations 
                 (timestamp, operation_id, operation, key, before, after, success, error, metadata)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (
+            """, (
                 log_entry["timestamp"],
                 log_entry["operation_id"],
                 log_entry["operation"],
@@ -497,12 +497,12 @@ def increment_access_count(key: str) -> bool:
             cursor = conn.cursor()
             from datetime import datetime
             now = datetime.now().isoformat()
-            cursor.execute('''
+            cursor.execute("""
                 UPDATE memories
                 SET access_count = access_count + 1,
                     last_accessed = ?
                 WHERE key = ?
-            ''', (now, key))
+            """, (now, key))
             conn.commit()
             return cursor.rowcount > 0
     except Exception as e:
@@ -552,11 +552,11 @@ def save_physical_sensations_history(
         
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute('''
+            cursor.execute("""
                 INSERT INTO physical_sensations_history 
                 (timestamp, memory_key, fatigue, warmth, arousal, touch_response, heart_rate_metaphor)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (timestamp, memory_key, fatigue, warmth, arousal, touch_response, heart_rate_metaphor))
+            """, (timestamp, memory_key, fatigue, warmth, arousal, touch_response, heart_rate_metaphor))
             conn.commit()
         
         return True
@@ -598,11 +598,11 @@ def save_emotion_history(
         
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute('''
+            cursor.execute("""
                 INSERT INTO emotion_history 
                 (timestamp, memory_key, emotion, emotion_intensity)
                 VALUES (?, ?, ?, ?)
-            ''', (timestamp, memory_key, emotion, emotion_intensity))
+            """, (timestamp, memory_key, emotion, emotion_intensity))
             conn.commit()
         
         return True
@@ -628,12 +628,12 @@ def get_latest_physical_sensations(persona: Optional[str] = None) -> Optional[Di
         
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute('''
+            cursor.execute("""
                 SELECT timestamp, fatigue, warmth, arousal, touch_response, heart_rate_metaphor
                 FROM physical_sensations_history
                 ORDER BY timestamp DESC
                 LIMIT 1
-            ''')
+            """)
             row = cursor.fetchone()
             
             if row:
@@ -668,12 +668,12 @@ def get_latest_emotion(persona: Optional[str] = None) -> Optional[Dict[str, Any]
         
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute('''
+            cursor.execute("""
                 SELECT timestamp, emotion, emotion_intensity
                 FROM emotion_history
                 ORDER BY timestamp DESC
                 LIMIT 1
-            ''')
+            """)
             row = cursor.fetchone()
             
             if row:
@@ -712,12 +712,12 @@ def get_physical_sensations_timeline(
         
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute('''
+            cursor.execute("""
                 SELECT timestamp, fatigue, warmth, arousal, touch_response, heart_rate_metaphor
                 FROM physical_sensations_history
                 WHERE timestamp >= ?
                 ORDER BY timestamp ASC
-            ''', (cutoff,))
+            """, (cutoff,))
             
             results = []
             for row in cursor.fetchall():
@@ -759,12 +759,12 @@ def get_emotion_timeline(
         
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute('''
+            cursor.execute("""
                 SELECT timestamp, emotion, emotion_intensity
                 FROM emotion_history
                 WHERE timestamp >= ?
                 ORDER BY timestamp ASC
-            ''', (cutoff,))
+            """, (cutoff,))
             
             results = []
             for row in cursor.fetchall():
@@ -802,7 +802,7 @@ def get_anniversaries(persona: Optional[str] = None) -> List[Dict[str, Any]]:
         
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute('''
+            cursor.execute("""
                 SELECT 
                     key,
                     content,
@@ -816,7 +816,7 @@ def get_anniversaries(persona: Optional[str] = None) -> List[Dict[str, Any]]:
                    OR tags LIKE '%milestone%' 
                    OR tags LIKE '%first_time%'
                 ORDER BY created_at DESC
-            ''')
+            """)
             
             # Group by month-day
             anniversaries = {}
@@ -892,10 +892,10 @@ def save_promise(content: str, due_date: str = None, priority: int = 0, notes: s
         
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute('''
+            cursor.execute("""
                 INSERT INTO promises (content, created_at, due_date, priority, notes)
                 VALUES (?, ?, ?, ?, ?)
-            ''', (content, now, due_date, priority, notes))
+            """, (content, now, due_date, priority, notes))
             conn.commit()
             return cursor.lastrowid
     except Exception as e:
@@ -923,18 +923,18 @@ def get_promises(status: str = 'active', persona: str = None) -> list:
             cursor = conn.cursor()
             
             if status == 'all':
-                cursor.execute('''
+                cursor.execute("""
                     SELECT id, content, created_at, due_date, status, completed_at, priority, notes
                     FROM promises
                     ORDER BY priority DESC, created_at DESC
-                ''')
+                """)
             else:
-                cursor.execute('''
+                cursor.execute("""
                     SELECT id, content, created_at, due_date, status, completed_at, priority, notes
                     FROM promises
                     WHERE status = ?
                     ORDER BY priority DESC, created_at DESC
-                ''', (status,))
+                """, (status,))
             
             promises = []
             for row in cursor.fetchall():
@@ -981,17 +981,17 @@ def update_promise_status(promise_id: int, status: str, persona: str = None) -> 
             cursor = conn.cursor()
             
             if status == 'completed':
-                cursor.execute('''
+                cursor.execute("""
                     UPDATE promises
                     SET status = ?, completed_at = ?
                     WHERE id = ?
-                ''', (status, now, promise_id))
+                """, (status, now, promise_id))
             else:
-                cursor.execute('''
+                cursor.execute("""
                     UPDATE promises
                     SET status = ?, completed_at = NULL
                     WHERE id = ?
-                ''', (status, promise_id))
+                """, (status, promise_id))
             
             conn.commit()
             return cursor.rowcount > 0
@@ -1027,10 +1027,10 @@ def save_goal(content: str, target_date: str = None, progress: int = 0, notes: s
         
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute('''
+            cursor.execute("""
                 INSERT INTO goals (content, created_at, target_date, progress, notes)
                 VALUES (?, ?, ?, ?, ?)
-            ''', (content, now, target_date, progress, notes))
+            """, (content, now, target_date, progress, notes))
             conn.commit()
             return cursor.lastrowid
     except Exception as e:
@@ -1058,18 +1058,18 @@ def get_goals(status: str = 'active', persona: str = None) -> list:
             cursor = conn.cursor()
             
             if status == 'all':
-                cursor.execute('''
+                cursor.execute("""
                     SELECT id, content, created_at, target_date, status, completed_at, progress, notes
                     FROM goals
                     ORDER BY progress ASC, created_at DESC
-                ''')
+                """)
             else:
-                cursor.execute('''
+                cursor.execute("""
                     SELECT id, content, created_at, target_date, status, completed_at, progress, notes
                     FROM goals
                     WHERE status = ?
                     ORDER BY progress ASC, created_at DESC
-                ''', (status,))
+                """, (status,))
             
             goals = []
             for row in cursor.fetchall():
@@ -1119,17 +1119,17 @@ def update_goal_progress(goal_id: int, progress: int, persona: str = None) -> bo
             cursor = conn.cursor()
             
             if status == 'completed':
-                cursor.execute('''
+                cursor.execute("""
                     UPDATE goals
                     SET progress = ?, status = ?, completed_at = ?
                     WHERE id = ?
-                ''', (progress, status, now, goal_id))
+                """, (progress, status, now, goal_id))
             else:
-                cursor.execute('''
+                cursor.execute("""
                     UPDATE goals
                     SET progress = ?, status = ?
                     WHERE id = ?
-                ''', (progress, status, goal_id))
+                """, (progress, status, goal_id))
             
             conn.commit()
             return cursor.rowcount > 0
@@ -1156,12 +1156,12 @@ def get_emotion_history_from_db(limit: int = 10, persona: str = None) -> list:
         
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute('''
+            cursor.execute("""
                 SELECT timestamp, emotion, emotion_intensity, memory_key
                 FROM emotion_history
                 ORDER BY timestamp DESC
                 LIMIT ?
-            ''', (limit,))
+            """, (limit,))
             
             history = []
             for row in cursor.fetchall():

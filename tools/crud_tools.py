@@ -801,11 +801,11 @@ def _format_single_memory(
     content = doc.page_content
     
     # Get metadata from DB
-    cursor.execute('''
+    cursor.execute("""
         SELECT created_at, importance, emotion, emotion_intensity,
                action_tag, environment, related_keys
         FROM memories WHERE key = ?
-    ''', (key,))
+    """, (key,))
     row = cursor.fetchone()
     
     if row:
@@ -950,12 +950,12 @@ def _load_existing_memory(key: str, db_path: str) -> Optional[Dict]:
     """
     with sqlite3.connect(db_path) as conn:
         cursor = conn.cursor()
-        cursor.execute('''
+        cursor.execute("""
             SELECT content, created_at, tags, importance, emotion, emotion_intensity, 
                    physical_state, mental_state, environment, relationship_status, 
                    action_tag, related_keys, summary_ref 
             FROM memories WHERE key = ?
-        ''', (key,))
+        """, (key,))
         row = cursor.fetchone()
     
     if not row:

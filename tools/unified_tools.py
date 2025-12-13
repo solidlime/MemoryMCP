@@ -134,7 +134,7 @@ async def _analyze_situation_context(persona: str, context: dict, now, db_path: 
             cursor = conn.cursor()
             
             # Search for similar situations (same time period, emotion, environment)
-            cursor.execute('''
+            cursor.execute("""
                 SELECT key, content, created_at, action_tag, tags
                 FROM memories
                 WHERE created_at > datetime('now', '-30 days')
@@ -142,7 +142,7 @@ async def _analyze_situation_context(persona: str, context: dict, now, db_path: 
                 AND environment = ?
                 ORDER BY created_at DESC
                 LIMIT 5
-            ''', (current_emotion, environment))
+            """, (current_emotion, environment))
             
             similar_memories = cursor.fetchall()
             
@@ -191,7 +191,7 @@ def _check_routines_impl(persona: str, current_hour: int, current_weekday: str,
             cursor = conn.cursor()
             
             # Standard routine check (current time ±1 hour)
-            cursor.execute('''
+            cursor.execute("""
                 SELECT 
                     action_tag,
                     tags,
@@ -207,7 +207,7 @@ def _check_routines_impl(persona: str, current_hour: int, current_weekday: str,
                 HAVING frequency >= 5
                 ORDER BY frequency DESC, avg_importance DESC
                 LIMIT ?
-            ''', (current_hour - 1, current_hour + 1, top_k))
+            """, (current_hour - 1, current_hour + 1, top_k))
             
             patterns = cursor.fetchall()
             
