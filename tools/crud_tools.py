@@ -615,10 +615,7 @@ def _rerank_documents(query: str, docs: list, top_k: int):
         return docs[:top_k]
 
 
-def _format_memory_results(
-    query: str,
-    docs: list,
-    persona: str,
+def _build_filter_description(
     min_importance: Optional[float],
     emotion: Optional[str],
     action_tag: Optional[str],
@@ -626,44 +623,16 @@ def _format_memory_results(
     physical_state: Optional[str],
     mental_state: Optional[str],
     relationship_status: Optional[str],
-    equipped_item: Optional[str],
-    importance_weight: float,
-    recency_weight: float
-) -> str:
-    """
-    Format search results into a readable string.
+    equipped_item: Optional[str]
+) -> list[str]:
+    """Build filter description for display.
     
     Args:
-        query: Search query
-        docs: List of documents to format
-        persona: Current persona name
-        min_importance: Importance filter (for display)
-        emotion: Emotion filter (for display)
-        action_tag: Action tag filter (for display)
-        environment: Environment filter (for display)
-        physical_state: Physical state filter (for display)
-        mental_state: Mental state filter (for display)
-        relationship_status: Relationship status filter (for display)
-        equipped_item: Equipped item filter (for display)
-        importance_weight: Importance weight (for display)
-        recency_weight: Recency weight (for display)
-    
-    Returns:
-        Formatted result string
-    """
-    if not docs:
-        filter_desc = []
-        if min_importance is not None:
-            filter_desc.append(f"importance≥{min_importance}")
-        if emotion:
-            filter_desc.append(f"emotion={emotion}")
-        if action_tag:
-            filter_desc.append(f"action={action_tag}")
-        filter_str = f" (filters: {', '.join(filter_desc)})" if filter_desc else ""
+        Filter parameters
         
-        return f"📭 No relevant memories found for '{query}'{filter_str}."
-    
-    # Build filter description for display
+    Returns:
+        List of filter description strings
+    """
     filter_desc = []
     if min_importance is not None:
         filter_desc.append(f"importance≥{min_importance}")
@@ -681,85 +650,177 @@ def _format_memory_results(
         filter_desc.append(f"relation={relationship_status}")
     if equipped_item:
         filter_desc.append(f"equipped='{equipped_item}'")
+    return filter_desc
+
+
+def _build_scoring_description(importance_weight: float, recency_weight: float) -> list[str]:
+    """Build scoring description for display.
     
-    filter_str = f" [filters: {', '.join(filter_desc)}]" if filter_desc else ""
-    
-    # Build scoring description
+    Args:
+        importance_weight: Weight for importance scoring
+        recency_weight: Weight for recency scoring
+        
+    Returns:
+        List of scoring description strings
+    """
     scoring_desc = []
     if importance_weight > 0:
         scoring_desc.append(f"importance×{importance_weight}")
     if recency_weight > 0:
         scoring_desc.append(f"recency×{recency_weight}")
+    return scoring_desc
+
+
+def _format_memory_metadata(row: tuple) -> str:
+    """Format memory metadata for display.
     
+    Args:
+        row: Database row (importance, emotion, emotion_intensity, action, env, related_keys_json)
+        
+    Returns:
+        Formatted metadata string
+    """
+    importance_val, emotion_db, emotion_intensity_val, action, env, related_keys_json = row
+    
+    meta_parts = []
+    if importance_val is not None and importance_val != 0.5:
+        meta_parts.append(f"⭐{importance_val:.1f}")
+    if emotion_db and emotion_db != "neutral":
+        emotion_str = f"💭{emotion_db}"
+        if emotion_intensity_val and emotion_intensity_val >= 0.5:
+            emotion_str += f"({emotion_intensity_val:.1f})"
+        meta_parts.append(emotion_str)
+    if action:
+        meta_parts.append(f"🎭{action}")
+    if env and env != "unknown":
+        meta_parts.append(f"📍{env}")
+    
+    # Show related memories count
+    if related_keys_json:
+        try:
+            related_keys_list = json.loads(related_keys_json)
+            if related_keys_list:
+                meta_parts.append(f"🔗{len(related_keys_list)}")
+        except (json.JSONDecodeError, TypeError):
+            pass
+    
+    return f" [{', '.join(meta_parts)}]" if meta_parts else ""
+
+
+def _format_single_memory(
+    doc,
+    index: int,
+    cursor,
+    importance_weight: float,
+    recency_weight: float
+) -> str:
+    """Format a single memory for display.
+    
+    Args:
+        doc: Document to format
+        index: Display index (1-based)
+        cursor: Database cursor
+        importance_weight: Importance scoring weight
+        recency_weight: Recency scoring weight
+        
+    Returns:
+        Formatted memory string
+    """
+    from core.time_utils import calculate_time_diff
+    
+    key = doc.metadata.get("key", "unknown")
+    content = doc.page_content
+    
+    # Get metadata from DB
+    cursor.execute('''
+        SELECT created_at, importance, emotion, emotion_intensity,
+               action_tag, environment, related_keys
+        FROM memories WHERE key = ?
+    ''', (key,))
+    row = cursor.fetchone()
+    
+    if row:
+        created_at = row[0]
+        created_date = created_at[:10]
+        created_time = created_at[11:19]
+        time_diff = calculate_time_diff(created_at)
+        time_ago = f" ({time_diff['formatted_string']}前)"
+        
+        # Format metadata (pass only needed fields)
+        meta_str = _format_memory_metadata(row[1:])
+        
+        # Show final score if custom scoring was used
+        score_str = ""
+        if importance_weight > 0 or recency_weight > 0:
+            final_score = doc.metadata.get("final_score")
+            if final_score is not None:
+                score_str = f" (score: {final_score:.3f})"
+    else:
+        created_date = "unknown"
+        created_time = "unknown"
+        time_ago = ""
+        meta_str = ""
+        score_str = ""
+    
+    result = f"{index}. [{key}]{meta_str}{score_str}\n"
+    result += f"   {content[:200]}{'...' if len(content) > 200 else ''}\n"
+    result += f"   {created_date} {created_time}{time_ago} ({len(content)} chars)\n\n"
+    
+    return result
+
+
+def _format_memory_results(
+    query: str,
+    docs: list,
+    persona: str,
+    min_importance: Optional[float],
+    emotion: Optional[str],
+    action_tag: Optional[str],
+    environment: Optional[str],
+    physical_state: Optional[str],
+    mental_state: Optional[str],
+    relationship_status: Optional[str],
+    equipped_item: Optional[str],
+    importance_weight: float,
+    recency_weight: float
+) -> str:
+    """Format search results into a readable string (refactored).
+    
+    Args:
+        query: Search query
+        docs: List of documents to format
+        persona: Current persona name
+        Filter parameters (for display)
+        importance_weight: Importance weight (for display)
+        recency_weight: Recency weight (for display)
+    
+    Returns:
+        Formatted result string
+    """
+    # Build filter and scoring descriptions
+    filter_desc = _build_filter_description(
+        min_importance, emotion, action_tag, environment,
+        physical_state, mental_state, relationship_status, equipped_item
+    )
+    
+    # Handle empty results
+    if not docs:
+        filter_str = f" (filters: {', '.join(filter_desc)})" if filter_desc else ""
+        return f"📭 No relevant memories found for '{query}'{filter_str}."
+    
+    # Build display strings
+    filter_str = f" [filters: {', '.join(filter_desc)}]" if filter_desc else ""
+    scoring_desc = _build_scoring_description(importance_weight, recency_weight)
     scoring_str = f" [scoring: vector + {' + '.join(scoring_desc)}]" if scoring_desc else ""
     
     result = f"🔍 Found {len(docs)} relevant memories for '{query}'{filter_str}{scoring_str}:\n\n"
     
+    # Format each memory
     db_path = get_db_path()
     with sqlite3.connect(db_path) as conn:
         cursor = conn.cursor()
         for i, doc in enumerate(docs, 1):
-            key = doc.metadata.get("key", "unknown")
-            content = doc.page_content
-            
-            # Get metadata from DB (including Phase 28 fields)
-            cursor.execute('''
-                SELECT created_at, importance, emotion, emotion_intensity,
-                       physical_state, mental_state, environment, 
-                       relationship_status, action_tag, related_keys
-                FROM memories WHERE key = ?
-            ''', (key,))
-            row = cursor.fetchone()
-            
-            if row:
-                created_at, importance_val, emotion_db, emotion_intensity_val, physical, mental, env, relation, action, related_keys_json = row
-                created_date = created_at[:10]
-                created_time = created_at[11:19]
-                time_diff = calculate_time_diff(created_at)
-                time_ago = f" ({time_diff['formatted_string']}前)"
-                
-                # Build metadata display
-                meta_parts = []
-                if importance_val is not None and importance_val != 0.5:
-                    meta_parts.append(f"⭐{importance_val:.1f}")
-                if emotion_db and emotion_db != "neutral":
-                    emotion_str = f"💭{emotion_db}"
-                    # Add intensity if significant
-                    if emotion_intensity_val and emotion_intensity_val >= 0.5:
-                        emotion_str += f"({emotion_intensity_val:.1f})"
-                    meta_parts.append(emotion_str)
-                if action:
-                    meta_parts.append(f"🎭{action}")
-                if env and env != "unknown":
-                    meta_parts.append(f"📍{env}")
-                
-                # Phase 28.2: Show related memories count
-                if related_keys_json:
-                    try:
-                        related_keys_list = json.loads(related_keys_json)
-                        if related_keys_list:
-                            meta_parts.append(f"🔗{len(related_keys_list)}")
-                    except (json.JSONDecodeError, TypeError):
-                        pass
-                
-                meta_str = f" [{', '.join(meta_parts)}]" if meta_parts else ""
-                
-                # Show final score if custom scoring was used
-                score_str = ""
-                if importance_weight > 0 or recency_weight > 0:
-                    final_score = doc.metadata.get("final_score")
-                    if final_score is not None:
-                        score_str = f" (score: {final_score:.3f})"
-            else:
-                created_date = "unknown"
-                created_time = "unknown"
-                time_ago = ""
-                meta_str = ""
-                score_str = ""
-            
-            result += f"{i}. [{key}]{meta_str}{score_str}\n"
-            result += f"   {content[:200]}{'...' if len(content) > 200 else ''}\n"
-            result += f"   {created_date} {created_time}{time_ago} ({len(content)} chars)\n\n"
+            result += _format_single_memory(doc, i, cursor, importance_weight, recency_weight)
     
     return result.rstrip()
 
