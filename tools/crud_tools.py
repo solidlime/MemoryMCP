@@ -118,6 +118,101 @@ async def _search_memory_by_query(query: str, top_k: int = 3) -> List[Dict]:
 # Phase 32: Persona Context Update Helper
 # ============================================================
 
+def _update_basic_fields(
+    context: dict,
+    emotion_type: Optional[str],
+    physical_state: Optional[str],
+    mental_state: Optional[str],
+    environment: Optional[str],
+    relationship_status: Optional[str],
+    action_tag: Optional[str],
+    emotion_intensity: Optional[float]
+) -> bool:
+    """Update basic context fields. Returns True if any field was updated."""
+    updated = False
+    
+    field_mapping = {
+        "current_emotion": emotion_type,
+        "physical_state": physical_state,
+        "mental_state": mental_state,
+        "environment": environment,
+        "relationship_status": relationship_status,
+        "current_action_tag": action_tag,
+        "current_emotion_intensity": emotion_intensity
+    }
+    
+    for field_name, value in field_mapping.items():
+        if value is not None:
+            context[field_name] = value
+            updated = True
+    
+    return updated
+
+
+def _update_user_info(context: dict, user_info: Optional[Dict]) -> bool:
+    """Update user_info section. Returns True if updated."""
+    if not user_info:
+        return False
+    
+    if "user_info" not in context:
+        context["user_info"] = {}
+    
+    for key_name, value in user_info.items():
+        if key_name in ["name", "nickname", "preferred_address"]:
+            context["user_info"][key_name] = value
+    
+    return True
+
+
+def _process_active_promises(value: any, config: dict) -> dict:
+    """Convert active_promises to dict format with created_at."""
+    now = datetime.now(ZoneInfo(config.get("timezone", "Asia/Tokyo"))).isoformat()
+    
+    if isinstance(value, str):
+        # Convert old string format to new dict format
+        return {"content": value, "created_at": now}
+    elif isinstance(value, dict):
+        # New dict format - ensure created_at exists
+        if "created_at" not in value and "content" in value:
+            value["created_at"] = now
+        return value
+    
+    return value
+
+
+def _update_persona_info(context: dict, persona_info: Optional[Dict]) -> bool:
+    """Update persona_info section. Returns True if updated."""
+    if not persona_info:
+        return False
+    
+    if "persona_info" not in context:
+        context["persona_info"] = {}
+    
+    config = load_config()
+    
+    for key_name, value in persona_info.items():
+        # Basic info fields (flat values)
+        if key_name in ["name", "nickname", "preferred_address"]:
+            context["persona_info"][key_name] = value
+        
+        # Extended fields (can be nested dicts/lists)
+        # Note: current_equipment is NOT saved to persona_context.json
+        # It's always fetched from item.sqlite database
+        elif key_name in ["favorite_items", "active_promises", 
+                           "current_goals", "preferences"]:
+            # Special handling for active_promises: auto-add created_at
+            if key_name == "active_promises" and value:
+                context[key_name] = _process_active_promises(value, config)
+            else:
+                context[key_name] = value
+        
+        elif key_name == "current_equipment":
+            # Skip: current_equipment is managed by equipment_db, not persona_context
+            pass
+    
+    return True
+
+
 def _update_persona_context(
     persona: str,
     emotion_type: Optional[str] = None,
@@ -149,98 +244,23 @@ def _update_persona_context(
     Returns:
         bool: True if context was updated, False otherwise
     """
-    context_updated = False
     context = load_persona_context(persona)
     
     # Always update last_conversation_time
     config = load_config()
     context["last_conversation_time"] = datetime.now(ZoneInfo(config.get("timezone", "Asia/Tokyo"))).isoformat()
-    context_updated = True
     
-    # Update emotion if provided
-    if emotion_type:
-        context["current_emotion"] = emotion_type
-        context_updated = True
+    # Update all fields
+    basic_updated = _update_basic_fields(
+        context, emotion_type, physical_state, mental_state, environment,
+        relationship_status, action_tag, emotion_intensity
+    )
+    user_updated = _update_user_info(context, user_info)
+    persona_updated = _update_persona_info(context, persona_info)
     
-    # Update physical state if provided
-    if physical_state:
-        context["physical_state"] = physical_state
-        context_updated = True
+    context_updated = True  # Always true because last_conversation_time is always updated
     
-    # Update mental state if provided
-    if mental_state:
-        context["mental_state"] = mental_state
-        context_updated = True
-    
-    # Update environment if provided
-    if environment:
-        context["environment"] = environment
-        context_updated = True
-    
-    # Update user info if provided
-    if user_info:
-        if "user_info" not in context:
-            context["user_info"] = {}
-        for key_name, value in user_info.items():
-            if key_name in ["name", "nickname", "preferred_address"]:
-                context["user_info"][key_name] = value
-        context_updated = True
-    
-    # Update persona info if provided
-    if persona_info:
-        if "persona_info" not in context:
-            context["persona_info"] = {}
-        for key_name, value in persona_info.items():
-            # Basic info fields (flat values)
-            if key_name in ["name", "nickname", "preferred_address"]:
-                context["persona_info"][key_name] = value
-            # Extended fields (can be nested dicts/lists)
-            # Note: current_equipment is NOT saved to persona_context.json
-            # It's always fetched from item.sqlite database
-            elif key_name in ["favorite_items", "active_promises", 
-                               "current_goals", "preferences"]:
-                # Special handling for active_promises: auto-add created_at
-                if key_name == "active_promises" and value:
-                    if isinstance(value, str):
-                        # Convert old string format to new dict format
-                        config = load_config()
-                        now = datetime.now(ZoneInfo(config.get("timezone", "Asia/Tokyo"))).isoformat()
-                        context[key_name] = {
-                            "content": value,
-                            "created_at": now
-                        }
-                    elif isinstance(value, dict):
-                        # New dict format - ensure created_at exists
-                        if "created_at" not in value and "content" in value:
-                            config = load_config()
-                            now = datetime.now(ZoneInfo(config.get("timezone", "Asia/Tokyo"))).isoformat()
-                            value["created_at"] = now
-                        context[key_name] = value
-                else:
-                    context[key_name] = value
-            elif key_name == "current_equipment":
-                # Skip: current_equipment is managed by equipment_db, not persona_context
-                pass
-        context_updated = True
-    
-    # Update relationship status if provided
-    if relationship_status:
-        context["relationship_status"] = relationship_status
-        context_updated = True
-    
-    # Update action tag if provided
-    if action_tag:
-        context["current_action_tag"] = action_tag
-        context_updated = True
-    
-    # Update emotion intensity if provided
-    if emotion_intensity is not None:
-        context["current_emotion_intensity"] = emotion_intensity
-        context_updated = True
-    
-    if context_updated:
-        save_persona_context(context, persona)
-    
+    save_persona_context(context, persona)
     return context_updated
 
 
