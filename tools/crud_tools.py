@@ -459,6 +459,121 @@ def _initialize_vector_adapter(persona: str):
     return adapter
 
 
+def _parse_date_range(date_range: Optional[str]) -> tuple[Optional[datetime], Optional[datetime]]:
+    """Parse date range string into start and end datetime objects."""
+    if not date_range:
+        return None, None
+    
+    try:
+        from core.time_utils import parse_date_query
+        return parse_date_query(date_range)
+    except Exception as e:
+        print(f"⚠️  Failed to parse date_range '{date_range}': {e}")
+        return None, None
+
+
+def _is_within_date_range(
+    created_at_str: Optional[str],
+    start_date: Optional[datetime],
+    end_date: Optional[datetime]
+) -> bool:
+    """Check if created_at timestamp is within the given date range."""
+    if not start_date or not end_date or not created_at_str:
+        return True
+    
+    try:
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        from src.utils.config_utils import load_config
+        
+        created_dt = datetime.fromisoformat(created_at_str)
+        if created_dt.tzinfo is None:
+            cfg = load_config()
+            tz = ZoneInfo(cfg.get("timezone", "Asia/Tokyo"))
+            created_dt = created_dt.replace(tzinfo=tz)
+        
+        return start_date <= created_dt <= end_date
+    except (ValueError, TypeError):
+        return True  # Skip date filtering for invalid dates
+
+
+def _matches_metadata_filters(
+    meta: dict,
+    min_importance: Optional[float],
+    emotion: Optional[str],
+    action_tag: Optional[str],
+    environment: Optional[str],
+    physical_state: Optional[str],
+    mental_state: Optional[str],
+    relationship_status: Optional[str],
+    equipped_item: Optional[str]
+) -> bool:
+    """Check if document metadata matches all provided filters."""
+    # Importance filter
+    if min_importance is not None and meta.get("importance", 0) < min_importance:
+        return False
+    
+    # Fuzzy matching for text filters (case-insensitive partial match)
+    filters = [
+        (emotion, meta.get("emotion", "")),
+        (action_tag, meta.get("action_tag", "")),
+        (environment, meta.get("environment", "")),
+        (physical_state, meta.get("physical_state", "")),
+        (mental_state, meta.get("mental_state", "")),
+        (relationship_status, meta.get("relationship_status", ""))
+    ]
+    
+    for filter_value, meta_value in filters:
+        if filter_value and filter_value.lower() not in str(meta_value).lower():
+            return False
+    
+    # Filter by equipped item (partial match in any slot)
+    if equipped_item:
+        equipped_items = meta.get("equipped_items", {})
+        if not equipped_items or not any(
+            equipped_item.lower() in str(item_name).lower() 
+            for item_name in equipped_items.values() if item_name
+        ):
+            return False
+    
+    return True
+
+
+def _calculate_final_score(
+    base_score: float,
+    meta: dict,
+    importance_weight: float,
+    recency_weight: float
+) -> float:
+    """Calculate final score including importance, recency, and access frequency."""
+    final_score = base_score
+    
+    # Importance score
+    if importance_weight > 0 and meta.get("importance") is not None:
+        final_score += importance_weight * meta["importance"]
+    
+    # Recency score
+    if recency_weight > 0 and meta.get("created_at"):
+        try:
+            created_at = datetime.fromisoformat(meta["created_at"])
+            now = datetime.now()
+            days_ago = (now - created_at).days
+            # Recency score: 1.0 for today, decreases over time (0 after 1 year)
+            recency_score = max(0, 1 - days_ago / 365.0)
+            final_score += recency_weight * recency_score
+        except (ValueError, TypeError):
+            pass  # Date parsing failed, skip recency scoring
+    
+    # Access frequency score (Phase 38)
+    access_count = meta.get("access_count", 0)
+    if access_count > 0:
+        import math
+        access_score = math.log1p(access_count) / 10.0  # log1p prevents log(0)
+        final_score += 0.1 * access_score  # 10% weight for access frequency
+    
+    return final_score
+
+
 def _filter_and_score_documents(
     docs_with_scores: list,
     min_importance: Optional[float],
@@ -493,91 +608,25 @@ def _filter_and_score_documents(
     Returns:
         List of (document, final_score) tuples, sorted by score descending
     """
+    start_date, end_date = _parse_date_range(date_range)
     filtered_docs = []
-    
-    # Parse date range if provided
-    start_date = None
-    end_date = None
-    if date_range:
-        try:
-            from core.time_utils import parse_date_query
-            start_date, end_date = parse_date_query(date_range)
-        except Exception as e:
-            print(f"⚠️  Failed to parse date_range '{date_range}': {e}")
     
     for doc, score in docs_with_scores:
         meta = doc.metadata
         
-        # Apply filters
-        if min_importance is not None and meta.get("importance", 0) < min_importance:
+        # Apply date range filter
+        if not _is_within_date_range(meta.get("created_at"), start_date, end_date):
             continue
         
-        # Date range filter
-        if start_date and end_date:
-            created_at_str = meta.get("created_at")
-            if created_at_str:
-                try:
-                    from datetime import datetime
-                    from zoneinfo import ZoneInfo
-                    from src.utils.config_utils import load_config
-                    
-                    created_dt = datetime.fromisoformat(created_at_str)
-                    if created_dt.tzinfo is None:
-                        cfg = load_config()
-                        tz = ZoneInfo(cfg.get("timezone", "Asia/Tokyo"))
-                        created_dt = created_dt.replace(tzinfo=tz)
-                    
-                    if not (start_date <= created_dt <= end_date):
-                        continue
-                except (ValueError, TypeError):
-                    pass  # Skip date filtering for this document
-        
-        # Fuzzy matching for text filters (case-insensitive partial match)
-        if emotion and emotion.lower() not in str(meta.get("emotion", "")).lower():
-            continue
-        if action_tag and action_tag.lower() not in str(meta.get("action_tag", "")).lower():
-            continue
-        if environment and environment.lower() not in str(meta.get("environment", "")).lower():
-            continue
-        if physical_state and physical_state.lower() not in str(meta.get("physical_state", "")).lower():
-            continue
-        if mental_state and mental_state.lower() not in str(meta.get("mental_state", "")).lower():
-            continue
-        if relationship_status and relationship_status.lower() not in str(meta.get("relationship_status", "")).lower():
+        # Apply metadata filters
+        if not _matches_metadata_filters(
+            meta, min_importance, emotion, action_tag, environment,
+            physical_state, mental_state, relationship_status, equipped_item
+        ):
             continue
         
-        # Filter by equipped item (partial match in any slot)
-        if equipped_item:
-            equipped_items = meta.get("equipped_items", {})
-            if not equipped_items or not any(equipped_item.lower() in str(item_name).lower() for item_name in equipped_items.values() if item_name):
-                continue
-        
-        # Calculate custom score
-        final_score = score  # Base vector similarity score
-        
-        if importance_weight > 0 and meta.get("importance") is not None:
-            final_score += importance_weight * meta["importance"]
-        
-        if recency_weight > 0 and meta.get("created_at"):
-            try:
-                created_at = datetime.fromisoformat(meta["created_at"])
-                now = datetime.now()
-                days_ago = (now - created_at).days
-                # Recency score: 1.0 for today, decreases over time (0 after 1 year)
-                recency_score = max(0, 1 - days_ago / 365.0)
-                final_score += recency_weight * recency_score
-            except (ValueError, TypeError) as e:
-                # Date parsing failed, skip recency scoring
-                pass
-        
-        # Phase 38: Access frequency scoring
-        access_count = meta.get("access_count", 0)
-        if access_count > 0:
-            # Normalize access count (log scale to prevent over-weighting)
-            import math
-            access_score = math.log1p(access_count) / 10.0  # log1p prevents log(0)
-            final_score += 0.1 * access_score  # 10% weight for access frequency
-        
+        # Calculate final score
+        final_score = _calculate_final_score(score, meta, importance_weight, recency_weight)
         doc.metadata["final_score"] = final_score
         filtered_docs.append((doc, final_score))
     
