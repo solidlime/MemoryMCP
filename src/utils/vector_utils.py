@@ -648,6 +648,134 @@ def initialize_rag_sync():
     # Phase 19: Initialize sentiment analysis with unified device
     initialize_sentiment_analysis(device=rag_device)
 
+def _check_schema_compatibility(cursor) -> tuple[bool, bool]:
+    """Check SQLite schema for backward compatibility."""
+    cursor.execute("PRAGMA table_info(memories)")
+    columns = [col[1] for col in cursor.fetchall()]
+    has_importance = 'importance' in columns
+    has_equipped_items = 'equipped_items' in columns
+    return has_importance, has_equipped_items
+
+
+def _fetch_memories_from_db(cursor, has_importance: bool, has_equipped_items: bool) -> list:
+    """Fetch all memories with appropriate schema version."""
+    if has_importance and has_equipped_items:
+        cursor.execute('''
+            SELECT key, content, created_at, updated_at, tags, importance, emotion, 
+                   emotion_intensity, physical_state, mental_state, environment, 
+                   relationship_status, action_tag, related_keys, summary_ref, equipped_items 
+            FROM memories
+        ''')
+    elif has_importance:
+        cursor.execute('''
+            SELECT key, content, created_at, updated_at, tags, importance, emotion, 
+                   emotion_intensity, physical_state, mental_state, environment, 
+                   relationship_status, action_tag, related_keys, summary_ref 
+            FROM memories
+        ''')
+    else:
+        # Old schema without importance
+        cursor.execute('SELECT key, content, created_at, updated_at, tags FROM memories')
+    
+    return cursor.fetchall()
+
+
+def _parse_memory_row(row: tuple, has_importance: bool, has_equipped_items: bool) -> dict:
+    """Parse memory row based on schema version and return normalized dict."""
+    if has_importance and has_equipped_items:
+        key, content, created_at, updated_at, tags_json, importance, emotion, emotion_intensity, \
+        physical_state, mental_state, environment, relationship_status, action_tag, \
+        related_keys_json, summary_ref, equipped_items_json = row
+    elif has_importance:
+        key, content, created_at, updated_at, tags_json, importance, emotion, emotion_intensity, \
+        physical_state, mental_state, environment, relationship_status, action_tag, \
+        related_keys_json, summary_ref = row
+        equipped_items_json = None
+    else:
+        # Old schema defaults
+        key, content, created_at, updated_at, tags_json = row
+        importance = 0.5
+        emotion = 'neutral'
+        emotion_intensity = 0.5
+        physical_state = mental_state = environment = relationship_status = action_tag = None
+        related_keys_json = summary_ref = equipped_items_json = None
+    
+    return {
+        "key": key, "content": content, "created_at": created_at, "updated_at": updated_at,
+        "tags_json": tags_json, "importance": importance, "emotion": emotion,
+        "emotion_intensity": emotion_intensity, "physical_state": physical_state,
+        "mental_state": mental_state, "environment": environment,
+        "relationship_status": relationship_status, "action_tag": action_tag,
+        "related_keys_json": related_keys_json, "summary_ref": summary_ref,
+        "equipped_items_json": equipped_items_json
+    }
+
+
+def _build_metadata_dict(data: dict) -> dict:
+    """Build metadata dict from parsed memory data."""
+    meta = {"key": data["key"]}
+    
+    # Add optional fields if present
+    optional_fields = [
+        "created_at", "updated_at", "tags_json", "importance", "emotion",
+        "emotion_intensity", "physical_state", "mental_state", "environment",
+        "relationship_status", "action_tag", "related_keys_json", "summary_ref",
+        "equipped_items_json"
+    ]
+    
+    for field in optional_fields:
+        value = data.get(field)
+        if value is not None:
+            # Map tags_json to tags, related_keys_json to related_keys, etc.
+            field_name = field.replace("_json", "")
+            meta[field_name] = value
+    
+    return meta
+
+
+def _build_documents_from_rows(rows: list, has_importance: bool, has_equipped_items: bool) -> tuple[list, list]:
+    """Convert database rows to Document objects with enriched content."""
+    docs = []
+    ids = []
+    
+    for row in rows:
+        data = _parse_memory_row(row, has_importance, has_equipped_items)
+        meta = _build_metadata_dict(data)
+        
+        # Build enriched content for vector embedding
+        enriched_content = _build_enriched_content(
+            content=data["content"],
+            tags_json=data["tags_json"],
+            emotion=data["emotion"],
+            emotion_intensity=data["emotion_intensity"],
+            action_tag=data["action_tag"],
+            environment=data["environment"],
+            physical_state=data["physical_state"],
+            mental_state=data["mental_state"],
+            relationship_status=data["relationship_status"]
+        )
+        
+        docs.append(Document(page_content=enriched_content, metadata=meta))
+        ids.append(data["key"])
+    
+    return docs, ids
+
+
+def _batch_upload_to_qdrant(adapter, docs: list, ids: list, collection: str):
+    """Upload documents to Qdrant in batches with progress bar."""
+    batch_size = 50
+    total_docs = len(docs)
+    
+    with tqdm(total=total_docs, desc="⚙️  Building Qdrant Index", unit="memory", ncols=80) as pbar:
+        for i in range(0, total_docs, batch_size):
+            batch_docs = docs[i:i+batch_size]
+            batch_ids = ids[i:i+batch_size]
+            adapter.add_documents(batch_docs, ids=batch_ids)
+            pbar.update(len(batch_docs))
+    
+    print(f"✅ Rebuilt vector store: {total_docs} memories indexed in collection '{collection}'")
+
+
 def rebuild_vector_store():
     """
     Rebuild Qdrant collection from SQLite database.
@@ -655,6 +783,7 @@ def rebuild_vector_store():
     """
     if not embeddings:
         return
+    
     try:
         # Get persona-specific configuration
         cfg = load_config()
@@ -674,101 +803,17 @@ def rebuild_vector_store():
         # Fetch all memories from SQLite
         with sqlite3.connect(get_db_path()) as conn:
             cur = conn.cursor()
-            # Check if importance column exists (backward compatibility)
-            cur.execute("PRAGMA table_info(memories)")
-            columns = [col[1] for col in cur.fetchall()]
-            has_importance = 'importance' in columns
-            has_equipped_items = 'equipped_items' in columns
-            
-            if has_importance and has_equipped_items:
-                cur.execute('SELECT key, content, created_at, updated_at, tags, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys, summary_ref, equipped_items FROM memories')
-            elif has_importance:
-                cur.execute('SELECT key, content, created_at, updated_at, tags, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys, summary_ref FROM memories')
-            else:
-                # Old schema without importance
-                cur.execute('SELECT key, content, created_at, updated_at, tags FROM memories')
-            rows = cur.fetchall()
+            has_importance, has_equipped_items = _check_schema_compatibility(cur)
+            rows = _fetch_memories_from_db(cur, has_importance, has_equipped_items)
         
         if not rows:
             return
         
-        # Rebuild Qdrant collection with full metadata
-        docs = []
-        ids = []
-        for row in rows:
-            # Handle different schema versions
-            if has_importance and has_equipped_items:
-                key, content, created_at, updated_at, tags_json, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys_json, summary_ref, equipped_items_json = row
-            elif has_importance:
-                key, content, created_at, updated_at, tags_json, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys_json, summary_ref = row
-                equipped_items_json = None
-            else:
-                # Old schema: only key, content, created_at, updated_at, tags
-                key, content, created_at, updated_at, tags_json = row
-                importance = 0.5
-                emotion = 'neutral'
-                emotion_intensity = 0.5
-                physical_state = mental_state = environment = relationship_status = action_tag = None
-                related_keys_json = summary_ref = equipped_items_json = None
-            
-            meta = {"key": key}
-            if created_at:
-                meta["created_at"] = created_at
-            if updated_at:
-                meta["updated_at"] = updated_at
-            if tags_json:
-                meta["tags"] = tags_json
-            if importance is not None:
-                meta["importance"] = importance
-            if emotion:
-                meta["emotion"] = emotion
-            if emotion_intensity is not None:
-                meta["emotion_intensity"] = emotion_intensity
-            if physical_state:
-                meta["physical_state"] = physical_state
-            if mental_state:
-                meta["mental_state"] = mental_state
-            if environment:
-                meta["environment"] = environment
-            if relationship_status:
-                meta["relationship_status"] = relationship_status
-            if action_tag:
-                meta["action_tag"] = action_tag
-            if related_keys_json:
-                meta["related_keys"] = related_keys_json
-            if summary_ref:
-                meta["summary_ref"] = summary_ref
-            if equipped_items_json:
-                meta["equipped_items"] = equipped_items_json
-            
-            # Build enriched content for vector embedding
-            enriched_content = _build_enriched_content(
-                content=content,
-                tags_json=tags_json,
-                emotion=emotion,
-                emotion_intensity=emotion_intensity,
-                action_tag=action_tag,
-                environment=environment,
-                physical_state=physical_state,
-                mental_state=mental_state,
-                relationship_status=relationship_status
-            )
-            
-            docs.append(Document(page_content=enriched_content, metadata=meta))
-            ids.append(key)
+        # Build documents with enriched content
+        docs, ids = _build_documents_from_rows(rows, has_importance, has_equipped_items)
         
-        # Batch upload with progress bar
-        batch_size = 50
-        total_docs = len(docs)
-        
-        with tqdm(total=total_docs, desc="⚙️  Building Qdrant Index", unit="memory", ncols=80) as pbar:
-            for i in range(0, total_docs, batch_size):
-                batch_docs = docs[i:i+batch_size]
-                batch_ids = ids[i:i+batch_size]
-                adapter.add_documents(batch_docs, ids=batch_ids)
-                pbar.update(len(batch_docs))
-        
-        print(f"✅ Rebuilt vector store: {total_docs} memories indexed in collection '{collection}'")
+        # Batch upload to Qdrant
+        _batch_upload_to_qdrant(adapter, docs, ids, collection)
         
     except Exception as e:
         print(f"❌ Failed to rebuild vector store: {e}")
