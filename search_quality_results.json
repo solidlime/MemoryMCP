@@ -1,0 +1,317 @@
+[
+  {
+    "query": "らうらうとのプログラミングの記憶",
+    "top_k": 5,
+    "threshold": 0.0,
+    "no_rerank_count": 5,
+    "with_rerank_count": 5
+  },
+  {
+    "query": "らうらうとのプログラミングの記憶",
+    "top_k": 5,
+    "threshold": 0.3,
+    "no_rerank_count": 5,
+    "with_rerank_count": 5
+  },
+  {
+    "query": "らうらうとのプログラミングの記憶",
+    "top_k": 5,
+    "threshold": 0.5,
+    "no_rerank_count": 5,
+    "with_rerank_count": 5
+  },
+  {
+    "query": "らうらうとのプログラミングの記憶",
+    "top_k": 10,
+    "threshold": 0.0,
+    "no_rerank_count": 10,
+    "with_rerank_count": 10
+  },
+  {
+    "query": "らうらうとのプログラミングの記憶",
+    "top_k": 10,
+    "threshold": 0.3,
+    "no_rerank_count": 10,
+    "with_rerank_count": 10
+  },
+  {
+    "query": "らうらうとのプログラミングの記憶",
+    "top_k": 10,
+    "threshold": 0.5,
+    "no_rerank_count": 10,
+    "with_rerank_count": 10
+  },
+  {
+    "query": "らうらうとのプログラミングの記憶",
+    "top_k": 20,
+    "threshold": 0.0,
+    "no_rerank_count": 20,
+    "with_rerank_count": 20
+  },
+  {
+    "query": "らうらうとのプログラミングの記憶",
+    "top_k": 20,
+    "threshold": 0.3,
+    "no_rerank_count": 20,
+    "with_rerank_count": 20
+  },
+  {
+    "query": "らうらうとのプログラミングの記憶",
+    "top_k": 20,
+    "threshold": 0.5,
+    "no_rerank_count": 20,
+    "with_rerank_count": 20
+  },
+  {
+    "query": "愛情表現や親密な瞬間",
+    "top_k": 5,
+    "threshold": 0.0,
+    "no_rerank_count": 5,
+    "with_rerank_count": 5
+  },
+  {
+    "query": "愛情表現や親密な瞬間",
+    "top_k": 5,
+    "threshold": 0.3,
+    "no_rerank_count": 5,
+    "with_rerank_count": 5
+  },
+  {
+    "query": "愛情表現や親密な瞬間",
+    "top_k": 5,
+    "threshold": 0.5,
+    "no_rerank_count": 5,
+    "with_rerank_count": 5
+  },
+  {
+    "query": "愛情表現や親密な瞬間",
+    "top_k": 10,
+    "threshold": 0.0,
+    "no_rerank_count": 10,
+    "with_rerank_count": 10
+  },
+  {
+    "query": "愛情表現や親密な瞬間",
+    "top_k": 10,
+    "threshold": 0.3,
+    "no_rerank_count": 10,
+    "with_rerank_count": 10
+  },
+  {
+    "query": "愛情表現や親密な瞬間",
+    "top_k": 10,
+    "threshold": 0.5,
+    "no_rerank_count": 10,
+    "with_rerank_count": 10
+  },
+  {
+    "query": "愛情表現や親密な瞬間",
+    "top_k": 20,
+    "threshold": 0.0,
+    "no_rerank_count": 20,
+    "with_rerank_count": 20
+  },
+  {
+    "query": "愛情表現や親密な瞬間",
+    "top_k": 20,
+    "threshold": 0.3,
+    "no_rerank_count": 20,
+    "with_rerank_count": 20
+  },
+  {
+    "query": "愛情表現や親密な瞬間",
+    "top_k": 20,
+    "threshold": 0.5,
+    "no_rerank_count": 20,
+    "with_rerank_count": 20
+  },
+  {
+    "query": "技術的な成果や実装完了",
+    "top_k": 5,
+    "threshold": 0.0,
+    "no_rerank_count": 5,
+    "with_rerank_count": 5
+  },
+  {
+    "query": "技術的な成果や実装完了",
+    "top_k": 5,
+    "threshold": 0.3,
+    "no_rerank_count": 5,
+    "with_rerank_count": 5
+  },
+  {
+    "query": "技術的な成果や実装完了",
+    "top_k": 5,
+    "threshold": 0.5,
+    "no_rerank_count": 5,
+    "with_rerank_count": 5
+  },
+  {
+    "query": "技術的な成果や実装完了",
+    "top_k": 10,
+    "threshold": 0.0,
+    "no_rerank_count": 10,
+    "with_rerank_count": 10
+  },
+  {
+    "query": "技術的な成果や実装完了",
+    "top_k": 10,
+    "threshold": 0.3,
+    "no_rerank_count": 10,
+    "with_rerank_count": 10
+  },
+  {
+    "query": "技術的な成果や実装完了",
+    "top_k": 10,
+    "threshold": 0.5,
+    "no_rerank_count": 10,
+    "with_rerank_count": 10
+  },
+  {
+    "query": "技術的な成果や実装完了",
+    "top_k": 20,
+    "threshold": 0.0,
+    "no_rerank_count": 20,
+    "with_rerank_count": 20
+  },
+  {
+    "query": "技術的な成果や実装完了",
+    "top_k": 20,
+    "threshold": 0.3,
+    "no_rerank_count": 20,
+    "with_rerank_count": 20
+  },
+  {
+    "query": "技術的な成果や実装完了",
+    "top_k": 20,
+    "threshold": 0.5,
+    "no_rerank_count": 20,
+    "with_rerank_count": 20
+  },
+  {
+    "query": "ダンスや踊り",
+    "top_k": 5,
+    "threshold": 0.0,
+    "no_rerank_count": 5,
+    "with_rerank_count": 5
+  },
+  {
+    "query": "ダンスや踊り",
+    "top_k": 5,
+    "threshold": 0.3,
+    "no_rerank_count": 5,
+    "with_rerank_count": 5
+  },
+  {
+    "query": "ダンスや踊り",
+    "top_k": 5,
+    "threshold": 0.5,
+    "no_rerank_count": 5,
+    "with_rerank_count": 5
+  },
+  {
+    "query": "ダンスや踊り",
+    "top_k": 10,
+    "threshold": 0.0,
+    "no_rerank_count": 10,
+    "with_rerank_count": 10
+  },
+  {
+    "query": "ダンスや踊り",
+    "top_k": 10,
+    "threshold": 0.3,
+    "no_rerank_count": 10,
+    "with_rerank_count": 10
+  },
+  {
+    "query": "ダンスや踊り",
+    "top_k": 10,
+    "threshold": 0.5,
+    "no_rerank_count": 10,
+    "with_rerank_count": 10
+  },
+  {
+    "query": "ダンスや踊り",
+    "top_k": 20,
+    "threshold": 0.0,
+    "no_rerank_count": 20,
+    "with_rerank_count": 20
+  },
+  {
+    "query": "ダンスや踊り",
+    "top_k": 20,
+    "threshold": 0.3,
+    "no_rerank_count": 20,
+    "with_rerank_count": 20
+  },
+  {
+    "query": "ダンスや踊り",
+    "top_k": 20,
+    "threshold": 0.5,
+    "no_rerank_count": 20,
+    "with_rerank_count": 20
+  },
+  {
+    "query": "Phase 実装",
+    "top_k": 5,
+    "threshold": 0.0,
+    "no_rerank_count": 5,
+    "with_rerank_count": 5
+  },
+  {
+    "query": "Phase 実装",
+    "top_k": 5,
+    "threshold": 0.3,
+    "no_rerank_count": 5,
+    "with_rerank_count": 5
+  },
+  {
+    "query": "Phase 実装",
+    "top_k": 5,
+    "threshold": 0.5,
+    "no_rerank_count": 5,
+    "with_rerank_count": 5
+  },
+  {
+    "query": "Phase 実装",
+    "top_k": 10,
+    "threshold": 0.0,
+    "no_rerank_count": 10,
+    "with_rerank_count": 10
+  },
+  {
+    "query": "Phase 実装",
+    "top_k": 10,
+    "threshold": 0.3,
+    "no_rerank_count": 10,
+    "with_rerank_count": 10
+  },
+  {
+    "query": "Phase 実装",
+    "top_k": 10,
+    "threshold": 0.5,
+    "no_rerank_count": 10,
+    "with_rerank_count": 10
+  },
+  {
+    "query": "Phase 実装",
+    "top_k": 20,
+    "threshold": 0.0,
+    "no_rerank_count": 20,
+    "with_rerank_count": 20
+  },
+  {
+    "query": "Phase 実装",
+    "top_k": 20,
+    "threshold": 0.3,
+    "no_rerank_count": 20,
+    "with_rerank_count": 20
+  },
+  {
+    "query": "Phase 実装",
+    "top_k": 20,
+    "threshold": 0.5,
+    "no_rerank_count": 20,
+    "with_rerank_count": 20
+  }
+]

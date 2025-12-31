@@ -10,7 +10,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "embeddings_model": "cl-nagoya/ruri-v3-30m",
     "embeddings_device": "cpu",  # Unified device for all RAG models (embeddings, reranker, sentiment)
     "reranker_model": "hotchpotch/japanese-reranker-xsmall-v2",
-    "reranker_top_n": 5,
+    "reranker_top_n": 10,  # Increased from 5 for better quality (based on search quality tests)
     "sentiment_model": "cardiffnlp/twitter-xlm-roberta-base-sentiment",
     "server_host": "0.0.0.0",
     "server_port": 26262,
