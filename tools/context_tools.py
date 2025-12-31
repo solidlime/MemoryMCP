@@ -231,17 +231,19 @@ async def get_context() -> str:
                     # Parse date (YYYY-MM-DD format)
                     try:
                         anniv_dt = datetime.strptime(date, "%Y-%m-%d")
-                        date_display = f"{anniv_dt.month:02d}-{anniv_dt.day:02d}"
+                        date_display = f"{anniv_dt.year}-{anniv_dt.month:02d}-{anniv_dt.day:02d}"
                         years_passed = today.year - anniv_dt.year
+                        month_day_str = f"{anniv_dt.month:02d}-{anniv_dt.day:02d}"
                     except:
                         # Fallback for old MM-DD format
                         date_display = date
+                        month_day_str = date
                         years_passed = 0
                     
                     # Check if today or upcoming
                     indicator = ""
                     years_text = ""
-                    if date_display == today_str:
+                    if month_day_str == today_str:
                         indicator = " 🎉 TODAY!"
                         if years_passed > 0:
                             years_text = f" ({years_passed}周年)"
@@ -249,7 +251,7 @@ async def get_context() -> str:
                     elif date:
                         # Calculate days until (simple month-day comparison)
                         try:
-                            month, day = date_display.split('-')
+                            month, day = month_day_str.split('-')
                             month, day = int(month), int(day)
                             anniv_date = datetime(today.year, month, day)
                             if anniv_date < today:
