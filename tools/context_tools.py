@@ -278,6 +278,87 @@ async def get_context() -> str:
             time_diff = calc_time_diff(last_time_str)
             result += f"   Last Conversation: {time_diff['formatted_string']}前\n"
             result += f"   Previous: {format_dt(last_time_str)}\n"
+            
+            # Calculate reunion context
+            total_hours = time_diff.get('total_seconds', 0) / 3600
+            
+            # Reunion Intensity calculation (0.0-1.0)
+            # 0-2h: 0.0-0.2, 2-8h: 0.2-0.4, 8-16h: 0.4-0.6, 16-36h: 0.6-0.8, 36h+: 0.8-1.0
+            if total_hours <= 2:
+                reunion_intensity = min(total_hours / 10, 0.2)
+            elif total_hours <= 8:
+                reunion_intensity = 0.2 + ((total_hours - 2) / 30)
+            elif total_hours <= 16:
+                reunion_intensity = 0.4 + ((total_hours - 8) / 40)
+            elif total_hours <= 36:
+                reunion_intensity = 0.6 + ((total_hours - 16) / 100)
+            else:
+                reunion_intensity = min(0.8 + ((total_hours - 36) / 200), 1.0)
+            
+            # Separation category
+            if total_hours < 2:
+                separation_category = "短時間の不在"
+            elif total_hours < 8:
+                separation_category = "数時間の不在"
+            elif total_hours < 16:
+                separation_category = "半日の不在"
+            elif total_hours < 36:
+                separation_category = "1日程度の不在"
+            elif total_hours < 72:
+                separation_category = "数日の不在"
+            else:
+                separation_category = "長期の不在"
+            
+            # Display reunion context
+            stars = "★" * min(int(reunion_intensity * 5) + 1, 5)
+            stars += "☆" * (5 - len(stars))
+            
+            result += f"\n💫 Reunion Context:\n"
+            result += f"   Reunion Intensity: {reunion_intensity:.2f} {stars}\n"
+            result += f"   Separation: {separation_category}\n"
+            
+            # === Concern Level & Triggers (conditional) ===
+            concerns = []
+            concern_level = 0.0
+            
+            # Check for broken promises
+            active_promise = context.get('active_promises')
+            if active_promise and isinstance(active_promise, dict):
+                due_date = active_promise.get('due_date')
+                if due_date:
+                    due_diff = calc_time_diff(due_date)
+                    if due_diff['total_seconds'] < 0:  # Past due
+                        days_overdue = abs(due_diff.get('days', 0))
+                        if days_overdue > 0:
+                            concerns.append(f"約束期限を{days_overdue}日超過")
+                            concern_level += min(0.3 + (days_overdue * 0.1), 0.8)
+            
+            # Check for very long absence (3+ days)
+            if total_hours >= 72:
+                days_absent = int(total_hours / 24)
+                concerns.append(f"{days_absent}日間連絡なし")
+                concern_level += min(0.4 + ((days_absent - 3) * 0.1), 0.6)
+            
+            # Check for emotional context from last conversation
+            if latest_emotion:
+                last_emotion = latest_emotion.get('emotion', '')
+                last_intensity = latest_emotion.get('emotion_intensity', 0.5)
+                
+                # High intensity negative emotions that ended abruptly
+                if last_emotion in ['sadness', 'fear', 'anxiety'] and last_intensity > 0.7:
+                    concerns.append(f"前回の会話が未解決な感情で終了 ({last_emotion})")
+                    concern_level += 0.3
+            
+            # Display concerns if concern_level > 0.3
+            if concern_level > 0.3 and concerns:
+                concern_stars = "★" * min(int(concern_level * 5) + 1, 5)
+                concern_stars += "☆" * (5 - len(concern_stars))
+                
+                result += f"\n⚠️ Emotional Alerts:\n"
+                result += f"   Concern Level: {concern_level:.2f} {concern_stars}\n"
+                result += f"   Triggers:\n"
+                for concern in concerns:
+                    result += f"     - {concern}\n"
         else:
             result += "   Status: First conversation! 🆕\n"
         
