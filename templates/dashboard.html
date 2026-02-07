@@ -95,11 +95,11 @@
     <div class="glass-card rounded-2xl p-6 mb-6">
         <h2 class="text-2xl font-bold text-white mb-4">💭 Emotion Timeline</h2>
         <div class="mb-4 flex gap-4">
-            <button id="showDaily" onclick="showEmotionView('daily')" 
+            <button id="showDaily" onclick="showEmotionView('daily')"
                     class="glass-card rounded-lg px-4 py-2 text-white font-semibold hover:bg-white/20 transition">
                 📅 Daily
             </button>
-            <button id="showWeekly" onclick="showEmotionView('weekly')" 
+            <button id="showWeekly" onclick="showEmotionView('weekly')"
                     class="glass-card rounded-lg px-4 py-2 text-white font-semibold hover:bg-white/20 transition bg-white/20">
                 📊 Weekly
             </button>
@@ -192,30 +192,30 @@
     <!-- Admin Tools Card -->
     <div class="glass-card rounded-2xl p-6 mb-6">
         <h2 class="text-2xl font-bold text-white mb-4">🛠️ Admin Tools</h2>
-        
+
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <!-- Clean Memory -->
             <div class="glass-card rounded-lg p-4">
                 <h3 class="text-lg font-semibold text-white mb-2">🧹 Clean Memory</h3>
                 <p class="text-purple-200 text-sm mb-3">Remove duplicate lines from a memory</p>
-                <input type="text" id="cleanMemoryKey" placeholder="memory_YYYYMMDDHHMMSS" 
+                <input type="text" id="cleanMemoryKey" placeholder="memory_YYYYMMDDHHMMSS"
                        class="w-full px-3 py-2 rounded-lg bg-white/20 text-white placeholder-purple-200 mb-2">
-                <button onclick="cleanMemory()" 
+                <button onclick="cleanMemory()"
                         class="w-full glass-card rounded-lg px-4 py-2 text-white font-semibold hover:bg-white/20 transition">
                     Clean
                 </button>
             </div>
-            
+
             <!-- Rebuild Qdrant Collection -->
             <div class="glass-card rounded-lg p-4">
                 <h3 class="text-lg font-semibold text-white mb-2">🔄 Rebuild Qdrant Collection</h3>
                 <p class="text-purple-200 text-sm mb-3">Rebuild Qdrant vectors from SQLite database</p>
-                <button onclick="rebuildVectorStore()" 
+                <button onclick="rebuildVectorStore()"
                         class="w-full glass-card rounded-lg px-4 py-2 text-white font-semibold hover:bg-white/20 transition mt-8">
                     Rebuild
                 </button>
             </div>
-            
+
             <!-- Migrate Backend -->
             <div class="glass-card rounded-lg p-4">
                 <h3 class="text-lg font-semibold text-white mb-2">🔀 Migrate Backend</h3>
@@ -228,47 +228,47 @@
                     <option value="qdrant">Qdrant</option>
                     <option value="sqlite">SQLite</option>
                 </select>
-                <button onclick="migrateBackend()" 
+                <button onclick="migrateBackend()"
                         class="w-full glass-card rounded-lg px-4 py-2 text-white font-semibold hover:bg-white/20 transition">
                     Migrate
                 </button>
             </div>
-            
+
             <!-- Detect Duplicates -->
             <div class="glass-card rounded-lg p-4">
                 <h3 class="text-lg font-semibold text-white mb-2">🔍 Detect Duplicates</h3>
                 <p class="text-purple-200 text-sm mb-3">Find similar memories</p>
-                <input type="number" id="duplicateThreshold" placeholder="Threshold (0.0-1.0)" 
+                <input type="number" id="duplicateThreshold" placeholder="Threshold (0.0-1.0)"
                        value="0.85" step="0.05" min="0" max="1"
                        class="w-full px-3 py-2 rounded-lg bg-white/20 text-white placeholder-purple-200 mb-2">
-                <button onclick="detectDuplicates()" 
+                <button onclick="detectDuplicates()"
                         class="w-full glass-card rounded-lg px-4 py-2 text-white font-semibold hover:bg-white/20 transition">
                     Detect
                 </button>
             </div>
-            
+
             <!-- Merge Memories -->
             <div class="glass-card rounded-lg p-4">
                 <h3 class="text-lg font-semibold text-white mb-2">🔗 Merge Memories</h3>
                 <p class="text-purple-200 text-sm mb-3">Combine multiple memories (comma-separated keys)</p>
-                <input type="text" id="mergeKeys" placeholder="key1,key2,key3" 
+                <input type="text" id="mergeKeys" placeholder="key1,key2,key3"
                        class="w-full px-3 py-2 rounded-lg bg-white/20 text-white placeholder-purple-200 mb-2">
-                <button onclick="mergeMemories()" 
+                <button onclick="mergeMemories()"
                         class="w-full glass-card rounded-lg px-4 py-2 text-white font-semibold hover:bg-white/20 transition">
                     Merge
                 </button>
             </div>
-            
+
             <!-- Generate Knowledge Graph -->
             <div class="glass-card rounded-lg p-4">
                 <h3 class="text-lg font-semibold text-white mb-2">🕸️ Generate Graph</h3>
                 <p class="text-purple-200 text-sm mb-3">Create new knowledge graph</p>
-                <button onclick="generateGraph()" 
+                <button onclick="generateGraph()"
                         class="w-full glass-card rounded-lg px-4 py-2 text-white font-semibold hover:bg-white/20 transition mt-8">
                     Generate
                 </button>
             </div>
-            
+
             <!-- Create Summary -->
             <div class="glass-card rounded-lg p-4">
                 <h3 class="text-lg font-semibold text-white mb-2">📝 Create Summary</h3>
@@ -277,28 +277,28 @@
                     <option value="day">Last Day</option>
                     <option value="week">Last Week</option>
                 </select>
-                <button onclick="createSummary()" 
+                <button onclick="createSummary()"
                         class="w-full glass-card rounded-lg px-4 py-2 text-white font-semibold hover:bg-white/20 transition">
                     Create
                 </button>
             </div>
-            
+
             <!-- Migrate Schema -->
             <div class="glass-card rounded-lg p-4">
                 <h3 class="text-lg font-semibold text-white mb-2">🔧 Migrate Schema</h3>
                 <p class="text-purple-200 text-sm mb-3">Update database schema (add missing columns)</p>
-                <button onclick="migrateSchema()" 
+                <button onclick="migrateSchema()"
                         class="w-full glass-card rounded-lg px-4 py-2 text-white font-semibold hover:bg-white/20 transition mt-8">
                     Migrate
                 </button>
             </div>
         </div>
-        
+
         <!-- Result Display Area -->
         <div id="adminResult" class="mt-4 hidden">
             <div class="glass-card rounded-lg p-4">
                 <h3 class="text-lg font-semibold text-white mb-2">Result</h3>
-                
+
                 <!-- Progress Display Area (moved here) -->
                 <div id="progressContainer" class="mb-4 hidden">
                     <div class="glass-card rounded-lg p-4">
@@ -312,7 +312,7 @@
                         <p class="text-purple-200 text-sm mt-2" id="progressMessage">Starting...</p>
                     </div>
                 </div>
-                
+
                 <pre id="adminResultContent" class="text-white text-sm overflow-auto max-h-96"></pre>
             </div>
         </div>
@@ -345,10 +345,10 @@
                 const response = await fetch('/api/personas');
                 const personas = await response.json();
                 const select = document.getElementById('personaSelect');
-                select.innerHTML = personas.map(p => 
+                select.innerHTML = personas.map(p =>
                     `<option value="${p}">${p}</option>`
                 ).join('');
-                
+
                 // Load first persona by default
                 if (personas.length > 0) {
                     currentPersona = personas[0];
@@ -386,32 +386,32 @@
                 }
                 const data = await response.json();
                 console.log('Dashboard data loaded:', data);
-                
+
                 // Update Info
                 renderInfo(data.info);
-                
+
                 // Update Metrics
                 renderMetrics(data.metrics);
-                
+
                 // Update Stats
                 renderStats(data.stats);
-                
+
                 // Update Knowledge Graph
                 renderKnowledgeGraph(data.knowledge_graph_url);
-                
+
                 // Load Emotion Timeline
                 await loadEmotionData(persona);
-                
+
                 // Load Physical Sensations Timeline
                 await loadPhysicalSensationsData(persona);
-                
+
                 // Load Anniversaries
                 await loadAnniversariesData(persona);
-                
+
                 // Load Observation Stream & Audit Log
                 loadObservations(1);
                 loadAuditLog(1);
-                
+
             } catch (error) {
                 console.error('Failed to load dashboard data:', error);
                 showAdminResult(`Failed to load data: ${error.message}`, true);
@@ -421,7 +421,7 @@
         function renderInfo(info) {
             const content = document.getElementById('infoContent');
             content.classList.remove('loading');
-            
+
             // 装備品表示を作成
             let equipmentHtml = '';
             if (info.current_equipment && Object.keys(info.current_equipment).length > 0) {
@@ -431,7 +431,7 @@
                 }
                 equipmentHtml += '</div></div>';
             }
-            
+
             content.innerHTML = `
                 <div class="space-y-2">
                     <p class="text-lg"><span class="font-semibold">💭 Total Memories:</span> ${info.total_memories || 0}</p>
@@ -449,18 +449,18 @@
         function renderMetrics(metrics) {
             const content = document.getElementById('metricsContent');
             content.classList.remove('loading');
-            
+
             const topTags = metrics.top_tags ? Object.entries(metrics.top_tags)
                 .slice(0, 5)
                 .map(([tag, count]) => `<span class="inline-block bg-white/20 rounded-full px-3 py-1 text-sm">${tag} (${count})</span>`)
                 .join(' ') : 'No tags';
-            
+
             const topEmotions = metrics.emotion_distribution ? Object.entries(metrics.emotion_distribution)
                 .sort((a, b) => b[1] - a[1])
                 .slice(0, 3)
                 .map(([emotion, count]) => `<span class="inline-block bg-white/20 rounded-full px-3 py-1 text-sm">${emotion} (${count})</span>`)
                 .join(' ') : 'No emotions';
-            
+
             content.innerHTML = `
                 <div class="space-y-3">
                     <div>
@@ -483,10 +483,10 @@
             if (timelineData) {
                 const ctx = document.getElementById('timelineChart');
                 if (timelineChart) timelineChart.destroy();
-                
+
                 const labels = timelineData.map(d => d.date);
                 const data = timelineData.map(d => d.count);
-                
+
                 timelineChart = new Chart(ctx, {
                     type: 'bar',
                     data: {
@@ -510,17 +510,17 @@
                     }
                 });
             }
-            
+
             // Tag Chart
             if (stats.tag_distribution) {
                 const ctx = document.getElementById('tagChart');
                 if (tagChart) tagChart.destroy();
-                
+
                 // Show top 8 tags + "Others" for remaining tags
                 const allTags = Object.entries(stats.tag_distribution).sort((a, b) => b[1] - a[1]);
                 const topTags = allTags.slice(0, 8);
                 const otherTags = allTags.slice(8);
-                
+
                 let tagEntries = topTags;
                 if (otherTags.length > 0) {
                     const otherCount = otherTags.reduce((sum, [_, count]) => sum + count, 0);
@@ -528,7 +528,7 @@
                 }
                 const labels = tagEntries.map(([tag, _]) => tag);
                 const data = tagEntries.map(([_, count]) => count);
-                
+
                 tagChart = new Chart(ctx, {
                     type: 'doughnut',
                     data: {
@@ -553,7 +553,7 @@
                     options: {
                         responsive: true,
                         plugins: {
-                            legend: { 
+                            legend: {
                                 position: 'right',
                                 labels: { color: 'white' }
                             }
@@ -561,7 +561,7 @@
                     }
                 });
             }
-            
+
             // Top Links
             if (stats.top_links) {
                 const content = document.getElementById('topLinksContent');
@@ -591,17 +591,17 @@
             try {
                 const response = await fetch(`/api/emotion-timeline/${persona}`);
                 const result = await response.json();
-                
+
                 if (result.success) {
                     emotionData = result;
                     renderEmotionChart();
                 } else {
-                    document.getElementById('emotionLegend').innerHTML = 
+                    document.getElementById('emotionLegend').innerHTML =
                         `<p class="text-red-300">Failed to load emotion data: ${result.error}</p>`;
                 }
             } catch (error) {
                 console.error('Failed to load emotion data:', error);
-                document.getElementById('emotionLegend').innerHTML = 
+                document.getElementById('emotionLegend').innerHTML =
                     '<p class="text-red-300">Error loading emotion data</p>';
             }
         }
@@ -609,19 +609,19 @@
         // Render emotion chart based on current view (daily/weekly)
         function renderEmotionChart() {
             if (!emotionData) return;
-            
+
             const ctx = document.getElementById('emotionChart');
             if (emotionChart) emotionChart.destroy();
-            
+
             const data = emotionView === 'daily' ? emotionData.daily : emotionData.weekly;
             const labelKey = emotionView === 'daily' ? 'date' : 'week';
-            
+
             if (!data || data.length === 0) {
-                document.getElementById('emotionLegend').innerHTML = 
+                document.getElementById('emotionLegend').innerHTML =
                     '<p class="text-purple-200">No emotion data available</p>';
                 return;
             }
-            
+
             // Prepare datasets for each emotion
             const emotionColors = {
                 'joy': 'rgba(255, 206, 86, 0.8)',
@@ -633,7 +633,7 @@
                 'calm': 'rgba(75, 192, 192, 0.8)',
                 'excitement': 'rgba(255, 140, 0, 0.8)'
             };
-            
+
             const labels = data.map(item => item[labelKey]);
             const datasets = emotionData.emotion_types.map(emotion => ({
                 label: emotion.charAt(0).toUpperCase() + emotion.slice(1),
@@ -643,7 +643,7 @@
                 borderWidth: 2,
                 fill: true
             }));
-            
+
             emotionChart = new Chart(ctx, {
                 type: 'line',
                 data: {
@@ -676,23 +676,23 @@
                     }
                 }
             });
-            
+
             // Update legend info
             const totalEmotions = data.reduce((sum, item) => {
                 return sum + emotionData.emotion_types.reduce((s, e) => s + (item[e] || 0), 0);
             }, 0);
-            document.getElementById('emotionLegend').innerHTML = 
+            document.getElementById('emotionLegend').innerHTML =
                 `<p>📊 Total emotional memories: ${totalEmotions} | View: ${emotionView === 'daily' ? 'Daily' : 'Weekly'}</p>`;
         }
 
         // Toggle emotion view (daily/weekly)
         function showEmotionView(view) {
             emotionView = view;
-            
+
             // Update button styles
             document.getElementById('showDaily').classList.toggle('bg-white/20', view === 'daily');
             document.getElementById('showWeekly').classList.toggle('bg-white/20', view === 'weekly');
-            
+
             renderEmotionChart();
         }
 
@@ -701,17 +701,17 @@
             try {
                 const response = await fetch(`/api/physical-sensations-timeline/${persona}`);
                 const result = await response.json();
-                
+
                 if (result.success) {
                     physicalSensationsData = result;
                     renderPhysicalSensationsChart();
                 } else {
-                    document.getElementById('physicalSensationsLegend').innerHTML = 
+                    document.getElementById('physicalSensationsLegend').innerHTML =
                         `<p class="text-red-300">Failed to load physical sensations data: ${result.error}</p>`;
                 }
             } catch (error) {
                 console.error('Failed to load physical sensations data:', error);
-                document.getElementById('physicalSensationsLegend').innerHTML = 
+                document.getElementById('physicalSensationsLegend').innerHTML =
                     '<p class="text-red-300">Error loading physical sensations data</p>';
             }
         }
@@ -719,20 +719,20 @@
         // Render physical sensations chart
         function renderPhysicalSensationsChart() {
             if (!physicalSensationsData || !physicalSensationsData.timeline || physicalSensationsData.timeline.length === 0) {
-                document.getElementById('physicalSensationsLegend').innerHTML = 
+                document.getElementById('physicalSensationsLegend').innerHTML =
                     '<p class="text-purple-200">No physical sensations data available</p>';
                 return;
             }
-            
+
             const ctx = document.getElementById('physicalSensationsChart');
             if (physicalSensationsChart) physicalSensationsChart.destroy();
-            
+
             // Extract timestamps and metrics
             const labels = physicalSensationsData.timeline.map(item => {
                 const date = new Date(item.timestamp);
                 return date.toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
             });
-            
+
             // Define colors for each metric
             const metricColors = {
                 'fatigue': 'rgba(255, 99, 132, 0.8)',          // Red
@@ -741,7 +741,7 @@
                 'touch_response': 'rgba(153, 102, 255, 0.8)',  // Purple
                 'heart_rate_metaphor': 'rgba(255, 206, 86, 0.8)' // Yellow
             };
-            
+
             const metricLabels = {
                 'fatigue': 'Fatigue',
                 'warmth': 'Warmth',
@@ -749,7 +749,7 @@
                 'touch_response': 'Touch Response',
                 'heart_rate_metaphor': 'Heart Rate'
             };
-            
+
             // Create datasets for each metric
             const datasets = physicalSensationsData.metrics.map(metric => ({
                 label: metricLabels[metric],
@@ -760,7 +760,7 @@
                 fill: false,
                 tension: 0.3
             }));
-            
+
             physicalSensationsChart = new Chart(ctx, {
                 type: 'line',
                 data: {
@@ -794,7 +794,7 @@
                     },
                     scales: {
                         x: {
-                            ticks: { 
+                            ticks: {
                                 color: 'white',
                                 maxRotation: 45,
                                 minRotation: 45
@@ -804,7 +804,7 @@
                         y: {
                             beginAtZero: true,
                             max: 1.0,
-                            ticks: { 
+                            ticks: {
                                 color: 'white',
                                 callback: function(value) {
                                     return value.toFixed(1);
@@ -815,9 +815,9 @@
                     }
                 }
             });
-            
+
             // Update legend info
-            document.getElementById('physicalSensationsLegend').innerHTML = 
+            document.getElementById('physicalSensationsLegend').innerHTML =
                 `<p>💫 Physical Sensations Timeline (Last 7 days) | Total data points: ${physicalSensationsData.timeline.length}</p>`;
         }
 
@@ -826,17 +826,17 @@
             try {
                 const response = await fetch(`/api/anniversaries/${persona}`);
                 const result = await response.json();
-                
+
                 if (result.success) {
                     anniversariesData = result.anniversaries;
                     renderAnniversariesCalendar();
                 } else {
-                    document.getElementById('anniversaryLegend').innerHTML = 
+                    document.getElementById('anniversaryLegend').innerHTML =
                         `<p class="text-red-300">Failed to load anniversaries: ${result.error}</p>`;
                 }
             } catch (error) {
                 console.error('Failed to load anniversaries:', error);
-                document.getElementById('anniversaryLegend').innerHTML = 
+                document.getElementById('anniversaryLegend').innerHTML =
                     '<p class="text-red-300">Error loading anniversaries</p>';
             }
         }
@@ -844,17 +844,17 @@
         // Render anniversaries calendar
         function renderAnniversariesCalendar() {
             const calendar = document.getElementById('anniversaryCalendar');
-            
+
             if (!anniversariesData || anniversariesData.length === 0) {
                 calendar.innerHTML = '<p class="text-white col-span-full">No anniversaries found. Use tags: anniversary, milestone, first_time</p>';
                 return;
             }
-            
+
             // Create month cards
             const monthNames = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
-            const monthNamesFull = ['January', 'February', 'March', 'April', 'May', 'June', 
+            const monthNamesFull = ['January', 'February', 'March', 'April', 'May', 'June',
                                      'July', 'August', 'September', 'October', 'November', 'December'];
-            
+
             // Group by month
             const byMonth = {};
             anniversariesData.forEach(item => {
@@ -864,16 +864,16 @@
                 }
                 byMonth[month].push(item);
             });
-            
+
             // Generate month cards
             let html = '';
             monthNames.forEach((month, idx) => {
                 const monthData = byMonth[month] || [];
                 const totalCount = monthData.reduce((sum, item) => sum + item.count, 0);
-                
+
                 if (totalCount > 0) {
                     html += `
-                        <div class="glass-card rounded-lg p-4 hover:bg-white/20 transition cursor-pointer" 
+                        <div class="glass-card rounded-lg p-4 hover:bg-white/20 transition cursor-pointer"
                              onclick="showMonthAnniversaries('${month}', '${monthNamesFull[idx]}')">
                             <h3 class="text-xl font-bold text-white mb-2">${monthNamesFull[idx]}</h3>
                             <p class="text-purple-200 text-sm mb-2">${monthData.length} anniversaries</p>
@@ -887,12 +887,12 @@
                     `;
                 }
             });
-            
+
             if (html === '') {
                 calendar.innerHTML = '<p class="text-white col-span-full">No important anniversaries found</p>';
             } else {
                 calendar.innerHTML = html;
-                document.getElementById('anniversaryLegend').innerHTML = 
+                document.getElementById('anniversaryLegend').innerHTML =
                     `<p>🎂 Total anniversaries: ${anniversariesData.length} days with anniversary/milestone/first_time tags</p>`;
             }
         }
@@ -900,13 +900,13 @@
         // Show anniversaries for a specific month
         function showMonthAnniversaries(month, monthName) {
             const monthData = anniversariesData.filter(item => item.month_day.startsWith(month + '-'));
-            
+
             const modal = document.getElementById('anniversaryModal');
             const modalTitle = document.getElementById('modalTitle');
             const modalContent = document.getElementById('modalContent');
-            
+
             modalTitle.textContent = `${monthName} Anniversaries`;
-            
+
             let html = '';
             monthData.forEach(dayData => {
                 const day = dayData.month_day.split('-')[1];
@@ -916,17 +916,17 @@
                         <div class="space-y-2">
                             ${dayData.memories.map(mem => {
                                 const emotionIcon = {
-                                    'joy': '😊', 'love': '💕', 'sadness': '😢', 
+                                    'joy': '😊', 'love': '💕', 'sadness': '😢',
                                     'anger': '😠', 'fear': '😨', 'surprise': '😲',
                                     'calm': '😌', 'excitement': '🤩'
                                 }[mem.emotion] || '💭';
-                                
-                                const tagsHtml = mem.tags && mem.tags.length > 0 
+
+                                const tagsHtml = mem.tags && mem.tags.length > 0
                                     ? `<div class="flex flex-wrap gap-1 mt-1">
                                         ${mem.tags.map(tag => `<span class="inline-block bg-white/20 rounded-full px-2 py-0.5 text-xs">${tag}</span>`).join('')}
                                        </div>`
                                     : '';
-                                
+
                                 return `
                                     <div class="bg-white/10 rounded p-3">
                                         <div class="flex justify-between items-start mb-1">
@@ -942,7 +942,7 @@
                     </div>
                 `;
             });
-            
+
             modalContent.innerHTML = html;
             modal.classList.remove('hidden');
         }
@@ -954,11 +954,11 @@
 
         // Initialize on page load
         loadPersonas();
-        
+
         // ========================================
         // Admin Tools Functions
         // ========================================
-        
+
         // Progress bar functions
         function showProgress(title = 'Processing...', message = 'Starting...') {
             const resultDiv = document.getElementById('adminResult');
@@ -967,47 +967,47 @@
             const messageEl = document.getElementById('progressMessage');
             const percentEl = document.getElementById('progressPercent');
             const bar = document.getElementById('progressBar');
-            
+
             // Show result area first
             resultDiv.classList.remove('hidden');
-            
+
             titleEl.textContent = title;
             messageEl.textContent = message;
             percentEl.textContent = '0%';
             bar.style.width = '0%';
             container.classList.remove('hidden');
         }
-        
+
         function updateProgress(percent, message = '') {
             const percentEl = document.getElementById('progressPercent');
             const messageEl = document.getElementById('progressMessage');
             const bar = document.getElementById('progressBar');
-            
+
             percentEl.textContent = `${percent}%`;
             bar.style.width = `${percent}%`;
             if (message) {
                 messageEl.textContent = message;
             }
         }
-        
+
         function hideProgress() {
             // Keep progress bar visible to show completion state
             // It will remain in the result area
         }
-        
+
         function showAdminResult(result, isError = false) {
             const resultDiv = document.getElementById('adminResult');
             const resultContent = document.getElementById('adminResultContent');
             resultDiv.classList.remove('hidden');
-            
+
             if (isError) {
                 resultContent.className = 'text-red-300 text-sm overflow-auto max-h-96';
             } else {
                 resultContent.className = 'text-white text-sm overflow-auto max-h-96';
             }
-            
+
             resultContent.textContent = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
-            
+
             // Auto-hide after 10 seconds for success messages
             if (!isError) {
                 setTimeout(() => {
@@ -1015,18 +1015,18 @@
                 }, 10000);
             }
         }
-        
+
         async function cleanMemory() {
             const key = document.getElementById('cleanMemoryKey').value.trim();
             if (!key) {
                 showAdminResult('Error: Please enter a memory key', true);
                 return;
             }
-            
+
             if (!confirm(`Clean memory "${key}" for persona "${currentPersona}"?\nThis will remove duplicate entries.`)) {
                 return;
             }
-            
+
             try {
                 const response = await fetch('/api/admin/clean', {
                     method: 'POST',
@@ -1034,7 +1034,7 @@
                     body: JSON.stringify({ persona: currentPersona, key: key })
                 });
                 const result = await response.json();
-                
+
                 if (result.success) {
                     showAdminResult(result.message);
                     document.getElementById('cleanMemoryKey').value = '';
@@ -1045,33 +1045,33 @@
                 showAdminResult(`Error: ${error.message}`, true);
             }
         }
-        
+
         async function rebuildVectorStore() {
             if (!confirm(`Rebuild Qdrant collection for persona "${currentPersona}"?`)) return;
-            
+
             showProgress('Rebuilding Vector Store', 'Initializing...');
-            
+
             try {
                 const response = await fetch('/api/admin/rebuild-stream', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ persona: currentPersona })
                 });
-                
+
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
-                
+
                 while (true) {
                     const { value, done } = await reader.read();
                     if (done) break;
-                    
+
                     const chunk = decoder.decode(value);
                     const lines = chunk.split('\n');
-                    
+
                     for (const line of lines) {
                         if (line.startsWith('data: ')) {
                             const data = JSON.parse(line.substring(6));
-                            
+
                             if (data.status === 'progress') {
                                 updateProgress(data.percent, data.message);
                             } else if (data.status === 'completed') {
@@ -1093,30 +1093,30 @@
                 showAdminResult(`Error: ${error.message}`, true);
             }
         }
-        
+
         async function migrateBackend() {
             const source = document.getElementById('migrateSource').value;
             const target = document.getElementById('migrateTarget').value;
-            
+
             if (source === target) {
                 showAdminResult('Error: Source and target must be different', true);
                 return;
             }
-            
+
             if (!confirm(`Migrate from ${source} to ${target} for persona "${currentPersona}"?`)) return;
-            
+
             try {
                 const response = await fetch('/api/admin/migrate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        persona: currentPersona, 
-                        source: source, 
-                        target: target 
+                    body: JSON.stringify({
+                        persona: currentPersona,
+                        source: source,
+                        target: target
                     })
                 });
                 const result = await response.json();
-                
+
                 if (result.success) {
                     showAdminResult(`${result.message} (${result.count} memories)`);
                 } else {
@@ -1126,31 +1126,31 @@
                 showAdminResult(`Error: ${error.message}`, true);
             }
         }
-        
+
         async function detectDuplicates() {
             const threshold = parseFloat(document.getElementById('duplicateThreshold').value);
-            
+
             if (isNaN(threshold) || threshold < 0 || threshold > 1) {
                 showAdminResult('Error: Threshold must be between 0.0 and 1.0', true);
                 return;
             }
-            
+
             if (!confirm(`Detect duplicates with threshold ${threshold.toFixed(2)} for persona "${currentPersona}"?`)) {
                 return;
             }
-            
+
             try {
                 const response = await fetch('/api/admin/detect-duplicates', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        persona: currentPersona, 
+                    body: JSON.stringify({
+                        persona: currentPersona,
                         threshold: threshold,
                         max_pairs: 50
                     })
                 });
                 const result = await response.json();
-                
+
                 if (result.success) {
                     if (result.duplicates && result.duplicates.length > 0) {
                         showAdminResult(`Found ${result.duplicates.length} duplicate pairs:\n\n${JSON.stringify(result.duplicates, null, 2)}`);
@@ -1164,35 +1164,35 @@
                 showAdminResult(`Error: ${error.message}`, true);
             }
         }
-        
+
         async function mergeMemories() {
             const keysInput = document.getElementById('mergeKeys').value.trim();
             if (!keysInput) {
                 showAdminResult('Error: Please enter memory keys (comma-separated)', true);
                 return;
             }
-            
+
             const keys = keysInput.split(',').map(k => k.trim()).filter(k => k);
             if (keys.length < 2) {
                 showAdminResult('Error: At least 2 keys are required for merging', true);
                 return;
             }
-            
+
             if (!confirm(`Merge ${keys.length} memories? Original memories will be deleted.`)) return;
-            
+
             try {
                 const response = await fetch('/api/admin/merge', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        persona: currentPersona, 
+                    body: JSON.stringify({
+                        persona: currentPersona,
                         keys: keys,
                         keep_all_tags: true,
                         delete_originals: true
                     })
                 });
                 const result = await response.json();
-                
+
                 if (result.success) {
                     showAdminResult(`${result.message}\nNew key: ${result.new_key}`);
                     document.getElementById('mergeKeys').value = '';
@@ -1204,15 +1204,15 @@
                 showAdminResult(`Error: ${error.message}`, true);
             }
         }
-        
+
         async function generateGraph() {
             if (!confirm(`Generate new knowledge graph for persona "${currentPersona}"?`)) return;
-            
+
             try {
                 const response = await fetch('/api/admin/generate-graph', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
+                    body: JSON.stringify({
                         persona: currentPersona,
                         format: 'html',
                         min_count: 2,
@@ -1221,7 +1221,7 @@
                     })
                 });
                 const result = await response.json();
-                
+
                 if (result.success) {
                     showAdminResult(`${result.message}\nURL: ${result.url}`);
                     await refreshData(); // Refresh to show new graph
@@ -1232,48 +1232,48 @@
                 showAdminResult(`Error: ${error.message}`, true);
             }
         }
-        
+
         async function createSummary() {
             const period = document.getElementById('summaryPeriod').value;
-            
+
             if (!confirm(`Create ${period} summary for persona "${currentPersona}"?\nThis may take a moment.`)) {
                 return;
             }
-            
+
             showProgress('Creating Summary', 'Starting summarization...');
-            
+
             try {
                 const response = await fetch('/api/admin/summarize-stream', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
+                    body: JSON.stringify({
                         persona: currentPersona,
                         period: period
                     })
                 });
-                
+
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
-                
+
                 while (true) {
                     const { value, done } = await reader.read();
                     if (done) break;
-                    
+
                     const chunk = decoder.decode(value);
                     const lines = chunk.split('\n');
-                    
+
                     for (const line of lines) {
                         if (line.startsWith('data: ')) {
                             const data = JSON.parse(line.substring(6));
-                            
+
                             if (data.status === 'progress') {
                                 updateProgress(data.percent, data.message);
                             } else if (data.status === 'completed') {
                                 updateProgress(100, data.message);
                                 setTimeout(() => {
                                     hideProgress();
-                                    const summaryInfo = data.summary_key 
-                                        ? `\n\n📋 Summary Key: ${data.summary_key}` 
+                                    const summaryInfo = data.summary_key
+                                        ? `\n\n📋 Summary Key: ${data.summary_key}`
                                         : '';
                                     showAdminResult(`${data.message}${summaryInfo}`);
                                     refreshData();
@@ -1290,23 +1290,23 @@
                 showAdminResult(`Error: ${error.message}`, true);
             }
         }
-        
+
         async function migrateSchema() {
             if (!confirm(`Migrate database schema for persona "${currentPersona}"?\nThis will add missing columns (importance, equipped_items, etc.)`)) {
                 return;
             }
-            
+
             showAdminResult('Migrating schema...', false);
-            
+
             try {
                 const response = await fetch('/api/admin/migrate-schema', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ persona: currentPersona })
                 });
-                
+
                 const result = await response.json();
-                
+
                 if (result.success) {
                     showAdminResult(`✅ ${result.message}`, false);
                 } else {
@@ -1480,4 +1480,3 @@
     </script>
 </body>
 </html>
-

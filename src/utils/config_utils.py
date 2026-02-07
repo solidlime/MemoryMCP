@@ -247,10 +247,10 @@ def load_config(force: bool = False) -> Dict[str, Any]:
                         merged["server_port"] = int(env_overrides["server_port"])  # ensure int
                     except Exception:
                         merged["server_port"] = env_overrides["server_port"]
-            
+
             # Apply resource profile overrides (DS920+ / low-resource hosts)
             _apply_resource_profile(merged)
-            
+
             _config_cache.clear()
             _config_cache.update(merged)
             _config_cache_state["mtime"] = mtime
@@ -317,13 +317,13 @@ _RESOURCE_PROFILES: Dict[str, Dict[str, Any]] = {
 
 def _apply_resource_profile(config: Dict[str, Any]) -> None:
     """Apply resource profile presets to config if specified.
-    
+
     Profile values are applied as defaults - explicit user settings take priority.
     """
     profile = config.get("resource_profile", "normal")
     if profile == "normal" or profile not in _RESOURCE_PROFILES:
         return
-    
+
     preset = deepcopy(_RESOURCE_PROFILES[profile])
     # Only apply preset values where user hasn't explicitly set them
     # (i.e., where the current value still equals the DEFAULT_CONFIG value)

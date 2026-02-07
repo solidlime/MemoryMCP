@@ -1,6 +1,6 @@
 # Memory MCP — HTTP API Reference
 
-All endpoints are served from the MCP HTTP server (default port `26262`).  
+All endpoints are served from the MCP HTTP server (default port `26262`).
 Persona-scoped endpoints use `{persona}` as a path parameter (e.g. `nilou`, `default`).
 
 ---

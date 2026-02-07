@@ -44,15 +44,15 @@ def db_sum_content_chars() -> int:
 
 def _get_current_equipment(persona: str) -> dict:
     """Get current equipment from item.sqlite database.
-    
+
     Args:
         persona: Persona name
-        
+
     Returns:
         Dictionary of {slot: item_name} for currently equipped items
     """
     from core.equipment_db import EquipmentDB
-    
+
     db = EquipmentDB(persona)
     return db.get_equipped_items()
 
@@ -66,15 +66,15 @@ def _get_memory_info_data(persona: str) -> dict:
     # Temporarily override persona context
     original_persona = current_persona.get()
     current_persona.set(persona)
-    
+
     try:
         entries = db_count_entries()
         total_chars = db_sum_content_chars()
         vector_count = get_vector_count()
-        
+
         # Load persona context
         context = load_persona_context()
-        
+
         # Get database created date
         db_path = get_db_path()
         if os.path.exists(db_path):
@@ -83,17 +83,17 @@ def _get_memory_info_data(persona: str) -> dict:
             created_at = created_at_dt.strftime("%Y-%m-%d %H:%M:%S")
         else:
             created_at = "Unknown"
-        
+
         # Get last conversation time (from persona_context.json)
         last_conversation_raw = context.get("last_conversation_time", "Never")
-        
+
         # Remove timezone suffix (+09:00, etc.) for cleaner display
         if last_conversation_raw != "Never":
             # Format: "YYYY-MM-DDTHH:MM:SS+09:00" → "YYYY-MM-DD HH:MM:SS"
             last_conversation = last_conversation_raw[:19].replace("T", " ")
         else:
             last_conversation = last_conversation_raw
-        
+
         return {
             "persona": persona,
             "total_memories": entries,
@@ -116,13 +116,13 @@ def _get_memory_metrics_data(persona: str) -> dict:
     """Core function to get memory metrics data for a specific persona."""
     original_persona = current_persona.get()
     current_persona.set(persona)
-    
+
     try:
         db_path = get_db_path()
-        
+
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
-            
+
             # Tag distribution
             cursor.execute("SELECT tags FROM memories WHERE tags IS NOT NULL AND tags != ''")
             tag_counter = Counter()
@@ -133,7 +133,7 @@ def _get_memory_metrics_data(persona: str) -> dict:
                     tag_counter.update(tags_list)
                 except (json.JSONDecodeError, TypeError):
                     pass
-            
+
             # Emotion distribution from memory emotion column
             cursor.execute("SELECT emotion FROM memories WHERE emotion IS NOT NULL AND emotion != ''")
             emotion_counter = Counter()
@@ -141,18 +141,18 @@ def _get_memory_metrics_data(persona: str) -> dict:
                 emotion = row[0]
                 if emotion:
                     emotion_counter[emotion] += 1
-            
+
             # Tagged/Linked memory counts
             cursor.execute("SELECT COUNT(*) FROM memories WHERE tags IS NOT NULL AND tags != ''")
             tagged_count = cursor.fetchone()[0]
-            
+
             cursor.execute("SELECT content FROM memories")
             link_pattern = re.compile(r'\[\[(.+?)\]\]')
             linked_count = 0
             for row in cursor.fetchall():
                 if link_pattern.search(row[0]):
                     linked_count += 1
-            
+
             return {
                 "persona": persona,
                 "top_tags": dict(tag_counter.most_common(10)),
@@ -169,10 +169,10 @@ def _get_memory_stats_data(persona: str) -> dict:
     Respects privacy settings - excludes secret/private memories from dashboard."""
     original_persona = current_persona.get()
     current_persona.set(persona)
-    
+
     try:
         db_path = get_db_path()
-        
+
         # Get dashboard privacy filter level and timeline config
         from src.utils.config_utils import load_config
         cfg = load_config()
@@ -180,10 +180,10 @@ def _get_memory_stats_data(persona: str) -> dict:
         timeline_days = cfg.get("dashboard", {}).get("timeline_days", 14)
         _PRIV_RANK = {"public": 0, "internal": 1, "private": 2, "secret": 3}
         max_rank = _PRIV_RANK.get(dashboard_max, 1)
-        
+
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
-            
+
             # Timeline (configurable days, default 14) - with privacy filter
             cursor.execute("SELECT created_at, privacy_level FROM memories")
             date_counter = Counter()
@@ -192,14 +192,14 @@ def _get_memory_stats_data(persona: str) -> dict:
                 if _PRIV_RANK.get(priv, 1) <= max_rank:
                     created_at = datetime.fromisoformat(row[0]).date()
                     date_counter[created_at] += 1
-            
+
             today = datetime.now().date()
             timeline = []
             for i in range(timeline_days - 1, -1, -1):
                 day = today - timedelta(days=i)
                 count = date_counter.get(day, 0)
                 timeline.append({"date": str(day), "count": count})
-            
+
             # Tag distribution
             cursor.execute("SELECT tags FROM memories WHERE tags IS NOT NULL AND tags != ''")
             tag_counter = Counter()
@@ -210,7 +210,7 @@ def _get_memory_stats_data(persona: str) -> dict:
                     tag_counter.update(tags_list)
                 except (json.JSONDecodeError, TypeError):
                     pass
-            
+
             # Link analysis
             cursor.execute("SELECT content FROM memories")
             link_counter = Counter()
@@ -219,7 +219,7 @@ def _get_memory_stats_data(persona: str) -> dict:
                 content = row[0]
                 matches = link_pattern.findall(content)
                 link_counter.update(matches)
-            
+
             return {
                 "persona": persona,
                 "timeline": timeline,
@@ -237,10 +237,10 @@ def _get_latest_knowledge_graph(persona: str) -> str:
     # Knowledge graph is now stored in persona memory directory
     memory_dir = os.path.join(MEMORY_ROOT, persona)
     kg_path = os.path.join(memory_dir, "knowledge_graph.html")
-    
+
     if not os.path.exists(kg_path):
         return None
-    
+
     # Return relative URL path
     return f"/persona/{persona}/knowledge_graph.html"
 
@@ -252,12 +252,12 @@ def _get_latest_knowledge_graph(persona: str) -> str:
 def register_http_routes(mcp, templates):
     """
     Register HTTP routes with the MCP server.
-    
+
     Args:
         mcp: FastMCP server instance
         templates: Jinja2Templates instance for rendering HTML
     """
-    
+
     @mcp.custom_route("/", methods=["GET"])
     async def dashboard(request: Request):
         """Serve the dashboard HTML page."""
@@ -281,7 +281,7 @@ def register_http_routes(mcp, templates):
         """Get list of available personas."""
         if not os.path.exists(MEMORY_ROOT):
             return JSONResponse([])
-        
+
         personas = []
         for item in os.listdir(MEMORY_ROOT):
             item_path = os.path.join(MEMORY_ROOT, item)
@@ -290,25 +290,25 @@ def register_http_routes(mcp, templates):
                 db_path = os.path.join(item_path, "memory.sqlite")
                 if os.path.exists(db_path):
                     personas.append(item)
-        
+
         return JSONResponse(personas)
 
     @mcp.custom_route("/api/dashboard/{persona}", methods=["GET"])
     async def get_dashboard_data(request: Request):
         """Get dashboard data for a specific persona."""
         persona = request.path_params.get("persona")
-        
+
         # Validate persona exists
         memory_dir = os.path.join(MEMORY_ROOT, persona)
         if not os.path.exists(memory_dir):
             raise HTTPException(status_code=404, detail=f"Persona '{persona}' not found")
-        
+
         try:
             info = _get_memory_info_data(persona)
             metrics = _get_memory_metrics_data(persona)
             stats = _get_memory_stats_data(persona)
             kg_url = _get_latest_knowledge_graph(persona)
-            
+
             return JSONResponse({
                 "persona": persona,
                 "info": info,
@@ -325,36 +325,36 @@ def register_http_routes(mcp, templates):
         """Serve static files from the output directory."""
         filename = request.path_params.get("filename")
         file_path = os.path.join(SCRIPT_DIR, "output", filename)
-        
+
         # Security: prevent directory traversal
         if ".." in filename or "/" in filename or "\\" in filename:
             raise HTTPException(status_code=403, detail="Invalid filename")
-        
+
         if not os.path.exists(file_path):
             raise HTTPException(status_code=404, detail="File not found")
-        
+
         return FileResponse(file_path)
 
     @mcp.custom_route("/persona/{persona}/knowledge_graph.html", methods=["GET"])
     async def serve_knowledge_graph(request: Request):
         """Serve knowledge graph HTML file from persona memory directory."""
         persona = request.path_params.get("persona")
-        
+
         # Security: prevent directory traversal
         if ".." in persona or "/" in persona or "\\" in persona:
             raise HTTPException(status_code=403, detail="Invalid persona name")
-        
+
         file_path = os.path.join(MEMORY_ROOT, persona, "knowledge_graph.html")
-        
+
         if not os.path.exists(file_path):
             raise HTTPException(status_code=404, detail="Knowledge graph not found")
-        
+
         return FileResponse(file_path)
 
     # ========================================
     # Admin Tools API Routes
     # ========================================
-    
+
     @mcp.custom_route("/api/admin/clean", methods=["POST"])
     async def admin_clean_memory(request: Request):
         """Clean memory by removing duplicate lines."""
@@ -362,13 +362,13 @@ def register_http_routes(mcp, templates):
             data = await request.json()
             persona = data.get("persona")
             memory_key = data.get("key")
-            
+
             if not persona or not memory_key:
                 raise HTTPException(status_code=400, detail="persona and key are required")
-            
+
             original_persona = current_persona.get()
             current_persona.set(persona)
-            
+
             try:
                 from src.utils.db_utils import clean_memory_duplicates
                 clean_memory_duplicates(memory_key)
@@ -378,27 +378,27 @@ def register_http_routes(mcp, templates):
                 })
             finally:
                 current_persona.set(original_persona)
-                
+
         except Exception as e:
             return JSONResponse({
                 "success": False,
                 "error": str(e)
             }, status_code=500)
-    
+
     @mcp.custom_route("/api/admin/rebuild", methods=["POST"])
     async def admin_rebuild_vector_store(request: Request):
         """Rebuild Qdrant collection from SQLite database (async background task)."""
         try:
             data = await request.json()
             persona = data.get("persona")
-            
+
             if not persona:
                 raise HTTPException(status_code=400, detail="persona is required")
-            
+
             # Run in thread pool to avoid blocking
             import asyncio
             from concurrent.futures import ThreadPoolExecutor
-            
+
             def _rebuild():
                 original_persona = current_persona.get()
                 current_persona.set(persona)
@@ -407,23 +407,23 @@ def register_http_routes(mcp, templates):
                     rebuild_vector_store()
                 finally:
                     current_persona.set(original_persona)
-            
+
             # Start async task
             loop = asyncio.get_event_loop()
             with ThreadPoolExecutor() as executor:
                 await loop.run_in_executor(executor, _rebuild)
-            
+
             return JSONResponse({
                 "success": True,
                 "message": f"Successfully rebuilt Qdrant collection for {persona}"
             })
-                
+
         except Exception as e:
             return JSONResponse({
                 "success": False,
                 "error": str(e)
             }, status_code=500)
-    
+
     @mcp.custom_route("/api/admin/migrate", methods=["POST"])
     async def admin_migrate_backend(request: Request):
         """Migrate memories between SQLite and Qdrant."""
@@ -432,16 +432,16 @@ def register_http_routes(mcp, templates):
             persona = data.get("persona")
             source = data.get("source")  # "sqlite" or "qdrant"
             target = data.get("target")  # "sqlite" or "qdrant"
-            
+
             if not all([persona, source, target]):
                 raise HTTPException(status_code=400, detail="persona, source, and target are required")
-            
+
             if source == target:
                 raise HTTPException(status_code=400, detail="source and target must be different")
-            
+
             original_persona = current_persona.get()
             current_persona.set(persona)
-            
+
             try:
                 if source == "sqlite" and target == "qdrant":
                     from tools.vector_tools import migrate_sqlite_to_qdrant_tool
@@ -461,7 +461,7 @@ def register_http_routes(mcp, templates):
                     message = f"Migrated {count} memories from Qdrant to SQLite"
                 else:
                     raise HTTPException(status_code=400, detail="Invalid source/target combination")
-                
+
                 return JSONResponse({
                     "success": True,
                     "message": message,
@@ -469,24 +469,24 @@ def register_http_routes(mcp, templates):
                 })
             finally:
                 current_persona.set(original_persona)
-                
+
         except Exception as e:
             return JSONResponse({
                 "success": False,
                 "error": str(e)
             }, status_code=500)
-    
+
     @mcp.custom_route("/api/admin/migrate-schema", methods=["POST"])
     async def admin_migrate_schema(request: Request):
         """Migrate SQLite schema to add missing columns."""
         try:
             data = await request.json()
             persona = data.get("persona")  # Optional - if None, migrate all
-            
+
             # Run in thread pool to avoid blocking
             import asyncio
             from concurrent.futures import ThreadPoolExecutor
-            
+
             def _migrate():
                 if persona:
                     original_persona = current_persona.get()
@@ -494,7 +494,7 @@ def register_http_routes(mcp, templates):
                 try:
                     from scripts.migrate_schema import migrate_database, migrate_all_personas
                     import os
-                    
+
                     if persona:
                         db_path = os.path.join(MEMORY_ROOT, persona, "memory.sqlite")
                         if not os.path.exists(db_path):
@@ -507,11 +507,11 @@ def register_http_routes(mcp, templates):
                 finally:
                     if persona:
                         current_persona.set(original_persona)
-            
+
             loop = asyncio.get_event_loop()
             with ThreadPoolExecutor() as executor:
                 result = await loop.run_in_executor(executor, _migrate)
-            
+
             return JSONResponse(result)
         except Exception as e:
             return JSONResponse({
@@ -527,14 +527,14 @@ def register_http_routes(mcp, templates):
             persona = data.get("persona")
             threshold = data.get("threshold", 0.85)
             max_pairs = data.get("max_pairs", 50)
-            
+
             if not persona:
                 raise HTTPException(status_code=400, detail="persona is required")
-            
+
             # Run in thread pool to avoid blocking
             import asyncio
             from concurrent.futures import ThreadPoolExecutor
-            
+
             def _detect():
                 original_persona = current_persona.get()
                 current_persona.set(persona)
@@ -543,23 +543,23 @@ def register_http_routes(mcp, templates):
                     return detect_duplicate_memories(threshold=threshold, max_pairs=max_pairs)
                 finally:
                     current_persona.set(original_persona)
-            
+
             # Start async task
             loop = asyncio.get_event_loop()
             with ThreadPoolExecutor() as executor:
                 duplicates = await loop.run_in_executor(executor, _detect)
-            
+
             return JSONResponse({
                 "success": True,
                 "duplicates": duplicates
             })
-                
+
         except Exception as e:
             return JSONResponse({
                 "success": False,
                 "error": str(e)
             }, status_code=500)
-    
+
     @mcp.custom_route("/api/admin/merge", methods=["POST"])
     async def admin_merge_memories(request: Request):
         """Merge multiple memories into one."""
@@ -570,13 +570,13 @@ def register_http_routes(mcp, templates):
             merged_content = data.get("content")
             keep_all_tags = data.get("keep_all_tags", True)
             delete_originals = data.get("delete_originals", True)
-            
+
             if not persona or not memory_keys or len(memory_keys) < 2:
                 raise HTTPException(status_code=400, detail="persona and at least 2 keys are required")
-            
+
             original_persona = current_persona.get()
             current_persona.set(persona)
-            
+
             try:
                 from src.utils.analysis_utils import merge_memories
                 new_key = merge_memories(
@@ -592,13 +592,13 @@ def register_http_routes(mcp, templates):
                 })
             finally:
                 current_persona.set(original_persona)
-                
+
         except Exception as e:
             return JSONResponse({
                 "success": False,
                 "error": str(e)
             }, status_code=500)
-    
+
     @mcp.custom_route("/api/admin/generate-graph", methods=["POST"])
     async def admin_generate_knowledge_graph(request: Request):
         """Generate knowledge graph visualization (async background task)."""
@@ -609,39 +609,39 @@ def register_http_routes(mcp, templates):
             min_count = data.get("min_count", 2)
             min_cooccurrence = data.get("min_cooccurrence", 1)
             remove_isolated = data.get("remove_isolated", True)
-            
+
             if not persona:
                 raise HTTPException(status_code=400, detail="persona is required")
-            
+
             # Run in thread pool to avoid blocking
             import asyncio
             from concurrent.futures import ThreadPoolExecutor
-            
+
             def _generate():
                 original_persona = current_persona.get()
                 current_persona.set(persona)
                 try:
                     from src.utils.analysis_utils import build_knowledge_graph, export_graph_html, export_graph_json
                     from src.utils.persona_utils import get_db_path
-                    
+
                     graph = build_knowledge_graph(
                         min_count=min_count,
                         min_cooccurrence=min_cooccurrence,
                         remove_isolated=remove_isolated
                     )
-                    
+
                     if output_format == "html":
                         # Get persona memory directory
                         db_path = get_db_path()
                         persona_dir = os.path.dirname(db_path)
-                        
+
                         # HTML file path (single file per persona)
                         output_path = os.path.join(persona_dir, f"knowledge_graph.html")
-                        
+
                         # Remove old graph file if exists
                         if os.path.exists(output_path):
                             os.remove(output_path)
-                        
+
                         export_graph_html(graph, output_path)
                         return {
                             "success": True,
@@ -657,14 +657,14 @@ def register_http_routes(mcp, templates):
                         }
                 finally:
                     current_persona.set(original_persona)
-            
+
             # Start async task
             loop = asyncio.get_event_loop()
             with ThreadPoolExecutor() as executor:
                 result = await loop.run_in_executor(executor, _generate)
-            
+
             return JSONResponse(result)
-                
+
         except Exception as e:
             return JSONResponse({
                 "success": False,
@@ -680,13 +680,13 @@ def register_http_routes(mcp, templates):
             data = await request.json()
             persona = data.get("persona")
             period = data.get("period", "week")  # "day" or "week"
-            
+
             if not persona:
                 return JSONResponse({
                     "success": False,
                     "error": "Persona is required"
                 }, status_code=400)
-            
+
             # Validate persona exists
             memory_dir = os.path.join(MEMORY_ROOT, persona)
             if not os.path.exists(memory_dir):
@@ -694,22 +694,22 @@ def register_http_routes(mcp, templates):
                     "success": False,
                     "error": f"Persona '{persona}' not found"
                 }, status_code=404)
-            
+
             # Set persona context and run summarization in thread pool
             from concurrent.futures import ThreadPoolExecutor
-            
+
             def _summarize():
                 original_persona = current_persona.get()
                 current_persona.set(persona)
-                
+
                 try:
                     from tools.summarization_tools import summarize_last_week, summarize_last_day
-                    
+
                     if period == "day":
                         result = summarize_last_day(persona=persona)
                     else:
                         result = summarize_last_week(persona=persona)
-                    
+
                     if result:
                         # Extract summary key from result message
                         summary_key = None
@@ -718,7 +718,7 @@ def register_http_routes(mcp, templates):
                                 summary_key = result.split("Summary node: ")[1].split("\n")[0].strip()
                             except (IndexError, AttributeError):
                                 pass
-                        
+
                         return {
                             "success": True,
                             "message": result,
@@ -732,14 +732,14 @@ def register_http_routes(mcp, templates):
                         }
                 finally:
                     current_persona.set(original_persona)
-            
+
             # Start async task
             loop = asyncio.get_event_loop()
             with ThreadPoolExecutor() as executor:
                 result = await loop.run_in_executor(executor, _summarize)
-            
+
             return JSONResponse(result)
-                
+
         except Exception as e:
             return JSONResponse({
                 "success": False,
@@ -754,50 +754,50 @@ def register_http_routes(mcp, templates):
         try:
             data = await request.json()
             persona = data.get("persona")
-            
+
             if not persona:
                 return JSONResponse({
                     "success": False,
                     "error": "Persona is required"
                 }, status_code=400)
-            
+
             async def event_stream():
                 try:
                     original_persona = current_persona.get()
                     current_persona.set(persona)
-                    
+
                     # Send start event
                     yield f"data: {json.dumps({'status': 'started', 'percent': 0, 'message': 'Starting vector store rebuild...'})}\n\n"
                     await asyncio.sleep(0.1)
-                    
+
                     # Simulate progress (in reality, rebuild_vector_store doesn't provide progress)
                     # We'll just show a progress animation
                     from src.utils.vector_utils import rebuild_vector_store
-                    
+
                     # Progress simulation
                     for i in range(10, 90, 10):
                         yield f"data: {json.dumps({'status': 'progress', 'percent': i, 'message': f'Rebuilding vectors... {i}%'})}\n\n"
                         await asyncio.sleep(0.3)
-                    
+
                     # Execute rebuild in thread pool
                     loop = asyncio.get_event_loop()
                     from concurrent.futures import ThreadPoolExecutor
                     with ThreadPoolExecutor() as executor:
                         def _rebuild():
                             return rebuild_vector_store()
-                        
+
                         result = await loop.run_in_executor(executor, _rebuild)
-                    
+
                     # Send completion
                     yield f"data: {json.dumps({'status': 'completed', 'percent': 100, 'message': f'Rebuild completed: {result}'})}\n\n"
-                    
+
                     current_persona.set(original_persona)
-                    
+
                 except Exception as e:
                     yield f"data: {json.dumps({'status': 'error', 'message': str(e)})}\n\n"
-            
+
             return StreamingResponse(event_stream(), media_type="text/event-stream")
-            
+
         except Exception as e:
             return JSONResponse({
                 "success": False,
@@ -813,55 +813,55 @@ def register_http_routes(mcp, templates):
             data = await request.json()
             persona = data.get("persona")
             period = data.get("period", "week")
-            
+
             if not persona:
                 return JSONResponse({
                     "success": False,
                     "error": "Persona is required"
                 }, status_code=400)
-            
+
             async def event_stream():
                 try:
                     original_persona = current_persona.get()
                     current_persona.set(persona)
-                    
+
                     # Send start event
                     yield f"data: {json.dumps({'status': 'started', 'percent': 0, 'message': 'Loading memories...'})}\n\n"
                     await asyncio.sleep(0.1)
-                    
+
                     yield f"data: {json.dumps({'status': 'progress', 'percent': 30, 'message': 'Analyzing memories...'})}\n\n"
                     await asyncio.sleep(0.3)
-                    
+
                     # Check if LLM is enabled
                     from src.utils.config_utils import load_config
                     config = load_config()
                     use_llm = config.get("summarization", {}).get("use_llm", False)
-                    
+
                     message = 'Generating summary with LLM...' if use_llm else 'Generating summary...'
                     yield f"data: {json.dumps({'status': 'progress', 'percent': 60, 'message': message})}\n\n"
                     await asyncio.sleep(0.3)
-                    
+
                     # Execute summarization in thread pool
                     loop = asyncio.get_event_loop()
                     from concurrent.futures import ThreadPoolExecutor
                     with ThreadPoolExecutor() as executor:
                         def _summarize():
                             from tools.summarization_tools import summarize_last_week, summarize_last_day
-                            
+
                             if period == "day":
                                 summary_key = summarize_last_day(persona=persona)
                             else:
                                 summary_key = summarize_last_week(persona=persona)
-                            
+
                             # Return success message
                             if summary_key:
                                 period_name = "last day" if period == "day" else "last week"
                                 return f"✅ Summary created successfully for {period_name}\nSummary node: {summary_key}"
                             else:
                                 return None
-                        
+
                         result = await loop.run_in_executor(executor, _summarize)
-                    
+
                     if result:
                         summary_key = None
                         if "Summary node: " in result:
@@ -869,16 +869,16 @@ def register_http_routes(mcp, templates):
                                 summary_key = result.split("Summary node: ")[1].split("\n")[0].strip()
                             except (IndexError, AttributeError):
                                 pass
-                        
+
                         yield f"data: {json.dumps({'status': 'completed', 'percent': 100, 'message': result, 'summary_key': summary_key})}\n\n"
                     else:
                         yield f"data: {json.dumps({'status': 'error', 'message': 'Failed to generate summary (no memories found in the selected period)'})}\n\n"
-                    
+
                     current_persona.set(original_persona)
-                    
+
                 except Exception as e:
                     yield f"data: {json.dumps({'status': 'error', 'message': str(e)})}\n\n"
-            
+
             return StreamingResponse(event_stream(), media_type="text/event-stream")
         except Exception as e:
             return JSONResponse({
@@ -901,62 +901,72 @@ def register_http_routes(mcp, templates):
                     "success": False,
                     "error": f"Persona '{persona}' not found"
                 }, status_code=404)
-            
+
             # Set persona context
             original_persona = current_persona.get()
             current_persona.set(persona)
-            
+
             try:
                 db_path = get_db_path()
-                
+
                 # Get emotion data from emotion_history table (Phase 40)
                 with sqlite3.connect(db_path) as conn:
                     cursor = conn.cursor()
-                    
+
                     # Check if emotion_history table exists
                     cursor.execute("""
-                        SELECT name FROM sqlite_master 
+                        SELECT name FROM sqlite_master
                         WHERE type='table' AND name='emotion_history'
                     """)
                     has_history_table = cursor.fetchone() is not None
-                    
+
                     if has_history_table:
+                        cursor.execute("PRAGMA table_info(emotion_history)")
+                        history_columns = {row[1] for row in cursor.fetchall()}
+                        if "emotion" in history_columns:
+                            emotion_col = "emotion"
+                        elif "emotion_type" in history_columns:
+                            emotion_col = "emotion_type"
+                        else:
+                            emotion_col = None
+
+                    if has_history_table and emotion_col:
                         # Use emotion_history table (Phase 40)
-                        cursor.execute('''
-                            SELECT 
+                        cursor.execute(f'''
+                            SELECT
                                 DATE(timestamp) as date,
-                                emotion,
+                                {emotion_col} as emotion,
                                 COUNT(*) as count
                             FROM emotion_history
-                            WHERE emotion IS NOT NULL AND emotion != 'neutral'
-                            GROUP BY DATE(timestamp), emotion
+                            WHERE {emotion_col} IS NOT NULL AND {emotion_col} != 'neutral'
+                            GROUP BY DATE(timestamp), {emotion_col}
                             ORDER BY DATE(timestamp)
                         ''')
-                        
+
                         daily_data = {}
                         emotion_types = set()
-                        
+
                         for row in cursor.fetchall():
                             date_str, emotion, count = row
                             if date_str not in daily_data:
                                 daily_data[date_str] = {}
                             daily_data[date_str][emotion] = count
                             emotion_types.add(emotion)
-                        
+
                         # Get weekly aggregation from emotion_history
-                        cursor.execute('''
-                            SELECT 
+                        cursor.execute(f'''
+                            SELECT
                                 strftime('%Y-W%W', timestamp) as week,
-                                emotion,
+                                {emotion_col} as emotion,
                                 COUNT(*) as count
                             FROM emotion_history
-                            WHERE emotion IS NOT NULL AND emotion != 'neutral'
-                            GROUP BY strftime('%Y-W%W', timestamp), emotion
+                            WHERE {emotion_col} IS NOT NULL AND {emotion_col} != 'neutral'
+                            GROUP BY strftime('%Y-W%W', timestamp), {emotion_col}
                             ORDER BY strftime('%Y-W%W', timestamp)
                         ''')
-                        
+
                         weekly_data = {}
-                        
+
                         for row in cursor.fetchall():
                             week_str, emotion, count = row
                             if week_str not in weekly_data:
@@ -964,8 +974,17 @@ def register_http_routes(mcp, templates):
                             weekly_data[week_str][emotion] = count
                     else:
                         # Fallback to memories table (backward compatibility)
+                        cursor.execute("PRAGMA table_info(memories)")
+                        memory_columns = {row[1] for row in cursor.fetchall()}
+                        if "emotion" not in memory_columns:
+                            return JSONResponse({
+                                "success": True,
+                                "daily": [],
+                                "weekly": [],
+                                "emotion_types": []
+                            })
                         cursor.execute('''
-                            SELECT 
+                            SELECT
                                 DATE(created_at) as date,
                                 emotion,
                                 COUNT(*) as count
@@ -974,20 +993,20 @@ def register_http_routes(mcp, templates):
                             GROUP BY DATE(created_at), emotion
                             ORDER BY DATE(created_at)
                         ''')
-                        
+
                         daily_data = {}
                         emotion_types = set()
-                        
+
                         for row in cursor.fetchall():
                             date_str, emotion, count = row
                             if date_str not in daily_data:
                                 daily_data[date_str] = {}
                             daily_data[date_str][emotion] = count
                             emotion_types.add(emotion)
-                        
+
                         # Get weekly aggregation from memories
                         cursor.execute('''
-                            SELECT 
+                            SELECT
                                 strftime('%Y-W%W', created_at) as week,
                                 emotion,
                                 COUNT(*) as count
@@ -996,15 +1015,15 @@ def register_http_routes(mcp, templates):
                             GROUP BY strftime('%Y-W%W', created_at), emotion
                             ORDER BY strftime('%Y-W%W', created_at)
                         ''')
-                        
+
                         weekly_data = {}
-                        
+
                         for row in cursor.fetchall():
                             week_str, emotion, count = row
                             if week_str not in weekly_data:
                                 weekly_data[week_str] = {}
                             weekly_data[week_str][emotion] = count
-                
+
                 # Format for Chart.js
                 daily_timeline = []
                 for date_str, emotions in sorted(daily_data.items()):
@@ -1012,24 +1031,24 @@ def register_http_routes(mcp, templates):
                         "date": date_str,
                         **{emotion: emotions.get(emotion, 0) for emotion in emotion_types}
                     })
-                
+
                 weekly_timeline = []
                 for week_str, emotions in sorted(weekly_data.items()):
                     weekly_timeline.append({
                         "week": week_str,
                         **{emotion: emotions.get(emotion, 0) for emotion in emotion_types}
                     })
-                
+
                 return JSONResponse({
                     "success": True,
                     "daily": daily_timeline,
                     "weekly": weekly_timeline,
                     "emotion_types": sorted(list(emotion_types))
                 })
-                
+
             finally:
                 current_persona.set(original_persona)
-                
+
         except Exception as e:
             return JSONResponse({
                 "success": False,
@@ -1050,18 +1069,18 @@ def register_http_routes(mcp, templates):
                     "success": False,
                     "error": f"Persona '{persona}' not found"
                 }, status_code=404)
-            
+
             # Set persona context
             original_persona = current_persona.get()
             current_persona.set(persona)
-            
+
             try:
                 # Import Phase 40 timeline function
                 from core.memory_db import get_physical_sensations_timeline
-                
+
                 # Get 7 days of physical sensations data
                 timeline_data = get_physical_sensations_timeline(days=7, persona=persona)
-                
+
                 if not timeline_data:
                     # Return empty data with proper structure
                     return JSONResponse({
@@ -1069,7 +1088,7 @@ def register_http_routes(mcp, templates):
                         "timeline": [],
                         "metrics": ["fatigue", "warmth", "arousal", "touch_response", "heart_rate_metaphor"]
                     })
-                
+
                 # Format timeline data for Chart.js
                 formatted_timeline = []
                 for entry in timeline_data:
@@ -1082,16 +1101,16 @@ def register_http_routes(mcp, templates):
                         "heart_rate_metaphor": entry.get("heart_rate_metaphor"),
                         "memory_key": entry.get("memory_key")
                     })
-                
+
                 return JSONResponse({
                     "success": True,
                     "timeline": formatted_timeline,
                     "metrics": ["fatigue", "warmth", "arousal", "touch_response", "heart_rate_metaphor"]
                 })
-                
+
             finally:
                 current_persona.set(original_persona)
-                
+
         except Exception as e:
             return JSONResponse({
                 "success": False,
@@ -1113,24 +1132,24 @@ def register_http_routes(mcp, templates):
                     "success": False,
                     "error": f"Persona '{persona}' not found"
                 }, status_code=404)
-            
+
             # Set persona context
             original_persona = current_persona.get()
             current_persona.set(persona)
-            
+
             try:
                 from core.memory_db import get_anniversaries
-                
+
                 anniversaries_data = get_anniversaries(persona=persona)
-                
+
                 return JSONResponse({
                     "success": True,
                     "anniversaries": anniversaries_data
                 })
-                
+
             finally:
                 current_persona.set(original_persona)
-                
+
         except Exception as e:
             return JSONResponse({
                 "success": False,
@@ -1178,9 +1197,30 @@ def register_http_routes(mcp, templates):
                     conn.row_factory = sqlite3.Row
                     cursor = conn.cursor()
 
+                    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='operations'")
+                    if cursor.fetchone() is None:
+                        return JSONResponse({
+                            "success": True,
+                            "total": 0,
+                            "page": page,
+                            "per_page": per_page,
+                            "total_pages": 1,
+                            "operation_breakdown": {},
+                            "items": [],
+                        })
+                    cursor.execute("PRAGMA table_info(memories)")
+                    memory_columns = {row[1] for row in cursor.fetchall()}
+
+                    cursor.execute("PRAGMA table_info(memories)")
+                    memory_columns = {row[1] for row in cursor.fetchall()}
+
                     # Build WHERE clause
-                    conditions = [f"COALESCE(privacy_level, 'internal') IN ({','.join('?' for _ in allowed_levels)})"]
-                    params: list = list(allowed_levels)
+                    if "privacy_level" in memory_columns:
+                        conditions = [f"COALESCE(privacy_level, 'internal') IN ({','.join('?' for _ in allowed_levels)})"]
+                        params: list = list(allowed_levels)
+                    else:
+                        conditions = ["1=1"]
+                        params = []
 
                     if tag_filter:
                         conditions.append("tags LIKE ?")
@@ -1197,10 +1237,27 @@ def register_http_routes(mcp, templates):
 
                     # Fetch page
                     offset = (page - 1) * per_page
+                    emotion_select = "emotion AS emotion_type" if "emotion" in memory_columns else "NULL AS emotion_type"
+                    intensity_select = "emotion_intensity" if "emotion_intensity" in memory_columns else "NULL AS emotion_intensity"
+                    select_fields = [
+                        "key",
+                        "content",
+                        emotion_select,
+                        intensity_select,
+                        "importance",
+                        "tags",
+                        "created_at",
+                        "updated_at",
+                        "action_tag",
+                        "environment",
+                    ]
+                    if "context_tags" in memory_columns:
+                        select_fields.append("context_tags")
+                    if "privacy_level" in memory_columns:
+                        select_fields.append("privacy_level")
+
                     cursor.execute(
-                        f"""SELECT key, content, emotion_type, emotion_intensity, importance,
-                                   tags, context_tags, created_at, updated_at, privacy_level,
-                                   action_tag, environment
+                        f"""SELECT {', '.join(select_fields)}
                             FROM memories WHERE {where}
                             ORDER BY created_at {sort_order}
                             LIMIT ? OFFSET ?""",
@@ -1264,6 +1321,8 @@ def register_http_routes(mcp, templates):
                         return JSONResponse({"success": False, "error": f"Memory '{key}' not found"}, status_code=404)
 
                     memory = dict(row)
+                    if "emotion" in memory and "emotion_type" not in memory:
+                        memory["emotion_type"] = memory.get("emotion")
                     # Parse JSON fields
                     for jf in ("tags", "context_tags"):
                         if memory.get(jf):
@@ -1431,15 +1490,22 @@ def register_http_routes(mcp, templates):
                     cursor = conn.cursor()
 
                     if "memory" in types:
-                        placeholders = ",".join("?" for _ in allowed_levels)
+                        memory_where = "created_at >= ?"
+                        memory_params = [since]
+                        if "privacy_level" in memory_columns:
+                            placeholders = ",".join("?" for _ in allowed_levels)
+                            memory_where += f" AND COALESCE(privacy_level, 'internal') IN ({placeholders})"
+                            memory_params += allowed_levels
+
+                        emotion_select = "emotion AS emotion_type" if "emotion" in memory_columns else "NULL AS emotion_type"
+                        intensity_select = "emotion_intensity" if "emotion_intensity" in memory_columns else "NULL AS emotion_intensity"
                         cursor.execute(
-                            f"""SELECT key, content, emotion_type, emotion_intensity, importance,
+                            f"""SELECT key, content, {emotion_select}, {intensity_select}, importance,
                                        tags, created_at, action_tag
                                 FROM memories
-                                WHERE created_at >= ?
-                                  AND COALESCE(privacy_level, 'internal') IN ({placeholders})
+                                WHERE {memory_where}
                                 ORDER BY created_at DESC""",
-                            [since] + allowed_levels,
+                            memory_params,
                         )
                         for row in cursor.fetchall():
                             content = row["content"] or ""
@@ -1455,47 +1521,73 @@ def register_http_routes(mcp, templates):
                             })
 
                     if "emotion" in types:
-                        cursor.execute(
-                            "SELECT timestamp, emotion_type, emotion_intensity, trigger_content FROM emotion_history WHERE timestamp >= ? ORDER BY timestamp DESC",
-                            (since,),
-                        )
-                        for row in cursor.fetchall():
-                            events.append({
-                                "type": "emotion",
-                                "timestamp": row["timestamp"],
-                                "emotion_type": row["emotion_type"],
-                                "emotion_intensity": row["emotion_intensity"],
-                                "trigger": row["trigger_content"],
-                            })
+                        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='emotion_history'")
+                        if cursor.fetchone() is not None:
+                            cursor.execute("PRAGMA table_info(emotion_history)")
+                            emotion_columns = {row[1] for row in cursor.fetchall()}
+                            if "emotion" in emotion_columns:
+                                emotion_col = "emotion"
+                            elif "emotion_type" in emotion_columns:
+                                emotion_col = "emotion_type"
+                            else:
+                                emotion_col = None
+
+                            trigger_col = "trigger_content" if "trigger_content" in emotion_columns else None
+                            if emotion_col:
+                                select_cols = f"timestamp, {emotion_col} as emotion_type, emotion_intensity"
+                                if trigger_col:
+                                    select_cols += f", {trigger_col} as trigger"
+                                cursor.execute(
+                                    f"SELECT {select_cols} FROM emotion_history WHERE timestamp >= ? ORDER BY timestamp DESC",
+                                    (since,),
+                                )
+                                for row in cursor.fetchall():
+                                    trigger_value = row["trigger"] if trigger_col else None
+                                    events.append({
+                                        "type": "emotion",
+                                        "timestamp": row["timestamp"],
+                                        "emotion_type": row["emotion_type"],
+                                        "emotion_intensity": row["emotion_intensity"],
+                                        "trigger": trigger_value,
+                                    })
 
                     if "sensation" in types:
-                        cursor.execute(
-                            "SELECT timestamp, fatigue, warmth, arousal, custom_sensations FROM physical_sensations_history WHERE timestamp >= ? ORDER BY timestamp DESC",
-                            (since,),
-                        )
-                        for row in cursor.fetchall():
-                            events.append({
-                                "type": "sensation",
-                                "timestamp": row["timestamp"],
-                                "fatigue": row["fatigue"],
-                                "warmth": row["warmth"],
-                                "arousal": row["arousal"],
-                            })
+                        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='physical_sensations_history'")
+                        if cursor.fetchone() is not None:
+                            cursor.execute("PRAGMA table_info(physical_sensations_history)")
+                            sensation_columns = {row[1] for row in cursor.fetchall()}
+                            select_cols = ["timestamp", "fatigue", "warmth", "arousal"]
+                            if "custom_sensations" in sensation_columns:
+                                select_cols.append("custom_sensations")
+                            cursor.execute(
+                                f"SELECT {', '.join(select_cols)} FROM physical_sensations_history WHERE timestamp >= ? ORDER BY timestamp DESC",
+                                (since,),
+                            )
+                            for row in cursor.fetchall():
+                                events.append({
+                                    "type": "sensation",
+                                    "timestamp": row["timestamp"],
+                                    "fatigue": row["fatigue"],
+                                    "warmth": row["warmth"],
+                                    "arousal": row["arousal"],
+                                })
 
                     if "operation" in types:
-                        cursor.execute(
-                            "SELECT timestamp, operation, key, success, error FROM operations WHERE timestamp >= ? ORDER BY timestamp DESC",
-                            (since,),
-                        )
-                        for row in cursor.fetchall():
-                            events.append({
-                                "type": "operation",
-                                "timestamp": row["timestamp"],
-                                "operation": row["operation"],
-                                "key": row["key"],
-                                "success": bool(row["success"]),
-                                "error": row["error"],
-                            })
+                        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='operations'")
+                        if cursor.fetchone() is not None:
+                            cursor.execute(
+                                "SELECT timestamp, operation, key, success, error FROM operations WHERE timestamp >= ? ORDER BY timestamp DESC",
+                                (since,),
+                            )
+                            for row in cursor.fetchall():
+                                events.append({
+                                    "type": "operation",
+                                    "timestamp": row["timestamp"],
+                                    "operation": row["operation"],
+                                    "key": row["key"],
+                                    "success": bool(row["success"]),
+                                    "error": row["error"],
+                                })
 
                 # Sort all events by timestamp descending
                 events.sort(key=lambda e: e.get("timestamp", ""), reverse=True)
@@ -1515,5 +1607,3 @@ def register_http_routes(mcp, templates):
                 current_persona.set(original_persona)
         except Exception as e:
             return JSONResponse({"success": False, "error": str(e)}, status_code=500)
-
-
