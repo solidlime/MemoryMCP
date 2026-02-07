@@ -84,9 +84,6 @@
             <button onclick="switchTab('admin')" id="tab-admin" class="tab-button glass-card rounded-lg px-6 py-3 text-white font-semibold">
                 🛠️ Admin
             </button>
-            <button onclick="switchTab('graph')" id="tab-graph" class="tab-button glass-card rounded-lg px-6 py-3 text-white font-semibold">
-                🕸️ Graph
-            </button>
         </div>
     </nav>
 
@@ -110,11 +107,7 @@
             </div>
         </div>
     </div>
-    </div>
-    <!-- End Tab Content: Overview -->
 
-    <!-- Tab Content: Analytics -->
-    <div id="content-analytics" class="tab-content">
     <!-- Stats Card -->
     <div class="glass-card rounded-2xl p-6 mb-6">
         <h2 class="text-2xl font-bold text-white mb-4">📉 Statistics</h2>
@@ -135,7 +128,11 @@
             </div>
         </div>
     </div>
+    </div>
+    <!-- End Tab Content: Overview -->
 
+    <!-- Tab Content: Analytics -->
+    <div id="content-analytics" class="tab-content">
     <!-- Emotion Timeline Card (NEW) -->
     <div class="glass-card rounded-2xl p-6 mb-6">
         <h2 class="text-2xl font-bold text-white mb-4">💭 Emotion Timeline</h2>
@@ -165,6 +162,16 @@
         </div>
         <div id="physicalSensationsLegend" class="mt-4 text-white text-sm">
             Loading physical sensations data...
+        </div>
+    </div>
+
+    <!-- Knowledge Graph Card -->
+    <div class="glass-card rounded-2xl p-6 mb-6">
+        <h2 class="text-2xl font-bold text-white mb-4">🕸️ Knowledge Graph</h2>
+        <div id="knowledgeGraphContent" class="bg-white rounded-lg" style="height: 600px;">
+            <div class="flex items-center justify-center h-full text-gray-500">
+                <p class="loading">Loading Knowledge Graph...</p>
+            </div>
         </div>
     </div>
     </div>
@@ -216,32 +223,6 @@
 
     <!-- Tab Content: Admin -->
     <div id="content-admin" class="tab-content">
-    <!-- Audit Log Card -->
-    <div class="glass-card rounded-2xl p-6 mb-6">
-        <h2 class="text-2xl font-bold text-white mb-4">📝 Audit Log</h2>
-        <div class="flex flex-wrap gap-2 mb-4">
-            <select id="auditOpFilter" class="bg-white/10 text-white rounded-lg px-3 py-2 text-sm border border-white/20 focus:outline-none focus:ring-2 focus:ring-purple-400">
-                <option value="">All Operations</option>
-                <option value="create">Create</option>
-                <option value="read">Read</option>
-                <option value="update">Update</option>
-                <option value="delete">Delete</option>
-                <option value="search">Search</option>
-            </select>
-            <input type="text" id="auditKeyFilter" placeholder="Filter by key..." class="bg-white/10 text-white rounded-lg px-3 py-2 text-sm border border-white/20 focus:outline-none focus:ring-2 focus:ring-purple-400 w-48">
-            <button onclick="loadAuditLog(1)" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm transition-all">🔍 Filter</button>
-        </div>
-        <div id="auditBreakdown" class="flex flex-wrap gap-2 mb-4"></div>
-        <div id="auditLogList" class="space-y-2">
-            <p class="text-white loading">Loading audit log...</p>
-        </div>
-        <div id="auditPagination" class="flex items-center justify-center gap-4 mt-4 hidden">
-            <button onclick="loadAuditLog(currentAuditPage - 1)" id="auditPrev" class="bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded-lg text-sm">← Prev</button>
-            <span id="auditPageInfo" class="text-white text-sm"></span>
-            <button onclick="loadAuditLog(currentAuditPage + 1)" id="auditNext" class="bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded-lg text-sm">Next →</button>
-        </div>
-    </div>
-
     <!-- Admin Tools Card -->
     <div class="glass-card rounded-2xl p-6 mb-6">
         <h2 class="text-2xl font-bold text-white mb-4">🛠️ Admin Tools</h2>
@@ -370,22 +351,34 @@
             </div>
         </div>
     </div>
-    </div>
-    <!-- End Tab Content: Admin -->
 
-    <!-- Tab Content: Graph -->
-    <div id="content-graph" class="tab-content">
-    <!-- Knowledge Graph Card -->
-    <div class="glass-card rounded-2xl p-6">
-        <h2 class="text-2xl font-bold text-white mb-4">🕸️ Knowledge Graph</h2>
-        <div id="knowledgeGraphContent" class="bg-white rounded-lg" style="height: 600px;">
-            <div class="flex items-center justify-center h-full text-gray-500">
-                <p class="loading">Loading Knowledge Graph...</p>
-            </div>
+    <!-- Audit Log Card -->
+    <div class="glass-card rounded-2xl p-6 mb-6">
+        <h2 class="text-2xl font-bold text-white mb-4">📝 Audit Log</h2>
+        <div class="flex flex-wrap gap-2 mb-4">
+            <select id="auditOpFilter" class="bg-white/10 text-white rounded-lg px-3 py-2 text-sm border border-white/20 focus:outline-none focus:ring-2 focus:ring-purple-400">
+                <option value="">All Operations</option>
+                <option value="create">Create</option>
+                <option value="read">Read</option>
+                <option value="update">Update</option>
+                <option value="delete">Delete</option>
+                <option value="search">Search</option>
+            </select>
+            <input type="text" id="auditKeyFilter" placeholder="Filter by key..." class="bg-white/10 text-white rounded-lg px-3 py-2 text-sm border border-white/20 focus:outline-none focus:ring-2 focus:ring-purple-400 w-48">
+            <button onclick="loadAuditLog(1)" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm transition-all">🔍 Filter</button>
+        </div>
+        <div id="auditBreakdown" class="flex flex-wrap gap-2 mb-4"></div>
+        <div id="auditLogList" class="space-y-2">
+            <p class="text-white loading">Loading audit log...</p>
+        </div>
+        <div id="auditPagination" class="flex items-center justify-center gap-4 mt-4 hidden">
+            <button onclick="loadAuditLog(currentAuditPage - 1)" id="auditPrev" class="bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded-lg text-sm">← Prev</button>
+            <span id="auditPageInfo" class="text-white text-sm"></span>
+            <button onclick="loadAuditLog(currentAuditPage + 1)" id="auditNext" class="bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded-lg text-sm">Next →</button>
         </div>
     </div>
     </div>
-    <!-- End Tab Content: Graph -->
+    <!-- End Tab Content: Admin -->
 
     <script>
         let currentPersona = '';
@@ -419,7 +412,7 @@
             // Save to localStorage
             localStorage.setItem('activeTab', tabName);
 
-            // Re-render charts if switching to analytics/graph tab (charts need visible canvas)
+            // Re-render charts if switching to analytics tab (charts need visible canvas)
             if (tabName === 'analytics') {
                 if (timelineChart) timelineChart.resize();
                 if (tagChart) tagChart.resize();
@@ -431,7 +424,9 @@
         // Restore last active tab on page load
         function restoreActiveTab() {
             const savedTab = localStorage.getItem('activeTab') || 'overview';
-            switchTab(savedTab);
+            // If saved tab is 'graph' (old tab), default to 'analytics'
+            const tabToRestore = savedTab === 'graph' ? 'analytics' : savedTab;
+            switchTab(tabToRestore);
         }
 
         // Load personas on page load
@@ -671,7 +666,7 @@
         // Check Knowledge Graph status and auto-update if needed
         async function checkAndUpdateKnowledgeGraph(persona) {
             const content = document.getElementById('knowledgeGraphContent');
-            
+
             try {
                 // Check graph status
                 const statusRes = await fetch(`/api/knowledge-graph-status/${persona}`);
