@@ -351,6 +351,47 @@ def register_http_routes(mcp, templates):
 
         return FileResponse(file_path)
 
+    @mcp.custom_route("/api/knowledge-graph-status/{persona}", methods=["GET"])
+    async def knowledge_graph_status(request: Request):
+        """Get knowledge graph file status (existence, age, etc.)."""
+        persona = request.path_params.get("persona")
+
+        # Security: prevent directory traversal
+        if ".." in persona or "/" in persona or "\\" in persona:
+            return JSONResponse({
+                "success": False,
+                "error": "Invalid persona name"
+            }, status_code=403)
+
+        file_path = os.path.join(MEMORY_ROOT, persona, "knowledge_graph.html")
+
+        if not os.path.exists(file_path):
+            return JSONResponse({
+                "success": True,
+                "exists": False,
+                "url": None,
+                "last_modified": None,
+                "age_hours": None,
+                "should_regenerate": True
+            })
+
+        # Get file modification time
+        mtime = os.path.getmtime(file_path)
+        last_modified = datetime.fromtimestamp(mtime).isoformat()
+        age_hours = (datetime.now() - datetime.fromtimestamp(mtime)).total_seconds() / 3600
+
+        # Auto-regenerate if older than 24 hours
+        should_regenerate = age_hours > 24
+
+        return JSONResponse({
+            "success": True,
+            "exists": True,
+            "url": f"/persona/{persona}/knowledge_graph.html",
+            "last_modified": last_modified,
+            "age_hours": round(age_hours, 2),
+            "should_regenerate": should_regenerate
+        })
+
     # ========================================
     # Admin Tools API Routes
     # ========================================

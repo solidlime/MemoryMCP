@@ -29,6 +29,24 @@
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
+        .tab-button {
+            transition: all 0.3s ease;
+        }
+        .tab-button.active {
+            background: rgba(255, 255, 255, 0.2);
+            border-bottom: 3px solid #fff;
+        }
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.3s ease-in;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
 <body class="p-6">
@@ -51,6 +69,29 @@
         </div>
     </header>
 
+    <!-- Tab Navigation -->
+    <nav class="glass-card rounded-2xl p-2 mb-6">
+        <div class="flex gap-2 flex-wrap">
+            <button onclick="switchTab('overview')" id="tab-overview" class="tab-button glass-card rounded-lg px-6 py-3 text-white font-semibold active">
+                📊 Overview
+            </button>
+            <button onclick="switchTab('analytics')" id="tab-analytics" class="tab-button glass-card rounded-lg px-6 py-3 text-white font-semibold">
+                📈 Analytics
+            </button>
+            <button onclick="switchTab('memories')" id="tab-memories" class="tab-button glass-card rounded-lg px-6 py-3 text-white font-semibold">
+                📋 Memories
+            </button>
+            <button onclick="switchTab('admin')" id="tab-admin" class="tab-button glass-card rounded-lg px-6 py-3 text-white font-semibold">
+                🛠️ Admin
+            </button>
+            <button onclick="switchTab('graph')" id="tab-graph" class="tab-button glass-card rounded-lg px-6 py-3 text-white font-semibold">
+                🕸️ Graph
+            </button>
+        </div>
+    </nav>
+
+    <!-- Tab Content: Overview -->
+    <div id="content-overview" class="tab-content active">
     <!-- Info & Metrics Cards -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         <!-- Info Card -->
@@ -69,7 +110,11 @@
             </div>
         </div>
     </div>
+    </div>
+    <!-- End Tab Content: Overview -->
 
+    <!-- Tab Content: Analytics -->
+    <div id="content-analytics" class="tab-content">
     <!-- Stats Card -->
     <div class="glass-card rounded-2xl p-6 mb-6">
         <h2 class="text-2xl font-bold text-white mb-4">📉 Statistics</h2>
@@ -122,7 +167,11 @@
             Loading physical sensations data...
         </div>
     </div>
+    </div>
+    <!-- End Tab Content: Analytics -->
 
+    <!-- Tab Content: Memories -->
+    <div id="content-memories" class="tab-content">
     <!-- Anniversary Calendar Card (NEW) -->
     <div class="glass-card rounded-2xl p-6 mb-6">
         <h2 class="text-2xl font-bold text-white mb-4">🎂 Anniversary Calendar</h2>
@@ -162,7 +211,11 @@
             <button onclick="loadObservations(currentObsPage + 1)" id="obsNext" class="bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded-lg text-sm">Next →</button>
         </div>
     </div>
+    </div>
+    <!-- End Tab Content: Memories -->
 
+    <!-- Tab Content: Admin -->
+    <div id="content-admin" class="tab-content">
     <!-- Audit Log Card -->
     <div class="glass-card rounded-2xl p-6 mb-6">
         <h2 class="text-2xl font-bold text-white mb-4">📝 Audit Log</h2>
@@ -317,7 +370,11 @@
             </div>
         </div>
     </div>
+    </div>
+    <!-- End Tab Content: Admin -->
 
+    <!-- Tab Content: Graph -->
+    <div id="content-graph" class="tab-content">
     <!-- Knowledge Graph Card -->
     <div class="glass-card rounded-2xl p-6">
         <h2 class="text-2xl font-bold text-white mb-4">🕸️ Knowledge Graph</h2>
@@ -327,6 +384,8 @@
             </div>
         </div>
     </div>
+    </div>
+    <!-- End Tab Content: Graph -->
 
     <script>
         let currentPersona = '';
@@ -338,6 +397,42 @@
         let physicalSensationsChart = null;
         let physicalSensationsData = null;
         let anniversariesData = null;
+
+        // Tab switching functionality
+        function switchTab(tabName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+
+            // Remove active class from all tab buttons
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active');
+            });
+
+            // Show selected tab content
+            document.getElementById(`content-${tabName}`).classList.add('active');
+
+            // Add active class to selected tab button
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+
+            // Save to localStorage
+            localStorage.setItem('activeTab', tabName);
+
+            // Re-render charts if switching to analytics/graph tab (charts need visible canvas)
+            if (tabName === 'analytics') {
+                if (timelineChart) timelineChart.resize();
+                if (tagChart) tagChart.resize();
+                if (emotionChart) emotionChart.resize();
+                if (physicalSensationsChart) physicalSensationsChart.resize();
+            }
+        }
+
+        // Restore last active tab on page load
+        function restoreActiveTab() {
+            const savedTab = localStorage.getItem('activeTab') || 'overview';
+            switchTab(savedTab);
+        }
 
         // Load personas on page load
         async function loadPersonas() {
@@ -396,8 +491,8 @@
                 // Update Stats
                 renderStats(data.stats);
 
-                // Update Knowledge Graph
-                renderKnowledgeGraph(data.knowledge_graph_url);
+                // Check and auto-update Knowledge Graph
+                await checkAndUpdateKnowledgeGraph(persona);
 
                 // Load Emotion Timeline
                 await loadEmotionData(persona);
@@ -570,6 +665,73 @@
                     .map(([link, count]) => `<span class="inline-block bg-white/20 rounded-full px-3 py-1 text-sm mr-2 mb-2">${link} (${count})</span>`)
                     .join('');
                 content.innerHTML = links || '<p class="text-purple-200">No links found</p>';
+            }
+        }
+
+        // Check Knowledge Graph status and auto-update if needed
+        async function checkAndUpdateKnowledgeGraph(persona) {
+            const content = document.getElementById('knowledgeGraphContent');
+            
+            try {
+                // Check graph status
+                const statusRes = await fetch(`/api/knowledge-graph-status/${persona}`);
+                const status = await statusRes.json();
+
+                if (!status.success) {
+                    renderKnowledgeGraph(null);
+                    return;
+                }
+
+                // If graph needs regeneration
+                if (status.should_regenerate) {
+                    content.innerHTML = `
+                        <div class="flex flex-col items-center justify-center h-full text-white">
+                            <div class="loading mb-4">
+                                <svg class="animate-spin h-12 w-12 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                            </div>
+                            <p class="text-lg font-semibold">Generating Knowledge Graph...</p>
+                            <p class="text-purple-200 text-sm mt-2">
+                                ${status.exists ? `Last update: ${Math.round(status.age_hours)}h ago` : 'First generation'}
+                            </p>
+                        </div>
+                    `;
+
+                    // Auto-generate graph
+                    const generateRes = await fetch('/api/admin/generate-graph', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            persona: persona,
+                            format: 'html',
+                            min_count: 2,
+                            min_cooccurrence: 1,
+                            remove_isolated: true
+                        })
+                    });
+
+                    const result = await generateRes.json();
+
+                    if (result.success) {
+                        // Render the newly generated graph
+                        renderKnowledgeGraph(result.url);
+                    } else {
+                        content.innerHTML = `
+                            <div class="flex items-center justify-center h-full text-red-300">
+                                <p>Failed to generate graph: ${result.error}</p>
+                            </div>
+                        `;
+                    }
+                } else {
+                    // Graph is fresh, just render it
+                    renderKnowledgeGraph(status.url);
+                }
+
+            } catch (error) {
+                console.error('Knowledge Graph status check failed:', error);
+                renderKnowledgeGraph(null);
             }
         }
 
@@ -951,9 +1113,6 @@
         function closeAnniversaryModal() {
             document.getElementById('anniversaryModal').classList.add('hidden');
         }
-
-        // Initialize on page load
-        loadPersonas();
 
         // ========================================
         // Admin Tools Functions
@@ -1477,6 +1636,12 @@
                 document.getElementById('auditLogList').innerHTML = `<p class="text-red-300 text-sm">Error: ${err.message}</p>`;
             }
         }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            restoreActiveTab();
+            loadPersonas();
+        });
     </script>
 </body>
 </html>
