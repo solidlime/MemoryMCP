@@ -12,16 +12,18 @@ current_persona: ContextVar[str] = ContextVar('current_persona', default='defaul
 
 def get_current_persona() -> str:
     """
-    Get current persona from HTTP request header or context variable.
+    Get current persona from HTTP request header, environment variable, or context variable.
     
     Priority order:
-    1. Authorization header (Bearer token) - for Open WebUI compatibility
+    1. Authorization header (Bearer token) - for Open WebUI/LibreChat compatibility
     2. X-Persona header (legacy/fallback)
-    3. Context variable (default)
+    3. PERSONA environment variable - for scripts and testing
+    4. Context variable (default)
     
     Examples:
         Authorization: Bearer nilou  -> persona = "nilou"
         X-Persona: default           -> persona = "default"
+        PERSONA=nilou                -> persona = "nilou"
     """
     try:
         request = get_http_request()
@@ -40,7 +42,12 @@ def get_current_persona() -> str:
     except Exception:
         pass
     
-    # 3. Fallback to context variable
+    # 3. Check environment variable
+    env_persona = os.environ.get('PERSONA', '').strip()
+    if env_persona:
+        return env_persona
+    
+    # 4. Fallback to context variable
     return current_persona.get()
 
 def get_persona_dir(persona: str | None = None) -> str:
