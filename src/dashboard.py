@@ -173,17 +173,18 @@ def _get_memory_stats_data(persona: str) -> dict:
     try:
         db_path = get_db_path()
         
-        # Get dashboard privacy filter level
+        # Get dashboard privacy filter level and timeline config
         from src.utils.config_utils import load_config
         cfg = load_config()
         dashboard_max = cfg.get("privacy", {}).get("dashboard_max_level", "internal")
+        timeline_days = cfg.get("dashboard", {}).get("timeline_days", 14)
         _PRIV_RANK = {"public": 0, "internal": 1, "private": 2, "secret": 3}
         max_rank = _PRIV_RANK.get(dashboard_max, 1)
         
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
             
-            # Timeline (last 7 days) - with privacy filter
+            # Timeline (configurable days, default 14) - with privacy filter
             cursor.execute("SELECT created_at, privacy_level FROM memories")
             date_counter = Counter()
             for row in cursor.fetchall():
@@ -194,7 +195,7 @@ def _get_memory_stats_data(persona: str) -> dict:
             
             today = datetime.now().date()
             timeline = []
-            for i in range(6, -1, -1):
+            for i in range(timeline_days - 1, -1, -1):
                 day = today - timedelta(days=i)
                 count = date_counter.get(day, 0)
                 timeline.append({"date": str(day), "count": count})
@@ -221,7 +222,9 @@ def _get_memory_stats_data(persona: str) -> dict:
             
             return {
                 "persona": persona,
-                "last_7_days": timeline,
+                "timeline": timeline,
+                "last_7_days": timeline,  # Backward compat alias
+                "timeline_days": timeline_days,
                 "tag_distribution": dict(tag_counter),  # Send all tags instead of top 10
                 "top_links": dict(link_counter.most_common(10))
             }
@@ -1133,5 +1136,384 @@ def register_http_routes(mcp, templates):
                 "success": False,
                 "error": str(e)
             }, status_code=500)
+
+
+    # ─── Observation Stream / Memory Browsing APIs ───────────────────
+
+    @mcp.custom_route("/api/observations/{persona}", methods=["GET"])
+    async def observations(request: Request, persona: str):
+        """
+        Paginated observation stream – browse all memories chronologically.
+        Query params:
+            page (int): page number (1-based, default 1)
+            per_page (int): items per page (default 20, max 100)
+            sort (str): 'desc' (newest first, default) or 'asc'
+            tag (str): optional tag filter
+            q (str): optional keyword filter on content
+        """
+        try:
+            memory_dir = os.path.join(MEMORY_ROOT, persona)
+            if not os.path.exists(memory_dir):
+                return JSONResponse({"success": False, "error": f"Persona '{persona}' not found"}, status_code=404)
+
+            page = max(1, int(request.query_params.get("page", 1)))
+            per_page = min(100, max(1, int(request.query_params.get("per_page", 20))))
+            sort_order = "ASC" if request.query_params.get("sort", "desc").lower() == "asc" else "DESC"
+            tag_filter = request.query_params.get("tag", "").strip()
+            q_filter = request.query_params.get("q", "").strip()
+
+            original_persona = current_persona.get()
+            current_persona.set(persona)
+            try:
+                db_path = get_db_path()
+                # Privacy filter
+                from src.utils.config_utils import load_config
+                cfg = load_config()
+                dashboard_max = cfg.get("privacy", {}).get("dashboard_max_level", "internal")
+                _PRIV_RANK = {"public": 0, "internal": 1, "private": 2, "secret": 3}
+                max_rank = _PRIV_RANK.get(dashboard_max, 1)
+                allowed_levels = [lvl for lvl, rank in _PRIV_RANK.items() if rank <= max_rank]
+
+                with sqlite3.connect(db_path) as conn:
+                    conn.row_factory = sqlite3.Row
+                    cursor = conn.cursor()
+
+                    # Build WHERE clause
+                    conditions = [f"COALESCE(privacy_level, 'internal') IN ({','.join('?' for _ in allowed_levels)})"]
+                    params: list = list(allowed_levels)
+
+                    if tag_filter:
+                        conditions.append("tags LIKE ?")
+                        params.append(f'%"{tag_filter}"%')
+                    if q_filter:
+                        conditions.append("content LIKE ?")
+                        params.append(f"%{q_filter}%")
+
+                    where = " AND ".join(conditions)
+
+                    # Count
+                    cursor.execute(f"SELECT COUNT(*) FROM memories WHERE {where}", params)
+                    total = cursor.fetchone()[0]
+
+                    # Fetch page
+                    offset = (page - 1) * per_page
+                    cursor.execute(
+                        f"""SELECT key, content, emotion_type, emotion_intensity, importance,
+                                   tags, context_tags, created_at, updated_at, privacy_level,
+                                   action_tag, environment
+                            FROM memories WHERE {where}
+                            ORDER BY created_at {sort_order}
+                            LIMIT ? OFFSET ?""",
+                        params + [per_page, offset],
+                    )
+
+                    items = []
+                    for row in cursor.fetchall():
+                        item = dict(row)
+                        # Truncate long content for listing
+                        if item.get("content") and len(item["content"]) > 300:
+                            item["content_preview"] = item["content"][:300] + "..."
+                            del item["content"]
+                        else:
+                            item["content_preview"] = item.get("content", "")
+                            if "content" in item:
+                                del item["content"]
+                        # Parse JSON fields
+                        for jf in ("tags", "context_tags"):
+                            if item.get(jf):
+                                try:
+                                    item[jf] = json.loads(item[jf])
+                                except (json.JSONDecodeError, TypeError):
+                                    pass
+                        items.append(item)
+
+                    return JSONResponse({
+                        "success": True,
+                        "total": total,
+                        "page": page,
+                        "per_page": per_page,
+                        "total_pages": max(1, -(-total // per_page)),
+                        "items": items,
+                    })
+            finally:
+                current_persona.set(original_persona)
+        except Exception as e:
+            return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+    @mcp.custom_route("/api/memory/{persona}/{key:path}", methods=["GET"])
+    async def get_memory_by_key(request: Request, persona: str, key: str):
+        """
+        Get a single memory by its key, with full detail + related memories.
+        """
+        try:
+            memory_dir = os.path.join(MEMORY_ROOT, persona)
+            if not os.path.exists(memory_dir):
+                return JSONResponse({"success": False, "error": f"Persona '{persona}' not found"}, status_code=404)
+
+            original_persona = current_persona.get()
+            current_persona.set(persona)
+            try:
+                db_path = get_db_path()
+                with sqlite3.connect(db_path) as conn:
+                    conn.row_factory = sqlite3.Row
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT * FROM memories WHERE key = ?", (key,))
+                    row = cursor.fetchone()
+                    if not row:
+                        return JSONResponse({"success": False, "error": f"Memory '{key}' not found"}, status_code=404)
+
+                    memory = dict(row)
+                    # Parse JSON fields
+                    for jf in ("tags", "context_tags"):
+                        if memory.get(jf):
+                            try:
+                                memory[jf] = json.loads(memory[jf])
+                            except (json.JSONDecodeError, TypeError):
+                                pass
+
+                    # Find related via [[links]]
+                    link_pattern = re.compile(r'\[\[(.+?)\]\]')
+                    linked_keys = link_pattern.findall(memory.get("content", ""))
+
+                    # Get operation history for this key
+                    cursor.execute(
+                        "SELECT timestamp, operation, success, error FROM operations WHERE key = ? ORDER BY timestamp DESC LIMIT 20",
+                        (key,),
+                    )
+                    history = [dict(r) for r in cursor.fetchall()]
+
+                    return JSONResponse({
+                        "success": True,
+                        "memory": memory,
+                        "linked_keys": linked_keys,
+                        "history": history,
+                    })
+            finally:
+                current_persona.set(original_persona)
+        except Exception as e:
+            return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+    # ─── Audit Log API ───────────────────────────────────────────────
+
+    @mcp.custom_route("/api/audit-log/{persona}", methods=["GET"])
+    async def audit_log(request: Request, persona: str):
+        """
+        Browse the operations audit log with filtering and pagination.
+        Query params:
+            page (int): page number (1-based, default 1)
+            per_page (int): items per page (default 50, max 200)
+            operation (str): filter by operation type (create/read/update/delete/search etc.)
+            key (str): filter by memory key
+            success (str): 'true' or 'false'
+            since (str): ISO date string (e.g. 2025-01-01)
+        """
+        try:
+            memory_dir = os.path.join(MEMORY_ROOT, persona)
+            if not os.path.exists(memory_dir):
+                return JSONResponse({"success": False, "error": f"Persona '{persona}' not found"}, status_code=404)
+
+            page = max(1, int(request.query_params.get("page", 1)))
+            per_page = min(200, max(1, int(request.query_params.get("per_page", 50))))
+            op_filter = request.query_params.get("operation", "").strip()
+            key_filter = request.query_params.get("key", "").strip()
+            success_filter = request.query_params.get("success", "").strip()
+            since_filter = request.query_params.get("since", "").strip()
+
+            original_persona = current_persona.get()
+            current_persona.set(persona)
+            try:
+                db_path = get_db_path()
+                with sqlite3.connect(db_path) as conn:
+                    conn.row_factory = sqlite3.Row
+                    cursor = conn.cursor()
+
+                    conditions: list = []
+                    params: list = []
+
+                    if op_filter:
+                        conditions.append("operation = ?")
+                        params.append(op_filter)
+                    if key_filter:
+                        conditions.append("key LIKE ?")
+                        params.append(f"%{key_filter}%")
+                    if success_filter in ("true", "false"):
+                        conditions.append("success = ?")
+                        params.append(1 if success_filter == "true" else 0)
+                    if since_filter:
+                        conditions.append("timestamp >= ?")
+                        params.append(since_filter)
+
+                    where = (" WHERE " + " AND ".join(conditions)) if conditions else ""
+
+                    # Count
+                    cursor.execute(f"SELECT COUNT(*) FROM operations{where}", params)
+                    total = cursor.fetchone()[0]
+
+                    # Operation type breakdown
+                    cursor.execute(f"SELECT operation, COUNT(*) as cnt FROM operations{where} GROUP BY operation ORDER BY cnt DESC", params)
+                    op_breakdown = {r["operation"]: r["cnt"] for r in cursor.fetchall()}
+
+                    # Fetch page
+                    offset = (page - 1) * per_page
+                    cursor.execute(
+                        f"SELECT id, timestamp, operation_id, operation, key, success, error, metadata FROM operations{where} ORDER BY timestamp DESC LIMIT ? OFFSET ?",
+                        params + [per_page, offset],
+                    )
+
+                    items = []
+                    for row in cursor.fetchall():
+                        item = dict(row)
+                        if item.get("metadata"):
+                            try:
+                                item["metadata"] = json.loads(item["metadata"])
+                            except (json.JSONDecodeError, TypeError):
+                                pass
+                        items.append(item)
+
+                    return JSONResponse({
+                        "success": True,
+                        "total": total,
+                        "page": page,
+                        "per_page": per_page,
+                        "total_pages": max(1, -(-total // per_page)),
+                        "operation_breakdown": op_breakdown,
+                        "items": items,
+                    })
+            finally:
+                current_persona.set(original_persona)
+        except Exception as e:
+            return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+    # ─── Unified Timeline API ────────────────────────────────────────
+
+    @mcp.custom_route("/api/timeline/{persona}", methods=["GET"])
+    async def unified_timeline(request: Request, persona: str):
+        """
+        Unified timeline merging memories, emotions, physical sensations, and operations
+        into a single chronological stream.
+        Query params:
+            days (int): number of days to look back (default 7, max 90)
+            types (str): comma-separated event types to include
+                         (memory,emotion,sensation,operation) default: all
+            limit (int): max events to return (default 100, max 500)
+        """
+        try:
+            memory_dir = os.path.join(MEMORY_ROOT, persona)
+            if not os.path.exists(memory_dir):
+                return JSONResponse({"success": False, "error": f"Persona '{persona}' not found"}, status_code=404)
+
+            days = min(90, max(1, int(request.query_params.get("days", 7))))
+            limit = min(500, max(1, int(request.query_params.get("limit", 100))))
+            type_str = request.query_params.get("types", "memory,emotion,sensation,operation")
+            types = set(t.strip() for t in type_str.split(","))
+
+            since = (datetime.now() - timedelta(days=days)).isoformat()
+
+            original_persona = current_persona.get()
+            current_persona.set(persona)
+            try:
+                db_path = get_db_path()
+                # Privacy filter
+                from src.utils.config_utils import load_config
+                cfg = load_config()
+                dashboard_max = cfg.get("privacy", {}).get("dashboard_max_level", "internal")
+                _PRIV_RANK = {"public": 0, "internal": 1, "private": 2, "secret": 3}
+                max_rank = _PRIV_RANK.get(dashboard_max, 1)
+                allowed_levels = [lvl for lvl, rank in _PRIV_RANK.items() if rank <= max_rank]
+
+                events: list = []
+
+                with sqlite3.connect(db_path) as conn:
+                    conn.row_factory = sqlite3.Row
+                    cursor = conn.cursor()
+
+                    if "memory" in types:
+                        placeholders = ",".join("?" for _ in allowed_levels)
+                        cursor.execute(
+                            f"""SELECT key, content, emotion_type, emotion_intensity, importance,
+                                       tags, created_at, action_tag
+                                FROM memories
+                                WHERE created_at >= ?
+                                  AND COALESCE(privacy_level, 'internal') IN ({placeholders})
+                                ORDER BY created_at DESC""",
+                            [since] + allowed_levels,
+                        )
+                        for row in cursor.fetchall():
+                            content = row["content"] or ""
+                            events.append({
+                                "type": "memory",
+                                "timestamp": row["created_at"],
+                                "key": row["key"],
+                                "summary": content[:150] + ("..." if len(content) > 150 else ""),
+                                "emotion_type": row["emotion_type"],
+                                "emotion_intensity": row["emotion_intensity"],
+                                "importance": row["importance"],
+                                "action_tag": row["action_tag"],
+                            })
+
+                    if "emotion" in types:
+                        cursor.execute(
+                            "SELECT timestamp, emotion_type, emotion_intensity, trigger_content FROM emotion_history WHERE timestamp >= ? ORDER BY timestamp DESC",
+                            (since,),
+                        )
+                        for row in cursor.fetchall():
+                            events.append({
+                                "type": "emotion",
+                                "timestamp": row["timestamp"],
+                                "emotion_type": row["emotion_type"],
+                                "emotion_intensity": row["emotion_intensity"],
+                                "trigger": row["trigger_content"],
+                            })
+
+                    if "sensation" in types:
+                        cursor.execute(
+                            "SELECT timestamp, fatigue, warmth, arousal, custom_sensations FROM physical_sensations_history WHERE timestamp >= ? ORDER BY timestamp DESC",
+                            (since,),
+                        )
+                        for row in cursor.fetchall():
+                            events.append({
+                                "type": "sensation",
+                                "timestamp": row["timestamp"],
+                                "fatigue": row["fatigue"],
+                                "warmth": row["warmth"],
+                                "arousal": row["arousal"],
+                            })
+
+                    if "operation" in types:
+                        cursor.execute(
+                            "SELECT timestamp, operation, key, success, error FROM operations WHERE timestamp >= ? ORDER BY timestamp DESC",
+                            (since,),
+                        )
+                        for row in cursor.fetchall():
+                            events.append({
+                                "type": "operation",
+                                "timestamp": row["timestamp"],
+                                "operation": row["operation"],
+                                "key": row["key"],
+                                "success": bool(row["success"]),
+                                "error": row["error"],
+                            })
+
+                # Sort all events by timestamp descending
+                events.sort(key=lambda e: e.get("timestamp", ""), reverse=True)
+                events = events[:limit]
+
+                # Summary stats
+                type_counts = Counter(e["type"] for e in events)
+
+                return JSONResponse({
+                    "success": True,
+                    "days": days,
+                    "total_events": len(events),
+                    "type_counts": dict(type_counts),
+                    "events": events,
+                })
+            finally:
+                current_persona.set(original_persona)
+        except Exception as e:
+            return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
 

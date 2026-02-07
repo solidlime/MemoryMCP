@@ -145,6 +145,50 @@
         </div>
     </div>
 
+    <!-- Observation Stream Card -->
+    <div class="glass-card rounded-2xl p-6 mb-6">
+        <h2 class="text-2xl font-bold text-white mb-4">📋 Observation Stream</h2>
+        <div class="flex flex-wrap gap-2 mb-4">
+            <input type="text" id="obsSearchQuery" placeholder="Search keyword..." class="bg-white/10 text-white rounded-lg px-3 py-2 text-sm border border-white/20 focus:outline-none focus:ring-2 focus:ring-purple-400 w-48">
+            <input type="text" id="obsSearchTag" placeholder="Filter by tag..." class="bg-white/10 text-white rounded-lg px-3 py-2 text-sm border border-white/20 focus:outline-none focus:ring-2 focus:ring-purple-400 w-36">
+            <button onclick="loadObservations(1)" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm transition-all">🔍 Search</button>
+        </div>
+        <div id="observationList" class="space-y-3">
+            <p class="text-white loading">Loading observations...</p>
+        </div>
+        <div id="obsPagination" class="flex items-center justify-center gap-4 mt-4 hidden">
+            <button onclick="loadObservations(currentObsPage - 1)" id="obsPrev" class="bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded-lg text-sm">← Prev</button>
+            <span id="obsPageInfo" class="text-white text-sm"></span>
+            <button onclick="loadObservations(currentObsPage + 1)" id="obsNext" class="bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded-lg text-sm">Next →</button>
+        </div>
+    </div>
+
+    <!-- Audit Log Card -->
+    <div class="glass-card rounded-2xl p-6 mb-6">
+        <h2 class="text-2xl font-bold text-white mb-4">📝 Audit Log</h2>
+        <div class="flex flex-wrap gap-2 mb-4">
+            <select id="auditOpFilter" class="bg-white/10 text-white rounded-lg px-3 py-2 text-sm border border-white/20 focus:outline-none focus:ring-2 focus:ring-purple-400">
+                <option value="">All Operations</option>
+                <option value="create">Create</option>
+                <option value="read">Read</option>
+                <option value="update">Update</option>
+                <option value="delete">Delete</option>
+                <option value="search">Search</option>
+            </select>
+            <input type="text" id="auditKeyFilter" placeholder="Filter by key..." class="bg-white/10 text-white rounded-lg px-3 py-2 text-sm border border-white/20 focus:outline-none focus:ring-2 focus:ring-purple-400 w-48">
+            <button onclick="loadAuditLog(1)" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm transition-all">🔍 Filter</button>
+        </div>
+        <div id="auditBreakdown" class="flex flex-wrap gap-2 mb-4"></div>
+        <div id="auditLogList" class="space-y-2">
+            <p class="text-white loading">Loading audit log...</p>
+        </div>
+        <div id="auditPagination" class="flex items-center justify-center gap-4 mt-4 hidden">
+            <button onclick="loadAuditLog(currentAuditPage - 1)" id="auditPrev" class="bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded-lg text-sm">← Prev</button>
+            <span id="auditPageInfo" class="text-white text-sm"></span>
+            <button onclick="loadAuditLog(currentAuditPage + 1)" id="auditNext" class="bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded-lg text-sm">Next →</button>
+        </div>
+    </div>
+
     <!-- Admin Tools Card -->
     <div class="glass-card rounded-2xl p-6 mb-6">
         <h2 class="text-2xl font-bold text-white mb-4">🛠️ Admin Tools</h2>
@@ -364,6 +408,10 @@
                 // Load Anniversaries
                 await loadAnniversariesData(persona);
                 
+                // Load Observation Stream & Audit Log
+                loadObservations(1);
+                loadAuditLog(1);
+                
             } catch (error) {
                 console.error('Failed to load dashboard data:', error);
                 showAdminResult(`Failed to load data: ${error.message}`, true);
@@ -430,13 +478,14 @@
         }
 
         function renderStats(stats) {
-            // Timeline Chart
-            if (stats.last_7_days) {
+            // Timeline Chart (configurable days, default 14)
+            const timelineData = stats.timeline || stats.last_7_days;
+            if (timelineData) {
                 const ctx = document.getElementById('timelineChart');
                 if (timelineChart) timelineChart.destroy();
                 
-                const labels = stats.last_7_days.map(d => d.date);
-                const data = stats.last_7_days.map(d => d.count);
+                const labels = timelineData.map(d => d.date);
+                const data = timelineData.map(d => d.count);
                 
                 timelineChart = new Chart(ctx, {
                     type: 'bar',
@@ -1265,6 +1314,167 @@
                 }
             } catch (error) {
                 showAdminResult(`❌ Error: ${error.message}`, true);
+            }
+        }
+
+        // ─── Observation Stream ─────────────────────────────────────
+        let currentObsPage = 1;
+
+        async function loadObservations(page = 1) {
+            if (!currentPersona) return;
+            const q = document.getElementById('obsSearchQuery')?.value || '';
+            const tag = document.getElementById('obsSearchTag')?.value || '';
+            const params = new URLSearchParams({ page, per_page: 15 });
+            if (q) params.set('q', q);
+            if (tag) params.set('tag', tag);
+
+            try {
+                const res = await fetch(`/api/observations/${currentPersona}?${params}`);
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error);
+
+                currentObsPage = data.page;
+                const container = document.getElementById('observationList');
+                if (!data.items.length) {
+                    container.innerHTML = '<p class="text-white/60 text-sm">No memories found.</p>';
+                } else {
+                    container.innerHTML = data.items.map(m => `
+                        <div class="glass-card rounded-lg p-3 cursor-pointer hover:bg-white/10 transition-all"
+                             onclick="showMemoryDetail('${m.key}')">
+                            <div class="flex justify-between items-start gap-2">
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-white text-sm font-mono truncate">${m.key}</p>
+                                    <p class="text-white/70 text-xs mt-1">${m.content_preview || ''}</p>
+                                </div>
+                                <div class="text-right shrink-0">
+                                    ${m.emotion_type ? `<span class="text-xs px-2 py-0.5 rounded-full bg-purple-500/30 text-purple-200">${m.emotion_type}</span>` : ''}
+                                    ${m.importance ? `<span class="text-xs text-white/50 ml-1">★${Number(m.importance).toFixed(1)}</span>` : ''}
+                                </div>
+                            </div>
+                            <div class="flex gap-1 mt-2 flex-wrap">
+                                ${(m.tags || []).map(t => `<span class="text-xs px-1.5 py-0.5 rounded bg-white/10 text-white/60">${t}</span>`).join('')}
+                                <span class="text-xs text-white/40 ml-auto">${m.created_at ? new Date(m.created_at).toLocaleString() : ''}</span>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+
+                // Pagination
+                const pagDiv = document.getElementById('obsPagination');
+                if (data.total_pages > 1) {
+                    pagDiv.classList.remove('hidden');
+                    document.getElementById('obsPageInfo').textContent = `${data.page} / ${data.total_pages} (${data.total} items)`;
+                    document.getElementById('obsPrev').disabled = data.page <= 1;
+                    document.getElementById('obsNext').disabled = data.page >= data.total_pages;
+                } else {
+                    pagDiv.classList.add('hidden');
+                }
+            } catch (err) {
+                document.getElementById('observationList').innerHTML = `<p class="text-red-300 text-sm">Error: ${err.message}</p>`;
+            }
+        }
+
+        async function showMemoryDetail(key) {
+            if (!currentPersona) return;
+            try {
+                const res = await fetch(`/api/memory/${currentPersona}/${key}`);
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error);
+
+                const m = data.memory;
+                const tags = (() => { try { return JSON.parse(m.tags || '[]'); } catch { return []; } })();
+                const ctx = (() => { try { return JSON.parse(m.context_tags || '[]'); } catch { return []; } })();
+
+                document.getElementById('modalTitle').textContent = `📄 ${m.key}`;
+                document.getElementById('modalContent').innerHTML = `
+                    <div class="space-y-3">
+                        <div class="text-white/90 text-sm whitespace-pre-wrap">${m.content || ''}</div>
+                        <div class="grid grid-cols-2 gap-2 text-xs text-white/60">
+                            <p>🎭 Emotion: ${m.emotion_type || 'N/A'} ${m.emotion_intensity ? `(${m.emotion_intensity})` : ''}</p>
+                            <p>⭐ Importance: ${m.importance || 'N/A'}</p>
+                            <p>🏷️ Action: ${m.action_tag || 'N/A'}</p>
+                            <p>🌍 Env: ${m.environment || 'N/A'}</p>
+                            <p>🔒 Privacy: ${m.privacy_level || 'internal'}</p>
+                            <p>👁️ Access: ${m.access_count || 0} times</p>
+                            <p>📅 Created: ${m.created_at ? new Date(m.created_at).toLocaleString() : 'N/A'}</p>
+                            <p>✏️ Updated: ${m.updated_at ? new Date(m.updated_at).toLocaleString() : 'N/A'}</p>
+                        </div>
+                        ${tags.length ? `<div class="flex gap-1 flex-wrap">${tags.map(t => `<span class="text-xs px-2 py-0.5 rounded-full bg-purple-500/30 text-purple-200">${t}</span>`).join('')}</div>` : ''}
+                        ${ctx.length ? `<div class="flex gap-1 flex-wrap">${ctx.map(t => `<span class="text-xs px-2 py-0.5 rounded-full bg-blue-500/30 text-blue-200">${t}</span>`).join('')}</div>` : ''}
+                        ${data.linked_keys?.length ? `<div class="mt-2"><p class="text-white/50 text-xs mb-1">Linked Memories:</p>${data.linked_keys.map(k => `<span class="text-xs text-purple-300 underline cursor-pointer mr-2" onclick="showMemoryDetail('${k}')">${k}</span>`).join('')}</div>` : ''}
+                        ${data.history?.length ? `
+                            <div class="mt-2">
+                                <p class="text-white/50 text-xs mb-1">Operation History:</p>
+                                <div class="space-y-1 max-h-32 overflow-auto">
+                                    ${data.history.map(h => `<p class="text-xs text-white/40">${h.timestamp} — ${h.operation} ${h.success ? '✅' : '❌ ' + (h.error || '')}</p>`).join('')}
+                                </div>
+                            </div>` : ''}
+                    </div>
+                `;
+                document.getElementById('anniversaryModal').classList.remove('hidden');
+            } catch (err) {
+                alert(`Error loading memory: ${err.message}`);
+            }
+        }
+
+        // ─── Audit Log ──────────────────────────────────────────────
+        let currentAuditPage = 1;
+
+        async function loadAuditLog(page = 1) {
+            if (!currentPersona) return;
+            const op = document.getElementById('auditOpFilter')?.value || '';
+            const key = document.getElementById('auditKeyFilter')?.value || '';
+            const params = new URLSearchParams({ page, per_page: 30 });
+            if (op) params.set('operation', op);
+            if (key) params.set('key', key);
+
+            try {
+                const res = await fetch(`/api/audit-log/${currentPersona}?${params}`);
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error);
+
+                currentAuditPage = data.page;
+
+                // Breakdown badges
+                const bkEl = document.getElementById('auditBreakdown');
+                if (data.operation_breakdown) {
+                    const colors = { create: 'green', read: 'blue', update: 'yellow', delete: 'red', search: 'purple' };
+                    bkEl.innerHTML = Object.entries(data.operation_breakdown).map(([op, cnt]) => {
+                        const c = colors[op] || 'white';
+                        return `<span class="text-xs px-2 py-0.5 rounded-full bg-${c}-500/30 text-${c}-200">${op}: ${cnt}</span>`;
+                    }).join('');
+                }
+
+                const container = document.getElementById('auditLogList');
+                if (!data.items.length) {
+                    container.innerHTML = '<p class="text-white/60 text-sm">No operations found.</p>';
+                } else {
+                    container.innerHTML = data.items.map(o => {
+                        const icon = { create: '➕', read: '👁️', update: '✏️', delete: '🗑️', search: '🔍' }[o.operation] || '📌';
+                        return `
+                            <div class="flex items-center gap-3 text-xs py-2 border-b border-white/5">
+                                <span class="text-lg">${icon}</span>
+                                <span class="text-white/50 w-40 shrink-0">${o.timestamp ? new Date(o.timestamp).toLocaleString() : ''}</span>
+                                <span class="text-white font-mono">${o.operation}</span>
+                                <span class="text-purple-300 truncate flex-1">${o.key || '—'}</span>
+                                <span>${o.success ? '✅' : '❌'}</span>
+                                ${o.error ? `<span class="text-red-300 truncate max-w-48" title="${o.error}">${o.error}</span>` : ''}
+                            </div>`;
+                    }).join('');
+                }
+
+                // Pagination
+                const pagDiv = document.getElementById('auditPagination');
+                if (data.total_pages > 1) {
+                    pagDiv.classList.remove('hidden');
+                    document.getElementById('auditPageInfo').textContent = `${data.page} / ${data.total_pages} (${data.total} ops)`;
+                    document.getElementById('auditPrev').disabled = data.page <= 1;
+                    document.getElementById('auditNext').disabled = data.page >= data.total_pages;
+                } else {
+                    pagDiv.classList.add('hidden');
+                }
+            } catch (err) {
+                document.getElementById('auditLogList').innerHTML = `<p class="text-red-300 text-sm">Error: ${err.message}</p>`;
             }
         }
     </script>

@@ -136,9 +136,20 @@
 - ダッシュボードは `privacy.dashboard_max_level` で表示制限
 
 ### Resource Profile (DS920+)
-- `resource_profile: "low"` → 検索・要約・クリーンアップを省資源モードに自動切替
+- `resource_profile: "low"` → DS920+ 20GB最適化（reranker_top_n: 6, semantic_top_k: 5, タイムライン14日）
 - `resource_profile: "minimal"` → セマンティック検索無効、要約無効
 - `defer_vector: true` → ベクトルインデックス更新をスキップ（後でrebuild）
+- DS920+は**CPU制約はあるがメモリは潤沢(20GB)**。精度を落とさず処理間隔で調整する方針
+
+### Dashboard設定
+- `dashboard.timeline_days` でタイムラインの日数を設定（デフォルト14日）
+- Observation Stream: `/api/observations/{persona}` でメモリのページネーション一覧
+- Audit Log: `/api/audit-log/{persona}` で操作履歴の閲覧
+- Unified Timeline: `/api/timeline/{persona}` で全イベント統合表示
+- Memory Detail: `/api/memory/{persona}/{key}` で単一メモリの詳細+操作履歴+リンク
+
+### HTTP API Reference
+- 詳細は `docs/http_api_reference.md` を参照
 
 **サンプルコード・例文:**
 - 汎用的な名前を使用（例: "User", "Assistant", "Alice", "Bob"）

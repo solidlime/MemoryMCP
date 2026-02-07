@@ -62,6 +62,10 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "search_max_level": "private", # Max privacy level returned in search
         "dashboard_max_level": "internal",  # Max level shown on dashboard
     },
+    # Dashboard settings
+    "dashboard": {
+        "timeline_days": 14,           # Number of days for memory timeline chart
+    },
     # DS920+ / low-resource host optimizations
     "resource_profile": "normal",      # "normal", "low" (DS920+), "minimal"
 }
@@ -257,28 +261,32 @@ def load_config(force: bool = False) -> Dict[str, Any]:
 # Resource profile presets for different hardware constraints
 _RESOURCE_PROFILES: Dict[str, Dict[str, Any]] = {
     "low": {
-        # DS920+ / NAS / low-RAM hosts
+        # DS920+ 20GB / NAS with decent RAM
+        # CPU-constrained but memory-rich: allow better precision while staying lightweight
         "embeddings_device": "cpu",
-        "reranker_top_n": 3,
+        "reranker_top_n": 6,           # Relaxed from 3 (20GB allows larger candidate sets)
         "summarization": {
-            "check_interval_seconds": 7200,
-            "idle_minutes": 60,
+            "check_interval_seconds": 5400,   # 90min (relaxed from 120min)
+            "idle_minutes": 45,                # Relaxed from 60min
         },
         "vector_rebuild": {
             "mode": "idle",
-            "idle_seconds": 120,
-            "min_interval": 600,
+            "idle_seconds": 90,          # Relaxed from 120s
+            "min_interval": 300,         # Relaxed from 600s
         },
         "auto_cleanup": {
-            "check_interval_seconds": 600,
-            "max_suggestions_per_run": 10,
+            "check_interval_seconds": 450,
+            "max_suggestions_per_run": 15,
         },
         "progressive_search": {
             "enabled": True,
             "keyword_first": True,
             "keyword_threshold": 2,
             "semantic_fallback": True,
-            "max_semantic_top_k": 3,
+            "max_semantic_top_k": 5,     # Relaxed from 3 (20GB headroom)
+        },
+        "dashboard": {
+            "timeline_days": 14,          # Extended from 7
         },
     },
     "minimal": {
