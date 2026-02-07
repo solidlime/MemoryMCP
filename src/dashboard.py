@@ -887,13 +887,14 @@ def register_http_routes(mcp, templates):
             }, status_code=500)
 
     @mcp.custom_route("/api/emotion-timeline/{persona}", methods=["GET"])
-    async def emotion_timeline(request: Request, persona: str):
+    async def emotion_timeline(request: Request):
         """
         Get emotion timeline data for visualization.
         Returns daily and weekly emotion distribution from emotion_history table (Phase 40).
         Falls back to memories table for backward compatibility.
         """
         try:
+            persona = request.path_params.get("persona")
             # Validate persona exists
             memory_dir = os.path.join(MEMORY_ROOT, persona)
             if not os.path.exists(memory_dir):
@@ -1056,12 +1057,13 @@ def register_http_routes(mcp, templates):
             }, status_code=500)
 
     @mcp.custom_route("/api/physical-sensations-timeline/{persona}", methods=["GET"])
-    async def physical_sensations_timeline(request: Request, persona: str):
+    async def physical_sensations_timeline(request: Request):
         """
         Get physical sensations timeline data for visualization.
         Returns time-series data for fatigue, warmth, arousal, touch_response, and heart_rate_metaphor.
         """
         try:
+            persona = request.path_params.get("persona")
             # Validate persona exists
             memory_dir = os.path.join(MEMORY_ROOT, persona)
             if not os.path.exists(memory_dir):
@@ -1119,12 +1121,13 @@ def register_http_routes(mcp, templates):
 
 
     @mcp.custom_route("/api/anniversaries/{persona}", methods=["GET"])
-    async def anniversaries(request: Request, persona: str):
+    async def anniversaries(request: Request):
         """
         Get anniversaries (important memories grouped by month-day).
         Returns list of anniversary dates with associated memories.
         """
         try:
+            persona = request.path_params.get("persona")
             # Validate persona exists
             memory_dir = os.path.join(MEMORY_ROOT, persona)
             if not os.path.exists(memory_dir):
@@ -1160,7 +1163,7 @@ def register_http_routes(mcp, templates):
     # ─── Observation Stream / Memory Browsing APIs ───────────────────
 
     @mcp.custom_route("/api/observations/{persona}", methods=["GET"])
-    async def observations(request: Request, persona: str):
+    async def observations(request: Request):
         """
         Paginated observation stream – browse all memories chronologically.
         Query params:
@@ -1171,6 +1174,7 @@ def register_http_routes(mcp, templates):
             q (str): optional keyword filter on content
         """
         try:
+            persona = request.path_params.get("persona")
             memory_dir = os.path.join(MEMORY_ROOT, persona)
             if not os.path.exists(memory_dir):
                 return JSONResponse({"success": False, "error": f"Persona '{persona}' not found"}, status_code=404)
@@ -1299,11 +1303,13 @@ def register_http_routes(mcp, templates):
 
 
     @mcp.custom_route("/api/memory/{persona}/{key:path}", methods=["GET"])
-    async def get_memory_by_key(request: Request, persona: str, key: str):
+    async def get_memory_by_key(request: Request):
         """
         Get a single memory by its key, with full detail + related memories.
         """
         try:
+            persona = request.path_params.get("persona")
+            key = request.path_params.get("key")
             memory_dir = os.path.join(MEMORY_ROOT, persona)
             if not os.path.exists(memory_dir):
                 return JSONResponse({"success": False, "error": f"Persona '{persona}' not found"}, status_code=404)
@@ -1357,7 +1363,7 @@ def register_http_routes(mcp, templates):
     # ─── Audit Log API ───────────────────────────────────────────────
 
     @mcp.custom_route("/api/audit-log/{persona}", methods=["GET"])
-    async def audit_log(request: Request, persona: str):
+    async def audit_log(request: Request):
         """
         Browse the operations audit log with filtering and pagination.
         Query params:
@@ -1369,6 +1375,7 @@ def register_http_routes(mcp, templates):
             since (str): ISO date string (e.g. 2025-01-01)
         """
         try:
+            persona = request.path_params.get("persona")
             memory_dir = os.path.join(MEMORY_ROOT, persona)
             if not os.path.exists(memory_dir):
                 return JSONResponse({"success": False, "error": f"Persona '{persona}' not found"}, status_code=404)
@@ -1449,7 +1456,7 @@ def register_http_routes(mcp, templates):
     # ─── Unified Timeline API ────────────────────────────────────────
 
     @mcp.custom_route("/api/timeline/{persona}", methods=["GET"])
-    async def unified_timeline(request: Request, persona: str):
+    async def unified_timeline(request: Request):
         """
         Unified timeline merging memories, emotions, physical sensations, and operations
         into a single chronological stream.
@@ -1460,6 +1467,7 @@ def register_http_routes(mcp, templates):
             limit (int): max events to return (default 100, max 500)
         """
         try:
+            persona = request.path_params.get("persona")
             memory_dir = os.path.join(MEMORY_ROOT, persona)
             if not os.path.exists(memory_dir):
                 return JSONResponse({"success": False, "error": f"Persona '{persona}' not found"}, status_code=404)
