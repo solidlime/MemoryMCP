@@ -322,7 +322,10 @@ async def memory(
     equipped_item: Optional[str] = None,
     importance_weight: float = 0.0,
     recency_weight: float = 0.0,
-    memory_key: Optional[str] = None
+    memory_key: Optional[str] = None,
+    # Privacy & save control parameters
+    privacy_level: Optional[str] = None,
+    defer_vector: bool = False
 ) -> str:
     """
     Unified memory operations interface.
@@ -331,13 +334,16 @@ async def memory(
         operation: Operation type (see below)
         query: Search query or memory key
         content: Memory content or context value
+        privacy_level: "public", "internal" (default), "private", "secret"
+            - Use <private>...</private> tags in content for auto-secret
+        defer_vector: If True, skip vector indexing on save (faster, rebuild later)
         
     Memory Operations:
         - "create": Create new memory
         - "read": Retrieve memory by key or recent memories
         - "update": Update existing memory
         - "delete": Delete memory
-        - "search": Search memories (keyword/semantic/hybrid/related/smart)
+        - "search": Search memories (keyword/semantic/hybrid/related/smart/progressive)
         - "stats": Get memory statistics
         - "check_routines": Find recurring patterns at current time
         
@@ -355,8 +361,11 @@ async def memory(
     Examples:
         # Memory operations
         memory(operation="create", content="Completed project", emotion_type="joy")
+        memory(operation="create", content="Secret note", privacy_level="secret")  # Private memory
+        memory(operation="create", content="Quick save", defer_vector=True)  # Skip vector indexing
         memory(operation="read", query="memory_20251210123456")
         memory(operation="search", query="Python", emotion_type="joy")
+        memory(operation="search", query="Python", mode="progressive")  # Keyword first, semantic if needed
         memory(operation="search", query="いつものあれ", mode="smart")  # Smart search
         memory(operation="search", query="the usual", mode="smart")  # English support
         memory(operation="search", mode="task")  # Search all tasks/TODOs
@@ -395,7 +404,9 @@ async def memory(
             user_info=user_info,
             persona_info=persona_info,
             relationship_status=relationship_status,
-            action_tag=action_tag
+            action_tag=action_tag,
+            privacy_level=privacy_level,
+            defer_vector=defer_vector
         )
     
     elif operation == "read":

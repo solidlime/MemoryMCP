@@ -122,6 +122,24 @@
 - use augments,sequential-thinking
 - 区切りがいいところでgit commit, pushを行う
 
+## 検索・保存・プライバシー設計方針（claude-mem統合）
+
+### Progressive Disclosure Search
+- `mode="progressive"` でキーワード検索→不足時のみセマンティック検索にエスカレート
+- DS920+等のNAS環境ではprogressiveをデフォルト推奨
+- 設定: `progressive_search.keyword_threshold` でエスカレート閾値を調整
+
+### Privacy Filter
+- `privacy_level`: "public" / "internal"（既定） / "private" / "secret"
+- `<private>...</private>` タグで囲んだ内容は自動的にsecret扱い
+- secretメモリはベクトルストアにも保存しない
+- ダッシュボードは `privacy.dashboard_max_level` で表示制限
+
+### Resource Profile (DS920+)
+- `resource_profile: "low"` → 検索・要約・クリーンアップを省資源モードに自動切替
+- `resource_profile: "minimal"` → セマンティック検索無効、要約無効
+- `defer_vector: true` → ベクトルインデックス更新をスキップ（後でrebuild）
+
 **サンプルコード・例文:**
 - 汎用的な名前を使用（例: "User", "Assistant", "Alice", "Bob"）
 - 英語で記述することが望ましい

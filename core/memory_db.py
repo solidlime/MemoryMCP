@@ -50,7 +50,8 @@ def load_memory_from_db() -> Dict[str, Any]:
                     summary_ref TEXT DEFAULT NULL,
                     equipped_items TEXT DEFAULT NULL,
                     access_count INTEGER DEFAULT 0,
-                    last_accessed TEXT DEFAULT NULL
+                    last_accessed TEXT DEFAULT NULL,
+                    privacy_level TEXT DEFAULT 'internal'
                 )
             """)
             cursor.execute("""
@@ -223,11 +224,18 @@ def load_memory_from_db() -> Dict[str, Any]:
                 conn.commit()
                 log_progress("✅ Database migration complete: last_accessed column added")
             
-            cursor.execute('SELECT key, content, created_at, updated_at, tags, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys, summary_ref, equipped_items, access_count, last_accessed FROM memories')
+            # Privacy level column for content filtering
+            if 'privacy_level' not in columns:
+                log_progress("🔄 Migrating database: Adding privacy_level column...")
+                cursor.execute('ALTER TABLE memories ADD COLUMN privacy_level TEXT DEFAULT "internal"')
+                conn.commit()
+                log_progress("✅ Database migration complete: privacy_level column added")
+            
+            cursor.execute('SELECT key, content, created_at, updated_at, tags, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys, summary_ref, equipped_items, access_count, last_accessed, privacy_level FROM memories')
             rows = cursor.fetchall()
             
             for row in rows:
-                key, content, created_at, updated_at, tags_json, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys_json, summary_ref, equipped_items_json, access_count, last_accessed = row
+                key, content, created_at, updated_at, tags_json, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys_json, summary_ref, equipped_items_json, access_count, last_accessed, privacy_level = row
                 memory_store[key] = {
                     "content": content,
                     "created_at": created_at,
@@ -245,7 +253,8 @@ def load_memory_from_db() -> Dict[str, Any]:
                     "summary_ref": summary_ref if summary_ref else None,
                     "equipped_items": json.loads(equipped_items_json) if equipped_items_json else None,
                     "access_count": access_count if access_count is not None else 0,
-                    "last_accessed": last_accessed if last_accessed else None
+                    "last_accessed": last_accessed if last_accessed else None,
+                    "privacy_level": privacy_level if privacy_level else "internal"
                 }
         
         print(f"Loaded {len(memory_store)} memory entries from {db_path}")
@@ -274,7 +283,8 @@ def save_memory_to_db(
     related_keys: Optional[List[str]] = None,
     summary_ref: Optional[str] = None,
     equipped_items: Optional[Dict[str, str]] = None,
-    persona: Optional[str] = None
+    persona: Optional[str] = None,
+    privacy_level: Optional[str] = None
 ) -> bool:
     """
     Save memory to SQLite database (persona-scoped).
@@ -339,11 +349,15 @@ def save_memory_to_db(
         importance = max(0.0, min(1.0, importance))
         emotion_intensity = max(0.0, min(1.0, emotion_intensity))
         
+        # Privacy level default
+        if privacy_level is None:
+            privacy_level = "internal"
+        
         # Serialize tags, related_keys, and equipped_items as JSON
         tags_json = json.dumps(tags, ensure_ascii=False) if tags else None
         related_keys_json = json.dumps(related_keys, ensure_ascii=False)
         equipped_items_json = json.dumps(equipped_items, ensure_ascii=False) if equipped_items else None
-        log_progress(f"💾 Tags JSON: {tags_json}, importance: {importance}, emotion: {emotion}, emotion_intensity: {emotion_intensity}, physical: {physical_state}, mental: {mental_state}, env: {environment}, relation: {relationship_status}, action: {action_tag}, related_keys: {related_keys_json}, summary_ref: {summary_ref}, equipped_items: {equipped_items_json}")
+        log_progress(f"💾 Tags JSON: {tags_json}, importance: {importance}, emotion: {emotion}, emotion_intensity: {emotion_intensity}, physical: {physical_state}, mental: {mental_state}, env: {environment}, relation: {relationship_status}, action: {action_tag}, related_keys: {related_keys_json}, summary_ref: {summary_ref}, equipped_items: {equipped_items_json}, privacy_level: {privacy_level}")
         
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
@@ -354,9 +368,9 @@ def save_memory_to_db(
             log_progress(f"💾 DB columns: {columns}")
             
             cursor.execute("""
-                INSERT OR REPLACE INTO memories (key, content, created_at, updated_at, tags, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys, summary_ref, equipped_items)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (key, content, created_at, updated_at, tags_json, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys_json, summary_ref, equipped_items_json))
+                INSERT OR REPLACE INTO memories (key, content, created_at, updated_at, tags, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys, summary_ref, equipped_items, privacy_level)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (key, content, created_at, updated_at, tags_json, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys_json, summary_ref, equipped_items_json, privacy_level))
             conn.commit()
             log_progress(f"✅ Successfully saved {key} to DB")
         

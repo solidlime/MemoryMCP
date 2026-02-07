@@ -285,6 +285,85 @@ async def search_memory(
                 
             return result
         
+        elif mode == "progressive":
+            # Progressive Disclosure Search (claude-mem inspired)
+            # Stage 1: Fast keyword/tag search (SQLite only, no ML)
+            # Stage 2: Only if keyword results < threshold, escalate to semantic
+            # This is DS920+ friendly - avoids heavy ML unless needed
+            from src.utils.config_utils import load_config
+            cfg = load_config()
+            prog_cfg = cfg.get("progressive_search", {})
+            threshold = prog_cfg.get("keyword_threshold", 3)
+            semantic_fallback = prog_cfg.get("semantic_fallback", True)
+            max_semantic = prog_cfg.get("max_semantic_top_k", 5)
+            
+            # Stage 1: Keyword search (fast, SQLite)
+            keyword_result = await search_memory(
+                query=query,
+                mode="keyword",
+                top_k=top_k,
+                fuzzy_match=fuzzy_match,
+                fuzzy_threshold=fuzzy_threshold,
+                tags=tags,
+                tag_match_mode=tag_match_mode,
+                date_range=date_range,
+                equipped_item=equipped_item
+            )
+            
+            # Count keyword hits
+            keyword_hits = keyword_result.count("[memory_") if "Found" in keyword_result or "memories)" in keyword_result else 0
+            
+            result = f"🔍 Progressive Search for '{query}':\n\n"
+            
+            if keyword_hits >= threshold:
+                # Enough keyword results - skip semantic
+                result += f"📝 Stage 1 (Keyword): {keyword_hits} matches found ✓\n"
+                result += "⚡ Skipped semantic search (sufficient keyword matches)\n\n"
+                result += keyword_result
+                return result
+            
+            # Stage 2: Semantic fallback (heavier, ML-based)
+            result += f"📝 Stage 1 (Keyword): {keyword_hits} match(es)\n"
+            
+            if semantic_fallback and query:
+                result += "🧠 Stage 2 (Semantic): Escalating...\n\n"
+                try:
+                    from tools.crud_tools import read_memory
+                    semantic_result = await read_memory(
+                        query=query,
+                        top_k=min(top_k, max_semantic),
+                        min_importance=min_importance,
+                        emotion=emotion,
+                        action_tag=action_tag,
+                        environment=environment,
+                        physical_state=physical_state,
+                        mental_state=mental_state,
+                        relationship_status=relationship_status,
+                        equipped_item=equipped_item,
+                        importance_weight=importance_weight,
+                        recency_weight=recency_weight
+                    )
+                    
+                    if keyword_hits > 0:
+                        result += "--- Keyword Results ---\n"
+                        result += keyword_result + "\n\n"
+                    
+                    result += "--- Semantic Results ---\n"
+                    result += semantic_result
+                except Exception as e:
+                    result += f"⚠️ Semantic search failed: {e}\n"
+                    if keyword_hits > 0:
+                        result += keyword_result
+                    else:
+                        result += "📭 No results found."
+            else:
+                if keyword_hits > 0:
+                    result += keyword_result
+                else:
+                    result += "📭 No results found."
+            
+            return result
+        
         elif mode == "keyword":
             # Original keyword search implementation
             persona = get_current_persona()
@@ -295,17 +374,27 @@ async def search_memory(
             memories = {}
             with sqlite3.connect(db_path) as conn:
                 cursor = conn.cursor()
-                cursor.execute('SELECT key, content, created_at, updated_at, tags, related_keys, equipped_items FROM memories')
+                cursor.execute('SELECT key, content, created_at, updated_at, tags, related_keys, equipped_items, privacy_level FROM memories')
                 for row in cursor.fetchall():
-                    key, content, created_at, updated_at, tags_json, related_keys_json, equipped_items_json = row
+                    key, content, created_at, updated_at, tags_json, related_keys_json, equipped_items_json, priv_level = row
                     memories[key] = {
                         "content": content,
                         "created_at": created_at,
                         "updated_at": updated_at,
                         "tags": json.loads(tags_json) if tags_json else [],
                         "related_keys": json.loads(related_keys_json) if related_keys_json else [],
-                        "equipped_items": json.loads(equipped_items_json) if equipped_items_json else {}
+                        "equipped_items": json.loads(equipped_items_json) if equipped_items_json else {},
+                        "privacy_level": priv_level if priv_level else "internal"
                     }
+            
+            # Privacy filter: exclude secret memories from search
+            from src.utils.config_utils import load_config as _load_cfg
+            _privacy_cfg = _load_cfg().get("privacy", {})
+            _search_max = _privacy_cfg.get("search_max_level", "private")
+            _PRIV_RANK = {"public": 0, "internal": 1, "private": 2, "secret": 3}
+            _max_rank = _PRIV_RANK.get(_search_max, 2)
+            memories = {k: v for k, v in memories.items() 
+                       if _PRIV_RANK.get(v.get("privacy_level", "internal"), 1) <= _max_rank}
             
             # Phase 1: Start with all memories as candidates
             candidate_keys = set(memories.keys())
@@ -454,7 +543,7 @@ async def search_memory(
             return result
         
         else:
-            return f"❌ Invalid mode '{mode}'. Use 'hybrid', 'keyword', 'semantic', or 'related'."
+            return f"❌ Invalid mode '{mode}'. Use 'hybrid', 'keyword', 'semantic', 'related', or 'progressive'."
             
     except Exception as e:
         import traceback

@@ -47,6 +47,23 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "min_similarity_to_report": 0.85,
         "max_suggestions_per_run": 20,
     },
+    # Progressive disclosure search settings (claude-mem inspired)
+    "progressive_search": {
+        "enabled": True,
+        "keyword_first": True,        # Try keyword/tag search before semantic
+        "keyword_threshold": 3,        # Min keyword hits before skipping semantic
+        "semantic_fallback": True,     # Fall back to semantic if keyword yields <threshold
+        "max_semantic_top_k": 5,       # Cap semantic results for resource saving
+    },
+    # Privacy filter settings
+    "privacy": {
+        "default_level": "internal",   # Default privacy for new memories
+        "auto_redact_pii": False,      # Auto-redact PII patterns on save
+        "search_max_level": "private", # Max privacy level returned in search
+        "dashboard_max_level": "internal",  # Max level shown on dashboard
+    },
+    # DS920+ / low-resource host optimizations
+    "resource_profile": "normal",      # "normal", "low" (DS920+), "minimal"
 }
 
 _ENV_PREFIX = "MEMORY_MCP_"
@@ -226,11 +243,100 @@ def load_config(force: bool = False) -> Dict[str, Any]:
                         merged["server_port"] = int(env_overrides["server_port"])  # ensure int
                     except Exception:
                         merged["server_port"] = env_overrides["server_port"]
+            
+            # Apply resource profile overrides (DS920+ / low-resource hosts)
+            _apply_resource_profile(merged)
+            
             _config_cache.clear()
             _config_cache.update(merged)
             _config_cache_state["mtime"] = mtime
             _config_cache_state["env_signature"] = env_signature
     return deepcopy(_config_cache)
+
+
+# Resource profile presets for different hardware constraints
+_RESOURCE_PROFILES: Dict[str, Dict[str, Any]] = {
+    "low": {
+        # DS920+ / NAS / low-RAM hosts
+        "embeddings_device": "cpu",
+        "reranker_top_n": 3,
+        "summarization": {
+            "check_interval_seconds": 7200,
+            "idle_minutes": 60,
+        },
+        "vector_rebuild": {
+            "mode": "idle",
+            "idle_seconds": 120,
+            "min_interval": 600,
+        },
+        "auto_cleanup": {
+            "check_interval_seconds": 600,
+            "max_suggestions_per_run": 10,
+        },
+        "progressive_search": {
+            "enabled": True,
+            "keyword_first": True,
+            "keyword_threshold": 2,
+            "semantic_fallback": True,
+            "max_semantic_top_k": 3,
+        },
+    },
+    "minimal": {
+        # Very constrained environments (e.g., Raspberry Pi)
+        "embeddings_device": "cpu",
+        "reranker_model": "",  # Disable reranker
+        "reranker_top_n": 0,
+        "summarization": {
+            "enabled": False,
+        },
+        "vector_rebuild": {
+            "mode": "manual",
+            "min_interval": 3600,
+        },
+        "auto_cleanup": {
+            "enabled": False,
+        },
+        "progressive_search": {
+            "enabled": True,
+            "keyword_first": True,
+            "keyword_threshold": 1,
+            "semantic_fallback": False,
+            "max_semantic_top_k": 2,
+        },
+    },
+}
+
+
+def _apply_resource_profile(config: Dict[str, Any]) -> None:
+    """Apply resource profile presets to config if specified.
+    
+    Profile values are applied as defaults - explicit user settings take priority.
+    """
+    profile = config.get("resource_profile", "normal")
+    if profile == "normal" or profile not in _RESOURCE_PROFILES:
+        return
+    
+    preset = deepcopy(_RESOURCE_PROFILES[profile])
+    # Only apply preset values where user hasn't explicitly set them
+    # (i.e., where the current value still equals the DEFAULT_CONFIG value)
+    _deep_update_defaults_only(config, preset, DEFAULT_CONFIG)
+
+
+def _deep_update_defaults_only(
+    target: Dict[str, Any],
+    updates: Dict[str, Any],
+    defaults: Dict[str, Any],
+) -> None:
+    """Apply updates only where target still has default values."""
+    for key, value in updates.items():
+        if isinstance(value, dict) and isinstance(target.get(key), dict):
+            _deep_update_defaults_only(
+                target[key], value, defaults.get(key, {}) if isinstance(defaults.get(key), dict) else {}
+            )
+        else:
+            # Only override if current value is still the default
+            if target.get(key) == defaults.get(key):
+                target[key] = value
 
 
 def get_config(key: str, default: Any = None) -> Any:

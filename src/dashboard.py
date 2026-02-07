@@ -165,22 +165,32 @@ def _get_memory_metrics_data(persona: str) -> dict:
 
 
 def _get_memory_stats_data(persona: str) -> dict:
-    """Core function to get memory stats data for a specific persona."""
+    """Core function to get memory stats data for a specific persona.
+    Respects privacy settings - excludes secret/private memories from dashboard."""
     original_persona = current_persona.get()
     current_persona.set(persona)
     
     try:
         db_path = get_db_path()
         
+        # Get dashboard privacy filter level
+        from src.utils.config_utils import load_config
+        cfg = load_config()
+        dashboard_max = cfg.get("privacy", {}).get("dashboard_max_level", "internal")
+        _PRIV_RANK = {"public": 0, "internal": 1, "private": 2, "secret": 3}
+        max_rank = _PRIV_RANK.get(dashboard_max, 1)
+        
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
             
-            # Timeline (last 7 days)
-            cursor.execute("SELECT created_at FROM memories")
+            # Timeline (last 7 days) - with privacy filter
+            cursor.execute("SELECT created_at, privacy_level FROM memories")
             date_counter = Counter()
             for row in cursor.fetchall():
-                created_at = datetime.fromisoformat(row[0]).date()
-                date_counter[created_at] += 1
+                priv = row[1] if row[1] else "internal"
+                if _PRIV_RANK.get(priv, 1) <= max_rank:
+                    created_at = datetime.fromisoformat(row[0]).date()
+                    date_counter[created_at] += 1
             
             today = datetime.now().date()
             timeline = []

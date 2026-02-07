@@ -348,7 +348,9 @@ def _save_memory_to_stores(
     relationship_status: Optional[str],
     action_tag: Optional[str],
     related_keys: List[str],
-    equipped_items: Optional[Dict[str, str]] = None
+    equipped_items: Optional[Dict[str, str]] = None,
+    privacy_level: Optional[str] = None,
+    defer_vector: bool = False
 ) -> None:
     """
     Save memory to database (sync) and vector store (async).
@@ -357,8 +359,8 @@ def _save_memory_to_stores(
     1. DB save (synchronous, fast, critical) - completes before return
     2. Vector store save (asynchronous, slow, can be deferred) - runs in background
     
-    This improves response time while maintaining data integrity.
-    If vector save fails, dirty flag is set for rebuild.
+    Privacy: Content is filtered through privacy utils before storage.
+    DS920+: defer_vector=True skips vector indexing entirely (manual rebuild later).
     
     Args:
         key: Memory key
@@ -376,11 +378,23 @@ def _save_memory_to_stores(
         action_tag: Action tag
         related_keys: Related memory keys
         equipped_items: Currently equipped items {slot: item_name}
+        privacy_level: Privacy level ("public", "internal", "private", "secret")
+        defer_vector: If True, skip vector store indexing (DS920+ friendly)
     """
+    from src.utils.privacy_utils import prepare_content_for_save
+    
+    # Privacy: process content and determine level
+    processed_content, determined_level = prepare_content_for_save(
+        content,
+        privacy_level=privacy_level,
+        auto_redact=load_config().get("privacy", {}).get("auto_redact_pii", False),
+        tags=context_tags,
+    )
+    
     # ===== STAGE 1: Synchronous DB Save (fast, critical) =====
     save_memory_to_db(
         key, 
-        content, 
+        processed_content, 
         created_at, 
         updated_at, 
         context_tags,
@@ -393,17 +407,20 @@ def _save_memory_to_stores(
         relationship_status=relationship_status,
         action_tag=action_tag,
         related_keys=related_keys,
-        summary_ref=None,  # Phase 28.4: Will be populated by summarization module
-        equipped_items=equipped_items
+        summary_ref=None,
+        equipped_items=equipped_items,
+        privacy_level=determined_level
     )
     
     # Clear query cache (synchronous, fast)
     clear_query_cache()
     
     # ===== STAGE 2: Asynchronous Vector Store Save (slow, deferred) =====
-    # Add to background queue for non-blocking execution
-    vector_queue = get_vector_queue()
-    vector_queue.enqueue(add_memory_to_vector_store, key, content)
+    # Skip vector indexing if deferred (DS920+ resource saving)
+    # Also skip for "secret" privacy level memories
+    if not defer_vector and determined_level != "secret":
+        vector_queue = get_vector_queue()
+        vector_queue.enqueue(add_memory_to_vector_store, key, processed_content)
 
 
 def _format_create_result(
@@ -1181,7 +1198,9 @@ async def create_memory(
     user_info: Optional[Dict] = None,
     persona_info: Optional[Dict] = None,
     relationship_status: Optional[str] = None,
-    action_tag: Optional[str] = None
+    action_tag: Optional[str] = None,
+    privacy_level: Optional[str] = None,
+    defer_vector: bool = False
 ) -> str:
     """
     Create new memory (fast - no RAG search). For updates, use update_memory().
@@ -1197,6 +1216,9 @@ async def create_memory(
         environment: "bedroom", "office", "outdoor", "cafe", etc.
         relationship_status: "married", "dating", "friends", "family", etc.
         action_tag: "cooking", "coding", "walking", "dancing", "kissing", "hugging", etc.
+        privacy_level: "public", "internal" (default), "private", "secret"
+            - Use <private>...</private> tags in content to auto-mark as "secret"
+        defer_vector: If True, skip vector indexing (faster save, rebuild later)
         user_info: Dict with name, nickname, preferred_address
         persona_info: Dict with extended fields (see examples below)
     
@@ -1289,7 +1311,9 @@ async def create_memory(
             relationship_status=relationship_status,
             action_tag=action_tag,
             related_keys=related_keys,
-            equipped_items=equipped_items
+            equipped_items=equipped_items,
+            privacy_level=privacy_level,
+            defer_vector=defer_vector
         )
         
         # Update persona context
