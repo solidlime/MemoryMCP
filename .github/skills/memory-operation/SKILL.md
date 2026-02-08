@@ -17,14 +17,31 @@ description: 記憶の基本操作（作成、読み込み、検索、更新、�
 }
 ```
 
-## API仕様
+## 変数設定
 
-**エンドポイント**: `POST {memory_mcp_url}/api/tools/memory`
-**ヘッダー**: `Authorization: Bearer {memory_persona}`
+以下のコマンドで設定ファイルから変数を読み込んでください：
+
+```powershell
+# PowerShell
+$config = Get-Content .github/skills/mcp-config.json | ConvertFrom-Json
+$MCP_URL = $config.memory_mcp_url
+$PERSONA = $config.memory_persona
+```
 
 ```bash
-curl -X POST http://localhost:26262/api/tools/memory \
-  -H "Authorization: Bearer nilou" \
+# Bash/Linux
+MCP_URL=$(jq -r '.memory_mcp_url' .github/skills/mcp-config.json)
+PERSONA=$(jq -r '.memory_persona' .github/skills/mcp-config.json)
+```
+
+## API仕様
+
+**エンドポイント**: `POST ${MCP_URL}/api/tools/memory`
+**ヘッダー**: `Authorization: Bearer ${PERSONA}`
+
+```bash
+curl -X POST "${MCP_URL}/api/tools/memory" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{
     "operation": "create",
@@ -51,8 +68,8 @@ curl -X POST http://localhost:26262/api/tools/memory \
 
 ```bash
 # ハイブリッド検索（キーワード+セマンティック）
-curl -X POST http://localhost:26262/api/tools/memory \
-  -H "Authorization: Bearer nilou" \
+curl -X POST "${MCP_URL}/api/tools/memory" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{
     "operation": "search",
@@ -63,14 +80,14 @@ curl -X POST http://localhost:26262/api/tools/memory \
   }'
 
 # タスク検索
-curl -X POST http://localhost:26262/api/tools/memory \
-  -H "Authorization: Bearer nilou" \
+curl -X POST "${MCP_URL}/api/tools/memory" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{"operation": "search", "mode": "task"}'
 
 # スマート検索（曖昧表現）
-curl -X POST http://localhost:26262/api/tools/memory \
-  -H "Authorization: Bearer nilou" \
+curl -X POST "${MCP_URL}/api/tools/memory" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{"operation": "search", "query": "いつものあれ", "mode": "smart"}'
 ```
@@ -99,14 +116,14 @@ curl -X POST http://localhost:26262/api/tools/memory \
 
 ```bash
 # 特定の記憶
-curl -X POST http://localhost:26262/api/tools/memory \
-  -H "Authorization: Bearer nilou" \
+curl -X POST "${MCP_URL}/api/tools/memory" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{"operation": "read", "query": "memory_20260208123456"}'
 
 # 最近の記憶10件
-curl -X POST http://localhost:26262/api/tools/memory \
-  -H "Authorization: Bearer nilou" \
+curl -X POST "${MCP_URL}/api/tools/memory" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{"operation": "read", "top_k": 10}'
 ```
@@ -115,8 +132,8 @@ curl -X POST http://localhost:26262/api/tools/memory \
 既存の記憶を更新します。
 
 ```bash
-curl -X POST http://localhost:26262/api/tools/memory \
-  -H "Authorization: Bearer nilou" \
+curl -X POST "${MCP_URL}/api/tools/memory" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{
     "operation": "update",
@@ -130,8 +147,8 @@ curl -X POST http://localhost:26262/api/tools/memory \
 記憶を削除します。
 
 ```bash
-curl -X POST http://localhost:26262/api/tools/memory \
-  -H "Authorization: Bearer nilou" \
+curl -X POST "${MCP_URL}/api/tools/memory" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{"operation": "delete", "memory_key": "memory_20260208123456"}'
 ```
@@ -140,8 +157,8 @@ curl -X POST http://localhost:26262/api/tools/memory \
 記憶システムの統計を取得します。
 
 ```bash
-curl -X POST http://localhost:26262/api/tools/memory \
-  -H "Authorization: Bearer nilou" \
+curl -X POST "${MCP_URL}/api/tools/memory" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{"operation": "stats"}'
 ```
@@ -150,8 +167,8 @@ curl -X POST http://localhost:26262/api/tools/memory \
 現在の時刻に基づく定期的な行動パターンを検出します。
 
 ```bash
-curl -X POST http://localhost:26262/api/tools/memory \
-  -H "Authorization: Bearer nilou" \
+curl -X POST "${MCP_URL}/api/tools/memory" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{"operation": "check_routines"}'
 ```

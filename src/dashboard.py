@@ -427,15 +427,16 @@ def register_http_routes(mcp, templates):
             # Call the memory tool with all parameters
             result = await memory_tool(**data)
 
-            return JSONResponse({
-                "success": True,
-                "result": result
-            })
+            return JSONResponse(
+                {"success": True, "result": result},
+                media_type="application/json; charset=utf-8"
+            )
         except Exception as e:
-            return JSONResponse({
-                "success": False,
-                "error": str(e)
-            }, status_code=400)
+            return JSONResponse(
+                {"success": False, "error": str(e)},
+                status_code=400,
+                media_type="application/json; charset=utf-8"
+            )
 
     @mcp.custom_route("/api/tools/item", methods=["POST", "GET"])
     async def api_item_tool_endpoint(request: Request):
@@ -467,15 +468,16 @@ def register_http_routes(mcp, templates):
             # Call the item tool
             result = await item_tool(**data)
 
-            return JSONResponse({
-                "success": True,
-                "result": result
-            })
+            return JSONResponse(
+                {"success": True, "result": result},
+                media_type="application/json; charset=utf-8"
+            )
         except Exception as e:
-            return JSONResponse({
-                "success": False,
-                "error": str(e)
-            }, status_code=400)
+            return JSONResponse(
+                {"success": False, "error": str(e)},
+                status_code=400,
+                media_type="application/json; charset=utf-8"
+            )
 
     @mcp.custom_route("/api/tools/get_context", methods=["GET"])
     async def api_get_context_tool_endpoint(request: Request):
@@ -494,15 +496,16 @@ def register_http_routes(mcp, templates):
             # Call the get_context tool
             result = await get_context_tool()
 
-            return JSONResponse({
-                "success": True,
-                "result": result
-            })
+            return JSONResponse(
+                {"success": True, "result": result},
+                media_type="application/json; charset=utf-8"
+            )
         except Exception as e:
-            return JSONResponse({
-                "success": False,
-                "error": str(e)
-            }, status_code=400)
+            return JSONResponse(
+                {"success": False, "error": str(e)},
+                status_code=400,
+                media_type="application/json; charset=utf-8"
+            )
 
     # ========================================
     # Admin Tools API Routes

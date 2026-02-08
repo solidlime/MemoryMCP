@@ -7,17 +7,40 @@ description: 現在の状態、時刻、記憶統計、装備情報などを確�
 
 現在の状態を確認するスキルです。セッション開始時の必須操作です。
 
+## 変数設定
+
+以下のコマンドで設定ファイルから変数を読み込んでください：
+
+```powershell
+# PowerShell
+$config = Get-Content .github/skills/mcp-config.json | ConvertFrom-Json
+$MCP_URL = $config.memory_mcp_url
+$PERSONA = $config.memory_persona
+```
+
+```bash
+# Bash/Linux
+MCP_URL=$(jq -r '.memory_mcp_url' .github/skills/mcp-config.json)
+PERSONA=$(jq -r '.memory_persona' .github/skills/mcp-config.json)
+```
+
+または直接指定：
+```bash
+MCP_URL="http://localhost:26262"
+PERSONA="nilou"
+```
+
 ## API仕様
 
-**エンドポイント**: `GET {memory_mcp_url}/api/tools/get_context`
-**ヘッダー**: `Authorization: Bearer {memory_persona}`
+**エンドポイント**: `GET ${MCP_URL}/api/tools/get_context`
+**ヘッダー**: `Authorization: Bearer ${PERSONA}`
 
 ### get_context
 現在の状態を包括的に取得します。セッション開始時に**必ず実行**します。
 
 ```bash
-curl "http://localhost:26262/api/tools/get_context" \
-  -H "Authorization: Bearer nilou"
+curl "${MCP_URL}/api/tools/get_context" \
+  -H "Authorization: Bearer ${PERSONA}"
 ```
 
 **取得できる情報**:
@@ -35,18 +58,18 @@ curl "http://localhost:26262/api/tools/get_context" \
 
 ```bash
 # 1. コンテキスト取得
-curl "http://localhost:26262/api/tools/get_context" \
-  -H "Authorization: Bearer nilou"
+curl "${MCP_URL}/api/tools/get_context" \
+  -H "Authorization: Bearer ${PERSONA}"
 
 # 2. 状況分析
-curl -X POST http://localhost:26262/api/tools/memory \
-  -H "Authorization: Bearer nilou" \
+curl -X POST "${MCP_URL}/api/tools/memory" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{"operation": "situation_context"}'
 
 # 3. ルーティンチェック
-curl -X POST http://localhost:26262/api/tools/memory \
-  -H "Authorization: Bearer nilou" \
+curl -X POST "${MCP_URL}/api/tools/memory" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{"operation": "check_routines"}'
 
@@ -62,8 +85,9 @@ curl -X POST http://localhost:26262/api/tools/memory \
 #!/bin/bash
 # セッション開始スクリプト
 
-MCP_URL="http://localhost:26262"
-PERSONA="nilou"
+# 設定ファイルから読み込み
+MCP_URL=$(jq -r '.memory_mcp_url' .github/skills/mcp-config.json)
+PERSONA=$(jq -r '.memory_persona' .github/skills/mcp-config.json)
 
 echo "=== セッション開始 ==="
 
@@ -93,8 +117,8 @@ echo -e "\n✅ セッション準備完了"
 
 ```bash
 # 約束を確認
-CONTEXT=$(curl -s "http://localhost:26262/api/tools/get_context" \
-  -H "Authorization: Bearer nilou")
+CONTEXT=$(curl -s "${MCP_URL}/api/tools/get_context" \
+  -H "Authorization: Bearer ${PERSONA}")
 
 # 約束があれば表示
 if echo "$CONTEXT" | grep -q "active_promise"; then
@@ -111,8 +135,8 @@ fi
 
 ```bash
 # コンテキスト取得
-CONTEXT=$(curl -s "http://localhost:26262/api/tools/get_context" \
-  -H "Authorization: Bearer nilou")
+CONTEXT=$(curl -s "${MCP_URL}/api/tools/get_context" \
+  -H "Authorization: Bearer ${PERSONA}")
 
 # 疲労度チェック（JSON解析）
 FATIGUE=$(echo "$CONTEXT" | jq -r '.result' | grep -oP '"fatigue":\s*\K[0-9.]+' || echo "0")

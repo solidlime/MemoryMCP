@@ -7,18 +7,35 @@ description: アイテムの追加、削除、装備、検索を行います。�
 
 アイテムと装備を管理するスキルです。衣装の変更、持ち物の管理、装備履歴の確認などができます。
 
+## 変数設定
+
+以下のコマンドで設定ファイルから変数を読み込んでください：
+
+```powershell
+# PowerShell
+$config = Get-Content .github/skills/mcp-config.json | ConvertFrom-Json
+$MCP_URL = $config.memory_mcp_url
+$PERSONA = $config.memory_persona
+```
+
+```bash
+# Bash/Linux
+MCP_URL=$(jq -r '.memory_mcp_url' .github/skills/mcp-config.json)
+PERSONA=$(jq -r '.memory_persona' .github/skills/mcp-config.json)
+```
+
 ## API仕様
 
 **エンドポイント**:
-- `POST {memory_mcp_url}/api/tools/item`
-- `GET {memory_mcp_url}/api/tools/item?operation=search`
+- `POST ${MCP_URL}/api/tools/item`
+- `GET ${MCP_URL}/api/tools/item?operation=search`
 
-**ヘッダー**: `Authorization: Bearer {memory_persona}`
+**ヘッダー**: `Authorization: Bearer ${PERSONA}`
 ### アイテムの追加 (add)
 
 ```bash
-curl -X POST http://localhost:26262/api/tools/item \
-  -H "Authorization: Bearer nilou" \
+curl -X POST "${MCP_URL}/api/tools/item" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{
     "operation": "add",
@@ -35,8 +52,8 @@ curl -X POST http://localhost:26262/api/tools/item \
 ### アイテムの削除 (remove)
 
 ```bash
-curl -X POST http://localhost:26262/api/tools/item \
-  -H "Authorization: Bearer nilou" \
+curl -X POST "${MCP_URL}/api/tools/item" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{"operation": "remove", "item_name": "白いドレス", "quantity": 1}'
 ```
@@ -45,8 +62,8 @@ curl -X POST http://localhost:26262/api/tools/item \
 指定したスロットのみ変更し、他のスロットは維持されます。
 
 ```bash
-curl -X POST http://localhost:26262/api/tools/item \
-  -H "Authorization: Bearer nilou" \
+curl -X POST "${MCP_URL}/api/tools/item" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{
     "operation": "equip",
@@ -63,14 +80,14 @@ curl -X POST http://localhost:26262/api/tools/item \
 
 ```bash
 # 単一スロット解除
-curl -X POST http://localhost:26262/api/tools/item \
-  -H "Authorization: Bearer nilou" \
+curl -X POST "${MCP_URL}/api/tools/item" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{"operation": "unequip", "slots": "weapon"}'
 
 # 複数スロット解除
-curl -X POST http://localhost:26262/api/tools/item \
-  -H "Authorization: Bearer nilou" \
+curl -X POST "${MCP_URL}/api/tools/item" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{"operation": "unequip", "slots": ["top", "foot"]}'
 ```
@@ -78,8 +95,8 @@ curl -X POST http://localhost:26262/api/tools/item \
 ### アイテムの更新 (update)
 
 ```bash
-curl -X POST http://localhost:26262/api/tools/item \
-  -H "Authorization: Bearer nilou" \
+curl -X POST "${MCP_URL}/api/tools/item" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{
     "operation": "update",
@@ -91,8 +108,8 @@ curl -X POST http://localhost:26262/api/tools/item \
 ### アイテムの名前変更 (rename)
 
 ```bash
-curl -X POST http://localhost:26262/api/tools/item \
-  -H "Authorization: Bearer nilou" \
+curl -X POST "${MCP_URL}/api/tools/item" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{
     "operation": "rename",
@@ -105,18 +122,18 @@ curl -X POST http://localhost:26262/api/tools/item \
 
 ```bash
 # 全アイテム表示（GETでも可）
-curl "http://localhost:26262/api/tools/item?operation=search" \
-  -H "Authorization: Bearer nilou"
+curl "${MCP_URL}/api/tools/item?operation=search" \
+  -H "Authorization: Bearer ${PERSONA}"
 
 # カテゴリーで絞り込み
-curl -X POST http://localhost:26262/api/tools/item \
-  -H "Authorization: Bearer nilou" \
+curl -X POST "${MCP_URL}/api/tools/item" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{"operation": "search", "category": "clothing"}'
 
 # キーワード検索
-curl -X POST http://localhost:26262/api/tools/item \
-  -H "Authorization: Bearer nilou" \
+curl -X POST "${MCP_URL}/api/tools/item" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{"operation": "search", "query": "ドレス"}'
 ```
@@ -124,8 +141,8 @@ curl -X POST http://localhost:26262/api/tools/item \
 ### 装備履歴 (history)
 
 ```bash
-curl -X POST http://localhost:26262/api/tools/item \
-  -H "Authorization: Bearer nilou" \
+curl -X POST "${MCP_URL}/api/tools/item" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{
     "operation": "history",
@@ -137,8 +154,8 @@ curl -X POST http://localhost:26262/api/tools/item \
 ### アイテムに関連する記憶 (memories)
 
 ```bash
-curl -X POST http://localhost:26262/api/tools/item \
-  -H "Authorization: Bearer nilou" \
+curl -X POST "${MCP_URL}/api/tools/item" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{
     "operation": "memories",
@@ -150,8 +167,8 @@ curl -X POST http://localhost:26262/api/tools/item \
 ### 使用統計 (stats)
 
 ```bash
-curl -X POST http://localhost:26262/api/tools/item \
-  -H "Authorization: Bearer nilou" \
+curl -X POST "${MCP_URL}/api/tools/item" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{"operation": "stats", "item_name": "白いドレス"}'
 ```
@@ -162,8 +179,8 @@ curl -X POST http://localhost:26262/api/tools/item \
 
 ```bash
 # 1. 新しいドレスを追加
-curl -X POST http://localhost:26262/api/tools/item \
-  -H "Authorization: Bearer nilou" \
+curl -X POST "${MCP_URL}/api/tools/item" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{
     "operation": "add",
@@ -174,8 +191,8 @@ curl -X POST http://localhost:26262/api/tools/item \
   }'
 
 # 2. 装備する
-curl -X POST http://localhost:26262/api/tools/item \
-  -H "Authorization: Bearer nilou" \
+curl -X POST "${MCP_URL}/api/tools/item" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{"operation": "equip", "equipment": {"top": "青いドレス"}}'
 ```
@@ -184,8 +201,8 @@ curl -X POST http://localhost:26262/api/tools/item \
 
 ```bash
 # カジュアルな服装
-curl -X POST http://localhost:26262/api/tools/item \
-  -H "Authorization: Bearer nilou" \
+curl -X POST "${MCP_URL}/api/tools/item" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{
     "operation": "equip",
@@ -197,8 +214,8 @@ curl -X POST http://localhost:26262/api/tools/item \
   }'
 
 # フォーマルな服装
-curl -X POST http://localhost:26262/api/tools/item \
-  -H "Authorization: Bearer nilou" \
+curl -X POST "${MCP_URL}/api/tools/item" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{
     "operation": "equip",

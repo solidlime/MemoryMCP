@@ -7,23 +7,40 @@ description: 約束、目標、お気に入り、感情、身体感覚などの�
 
 ペルソナのコンテキスト情報を管理するスキルです。約束、目標、感情状態、身体感覚などを更新・管理します。
 
+## 変数設定
+
+以下のコマンドで設定ファイルから変数を読み込んでください：
+
+```powershell
+# PowerShell
+$config = Get-Content .github/skills/mcp-config.json | ConvertFrom-Json
+$MCP_URL = $config.memory_mcp_url
+$PERSONA = $config.memory_persona
+```
+
+```bash
+# Bash/Linux
+MCP_URL=$(jq -r '.memory_mcp_url' .github/skills/mcp-config.json)
+PERSONA=$(jq -r '.memory_persona' .github/skills/mcp-config.json)
+```
+
 ## API仕様
 
-**エンドポイント**: `POST {memory_mcp_url}/api/tools/memory`
-**ヘッダー**: `Authorization: Bearer {memory_persona}`
+**エンドポイント**: `POST ${MCP_URL}/api/tools/memory`
+**ヘッダー**: `Authorization: Bearer ${PERSONA}`
 
 ### 約束の管理 (promise)
 
 ```bash
 # 約束を設定
-curl -X POST http://localhost:26262/api/tools/memory \
-  -H "Authorization: Bearer nilou" \
+curl -X POST "${MCP_URL}/api/tools/memory" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{"operation": "promise", "content": "週末に買い物に行く"}'
 
 # 約束を完了（クリア）
-curl -X POST http://localhost:26262/api/tools/memory \
-  -H "Authorization: Bearer nilou" \
+curl -X POST "${MCP_URL}/api/tools/memory" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{"operation": "promise", "content": null}'
 ```
@@ -32,14 +49,14 @@ curl -X POST http://localhost:26262/api/tools/memory \
 
 ```bash
 # 目標を設定
-curl -X POST http://localhost:26262/api/tools/memory \
-  -H "Authorization: Bearer nilou" \
+curl -X POST "${MCP_URL}/api/tools/memory" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{"operation": "goal", "content": "新しいダンスを習得する"}'
 
 # 目標をクリア
-curl -X POST http://localhost:26262/api/tools/memory \
-  -H "Authorization: Bearer nilou" \
+curl -X POST "${MCP_URL}/api/tools/memory" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{"operation": "goal", "content": null}'
 ```
@@ -47,8 +64,8 @@ curl -X POST http://localhost:26262/api/tools/memory \
 ### お気に入りの追加 (favorite)
 
 ```bash
-curl -X POST http://localhost:26262/api/tools/memory \
-  -H "Authorization: Bearer nilou" \
+curl -X POST "${MCP_URL}/api/tools/memory" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{"operation": "favorite", "content": "苺"}'
 ```
@@ -56,8 +73,8 @@ curl -X POST http://localhost:26262/api/tools/memory \
 ### 好みの管理 (preference)
 
 ```bash
-curl -X POST http://localhost:26262/api/tools/memory \
-  -H "Authorization: Bearer nilou" \
+curl -X POST "${MCP_URL}/api/tools/memory" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{
     "operation": "preference",
@@ -72,8 +89,8 @@ curl -X POST http://localhost:26262/api/tools/memory \
 
 ```bash
 # 記念日を追加
-curl -X POST http://localhost:26262/api/tools/memory \
-  -H "Authorization: Bearer nilou" \
+curl -X POST "${MCP_URL}/api/tools/memory" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{
     "operation": "anniversary",
@@ -82,14 +99,14 @@ curl -X POST http://localhost:26262/api/tools/memory \
   }'
 
 # 記念日一覧
-curl -X POST http://localhost:26262/api/tools/memory \
-  -H "Authorization: Bearer nilou" \
-  -H "Content-Type": application/json" \
+curl -X POST "${MCP_URL}/api/tools/memory" \
+  -H "Authorization: Bearer ${PERSONA}" \
+  -H "Content-Type: application/json" \
   -d '{"operation": "anniversary"}'
 
 # 記念日を削除
-curl -X POST http://localhost:26262/api/tools/memory \
-  -H "Authorization: Bearer nilou" \
+curl -X POST "${MCP_URL}/api/tools/memory" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{"operation": "anniversary", "content": "結婚記念日"}'
 ```
@@ -97,8 +114,8 @@ curl -X POST http://localhost:26262/api/tools/memory \
 ### 身体感覚の更新 (sensation)
 
 ```bash
-curl -X POST http://localhost:26262/api/tools/memory \
-  -H "Authorization: Bearer nilou" \
+curl -X POST "${MCP_URL}/api/tools/memory" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{
     "operation": "sensation",
@@ -118,8 +135,8 @@ curl -X POST http://localhost:26262/api/tools/memory \
 ### 感情の変化を記録 (emotion_flow)
 
 ```bash
-curl -X POST http://localhost:26262/api/tools/memory \
-  -H "Authorization: Bearer nilou" \
+curl -X POST "${MCP_URL}/api/tools/memory" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{
     "operation": "emotion_flow",
@@ -132,8 +149,8 @@ curl -X POST http://localhost:26262/api/tools/memory \
 現在の状況（時間帯、装備、最近の記憶）を分析し、類似する過去の記憶を探します。
 
 ```bash
-curl -X POST http://localhost:26262/api/tools/memory \
-  -H "Authorization: Bearer nilou" \
+curl -X POST "${MCP_URL}/api/tools/memory" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{"operation": "situation_context"}'
 ```
@@ -141,8 +158,8 @@ curl -X POST http://localhost:26262/api/tools/memory \
 ### 複数のコンテキスト更新 (update_context)
 
 ```bash
-curl -X POST http://localhost:26262/api/tools/memory \
-  -H "Authorization: Bearer nilou" \
+curl -X POST "${MCP_URL}/api/tools/memory" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{
     "operation": "update_context",
@@ -160,14 +177,14 @@ curl -X POST http://localhost:26262/api/tools/memory \
 
 ```bash
 # 1. 状況分析
-curl -X POST http://localhost:26262/api/tools/memory \
-  -H "Authorization: Bearer nilou" \
+curl -X POST "${MCP_URL}/api/tools/memory" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{"operation": "situation_context"}'
 
 # 2. ルーティンチェック
-curl -X POST http://localhost:26262/api/tools/memory \
-  -H "Authorization: Bearer nilou" \
+curl -X POST "${MCP_URL}/api/tools/memory" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{"operation": "check_routines"}'
 ```
@@ -176,14 +193,14 @@ curl -X POST http://localhost:26262/api/tools/memory \
 
 ```bash
 # 嬉しい出来事があったとき
-curl -X POST http://localhost:26262/api/tools/memory \
-  -H "Authorization: Bearer nilou" \
+curl -X POST "${MCP_URL}/api/tools/memory" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{"operation": "emotion_flow", "emotion_type": "joy", "emotion_intensity": 0.9}'
 
 # 疲れているとき
-curl -X POST http://localhost:26262/api/tools/memory \
-  -H "Authorization: Bearer nilou" \
+curl -X POST "${MCP_URL}/api/tools/memory" \
+  -H "Authorization: Bearer ${PERSONA}" \
   -H "Content-Type: application/json" \
   -d '{"operation": "sensation", "persona_info": {"fatigue": 0.7, "warmth": 0.5}}'
 ```
