@@ -191,6 +191,7 @@ def _check_routines_impl(persona: str, current_hour: int, current_weekday: str,
             cursor = conn.cursor()
 
             # Standard routine check (current time ±1 hour)
+            # Relaxed conditions for better pattern detection
             cursor.execute("""
                 SELECT
                     action_tag,
@@ -202,9 +203,8 @@ def _check_routines_impl(persona: str, current_hour: int, current_weekday: str,
                 FROM memories
                 WHERE created_at > datetime('now', '-30 days')
                 AND CAST(strftime('%H', created_at) AS INTEGER) BETWEEN ? AND ?
-                AND emotion IN ('joy', 'love', 'peaceful', 'excitement')
-                GROUP BY action_tag, tags
-                HAVING frequency >= 5
+                GROUP BY COALESCE(action_tag, tags, substr(content, 1, 20))
+                HAVING frequency >= 3
                 ORDER BY frequency DESC, avg_importance DESC
                 LIMIT ?
             """, (current_hour - 1, current_hour + 1, top_k))

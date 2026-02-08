@@ -62,9 +62,20 @@
                 <select id="personaSelect" class="glass-card rounded-lg px-4 py-2 text-white font-semibold cursor-pointer">
                     <option value="">Loading...</option>
                 </select>
+                <div class="flex items-center gap-2">
+                    <label class="text-white font-semibold text-sm">Auto-refresh:</label>
+                    <select id="refreshInterval" class="glass-card rounded-lg px-3 py-2 text-white text-sm font-semibold cursor-pointer">
+                        <option value="0">Off</option>
+                        <option value="15">15s</option>
+                        <option value="30" selected>30s</option>
+                        <option value="60">60s</option>
+                        <option value="120">2min</option>
+                    </select>
+                </div>
                 <button onclick="refreshData()" class="glass-card rounded-lg px-4 py-2 text-white font-semibold hover:bg-white/20 transition">
                     🔄 Refresh
                 </button>
+                <div id="lastUpdate" class="text-purple-200 text-sm"></div>
             </div>
         </div>
     </header>
@@ -460,11 +471,44 @@
         });
 
         // Refresh data
+        let refreshTimer = null;
+
         async function refreshData() {
             if (currentPersona) {
                 await loadDashboardData(currentPersona);
+                updateLastRefreshTime();
             }
         }
+
+        function updateLastRefreshTime() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            document.getElementById('lastUpdate').textContent = `Last update: ${timeStr}`;
+        }
+
+        function setupAutoRefresh() {
+            // Clear existing timer
+            if (refreshTimer) {
+                clearInterval(refreshTimer);
+                refreshTimer = null;
+            }
+
+            // Get selected interval
+            const interval = parseInt(document.getElementById('refreshInterval').value);
+
+            if (interval > 0) {
+                // Set new timer (convert seconds to milliseconds)
+                refreshTimer = setInterval(() => {
+                    refreshData();
+                }, interval * 1000);
+                console.log(`Auto-refresh enabled: ${interval}s`);
+            } else {
+                console.log('Auto-refresh disabled');
+            }
+        }
+
+        // Listen to refresh interval changes
+        document.getElementById('refreshInterval')?.addEventListener('change', setupAutoRefresh);
 
         // Load dashboard data
         async function loadDashboardData(persona) {
@@ -1636,6 +1680,12 @@
         document.addEventListener('DOMContentLoaded', () => {
             restoreActiveTab();
             loadPersonas();
+
+            // Setup auto-refresh after initial load
+            setTimeout(() => {
+                setupAutoRefresh();
+                updateLastRefreshTime();
+            }, 2000);
         });
     </script>
 </body>

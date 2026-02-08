@@ -6,13 +6,13 @@ MCP (Model Context Protocol) 準拠の永続メモリサーバー。RAG検索と
 
 - **永続メモリ**: SQLite (データ) + Qdrant (ベクトルインデックス)
 - **Personaサポート**: `Authorization: Bearer <persona>` でPersona分離
-- **高精度RAG検索**: 
+- **高精度RAG検索**:
   - セマンティック検索（埋め込み + Reranker）
   - ハイブリッド検索（セマンティック70% + キーワード30%）
   - 時間フィルタリング（「昨日」「先週」などの自然言語対応）
   - メタデータエンリッチメント（タグ、感情、環境、状態を埋め込みに含める）
 - **リッチコンテキスト**: 重要度・感情・状態・環境・行動タグなど15カラムで記録
-- **自動整理**: 
+- **自動整理**:
   - アイドル時の重複検知（類似度90%以上）
   - 自動マージ（類似度95%以上、オプション）
   - 自動要約スケジューラー（日次/週次、デフォルト有効）
@@ -21,6 +21,7 @@ MCP (Model Context Protocol) 準拠の永続メモリサーバー。RAG検索と
 - **Webダッシュボード**: 統計・日次推移・知識グラフの可視化
 - **最適化Docker**: 2.65GB (CPU版PyTorch)
 - **統合API**: 3つの統合ツールで簡潔なインターフェース (75%削減)
+- **GitHub Copilot Skills対応**: トークン消費80〜90%削減 🚀
 
 ## MCPツール API
 
@@ -56,16 +57,16 @@ MCP (Model Context Protocol) 準拠の永続メモリサーバー。RAG検索と
 **例:**
 ```python
 # 作成
-memory(operation="create", content="User likes strawberry", 
+memory(operation="create", content="User likes strawberry",
        emotion_type="joy", importance=0.8)
 
 # 記念日タグ付き作成
-memory(operation="create", content="初めて一緒に映画を見た日", 
-       emotion_type="joy", importance=0.9, 
+memory(operation="create", content="初めて一緒に映画を見た日",
+       emotion_type="joy", importance=0.9,
        context_tags=["first_time", "anniversary"])
 
-memory(operation="create", content="プロジェクトのリリース完了", 
-       emotion_type="accomplishment", importance=0.85, 
+memory(operation="create", content="プロジェクトのリリース完了",
+       emotion_type="accomplishment", importance=0.85,
        context_tags=["milestone", "technical_achievement"])
 
 # セマンティック検索（デフォルト）
@@ -82,7 +83,7 @@ memory(operation="search", query="成果", mode="semantic", date_range="昨日")
 memory(operation="search", query="", mode="keyword", date_range="先週")
 
 # タグ検索
-memory(operation="search", query="", mode="keyword", 
+memory(operation="search", query="", mode="keyword",
        search_tags=["technical_achievement"], tag_match_mode="all")
 
 # スマート検索（曖昧クエリ自動拡張、日英対応）
@@ -96,7 +97,7 @@ memory(operation="check_routines", mode="detailed")  # 詳細：時間帯別パ�
 
 # 記念日管理
 memory(operation="anniversary")  # 一覧表示
-memory(operation="anniversary", content="結婚記念日", 
+memory(operation="anniversary", content="結婚記念日",
        persona_info={"date": "10-28", "recurring": True})  # 追加
 memory(operation="anniversary", content="結婚記念日")  # 削除
 
@@ -153,6 +154,33 @@ item(operation="history", history_slot="weapon", days=30)
 ### 内部実装
 
 個別のツール実装は `tools/` ディレクトリに保存されていますが、MCPインターフェースとしては上記3つの統合ツールのみが公開されています。
+
+## GitHub Copilot Skills 🚀
+
+MCPツールをGitHub Copilot Skillsとして利用可能です。**トークン消費を80〜90%削減**できます。
+
+### セットアップ
+
+1. VS Codeで `chat.useClaudeSkills: true` を設定
+2. プロジェクトを開くだけ（`.github/skills/` が自動認識される）
+
+### 利用可能なスキル
+
+- **memory-operation**: 記憶の作成・検索・更新・削除
+- **memory-context**: 約束・目標・感情・身体感覚の管理
+- **item-management**: アイテムの追加・装備・検索
+- **context-status**: 状態確認・ルーティンチェック
+
+詳細: [.github/skills/README.md](.github/skills/README.md)
+
+### トークン削減効果
+
+| 方式 | トークン消費 | 削減率 |
+|------|------------|--------|
+| MCPツール（従来） | 5,000〜10,000トークン/リクエスト | - |
+| Skills（新方式） | 500〜1,000トークン/リクエスト | **80〜90%削減** |
+
+Skillsでは説明文のみがコンテキストに常駐し、フルコンテンツは呼び出し時のみロードされます。
 
 ## プロジェクト構成 (簡易)
 
@@ -464,11 +492,11 @@ export MEMORY_MCP_SERVER_PORT=26262
   ```python
   # セマンティック検索（デフォルト）
   search_memory("ユーザーの好きな食べ物", mode="semantic")
-  
+
   # キーワード検索（Fuzzy対応・タグ・日付範囲）
   search_memory("Python", mode="keyword", fuzzy_match=True)
   search_memory("", mode="keyword", tags=["technical_achievement"])
-  
+
   # 関連記憶検索
   search_memory(mode="related", memory_key="memory_20251031123045")
   ```
@@ -482,7 +510,7 @@ export MEMORY_MCP_SERVER_PORT=26262
   ```python
   # 全装備を一度リセットしてから指定アイテムを装備
   equip_item({"top": "囁きのシフォンドレス", "foot": "蓮花サンダル"})
-  
+
   # 全装備解除
   equip_item({})
   ```
