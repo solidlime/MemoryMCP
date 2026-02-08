@@ -387,6 +387,12 @@ async def memory(
         memory(operation="emotion_flow", emotion_type="love", emotion_intensity=0.95)  # Record emotion change
         memory(operation="situation_context")  # Analyze current situation
     """
+    from core import update_last_conversation_time
+    from src.utils.persona_utils import get_current_persona
+
+    # Update last conversation time for all operations
+    update_last_conversation_time(get_current_persona())
+
     operation = operation.lower()
 
     if operation == "create":

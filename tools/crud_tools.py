@@ -64,7 +64,7 @@ async def _search_memory_by_query(query: str, top_k: int = 3) -> List[Dict]:
     """
     Internal helper to search memories using RAG.
     Returns list of dicts with keys: 'key', 'content', 'score', 'metadata'
-    
+
     This is used by update_memory, delete_memory, read_memory to enable
     natural language queries instead of requiring exact memory keys.
     """
@@ -72,30 +72,30 @@ async def _search_memory_by_query(query: str, top_k: int = 3) -> List[Dict]:
         from src.utils.vector_utils import embeddings
         from lib.backends.qdrant_backend import QdrantVectorStoreAdapter
         from qdrant_client import QdrantClient
-        
+
         if embeddings is None:
             return []
-        
+
         persona = get_current_persona()
         cfg = load_config()
-        
+
         # 🔧 Phase 31.2: Get correct dimension from model config
         model_name = cfg.get("embeddings_model", "cl-nagoya/ruri-v3-30m")
         from src.utils.vector_utils import _get_embedding_dimension
         dim = _get_embedding_dimension(model_name)
-        
+
         url = cfg.get("qdrant_url", "http://localhost:6333")
         api_key = cfg.get("qdrant_api_key")
         prefix = cfg.get("qdrant_collection_prefix", "memory_")
         collection = f"{prefix}{persona}"
-        
+
         # Create Qdrant adapter
         client = QdrantClient(url=url, api_key=api_key)
         adapter = QdrantVectorStoreAdapter(client, collection, embeddings, dim)
-        
+
         # Perform similarity search
         docs_with_scores = adapter.similarity_search_with_score(query, k=top_k)
-        
+
         # Format results
         results = []
         for doc, score in docs_with_scores:
@@ -106,9 +106,9 @@ async def _search_memory_by_query(query: str, top_k: int = 3) -> List[Dict]:
                 'score': score,
                 'metadata': meta
             })
-        
+
         return results
-        
+
     except Exception as e:
         print(f"⚠️  RAG search failed: {e}")
         return []
@@ -130,7 +130,7 @@ def _update_basic_fields(
 ) -> bool:
     """Update basic context fields. Returns True if any field was updated."""
     updated = False
-    
+
     field_mapping = {
         "current_emotion": emotion_type,
         "physical_state": physical_state,
@@ -140,12 +140,12 @@ def _update_basic_fields(
         "current_action_tag": action_tag,
         "current_emotion_intensity": emotion_intensity
     }
-    
+
     for field_name, value in field_mapping.items():
         if value is not None:
             context[field_name] = value
             updated = True
-    
+
     return updated
 
 
@@ -153,21 +153,21 @@ def _update_user_info(context: dict, user_info: Optional[Dict]) -> bool:
     """Update user_info section. Returns True if updated."""
     if not user_info:
         return False
-    
+
     if "user_info" not in context:
         context["user_info"] = {}
-    
+
     for key_name, value in user_info.items():
         if key_name in ["name", "nickname", "preferred_address"]:
             context["user_info"][key_name] = value
-    
+
     return True
 
 
 def _process_active_promises(value: any, config: dict) -> dict:
     """Convert active_promises to dict format with created_at."""
     now = datetime.now(ZoneInfo(config.get("timezone", "Asia/Tokyo"))).isoformat()
-    
+
     if isinstance(value, str):
         # Convert old string format to new dict format
         return {"content": value, "created_at": now}
@@ -176,7 +176,7 @@ def _process_active_promises(value: any, config: dict) -> dict:
         if "created_at" not in value and "content" in value:
             value["created_at"] = now
         return value
-    
+
     return value
 
 
@@ -184,32 +184,32 @@ def _update_persona_info(context: dict, persona_info: Optional[Dict]) -> bool:
     """Update persona_info section. Returns True if updated."""
     if not persona_info:
         return False
-    
+
     if "persona_info" not in context:
         context["persona_info"] = {}
-    
+
     config = load_config()
-    
+
     for key_name, value in persona_info.items():
         # Basic info fields (flat values)
         if key_name in ["name", "nickname", "preferred_address"]:
             context["persona_info"][key_name] = value
-        
+
         # Extended fields (can be nested dicts/lists)
         # Note: current_equipment is NOT saved to persona_context.json
         # It's always fetched from item.sqlite database
-        elif key_name in ["favorite_items", "active_promises", 
+        elif key_name in ["favorite_items", "active_promises",
                            "current_goals", "preferences"]:
             # Special handling for active_promises: auto-add created_at
             if key_name == "active_promises" and value:
                 context[key_name] = _process_active_promises(value, config)
             else:
                 context[key_name] = value
-        
+
         elif key_name == "current_equipment":
             # Skip: current_equipment is managed by equipment_db, not persona_context
             pass
-    
+
     return True
 
 
@@ -228,7 +228,7 @@ def _update_persona_context(
     """
     Update persona context with provided parameters.
     Always updates last_conversation_time.
-    
+
     Args:
         persona: Current persona name
         emotion_type: Emotion to update (optional)
@@ -240,16 +240,16 @@ def _update_persona_context(
         relationship_status: Relationship status to update (optional)
         action_tag: Current action tag to update (optional)
         emotion_intensity: Current emotion intensity to update (optional)
-    
+
     Returns:
         bool: True if context was updated, False otherwise
     """
     context = load_persona_context(persona)
-    
+
     # Always update last_conversation_time
     config = load_config()
     context["last_conversation_time"] = datetime.now(ZoneInfo(config.get("timezone", "Asia/Tokyo"))).isoformat()
-    
+
     # Update all fields
     basic_updated = _update_basic_fields(
         context, emotion_type, physical_state, mental_state, environment,
@@ -257,9 +257,9 @@ def _update_persona_context(
     )
     user_updated = _update_user_info(context, user_info)
     persona_updated = _update_persona_info(context, persona_info)
-    
+
     context_updated = True  # Always true because last_conversation_time is always updated
-    
+
     save_persona_context(context, persona)
     return context_updated
 
@@ -271,17 +271,17 @@ def _update_persona_context(
 def _generate_unique_key(db_path: str) -> str:
     """
     Generate a unique memory key by checking the database.
-    
+
     Args:
         db_path: Path to the SQLite database
-    
+
     Returns:
         str: Unique memory key
     """
     key = generate_auto_key()
     original_key = key
     counter = 1
-    
+
     with sqlite3.connect(db_path) as conn:
         cursor = conn.cursor()
         # Check if key exists in database
@@ -291,7 +291,7 @@ def _generate_unique_key(db_path: str) -> str:
                 break
             key = f"{original_key}_{counter:02d}"
             counter += 1
-    
+
     return key
 
 
@@ -303,22 +303,22 @@ def _calculate_memory_importance(
 ) -> tuple:
     """
     Calculate memory importance and generate associations.
-    
+
     Args:
         key: Memory key
         content: Memory content
         importance: Explicit importance (if provided)
         emotion_intensity: Emotion intensity value
-    
+
     Returns:
         tuple: (final_importance, related_keys)
     """
     # Determine base importance (default to 0.5 if not provided)
     base_importance = importance if importance is not None else 0.5
-    
+
     # Phase 28.2: Generate associations and adjust importance
     from tools.association import generate_associations
-    
+
     emotion_intensity_value = emotion_intensity if emotion_intensity is not None else 0.0
     related_keys, adjusted_importance = generate_associations(
         new_key=key,
@@ -326,10 +326,10 @@ def _calculate_memory_importance(
         emotion_intensity=emotion_intensity_value,
         base_importance=base_importance
     )
-    
+
     # Use adjusted importance if no explicit importance was provided
     final_importance = importance if importance is not None else adjusted_importance
-    
+
     return final_importance, related_keys
 
 
@@ -354,14 +354,14 @@ def _save_memory_to_stores(
 ) -> None:
     """
     Save memory to database (sync) and vector store (async).
-    
+
     Phase 40: Split into two-stage save:
     1. DB save (synchronous, fast, critical) - completes before return
     2. Vector store save (asynchronous, slow, can be deferred) - runs in background
-    
+
     Privacy: Content is filtered through privacy utils before storage.
     DS920+: defer_vector=True skips vector indexing entirely (manual rebuild later).
-    
+
     Args:
         key: Memory key
         content: Memory content
@@ -382,7 +382,7 @@ def _save_memory_to_stores(
         defer_vector: If True, skip vector store indexing (DS920+ friendly)
     """
     from src.utils.privacy_utils import prepare_content_for_save
-    
+
     # Privacy: process content and determine level
     processed_content, determined_level = prepare_content_for_save(
         content,
@@ -390,13 +390,13 @@ def _save_memory_to_stores(
         auto_redact=load_config().get("privacy", {}).get("auto_redact_pii", False),
         tags=context_tags,
     )
-    
+
     # ===== STAGE 1: Synchronous DB Save (fast, critical) =====
     save_memory_to_db(
-        key, 
-        processed_content, 
-        created_at, 
-        updated_at, 
+        key,
+        processed_content,
+        created_at,
+        updated_at,
         context_tags,
         importance=importance,
         emotion=emotion_type,
@@ -411,10 +411,10 @@ def _save_memory_to_stores(
         equipped_items=equipped_items,
         privacy_level=determined_level
     )
-    
+
     # Clear query cache (synchronous, fast)
     clear_query_cache()
-    
+
     # ===== STAGE 2: Asynchronous Vector Store Save (slow, deferred) =====
     # Skip vector indexing if deferred (DS920+ resource saving)
     # Also skip for "secret" privacy level memories
@@ -432,14 +432,14 @@ def _format_create_result(
 ) -> str:
     """
     Format the result message for create_memory.
-    
+
     Args:
         key: Memory key
         persona: Persona name
         emotion_type: Emotion type (optional)
         context_tags: Context tags (optional)
         context_updated: Whether context was updated
-    
+
     Returns:
         str: Formatted result message
     """
@@ -450,7 +450,7 @@ def _format_create_result(
         result += f" [tags: {', '.join(context_tags)}]"
     if context_updated:
         result += " [context updated]"
-    
+
     return result
 
 
@@ -461,38 +461,38 @@ def _format_create_result(
 def _initialize_vector_adapter(persona: str):
     """
     Initialize Qdrant vector store adapter.
-    
+
     Args:
         persona: Current persona name
-    
+
     Returns:
         QdrantVectorStoreAdapter or None if initialization fails
-    
+
     Raises:
         Exception: If RAG system is not ready or adapter creation fails
     """
     from src.utils.vector_utils import embeddings
     from lib.backends.qdrant_backend import QdrantVectorStoreAdapter
     from qdrant_client import QdrantClient
-    
+
     if embeddings is None:
         raise Exception("RAG system not ready")
-    
+
     cfg = load_config()
-    
+
     # Phase 31.2: Get correct dimension from model config
     model_name = cfg.get("embeddings_model", "cl-nagoya/ruri-v3-30m")
     from src.utils.vector_utils import _get_embedding_dimension
     dim = _get_embedding_dimension(model_name)
-    
+
     url = cfg.get("qdrant_url", "http://localhost:6333")
     api_key = cfg.get("qdrant_api_key")
     prefix = cfg.get("qdrant_collection_prefix", "memory_")
     collection = f"{prefix}{persona}"
-    
+
     client = QdrantClient(url=url, api_key=api_key)
     adapter = QdrantVectorStoreAdapter(client, collection, embeddings, dim)
-    
+
     return adapter
 
 
@@ -500,7 +500,7 @@ def _parse_date_range(date_range: Optional[str]) -> tuple[Optional[datetime], Op
     """Parse date range string into start and end datetime objects."""
     if not date_range:
         return None, None
-    
+
     try:
         from core.time_utils import parse_date_query
         return parse_date_query(date_range)
@@ -517,18 +517,18 @@ def _is_within_date_range(
     """Check if created_at timestamp is within the given date range."""
     if not start_date or not end_date or not created_at_str:
         return True
-    
+
     try:
         from datetime import datetime
         from zoneinfo import ZoneInfo
         from src.utils.config_utils import load_config
-        
+
         created_dt = datetime.fromisoformat(created_at_str)
         if created_dt.tzinfo is None:
             cfg = load_config()
             tz = ZoneInfo(cfg.get("timezone", "Asia/Tokyo"))
             created_dt = created_dt.replace(tzinfo=tz)
-        
+
         return start_date <= created_dt <= end_date
     except (ValueError, TypeError):
         return True  # Skip date filtering for invalid dates
@@ -549,7 +549,7 @@ def _matches_metadata_filters(
     # Importance filter
     if min_importance is not None and meta.get("importance", 0) < min_importance:
         return False
-    
+
     # Fuzzy matching for text filters (case-insensitive partial match)
     filters = [
         (emotion, meta.get("emotion", "")),
@@ -559,20 +559,20 @@ def _matches_metadata_filters(
         (mental_state, meta.get("mental_state", "")),
         (relationship_status, meta.get("relationship_status", ""))
     ]
-    
+
     for filter_value, meta_value in filters:
         if filter_value and filter_value.lower() not in str(meta_value).lower():
             return False
-    
+
     # Filter by equipped item (partial match in any slot)
     if equipped_item:
         equipped_items = meta.get("equipped_items", {})
         if not equipped_items or not any(
-            equipped_item.lower() in str(item_name).lower() 
+            equipped_item.lower() in str(item_name).lower()
             for item_name in equipped_items.values() if item_name
         ):
             return False
-    
+
     return True
 
 
@@ -584,11 +584,11 @@ def _calculate_final_score(
 ) -> float:
     """Calculate final score including importance, recency, and access frequency."""
     final_score = base_score
-    
+
     # Importance score
     if importance_weight > 0 and meta.get("importance") is not None:
         final_score += importance_weight * meta["importance"]
-    
+
     # Recency score
     if recency_weight > 0 and meta.get("created_at"):
         try:
@@ -600,14 +600,14 @@ def _calculate_final_score(
             final_score += recency_weight * recency_score
         except (ValueError, TypeError):
             pass  # Date parsing failed, skip recency scoring
-    
+
     # Access frequency score (Phase 38)
     access_count = meta.get("access_count", 0)
     if access_count > 0:
         import math
         access_score = math.log1p(access_count) / 10.0  # log1p prevents log(0)
         final_score += 0.1 * access_score  # 10% weight for access frequency
-    
+
     return final_score
 
 
@@ -627,7 +627,7 @@ def _filter_and_score_documents(
 ) -> list:
     """
     Filter documents based on metadata and calculate custom scores.
-    
+
     Args:
         docs_with_scores: List of (document, score) tuples from vector search
         min_importance: Minimum importance filter
@@ -641,52 +641,52 @@ def _filter_and_score_documents(
         date_range: Date range filter (e.g., "今日", "昨日", "先週")
         importance_weight: Weight for importance in scoring
         recency_weight: Weight for recency in scoring
-    
+
     Returns:
         List of (document, final_score) tuples, sorted by score descending
     """
     start_date, end_date = _parse_date_range(date_range)
     filtered_docs = []
-    
+
     for doc, score in docs_with_scores:
         meta = doc.metadata
-        
+
         # Apply date range filter
         if not _is_within_date_range(meta.get("created_at"), start_date, end_date):
             continue
-        
+
         # Apply metadata filters
         if not _matches_metadata_filters(
             meta, min_importance, emotion, action_tag, environment,
             physical_state, mental_state, relationship_status, equipped_item
         ):
             continue
-        
+
         # Calculate final score
         final_score = _calculate_final_score(score, meta, importance_weight, recency_weight)
         doc.metadata["final_score"] = final_score
         filtered_docs.append((doc, final_score))
-    
+
     # Sort by final score (descending)
     filtered_docs.sort(key=lambda x: x[1], reverse=True)
-    
+
     return filtered_docs
 
 
 def _rerank_documents(query: str, docs: list, top_k: int):
     """
     Rerank documents using cross-encoder reranker.
-    
+
     Args:
         query: Search query
         docs: List of documents to rerank
         top_k: Number of top results to return
-    
+
     Returns:
         List of top_k reranked documents
     """
     from src.utils.vector_utils import reranker
-    
+
     if reranker and docs:
         # Prepare query-document pairs for reranking
         pairs = [[query, doc.page_content] for doc in docs]
@@ -712,10 +712,10 @@ def _build_filter_description(
     equipped_item: Optional[str]
 ) -> list[str]:
     """Build filter description for display.
-    
+
     Args:
         Filter parameters
-        
+
     Returns:
         List of filter description strings
     """
@@ -741,11 +741,11 @@ def _build_filter_description(
 
 def _build_scoring_description(importance_weight: float, recency_weight: float) -> list[str]:
     """Build scoring description for display.
-    
+
     Args:
         importance_weight: Weight for importance scoring
         recency_weight: Weight for recency scoring
-        
+
     Returns:
         List of scoring description strings
     """
@@ -759,15 +759,15 @@ def _build_scoring_description(importance_weight: float, recency_weight: float) 
 
 def _format_memory_metadata(row: tuple) -> str:
     """Format memory metadata for display.
-    
+
     Args:
         row: Database row (importance, emotion, emotion_intensity, action, env, related_keys_json)
-        
+
     Returns:
         Formatted metadata string
     """
     importance_val, emotion_db, emotion_intensity_val, action, env, related_keys_json = row
-    
+
     meta_parts = []
     if importance_val is not None and importance_val != 0.5:
         meta_parts.append(f"⭐{importance_val:.1f}")
@@ -780,7 +780,7 @@ def _format_memory_metadata(row: tuple) -> str:
         meta_parts.append(f"🎭{action}")
     if env and env != "unknown":
         meta_parts.append(f"📍{env}")
-    
+
     # Show related memories count
     if related_keys_json:
         try:
@@ -789,7 +789,7 @@ def _format_memory_metadata(row: tuple) -> str:
                 meta_parts.append(f"🔗{len(related_keys_list)}")
         except (json.JSONDecodeError, TypeError):
             pass
-    
+
     return f" [{', '.join(meta_parts)}]" if meta_parts else ""
 
 
@@ -801,22 +801,22 @@ def _format_single_memory(
     recency_weight: float
 ) -> str:
     """Format a single memory for display.
-    
+
     Args:
         doc: Document to format
         index: Display index (1-based)
         cursor: Database cursor
         importance_weight: Importance scoring weight
         recency_weight: Recency scoring weight
-        
+
     Returns:
         Formatted memory string
     """
     from core.time_utils import calculate_time_diff
-    
+
     key = doc.metadata.get("key", "unknown")
     content = doc.page_content
-    
+
     # Get metadata from DB
     cursor.execute("""
         SELECT created_at, importance, emotion, emotion_intensity,
@@ -824,17 +824,17 @@ def _format_single_memory(
         FROM memories WHERE key = ?
     """, (key,))
     row = cursor.fetchone()
-    
+
     if row:
         created_at = row[0]
         created_date = created_at[:10]
         created_time = created_at[11:19]
         time_diff = calculate_time_diff(created_at)
         time_ago = f" ({time_diff['formatted_string']}前)"
-        
+
         # Format metadata (pass only needed fields)
         meta_str = _format_memory_metadata(row[1:])
-        
+
         # Show final score if custom scoring was used
         score_str = ""
         if importance_weight > 0 or recency_weight > 0:
@@ -847,11 +847,11 @@ def _format_single_memory(
         time_ago = ""
         meta_str = ""
         score_str = ""
-    
+
     result = f"{index}. [{key}]{meta_str}{score_str}\n"
     result += f"   {content[:200]}{'...' if len(content) > 200 else ''}\n"
     result += f"   {created_date} {created_time}{time_ago} ({len(content)} chars)\n\n"
-    
+
     return result
 
 
@@ -871,7 +871,7 @@ def _format_memory_results(
     recency_weight: float
 ) -> str:
     """Format search results into a readable string (refactored).
-    
+
     Args:
         query: Search query
         docs: List of documents to format
@@ -879,7 +879,7 @@ def _format_memory_results(
         Filter parameters (for display)
         importance_weight: Importance weight (for display)
         recency_weight: Recency weight (for display)
-    
+
     Returns:
         Formatted result string
     """
@@ -888,26 +888,26 @@ def _format_memory_results(
         min_importance, emotion, action_tag, environment,
         physical_state, mental_state, relationship_status, equipped_item
     )
-    
+
     # Handle empty results
     if not docs:
         filter_str = f" (filters: {', '.join(filter_desc)})" if filter_desc else ""
         return f"📭 No relevant memories found for '{query}'{filter_str}."
-    
+
     # Build display strings
     filter_str = f" [filters: {', '.join(filter_desc)}]" if filter_desc else ""
     scoring_desc = _build_scoring_description(importance_weight, recency_weight)
     scoring_str = f" [scoring: vector + {' + '.join(scoring_desc)}]" if scoring_desc else ""
-    
+
     result = f"🔍 Found {len(docs)} relevant memories for '{query}'{filter_str}{scoring_str}:\n\n"
-    
+
     # Format each memory
     db_path = get_db_path()
     with sqlite3.connect(db_path) as conn:
         cursor = conn.cursor()
         for i, doc in enumerate(docs, 1):
             result += _format_single_memory(doc, i, cursor, importance_weight, recency_weight)
-    
+
     return result.rstrip()
 
 
@@ -918,11 +918,11 @@ def _format_memory_results(
 async def _find_memory_by_query(query: str, threshold: float = 0.80) -> tuple:
     """
     Find the best matching memory using RAG search.
-    
+
     Args:
         query: Natural language query
         threshold: Similarity threshold (default: 0.80)
-    
+
     Returns:
         tuple: (best_match_dict, status_message)
             - best_match_dict: Dict with 'key', 'score', 'content' if found, None otherwise
@@ -930,15 +930,15 @@ async def _find_memory_by_query(query: str, threshold: float = 0.80) -> tuple:
     """
     print(f"🔍 Searching for memory matching: '{query}'")
     search_results = await _search_memory_by_query(query, top_k=3)
-    
+
     if not search_results or len(search_results) == 0:
         print(f"💡 No matching memory found.")
         return None, "no_results"
-    
+
     # Check similarity score of best match
     best_match = search_results[0]
     similarity_score = best_match['score']
-    
+
     if similarity_score < threshold:
         # Low confidence - show candidates
         candidates = "\n".join([
@@ -948,7 +948,7 @@ async def _find_memory_by_query(query: str, threshold: float = 0.80) -> tuple:
         print(f"⚠️  Low similarity ({similarity_score:.2f}), threshold is {threshold}")
         print(f"📋 Candidates found:\n{candidates}")
         return None, "low_similarity"
-    
+
     # High confidence match
     print(f"✨ Found matching memory: {best_match['key']} (similarity: {similarity_score:.2f})")
     return best_match, "match_found"
@@ -957,31 +957,31 @@ async def _find_memory_by_query(query: str, threshold: float = 0.80) -> tuple:
 def _load_existing_memory(key: str, db_path: str) -> Optional[Dict]:
     """
     Load existing memory data from database.
-    
+
     Args:
         key: Memory key
         db_path: Path to SQLite database
-    
+
     Returns:
         Dict with existing memory data, or None if not found
     """
     with sqlite3.connect(db_path) as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT content, created_at, tags, importance, emotion, emotion_intensity, 
-                   physical_state, mental_state, environment, relationship_status, 
-                   action_tag, related_keys, summary_ref 
+            SELECT content, created_at, tags, importance, emotion, emotion_intensity,
+                   physical_state, mental_state, environment, relationship_status,
+                   action_tag, related_keys, summary_ref
             FROM memories WHERE key = ?
         """, (key,))
         row = cursor.fetchone()
-    
+
     if not row:
         return None
-    
-    (old_content, created_at, tags_json, existing_importance, existing_emotion, 
-     existing_emotion_intensity, existing_physical, existing_mental, existing_env, 
+
+    (old_content, created_at, tags_json, existing_importance, existing_emotion,
+     existing_emotion_intensity, existing_physical, existing_mental, existing_env,
      existing_relation, existing_action, existing_related_keys_json, existing_summary_ref) = row
-    
+
     return {
         "content": old_content,
         "created_at": created_at,
@@ -1015,7 +1015,7 @@ def _update_existing_memory(
 ) -> None:
     """
     Update existing memory in database and vector store.
-    
+
     Args:
         key: Memory key
         content: New content
@@ -1032,15 +1032,15 @@ def _update_existing_memory(
     """
     # Use provided importance or preserve existing
     memory_importance = importance if importance is not None else existing_entry["importance"]
-    
+
     now = datetime.now().isoformat()
-    
+
     # Update in database (preserve all existing context fields unless explicitly provided)
     save_memory_to_db(
-        key, 
-        content, 
+        key,
+        content,
         existing_entry["created_at"],  # Preserve original creation time
-        now, 
+        now,
         context_tags if context_tags else existing_entry["tags"],
         importance=memory_importance,
         emotion=emotion_type if emotion_type else existing_entry["emotion"],
@@ -1053,10 +1053,10 @@ def _update_existing_memory(
         related_keys=existing_entry.get("related_keys", []),  # Preserve existing associations
         summary_ref=existing_entry.get("summary_ref", None)  # Preserve existing summary ref
     )
-    
+
     # Clear query cache
     clear_query_cache()
-    
+
     # Update vector store (asynchronous)
     vector_queue = get_vector_queue()
     vector_queue.enqueue(update_memory_in_vector_store, key, content)
@@ -1078,38 +1078,41 @@ async def get_memory_stats() -> str:
     """
     Get memory statistics and summary instead of full list.
     Returns: total count, recent entries (max 10), tag distribution, date range.
-    
+
     For full memory access, use read_memory or search_memory with specific queries.
     """
+    from core import update_last_conversation_time
+
     try:
         persona = get_current_persona()
+        update_last_conversation_time(persona)
         db_path = get_db_path()
-        
+
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
-            
+
             # Total count
             cursor.execute('SELECT COUNT(*) FROM memories')
             total_count = cursor.fetchone()[0]
-            
+
             if total_count == 0:
                 return f"📊 No memories yet (persona: {persona})"
-            
+
             # Total characters
             cursor.execute('SELECT SUM(LENGTH(content)) FROM memories')
             total_chars = cursor.fetchone()[0] or 0
-            
+
             # Date range
             cursor.execute('SELECT MIN(created_at), MAX(created_at) FROM memories')
             min_date, max_date = cursor.fetchone()
-            
+
             # Importance statistics
             cursor.execute('SELECT AVG(importance), MIN(importance), MAX(importance) FROM memories WHERE importance IS NOT NULL')
             importance_stats = cursor.fetchone()
             avg_importance = importance_stats[0] if importance_stats[0] is not None else 0.5
             min_importance = importance_stats[1] if importance_stats[1] is not None else 0.5
             max_importance = importance_stats[2] if importance_stats[2] is not None else 0.5
-            
+
             # Importance distribution (high/medium/low)
             cursor.execute('SELECT COUNT(*) FROM memories WHERE importance >= 0.7')
             high_importance_count = cursor.fetchone()[0]
@@ -1117,15 +1120,15 @@ async def get_memory_stats() -> str:
             medium_importance_count = cursor.fetchone()[0]
             cursor.execute('SELECT COUNT(*) FROM memories WHERE importance < 0.4')
             low_importance_count = cursor.fetchone()[0]
-            
+
             # Emotion distribution
             cursor.execute('SELECT emotion, COUNT(*) FROM memories WHERE emotion IS NOT NULL GROUP BY emotion ORDER BY COUNT(*) DESC')
             emotion_counts = cursor.fetchall()
-            
+
             # Recent 10 entries
             cursor.execute('SELECT key, content, created_at, importance, emotion FROM memories ORDER BY created_at DESC LIMIT 10')
             recent = cursor.fetchall()
-            
+
             # Tag distribution
             cursor.execute('SELECT tags FROM memories WHERE tags IS NOT NULL AND tags != "[]"')
             all_tags = []
@@ -1135,37 +1138,37 @@ async def get_memory_stats() -> str:
                     all_tags.extend(tags)
                 except (json.JSONDecodeError, TypeError):
                     pass
-            
+
             tag_counts = {}
             for tag in all_tags:
                 tag_counts[tag] = tag_counts.get(tag, 0) + 1
-            
+
         # Build result
         result = f"📊 Memory Statistics (persona: {persona})\n\n"
         result += f"📈 Total Memories: {total_count}\n"
         result += f"📝 Total Characters: {total_chars:,}\n"
         result += f"📅 Date Range: {min_date[:10]} ~ {max_date[:10]}\n\n"
-        
+
         result += f"⭐ Importance Statistics:\n"
         result += f"   Average: {avg_importance:.2f}\n"
         result += f"   Range: {min_importance:.2f} ~ {max_importance:.2f}\n"
         result += f"   High (≥0.7): {high_importance_count}\n"
         result += f"   Medium (0.4~0.7): {medium_importance_count}\n"
         result += f"   Low (<0.4): {low_importance_count}\n\n"
-        
+
         if emotion_counts:
             result += "💭 Emotion Distribution:\n"
             for emotion, count in emotion_counts[:10]:  # Top 10 emotions
                 result += f"   {emotion}: {count}\n"
             result += "\n"
-        
+
         if tag_counts:
             result += "🏷️  Tag Distribution:\n"
             sorted_tags = sorted(tag_counts.items(), key=lambda x: x[1], reverse=True)
             for tag, count in sorted_tags[:10]:  # Top 10 tags
                 result += f"   {tag}: {count}\n"
             result += "\n"
-        
+
         result += f"🕐 Recent {len(recent)} Memories:\n"
         for i, (key, content, created_at, importance, emotion) in enumerate(recent, 1):
             preview = content[:60] + "..." if len(content) > 60 else content
@@ -1175,12 +1178,12 @@ async def get_memory_stats() -> str:
             emotion_str = emotion if emotion else "neutral"
             result += f"{i}. [{key}] {preview}\n"
             result += f"   {created_date} ({time_diff['formatted_string']}前) | Importance: {importance_str} | Emotion: {emotion_str}\n"
-        
+
         result += f"\n💡 Tip: Use read_memory(query) for semantic search"
-        
+
         log_operation("get_memory_stats", metadata={"total_count": total_count, "persona": persona})
         return result
-        
+
     except Exception as e:
         log_operation("get_memory_stats", success=False, error=str(e))
         return f"Failed to get memory stats: {str(e)}"
@@ -1204,7 +1207,7 @@ async def create_memory(
 ) -> str:
     """
     Create new memory (fast - no RAG search). For updates, use update_memory().
-    
+
     Args:
         content: Memory content (required)
         emotion_type: "joy", "love", "neutral", "calm", "excitement", etc.
@@ -1221,37 +1224,37 @@ async def create_memory(
         defer_vector: If True, skip vector indexing (faster save, rebuild later)
         user_info: Dict with name, nickname, preferred_address
         persona_info: Dict with extended fields (see examples below)
-    
+
     **persona_info Extended Fields** (IMPORTANT - Use these fields when appropriate):
         - favorite_items: ["item1", "item2"] - List of favorite things
         - active_promises: "Single most important promise" or null when completed
         - current_goals: "Single most important goal" or null when achieved
         - preferences: {"loves": ["thing1", "thing2"], "dislikes": ["thing3"]}
         - special_moments: [{"content": "moment", "date": "2025-11-14", "emotion": "joy"}]
-    
+
     Examples:
         # Basic memory
         create_memory("User likes [[strawberry]]")
-        
+
         # With emotion and importance
-        create_memory("[[Python]] project completed!", 
-                     emotion_type="joy", emotion_intensity=0.9, 
+        create_memory("[[Python]] project completed!",
+                     emotion_type="joy", emotion_intensity=0.9,
                      importance=0.8, context_tags=["technical_achievement"])
-        
+
         # With promise (use equip_item() tool for equipment changes)
         create_memory("Made promise to cook together",
                      persona_info={"active_promises": "Cook together with user"},
                      context_tags=["important_event"])
-        
+
         # With goal
         create_memory("Want to complete new dance choreography",
                      persona_info={"current_goals": "Complete dance choreography"})
-        
+
         # With action and environment
         create_memory("Cooked together in kitchen",
                      action_tag="cooking", environment="kitchen",
                      emotion_type="joy", emotion_intensity=0.8)
-        
+
         # Complete example with multiple fields
         create_memory("Walked on beach and collected seashells",
                      emotion_type="joy", emotion_intensity=0.85,
@@ -1263,10 +1266,10 @@ async def create_memory(
     try:
         persona = get_current_persona()
         db_path = get_db_path()
-        
+
         # Ensure database and tables are initialized (handles empty database files)
         load_memory_from_db()
-        
+
         # Get current equipped items
         equipped_items = None
         try:
@@ -1278,14 +1281,14 @@ async def create_memory(
         except Exception as e:
             # Equipment system is optional, don't fail if it's not available
             log_operation("create_memory", metadata={"equipment_capture_failed": str(e)})
-        
+
         # Generate unique key
         key = _generate_unique_key(db_path)
-        
+
         # Create memory entry with timestamps
         new_entry = create_memory_entry(content)
         new_entry["tags"] = context_tags if context_tags else []
-        
+
         # Calculate importance and generate associations
         memory_importance, related_keys = _calculate_memory_importance(
             key=key,
@@ -1293,7 +1296,7 @@ async def create_memory(
             importance=importance,
             emotion_intensity=emotion_intensity
         )
-        
+
         # Save to database and vector store
         emotion_intensity_value = emotion_intensity if emotion_intensity is not None else 0.5
         _save_memory_to_stores(
@@ -1315,7 +1318,7 @@ async def create_memory(
             privacy_level=privacy_level,
             defer_vector=defer_vector
         )
-        
+
         # Update persona context
         context_updated = _update_persona_context(
             persona=persona,
@@ -1329,14 +1332,14 @@ async def create_memory(
             action_tag=action_tag,
             emotion_intensity=emotion_intensity
         )
-        
+
         # Phase 40: Save state history for time-series visualization
         from core.memory_db import save_physical_sensations_history, save_emotion_history
-        
+
         # Load physical sensations from persona_context to save history
         context = load_persona_context(persona)
         physical_sensations = context.get("physical_sensations", {})
-        
+
         save_physical_sensations_history(
             memory_key=key,
             fatigue=physical_sensations.get("fatigue", 0.0),
@@ -1347,7 +1350,7 @@ async def create_memory(
             timestamp=new_entry["created_at"],
             persona=persona
         )
-        
+
         # Save emotion history
         if emotion_type:
             save_emotion_history(
@@ -1357,12 +1360,12 @@ async def create_memory(
                 timestamp=new_entry["created_at"],
                 persona=persona
             )
-        
+
         # Log operation
-        log_operation("create", key=key, after=new_entry, 
+        log_operation("create", key=key, after=new_entry,
                      metadata={
-                         "content_length": len(content), 
-                         "auto_generated_key": key, 
+                         "content_length": len(content),
+                         "auto_generated_key": key,
                          "persona": persona,
                          "emotion_type": emotion_type,
                          "context_tags": context_tags,
@@ -1373,7 +1376,7 @@ async def create_memory(
                          "persona_info": persona_info,
                          "relationship_status": relationship_status
                      })
-        
+
         # Format and return result
         return _format_create_result(
             key=key,
@@ -1383,7 +1386,7 @@ async def create_memory(
             context_updated=context_updated
         )
     except Exception as e:
-        log_operation("create", success=False, error=str(e), 
+        log_operation("create", success=False, error=str(e),
                      metadata={"attempted_content_length": len(content) if content else 0})
         return f"Failed to save: {str(e)}"
 
@@ -1407,7 +1410,7 @@ async def read_memory(
 ) -> str:
     """
     Semantic search for memories using embeddings and reranker.
-    
+
     Args:
         query: Natural language (e.g., "ユーザーの好きな食べ物", "recent achievements")
         top_k: Results to return (default: 5)
@@ -1416,7 +1419,7 @@ async def read_memory(
         equipped_item: Filter by equipped item name (partial match)
         date_range: Date filter (e.g., "今日", "昨日", "先週", "2025-10-01..2025-10-31")
         importance_weight/recency_weight: Custom scoring (0.0-1.0)
-    
+
     Examples:
         read_memory("Python関連")
         read_memory("成果", min_importance=0.7, importance_weight=0.3)
@@ -1424,22 +1427,25 @@ async def read_memory(
         read_memory("今日の予定", date_range="今日")
         read_memory("Python作業", date_range="先週")
     """
+    from core import update_last_conversation_time
+
     try:
         persona = get_current_persona()
-        
+        update_last_conversation_time(persona)
+
         if not query:
             return "Please provide a query to search."
-        
+
         # Initialize vector adapter
         adapter = _initialize_vector_adapter(persona)
-        
+
         # Perform similarity search with more candidates for reranking and filtering
         from src.utils.vector_utils import reranker
         initial_k = top_k * 3 if reranker else top_k
-        
+
         # Get similarity search results with scores
         docs_with_scores = adapter.similarity_search_with_score(query, k=initial_k * 2)
-        
+
         # Filter and score documents
         filtered_docs = _filter_and_score_documents(
             docs_with_scores=docs_with_scores,
@@ -1455,20 +1461,20 @@ async def read_memory(
             importance_weight=importance_weight,
             recency_weight=recency_weight
         )
-        
+
         # Extract documents for reranking
         docs = [doc for doc, score in filtered_docs[:initial_k]]
-        
+
         # Rerank if reranker is available
         docs = _rerank_documents(query, docs, top_k)
-        
+
         # Update access counts for returned memories
         from core.memory_db import increment_access_count
         for doc in docs:
             key = doc.metadata.get("key")
             if key:
                 increment_access_count(key)
-        
+
         # Format and return results
         result = _format_memory_results(
             query=query,
@@ -1485,10 +1491,10 @@ async def read_memory(
             importance_weight=importance_weight,
             recency_weight=recency_weight
         )
-        
+
         log_operation("read", key=query, metadata={"results_count": len(docs), "persona": persona})
         return result
-        
+
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -1513,7 +1519,7 @@ async def update_memory(
 ) -> str:
     """
     Update existing memory via natural language query (RAG search, threshold: 0.80).
-    
+
     Args:
         query: Natural language to find memory (e.g., "promise", "project progress")
         content: New content to replace
@@ -1523,23 +1529,23 @@ async def update_memory(
         physical_state, mental_state, environment, relationship_status, action_tag: Optional context
         user_info/persona_info: Dicts with name, nickname, preferred_address, favorite_items, active_promises, current_goals, preferences
         Note: Use equip_item() tool for equipment changes, not persona_info
-    
+
     Examples:
         update_memory("promise", "Changed to tomorrow 10am")
         update_memory("project", "Feature completed", importance=0.8)
-    
+
     Note: If similarity < 0.80, shows candidates and creates new memory instead.
     """
     try:
         persona = get_current_persona()
         db_path = get_db_path()
-        
+
         # Ensure database and tables are initialized
         load_memory_from_db()
-        
+
         # Find best matching memory
         best_match, status = await _find_memory_by_query(query, threshold=0.80)
-        
+
         # If no match or low similarity, create new memory instead
         if status in ["no_results", "low_similarity"]:
             print(f"💡 Creating new memory instead.")
@@ -1557,14 +1563,14 @@ async def update_memory(
                 relationship_status=relationship_status,
                 action_tag=action_tag
             )
-        
+
         # Load existing memory data
         key = best_match['key']
         existing_entry = _load_existing_memory(key, db_path)
-        
+
         if not existing_entry:
             return f"❌ Memory key '{key}' not found in database"
-        
+
         # Update memory in database and vector store
         _update_existing_memory(
             key=key,
@@ -1580,7 +1586,7 @@ async def update_memory(
             relationship_status=relationship_status,
             action_tag=action_tag
         )
-        
+
         # Update persona context
         context_updated = _update_persona_context(
             persona=persona,
@@ -1594,16 +1600,16 @@ async def update_memory(
             action_tag=action_tag,
             emotion_intensity=emotion_intensity
         )
-        
+
         # Phase 40: Save state history for time-series visualization
         from core.memory_db import save_physical_sensations_history, save_emotion_history
         from datetime import datetime
-        
+
         # Load physical sensations from persona_context to save history
         context = load_persona_context(persona)
         physical_sensations = context.get("physical_sensations", {})
         now = datetime.now().isoformat()
-        
+
         save_physical_sensations_history(
             memory_key=key,
             fatigue=physical_sensations.get("fatigue", 0.0),
@@ -1614,7 +1620,7 @@ async def update_memory(
             timestamp=now,
             persona=persona
         )
-        
+
         # Save emotion history
         if emotion_type:
             emotion_intensity_value = emotion_intensity if emotion_intensity is not None else 0.5
@@ -1625,17 +1631,17 @@ async def update_memory(
                 timestamp=now,
                 persona=persona
             )
-        
+
         # Log operation
         log_operation("update", key=key, before=existing_entry, after={"content": content},
                      metadata={
-                         "old_content_length": len(existing_entry["content"]), 
-                         "new_content_length": len(content), 
+                         "old_content_length": len(existing_entry["content"]),
+                         "new_content_length": len(content),
                          "persona": persona
                      })
-        
+
         return f"✅ Updated existing memory: '{key}' (persona: {persona})"
-        
+
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -1646,20 +1652,23 @@ async def update_memory(
 async def delete_memory(key_or_query: str) -> str:
     """
     Delete memory by exact key or natural language query.
-    
+
     Args:
         key_or_query: Memory key ("memory_YYYYMMDDHHMMSS") OR natural language query
-    
+
     Examples:
         delete_memory("memory_20251102083918")
         delete_memory("古いプロジェクトの記憶")
-    
+
     Safety: Natural language requires similarity ≥ 0.90 for auto-deletion.
     """
+    from core import update_last_conversation_time
+
     try:
         persona = get_current_persona()
+        update_last_conversation_time(persona)
         db_path = get_db_path()
-        
+
         # Phase 26.6: Check if input is a key or a query
         if key_or_query.startswith("memory_"):
             # Direct key access (traditional behavior)
@@ -1668,14 +1677,14 @@ async def delete_memory(key_or_query: str) -> str:
             # Natural language query - use RAG search
             print(f"🔍 Searching for memory to delete: '{key_or_query}'")
             search_results = await _search_memory_by_query(key_or_query, top_k=3)
-            
+
             if not search_results or len(search_results) == 0:
                 return f"❌ No matching memory found for query: '{key_or_query}'"
-            
+
             # Check similarity score of best match
             best_match = search_results[0]
             similarity_score = best_match['score']  # Higher is better (1.0 = perfect match)
-            
+
             if similarity_score >= 0.90:
                 # Very high confidence - auto-select (strict threshold for deletion safety)
                 key = best_match['key']
@@ -1687,29 +1696,29 @@ async def delete_memory(key_or_query: str) -> str:
                     for i, r in enumerate(search_results[:3])
                 ])
                 return f"⚠️  Multiple candidates found. Please confirm by specifying exact key:\n\n{candidates}\n\n(Safety: Auto-deletion requires similarity ≥ 0.90)"
-        
+
         # Check if key exists and get data
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
             cursor.execute('SELECT content FROM memories WHERE key = ?', (key,))
             row = cursor.fetchone()
-        
+
         if row:
             deleted_content = row[0]
             deleted_entry = {"content": deleted_content}
-            
+
             delete_memory_from_db(key)
-            
+
             # Clear query cache
             clear_query_cache()
-            
+
             # Delete from vector store (asynchronous)
             vector_queue = get_vector_queue()
             vector_queue.enqueue(delete_memory_from_vector_store, key)
-            
+
             log_operation("delete", key=key, before=deleted_entry,
                          metadata={"deleted_content_length": len(deleted_content), "persona": persona})
-            
+
             return f"Deleted '{key}' (persona: {persona})"
         else:
             log_operation("delete", key=key, success=False, error="Key not found")
@@ -1718,7 +1727,7 @@ async def delete_memory(key_or_query: str) -> str:
                 cursor = conn.cursor()
                 cursor.execute('SELECT key FROM memories ORDER BY created_at DESC LIMIT 5')
                 available_keys = [r[0] for r in cursor.fetchall()]
-            
+
             if available_keys:
                 return f"Key '{key}' not found. Recent keys: {', '.join(available_keys)}"
             else:

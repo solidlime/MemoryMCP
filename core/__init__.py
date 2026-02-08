@@ -13,7 +13,7 @@ from .time_utils import (
     get_current_time_display,
     get_datetime_context,
 )
-from .persona_context import load_persona_context, save_persona_context
+from .persona_context import load_persona_context, save_persona_context, update_last_conversation_time
 from .memory_db import (
     load_memory_from_db,
     save_memory_to_db,
@@ -27,7 +27,7 @@ from src.utils.logging_utils import log_progress
 __all__ = [
     # Time utilities
     'get_current_time',
-    'parse_date_query', 
+    'parse_date_query',
     'calculate_time_diff',
     'format_datetime_for_display',
     'get_current_time_display',
@@ -35,6 +35,7 @@ __all__ = [
     # Persona context
     'load_persona_context',
     'save_persona_context',
+    'update_last_conversation_time',
     # Memory database
     'load_memory_from_db',
     'save_memory_to_db',

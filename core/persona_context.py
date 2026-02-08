@@ -16,18 +16,18 @@ from src.utils.logging_utils import log_progress
 def load_persona_context(persona: Optional[str] = None) -> dict:
     """
     Load persona context from JSON file.
-    
+
     Args:
         persona: Persona name (defaults to current persona)
-    
+
     Returns:
         dict with persona context data
     """
     if persona is None:
         persona = get_current_persona()
-    
+
     context_path = get_persona_context_path(persona)
-    
+
     # Default context structure
     default_context = {
         "user_info": {
@@ -57,7 +57,7 @@ def load_persona_context(persona: Optional[str] = None) -> dict:
         },
         "emotion_history": []
     }
-    
+
     try:
         if os.path.exists(context_path):
             with open(context_path, 'r', encoding='utf-8') as f:
@@ -77,31 +77,54 @@ def load_persona_context(persona: Optional[str] = None) -> dict:
 def save_persona_context(context: dict, persona: Optional[str] = None) -> bool:
     """
     Save persona context to JSON file.
-    
+
     Args:
         context: dict with persona context data
         persona: persona name (defaults to current persona)
-    
+
     Returns:
         bool indicating success
     """
     if persona is None:
         persona = get_current_persona()
-    
+
     context_path = get_persona_context_path(persona)
-    
+
     try:
         # Create backup if file exists
         if os.path.exists(context_path):
             backup_path = f"{context_path}.backup"
             shutil.copy2(context_path, backup_path)
-        
+
         # Save context
         with open(context_path, 'w', encoding='utf-8') as f:
             json.dump(context, f, indent=2, ensure_ascii=False)
-        
+
         log_progress(f"✅ Saved persona context to {context_path}")
         return True
     except Exception as e:
         log_progress(f"❌ Failed to save persona context: {e}")
         return False
+
+
+def update_last_conversation_time(persona: Optional[str] = None) -> None:
+    """
+    Update last_conversation_time to current time.
+    Should be called at the start of every tool operation.
+
+    Args:
+        persona: Persona name (defaults to current persona)
+    """
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    from src.utils.config_utils import load_config
+
+    if persona is None:
+        persona = get_current_persona()
+
+    config = load_config()
+    timezone = config.get("timezone", "Asia/Tokyo")
+
+    context = load_persona_context(persona)
+    context["last_conversation_time"] = datetime.now(ZoneInfo(timezone)).isoformat()
+    save_persona_context(context, persona)
