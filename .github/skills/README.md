@@ -55,7 +55,21 @@ Memory MCPの機能をGitHub Copilot Skillsとして利用するための設定�
 ${workspaceFolder}/.github/skills/<skill-name>/SKILL.md
 ```
 
-### 3. 使い方
+### 3. スクリプトの設定
+
+スキル実行に必要なPythonスクリプトを設定します。
+
+`.github/skills/scripts/memory_mcp.py` の先頭を編集：
+```python
+MCP_URL = "http://nas:26262"  # MCPサーバーのURL
+PERSONA = "nilou"             # ペルソナ名
+```
+
+**パラメータ**:
+- `MCP_URL`: Memory MCPサーバーのアドレス（ポート26262）
+- `PERSONA`: 使用するペルソナ名（セッション分離に使用）
+
+### 4. 使い方
 
 スキルは自動的に認識され、`description` に基づいて適切なタイミングで呼び出されます。
 

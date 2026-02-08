@@ -16,7 +16,6 @@ __pycache__/
 # Development environment
 .github/*
 !.github/skills/
-.github/skills/mcp-config.json
 .vscode/
 
 # Runtime data (generated at runtime or bind-mounted)

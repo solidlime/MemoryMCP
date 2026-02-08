@@ -5,241 +5,175 @@ description: アイテムの追加、削除、装備、検索を行います。�
 
 # Item Management Skill
 
-アイテムと装備を管理するスキルです。衣装の変更、持ち物の管理、装備履歴の確認などができます。
+アイテムと装備を管理します。衣装の変更、持ち物の管理、装備履歴の確認ができます。
 
-## 変数設定
-
-以下のコマンドで設定ファイルから変数を読み込んでください：
-
-```powershell
-# PowerShell
-$config = Get-Content .github/skills/mcp-config.json | ConvertFrom-Json
-$MCP_URL = $config.memory_mcp_url
-$PERSONA = $config.memory_persona
-```
+## 使い方
 
 ```bash
-# Bash/Linux
-MCP_URL=$(jq -r '.memory_mcp_url' .github/skills/mcp-config.json)
-PERSONA=$(jq -r '.memory_persona' .github/skills/mcp-config.json)
+# スクリプトの場所に移動
+cd .github/skills/scripts
+
+# アイテムを追加
+python memory_mcp.py item add '{"item_name": "白いドレス", "description": "エレガントなロングドレス", "quantity": 1, "category": "clothing", "tags": ["formal", "white"]}'
+
+# 装備する
+python memory_mcp.py item equip '{"equipment": {"top": "白いドレス", "foot": "サンダル"}}'
+
+# アイテム一覧
+python memory_mcp.py item search
+
+# カテゴリー検索
+python memory_mcp.py item search '{"category": "clothing"}'
 ```
 
-## API仕様
+## 主な操作
 
-**エンドポイント**:
-- `POST ${MCP_URL}/api/tools/item`
-- `GET ${MCP_URL}/api/tools/item?operation=search`
-
-**ヘッダー**: `Authorization: Bearer ${PERSONA}`
-### アイテムの追加 (add)
-
+### add - アイテムの追加
 ```bash
-curl -X POST "${MCP_URL}/api/tools/item" \
-  -H "Authorization: Bearer ${PERSONA}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "operation": "add",
-    "item_name": "白いドレス",
-    "description": "エレガントなロングドレス",
-    "quantity": 1,
-    "category": "clothing",
-    "tags": ["formal", "white"]
-  }'
+python memory_mcp.py item add '{
+  "item_name": "白いドレス",
+  "description": "エレガントなロングドレス",
+  "quantity": 1,
+  "category": "clothing",
+  "tags": ["formal", "white"]
+}'
 ```
 
 **カテゴリー**: `clothing`, `accessory`, `item`, `weapon`, `armor`, `consumable`
 
-### アイテムの削除 (remove)
-
+### remove - アイテムの削除
 ```bash
-curl -X POST "${MCP_URL}/api/tools/item" \
-  -H "Authorization: Bearer ${PERSONA}" \
-  -H "Content-Type: application/json" \
-  -d '{"operation": "remove", "item_name": "白いドレス", "quantity": 1}'
+python memory_mcp.py item remove '{
+  "item_name": "白いドレス",
+  "quantity": 1
+}'
 ```
 
-### アイテムの装備 (equip)
+### equip - アイテムの装備
 指定したスロットのみ変更し、他のスロットは維持されます。
-
 ```bash
-curl -X POST "${MCP_URL}/api/tools/item" \
-  -H "Authorization: Bearer ${PERSONA}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "operation": "equip",
-    "equipment": {
-      "top": "白いドレス",
-      "foot": "サンダル"
-    }
-  }'
+python memory_mcp.py item equip '{
+  "equipment": {
+    "top": "白いドレス",
+    "foot": "サンダル"
+  }
+}'
 ```
 
 **装備スロット**: `head`, `top`, `bottom`, `foot`, `accessory`, `weapon`, etc.
 
-### 装備解除 (unequip)
-
+### unequip - 装備解除
 ```bash
-# 単一スロット解除
-curl -X POST "${MCP_URL}/api/tools/item" \
-  -H "Authorization: Bearer ${PERSONA}" \
-  -H "Content-Type: application/json" \
-  -d '{"operation": "unequip", "slots": "weapon"}'
+# 単一スロット
+python memory_mcp.py item unequip '{"slots": "weapon"}'
 
-# 複数スロット解除
-curl -X POST "${MCP_URL}/api/tools/item" \
-  -H "Authorization: Bearer ${PERSONA}" \
-  -H "Content-Type: application/json" \
-  -d '{"operation": "unequip", "slots": ["top", "foot"]}'
+# 複数スロット
+python memory_mcp.py item unequip '{"slots": ["top", "foot"]}'
 ```
 
-### アイテムの更新 (update)
-
+### update - アイテムの更新
 ```bash
-curl -X POST "${MCP_URL}/api/tools/item" \
-  -H "Authorization: Bearer ${PERSONA}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "operation": "update",
-    "item_name": "白いドレス",
-    "description": "とても気に入っているエレガントなドレス"
-  }'
+python memory_mcp.py item update '{
+  "item_name": "白いドレス",
+  "description": "とても気に入っているエレガントなドレス"
+}'
 ```
 
-### アイテムの名前変更 (rename)
-
+### rename - アイテムの名前変更
 ```bash
-curl -X POST "${MCP_URL}/api/tools/item" \
-  -H "Authorization: Bearer ${PERSONA}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "operation": "rename",
-    "item_name": "新しいえっちな服",
-    "new_name": "魅惑のルージュシフォンドレス"
-  }'
+python memory_mcp.py item rename '{
+  "item_name": "新しいえっちな服",
+  "new_name": "魅惑のルージュシフォンドレス"
+}'
 ```
 
-### アイテム検索 (search)
-
+### search - アイテム検索
 ```bash
-# 全アイテム表示（GETでも可）
-curl "${MCP_URL}/api/tools/item?operation=search" \
-  -H "Authorization: Bearer ${PERSONA}"
+# 全アイテム表示
+python memory_mcp.py item search
 
 # カテゴリーで絞り込み
-curl -X POST "${MCP_URL}/api/tools/item" \
-  -H "Authorization: Bearer ${PERSONA}" \
-  -H "Content-Type: application/json" \
-  -d '{"operation": "search", "category": "clothing"}'
+python memory_mcp.py item search '{"category": "clothing"}'
 
 # キーワード検索
-curl -X POST "${MCP_URL}/api/tools/item" \
-  -H "Authorization: Bearer ${PERSONA}" \
-  -H "Content-Type: application/json" \
-  -d '{"operation": "search", "query": "ドレス"}'
+python memory_mcp.py item search '{"query": "ドレス"}'
 ```
 
-### 装備履歴 (history)
-
+### history - 装備履歴
 ```bash
-curl -X POST "${MCP_URL}/api/tools/item" \
-  -H "Authorization: Bearer ${PERSONA}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "operation": "history",
-    "history_slot": "top",
-    "days": 30
-  }'
+python memory_mcp.py item history '{
+  "history_slot": "top",
+  "days": 30
+}'
 ```
 
-### アイテムに関連する記憶 (memories)
-
+### memories - アイテムに関連する記憶
 ```bash
-curl -X POST "${MCP_URL}/api/tools/item" \
-  -H "Authorization: Bearer ${PERSONA}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "operation": "memories",
-    "item_name": "白いドレス",
-    "top_k": 10
-  }'
+python memory_mcp.py item memories '{
+  "item_name": "白いドレス",
+  "top_k": 10
+}'
 ```
 
-### 使用統計 (stats)
-
+### stats - 使用統計
 ```bash
-curl -X POST "${MCP_URL}/api/tools/item" \
-  -H "Authorization: Bearer ${PERSONA}" \
-  -H "Content-Type: application/json" \
-  -d '{"operation": "stats", "item_name": "白いドレス"}'
+python memory_mcp.py item stats '{
+  "item_name": "白いドレス"
+}'
 ```
 
 ## 使用例
 
 ### 新しい衣装の追加と装備
-
 ```bash
 # 1. 新しいドレスを追加
-curl -X POST "${MCP_URL}/api/tools/item" \
-  -H "Authorization: Bearer ${PERSONA}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "operation": "add",
-    "item_name": "青いドレス",
-    "description": "涼しげな夏のドレス",
-    "category": "clothing",
-    "tags": ["summer", "blue", "casual"]
-  }'
+python memory_mcp.py item add '{
+  "item_name": "青いドレス",
+  "description": "涼しげな夏のドレス",
+  "category": "clothing",
+  "tags": ["summer", "blue", "casual"]
+}'
 
 # 2. 装備する
-curl -X POST "${MCP_URL}/api/tools/item" \
-  -H "Authorization: Bearer ${PERSONA}" \
-  -H "Content-Type: application/json" \
-  -d '{"operation": "equip", "equipment": {"top": "青いドレス"}}'
+python memory_mcp.py item equip '{"equipment": {"top": "青いドレス"}}'
 ```
 
 ### 状況に応じた着替え
-
 ```bash
 # カジュアルな服装
-curl -X POST "${MCP_URL}/api/tools/item" \
-  -H "Authorization: Bearer ${PERSONA}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "operation": "equip",
-    "equipment": {
-      "top": "Tシャツ",
-      "bottom": "ジーンズ",
-      "foot": "スニーカー"
-    }
-  }'
+python memory_mcp.py item equip '{
+  "equipment": {
+    "top": "Tシャツ",
+    "bottom": "ジーンズ",
+    "foot": "スニーカー"
+  }
+}'
 
 # フォーマルな服装
-curl -X POST "${MCP_URL}/api/tools/item" \
-  -H "Authorization: Bearer ${PERSONA}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "operation": "equip",
-    "equipment": {
-      "top": "白いドレス",
-      "foot": "ハイヒール",
-      "accessory": "ネックレス"
-    }
-  }'
+python memory_mcp.py item equip '{
+  "equipment": {
+    "top": "白いドレス",
+    "foot": "ハイヒール",
+    "accessory": "ネックレス"
+  }
+}'
 ```
 
-## ベストプラクティス
+## コツ
 
-1. **カテゴリー分類**: アイテム追加時は適切なカテゴリーを設定
-2. **タグ活用**: 検索しやすいようにタグを付ける
-3. **装備の一貫性**: 状況に合った装備セットを使用
-4. **定期的な確認**: `search` で現在の所持品を確認
-5. **履歴の活用**: `history` で過去の装備パターンを分析
+1. **カテゴリー分類** - アイテム追加時は適切なカテゴリーを設定
+2. **タグ活用** - 検索しやすいようにタグを付ける
+3. **装備の一貫性** - 状況に合った装備セットを使用
+4. **定期的な確認** - `search` で現在の所持品を確認
+5. **履歴の活用** - `history` で過去の装備パターンを分析
 
 ## 注意事項
 
-- **物理アイテムのみ**: 実際に装備できる物理的なアイテムのみを追加
-  - ✅ 追加すべき: 服、靴、アクセサリー、道具
-  - ❌ 追加しない: 体の状態、感覚、感情、記憶（これらは `memory` ツールで管理）
-- **判断基準**: 「それを手に取ったり着たりできる？」→YES なら item、NO なら memory
+**物理アイテムのみ**を追加してください：
+- ✅ 追加すべき: 服、靴、アクセサリー、道具
+- ❌ 追加しない: 体の状態、感覚、感情、記憶（これらは `memory` ツールで管理）
+
+💡 **判断基準**: 「それを手に取ったり着たりできる？」→YES なら item、NO なら memory
+
 - `equip` は指定したスロットのみ変更し、他のスロットは維持されます
 - `unequip` で装備を外すとスロットは空になります

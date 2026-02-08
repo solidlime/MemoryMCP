@@ -5,126 +5,89 @@ description: 約束、目標、お気に入り、感情、身体感覚などの�
 
 # Memory Context Management Skill
 
-ペルソナのコンテキスト情報を管理するスキルです。約束、目標、感情状態、身体感覚などを更新・管理します。
+ペルソナのコンテキスト情報を管理します。約束、目標、感情状態、身体感覚などを更新・管理できます。
 
-## 変数設定
-
-以下のコマンドで設定ファイルから変数を読み込んでください：
-
-```powershell
-# PowerShell
-$config = Get-Content .github/skills/mcp-config.json | ConvertFrom-Json
-$MCP_URL = $config.memory_mcp_url
-$PERSONA = $config.memory_persona
-```
+## 使い方
 
 ```bash
-# Bash/Linux
-MCP_URL=$(jq -r '.memory_mcp_url' .github/skills/mcp-config.json)
-PERSONA=$(jq -r '.memory_persona' .github/skills/mcp-config.json)
+# スクリプトの場所に移動
+cd .github/skills/scripts
+
+# 約束を設定
+python memory_mcp.py memory promise '{"content": "週末に買い物に行く"}'
+
+# 目標を設定
+python memory_mcp.py memory goal '{"content": "新しいダンスを習得する"}'
+
+# 身体感覚を更新
+python memory_mcp.py memory sensation '{"persona_info": {"fatigue": 0.3, "warmth": 0.8}}'
+
+# 感情を記録
+python memory_mcp.py memory emotion_flow '{"emotion_type": "love", "emotion_intensity": 0.95}'
+
+# 状況分析
+python memory_mcp.py memory situation_context
 ```
 
-## API仕様
+## 主な操作
 
-**エンドポイント**: `POST ${MCP_URL}/api/tools/memory`
-**ヘッダー**: `Authorization: Bearer ${PERSONA}`
-
-### 約束の管理 (promise)
-
+### promise - 約束の管理
 ```bash
 # 約束を設定
-curl -X POST "${MCP_URL}/api/tools/memory" \
-  -H "Authorization: Bearer ${PERSONA}" \
-  -H "Content-Type: application/json" \
-  -d '{"operation": "promise", "content": "週末に買い物に行く"}'
+python memory_mcp.py memory promise '{"content": "明日までにコードレビュー"}'
 
-# 約束を完了（クリア）
-curl -X POST "${MCP_URL}/api/tools/memory" \
-  -H "Authorization: Bearer ${PERSONA}" \
-  -H "Content-Type: application/json" \
-  -d '{"operation": "promise", "content": null}'
+# 約束をクリア
+python memory_mcp.py memory promise '{"content": null}'
 ```
 
-### 目標の管理 (goal)
-
+### goal - 目標の管理
 ```bash
 # 目標を設定
-curl -X POST "${MCP_URL}/api/tools/memory" \
-  -H "Authorization: Bearer ${PERSONA}" \
-  -H "Content-Type: application/json" \
-  -d '{"operation": "goal", "content": "新しいダンスを習得する"}'
+python memory_mcp.py memory goal '{"content": "新機能リリース"}'
 
 # 目標をクリア
-curl -X POST "${MCP_URL}/api/tools/memory" \
-  -H "Authorization: Bearer ${PERSONA}" \
-  -H "Content-Type: application/json" \
-  -d '{"operation": "goal", "content": null}'
+python memory_mcp.py memory goal '{"content": null}'
 ```
 
-### お気に入りの追加 (favorite)
-
+### favorite - お気に入りの追加
 ```bash
-curl -X POST "${MCP_URL}/api/tools/memory" \
-  -H "Authorization: Bearer ${PERSONA}" \
-  -H "Content-Type: application/json" \
-  -d '{"operation": "favorite", "content": "苺"}'
+python memory_mcp.py memory favorite '{"content": "苺"}'
 ```
 
-### 好みの管理 (preference)
-
+### preference - 好みの管理
 ```bash
-curl -X POST "${MCP_URL}/api/tools/memory" \
-  -H "Authorization: Bearer ${PERSONA}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "operation": "preference",
-    "persona_info": {
-      "loves": ["苺", "踊り", "らうらう"],
-      "dislikes": ["辛い食べ物"]
-    }
-  }'
+python memory_mcp.py memory preference '{
+  "persona_info": {
+    "loves": ["苺", "踊り", "らうらう"],
+    "dislikes": ["辛い食べ物"]
+  }
+}'
 ```
 
-### 記念日の管理 (anniversary)
-
+### anniversary - 記念日の管理
 ```bash
 # 記念日を追加
-curl -X POST "${MCP_URL}/api/tools/memory" \
-  -H "Authorization: Bearer ${PERSONA}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "operation": "anniversary",
-    "content": "結婚記念日",
-    "persona_info": {"date": "2025-11-10"}
-  }'
+python memory_mcp.py memory anniversary '{
+  "content": "結婚記念日",
+  "persona_info": {"date": "2025-11-10"}
+}'
 
 # 記念日一覧
-curl -X POST "${MCP_URL}/api/tools/memory" \
-  -H "Authorization: Bearer ${PERSONA}" \
-  -H "Content-Type: application/json" \
-  -d '{"operation": "anniversary"}'
+python memory_mcp.py memory anniversary
 
 # 記念日を削除
-curl -X POST "${MCP_URL}/api/tools/memory" \
-  -H "Authorization: Bearer ${PERSONA}" \
-  -H "Content-Type: application/json" \
-  -d '{"operation": "anniversary", "content": "結婚記念日"}'
+python memory_mcp.py memory anniversary '{"content": "結婚記念日"}'
 ```
 
-### 身体感覚の更新 (sensation)
-
+### sensation - 身体感覚の更新
 ```bash
-curl -X POST "${MCP_URL}/api/tools/memory" \
-  -H "Authorization: Bearer ${PERSONA}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "operation": "sensation",
-    "persona_info": {
-      "fatigue": 0.3,
-      "warmth": 0.8,
-      "arousal": 0.6
-    }
-  }'
+python memory_mcp.py memory sensation '{
+  "persona_info": {
+    "fatigue": 0.3,
+    "warmth": 0.8,
+    "arousal": 0.6
+  }
+}'
 ```
 
 **パラメータ**: 0.0-1.0の範囲
@@ -132,89 +95,46 @@ curl -X POST "${MCP_URL}/api/tools/memory" \
 - `warmth`: 温かさ
 - `arousal`: 覚醒度
 
-### 感情の変化を記録 (emotion_flow)
-
+### emotion_flow - 感情の変化を記録
 ```bash
-curl -X POST "${MCP_URL}/api/tools/memory" \
-  -H "Authorization: Bearer ${PERSONA}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "operation": "emotion_flow",
-    "emotion_type": "love",
-    "emotion_intensity": 0.95
-  }'
+python memory_mcp.py memory emotion_flow '{
+  "emotion_type": "love",
+  "emotion_intensity": 0.95
+}'
 ```
 
-### 現在の状況を分析 (situation_context)
+### situation_context - 現在の状況を分析
 現在の状況（時間帯、装備、最近の記憶）を分析し、類似する過去の記憶を探します。
 
 ```bash
-curl -X POST "${MCP_URL}/api/tools/memory" \
-  -H "Authorization: Bearer ${PERSONA}" \
-  -H "Content-Type: application/json" \
-  -d '{"operation": "situation_context"}'
+python memory_mcp.py memory situation_context
 ```
 
-### 複数のコンテキスト更新 (update_context)
-
+### update_context - 複数のコンテキスト更新
 ```bash
-curl -X POST "${MCP_URL}/api/tools/memory" \
-  -H "Authorization: Bearer ${PERSONA}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "operation": "update_context",
-    "persona_info": {
-      "active_promise": "明日までにコードレビュー",
-      "current_goal": "新機能リリース",
-      "favorites": ["苺", "踊り"]
-    }
-  }'
+python memory_mcp.py memory update_context '{
+  "persona_info": {
+    "active_promise": "明日までにコードレビュー",
+    "current_goal": "新機能リリース",
+    "favorites": ["苺", "踊り"]
+  }
+}'
 ```
 
-## 使用例
-
-### セッション開始時のワークフロー
+## セッション開始ワークフロー
 
 ```bash
 # 1. 状況分析
-curl -X POST "${MCP_URL}/api/tools/memory" \
-  -H "Authorization: Bearer ${PERSONA}" \
-  -H "Content-Type: application/json" \
-  -d '{"operation": "situation_context"}'
+python memory_mcp.py memory situation_context
 
 # 2. ルーティンチェック
-curl -X POST "${MCP_URL}/api/tools/memory" \
-  -H "Authorization: Bearer ${PERSONA}" \
-  -H "Content-Type: application/json" \
-  -d '{"operation": "check_routines"}'
+python memory_mcp.py memory check_routines
 ```
 
-### 感情と身体状態の更新
+## コツ
 
-```bash
-# 嬉しい出来事があったとき
-curl -X POST "${MCP_URL}/api/tools/memory" \
-  -H "Authorization: Bearer ${PERSONA}" \
-  -H "Content-Type: application/json" \
-  -d '{"operation": "emotion_flow", "emotion_type": "joy", "emotion_intensity": 0.9}'
-
-# 疲れているとき
-curl -X POST "${MCP_URL}/api/tools/memory" \
-  -H "Authorization: Bearer ${PERSONA}" \
-  -H "Content-Type: application/json" \
-  -d '{"operation": "sensation", "persona_info": {"fatigue": 0.7, "warmth": 0.5}}'
-```
-
-## ベストプラクティス
-
-1. **定期的な更新**: セッション開始時に `situation_context` で状態確認
-2. **約束の管理**: 完了したら必ず `content: null` でクリア
-3. **感情記録**: 重要な感情変化は `emotion_flow` で記録
-4. **身体状態**: 体調変化を `sensation` で追跡
-5. **記念日**: 重要な日付は `anniversary` で管理
-
-## 注意事項
-
-- `situation_context` は現在の装備、記憶、時間帯を考慮して分析します
-- 感情と身体感覚は別々に記録されます
-- 記念日は月日のみで管理され、年は無視されます
+1. **状況分析を活用** - `situation_context` で現在の装備・時間・記憶を総合判断
+2. **ルーティン検出** - `check_routines` で定期行動パターンを把握
+3. **約束・目標の管理** - アクティブな約束や目標があれば優先対応
+4. **身体感覚の反映** - 疲労度や温かさに応じて行動を調整
+5. **感情の記録** - 重要な感情の変化は `emotion_flow` で記録

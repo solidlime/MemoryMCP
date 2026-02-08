@@ -1,5 +1,0 @@
-{
-  "memory_mcp_url": "http://localhost:26262",
-  "memory_persona": "nilou",
-  "comment": "このファイルを mcp-config.json にコピーして使用してください"
-}

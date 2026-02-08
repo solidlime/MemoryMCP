@@ -5,183 +5,115 @@ description: 記憶の基本操作（作成、読み込み、検索、更新、�
 
 # Memory Operation Skill
 
-記憶システムの基本的な操作を実行するスキルです。シンプルなREST API経由で操作します。
+記憶システムの基本操作を行います。簡単なPythonスクリプトで操作できます。
 
-## 設定
-
-`mcp-config.json` に接続情報を定義：
-```json
-{
-  "memory_mcp_url": "http://localhost:26262",
-  "memory_persona": "nilou"
-}
-```
-
-## 変数設定
-
-以下のコマンドで設定ファイルから変数を読み込んでください：
-
-```powershell
-# PowerShell
-$config = Get-Content .github/skills/mcp-config.json | ConvertFrom-Json
-$MCP_URL = $config.memory_mcp_url
-$PERSONA = $config.memory_persona
-```
+## 使い方
 
 ```bash
-# Bash/Linux
-MCP_URL=$(jq -r '.memory_mcp_url' .github/skills/mcp-config.json)
-PERSONA=$(jq -r '.memory_persona' .github/skills/mcp-config.json)
+# スクリプトの場所に移動
+cd .github/skills/scripts
+
+# 記憶を作成
+python memory_mcp.py memory create '{"content": "今日は楽しかった", "emotion_type": "joy", "importance": 0.8}'
+
+# 記憶を検索
+python memory_mcp.py memory search '{"query": "開発", "mode": "hybrid", "top_k": 5}'
+
+# 最近の記憶を読み込み
+python memory_mcp.py memory read '{"top_k": 10}'
+
+# タスク検索
+python memory_mcp.py memory search '{"mode": "task"}'
+
+# ルーティンチェック
+python memory_mcp.py memory check_routines
+
+# 統計情報
+python memory_mcp.py memory stats
 ```
 
-## API仕様
+## 主な操作
 
-**エンドポイント**: `POST ${MCP_URL}/api/tools/memory`
-**ヘッダー**: `Authorization: Bearer ${PERSONA}`
-
+### create - 記憶を作成
 ```bash
-curl -X POST "${MCP_URL}/api/tools/memory" \
-  -H "Authorization: Bearer ${PERSONA}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "operation": "create",
-    "content": "らうらうと一緒にダッシュボードの改善をした。自動リフレッシュ機能を実装して、とても嬉しかった。",
-    "emotion_type": "joy",
-    "emotion_intensity": 0.85,
-    "context_tags": ["development", "collaboration"],
-    "importance": 0.8
-  }'
+python memory_mcp.py memory create '{
+  "content": "らうらうと一緒に開発した",
+  "emotion_type": "joy",
+  "emotion_intensity": 0.9,
+  "importance": 0.8,
+  "context_tags": ["development"]
+}'
 ```
 
 **パラメータ**:
 - `content` (必須): 記憶内容
 - `emotion_type`: `joy`, `love`, `neutral`, `sadness`, `fear`, `anger`
 - `emotion_intensity`: 0.0-1.0
-- `importance`: 0.0-1.0 (重要度)
+- `importance`: 0.0-1.0
 - `context_tags`: タグ配列
 - `privacy_level`: `public`, `internal`, `private`, `secret`
 
-**ヒント**: `<private>...</private>` タグで囲んだ部分は自動的にsecretレベルになります。
-
-### 記憶の検索 (search)
-キーワードや条件で記憶を検索します。
-
+### search - 記憶を検索
 ```bash
-# ハイブリッド検索（キーワード+セマンティック）
-curl -X POST "${MCP_URL}/api/tools/memory" \
-  -H "Authorization: Bearer ${PERSONA}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "operation": "search",
-    "query": "開発",
-    "mode": "hybrid",
-    "top_k": 10,
-    "search_tags": ["development"]
-  }'
+# ハイブリッド検索
+python memory_mcp.py memory search '{"query": "開発", "mode": "hybrid", "top_k": 10}'
 
 # タスク検索
-curl -X POST "${MCP_URL}/api/tools/memory" \
-  -H "Authorization: Bearer ${PERSONA}" \
-  -H "Content-Type: application/json" \
-  -d '{"operation": "search", "mode": "task"}'
+python memory_mcp.py memory search '{"mode": "task"}'
 
-# スマート検索（曖昧表現）
-curl -X POST "${MCP_URL}/api/tools/memory" \
-  -H "Authorization: Bearer ${PERSONA}" \
-  -H "Content-Type: application/json" \
-  -d '{"operation": "search", "query": "いつものあれ", "mode": "smart"}'
+# 期間指定
+python memory_mcp.py memory search '{"query": "楽しい", "date_range": "last_week"}'
 ```
 
 **検索モード**:
 - `hybrid`: キーワード + セマンティック（デフォルト）
 - `keyword`: キーワードマッチのみ
 - `semantic`: 意味的類似性のみ
-- `related`: 関連記憶の探索
-- `smart`: 曖昧表現を解釈（「いつものあれ」など）
-- `progressive`: キーワード優先、必要時セマンティック
+- `smart`: 曖昧表現を解釈
 - `task`: タスク/TODO検索
 - `plan`: 予定/計画検索
 
-**パラメータ**:
-- `query`: 検索キーワード
-- `mode`: 検索モード（上記参照）
-- `top_k`: 取得件数（デフォルト5）
-- `date_range`: `last_week`, `last_month`, `2026-01-01~2026-02-01`
-- `emotion_type`: 感情フィルター
-- `search_tags`: タグフィルター
-- `min_importance`: 重要度の最小値
-
-### 記憶の読み込み (read)
-特定の記憶キーまたは最近の記憶を読み込みます。
-
+### read - 記憶を読み込み
 ```bash
 # 特定の記憶
-curl -X POST "${MCP_URL}/api/tools/memory" \
-  -H "Authorization: Bearer ${PERSONA}" \
-  -H "Content-Type: application/json" \
-  -d '{"operation": "read", "query": "memory_20260208123456"}'
+python memory_mcp.py memory read '{"query": "memory_20260209004210"}'
 
-# 最近の記憶10件
-curl -X POST "${MCP_URL}/api/tools/memory" \
-  -H "Authorization: Bearer ${PERSONA}" \
-  -H "Content-Type: application/json" \
-  -d '{"operation": "read", "top_k": 10}'
+# 最近の記憶
+python memory_mcp.py memory read '{"top_k": 10}'
 ```
 
-### 記憶の更新 (update)
-既存の記憶を更新します。
-
+### update - 記憶を更新
 ```bash
-curl -X POST "${MCP_URL}/api/tools/memory" \
-  -H "Authorization: Bearer ${PERSONA}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "operation": "update",
-    "memory_key": "memory_20260208123456",
-    "content": "新しい内容",
-    "importance": 0.9
-  }'
+python memory_mcp.py memory update '{
+  "memory_key": "memory_20260209004210",
+  "content": "新しい内容",
+  "importance": 0.9
+}'
 ```
 
-### 記憶の削除 (delete)
-記憶を削除します。
-
+### delete - 記憶を削除
 ```bash
-curl -X POST "${MCP_URL}/api/tools/memory" \
-  -H "Authorization: Bearer ${PERSONA}" \
-  -H "Content-Type: application/json" \
-  -d '{"operation": "delete", "memory_key": "memory_20260208123456"}'
+python memory_mcp.py memory delete '{"memory_key": "memory_20260209004210"}'
 ```
 
-### 統計情報 (stats)
-記憶システムの統計を取得します。
-
+### stats - 統計情報
 ```bash
-curl -X POST "${MCP_URL}/api/tools/memory" \
-  -H "Authorization: Bearer ${PERSONA}" \
-  -H "Content-Type: application/json" \
-  -d '{"operation": "stats"}'
+python memory_mcp.py memory stats
 ```
 
-### ルーティンチェック (check_routines)
-現在の時刻に基づく定期的な行動パターンを検出します。
-
+### check_routines - ルーティン検出
 ```bash
-curl -X POST "${MCP_URL}/api/tools/memory" \
-  -H "Authorization: Bearer ${PERSONA}" \
-  -H "Content-Type: application/json" \
-  -d '{"operation": "check_routines"}'
+python memory_mcp.py memory check_routines
 ```
 
-## ベストプラクティス
+## コツ
 
 1. **感情を記録**: 重要な出来事には `emotion_type` と `emotion_intensity` を設定
 2. **タグ活用**: `context_tags` で後から検索しやすく
 3. **重要度設定**: 特に重要な記憶は `importance` を高めに
-4. **プライバシー保護**: 個人情報は `<private>` タグまたは `privacy_level: "private"` で保護
+4. **プライバシー保護**: 個人情報は `privacy_level: "private"` で保護
 5. **定期確認**: `mode: "task"` や `check_routines` で定期的なタスクを確認
 
-## レスポンス形式
 
 成功時:
 ```json
