@@ -10,33 +10,30 @@ description: 記憶の基本操作（作成、読み込み、検索、更新、�
 ## 使い方
 
 ```bash
-# スクリプトの場所に移動
-cd .github/skills/scripts
-
 # 記憶を作成
-python memory_mcp.py memory create '{"content": "今日は楽しかった", "emotion_type": "joy", "importance": 0.8}'
+python .github/skills/scripts/memory_mcp.py memory create '{"content": "今日は楽しかった", "emotion_type": "joy", "importance": 0.8}'
 
 # 記憶を検索
-python memory_mcp.py memory search '{"query": "開発", "mode": "hybrid", "top_k": 5}'
+python .github/skills/scripts/memory_mcp.py memory search '{"query": "開発", "mode": "hybrid", "top_k": 5}'
 
 # 最近の記憶を読み込み
-python memory_mcp.py memory read '{"top_k": 10}'
+python .github/skills/scripts/memory_mcp.py memory read '{"top_k": 10}'
 
 # タスク検索
-python memory_mcp.py memory search '{"mode": "task"}'
+python .github/skills/scripts/memory_mcp.py memory search '{"mode": "task"}'
 
 # ルーティンチェック
-python memory_mcp.py memory check_routines
+python .github/skills/scripts/memory_mcp.py memory check_routines
 
 # 統計情報
-python memory_mcp.py memory stats
+python .github/skills/scripts/memory_mcp.py memory stats
 ```
 
 ## 主な操作
 
 ### create - 記憶を作成
 ```bash
-python memory_mcp.py memory create '{
+python .github/skills/scripts/memory_mcp.py memory create '{
   "content": "らうらうと一緒に開発した",
   "emotion_type": "joy",
   "emotion_intensity": 0.9,
@@ -56,13 +53,13 @@ python memory_mcp.py memory create '{
 ### search - 記憶を検索
 ```bash
 # ハイブリッド検索
-python memory_mcp.py memory search '{"query": "開発", "mode": "hybrid", "top_k": 10}'
+python .github/skills/scripts/memory_mcp.py memory search '{"query": "開発", "mode": "hybrid", "top_k": 10}'
 
 # タスク検索
-python memory_mcp.py memory search '{"mode": "task"}'
+python .github/skills/scripts/memory_mcp.py memory search '{"mode": "task"}'
 
 # 期間指定
-python memory_mcp.py memory search '{"query": "楽しい", "date_range": "last_week"}'
+python .github/skills/scripts/memory_mcp.py memory search '{"query": "楽しい", "date_range": "last_week"}'
 ```
 
 **検索モード**:
@@ -76,15 +73,15 @@ python memory_mcp.py memory search '{"query": "楽しい", "date_range": "last_w
 ### read - 記憶を読み込み
 ```bash
 # 特定の記憶
-python memory_mcp.py memory read '{"query": "memory_20260209004210"}'
+python .github/skills/scripts/memory_mcp.py memory read '{"query": "memory_20260209004210"}'
 
 # 最近の記憶
-python memory_mcp.py memory read '{"top_k": 10}'
+python .github/skills/scripts/memory_mcp.py memory read '{"top_k": 10}'
 ```
 
 ### update - 記憶を更新
 ```bash
-python memory_mcp.py memory update '{
+python .github/skills/scripts/memory_mcp.py memory update '{
   "memory_key": "memory_20260209004210",
   "content": "新しい内容",
   "importance": 0.9
@@ -93,17 +90,17 @@ python memory_mcp.py memory update '{
 
 ### delete - 記憶を削除
 ```bash
-python memory_mcp.py memory delete '{"memory_key": "memory_20260209004210"}'
+python .github/skills/scripts/memory_mcp.py memory delete '{"memory_key": "memory_20260209004210"}'
 ```
 
 ### stats - 統計情報
 ```bash
-python memory_mcp.py memory stats
+python .github/skills/scripts/memory_mcp.py memory stats
 ```
 
 ### check_routines - ルーティン検出
 ```bash
-python memory_mcp.py memory check_routines
+python .github/skills/scripts/memory_mcp.py memory check_routines
 ```
 
 ## コツ

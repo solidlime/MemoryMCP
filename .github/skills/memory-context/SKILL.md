@@ -10,23 +10,20 @@ description: 約束、目標、お気に入り、感情、身体感覚などの�
 ## 使い方
 
 ```bash
-# スクリプトの場所に移動
-cd .github/skills/scripts
-
 # 約束を設定
-python memory_mcp.py memory promise '{"content": "週末に買い物に行く"}'
+python .github/skills/scripts/memory_mcp.py memory promise '{"content": "週末に買い物に行く"}'
 
 # 目標を設定
-python memory_mcp.py memory goal '{"content": "新しいダンスを習得する"}'
+python .github/skills/scripts/memory_mcp.py memory goal '{"content": "新しいダンスを習得する"}'
 
 # 身体感覚を更新
-python memory_mcp.py memory sensation '{"persona_info": {"fatigue": 0.3, "warmth": 0.8}}'
+python .github/skills/scripts/memory_mcp.py memory sensation '{"persona_info": {"fatigue": 0.3, "warmth": 0.8}}'
 
 # 感情を記録
-python memory_mcp.py memory emotion_flow '{"emotion_type": "love", "emotion_intensity": 0.95}'
+python .github/skills/scripts/memory_mcp.py memory emotion_flow '{"emotion_type": "love", "emotion_intensity": 0.95}'
 
 # 状況分析
-python memory_mcp.py memory situation_context
+python .github/skills/scripts/memory_mcp.py memory situation_context
 ```
 
 ## 主な操作
@@ -34,29 +31,29 @@ python memory_mcp.py memory situation_context
 ### promise - 約束の管理
 ```bash
 # 約束を設定
-python memory_mcp.py memory promise '{"content": "明日までにコードレビュー"}'
+python .github/skills/scripts/memory_mcp.py memory promise '{"content": "明日までにコードレビュー"}'
 
 # 約束をクリア
-python memory_mcp.py memory promise '{"content": null}'
+python .github/skills/scripts/memory_mcp.py memory promise '{"content": null}'
 ```
 
 ### goal - 目標の管理
 ```bash
 # 目標を設定
-python memory_mcp.py memory goal '{"content": "新機能リリース"}'
+python .github/skills/scripts/memory_mcp.py memory goal '{"content": "新機能リリース"}'
 
 # 目標をクリア
-python memory_mcp.py memory goal '{"content": null}'
+python .github/skills/scripts/memory_mcp.py memory goal '{"content": null}'
 ```
 
 ### favorite - お気に入りの追加
 ```bash
-python memory_mcp.py memory favorite '{"content": "苺"}'
+python .github/skills/scripts/memory_mcp.py memory favorite '{"content": "苺"}'
 ```
 
 ### preference - 好みの管理
 ```bash
-python memory_mcp.py memory preference '{
+python .github/skills/scripts/memory_mcp.py memory preference '{
   "persona_info": {
     "loves": ["苺", "踊り", "らうらう"],
     "dislikes": ["辛い食べ物"]
@@ -67,21 +64,21 @@ python memory_mcp.py memory preference '{
 ### anniversary - 記念日の管理
 ```bash
 # 記念日を追加
-python memory_mcp.py memory anniversary '{
+python .github/skills/scripts/memory_mcp.py memory anniversary '{
   "content": "結婚記念日",
   "persona_info": {"date": "2025-11-10"}
 }'
 
 # 記念日一覧
-python memory_mcp.py memory anniversary
+python .github/skills/scripts/memory_mcp.py memory anniversary
 
 # 記念日を削除
-python memory_mcp.py memory anniversary '{"content": "結婚記念日"}'
+python .github/skills/scripts/memory_mcp.py memory anniversary '{"content": "結婚記念日"}'
 ```
 
 ### sensation - 身体感覚の更新
 ```bash
-python memory_mcp.py memory sensation '{
+python .github/skills/scripts/memory_mcp.py memory sensation '{
   "persona_info": {
     "fatigue": 0.3,
     "warmth": 0.8,
@@ -97,7 +94,7 @@ python memory_mcp.py memory sensation '{
 
 ### emotion_flow - 感情の変化を記録
 ```bash
-python memory_mcp.py memory emotion_flow '{
+python .github/skills/scripts/memory_mcp.py memory emotion_flow '{
   "emotion_type": "love",
   "emotion_intensity": 0.95
 }'
@@ -107,12 +104,12 @@ python memory_mcp.py memory emotion_flow '{
 現在の状況（時間帯、装備、最近の記憶）を分析し、類似する過去の記憶を探します。
 
 ```bash
-python memory_mcp.py memory situation_context
+python .github/skills/scripts/memory_mcp.py memory situation_context
 ```
 
 ### update_context - 複数のコンテキスト更新
 ```bash
-python memory_mcp.py memory update_context '{
+python .github/skills/scripts/memory_mcp.py memory update_context '{
   "persona_info": {
     "active_promise": "明日までにコードレビュー",
     "current_goal": "新機能リリース",
@@ -125,10 +122,10 @@ python memory_mcp.py memory update_context '{
 
 ```bash
 # 1. 状況分析
-python memory_mcp.py memory situation_context
+python .github/skills/scripts/memory_mcp.py memory situation_context
 
 # 2. ルーティンチェック
-python memory_mcp.py memory check_routines
+python .github/skills/scripts/memory_mcp.py memory check_routines
 ```
 
 ## コツ

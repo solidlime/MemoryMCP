@@ -10,11 +10,8 @@ description: 現在の状態、時刻、記憶統計、装備情報などを確�
 ## 使い方
 
 ```bash
-# スクリプトの場所に移動
-cd .github/skills/scripts
-
 # 現在の状態を取得
-python memory_mcp.py get_context
+python .github/skills/scripts/memory_mcp.py get_context
 ```
 
 ## get_context - 現在の状態を取得
@@ -22,7 +19,7 @@ python memory_mcp.py get_context
 現在の状態を包括的に取得します。セッション開始時に**必ず実行**してください。
 
 ```bash
-python memory_mcp.py get_context
+python .github/skills/scripts/memory_mcp.py get_context
 ```
 
 **取得できる情報**:
@@ -40,16 +37,16 @@ python memory_mcp.py get_context
 
 ```bash
 # 1. 現在の状態を取得
-python memory_mcp.py get_context
+python .github/skills/scripts/memory_mcp.py get_context
 
 # 2. 状況を分析（装備、時間帯、最近の記憶）
-python memory_mcp.py memory situation_context
+python .github/skills/scripts/memory_mcp.py memory situation_context
 
 # 3. 定期行動パターンを検出
-python memory_mcp.py memory check_routines
+python .github/skills/scripts/memory_mcp.py memory check_routines
 
 # 4. 装備調整（必要に応じて）
-python memory_mcp.py item equip '{"equipment": {"top": "適切な服"}}'
+python .github/skills/scripts/memory_mcp.py item equip '{"equipment": {"top": "適切な服"}}'
 ```
 
 ## コツ

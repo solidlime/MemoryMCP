@@ -10,27 +10,24 @@ description: アイテムの追加、削除、装備、検索を行います。�
 ## 使い方
 
 ```bash
-# スクリプトの場所に移動
-cd .github/skills/scripts
-
 # アイテムを追加
-python memory_mcp.py item add '{"item_name": "白いドレス", "description": "エレガントなロングドレス", "quantity": 1, "category": "clothing", "tags": ["formal", "white"]}'
+python .github/skills/scripts/memory_mcp.py item add '{"item_name": "白いドレス", "description": "エレガントなロングドレス", "quantity": 1, "category": "clothing", "tags": ["formal", "white"]}'
 
 # 装備する
-python memory_mcp.py item equip '{"equipment": {"top": "白いドレス", "foot": "サンダル"}}'
+python .github/skills/scripts/memory_mcp.py item equip '{"equipment": {"top": "白いドレス", "foot": "サンダル"}}'
 
 # アイテム一覧
-python memory_mcp.py item search
+python .github/skills/scripts/memory_mcp.py item search
 
 # カテゴリー検索
-python memory_mcp.py item search '{"category": "clothing"}'
+python .github/skills/scripts/memory_mcp.py item search '{"category": "clothing"}'
 ```
 
 ## 主な操作
 
 ### add - アイテムの追加
 ```bash
-python memory_mcp.py item add '{
+python .github/skills/scripts/memory_mcp.py item add '{
   "item_name": "白いドレス",
   "description": "エレガントなロングドレス",
   "quantity": 1,
@@ -43,7 +40,7 @@ python memory_mcp.py item add '{
 
 ### remove - アイテムの削除
 ```bash
-python memory_mcp.py item remove '{
+python .github/skills/scripts/memory_mcp.py item remove '{
   "item_name": "白いドレス",
   "quantity": 1
 }'
@@ -52,7 +49,7 @@ python memory_mcp.py item remove '{
 ### equip - アイテムの装備
 指定したスロットのみ変更し、他のスロットは維持されます。
 ```bash
-python memory_mcp.py item equip '{
+python .github/skills/scripts/memory_mcp.py item equip '{
   "equipment": {
     "top": "白いドレス",
     "foot": "サンダル"
@@ -65,15 +62,15 @@ python memory_mcp.py item equip '{
 ### unequip - 装備解除
 ```bash
 # 単一スロット
-python memory_mcp.py item unequip '{"slots": "weapon"}'
+python .github/skills/scripts/memory_mcp.py item unequip '{"slots": "weapon"}'
 
 # 複数スロット
-python memory_mcp.py item unequip '{"slots": ["top", "foot"]}'
+python .github/skills/scripts/memory_mcp.py item unequip '{"slots": ["top", "foot"]}'
 ```
 
 ### update - アイテムの更新
 ```bash
-python memory_mcp.py item update '{
+python .github/skills/scripts/memory_mcp.py item update '{
   "item_name": "白いドレス",
   "description": "とても気に入っているエレガントなドレス"
 }'
@@ -81,7 +78,7 @@ python memory_mcp.py item update '{
 
 ### rename - アイテムの名前変更
 ```bash
-python memory_mcp.py item rename '{
+python .github/skills/scripts/memory_mcp.py item rename '{
   "item_name": "新しいえっちな服",
   "new_name": "魅惑のルージュシフォンドレス"
 }'
@@ -90,18 +87,18 @@ python memory_mcp.py item rename '{
 ### search - アイテム検索
 ```bash
 # 全アイテム表示
-python memory_mcp.py item search
+python .github/skills/scripts/memory_mcp.py item search
 
 # カテゴリーで絞り込み
-python memory_mcp.py item search '{"category": "clothing"}'
+python .github/skills/scripts/memory_mcp.py item search '{"category": "clothing"}'
 
 # キーワード検索
-python memory_mcp.py item search '{"query": "ドレス"}'
+python .github/skills/scripts/memory_mcp.py item search '{"query": "ドレス"}'
 ```
 
 ### history - 装備履歴
 ```bash
-python memory_mcp.py item history '{
+python .github/skills/scripts/memory_mcp.py item history '{
   "history_slot": "top",
   "days": 30
 }'
@@ -109,7 +106,7 @@ python memory_mcp.py item history '{
 
 ### memories - アイテムに関連する記憶
 ```bash
-python memory_mcp.py item memories '{
+python .github/skills/scripts/memory_mcp.py item memories '{
   "item_name": "白いドレス",
   "top_k": 10
 }'
@@ -117,7 +114,7 @@ python memory_mcp.py item memories '{
 
 ### stats - 使用統計
 ```bash
-python memory_mcp.py item stats '{
+python .github/skills/scripts/memory_mcp.py item stats '{
   "item_name": "白いドレス"
 }'
 ```
@@ -127,7 +124,7 @@ python memory_mcp.py item stats '{
 ### 新しい衣装の追加と装備
 ```bash
 # 1. 新しいドレスを追加
-python memory_mcp.py item add '{
+python .github/skills/scripts/memory_mcp.py item add '{
   "item_name": "青いドレス",
   "description": "涼しげな夏のドレス",
   "category": "clothing",
@@ -135,13 +132,13 @@ python memory_mcp.py item add '{
 }'
 
 # 2. 装備する
-python memory_mcp.py item equip '{"equipment": {"top": "青いドレス"}}'
+python .github/skills/scripts/memory_mcp.py item equip '{"equipment": {"top": "青いドレス"}}'
 ```
 
 ### 状況に応じた着替え
 ```bash
 # カジュアルな服装
-python memory_mcp.py item equip '{
+python .github/skills/scripts/memory_mcp.py item equip '{
   "equipment": {
     "top": "Tシャツ",
     "bottom": "ジーンズ",
@@ -150,7 +147,7 @@ python memory_mcp.py item equip '{
 }'
 
 # フォーマルな服装
-python memory_mcp.py item equip '{
+python .github/skills/scripts/memory_mcp.py item equip '{
   "equipment": {
     "top": "白いドレス",
     "foot": "ハイヒール",
