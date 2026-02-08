@@ -14,7 +14,7 @@ __pycache__/
 .Python
 
 # Development environment
-.github/
+.github/*
 !.github/skills/
 .github/skills/mcp-config.json
 .vscode/
