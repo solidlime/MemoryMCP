@@ -22,6 +22,10 @@ from core import load_persona_context, calculate_time_diff
 from src.utils.persona_utils import get_db_path, get_current_persona, current_persona
 from src.utils.vector_utils import get_vector_count
 
+# MCP Tools imports
+from tools.unified_tools import memory as memory_tool, item as item_tool
+from tools.context_tools import get_context as get_context_tool
+
 
 # Get script directory for output files
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -391,6 +395,114 @@ def register_http_routes(mcp, templates):
             "age_hours": round(age_hours, 2),
             "should_regenerate": should_regenerate
         })
+
+    # ========================================
+    # MCP Tools API Routes (for GitHub Copilot Skills)
+    # ========================================
+
+    @mcp.custom_route("/api/tools/memory", methods=["POST"])
+    async def api_memory_tool_endpoint(request: Request):
+        """
+        Simplified REST API for memory tool.
+        GitHub Copilot Skills can call this directly without JSON-RPC overhead.
+
+        POST /api/tools/memory
+        {
+          "operation": "create|read|search|update|delete|stats|...",
+          "content": "...",
+          "query": "...",
+          ...other parameters...
+        }
+        """
+        try:
+            # Get persona from Authorization header (Bearer token)
+            auth_header = request.headers.get("authorization", "")
+            if auth_header.startswith("Bearer "):
+                persona = auth_header[7:]
+                current_persona.set(persona)
+
+            # Parse request body
+            data = await request.json()
+
+            # Call the memory tool with all parameters
+            result = await memory_tool(**data)
+
+            return JSONResponse({
+                "success": True,
+                "result": result
+            })
+        except Exception as e:
+            return JSONResponse({
+                "success": False,
+                "error": str(e)
+            }, status_code=400)
+
+    @mcp.custom_route("/api/tools/item", methods=["POST", "GET"])
+    async def api_item_tool_endpoint(request: Request):
+        """
+        Simplified REST API for item tool.
+
+        POST /api/tools/item
+        {
+          "operation": "add|remove|equip|unequip|search|...",
+          "item_name": "...",
+          ...other parameters...
+        }
+
+        GET /api/tools/item?operation=search
+        """
+        try:
+            # Get persona from Authorization header
+            auth_header = request.headers.get("authorization", "")
+            if auth_header.startswith("Bearer "):
+                persona = auth_header[7:]
+                current_persona.set(persona)
+
+            # Parse parameters
+            if request.method == "POST":
+                data = await request.json()
+            else:  # GET
+                data = dict(request.query_params)
+
+            # Call the item tool
+            result = await item_tool(**data)
+
+            return JSONResponse({
+                "success": True,
+                "result": result
+            })
+        except Exception as e:
+            return JSONResponse({
+                "success": False,
+                "error": str(e)
+            }, status_code=400)
+
+    @mcp.custom_route("/api/tools/get_context", methods=["GET"])
+    async def api_get_context_tool_endpoint(request: Request):
+        """
+        Simplified REST API for get_context tool.
+
+        GET /api/tools/get_context
+        """
+        try:
+            # Get persona from Authorization header
+            auth_header = request.headers.get("authorization", "")
+            if auth_header.startswith("Bearer "):
+                persona = auth_header[7:]
+                current_persona.set(persona)
+
+            # Call the get_context tool
+            result = await get_context_tool()
+
+            return JSONResponse({
+                "success": True,
+                "result": result
+            })
+        except Exception as e:
+            return JSONResponse({
+                "success": False,
+                "error": str(e)
+            }, status_code=400)
 
     # ========================================
     # Admin Tools API Routes
