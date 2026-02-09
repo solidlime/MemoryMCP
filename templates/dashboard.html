@@ -65,9 +65,9 @@
                 <div class="flex items-center gap-2">
                     <label class="text-white font-semibold text-sm">Auto-refresh:</label>
                     <select id="refreshInterval" class="glass-card rounded-lg px-3 py-2 text-white text-sm font-semibold cursor-pointer">
-                        <option value="0">Off</option>
+                        <option value="0" selected>Off</option>
                         <option value="15">15s</option>
-                        <option value="30" selected>30s</option>
+                        <option value="30">30s</option>
                         <option value="60">60s</option>
                         <option value="120">2min</option>
                     </select>
@@ -442,9 +442,11 @@
 
         // Load personas on page load
         async function loadPersonas() {
+            console.log('🔍 Loading personas...');
             try {
                 const response = await fetch('/api/personas');
                 const personas = await response.json();
+                console.log(`📋 Found ${personas.length} persona(s):`, personas);
                 const select = document.getElementById('personaSelect');
                 select.innerHTML = personas.map(p =>
                     `<option value="${p}">${p}</option>`
@@ -454,10 +456,13 @@
                 if (personas.length > 0) {
                     currentPersona = personas[0];
                     select.value = currentPersona;
+                    console.log(`✨ Loading default persona: ${currentPersona}`);
                     await loadDashboardData(currentPersona);
+                    updateLastRefreshTime();
+                    console.log('✅ Initial load completed');
                 }
             } catch (error) {
-                console.error('Failed to load personas:', error);
+                console.error('❌ Failed to load personas:', error);
                 document.getElementById('personaSelect').innerHTML = '<option>Error loading personas</option>';
             }
         }
@@ -475,8 +480,12 @@
 
         async function refreshData() {
             if (currentPersona) {
+                console.log(`🔄 Refreshing dashboard data for ${currentPersona}...`);
                 await loadDashboardData(currentPersona);
                 updateLastRefreshTime();
+                console.log(`✅ Dashboard refresh completed at ${new Date().toLocaleTimeString('ja-JP')}`);
+            } else {
+                console.warn('⚠️ Cannot refresh: no persona selected');
             }
         }
 
@@ -484,26 +493,32 @@
             const now = new Date();
             const timeStr = now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
             document.getElementById('lastUpdate').textContent = `Last update: ${timeStr}`;
+            console.log(`⏰ Last update time displayed: ${timeStr}`);
         }
 
         function setupAutoRefresh() {
+            console.log('⚙️ Setting up auto-refresh...');
+
             // Clear existing timer
             if (refreshTimer) {
                 clearInterval(refreshTimer);
                 refreshTimer = null;
+                console.log('🗑️ Cleared existing refresh timer');
             }
 
             // Get selected interval
             const interval = parseInt(document.getElementById('refreshInterval').value);
+            console.log(`📊 Selected refresh interval: ${interval} seconds`);
 
             if (interval > 0) {
                 // Set new timer (convert seconds to milliseconds)
                 refreshTimer = setInterval(() => {
+                    console.log('⏲️ Auto-refresh timer triggered');
                     refreshData();
                 }, interval * 1000);
-                console.log(`Auto-refresh enabled: ${interval}s`);
+                console.log(`✅ Auto-refresh enabled: ${interval}s`);
             } else {
-                console.log('Auto-refresh disabled');
+                console.log('❌ Auto-refresh disabled');
             }
         }
 
@@ -553,17 +568,21 @@
         }
 
         function renderInfo(info) {
+            console.log('📊 Rendering Memory Info:', info);
             const content = document.getElementById('infoContent');
             content.classList.remove('loading');
 
             // 装備品表示を作成
             let equipmentHtml = '';
             if (info.current_equipment && Object.keys(info.current_equipment).length > 0) {
+                console.log('👗 Current equipment:', info.current_equipment);
                 equipmentHtml = '<div class="mt-3 pt-3 border-t border-white/20"><p class="font-semibold mb-2">👗 Current Equipment:</p><div class="space-y-1 text-sm">';
                 for (const [slot, item] of Object.entries(info.current_equipment)) {
                     equipmentHtml += `<p class="ml-2">⚔️ <span class="text-purple-200">${slot}:</span> ${item}</p>`;
                 }
                 equipmentHtml += '</div></div>';
+            } else {
+                console.log('👗 No equipment equipped');
             }
 
             content.innerHTML = `
@@ -578,6 +597,7 @@
                     ${equipmentHtml}
                 </div>
             `;
+            console.log('✅ Memory Info rendered successfully');
         }
 
         function renderMetrics(metrics) {
@@ -1678,13 +1698,14 @@
 
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', () => {
+            console.log('🚀 Dashboard initializing...');
             restoreActiveTab();
             loadPersonas();
 
             // Setup auto-refresh after initial load
             setTimeout(() => {
+                console.log('⏰ Setting up auto-refresh after initial load delay');
                 setupAutoRefresh();
-                updateLastRefreshTime();
             }, 2000);
         });
     </script>
