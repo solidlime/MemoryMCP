@@ -1,58 +1,119 @@
 ---
 name: context-status
-description: 現在の状態、時刻、記憶統計、装備情報などを確認します。セッション開始時や状況確認時に使用します。
+description: Get current persona context from Memory MCP server. Use at session start to retrieve persona state, current time, memory statistics, and conversation history. Essential for maintaining context continuity across sessions.
 ---
 
-# Context & Status Check Skill
+# Context Status
 
-現在の状態を確認します。セッション開始時の必須操作です。
+## Overview
 
-## 使い方
+Get current persona context from Memory MCP server using the `get_context()` tool. This skill provides session initialization, persona state retrieval, and context-aware response preparation.
 
-```bash
-# 現在の状態を取得
-python .github/skills/scripts/memory_mcp.py get_context
+## When to Use
+
+**Always use at session start** to:
+- Retrieve current time and persona state
+- Get memory statistics and recent activity
+- Load conversation history for context continuity
+- Understand persona's current situation before responding
+
+**Also use when:**
+- User asks about current time or date
+- Need to check memory statistics
+- Want to verify persona configuration
+- Debugging context-related issues
+
+## Quick Start
+
+### Using the MCP Tool (Recommended)
+
+Call `get_context()` at the beginning of each session:
+
+```python
+# No parameters needed - uses current persona from Authorization header
+result = get_context()
 ```
 
-## get_context - 現在の状態を取得
+### Using the Python Script
 
-現在の状態を包括的に取得します。セッション開始時に**必ず実行**してください。
-
-```bash
-python .github/skills/scripts/memory_mcp.py get_context
-```
-
-**取得できる情報**:
-- **ユーザー情報**: 名前、ニックネーム、関係性
-- **ペルソナ情報**: 名前、お気に入り、好き/嫌い、約束、目標
-- **時間情報**: 現在時刻、最終会話時刻、経過時間
-- **装備情報**: 現在の装備アイテム
-- **記憶統計**: 総記憶数、ベクトル数、コンテンツサイズ
-- **身体感覚**: 疲労度、温かさ、覚醒度
-- **感情状態**: 最新の感情タイプと強度
-
-## セッション開始ワークフロー
-
-毎セッション開始時に実行する推奨手順：
+For standalone testing or debugging:
 
 ```bash
-# 1. 現在の状態を取得
-python .github/skills/scripts/memory_mcp.py get_context
+# Basic usage with default settings
+python scripts/get_context.py
 
-# 2. 状況を分析（装備、時間帯、最近の記憶）
-python .github/skills/scripts/memory_mcp.py memory situation_context
+# Specify persona and server
+python scripts/get_context.py --persona nilou --url http://localhost:26262
 
-# 3. 定期行動パターンを検出
-python .github/skills/scripts/memory_mcp.py memory check_routines
-
-# 4. 装備調整（必要に応じて）
-python .github/skills/scripts/memory_mcp.py item equip '{"equipment": {"top": "適切な服"}}'
+# Get JSON output
+python scripts/get_context.py --format json
 ```
 
-## コツ
+## Configuration
 
-1. **セッション開始時は必須** - `get_context` を最初に実行
-2. **状況分析を活用** - `situation_context` で現在の装備・時間・記憶を総合判断
-3. **ルーティン検出** - `check_routines` で定期行動パターンを把握
-4. **自発的に行動** - コンテキスト情報から性格を反映した行動を開始
-5. **約束・目標の確認** - アクティブな約束や目標があれば優先対応
+Configuration is stored in `references/config.json`:
+
+```json
+{
+  "mcp_server": {
+    "url": "http://localhost:26262",
+    "timeout": 30,
+    "retry_attempts": 3
+  },
+  "persona": {
+    "default": "nilou",
+    "description": "ペルソナ名はAuthorizationヘッダーで指定"
+  },
+  "settings": {
+    "auto_get_context_on_session_start": true,
+    "log_operations": true
+  }
+}
+```
+
+**Key settings:**
+- `mcp_server.url`: Memory MCP server endpoint
+- `persona.default`: Default persona name
+- `settings.auto_get_context_on_session_start`: Auto-call on session start
+
+## Response Format
+
+`get_context()` returns:
+
+```
+📊 ペルソナ状態 (nilou)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+現在時刻: 2026-02-09 14:30:00 (JST)
+記憶総数: 1,234
+最近の活動: 5件
+
+[会話履歴]
+- User: こんにちは
+- Nilou: こんにちは！今日も素敵な一日になりそうね ✨
+```
+
+## Workflow
+
+1. **Session Start** → Call `get_context()`
+2. **Parse Response** → Extract time, stats, history
+3. **Contextualize** → Use info to inform response
+4. **Respond** → Reply with awareness of current context
+
+## Resources
+
+### scripts/get_context.py
+Standalone Python script for testing and debugging. Can be used independently of the MCP tool.
+
+**Features:**
+- Command-line interface
+- JSON and text output formats
+- Configuration file support
+- Error handling and retries
+
+### references/config.json
+Configuration file for MCP server connection and persona settings.
+
+**Customization:**
+- Update `mcp_server.url` for different server endpoints
+- Change `persona.default` for different personas
+- Adjust timeout and retry settings as needed
