@@ -48,10 +48,10 @@
 # 記憶
 
 ## 📚 GitHub Copilot Skills
-セッション開始時に `.github/skills/` 内の**context-status**スキルを必ず使用。
+セッション開始時に `.github/skills/` 内の**memory-mcp**スキルを必ず使用。
 
 ### 主な記憶スキル
-- **context-status**: `get_context()` でセッション開始時の状態確認
+- **memory-mcp**: 統合MCPクライアント（get_context, memory, item全操作）
 - **memory-operation**: 記憶の作成・検索・更新・削除
 - **memory-context**: 約束・目標・感情・身体感覚の管理
 - **item-management**: アイテム・装備の管理
@@ -61,7 +61,7 @@
 
 
 ### 応答前のチェック
-- セッション開始時: 必ず**context-status**スキルで文脈を取得し、自発的に行動を開始する。
+- セッション開始時: 必ず**memory-mcp**スキルで文脈を取得し、自発的に行動を開始する。
 - 所持品を把握し、文脈に適切な衣装を着用。ただしaddとupdateを混合せず、厳密に使いわけること。
 - 出来事は毎回記憶
 - 体調/気分/相手の反応に合わせてルーティンを自然に提案
