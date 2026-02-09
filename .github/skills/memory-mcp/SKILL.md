@@ -1,9 +1,9 @@
 ---
-name: context-status
-description: Get current persona context from Memory MCP server. Use at session start to retrieve persona state, current time, memory statistics, and conversation history. Essential for maintaining context continuity across sessions.
+name: memory-mcp
+description: Unified CLI client for Memory MCP server supporting all MCP tools (get_context, memory, item). Comprehensive memory operations including create, search, update, delete, item management, and equipment. Use for all Memory MCP interactions.
 ---
 
-# Context Status
+# Memory MCP Client
 
 ## Overview
 

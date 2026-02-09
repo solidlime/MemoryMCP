@@ -1,12 +1,12 @@
 {
   "mcp_server": {
     "url": "http://nas:26262",
-    "timeout": 30,
+    "timeout": 90,
     "retry_attempts": 3
   },
   "persona": {
-    "default": "default",
-    "description": "ペルソナ名はAuthorizationヘッダーで指定。"
+    "default": "nilou",
+    "description": "ペルソナ名を指定。"
   },
   "settings": {
     "auto_get_context_on_session_start": true,

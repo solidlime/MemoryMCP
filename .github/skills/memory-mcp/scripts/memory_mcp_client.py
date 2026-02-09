@@ -59,13 +59,13 @@ def call_mcp_tool(
 ) -> Dict[str, Any]:
     """
     MCPツールを呼び出す
-    
+
     Args:
         tool_name: ツール名（get_context, memory, item）
         params: ツールパラメータ
         persona: ペルソナ名
         server_url: MCPサーバーURL
-        
+
     Returns:
         dict: レスポンスデータ
     """
@@ -74,7 +74,7 @@ def call_mcp_tool(
         "Authorization": f"Bearer {persona}",
         "Content-Type": "application/json"
     }
-    
+
     try:
         response = requests.post(url, headers=headers, json=params, timeout=30)
         response.raise_for_status()
@@ -86,24 +86,24 @@ def call_mcp_tool(
 def format_output(data: Dict[str, Any], output_format: str = "text") -> str:
     """
     レスポンスデータを整形
-    
+
     Args:
         data: レスポンスデータ
         output_format: 出力形式（json or text）
-        
+
     Returns:
         str: 整形された文字列
     """
     if output_format == "json":
         return json.dumps(data, ensure_ascii=False, indent=2)
-    
+
     if "error" in data:
         return f"❌ エラー: {data['error']}"
-    
+
     # テキスト形式で整形
     output = []
     output.append("=" * 60)
-    
+
     if "content" in data:
         content = data["content"]
         if isinstance(content, list) and len(content) > 0:
@@ -113,7 +113,7 @@ def format_output(data: Dict[str, Any], output_format: str = "text") -> str:
             output.append(str(content))
     else:
         output.append(json.dumps(data, ensure_ascii=False, indent=2))
-    
+
     output.append("=" * 60)
     return "\n".join(output)
 
@@ -122,10 +122,10 @@ def cmd_get_context(args: argparse.Namespace, config: Dict[str, Any]) -> int:
     """get_contextコマンドを実行"""
     persona = args.persona or config.get("persona", {}).get("default", "default")
     server_url = args.url or config.get("mcp_server", {}).get("url", "http://localhost:26262")
-    
+
     result = call_mcp_tool("get_context", {}, persona, server_url)
     print(format_output(result, args.format))
-    
+
     return 0 if "error" not in result else 1
 
 
@@ -133,10 +133,10 @@ def cmd_memory(args: argparse.Namespace, config: Dict[str, Any]) -> int:
     """memoryコマンドを実行"""
     persona = args.persona or config.get("persona", {}).get("default", "default")
     server_url = args.url or config.get("mcp_server", {}).get("url", "http://localhost:26262")
-    
+
     # パラメータを構築
     params = {"operation": args.operation}
-    
+
     # 操作別のパラメータ
     if args.operation == "create":
         if not args.content:
@@ -155,7 +155,7 @@ def cmd_memory(args: argparse.Namespace, config: Dict[str, Any]) -> int:
             params["context_tags"] = args.context_tags.split(",")
         if args.action_tag:
             params["action_tag"] = args.action_tag
-            
+
     elif args.operation == "update":
         if not args.key:
             print("❌ エラー: --key は必須です", file=sys.stderr)
@@ -169,13 +169,13 @@ def cmd_memory(args: argparse.Namespace, config: Dict[str, Any]) -> int:
             params["emotion_type"] = args.emotion_type
         if args.tags:
             params["tags"] = args.tags.split(",")
-            
+
     elif args.operation == "delete":
         if not args.key:
             print("❌ エラー: --key は必須です", file=sys.stderr)
             return 1
         params["key"] = args.key
-        
+
     elif args.operation == "search":
         if not args.query:
             print("❌ エラー: --query は必須です", file=sys.stderr)
@@ -189,17 +189,17 @@ def cmd_memory(args: argparse.Namespace, config: Dict[str, Any]) -> int:
             params["date_range"] = args.date_range
         if args.tags:
             params["search_tags"] = args.tags.split(",")
-            
+
     elif args.operation == "anniversary":
         if args.content:
             params["content"] = args.content
         if args.delete_key:
             params["delete_key"] = args.delete_key
-            
+
     # ツール呼び出し
     result = call_mcp_tool("memory", params, persona, server_url)
     print(format_output(result, args.format))
-    
+
     return 0 if "error" not in result else 1
 
 
@@ -207,10 +207,10 @@ def cmd_item(args: argparse.Namespace, config: Dict[str, Any]) -> int:
     """itemコマンドを実行"""
     persona = args.persona or config.get("persona", {}).get("default", "default")
     server_url = args.url or config.get("mcp_server", {}).get("url", "http://localhost:26262")
-    
+
     # パラメータを構築
     params = {"operation": args.operation}
-    
+
     # 操作別のパラメータ
     if args.operation == "add":
         if not args.name:
@@ -223,13 +223,13 @@ def cmd_item(args: argparse.Namespace, config: Dict[str, Any]) -> int:
             params["description"] = args.description
         if args.tags:
             params["tags"] = args.tags.split(",")
-            
+
     elif args.operation in ["remove", "equip", "unequip"]:
         if not args.name:
             print("❌ エラー: --name は必須です", file=sys.stderr)
             return 1
         params["name"] = args.name
-        
+
     elif args.operation == "update":
         if not args.name:
             print("❌ エラー: --name は必須です", file=sys.stderr)
@@ -239,7 +239,7 @@ def cmd_item(args: argparse.Namespace, config: Dict[str, Any]) -> int:
             params["description"] = args.description
         if args.tags:
             params["tags"] = args.tags.split(",")
-            
+
     elif args.operation == "search":
         if args.query:
             params["query"] = args.query
@@ -247,30 +247,30 @@ def cmd_item(args: argparse.Namespace, config: Dict[str, Any]) -> int:
             params["category"] = args.category
         if args.equipped is not None:
             params["equipped"] = args.equipped
-            
+
     elif args.operation == "memories":
         if not args.name:
             print("❌ エラー: --name は必須です", file=sys.stderr)
             return 1
         params["name"] = args.name
-    
+
     # ツール呼び出し
     result = call_mcp_tool("item", params, persona, server_url)
     print(format_output(result, args.format))
-    
+
     return 0 if "error" not in result else 1
 
 
 def main():
     """メイン処理"""
     config = load_config()
-    
+
     parser = argparse.ArgumentParser(
         description="Memory MCP Client - 全MCPツールのCLIインターフェース",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__
     )
-    
+
     # 共通オプション
     parser.add_argument(
         "--persona",
@@ -286,16 +286,16 @@ def main():
         default="text",
         help="出力形式（デフォルト: text）"
     )
-    
+
     # サブコマンド
     subparsers = parser.add_subparsers(dest="tool", help="MCPツール", required=True)
-    
+
     # ===== get_context =====
     parser_context = subparsers.add_parser(
         "get_context",
         help="ペルソナの状態、時刻、メモリ統計を取得"
     )
-    
+
     # ===== memory =====
     parser_memory = subparsers.add_parser(
         "memory",
@@ -319,7 +319,7 @@ def main():
     parser_memory.add_argument("--top_k", type=int, help="検索結果数")
     parser_memory.add_argument("--date_range", help="日付範囲（例: '昨日', '先週', '2025-01-01,2025-01-31'）")
     parser_memory.add_argument("--delete_key", help="削除する記念日キー（anniversary用）")
-    
+
     # ===== item =====
     parser_item = subparsers.add_parser(
         "item",
@@ -336,9 +336,9 @@ def main():
     parser_item.add_argument("--tags", help="タグ（カンマ区切り）")
     parser_item.add_argument("--query", help="検索クエリ")
     parser_item.add_argument("--equipped", type=bool, help="装備中のみ検索（True/False）")
-    
+
     args = parser.parse_args()
-    
+
     # コマンド実行
     if args.tool == "get_context":
         return cmd_get_context(args, config)
