@@ -43,9 +43,36 @@ Memory MCP Client - Unified CLI for all MCP tools
 import argparse
 import json
 import sys
+import os
 from pathlib import Path
 from typing import Dict, Any, Optional
 import requests
+
+# 環境変数でPythonのI/OエンコーディングをUTF-8に強制
+os.environ['PYTHONIOENCODING'] = 'utf-8'
+
+# コンソール出力のエンコーディングをUTF-8に設定（Windows対応）
+if sys.platform == "win32":
+    import io
+    import ctypes
+
+    # Windows APIでコンソールをUTF-8モードに設定
+    try:
+        # コンソールの出力コードページをUTF-8 (65001) に設定
+        kernel32 = ctypes.windll.kernel32
+        kernel32.SetConsoleOutputCP(65001)
+        kernel32.SetConsoleCP(65001)
+    except Exception:
+        pass  # 失敗しても続行（管理者権限不要の環境用）
+
+    # stdout/stderrをUTF-8でラップ
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace', line_buffering=True)
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace', line_buffering=True)
+else:
+    # Linux/Macでもエンコーディングを明示
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace', line_buffering=True)
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace', line_buffering=True)
 
 
 def load_config() -> Dict[str, Any]:
@@ -84,7 +111,9 @@ def call_mcp_tool(
     try:
         response = requests.post(url, headers=headers, json=params, timeout=30)
         response.raise_for_status()
-        return response.json()
+        # 明示的にUTF-8でデコードしてからJSONパース
+        text = response.content.decode('utf-8')
+        return json.loads(text)
     except requests.exceptions.RequestException as e:
         return {"error": str(e)}
 
@@ -377,7 +406,7 @@ def main():
     parser_item.add_argument("--equipped", type=bool, help="装備中のみ検索（True/False）")
     # equip operation用
     parser_item.add_argument("--slot", help="装備スロット（equip/unequip用、例: top, foot, hand）")
-    parser_item.add_argument("--equipment", help='装備辞書JSON（equip用、例: \'{"top": "白いドレス", "foot": "サンダル"}\')")
+    parser_item.add_argument("--equipment", help="装備辞書JSON（equip用、例: '{\"top\": \"白いドレス\", \"foot\": \"サンダル\"}'）")
     # unequip operation用
     parser_item.add_argument("--slots", help="装備解除するスロット（カンマ区切り、unequip用、例: top,foot）")
 

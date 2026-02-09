@@ -91,6 +91,8 @@ python <skill_root>/scripts/memory_mcp_client.py item unequip --slots top,foot
 python <skill_root>/scripts/memory_mcp_client.py item stats
 ```
 
+**Note:** Python client fully supports UTF-8 across all platforms (Windows/Linux/Mac) with automatic console encoding configuration.
+
 ### Common Options
 
 All commands support these options:
