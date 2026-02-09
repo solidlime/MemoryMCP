@@ -400,13 +400,13 @@ def register_http_routes(mcp, templates):
     # MCP Tools API Routes (for GitHub Copilot Skills)
     # ========================================
 
-    @mcp.custom_route("/api/tools/memory", methods=["POST"])
+    @mcp.custom_route("/mcp/v1/tools/memory", methods=["POST"])
     async def api_memory_tool_endpoint(request: Request):
         """
         Simplified REST API for memory tool.
         GitHub Copilot Skills can call this directly without JSON-RPC overhead.
 
-        POST /api/tools/memory
+        POST /mcp/v1/tools/memory
         {
           "operation": "create|read|search|update|delete|stats|...",
           "content": "...",
@@ -438,19 +438,19 @@ def register_http_routes(mcp, templates):
                 media_type="application/json; charset=utf-8"
             )
 
-    @mcp.custom_route("/api/tools/item", methods=["POST", "GET"])
+    @mcp.custom_route("/mcp/v1/tools/item", methods=["POST", "GET"])
     async def api_item_tool_endpoint(request: Request):
         """
         Simplified REST API for item tool.
 
-        POST /api/tools/item
+        POST /mcp/v1/tools/item
         {
           "operation": "add|remove|equip|unequip|search|...",
           "item_name": "...",
           ...other parameters...
         }
 
-        GET /api/tools/item?operation=search
+        GET /mcp/v1/tools/item?operation=search
         """
         try:
             # Get persona from Authorization header
@@ -479,12 +479,13 @@ def register_http_routes(mcp, templates):
                 media_type="application/json; charset=utf-8"
             )
 
-    @mcp.custom_route("/api/tools/get_context", methods=["GET"])
+    @mcp.custom_route("/mcp/v1/tools/get_context", methods=["POST", "GET"])
     async def api_get_context_tool_endpoint(request: Request):
         """
         Simplified REST API for get_context tool.
 
-        GET /api/tools/get_context
+        POST /mcp/v1/tools/get_context
+        GET /mcp/v1/tools/get_context
         """
         try:
             # Get persona from Authorization header

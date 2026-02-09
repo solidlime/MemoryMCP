@@ -5,6 +5,78 @@ Persona-scoped endpoints use `{persona}` as a path parameter (e.g. `nilou`, `def
 
 ---
 
+## MCP Tools REST API
+
+These endpoints provide direct REST API access to MCP tools for GitHub Copilot Skills and other clients.
+All requests use `Authorization: Bearer <persona>` header.
+
+### `POST /mcp/v1/tools/memory`
+Unified memory operations.
+
+**Request body:**
+```json
+{
+  "operation": "create|read|search|update|delete|stats|check_routines|anniversary",
+  "content": "...",
+  "query": "...",
+  ...other parameters...
+}
+```
+
+**Operations:**
+- `create`: Create new memory
+- `read`: Read memory by key
+- `search`: Search memories (semantic/keyword/hybrid/related/smart)
+- `update`: Update existing memory
+- `delete`: Delete memory
+- `stats`: Get memory statistics
+- `check_routines`: Detect recurring patterns
+- `anniversary`: Manage anniversaries
+
+### `POST /mcp/v1/tools/item`
+Unified item/equipment operations.
+
+**Request body:**
+```json
+{
+  "operation": "add|remove|equip|unequip|update|search|history|memories|stats",
+  "item_name": "...",
+  ...other parameters...
+}
+```
+
+**Operations:**
+- `add`: Add item to inventory
+- `remove`: Remove item
+- `equip`: Equip item
+- `unequip`: Unequip item
+- `update`: Update item details
+- `search`: Search inventory
+- `history`: Get equipment history
+- `memories`: Get memories associated with item
+- `stats`: Get item statistics
+
+### `POST /mcp/v1/tools/get_context`
+### `GET /mcp/v1/tools/get_context`
+Get current persona context, time, and memory statistics.
+
+**Response:**
+```json
+{
+  "success": true,
+  "result": {
+    "content": [
+      {
+        "text": "Current time: 2026-02-09 10:30:00\nPersona: nilou\nTotal memories: 142\n...",
+        "type": "text"
+      }
+    ]
+  }
+}
+```
+
+---
+
 ## Dashboard & Health
 
 | Method | Path | Description |

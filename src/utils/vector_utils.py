@@ -1,4 +1,3 @@
-import os
 import json
 import os
 import sqlite3
@@ -29,13 +28,13 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 def _device_str_to_int(device_str: str) -> int:
     """
     Convert device string to transformers pipeline device int.
-    
+
     Args:
         device_str: "cpu", "cuda", "cuda:0", etc.
-        
+
     Returns:
         -1 for CPU, 0+ for GPU index
-        
+
     Examples:
         >>> _device_str_to_int("cpu")
         -1
@@ -66,53 +65,155 @@ def _get_rebuild_config():
         "min_interval": int(vr.get("min_interval", 120)),
     }
 
-# Globals for RAG (Phase 25: Qdrant-only)
+
+class VectorStoreState:
+    """Centralized state management for vector store operations.
+
+    This class encapsulates all global state related to RAG, rebuild, cleanup,
+    and summarization operations, making the code more maintainable and testable.
+
+    Attributes:
+        embeddings: HuggingFace embeddings model
+        reranker: Cross-encoder reranker model
+        sentiment_pipeline: Sentiment analysis pipeline
+        _dirty: Flag indicating vector store needs rebuild
+        _last_write_ts: Last write timestamp
+        _last_rebuild_ts: Last rebuild timestamp
+        _rebuild_lock: Thread lock for rebuild operations
+        _last_cleanup_check: Last cleanup check timestamp
+        _cleanup_lock: Thread lock for cleanup operations
+        _last_summarization_check: Last summarization check timestamp
+        _summarization_lock: Thread lock for summarization operations
+    """
+
+    def __init__(self):
+        # RAG models (Phase 25: Qdrant-only)
+        self.embeddings = None
+        self.reranker = None
+        self.sentiment_pipeline = None  # Phase 19: Sentiment analysis pipeline
+
+        # Idle rebuild controls
+        self._dirty: bool = False
+        self._last_write_ts: float = 0.0
+        self._last_rebuild_ts: float = 0.0
+        self._rebuild_lock = threading.Lock()
+
+        # Phase 21: Idle cleanup controls
+        self._last_cleanup_check: float = 0.0
+        self._cleanup_lock = threading.Lock()
+
+        # Phase 37: Auto-summarization controls
+        self._last_summarization_check: float = 0.0
+        self._summarization_lock = threading.Lock()
+
+    def mark_dirty(self):
+        """Mark vector store as dirty (needs rebuild)."""
+        self._dirty = True
+        self._last_write_ts = time.time()
+
+    @property
+    def is_dirty(self) -> bool:
+        """Check if vector store is dirty."""
+        return self._dirty
+
+    @property
+    def last_write_time(self) -> float:
+        """Get last write timestamp."""
+        return self._last_write_ts
+
+    @property
+    def last_rebuild_time(self) -> float:
+        """Get last rebuild timestamp."""
+        return self._last_rebuild_ts
+
+    def update_rebuild_time(self):
+        """Update rebuild timestamp and clear dirty flag."""
+        self._last_rebuild_ts = time.time()
+        self._dirty = False
+
+    def get_rebuild_lock(self) -> threading.Lock:
+        """Get rebuild lock for thread synchronization."""
+        return self._rebuild_lock
+
+    def get_cleanup_lock(self) -> threading.Lock:
+        """Get cleanup lock for thread synchronization."""
+        return self._cleanup_lock
+
+    def get_summarization_lock(self) -> threading.Lock:
+        """Get summarization lock for thread synchronization."""
+        return self._summarization_lock
+
+    @property
+    def last_cleanup_check_time(self) -> float:
+        """Get last cleanup check timestamp."""
+        return self._last_cleanup_check
+
+    def update_cleanup_check_time(self):
+        """Update cleanup check timestamp."""
+        self._last_cleanup_check = time.time()
+
+    @property
+    def last_summarization_check_time(self) -> float:
+        """Get last summarization check timestamp."""
+        return self._last_summarization_check
+
+    def update_summarization_check_time(self):
+        """Update summarization check timestamp."""
+        self._last_summarization_check = time.time()
+
+
+# Global state instance
+_state = VectorStoreState()
+
+# Legacy global variables (deprecated - use _state instead)
+# Kept for backward compatibility during migration
 embeddings = None
 reranker = None
-sentiment_pipeline = None  # Phase 19: Sentiment analysis pipeline
-
-# Idle rebuild controls
+sentiment_pipeline = None
 _dirty: bool = False
 _last_write_ts: float = 0.0
 _last_rebuild_ts: float = 0.0
 _rebuild_lock = threading.Lock()
-
-# Phase 21: Idle cleanup controls
 _last_cleanup_check: float = 0.0
 _cleanup_lock = threading.Lock()
-
-# Phase 37: Auto-summarization controls
 _last_summarization_check: float = 0.0
 _summarization_lock = threading.Lock()
 
+
 def mark_vector_store_dirty():
+    """Mark vector store as dirty (needs rebuild).
+
+    DEPRECATED: Use _state.mark_dirty() instead.
+    This function is kept for backward compatibility.
+    """
     global _dirty, _last_write_ts
     _dirty = True
     _last_write_ts = time.time()
+    _state.mark_dirty()
 
 def _get_qdrant_adapter(persona: str = None):
     """
     Create a persona-specific Qdrant adapter dynamically.
     Phase 26.5: Centralized adapter creation to avoid code duplication.
-    
+
     Args:
         persona: Persona name (defaults to current persona)
-        
+
     Returns:
         QdrantVectorStoreAdapter instance for the specified persona
     """
     if persona is None:
         persona = get_current_persona()
-    
+
     cfg = load_config()
     url = cfg.get("qdrant_url", "http://localhost:6333")
     api_key = cfg.get("qdrant_api_key")
     prefix = cfg.get("qdrant_collection_prefix", "memory_")
     collection = f"{prefix}{persona}"
-    
+
     client = QdrantClient(url=url, api_key=api_key)
     dim = _get_embedding_dimension(cfg.get("embeddings_model", "cl-nagoya/ruri-v3-30m"))
-    
+
     return QdrantVectorStoreAdapter(client, collection, embeddings, dim)
 
 
@@ -129,11 +230,11 @@ def _build_enriched_content(
 ) -> str:
     """
     Build enriched content for vector embedding by including metadata.
-    
+
     This function adds searchable metadata context to the base content,
     improving semantic search accuracy by making tags, emotions, and other
     contextual information available to the embedding model.
-    
+
     Args:
         content: Base content text
         tags_json: JSON string of tags list
@@ -144,10 +245,10 @@ def _build_enriched_content(
         physical_state: Physical state
         mental_state: Mental state
         relationship_status: Relationship status
-        
+
     Returns:
         Enriched content string with metadata annotations
-        
+
     Example:
         >>> _build_enriched_content(
         ...     "今日はPythonを勉強した。",
@@ -158,7 +259,7 @@ def _build_enriched_content(
         '今日はPythonを勉強した。\\n[Tags: learning, programming]\\n[Emotion: joy (intensity: 0.8)]'
     """
     enriched_content = content
-    
+
     # Add tags to searchable content
     if tags_json:
         try:
@@ -167,22 +268,22 @@ def _build_enriched_content(
                 enriched_content += f"\n[Tags: {', '.join(tags_list)}]"
         except:
             pass
-    
+
     # Add emotional context
     if emotion and emotion != "neutral":
         enriched_content += f"\n[Emotion: {emotion}"
         if emotion_intensity and emotion_intensity > 0.5:
             enriched_content += f" (intensity: {emotion_intensity:.1f})"
         enriched_content += "]"
-    
+
     # Add action context
     if action_tag:
         enriched_content += f"\n[Action: {action_tag}]"
-    
+
     # Add environment context
     if environment and environment != "unknown":
         enriched_content += f"\n[Environment: {environment}]"
-    
+
     # Add physical/mental state context
     states = []
     if physical_state and physical_state != "normal":
@@ -191,11 +292,11 @@ def _build_enriched_content(
         states.append(f"mental:{mental_state}")
     if states:
         enriched_content += f"\n[State: {', '.join(states)}]"
-    
+
     # Add relationship context
     if relationship_status and relationship_status != "normal":
         enriched_content += f"\n[Relationship: {relationship_status}]"
-    
+
     return enriched_content
 
 
@@ -278,30 +379,30 @@ def start_auto_summarization_scheduler():
 def _auto_summarization_scheduler_loop():
     """Background loop that runs scheduled periodic summarization (daily/weekly)"""
     global _last_summarization_check
-    
+
     while True:
         try:
             cfg = _get_auto_summarization_config()
             if not cfg.get("enabled", True):
                 time.sleep(60)
                 continue
-            
+
             now = time.time()
             check_interval = cfg.get("check_interval_seconds", 3600)
-            
+
             # Wait for check interval
             if (now - _last_summarization_check) < check_interval:
                 time.sleep(60)
                 continue
-            
+
             # Run summarization check
             with _summarization_lock:
                 _last_summarization_check = now
                 _run_scheduled_summarization(cfg)
-            
+
             # Sleep after check
             time.sleep(check_interval)
-            
+
         except Exception as e:
             print(f"⚠️ Summarization worker error: {e}")
             time.sleep(60)
@@ -312,12 +413,12 @@ def _run_scheduled_summarization(cfg):
     from zoneinfo import ZoneInfo
     from tools.summarization_tools import summarize_last_day, summarize_last_week
     from src.utils.persona_utils import get_current_persona
-    
+
     try:
         timezone = load_config().get("timezone", "Asia/Tokyo")
         now = datetime.now(ZoneInfo(timezone))
         persona = get_current_persona()
-        
+
         # Check daily summary
         if cfg.get("schedule_daily", True):
             target_hour = cfg.get("daily_hour", 3)
@@ -326,7 +427,7 @@ def _run_scheduled_summarization(cfg):
                 result = summarize_last_day(persona=persona)
                 if result:
                     print(f"✅ Daily summary created: {result}")
-        
+
         # Check weekly summary
         if cfg.get("schedule_weekly", True):
             target_day = cfg.get("weekly_day", 0)  # 0=Monday
@@ -335,7 +436,7 @@ def _run_scheduled_summarization(cfg):
                 result = summarize_last_week(persona=persona)
                 if result:
                     print(f"✅ Weekly summary created: {result}")
-                    
+
     except Exception as e:
         print(f"❌ Scheduled summarization error: {e}")
         import traceback
@@ -344,36 +445,36 @@ def _run_scheduled_summarization(cfg):
 def _cleanup_worker_loop():
     """Background loop that checks for cleanup opportunities during idle time"""
     global _last_cleanup_check, _last_write_ts
-    
+
     while True:
         try:
             cfg = _get_cleanup_config()
             if not cfg.get("enabled", True):
                 time.sleep(60)
                 continue
-            
+
             now = time.time()
             check_interval = cfg.get("check_interval_seconds", 300)
-            
+
             # Wait for check interval
             if (now - _last_cleanup_check) < check_interval:
                 time.sleep(10)
                 continue
-            
+
             # Check if idle (no writes for idle_minutes)
             idle_seconds = cfg.get("idle_minutes", 30) * 60
             if (now - _last_write_ts) < idle_seconds:
                 time.sleep(10)
                 continue
-            
+
             # Run cleanup check
             with _cleanup_lock:
                 _last_cleanup_check = now
                 _detect_and_save_cleanup_suggestions(cfg)
-            
+
             # Sleep after successful check
             time.sleep(check_interval)
-            
+
         except Exception as e:
             print(f"⚠️ Cleanup worker error: {e}")
             time.sleep(60)
@@ -382,22 +483,22 @@ def _detect_and_save_cleanup_suggestions(cfg):
     """Detect duplicates and save suggestions to file. Auto-merge if enabled."""
     try:
         from src.utils.persona_utils import get_current_persona, get_persona_dir
-        
+
         persona = get_current_persona()
         threshold = cfg.get("duplicate_threshold", 0.90)
         max_pairs = cfg.get("max_suggestions_per_run", 20)
         auto_merge_enabled = cfg.get("auto_merge_enabled", False)
         auto_merge_threshold = cfg.get("auto_merge_threshold", 0.95)
-        
+
         print(f"🧹 Running cleanup check for persona: {persona} (threshold: {threshold:.2f})...")
-        
+
         # Detect duplicates
         duplicates = detect_duplicate_memories(threshold, max_pairs)
-        
+
         if not duplicates:
             print(f"✅ No cleanup suggestions (threshold: {threshold:.2f})")
             return
-        
+
         # Auto-merge if enabled
         merged_count = 0
         if auto_merge_enabled:
@@ -407,20 +508,20 @@ def _detect_and_save_cleanup_suggestions(cfg):
                 print(f"✅ Auto-merged {merged_count} duplicate pairs")
                 # Re-detect after merging
                 duplicates = detect_duplicate_memories(threshold, max_pairs)
-        
+
         # Group remaining duplicates into suggestion groups
         groups = _create_cleanup_groups(duplicates, cfg)
-        
+
         # Save to file
         persona_dir = get_persona_dir(persona)
         suggestions_file = os.path.join(persona_dir, "cleanup_suggestions.json")
-        
+
         from datetime import datetime
         from zoneinfo import ZoneInfo
-        
+
         timezone = load_config().get("timezone", "Asia/Tokyo")
         now = datetime.now(ZoneInfo(timezone))
-        
+
         suggestions_data = {
             "generated_at": now.isoformat(),
             "persona": persona,
@@ -434,15 +535,15 @@ def _detect_and_save_cleanup_suggestions(cfg):
                 "low_priority": sum(1 for g in groups if g["priority"] == "low"),
             }
         }
-        
+
         with open(suggestions_file, 'w', encoding='utf-8') as f:
             json.dump(suggestions_data, f, indent=2, ensure_ascii=False)
-        
+
         print(f"💾 Cleanup suggestions saved: {len(groups)} groups found")
         if merged_count > 0:
             print(f"   🔗 Auto-merged: {merged_count} pairs")
         print(f"   📁 {suggestions_file}")
-        
+
     except Exception as e:
         print(f"❌ Failed to generate cleanup suggestions: {e}")
 
@@ -450,11 +551,11 @@ def _create_cleanup_groups(duplicates, cfg):
     """Create cleanup suggestion groups from duplicate pairs"""
     groups = []
     min_report = cfg.get("min_similarity_to_report", 0.85)
-    
+
     for idx, (key1, key2, content1, content2, similarity) in enumerate(duplicates, 1):
         if similarity < min_report:
             continue
-        
+
         # Determine priority
         if similarity >= 0.99:
             priority = "high"
@@ -462,10 +563,10 @@ def _create_cleanup_groups(duplicates, cfg):
             priority = "medium"
         else:
             priority = "low"
-        
+
         # Create preview (first 100 chars)
         preview = content1[:100] + "..." if len(content1) > 100 else content1
-        
+
         group = {
             "group_id": idx,
             "priority": priority,
@@ -474,9 +575,9 @@ def _create_cleanup_groups(duplicates, cfg):
             "preview": preview,
             "recommended_action": "merge" if similarity >= 0.95 else "review"
         }
-        
+
         groups.append(group)
-    
+
     return groups
 
 def _count_total_memories():
@@ -484,7 +585,7 @@ def _count_total_memories():
     try:
         from src.utils.persona_utils import get_db_path
         import sqlite3
-        
+
         with sqlite3.connect(get_db_path()) as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT COUNT(*) FROM memories")
@@ -495,65 +596,65 @@ def _count_total_memories():
 
 def _auto_merge_duplicates(duplicates: list, threshold: float) -> int:
     """Auto-merge duplicate pairs above threshold.
-    
+
     Args:
         duplicates: List of tuples [(key1, key2, content1, content2, similarity), ...]
         threshold: Minimum similarity to auto-merge (0.0-1.0)
-        
+
     Returns:
         Number of pairs merged
     """
     from core.memory_db import load_memory_from_db, save_memory_to_db, delete_memory_from_db, generate_auto_key
     from datetime import datetime
-    
+
     merged_count = 0
-    
+
     for key1, key2, content1, content2, similarity in duplicates:
         if similarity < threshold:
             continue
-        
+
         try:
             # Load both memories
             memory1 = load_memory_from_db(key1)
             memory2 = load_memory_from_db(key2)
-            
+
             if not memory1 or not memory2:
                 continue
-            
+
             # Merge contents (concatenate with separator)
             merged_content = f"{content1}\n\n{content2}"
-            
+
             # Merge tags
             tags1 = set(memory1.get("tags", []))
             tags2 = set(memory2.get("tags", []))
             merged_tags = list(tags1.union(tags2))
-            
+
             # Use earliest created_at
             created1 = datetime.fromisoformat(memory1["created_at"])
             created2 = datetime.fromisoformat(memory2["created_at"])
             earliest = min(created1, created2)
-            
+
             # Use higher importance
             importance1 = memory1.get("importance", 0.5)
             importance2 = memory2.get("importance", 0.5)
             merged_importance = max(importance1, importance2)
-            
+
             # Use stronger emotion
             emotion1 = memory1.get("emotion", "neutral")
             emotion2 = memory2.get("emotion", "neutral")
             intensity1 = memory1.get("emotion_intensity", 0.5)
             intensity2 = memory2.get("emotion_intensity", 0.5)
-            
+
             if intensity1 >= intensity2:
                 merged_emotion = emotion1
                 merged_intensity = intensity1
             else:
                 merged_emotion = emotion2
                 merged_intensity = intensity2
-            
+
             # Generate new key
             new_key = generate_auto_key()
-            
+
             # Save merged memory
             save_memory_to_db(
                 key=new_key,
@@ -570,18 +671,18 @@ def _auto_merge_duplicates(duplicates: list, threshold: float) -> int:
                 related_keys=None,
                 summary_ref=None
             )
-            
+
             # Delete originals
             delete_memory_from_db(key1)
             delete_memory_from_db(key2)
-            
+
             merged_count += 1
             print(f"   ✅ Merged {key1} + {key2} → {new_key} (similarity: {similarity:.3f})")
-            
+
         except Exception as e:
             print(f"   ⚠️  Failed to merge {key1} + {key2}: {e}")
             continue
-    
+
     return merged_count
 
 def _get_embedding_dimension(model_name: str) -> int:
@@ -606,11 +707,11 @@ def initialize_rag_sync():
     # Disable torch compile to avoid ModernBERT issues
     import os
     os.environ["TORCH_COMPILE_DISABLE"] = "1"
-    
+
     # Force CPU mode if specified (helps avoid CUDA auto-selection)
     if rag_device == "cpu":
         os.environ["CUDA_VISIBLE_DEVICES"] = ""
-    
+
     # Suppress transformers warnings
     import warnings
     warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -644,7 +745,7 @@ def initialize_rag_sync():
             reranker = None
     else:
         reranker = None
-    
+
     # Phase 19: Initialize sentiment analysis with unified device
     initialize_sentiment_analysis(device=rag_device)
 
@@ -661,22 +762,22 @@ def _fetch_memories_from_db(cursor, has_importance: bool, has_equipped_items: bo
     """Fetch all memories with appropriate schema version."""
     if has_importance and has_equipped_items:
         cursor.execute("""
-            SELECT key, content, created_at, updated_at, tags, importance, emotion, 
-                   emotion_intensity, physical_state, mental_state, environment, 
-                   relationship_status, action_tag, related_keys, summary_ref, equipped_items 
+            SELECT key, content, created_at, updated_at, tags, importance, emotion,
+                   emotion_intensity, physical_state, mental_state, environment,
+                   relationship_status, action_tag, related_keys, summary_ref, equipped_items
             FROM memories
         """)
     elif has_importance:
         cursor.execute("""
-            SELECT key, content, created_at, updated_at, tags, importance, emotion, 
-                   emotion_intensity, physical_state, mental_state, environment, 
-                   relationship_status, action_tag, related_keys, summary_ref 
+            SELECT key, content, created_at, updated_at, tags, importance, emotion,
+                   emotion_intensity, physical_state, mental_state, environment,
+                   relationship_status, action_tag, related_keys, summary_ref
             FROM memories
         """)
     else:
         # Old schema without importance
         cursor.execute('SELECT key, content, created_at, updated_at, tags FROM memories')
-    
+
     return cursor.fetchall()
 
 
@@ -699,7 +800,7 @@ def _parse_memory_row(row: tuple, has_importance: bool, has_equipped_items: bool
         emotion_intensity = 0.5
         physical_state = mental_state = environment = relationship_status = action_tag = None
         related_keys_json = summary_ref = equipped_items_json = None
-    
+
     return {
         "key": key, "content": content, "created_at": created_at, "updated_at": updated_at,
         "tags_json": tags_json, "importance": importance, "emotion": emotion,
@@ -714,7 +815,7 @@ def _parse_memory_row(row: tuple, has_importance: bool, has_equipped_items: bool
 def _build_metadata_dict(data: dict) -> dict:
     """Build metadata dict from parsed memory data."""
     meta = {"key": data["key"]}
-    
+
     # Add optional fields if present
     optional_fields = [
         "created_at", "updated_at", "tags_json", "importance", "emotion",
@@ -722,14 +823,14 @@ def _build_metadata_dict(data: dict) -> dict:
         "relationship_status", "action_tag", "related_keys_json", "summary_ref",
         "equipped_items_json"
     ]
-    
+
     for field in optional_fields:
         value = data.get(field)
         if value is not None:
             # Map tags_json to tags, related_keys_json to related_keys, etc.
             field_name = field.replace("_json", "")
             meta[field_name] = value
-    
+
     return meta
 
 
@@ -737,11 +838,11 @@ def _build_documents_from_rows(rows: list, has_importance: bool, has_equipped_it
     """Convert database rows to Document objects with enriched content."""
     docs = []
     ids = []
-    
+
     for row in rows:
         data = _parse_memory_row(row, has_importance, has_equipped_items)
         meta = _build_metadata_dict(data)
-        
+
         # Build enriched content for vector embedding
         enriched_content = _build_enriched_content(
             content=data["content"],
@@ -754,10 +855,10 @@ def _build_documents_from_rows(rows: list, has_importance: bool, has_equipped_it
             mental_state=data["mental_state"],
             relationship_status=data["relationship_status"]
         )
-        
+
         docs.append(Document(page_content=enriched_content, metadata=meta))
         ids.append(data["key"])
-    
+
     return docs, ids
 
 
@@ -765,14 +866,14 @@ def _batch_upload_to_qdrant(adapter, docs: list, ids: list, collection: str):
     """Upload documents to Qdrant in batches with progress bar."""
     batch_size = 50
     total_docs = len(docs)
-    
+
     with tqdm(total=total_docs, desc="⚙️  Building Qdrant Index", unit="memory", ncols=80) as pbar:
         for i in range(0, total_docs, batch_size):
             batch_docs = docs[i:i+batch_size]
             batch_ids = ids[i:i+batch_size]
             adapter.add_documents(batch_docs, ids=batch_ids)
             pbar.update(len(batch_docs))
-    
+
     print(f"✅ Rebuilt vector store: {total_docs} memories indexed in collection '{collection}'")
 
 
@@ -783,38 +884,38 @@ def rebuild_vector_store():
     """
     if not embeddings:
         return
-    
+
     try:
         # Get persona-specific configuration
         cfg = load_config()
         from src.utils.persona_utils import get_current_persona
         persona = get_current_persona()
-        
+
         url = cfg.get("qdrant_url", "http://localhost:6333")
         api_key = cfg.get("qdrant_api_key")
         prefix = cfg.get("qdrant_collection_prefix", "memory_")
         collection = f"{prefix}{persona}"
-        
+
         # Create Qdrant adapter
         client = QdrantClient(url=url, api_key=api_key)
         dim = _get_embedding_dimension(cfg.get("embeddings_model", "cl-nagoya/ruri-v3-30m"))
         adapter = QdrantVectorStoreAdapter(client, collection, embeddings, dim)
-        
+
         # Fetch all memories from SQLite
         with sqlite3.connect(get_db_path()) as conn:
             cur = conn.cursor()
             has_importance, has_equipped_items = _check_schema_compatibility(cur)
             rows = _fetch_memories_from_db(cur, has_importance, has_equipped_items)
-        
+
         if not rows:
             return
-        
+
         # Build documents with enriched content
         docs, ids = _build_documents_from_rows(rows, has_importance, has_equipped_items)
-        
+
         # Batch upload to Qdrant
         _batch_upload_to_qdrant(adapter, docs, ids, collection)
-        
+
     except Exception as e:
         print(f"❌ Failed to rebuild vector store: {e}")
         import traceback
@@ -829,14 +930,14 @@ def _fetch_memory_metadata(key: str) -> dict:
         "action_tag": None, "related_keys_json": None, "summary_ref": None,
         "equipped_items_json": None
     }
-    
+
     try:
         with sqlite3.connect(get_db_path()) as conn:
             cur = conn.cursor()
             cur.execute("""
-                SELECT created_at, updated_at, tags, importance, emotion, emotion_intensity, 
-                       physical_state, mental_state, environment, relationship_status, 
-                       action_tag, related_keys, summary_ref, equipped_items 
+                SELECT created_at, updated_at, tags, importance, emotion, emotion_intensity,
+                       physical_state, mental_state, environment, relationship_status,
+                       action_tag, related_keys, summary_ref, equipped_items
                 FROM memories WHERE key = ?
             """, (key,))
             row = cur.fetchone()
@@ -848,7 +949,7 @@ def _fetch_memory_metadata(key: str) -> dict:
                 metadata["summary_ref"], metadata["equipped_items_json"] = row
     except Exception:
         pass
-    
+
     return metadata
 
 
@@ -866,7 +967,7 @@ def _add_datetime_context(meta: dict, timestamp: str, prefix: str):
 def _build_full_metadata(key: str, db_metadata: dict) -> dict:
     """Build complete metadata dict with datetime context."""
     meta = {"key": key}
-    
+
     # Add all non-None metadata fields
     field_mapping = {
         "created_at": "created_at", "updated_at": "updated_at", "tags_json": "tags",
@@ -876,18 +977,18 @@ def _build_full_metadata(key: str, db_metadata: dict) -> dict:
         "action_tag": "action_tag", "related_keys_json": "related_keys",
         "summary_ref": "summary_ref", "equipped_items_json": "equipped_items"
     }
-    
+
     for src_key, dest_key in field_mapping.items():
         value = db_metadata.get(src_key)
         if value is not None:
             meta[dest_key] = value
-            
+
             # Add datetime context for timestamp fields
             if src_key == "created_at":
                 _add_datetime_context(meta, value, "created")
             elif src_key == "updated_at":
                 _add_datetime_context(meta, value, "updated")
-    
+
     return meta
 
 
@@ -900,14 +1001,14 @@ def add_memory_to_vector_store(key: str, content: str):
     if not embeddings:
         mark_vector_store_dirty()
         return
-    
+
     try:
         # Fetch metadata from database
         db_metadata = _fetch_memory_metadata(key)
-        
+
         # Build complete metadata with datetime context
         meta = _build_full_metadata(key, db_metadata)
-        
+
         # Build enriched content for vector embedding
         enriched_content = _build_enriched_content(
             content=content,
@@ -920,21 +1021,21 @@ def add_memory_to_vector_store(key: str, content: str):
             mental_state=db_metadata["mental_state"],
             relationship_status=db_metadata["relationship_status"]
         )
-        
+
         # Create document with enriched content and metadata
         doc = Document(page_content=enriched_content, metadata=meta)
-        
+
         # Phase 26.5: Use centralized adapter creation
         persona = get_current_persona()
         adapter = _get_qdrant_adapter(persona)
-        
+
         # Add to persona-specific Qdrant collection
         cfg = load_config()
         prefix = cfg.get("qdrant_collection_prefix", "memory_")
         collection = f"{prefix}{persona}"
         adapter.add_documents([doc], ids=[key])
         print(f"✅ Added memory {key} to Qdrant collection {collection}")
-            
+
     except Exception as e:
         print(f"⚠️  Failed to add memory incrementally: {e}, falling back to dirty flag")
         import traceback
@@ -950,26 +1051,26 @@ def update_memory_in_vector_store(key: str, content: str):
     if not embeddings:
         mark_vector_store_dirty()
         return
-    
+
     try:
         # Phase 26.5: Use centralized adapter creation
         persona = get_current_persona()
         adapter = _get_qdrant_adapter(persona)
-        
+
         # Get collection name
         cfg = load_config()
         prefix = cfg.get("qdrant_collection_prefix", "memory_")
         collection = f"{prefix}{persona}"
-        
+
         # Delete old version
         adapter.delete([key])
-        
+
         # Fetch metadata from database (keep original created_at)
         db_metadata = _fetch_memory_metadata(key)
-        
+
         # Build complete metadata with datetime context
         meta = _build_full_metadata(key, db_metadata)
-        
+
         # Build enriched content for vector embedding
         enriched_content = _build_enriched_content(
             content=content,
@@ -982,11 +1083,11 @@ def update_memory_in_vector_store(key: str, content: str):
             mental_state=db_metadata["mental_state"],
             relationship_status=db_metadata["relationship_status"]
         )
-        
+
         # Add new version with enriched content
         doc = Document(page_content=enriched_content, metadata=meta)
         adapter.add_documents([doc], ids=[key])
-        
+
         print(f"✅ Updated memory {key} in Qdrant collection {collection}")
     except Exception as e:
         print(f"⚠️  Failed to update memory incrementally: {e}, falling back to dirty flag")
@@ -1003,20 +1104,20 @@ def delete_memory_from_vector_store(key: str):
     if not embeddings:
         mark_vector_store_dirty()
         return
-    
+
     try:
         # Phase 26.5: Use centralized adapter creation
         persona = get_current_persona()
         adapter = _get_qdrant_adapter(persona)
-        
+
         # Get collection name
         cfg = load_config()
         prefix = cfg.get("qdrant_collection_prefix", "memory_")
         collection = f"{prefix}{persona}"
-        
+
         # Delete from Qdrant
         adapter.delete([key])
-        
+
         print(f"✅ Deleted memory {key} from Qdrant collection {collection}")
     except Exception as e:
         print(f"⚠️  Failed to delete memory incrementally: {e}, falling back to dirty flag")
@@ -1030,16 +1131,16 @@ def get_vector_count() -> int:
         cfg = load_config()
         from src.utils.persona_utils import get_current_persona
         persona = get_current_persona()
-        
+
         url = cfg.get("qdrant_url", "http://localhost:6333")
         api_key = cfg.get("qdrant_api_key")
         prefix = cfg.get("qdrant_collection_prefix", "memory_")
         collection = f"{prefix}{persona}"
-        
+
         client = QdrantClient(url=url, api_key=api_key)
         dim = _get_embedding_dimension(cfg.get("embeddings_model", "cl-nagoya/ruri-v3-30m"))
         adapter = QdrantVectorStoreAdapter(client, collection, embeddings, dim)
-        
+
         return adapter.index.ntotal
     except Exception:
         return 0
@@ -1048,7 +1149,7 @@ def get_vector_metrics() -> dict:
     """
     Return detailed metrics for monitoring and debugging.
     Phase 25: Qdrant-only.
-    
+
     Returns:
         dict with keys:
         - embeddings_model: str (model name or None)
@@ -1063,10 +1164,10 @@ def get_vector_metrics() -> dict:
     """
     cfg = load_config()
     rebuild_cfg = _get_rebuild_config()
-    
+
     embeddings_model_name = cfg.get("embeddings_model", "Unknown") if embeddings else None
     reranker_model_name = cfg.get("reranker_model", "Unknown") if reranker else None
-    
+
     return {
         "embeddings_model": embeddings_model_name,
         "embeddings_loaded": embeddings is not None,
@@ -1083,11 +1184,11 @@ def get_vector_metrics() -> dict:
 def find_similar_memories(query_key: str, top_k: int = 5) -> list:
     """
     Find memories similar to the specified memory using embeddings similarity.
-    
+
     Args:
         query_key: The key of the memory to find similar memories for
         top_k: Number of similar memories to return (default: 5)
-        
+
     Returns:
         List of tuples: [(key, content, score), ...]
         Empty list if query_key not found or vector store not available
@@ -1096,23 +1197,23 @@ def find_similar_memories(query_key: str, top_k: int = 5) -> list:
         # Phase 26.5: Use dynamic adapter instead of global vector_store
         persona = get_current_persona()
         adapter = _get_qdrant_adapter(persona)
-        
+
         # Get the content of the query memory from database
         db_path = get_db_path()
         with sqlite3.connect(db_path) as conn:
             cur = conn.cursor()
             cur.execute('SELECT content FROM memories WHERE key = ?', (query_key,))
             row = cur.fetchone()
-        
+
         if not row:
             return []
-        
+
         query_content = row[0]
 
         # Search similar documents
         # top_k + 1 because the query itself will be in results
         results = adapter.similarity_search_with_score(query_content, k=top_k + 1)
-        
+
         # Filter out the query memory itself and format results
         similar = []
         for doc, score in results:
@@ -1121,7 +1222,7 @@ def find_similar_memories(query_key: str, top_k: int = 5) -> list:
                 # Phase 31.2: score is now similarity directly (higher = more similar)
                 similarity = float(score)
                 similar.append((key, doc.page_content, similarity))
-        
+
         # Return top_k results (excluding query itself)
         return similar[:top_k]
     except Exception as e:
@@ -1131,12 +1232,12 @@ def find_similar_memories(query_key: str, top_k: int = 5) -> list:
 def detect_duplicate_memories(threshold: float = 0.85, max_pairs: int = 50) -> list:
     """
     Detect duplicate or highly similar memory pairs using embeddings similarity.
-    
+
     Args:
         threshold: Similarity threshold (0.0-1.0). Pairs above this are considered duplicates.
                   Default 0.85 means 85% similar or more.
         max_pairs: Maximum number of duplicate pairs to return (default: 50)
-        
+
     Returns:
         List of tuples: [(key1, key2, content1, content2, similarity), ...]
         Sorted by similarity (highest first)
@@ -1145,48 +1246,48 @@ def detect_duplicate_memories(threshold: float = 0.85, max_pairs: int = 50) -> l
         # Phase 26.5: Use dynamic adapter instead of global vector_store
         persona = get_current_persona()
         adapter = _get_qdrant_adapter(persona)
-        
+
         # Get all memories from database
         db_path = get_db_path()
         with sqlite3.connect(db_path) as conn:
             cur = conn.cursor()
             cur.execute('SELECT key, content FROM memories ORDER BY created_at')
             all_memories = cur.fetchall()
-        
+
         if len(all_memories) < 2:
             return []
-        
+
         duplicate_pairs = []
-        
+
         # Compare each memory with all subsequent memories
         with tqdm(total=len(all_memories), desc="🔍 Detecting Duplicates", unit="memory", ncols=80) as pbar:
             for i in range(len(all_memories)):
                 key1, content1 = all_memories[i]
-                
+
                 # Search for similar memories
                 results = adapter.similarity_search_with_score(content1, k=20)
-                
+
                 for doc, score in results:
                     key2 = doc.metadata.get("key")
                     content2 = doc.page_content
-                    
+
                     # Skip self-comparison and already processed pairs
                     if key1 >= key2:  # >= ensures we don't process the same pair twice
                         continue
-                    
+
                     # Phase 31.2: score is now similarity directly (higher = more similar)
                     similarity = float(score)
-                    
+
                     # Check if above threshold
                     if similarity >= threshold:
                         duplicate_pairs.append((key1, key2, content1, content2, similarity))
-                
+
                 pbar.update(1)
-        
+
         # Sort by similarity (highest first) and limit results
         duplicate_pairs.sort(key=lambda x: x[4], reverse=True)
         return duplicate_pairs[:max_pairs]
-        
+
     except Exception as e:
         print(f"Error detecting duplicates: {e}")
         return []
@@ -1199,18 +1300,18 @@ def detect_duplicate_memories(threshold: float = 0.85, max_pairs: int = 50) -> l
 def initialize_sentiment_analysis(device: str = "cpu"):
     """
     Initialize sentiment analysis pipeline.
-    
+
     Args:
         device: Device string ("cpu", "cuda", "cuda:0", etc.)
     """
     global sentiment_pipeline
-    
+
     cfg = load_config()
     sentiment_model = cfg.get("sentiment_model", "lxyuan/distilbert-base-multilingual-cased-sentiments-student")
-    
+
     # Convert device string to transformers pipeline device format
     device_int = _device_str_to_int(device)
-    
+
     try:
         from transformers import pipeline
         with tqdm(total=100, desc="📥 Sentiment Model", unit="%", ncols=80) as pbar:
@@ -1231,10 +1332,10 @@ def initialize_sentiment_analysis(device: str = "cpu"):
 def analyze_sentiment_text(content: str) -> dict:
     """
     Analyze sentiment of text content.
-    
+
     Args:
         content: Text to analyze
-        
+
     Returns:
         dict with keys:
         - emotion: Mapped emotion type (joy/sadness/neutral)
@@ -1243,17 +1344,17 @@ def analyze_sentiment_text(content: str) -> dict:
     """
     if not sentiment_pipeline:
         return {"emotion": "neutral", "score": 0.0, "raw_label": "unknown", "error": "Pipeline not initialized"}
-    
+
     try:
         # Get prediction
         result = sentiment_pipeline(content[:512])  # Limit to 512 chars for performance
         if not result or len(result) == 0:
             return {"emotion": "neutral", "score": 0.0, "raw_label": "none"}
-        
+
         prediction = result[0]
         raw_label = prediction.get("label", "neutral").lower()
         score = prediction.get("score", 0.0)
-        
+
         # Map to our emotion types
         emotion_map = {
             "positive": "joy",
@@ -1264,13 +1365,13 @@ def analyze_sentiment_text(content: str) -> dict:
             "neg": "sadness",
         }
         emotion = emotion_map.get(raw_label, "neutral")
-        
+
         return {
             "emotion": emotion,
             "score": float(score),
             "raw_label": raw_label
         }
-        
+
     except Exception as e:
         print(f"Error analyzing sentiment: {e}")
         return {"emotion": "neutral", "score": 0.0, "raw_label": "error", "error": str(e)}
