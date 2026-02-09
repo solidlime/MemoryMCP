@@ -5,7 +5,7 @@
     "retry_attempts": 3
   },
   "persona": {
-    "default": "nilou",
+    "default": "default",
     "description": "ペルソナ名はAuthorizationヘッダーで指定。"
   },
   "settings": {
