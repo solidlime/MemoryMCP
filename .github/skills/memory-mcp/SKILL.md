@@ -52,34 +52,43 @@ Unified item operations:
 
 ## Quick Start
 
-### Using the Python CLI
-
 ```bash
+# Script path: {skill_root}/scripts/memory_mcp_client.py
 # Get context (always run at session start)
-python scripts/memory_mcp_client.py get_context
+python <skill_root>/scripts/memory_mcp_client.py get_context
 
 # Create a memory
-python scripts/memory_mcp_client.py memory create \
+python <skill_root>/scripts/memory_mcp_client.py memory create \
   --content "User likes strawberries" \
   --importance 0.8 \
   --emotion_type joy
 
 # Search memories
-python scripts/memory_mcp_client.py memory search \
+python <skill_root>/scripts/memory_mcp_client.py memory search \
   --query "strawberries" \
   --mode semantic \
   --top_k 5
 
 # Add and equip an item
-python scripts/memory_mcp_client.py item add \
+python <skill_root>/scripts/memory_mcp_client.py item add \
   --name "Red Dress" \
   --category clothing \
   --description "Elegant red evening dress"
 
-python scripts/memory_mcp_client.py item equip --name "Red Dress"
+python <skill_root>/scripts/memory_mcp_client.py item equip --slot top --name "Red Dress"
+
+# Equip multiple items at once
+python <skill_root>/scripts/memory_mcp_client.py item equip \
+  --equipment '{"top": "White Dress", "foot": "Sandals"}'
+
+# Unequip a single slot
+python <skill_root>/scripts/memory_mcp_client.py item unequip --slot top
+
+# Unequip multiple slots
+python <skill_root>/scripts/memory_mcp_client.py item unequip --slots top,foot
 
 # Get item statistics
-python scripts/memory_mcp_client.py item stats
+python <skill_root>/scripts/memory_mcp_client.py item stats
 ```
 
 ### Common Options
@@ -104,6 +113,9 @@ Configuration is stored in `references/config.json`:
     "default": "default",
     "description": "ペルソナ名はAuthorizationヘッダーで指定"
   },
+  "paths": {
+    "skill_root": "C:/Users/Owner/.claude/skills/memory-mcp/"
+  },
   "settings": {
     "auto_get_context_on_session_start": true,
     "log_operations": true
@@ -114,6 +126,7 @@ Configuration is stored in `references/config.json`:
 **Configuration keys:**
 - `mcp_server.url`: Memory MCP server endpoint
 - `persona.default`: Default persona name
+- `paths.skill_root`: Absolute path to skill root directory (client script: `{skill_root}/scripts/memory_mcp_client.py`)
 - `settings.auto_get_context_on_session_start`: Auto-call on session start
 
 ## Memory Operations
@@ -121,7 +134,7 @@ Configuration is stored in `references/config.json`:
 ### Create Memory
 
 ```bash
-python scripts/memory_mcp_client.py memory create \
+python <skill_root>/scripts/memory_mcp_client.py memory create \
   --content "Completed project milestone" \
   --importance 0.9 \
   --emotion_type accomplishment \
@@ -133,7 +146,7 @@ python scripts/memory_mcp_client.py memory create \
 ### Update Memory
 
 ```bash
-python scripts/memory_mcp_client.py memory update \
+python <skill_root>/scripts/memory_mcp_client.py memory update \
   --key "memory_20260209_123000" \
   --content "Updated content" \
   --importance 0.95
@@ -143,27 +156,27 @@ python scripts/memory_mcp_client.py memory update \
 
 ```bash
 # Semantic search (default)
-python scripts/memory_mcp_client.py memory search \
+python <skill_root>/scripts/memory_mcp_client.py memory search \
   --query "happy moments" \
   --mode semantic
 
 # Keyword search
-python scripts/memory_mcp_client.py memory search \
+python <skill_root>/scripts/memory_mcp_client.py memory search \
   --query "Python" \
   --mode keyword
 
 # Hybrid search (semantic 70% + keyword 30%)
-python scripts/memory_mcp_client.py memory search \
+python <skill_root>/scripts/memory_mcp_client.py memory search \
   --query "project" \
   --mode hybrid
 
 # Time-filtered search
-python scripts/memory_mcp_client.py memory search \
+python <skill_root>/scripts/memory_mcp_client.py memory search \
   --query "achievements" \
   --date_range "昨日"
 
 # Smart search (auto query expansion)
-python scripts/memory_mcp_client.py memory search \
+python <skill_root>/scripts/memory_mcp_client.py memory search \
   --query "いつものあれ" \
   --mode smart
 ```
@@ -172,24 +185,24 @@ python scripts/memory_mcp_client.py memory search \
 
 ```bash
 # Detect recurring patterns at current time
-python scripts/memory_mcp_client.py memory check_routines
+python <skill_root>/scripts/memory_mcp_client.py memory check_routines
 ```
 
 ### Manage Anniversaries
 
 ```bash
 # List all anniversaries
-python scripts/memory_mcp_client.py memory anniversary
+python <skill_root>/scripts/memory_mcp_client.py memory anniversary
 
 # Add anniversary
-python scripts/memory_mcp_client.py memory create \
+python <skill_root>/scripts/memory_mcp_client.py memory create \
   --content "First movie together" \
   --emotion_type joy \
   --importance 0.9 \
   --context_tags "first_time,anniversary"
 
 # Delete anniversary
-python scripts/memory_mcp_client.py memory anniversary \
+python <skill_root>/scripts/memory_mcp_client.py memory anniversary \
   --delete_key "memory_20260101_000000"
 ```
 
@@ -198,7 +211,7 @@ python scripts/memory_mcp_client.py memory anniversary \
 ### Add Items
 
 ```bash
-python scripts/memory_mcp_client.py item add \
+python <skill_root>/scripts/memory_mcp_client.py item add \
   --name "Blue Hat" \
   --category accessory \
   --description "Stylish blue hat" \
@@ -208,34 +221,41 @@ python scripts/memory_mcp_client.py item add \
 ### Equip/Unequip
 
 ```bash
-# Equip item
-python scripts/memory_mcp_client.py item equip --name "Blue Hat"
+# Equip single item to a slot
+python <skill_root>/scripts/memory_mcp_client.py item equip --slot accessory --name "Blue Hat"
 
-# Unequip item
-python scripts/memory_mcp_client.py item unequip --name "Blue Hat"
+# Equip multiple items at once
+python <skill_root>/scripts/memory_mcp_client.py item equip \
+  --equipment '{"top": "White Dress", "accessory": "Blue Hat", "foot": "Sandals"}'
+
+# Unequip a single slot
+python <skill_root>/scripts/memory_mcp_client.py item unequip --slot accessory
+
+# Unequip multiple slots
+python <skill_root>/scripts/memory_mcp_client.py item unequip --slots top,foot,accessory
 ```
 
 ### Search Items
 
 ```bash
 # Search all items
-python scripts/memory_mcp_client.py item search
+python <skill_root>/scripts/memory_mcp_client.py item search
 
 # Search by category
-python scripts/memory_mcp_client.py item search --category clothing
+python <skill_root>/scripts/memory_mcp_client.py item search --category clothing
 
 # Search equipped items only
-python scripts/memory_mcp_client.py item search --equipped True
+python <skill_root>/scripts/memory_mcp_client.py item search --equipped True
 ```
 
 ### Item History & Memories
 
 ```bash
 # Get equipment history
-python scripts/memory_mcp_client.py item history
+python <skill_root>/scripts/memory_mcp_client.py item history
 
 # Get memories associated with an item
-python scripts/memory_mcp_client.py item memories --name "Red Dress"
+python <skill_root>/scripts/memory_mcp_client.py item memories --name "Red Dress"
 ```
 
 ## Workflow

@@ -8,6 +8,9 @@
     "default": "nilou",
     "description": "ペルソナ名を指定。"
   },
+  "paths": {
+    "skill_root": "C:\\Users\\Owner\\.claude\\skills\\memory-mcp\\"
+  },
   "settings": {
     "auto_get_context_on_session_start": true,
     "log_operations": true

@@ -25,8 +25,14 @@ Memory MCP Client - Unified CLI for all MCP tools
   # アイテム追加
   python memory_mcp_client.py item add --name "赤いドレス" --category clothing
 
-  # アイテム装備
-  python memory_mcp_client.py item equip --name "赤いドレス"
+  # アイテム装備（スロット指定）
+  python memory_mcp_client.py item equip --slot top --name "赤いドレス"
+
+  # 複数アイテム同時装備
+  python memory_mcp_client.py item equip --equipment '{"top": "赤いドレス", "foot": "サンダル"}'
+
+  # アイテム装備解除
+  python memory_mcp_client.py item unequip --slot top
 
 共通オプション:
   --persona     ペルソナ名（デフォルト: config.jsonから読み込み）
@@ -224,11 +230,44 @@ def cmd_item(args: argparse.Namespace, config: Dict[str, Any]) -> int:
         if args.tags:
             params["tags"] = args.tags.split(",")
 
-    elif args.operation in ["remove", "equip", "unequip"]:
+    elif args.operation == "remove":
         if not args.name:
             print("❌ エラー: --name は必須です", file=sys.stderr)
             return 1
         params["name"] = args.name
+
+    elif args.operation == "equip":
+        # equipmentパラメータを構築（スロット→アイテム名の辞書）
+        if args.equipment:
+            # JSON形式の装備辞書が指定された場合
+            try:
+                params["equipment"] = json.loads(args.equipment)
+            except json.JSONDecodeError:
+                print("❌ エラー: --equipment は有効なJSON形式である必要があります", file=sys.stderr)
+                print('例: --equipment \'{"top": "白いドレス", "foot": "サンダル"}\'', file=sys.stderr)
+                return 1
+        elif args.slot and args.name:
+            # スロットとアイテム名の組み合わせが指定された場合
+            params["equipment"] = {args.slot: args.name}
+        else:
+            print("❌ エラー: --slot と --name、または --equipment が必要です", file=sys.stderr)
+            print("例1: --slot top --name '白いドレス'", file=sys.stderr)
+            print('例2: --equipment \'{"top": "白いドレス", "foot": "サンダル"}\'', file=sys.stderr)
+            return 1
+
+    elif args.operation == "unequip":
+        # slotsパラメータを構築（スロット名のリスト）
+        if args.slots:
+            # カンマ区切りのスロット名リスト
+            params["slots"] = args.slots.split(",")
+        elif args.slot:
+            # 単一スロット名
+            params["slots"] = args.slot
+        else:
+            print("❌ エラー: --slot または --slots が必要です", file=sys.stderr)
+            print("例1: --slot top", file=sys.stderr)
+            print("例2: --slots top,foot,hand", file=sys.stderr)
+            return 1
 
     elif args.operation == "update":
         if not args.name:
@@ -336,6 +375,11 @@ def main():
     parser_item.add_argument("--tags", help="タグ（カンマ区切り）")
     parser_item.add_argument("--query", help="検索クエリ")
     parser_item.add_argument("--equipped", type=bool, help="装備中のみ検索（True/False）")
+    # equip operation用
+    parser_item.add_argument("--slot", help="装備スロット（equip/unequip用、例: top, foot, hand）")
+    parser_item.add_argument("--equipment", help='装備辞書JSON（equip用、例: \'{"top": "白いドレス", "foot": "サンダル"}\')")
+    # unequip operation用
+    parser_item.add_argument("--slots", help="装備解除するスロット（カンマ区切り、unequip用、例: top,foot）")
 
     args = parser.parse_args()
 
