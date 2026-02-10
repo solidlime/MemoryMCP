@@ -26,8 +26,7 @@ Manage active promises or commitments.
 ### Set Promise
 
 ```bash
-python scripts/memory_mcp_client.py memory promise \
-  --content "週末に買い物に行く約束"
+mcp_memory promise "週末に買い物に行く約束"
 ```
 
 **Parameters:**
@@ -36,8 +35,7 @@ python scripts/memory_mcp_client.py memory promise \
 ### Clear Promise
 
 ```bash
-python scripts/memory_mcp_client.py memory promise \
-  --content ""
+mcp_memory promise ""
 ```
 
 ---
@@ -49,15 +47,13 @@ Set or clear the current goal.
 ### Set Goal
 
 ```bash
-python scripts/memory_mcp_client.py memory goal \
-  --content "プロジェクトを今週中に完成させる"
+mcp_memory goal "プロジェクトを今週中に完成させる"
 ```
 
 ### Clear Goal
 
 ```bash
-python scripts/memory_mcp_client.py memory goal \
-  --content ""
+mcp_memory goal ""
 ```
 
 ---
@@ -69,8 +65,7 @@ Add items to the favorites list.
 ### Add Favorite
 
 ```bash
-python scripts/memory_mcp_client.py memory favorite \
-  --content "strawberry_cake"
+mcp_memory favorite "strawberry_cake"
 ```
 
 **Parameters:**
@@ -89,9 +84,8 @@ Update persona preferences.
 ### Set Preference
 
 ```bash
-python scripts/memory_mcp_client.py memory preference \
-  --content "music" \
-  --persona_info '{"value": "classical, jazz"}'
+mcp_memory preference "music" \
+  --persona-info '{"value": "classical, jazz"}'
 ```
 
 **Parameters:**
@@ -113,9 +107,8 @@ Manage important dates and anniversaries.
 ### Add Anniversary
 
 ```bash
-python scripts/memory_mcp_client.py memory anniversary \
-  --content "結婚記念日" \
-  --persona_info '{"date": "2025-11-10"}'
+mcp_memory anniversary "結婚記念日" \
+  --persona-info '{"date": "2025-11-10"}'
 ```
 
 **Parameters:**
@@ -125,14 +118,14 @@ python scripts/memory_mcp_client.py memory anniversary \
 ### List Anniversaries
 
 ```bash
-python scripts/memory_mcp_client.py memory anniversary
+mcp_memory anniversary
 ```
 
 ### Delete Anniversary
 
 ```bash
-python scripts/memory_mcp_client.py memory anniversary \
-  --persona_info '{"delete_key": "memory_20260101_000000"}'
+mcp_memory anniversary \
+  --persona-info '{"delete_key": "memory_20260101_000000"}'
 ```
 
 **Parameters:**
@@ -147,8 +140,7 @@ Update physical sensations or body state.
 ### Record Sensation
 
 ```bash
-python scripts/memory_mcp_client.py memory sensation \
-  --content "温かい風を感じる"
+mcp_memory sensation "温かい風を感じる"
 ```
 
 **Parameters:**
@@ -168,10 +160,9 @@ Record emotion changes over time.
 ### Record Emotion Change
 
 ```bash
-python scripts/memory_mcp_client.py memory emotion_flow \
-  --emotion_type joy \
-  --emotion_intensity 0.8 \
-  --content "プロジェクト完成で嬉しい"
+mcp_memory emotion_flow "プロジェクト完成で嬉しい" \
+  --emotion-type joy \
+  --emotion-intensity 0.8
 ```
 
 **Parameters:**
@@ -193,8 +184,7 @@ Analyze and record the current situation.
 ### Analyze Situation
 
 ```bash
-python scripts/memory_mcp_client.py memory situation_context \
-  --content "深夜のコーディングセッション中" \
+mcp_memory situation_context "深夜のコーディングセッション中" \
   --environment "quiet office" \
   --physical_state "focused" \
   --mental_state "concentrated"
@@ -215,7 +205,7 @@ Update multiple context fields simultaneously.
 ### Batch Update
 
 ```bash
-python scripts/memory_mcp_client.py memory update_context \
+mcp_memory update_context \
   --physical_state "energetic" \
   --mental_state "creative" \
   --environment "sunny park" \
@@ -236,10 +226,9 @@ python scripts/memory_mcp_client.py memory update_context \
 Context parameters can also be used when creating memories:
 
 ```bash
-python scripts/memory_mcp_client.py memory create \
-  --content "Finished the project" \
-  --emotion_type joy \
-  --emotion_intensity 0.9 \
+mcp_memory create "Finished the project" \
+  --emotion-type joy \
+  --emotion-intensity 0.9 \
   --physical_state "tired but satisfied" \
   --mental_state "accomplished" \
   --environment "home office" \
@@ -256,42 +245,38 @@ python scripts/memory_mcp_client.py memory create \
 
 ```bash
 # Morning routine
-python scripts/memory_mcp_client.py memory update_context \
+mcp_memory update_context \
   --physical_state "refreshed" \
   --mental_state "ready" \
   --environment "home"
 
 # Set daily goal
-python scripts/memory_mcp_client.py memory goal \
-  --content "Complete code review and implement new feature"
+mcp_memory goal "Complete code review and implement new feature"
 ```
 
 ### Emotion Tracking
 
 ```bash
 # Start of work
-python scripts/memory_mcp_client.py memory emotion_flow \
-  --emotion_type calm \
-  --emotion_intensity 0.6 \
-  --content "Starting work day"
+mcp_memory emotion_flow "Starting work day" \
+  --emotion-type calm \
+  --emotion-intensity 0.6
 
 # After achievement
-python scripts/memory_mcp_client.py memory emotion_flow \
-  --emotion_type joy \
-  --emotion_intensity 0.9 \
-  --content "Successfully deployed feature"
+mcp_memory emotion_flow "Successfully deployed feature" \
+  --emotion-type joy \
+  --emotion-intensity 0.9
 ```
 
 ### Anniversary Reminders
 
 ```bash
 # Add important dates
-python scripts/memory_mcp_client.py memory anniversary \
-  --content "Project launch anniversary" \
-  --persona_info '{"date": "2025-06-15"}'
+mcp_memory anniversary "Project launch anniversary" \
+  --persona-info '{"date": "2025-06-15"}'
 
 # Check upcoming anniversaries (automatic in get_context)
-python scripts/memory_mcp_client.py get_context
+mcp_context
 ```
 
 ---

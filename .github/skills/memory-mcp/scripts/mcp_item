@@ -1,0 +1,232 @@
+#!/usr/bin/env python3
+"""
+MCP Item - Item & Equipment operations
+
+Usage:
+    mcp_item <operation> [options]
+
+Operations:
+    add                 Add new item
+    remove              Remove item
+    equip               Equip items
+    unequip             Unequip items
+    update              Update item
+    rename              Rename item
+    search              Search items
+    history             Get equipment history
+    memories            Get item-related memories
+    stats               Get item statistics
+
+Examples:
+    # Add item
+    mcp_item add "White Dress" --category top
+
+    # Equip multiple items
+    mcp_item equip --top "White Dress" --foot "Sandals" --accessory "Pearl Necklace"
+
+    # Unequip all
+    mcp_item unequip --all
+
+    # Search items
+    mcp_item search dress --category top
+
+    # Update item
+    mcp_item update "White Dress" --name "Elegant White Dress"
+
+    # Rename item
+    mcp_item rename "White Dress" --new-name "Elegant White Dress"
+
+    # Get equipment history
+    mcp_item history --limit 10
+
+    # Get memories related to item
+    mcp_item memories "White Dress" --limit 5
+
+    # Get item usage statistics
+    mcp_item stats "White Dress"
+"""
+
+import argparse
+import sys
+from mcp_common import load_config, call_mcp_tool, format_output, get_config_defaults
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Item & Equipment operations"
+    )
+
+    # グローバルオプション
+    parser.add_argument("--persona", help="Persona name")
+    parser.add_argument("--url", help="MCP server URL")
+    parser.add_argument("--format", choices=["text", "json"], default="text", help="Output format")
+
+    subparsers = parser.add_subparsers(dest="operation", required=True)
+
+    # add
+    add_parser = subparsers.add_parser("add", help="Add new item")
+    add_parser.add_argument("name", help="Item name")
+    add_parser.add_argument("--category", required=True, choices=["top", "bottom", "dress", "outer", "foot", "accessory", "other"], help="Item category")
+    add_parser.add_argument("--description", help="Item description")
+
+    # remove
+    remove_parser = subparsers.add_parser("remove", help="Remove item")
+    remove_parser.add_argument("name", help="Item name to remove")
+
+    # equip
+    equip_parser = subparsers.add_parser("equip", help="Equip items")
+    equip_parser.add_argument("--top", help="Top item name")
+    equip_parser.add_argument("--bottom", help="Bottom item name")
+    equip_parser.add_argument("--dress", help="Dress item name")
+    equip_parser.add_argument("--outer", help="Outer item name")
+    equip_parser.add_argument("--foot", help="Footwear item name")
+    equip_parser.add_argument("--accessory", help="Accessory item name")
+
+    # unequip
+    unequip_parser = subparsers.add_parser("unequip", help="Unequip items")
+    unequip_parser.add_argument("--all", action="store_true", help="Unequip all items")
+    unequip_parser.add_argument("--top", action="store_true", help="Unequip top")
+    unequip_parser.add_argument("--bottom", action="store_true", help="Unequip bottom")
+    unequip_parser.add_argument("--dress", action="store_true", help="Unequip dress")
+    unequip_parser.add_argument("--outer", action="store_true", help="Unequip outer")
+    unequip_parser.add_argument("--foot", action="store_true", help="Unequip foot")
+    unequip_parser.add_argument("--accessory", action="store_true", help="Unequip accessory")
+
+    # update
+    update_parser = subparsers.add_parser("update", help="Update item")
+    update_parser.add_argument("name", help="Item name to update")
+    update_parser.add_argument("--new-name", help="New item name")
+    update_parser.add_argument("--category", choices=["top", "bottom", "dress", "outer", "foot", "accessory", "other"], help="New category")
+    update_parser.add_argument("--description", help="New description")
+
+    # rename
+    rename_parser = subparsers.add_parser("rename", help="Rename item")
+    rename_parser.add_argument("old_name", help="Current item name")
+    rename_parser.add_argument("--new-name", required=True, help="New item name")
+
+    # search
+    search_parser = subparsers.add_parser("search", help="Search items")
+    search_parser.add_argument("query", nargs="?", help="Search query (optional)")
+    search_parser.add_argument("--category", choices=["top", "bottom", "dress", "outer", "foot", "accessory", "other"], help="Filter by category")
+    search_parser.add_argument("--equipped", action="store_true", help="Show only equipped items")
+
+    # history
+    history_parser = subparsers.add_parser("history", help="Get equipment history")
+    history_parser.add_argument("--limit", type=int, default=20, help="Result limit")
+    history_parser.add_argument("--slot", help="Filter by equipment slot")
+
+    # memories
+    memories_parser = subparsers.add_parser("memories", help="Get item-related memories")
+    memories_parser.add_argument("item_name", help="Item name")
+    memories_parser.add_argument("--limit", type=int, default=10, help="Result limit")
+
+    # stats
+    stats_parser = subparsers.add_parser("stats", help="Get item statistics")
+    stats_parser.add_argument("item_name", help="Item name for statistics")
+
+    args = parser.parse_args()
+
+    # 設定読み込み
+    config = load_config()
+    default_persona, default_url = get_config_defaults(config)
+
+    persona = args.persona or default_persona
+    server_url = args.url or default_url
+
+    # パラメータ構築
+    params = {"operation": args.operation}
+
+    if args.operation == "add":
+        params["name"] = args.name
+        params["category"] = args.category
+        if args.description:
+            params["description"] = args.description
+
+    elif args.operation == "remove":
+        params["name"] = args.name
+
+    elif args.operation == "equip":
+        equipment = {}
+        if args.top:
+            equipment["top"] = args.top
+        if args.bottom:
+            equipment["bottom"] = args.bottom
+        if args.dress:
+            equipment["dress"] = args.dress
+        if args.outer:
+            equipment["outer"] = args.outer
+        if args.foot:
+            equipment["foot"] = args.foot
+        if args.accessory:
+            equipment["accessory"] = args.accessory
+        params["equipment"] = equipment
+
+    elif args.operation == "unequip":
+        if args.all:
+            params["slots"] = ["all"]
+        else:
+            slots = []
+            if args.top:
+                slots.append("top")
+            if args.bottom:
+                slots.append("bottom")
+            if args.dress:
+                slots.append("dress")
+            if args.outer:
+                slots.append("outer")
+            if args.foot:
+                slots.append("foot")
+            if args.accessory:
+                slots.append("accessory")
+            params["slots"] = slots
+
+    elif args.operation == "update":
+        params["name"] = args.name
+        updates = {}
+        if args.new_name:
+            updates["name"] = args.new_name
+        if args.category:
+            updates["category"] = args.category
+        if args.description:
+            updates["description"] = args.description
+        params["updates"] = updates
+
+    elif args.operation == "rename":
+        params["old_name"] = args.old_name
+        params["new_name"] = args.new_name
+
+    elif args.operation == "search":
+        if args.query:
+            params["query"] = args.query
+        if args.category:
+            params["category"] = args.category
+        if args.equipped:
+            params["equipped"] = True
+
+    elif args.operation == "history":
+        if args.limit:
+            params["days"] = args.limit
+        if hasattr(args, 'slot') and args.slot:
+            params["history_slot"] = args.slot
+
+    elif args.operation == "memories":
+        params["item_name"] = args.item_name
+        if args.limit:
+            params["top_k"] = args.limit
+
+    elif args.operation == "stats":
+        params["item_name"] = args.item_name
+
+    # item ツール呼び出し
+    result = call_mcp_tool("item", params, persona, server_url)
+
+    # 出力
+    output = format_output(result, args.format)
+    print(output)
+
+    if "error" in result:
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

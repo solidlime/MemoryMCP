@@ -185,7 +185,7 @@ def cmd_memory(args: argparse.Namespace, config: Dict[str, Any]) -> int:
         if args.emotion_intensity is not None:
             params["emotion_intensity"] = args.emotion_intensity
         if args.tags:
-            params["tags"] = args.tags.split(",")
+            params["context_tags"] = args.tags.split(",")
         if args.context_tags:
             params["context_tags"] = args.context_tags.split(",")
         if args.action_tag:
@@ -203,7 +203,7 @@ def cmd_memory(args: argparse.Namespace, config: Dict[str, Any]) -> int:
         if args.emotion_type:
             params["emotion_type"] = args.emotion_type
         if args.tags:
-            params["tags"] = args.tags.split(",")
+            params["context_tags"] = args.tags.split(",")
 
     elif args.operation == "delete":
         if not args.key:

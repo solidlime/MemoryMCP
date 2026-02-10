@@ -63,37 +63,45 @@ Unified item operations:
 
 ```bash
 # 1. Get context (always run at session start)
-python scripts/memory_mcp_client.py get_context
+mcp_context
 
 # 2. Create a memory
-python scripts/memory_mcp_client.py memory create \
-  --content "User likes strawberries" \
+mcp_memory create "User likes strawberries" \
   --importance 0.8 \
-  --emotion_type joy
+  --emotion-type joy
 
 # 3. Search memories
-python scripts/memory_mcp_client.py memory search \
-  --query "strawberries" \
-  --mode semantic
+mcp_memory search "strawberries" --mode semantic --limit 5
 
 # 4. Add and equip items
-python scripts/memory_mcp_client.py item add \
-  --item_name "Red Dress" \
-  --category clothing
-
-python scripts/memory_mcp_client.py item equip \
-  --equipment '{"top": "Red Dress"}'
+mcp_item add "Red Dress" --category top
+mcp_item equip --top "Red Dress" --foot "Sandals"
 
 # 5. Search inventory
-python scripts/memory_mcp_client.py item search --category clothing
+mcp_item search --category top --equipped
 ```
 
-**Note:** Run from skill root directory (where SKILL.md is located)
+**Scripts:**
+- `mcp_context` - Get current context (no arguments needed)
+- `mcp_memory` - Memory operations (create, read, update, delete, search, etc.)
+- `mcp_item` - Item operations (add, remove, equip, unequip, etc.)
 
-**Common Options:**
+**Common Options (all scripts):**
 - `--persona`: Persona name (default: from config.json)
 - `--url`: MCP server URL (default: from config.json)
 - `--format`: Output format (`text` or `json`)
+
+**Examples:**
+```bash
+# Use different persona
+mcp_context --persona alice
+
+# JSON output
+mcp_memory search "test" --format json
+
+# Custom server URL
+mcp_item search --url http://localhost:8080
+```
 
 **Note:** UTF-8 fully supported on all platforms (Windows/Linux/Mac)
 
@@ -177,14 +185,30 @@ All requests use `Authorization: Bearer <persona>` header.
 
 ## Files and Resources
 
-### Client Script
-**`scripts/memory_mcp_client.py`**
-- Unified CLI client for all MCP tools
-- Supports all 3 tools (get_context, memory, item)
-- JSON and text output formats
-- Configuration file support
-- Cross-platform UTF-8 encoding
-- Error handling and retries
+### Client Scripts
+**`scripts/mcp_common.py`**
+- Shared utilities for all MCP clients
+- Configuration loading
+- MCP tool invocation
+- Output formatting
+- UTF-8 encoding setup
+
+**`scripts/mcp_context`**
+- Get current context (get_context tool)
+- Usage: `mcp_context [--persona NAME] [--format json]`
+- No arguments required
+
+**`scripts/mcp_memory`**
+- Memory operations (memory tool)
+- Subcommands: create, read, update, delete, search, get_stats, check_routine
+- Usage: `mcp_memory <operation> [arguments] [options]`
+- Examples: `mcp_memory create "text"`, `mcp_memory search "query"`
+
+**`scripts/mcp_item`**
+- Item operations (item tool)
+- Subcommands: add, remove, equip, unequip, update, rename, search, get_history, get_memories, get_stats
+- Usage: `mcp_item <operation> [arguments] [options]`
+- Examples: `mcp_item equip --top "Dress"`, `mcp_item search dress`
 
 ### Configuration
 **`references/config.json`**

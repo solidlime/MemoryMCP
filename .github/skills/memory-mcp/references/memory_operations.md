@@ -24,20 +24,17 @@ Create a new memory entry with optional context and metadata.
 ### Basic Creation
 
 ```bash
-python scripts/memory_mcp_client.py memory create \
-  --content "User prefers Python over JavaScript"
+mcp_memory create "User prefers Python over JavaScript"
 ```
 
 ### Full Context Creation
 
 ```bash
-python scripts/memory_mcp_client.py memory create \
-  --content "Successfully deployed new feature" \
+mcp_memory create "Successfully deployed new feature" \
   --importance 0.9 \
-  --emotion_type joy \
-  --emotion_intensity 0.8 \
-  --tags "work,achievement" \
-  --context_tags "milestone" \
+  --emotion-type joy \
+  --emotion-intensity 0.8 \
+  --tags "work,achievement,milestone" \
   --action_tag achievement \
   --physical_state "energized" \
   --mental_state "accomplished" \
@@ -47,9 +44,8 @@ python scripts/memory_mcp_client.py memory create \
 ### Privacy Control
 
 ```bash
-python scripts/memory_mcp_client.py memory create \
-  --content "API key for production server" \
-  --privacy_level secret \
+mcp_memory create "API key for production server" \
+  --privacy-level secret \
   --importance 1.0
 ```
 
@@ -88,18 +84,17 @@ Retrieve memories by key or get recent memories.
 ### Read by Key
 
 ```bash
-python scripts/memory_mcp_client.py memory read \
-  --query "memory_20260210_123000"
+mcp_memory read "memory_20260210_123000"
 ```
 
 ### Read Recent Memories
 
 ```bash
 # Default: 10 most recent
-python scripts/memory_mcp_client.py memory read
+mcp_memory read
 
 # Custom count
-python scripts/memory_mcp_client.py memory read --top_k 20
+mcp_memory read --limit 20
 ```
 
 **Parameters:**
@@ -115,27 +110,24 @@ Update existing memory content and/or metadata.
 ### Update Content
 
 ```bash
-python scripts/memory_mcp_client.py memory update \
-  --memory_key "memory_20260210_123000" \
-  --content "Updated content with more details"
+mcp_memory update "memory_20260210_123000" \
+  "Updated content with more details"
 ```
 
 ### Update Importance
 
 ```bash
-python scripts/memory_mcp_client.py memory update \
-  --memory_key "memory_20260210_123000" \
+mcp_memory update "memory_20260210_123000" \
   --importance 0.95
 ```
 
 ### Full Update
 
 ```bash
-python scripts/memory_mcp_client.py memory update \
-  --memory_key "memory_20260210_123000" \
-  --content "Revised content" \
+mcp_memory update "memory_20260210_123000" \
+  "Revised content" \
   --importance 0.9 \
-  --emotion_type pride \
+  --emotion-type pride \
   --tags "updated,important"
 ```
 
@@ -155,8 +147,7 @@ python scripts/memory_mcp_client.py memory update \
 Remove memory from database and vector store.
 
 ```bash
-python scripts/memory_mcp_client.py memory delete \
-  --query "memory_20260210_123000"
+mcp_memory delete "memory_20260210_123000"
 ```
 
 **Parameters:**
@@ -173,46 +164,41 @@ Search memories using various modes and filters.
 ### Semantic Search (Default)
 
 ```bash
-python scripts/memory_mcp_client.py memory search \
-  --query "happy moments with friends" \
+mcp_memory search "happy moments with friends" \
   --mode semantic \
-  --top_k 5
+  --limit 5
 ```
 
 ### Keyword Search
 
 ```bash
-python scripts/memory_mcp_client.py memory search \
-  --query "Python coding" \
+mcp_memory search "Python coding" \
   --mode keyword \
-  --top_k 10
+  --limit 10
 ```
 
 ### Hybrid Search (Semantic + Keyword)
 
 ```bash
-python scripts/memory_mcp_client.py memory search \
-  --query "project deployment" \
+mcp_memory search "project deployment" \
   --mode hybrid \
-  --top_k 5
+  --limit 5
 ```
 
 ### Related Memories (Similar to Specific Memory)
 
 ```bash
-python scripts/memory_mcp_client.py memory search \
-  --query "memory_20260210_123000" \
+mcp_memory search "memory_20260210_123000" \
   --mode related \
-  --top_k 5
+  --limit 5
 ```
 
 ### Smart Search (Auto Query Expansion)
 
 ```bash
-python scripts/memory_mcp_client.py memory search \
-  --query "いつものあれ" \
+mcp_memory search "いつものあれ" \
   --mode smart \
-  --top_k 10
+  --limit 10
 ```
 
 **Search Modes:**
@@ -231,30 +217,26 @@ python scripts/memory_mcp_client.py memory search \
 
 ```bash
 # Any tag match (OR)
-python scripts/memory_mcp_client.py memory search \
-  --query "achievements" \
-  --search_tags "work,personal" \
-  --tag_match_mode any
+mcp_memory search "achievements" \
+  --search-tags "work,personal" \
+  --tag-match-mode any
 
 # All tags match (AND)
-python scripts/memory_mcp_client.py memory search \
-  --query "achievements" \
-  --search_tags "work,milestone" \
-  --tag_match_mode all
+mcp_memory search "achievements" \
+  --search-tags "work,milestone" \
+  --tag-match-mode all
 ```
 
 #### Time-based Filtering
 
 ```bash
 # Recent memories (natural language)
-python scripts/memory_mcp_client.py memory search \
-  --query "meetings" \
-  --date_range "過去1週間"
+mcp_memory search "meetings" \
+  --date-range "過去1週間"
 
 # Specific date range
-python scripts/memory_mcp_client.py memory search \
-  --query "work" \
-  --date_range "2026-02-01 to 2026-02-07"
+mcp_memory search "work" \
+  --date-range "2026-02-01 to 2026-02-07"
 ```
 
 **Natural Language Date Ranges:**
@@ -264,28 +246,25 @@ python scripts/memory_mcp_client.py memory search \
 #### Importance Filtering
 
 ```bash
-python scripts/memory_mcp_client.py memory search \
-  --query "important events" \
-  --min_importance 0.8
+mcp_memory search "important events" \
+  --min-importance 0.8
 ```
 
 #### Equipment Filtering
 
 ```bash
 # Memories associated with equipped item
-python scripts/memory_mcp_client.py memory search \
-  --query "outdoor activities" \
-  --equipped_item "White Dress"
+mcp_memory search "outdoor activities" \
+  --equipped-item "White Dress"
 ```
 
 #### Fuzzy Matching
 
 ```bash
-python scripts/memory_mcp_client.py memory search \
-  --query "Pythn" \
+mcp_memory search "Pythn" \
   --mode keyword \
-  --fuzzy_match true \
-  --fuzzy_threshold 80
+  --fuzzy-match true \
+  --fuzzy-threshold 80
 ```
 
 **Parameters:**
@@ -297,10 +276,9 @@ python scripts/memory_mcp_client.py memory search \
 Customize result ranking with importance and recency weights:
 
 ```bash
-python scripts/memory_mcp_client.py memory search \
-  --query "project work" \
-  --importance_weight 0.3 \
-  --recency_weight 0.2
+mcp_memory search "project work" \
+  --importance-weight 0.3 \
+  --recency-weight 0.2
 ```
 
 **Parameters:**
@@ -316,7 +294,7 @@ python scripts/memory_mcp_client.py memory search \
 Get comprehensive memory statistics.
 
 ```bash
-python scripts/memory_mcp_client.py memory stats
+mcp_memory stats
 ```
 
 **Returns:**
@@ -335,7 +313,7 @@ python scripts/memory_mcp_client.py memory stats
 Detect recurring patterns at the current time.
 
 ```bash
-python scripts/memory_mcp_client.py memory check_routines
+mcp_memory check_routines
 ```
 
 **How it works:**
@@ -358,12 +336,10 @@ python scripts/memory_mcp_client.py memory check_routines
 
 ```bash
 # Simple note
-python scripts/memory_mcp_client.py memory create \
-  --content "User mentioned preferring dark theme"
+mcp_memory create "User mentioned preferring dark theme"
 
 # Important note
-python scripts/memory_mcp_client.py memory create \
-  --content "Deadline: Project due Friday" \
+mcp_memory create "Deadline: Project due Friday" \
   --importance 0.9 \
   --tags "deadline,urgent"
 ```
@@ -371,10 +347,9 @@ python scripts/memory_mcp_client.py memory create \
 ### Emotional Journaling
 
 ```bash
-python scripts/memory_mcp_client.py memory create \
-  --content "Had a great conversation with the team" \
-  --emotion_type joy \
-  --emotion_intensity 0.8 \
+mcp_memory create "Had a great conversation with the team" \
+  --emotion-type joy \
+  --emotion-intensity 0.8 \
   --tags "social,work" \
   --importance 0.7
 ```
@@ -383,25 +358,21 @@ python scripts/memory_mcp_client.py memory create \
 
 ```bash
 # Add fact
-python scripts/memory_mcp_client.py memory create \
-  --content "FastAPI uses Pydantic for data validation" \
+mcp_memory create "FastAPI uses Pydantic for data validation" \
   --tags "fastapi,python,knowledge" \
   --importance 0.6
 
 # Search knowledge
-python scripts/memory_mcp_client.py memory search \
-  --query "how does FastAPI validate data" \
-  --search_tags "knowledge" \
+mcp_memory search "how does FastAPI validate data" \
+  --search-tags "knowledge" \
   --mode semantic
 ```
 
 ### Meeting Notes
 
 ```bash
-python scripts/memory_mcp_client.py memory create \
-  --content "Team meeting: Decided to use PostgreSQL for production database" \
-  --tags "meeting,decision,database" \
-  --context_tags "team,production" \
+mcp_memory create "Team meeting: Decided to use PostgreSQL for production database" \
+  --tags "meeting,decision,database,team,production" \
   --importance 0.8 \
   --action_tag decision
 ```
@@ -416,9 +387,8 @@ When importing many memories, use `defer_vector=true`:
 
 ```bash
 for content in "${memories[@]}"; do
-  python scripts/memory_mcp_client.py memory create \
-    --content "$content" \
-    --defer_vector true
+  mcp_memory create "$content" \
+    --defer-vector true
 done
 
 # Rebuild vector store afterward

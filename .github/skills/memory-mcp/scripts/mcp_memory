@@ -1,0 +1,173 @@
+#!/usr/bin/env python3
+"""
+MCP Memory - Memory operations
+
+Usage:
+    mcp_memory <operation> [content] [options]
+
+Operations:
+    create              Create new memory
+    read                Read memory by ID
+    update              Update existing memory
+    delete              Delete memory
+    search              Search memories
+    stats               Get memory statistics
+    check_routines      Check recommended routines
+
+Examples:
+    # Create memory
+    mcp_memory create "今日は天気が良い" --importance 0.7 --tags weather,daily
+
+    # Search memories
+    mcp_memory search "天気" --mode semantic --limit 5
+
+    # Update memory
+    mcp_memory update --key memory_20260210215957 "今日はとても天気が良い" --importance 0.9
+
+    # Delete memory
+    mcp_memory delete --key memory_20260210215957
+
+    # Get stats
+    mcp_memory stats
+
+    # Check routine
+    mcp_memory check_routines
+"""
+
+import argparse
+import sys
+from mcp_common import load_config, call_mcp_tool, format_output, get_config_defaults
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Memory operations (create, read, update, delete, search, stats, check_routines)"
+    )
+
+    # グローバルオプション
+    parser.add_argument("--persona", help="Persona name")
+    parser.add_argument("--url", help="MCP server URL")
+    parser.add_argument("--format", choices=["text", "json"], default="text", help="Output format")
+
+    subparsers = parser.add_subparsers(dest="operation", required=True)
+
+    # create
+    create_parser = subparsers.add_parser("create", help="Create new memory")
+    create_parser.add_argument("content", help="Memory content")
+    create_parser.add_argument("--importance", type=float, help="Importance (0.0-1.0)")
+    create_parser.add_argument("--tags", help="Comma-separated tags")
+    create_parser.add_argument("--emotion-type", help="Emotion type (joy, sadness, excitement, etc.)")
+    create_parser.add_argument("--emotion-intensity", type=float, help="Emotion intensity (0.0-1.0)")
+    create_parser.add_argument("--privacy-level", choices=["public", "friend", "private"], help="Privacy level")
+
+    # read
+    read_parser = subparsers.add_parser("read", help="Read memory by key or recent memories")
+    read_parser.add_argument("--key", help="Memory key (memory_YYYYMMDDHHMMSS)")
+    read_parser.add_argument("--limit", type=int, default=5, help="Number of recent memories (when key not specified)")
+
+    # update
+    update_parser = subparsers.add_parser("update", help="Update memory")
+    update_parser.add_argument("--key", required=True, help="Memory key or natural language query")
+    update_parser.add_argument("content", nargs="?", help="New content (optional)")
+    update_parser.add_argument("--importance", type=float, help="New importance")
+    update_parser.add_argument("--tags", help="New tags (comma-separated)")
+    update_parser.add_argument("--emotion-type", help="New emotion type")
+    update_parser.add_argument("--emotion-intensity", type=float, help="New emotion intensity")
+    update_parser.add_argument("--privacy-level", choices=["public", "friend", "private"], help="New privacy level")
+
+    # delete
+    delete_parser = subparsers.add_parser("delete", help="Delete memory")
+    delete_parser.add_argument("--key", required=True, help="Memory key or natural language query")
+
+    # search
+    search_parser = subparsers.add_parser("search", help="Search memories")
+    search_parser.add_argument("query", help="Search query")
+    search_parser.add_argument("--mode", choices=["semantic", "keyword", "tag", "date", "emotion"], default="semantic", help="Search mode")
+    search_parser.add_argument("--limit", type=int, default=10, help="Result limit")
+    search_parser.add_argument("--tags", help="Filter by tags (comma-separated)")
+    search_parser.add_argument("--emotion-type", help="Filter by emotion type")
+    search_parser.add_argument("--start-date", help="Start date (YYYY-MM-DD)")
+    search_parser.add_argument("--end-date", help="End date (YYYY-MM-DD)")
+
+    # stats
+    stats_parser = subparsers.add_parser("stats", help="Get memory statistics")
+
+    # check_routines
+    routine_parser = subparsers.add_parser("check_routines", help="Check recommended routines")
+
+    args = parser.parse_args()
+
+    # 設定読み込み
+    config = load_config()
+    default_persona, default_url = get_config_defaults(config)
+
+    persona = args.persona or default_persona
+    server_url = args.url or default_url
+
+    # パラメータ構築
+    params = {"operation": args.operation}
+
+    if args.operation == "create":
+        params["content"] = args.content
+        if args.importance is not None:
+            params["importance"] = args.importance
+        if args.tags:
+            params["context_tags"] = args.tags.split(",")
+        if args.emotion_type:
+            params["emotion_type"] = args.emotion_type
+        if args.emotion_intensity is not None:
+            params["emotion_intensity"] = args.emotion_intensity
+        if args.privacy_level:
+            params["privacy_level"] = args.privacy_level
+
+    elif args.operation == "read":
+        if hasattr(args, 'key') and args.key:
+            params["query"] = args.key
+        if hasattr(args, 'limit'):
+            params["top_k"] = args.limit
+
+    elif args.operation == "update":
+        params["query"] = args.key
+        if args.content:
+            params["content"] = args.content
+        if args.importance is not None:
+            params["importance"] = args.importance
+        if args.tags:
+            params["context_tags"] = args.tags.split(",")
+        if args.emotion_type:
+            params["emotion_type"] = args.emotion_type
+        if args.emotion_intensity is not None:
+            params["emotion_intensity"] = args.emotion_intensity
+        if args.privacy_level:
+            params["privacy_level"] = args.privacy_level
+
+    elif args.operation == "delete":
+        params["query"] = args.key
+
+    elif args.operation == "search":
+        params["query"] = args.query
+        params["mode"] = args.mode
+        if args.limit:
+            params["top_k"] = args.limit
+        if args.tags:
+            params["search_tags"] = args.tags.split(",")
+        if args.emotion_type:
+            params["emotion_type"] = args.emotion_type
+        if args.start_date:
+            params["start_date"] = args.start_date
+        if args.end_date:
+            params["end_date"] = args.end_date
+
+    # memory ツール呼び出し
+    result = call_mcp_tool("memory", params, persona, server_url)
+
+    # 出力
+    output = format_output(result, args.format)
+    print(output)
+
+    if "error" in result:
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

@@ -27,16 +27,14 @@ Add a new item to the inventory.
 ### Basic Addition
 
 ```bash
-python scripts/memory_mcp_client.py item add \
-  --item_name "Red Dress" \
+mcp_item add "Red Dress" \
   --category clothing
 ```
 
 ### Full Details
 
 ```bash
-python scripts/memory_mcp_client.py item add \
-  --item_name "Blue Summer Hat" \
+mcp_item add "Blue Summer Hat" \
   --category accessory \
   --description "Light blue straw hat with ribbon" \
   --tags "summer,casual,outdoor" \
@@ -86,15 +84,13 @@ Remove item from inventory.
 ### Remove Single Item
 
 ```bash
-python scripts/memory_mcp_client.py item remove \
-  --item_name "Red Dress"
+mcp_item remove "Red Dress"
 ```
 
 ### Remove Multiple Quantities
 
 ```bash
-python scripts/memory_mcp_client.py item remove \
-  --item_name "Health Potion" \
+mcp_item remove "Health Potion" \
   --quantity 3
 ```
 
@@ -116,15 +112,17 @@ Equip items to equipment slots.
 ### Equip Single Item
 
 ```bash
-python scripts/memory_mcp_client.py item equip \
-  --equipment '{"top": "White Dress"}'
+mcp_item equip \
+  --top "White Dress"
 ```
 
 ### Equip Multiple Items
 
 ```bash
-python scripts/memory_mcp_client.py item equip \
-  --equipment '{"top": "White Dress", "foot": "Sandals", "accessory": "Blue Hat"}'
+mcp_item equip \
+  --top "White Dress" \
+  --foot "Sandals" \
+  --accessory "Blue Hat"
 ```
 
 **Equipment Slots:**
@@ -152,12 +150,15 @@ python scripts/memory_mcp_client.py item equip \
 
 ```bash
 # Change outfit (keeps other slots)
-python scripts/memory_mcp_client.py item equip \
-  --equipment '{"top": "Red Evening Dress", "foot": "High Heels"}'
+mcp_item equip \
+  --top "Red Evening Dress" \
+  --foot "High Heels"
 
 # Full equipment
-python scripts/memory_mcp_client.py item equip \
-  --equipment '{"top": "Battle Armor", "hand_right": "Sword", "hand_left": "Shield"}'
+mcp_item equip \
+  --top "Battle Armor" \
+  --hand_right "Sword" \
+  --hand_left "Shield"
 ```
 
 ---
@@ -169,14 +170,14 @@ Unequip items from slots.
 ### Unequip Single Slot
 
 ```bash
-python scripts/memory_mcp_client.py item unequip \
+mcp_item unequip \
   --slots "top"
 ```
 
 ### Unequip Multiple Slots
 
 ```bash
-python scripts/memory_mcp_client.py item unequip \
+mcp_item unequip \
   --slots "top,foot,accessory"
 ```
 
@@ -195,8 +196,7 @@ python scripts/memory_mcp_client.py item unequip \
 Update item details (description, tags, category).
 
 ```bash
-python scripts/memory_mcp_client.py item update \
-  --item_name "Blue Hat" \
+mcp_item update "Blue Hat" \
   --description "Light blue summer hat with white ribbon" \
   --tags "summer,casual,favorite"
 ```
@@ -219,9 +219,8 @@ python scripts/memory_mcp_client.py item update \
 Rename an existing item.
 
 ```bash
-python scripts/memory_mcp_client.py item rename \
-  --item_name "Blue Hat" \
-  --new_name "Azure Summer Hat"
+mcp_item rename "Blue Hat" \
+  --new-name "Azure Summer Hat"
 ```
 
 **Parameters:**
@@ -248,27 +247,27 @@ Search inventory with various filters.
 ### Search All Items
 
 ```bash
-python scripts/memory_mcp_client.py item search
+mcp_item search
 ```
 
 ### Search by Category
 
 ```bash
-python scripts/memory_mcp_client.py item search \
+mcp_item search \
   --category clothing
 ```
 
 ### Search Equipped Items
 
 ```bash
-python scripts/memory_mcp_client.py item search \
+mcp_item search \
   --equipped True
 ```
 
 ### Search by Query
 
 ```bash
-python scripts/memory_mcp_client.py item search \
+mcp_item search \
   --query "summer"
 ```
 
@@ -295,14 +294,14 @@ View equipment change history.
 ### All History
 
 ```bash
-python scripts/memory_mcp_client.py item history
+mcp_item history
 ```
 
 ### Specific Slot History
 
 ```bash
-python scripts/memory_mcp_client.py item history \
-  --history_slot "top" \
+mcp_item history \
+  --history-slot "top" \
   --days 30
 ```
 
@@ -324,9 +323,8 @@ python scripts/memory_mcp_client.py item history \
 Get memories associated with an item.
 
 ```bash
-python scripts/memory_mcp_client.py item memories \
-  --item_name "White Dress" \
-  --top_k 10
+mcp_item memories "White Dress" \
+  --limit 10
 ```
 
 **Parameters:**
@@ -352,7 +350,7 @@ python scripts/memory_mcp_client.py item memories \
 Get comprehensive item statistics.
 
 ```bash
-python scripts/memory_mcp_client.py item stats
+mcp_item stats
 ```
 
 **Returns:**
@@ -372,33 +370,35 @@ python scripts/memory_mcp_client.py item stats
 
 ```bash
 # Morning outfit
-python scripts/memory_mcp_client.py item equip \
-  --equipment '{"top": "Casual Shirt", "bottom": "Jeans", "foot": "Sneakers"}'
+mcp_item equip \
+  --top "Casual Shirt" \
+  --bottom "Jeans" \
+  --foot "Sneakers"
 
 # Evening outfit
-python scripts/memory_mcp_client.py item equip \
-  --equipment '{"top": "Evening Dress", "foot": "Heels", "accessory": "Pearl Necklace"}'
+mcp_item equip \
+  --top "Evening Dress" \
+  --foot "Heels" \
+  --accessory "Pearl Necklace"
 
 # Check current outfit
-python scripts/memory_mcp_client.py item search --equipped True
+mcp_item search --equipped True
 ```
 
 ### Inventory Organization
 
 ```bash
 # Add with detailed categorization
-python scripts/memory_mcp_client.py item add \
-  --item_name "Winter Coat" \
+mcp_item add "Winter Coat" \
   --category clothing \
   --description "Warm wool coat for cold weather" \
   --tags "winter,warm,formal"
 
 # Search by tag
-python scripts/memory_mcp_client.py item search --query "winter"
+mcp_item search --query "winter"
 
 # Update organization
-python scripts/memory_mcp_client.py item update \
-  --item_name "Winter Coat" \
+mcp_item update "Winter Coat" \
   --tags "winter,warm,formal,favorite"
 ```
 
@@ -406,38 +406,34 @@ python scripts/memory_mcp_client.py item update \
 
 ```bash
 # Add item
-python scripts/memory_mcp_client.py item add \
-  --item_name "Camera" \
+mcp_item add "Camera" \
   --category tool \
   --description "Digital camera for photography"
 
 # Create memory while item is equipped
-python scripts/memory_mcp_client.py memory create \
-  --content "Captured beautiful sunset photos at the beach" \
+mcp_memory create "Captured beautiful sunset photos at the beach" \
   --tags "photography,outdoor" \
   --importance 0.8
 
 # Later: find memories with this item
-python scripts/memory_mcp_client.py item memories \
-  --item_name "Camera" \
-  --top_k 20
+mcp_item memories "Camera" \
+  --limit 20
 ```
 
 ### Equipment Tracking
 
 ```bash
 # Check recent equipment changes
-python scripts/memory_mcp_client.py item history --days 7
+mcp_item history --days 7
 
 # Track specific slot
-python scripts/memory_mcp_client.py item history \
-  --history_slot "hand_right" \
+mcp_item history \
+  --history-slot "hand_right" \
   --days 30
 
 # See what was worn during an event
-python scripts/memory_mcp_client.py memory search \
-  --query "party" \
-  --date_range "2026-02-01"
+mcp_memory search "party" \
+  --date-range "2026-02-01"
 ```
 
 ---
@@ -450,32 +446,28 @@ When an item is equipped, new memories automatically reference equipped items:
 
 ```bash
 # Equip item
-python scripts/memory_mcp_client.py item equip \
-  --equipment '{"top": "Red Dress"}'
+mcp_item equip \
+  --top "Red Dress"
 
 # Create memory (auto-associated with equipped items)
-python scripts/memory_mcp_client.py memory create \
-  --content "Attended gala event downtown"
+mcp_memory create "Attended gala event downtown"
 
 # Later: search memories by item
-python scripts/memory_mcp_client.py memory search \
-  --query "events" \
-  --equipped_item "Red Dress"
+mcp_memory search "events" \
+  --equipped-item "Red Dress"
 ```
 
 ### Contextual Search
 
 ```bash
 # Find all activities while wearing specific item
-python scripts/memory_mcp_client.py item memories \
-  --item_name "Running Shoes" \
-  --top_k 20
+mcp_item memories "Running Shoes" \
+  --limit 20
 
 # Find memories from specific time period with item
-python scripts/memory_mcp_client.py memory search \
-  --query "exercise" \
-  --equipped_item "Running Shoes" \
-  --date_range "過去1ヶ月"
+mcp_memory search "exercise" \
+  --equipped-item "Running Shoes" \
+  --date-range "過去1ヶ月"
 ```
 
 ---
