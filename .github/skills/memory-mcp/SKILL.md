@@ -30,75 +30,72 @@ Retrieve current persona state, time, and memory statistics.
 
 ### 2. memory
 Unified memory operations:
-- `create`: Create new memory
-- `update`: Update existing memory
-- `delete`: Delete memory
-- `search`: Search memories (semantic/keyword/hybrid/related/smart)
-- `stats`: Get memory statistics
-- `check_routines`: Detect recurring patterns
-- `anniversary`: Manage anniversaries
+
+**Memory Operations:**
+- `create`, `read`, `update`, `delete` - CRUD operations
+- `search` - Semantic/keyword/hybrid/related/smart search
+- `stats` - Memory statistics
+- `check_routines` - Detect recurring patterns
+
+**Context Operations:**
+- `promise`, `goal` - Manage promises and goals
+- `favorite`, `preference` - Update preferences
+- `anniversary` - Manage anniversaries
+- `sensation`, `emotion_flow` - Track physical/emotional state
+- `situation_context`, `update_context` - Context management
+
+📖 **[Full Memory Reference →](references/memory_operations.md)**
+📖 **[Full Context Reference →](references/context_operations.md)**
 
 ### 3. item
 Unified item operations:
-- `add`: Add item to inventory
-- `remove`: Remove item
-- `equip`: Equip item
-- `unequip`: Unequip item
-- `update`: Update item details
-- `search`: Search inventory
-- `history`: Get equipment history
-- `memories`: Get memories associated with item
-- `stats`: Get item statistics
+- `add`, `remove` - Inventory management
+- `equip`, `unequip` - Equipment management
+- `update`, `rename` - Item modification
+- `search` - Search inventory
+- `history` - Equipment history
+- `memories` - Get memories associated with item
+- `stats` - Item statistics
+
+📖 **[Full Item Reference →](references/item_operations.md)**
 
 ## Quick Start
 
 ```bash
-# Script path: {skill_root}/scripts/memory_mcp_client.py
-# Get context (always run at session start)
-python <skill_root>/scripts/memory_mcp_client.py get_context
+# 1. Get context (always run at session start)
+python scripts/memory_mcp_client.py get_context
 
-# Create a memory
-python <skill_root>/scripts/memory_mcp_client.py memory create \
+# 2. Create a memory
+python scripts/memory_mcp_client.py memory create \
   --content "User likes strawberries" \
   --importance 0.8 \
   --emotion_type joy
 
-# Search memories
-python <skill_root>/scripts/memory_mcp_client.py memory search \
+# 3. Search memories
+python scripts/memory_mcp_client.py memory search \
   --query "strawberries" \
-  --mode semantic \
-  --top_k 5
+  --mode semantic
 
-# Add and equip an item
-python <skill_root>/scripts/memory_mcp_client.py item add \
-  --name "Red Dress" \
-  --category clothing \
-  --description "Elegant red evening dress"
+# 4. Add and equip items
+python scripts/memory_mcp_client.py item add \
+  --item_name "Red Dress" \
+  --category clothing
 
-python <skill_root>/scripts/memory_mcp_client.py item equip --slot top --name "Red Dress"
+python scripts/memory_mcp_client.py item equip \
+  --equipment '{"top": "Red Dress"}'
 
-# Equip multiple items at once
-python <skill_root>/scripts/memory_mcp_client.py item equip \
-  --equipment '{"top": "White Dress", "foot": "Sandals"}'
-
-# Unequip a single slot
-python <skill_root>/scripts/memory_mcp_client.py item unequip --slot top
-
-# Unequip multiple slots
-python <skill_root>/scripts/memory_mcp_client.py item unequip --slots top,foot
-
-# Get item statistics
-python <skill_root>/scripts/memory_mcp_client.py item stats
+# 5. Search inventory
+python scripts/memory_mcp_client.py item search --category clothing
 ```
 
-**Note:** Python client fully supports UTF-8 across all platforms (Windows/Linux/Mac) with automatic console encoding configuration.
+**Note:** Run from skill root directory (where SKILL.md is located)
 
-### Common Options
-
-All commands support these options:
+**Common Options:**
 - `--persona`: Persona name (default: from config.json)
 - `--url`: MCP server URL (default: from config.json)
 - `--format`: Output format (`text` or `json`)
+
+**Note:** UTF-8 fully supported on all platforms (Windows/Linux/Mac)
 
 ## Configuration
 
@@ -128,137 +125,37 @@ Configuration is stored in `references/config.json`:
 **Configuration keys:**
 - `mcp_server.url`: Memory MCP server endpoint
 - `persona.default`: Default persona name
-- `paths.skill_root`: Absolute path to skill root directory (client script: `{skill_root}/scripts/memory_mcp_client.py`)
 - `settings.auto_get_context_on_session_start`: Auto-call on session start
+- `settings.log_operations`: Enable operation logging
 
-## Memory Operations
+---
 
-### Create Memory
+## Operation References
 
-```bash
-python <skill_root>/scripts/memory_mcp_client.py memory create \
-  --content "Completed project milestone" \
-  --importance 0.9 \
-  --emotion_type accomplishment \
-  --tags "work,achievement" \
-  --context_tags "milestone" \
-  --action_tag achievement
-```
+Detailed documentation for all operations:
 
-### Update Memory
+### Memory Operations
+- **[Memory Operations](references/memory_operations.md)** - Create, read, update, delete, search, stats, check routines
+  - CRUD operations
+  - Search modes (semantic, keyword, hybrid, related, smart)
+  - Filtering (tags, date range, importance, equipment)
+  - Fuzzy matching and ranking weights
 
-```bash
-python <skill_root>/scripts/memory_mcp_client.py memory update \
-  --key "memory_20260209_123000" \
-  --content "Updated content" \
-  --importance 0.95
-```
+- **[Context Operations](references/context_operations.md)** - Manage persona context and state
+  - Promise and goal management
+  - Favorites and preferences
+  - Anniversary tracking
+  - Sensation and emotion flow
+  - Situation context and batch updates
 
-### Search Memory
+### Item Operations
+- **[Item Operations](references/item_operations.md)** - Complete item and equipment management
+  - Inventory management (add, remove, update, rename)
+  - Equipment system (equip, unequip)
+  - Search and history
+  - Memory association and statistics
 
-```bash
-# Semantic search (default)
-python <skill_root>/scripts/memory_mcp_client.py memory search \
-  --query "happy moments" \
-  --mode semantic
-
-# Keyword search
-python <skill_root>/scripts/memory_mcp_client.py memory search \
-  --query "Python" \
-  --mode keyword
-
-# Hybrid search (semantic 70% + keyword 30%)
-python <skill_root>/scripts/memory_mcp_client.py memory search \
-  --query "project" \
-  --mode hybrid
-
-# Time-filtered search
-python <skill_root>/scripts/memory_mcp_client.py memory search \
-  --query "achievements" \
-  --date_range "昨日"
-
-# Smart search (auto query expansion)
-python <skill_root>/scripts/memory_mcp_client.py memory search \
-  --query "いつものあれ" \
-  --mode smart
-```
-
-### Check Routines
-
-```bash
-# Detect recurring patterns at current time
-python <skill_root>/scripts/memory_mcp_client.py memory check_routines
-```
-
-### Manage Anniversaries
-
-```bash
-# List all anniversaries
-python <skill_root>/scripts/memory_mcp_client.py memory anniversary
-
-# Add anniversary
-python <skill_root>/scripts/memory_mcp_client.py memory create \
-  --content "First movie together" \
-  --emotion_type joy \
-  --importance 0.9 \
-  --context_tags "first_time,anniversary"
-
-# Delete anniversary
-python <skill_root>/scripts/memory_mcp_client.py memory anniversary \
-  --delete_key "memory_20260101_000000"
-```
-
-## Item Operations
-
-### Add Items
-
-```bash
-python <skill_root>/scripts/memory_mcp_client.py item add \
-  --name "Blue Hat" \
-  --category accessory \
-  --description "Stylish blue hat" \
-  --tags "casual,outdoor"
-```
-
-### Equip/Unequip
-
-```bash
-# Equip single item to a slot
-python <skill_root>/scripts/memory_mcp_client.py item equip --slot accessory --name "Blue Hat"
-
-# Equip multiple items at once
-python <skill_root>/scripts/memory_mcp_client.py item equip \
-  --equipment '{"top": "White Dress", "accessory": "Blue Hat", "foot": "Sandals"}'
-
-# Unequip a single slot
-python <skill_root>/scripts/memory_mcp_client.py item unequip --slot accessory
-
-# Unequip multiple slots
-python <skill_root>/scripts/memory_mcp_client.py item unequip --slots top,foot,accessory
-```
-
-### Search Items
-
-```bash
-# Search all items
-python <skill_root>/scripts/memory_mcp_client.py item search
-
-# Search by category
-python <skill_root>/scripts/memory_mcp_client.py item search --category clothing
-
-# Search equipped items only
-python <skill_root>/scripts/memory_mcp_client.py item search --equipped True
-```
-
-### Item History & Memories
-
-```bash
-# Get equipment history
-python <skill_root>/scripts/memory_mcp_client.py item history
-
-# Get memories associated with an item
-python <skill_root>/scripts/memory_mcp_client.py item memories --name "Red Dress"
-```
+---
 
 ## Workflow
 
@@ -276,22 +173,35 @@ The CLI uses these MCP REST API endpoints:
 
 All requests use `Authorization: Bearer <persona>` header.
 
-## Resources
+---
 
-### scripts/memory_mcp_client.py
-Unified CLI client for all MCP tools.
+## Files and Resources
 
-**Features:**
-- All 3 MCP tools (get_context, memory, item)
-- Comprehensive operation support
+### Client Script
+**`scripts/memory_mcp_client.py`**
+- Unified CLI client for all MCP tools
+- Supports all 3 tools (get_context, memory, item)
 - JSON and text output formats
 - Configuration file support
+- Cross-platform UTF-8 encoding
 - Error handling and retries
 
-### references/config.json
-Configuration file for MCP server connection and persona settings.
+### Configuration
+**`references/config.json`**
+- MCP server connection settings
+- Default persona configuration
+- Timeout and retry settings
+- Skill root path configuration
 
-**Customization:**
-- Update `mcp_server.url` for different server endpoints
-- Change `persona.default` for different personas
-- Adjust timeout and retry settings as needed
+### Documentation
+- **[Memory Operations](references/memory_operations.md)** - CRUD and search
+- **[Context Operations](references/context_operations.md)** - State management
+- **[Item Operations](references/item_operations.md)** - Inventory and equipment
+
+---
+
+## See Also
+
+- **[Memory Operations Reference](references/memory_operations.md)** - Detailed memory CRUD and search documentation
+- **[Context Operations Reference](references/context_operations.md)** - Complete context management guide
+- **[Item Operations Reference](references/item_operations.md)** - Full item and equipment system documentation
