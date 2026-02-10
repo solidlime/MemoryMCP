@@ -2,6 +2,26 @@
 
 Context operations manage the persona's current state, relationships, goals, and preferences through the unified `memory` tool.
 
+## 🌟 Why Use Context Operations?
+
+**Context operations are crucial for:**
+- 📊 **State Tracking** - Keep physical/mental state up-to-date
+- 🎯 **Goal Management** - Track promises and objectives
+- 💕 **Preference Learning** - Remember user likes/dislikes
+- 📅 **Important Dates** - Never miss anniversaries
+- 🔄 **Situation Awareness** - Maintain environmental context
+
+**Benefits:**
+- `get_context` returns **only current state** - focus on what matters now
+- Automatic cleanup when promises/goals are completed
+- Rich context for better AI responses
+- Organized, accessible information
+
+**Common Mistake:** ❌ Only creating memories without updating context
+**Best Practice:** ✅ Update context when state changes, then create memory for the event
+
+---
+
 ## Overview
 
 Context operations use the same `memory` tool with different operation types. These operations update the persona's context file (`persona_context.json`) in real-time.
@@ -278,6 +298,22 @@ mcp_memory anniversary "Project launch anniversary" \
 # Check upcoming anniversaries (automatic in get_context)
 mcp_context
 ```
+
+---
+
+## Quick Reference Checklist
+
+**🔄 Use this checklist after every `mcp_context` call:**
+
+- [ ] **Promise** - Did I make/complete a promise? → Update or clear
+- [ ] **Goal** - New objective or completed goal? → Update or clear
+- [ ] **Physical State** - Body state changed? (tired/energized/aroused) → `sensation`
+- [ ] **Mental State** - Mood shifted? (happy/sad/focused) → `emotion_flow`
+- [ ] **Environment** - Location or setting changed? → `situation_context`
+- [ ] **Preference** - Learned something new about user? → `favorite` or `preference`
+- [ ] **Anniversary** - Important date mentioned? → `anniversary`
+
+**💡 Pro Tip:** Update context BEFORE creating a memory about the event. This ensures `get_context` reflects current state.
 
 ---
 

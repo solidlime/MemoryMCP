@@ -6,7 +6,7 @@
   },
   "persona": {
     "default": "nilou",
-    "description": "ペルソナ名を指定。"
+    "description": "ペルソナ名を指定"
   },
   "settings": {
     "auto_get_context_on_session_start": true,

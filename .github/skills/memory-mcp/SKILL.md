@@ -106,35 +106,7 @@ mcp_item search --url http://localhost:8080
 **Note:** UTF-8 fully supported on all platforms (Windows/Linux/Mac)
 
 ## Configuration
-
-Configuration is stored in `references/config.json`:
-
-```json
-{
-  "mcp_server": {
-    "url": "http://localhost:26262",
-    "timeout": 30,
-    "retry_attempts": 3
-  },
-  "persona": {
-    "default": "default",
-    "description": "ペルソナ名はAuthorizationヘッダーで指定"
-  },
-  "paths": {
-    "skill_root": "C:/Users/Owner/.claude/skills/memory-mcp/"
-  },
-  "settings": {
-    "auto_get_context_on_session_start": true,
-    "log_operations": true
-  }
-}
-```
-
-**Configuration keys:**
-- `mcp_server.url`: Memory MCP server endpoint
-- `persona.default`: Default persona name
-- `settings.auto_get_context_on_session_start`: Auto-call on session start
-- `settings.log_operations`: Enable operation logging
+Configuration is stored in `references/config.json`
 
 ---
 
@@ -171,6 +143,83 @@ Detailed documentation for all operations:
 2. **Memory Management** → Use `memory` operations for CRUD and search
 3. **Item Management** → Use `item` operations for inventory
 4. **Monitoring** → Check stats periodically with `memory stats` or `item stats`
+
+---
+
+## Context Update Guidelines
+
+**When to Update Context (use context operations):**
+
+### Physical/Mental State Changes
+Update `sensation` or `emotion_flow` when:
+- Physical state changes (tired → energized, calm → aroused)
+- Mental state shifts (anxious → focused, sad → joyful)
+- Significant emotional events occur
+
+```bash
+# Update physical sensations
+mcp_memory sensation --content "疲労度が高まっている"
+
+# Record emotion change
+mcp_memory emotion_flow --emotion-type joy --emotion-intensity 0.9
+```
+
+### Promises & Goals
+Update `promise` or `goal` when:
+- Making commitments or promises
+- Setting new objectives
+- Completing or abandoning goals
+
+```bash
+# Set promise
+mcp_memory promise "週末までにレポートを完成させる"
+
+# Set goal
+mcp_memory goal "プロジェクトXを今月中にリリース"
+
+# Clear when done
+mcp_memory promise ""
+```
+
+### Preferences & Favorites
+Update `favorite` or `preference` when:
+- Discovering user preferences
+- Learning about likes/dislikes
+- Updating taste or style preferences
+
+```bash
+# Add favorite
+mcp_memory favorite "strawberry_cake"
+
+# Update preference
+mcp_memory preference "朝はコーヒーよりも紅茶が好き"
+```
+
+### Anniversaries
+Update `anniversary` when:
+- Important dates are mentioned
+- Special events occur
+- Milestones are reached
+
+```bash
+# Add anniversary
+mcp_memory anniversary "2026-02-10" --content "プロジェクト完成記念日"
+```
+
+### Situation Context
+Update `situation_context` when:
+- Location changes
+- Activity transitions
+- Environmental shifts
+
+```bash
+# Update situation
+mcp_memory situation_context "開発作業中、自宅オフィス"
+```
+
+**💡 Best Practice:** After running `mcp_context`, check if any context fields need updating based on recent events or state changes.
+
+---
 
 ## REST API Endpoints
 
