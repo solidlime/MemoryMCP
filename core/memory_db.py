@@ -18,18 +18,18 @@ from src.utils.logging_utils import log_progress
 def load_memory_from_db() -> Dict[str, Any]:
     """
     Load memory data from SQLite database (persona-scoped).
-    
+
     Returns:
         dict: Memory store with all entries
     """
     memory_store = {}
     try:
         db_path = get_db_path()
-        
+
         # Always ensure tables exist (handles both new and empty databases)
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
-            
+
             # Create tables if they don't exist
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS memories (
@@ -68,7 +68,7 @@ def load_memory_from_db() -> Dict[str, Any]:
                     metadata TEXT
                 )
             """)
-            
+
             # Phase 40: State history tables for time-series visualization
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS physical_sensations_history (
@@ -83,7 +83,7 @@ def load_memory_from_db() -> Dict[str, Any]:
                     FOREIGN KEY (memory_key) REFERENCES memories(key) ON DELETE SET NULL
                 )
             """)
-            
+
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS emotion_history (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -94,7 +94,7 @@ def load_memory_from_db() -> Dict[str, Any]:
                     FOREIGN KEY (memory_key) REFERENCES memories(key) ON DELETE SET NULL
                 )
             """)
-            
+
             # Phase 41: Promises and Goals tables for multiple task management
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS promises (
@@ -108,7 +108,7 @@ def load_memory_from_db() -> Dict[str, Any]:
                     notes TEXT
                 )
             """)
-            
+
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS goals (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -121,119 +121,119 @@ def load_memory_from_db() -> Dict[str, Any]:
                     notes TEXT
                 )
             """)
-            
+
             conn.commit()
-            
+
             if not os.path.exists(db_path) or os.path.getsize(db_path) < 100:
                 print(f"Initialized SQLite database at {db_path}")
                 log_progress(f"Initialized SQLite database at {db_path}")
-        
+
         # Load existing data and migrate schema if needed
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
-            
+
             # Check if tags column exists, add if not (migration)
             cursor.execute("PRAGMA table_info(memories)")
             columns = [col[1] for col in cursor.fetchall()]
-            
+
             if 'tags' not in columns:
                 log_progress("🔄 Migrating database: Adding tags column...")
                 cursor.execute('ALTER TABLE memories ADD COLUMN tags TEXT')
                 conn.commit()
                 log_progress("✅ Database migration complete: tags column added")
-            
+
             # Phase 25.5: Add importance and emotion columns
             if 'importance' not in columns:
                 log_progress("🔄 Migrating database: Adding importance column...")
                 cursor.execute('ALTER TABLE memories ADD COLUMN importance REAL DEFAULT 0.5')
                 conn.commit()
                 log_progress("✅ Database migration complete: importance column added")
-            
+
             if 'emotion' not in columns:
                 log_progress("🔄 Migrating database: Adding emotion column...")
                 cursor.execute('ALTER TABLE memories ADD COLUMN emotion TEXT DEFAULT "neutral"')
                 conn.commit()
                 log_progress("✅ Database migration complete: emotion column added")
-            
+
             # Phase 25.5 Extended: Add context state columns
             if 'physical_state' not in columns:
                 log_progress("🔄 Migrating database: Adding physical_state column...")
                 cursor.execute('ALTER TABLE memories ADD COLUMN physical_state TEXT DEFAULT "normal"')
                 conn.commit()
                 log_progress("✅ Database migration complete: physical_state column added")
-            
+
             if 'mental_state' not in columns:
                 log_progress("🔄 Migrating database: Adding mental_state column...")
                 cursor.execute('ALTER TABLE memories ADD COLUMN mental_state TEXT DEFAULT "calm"')
                 conn.commit()
                 log_progress("✅ Database migration complete: mental_state column added")
-            
+
             if 'environment' not in columns:
                 log_progress("🔄 Migrating database: Adding environment column...")
                 cursor.execute('ALTER TABLE memories ADD COLUMN environment TEXT DEFAULT "unknown"')
                 conn.commit()
                 log_progress("✅ Database migration complete: environment column added")
-            
+
             if 'relationship_status' not in columns:
                 log_progress("🔄 Migrating database: Adding relationship_status column...")
                 cursor.execute('ALTER TABLE memories ADD COLUMN relationship_status TEXT DEFAULT "normal"')
                 conn.commit()
                 log_progress("✅ Database migration complete: relationship_status column added")
-            
+
             if 'action_tag' not in columns:
                 log_progress("🔄 Migrating database: Adding action_tag column...")
                 cursor.execute('ALTER TABLE memories ADD COLUMN action_tag TEXT DEFAULT NULL')
                 conn.commit()
                 log_progress("✅ Database migration complete: action_tag column added")
-            
+
             # Phase 28.1: Add emotion intensity, related keys, and summary reference columns
             if 'emotion_intensity' not in columns:
                 log_progress("🔄 Migrating database: Adding emotion_intensity column...")
                 cursor.execute('ALTER TABLE memories ADD COLUMN emotion_intensity REAL DEFAULT 0.0')
                 conn.commit()
                 log_progress("✅ Database migration complete: emotion_intensity column added")
-            
+
             if 'related_keys' not in columns:
                 log_progress("🔄 Migrating database: Adding related_keys column...")
                 cursor.execute('ALTER TABLE memories ADD COLUMN related_keys TEXT DEFAULT "[]"')
                 conn.commit()
                 log_progress("✅ Database migration complete: related_keys column added")
-            
+
             if 'summary_ref' not in columns:
                 log_progress("🔄 Migrating database: Adding summary_ref column...")
                 cursor.execute('ALTER TABLE memories ADD COLUMN summary_ref TEXT DEFAULT NULL')
                 conn.commit()
                 log_progress("✅ Database migration complete: summary_ref column added")
-            
+
             if 'equipped_items' not in columns:
                 log_progress("🔄 Migrating database: Adding equipped_items column...")
                 cursor.execute('ALTER TABLE memories ADD COLUMN equipped_items TEXT DEFAULT NULL')
                 conn.commit()
                 log_progress("✅ Database migration complete: equipped_items column added")
-            
+
             # Phase 38: Add access tracking columns
             if 'access_count' not in columns:
                 log_progress("🔄 Migrating database: Adding access_count column...")
                 cursor.execute('ALTER TABLE memories ADD COLUMN access_count INTEGER DEFAULT 0')
                 conn.commit()
                 log_progress("✅ Database migration complete: access_count column added")
-            
+
             if 'last_accessed' not in columns:
                 log_progress("🔄 Migrating database: Adding last_accessed column...")
                 cursor.execute('ALTER TABLE memories ADD COLUMN last_accessed TEXT DEFAULT NULL')
                 conn.commit()
                 log_progress("✅ Database migration complete: last_accessed column added")
-            
+
             # Privacy level column for content filtering
             if 'privacy_level' not in columns:
                 log_progress("🔄 Migrating database: Adding privacy_level column...")
                 cursor.execute('ALTER TABLE memories ADD COLUMN privacy_level TEXT DEFAULT "internal"')
                 conn.commit()
                 log_progress("✅ Database migration complete: privacy_level column added")
-            
+
             cursor.execute('SELECT key, content, created_at, updated_at, tags, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys, summary_ref, equipped_items, access_count, last_accessed, privacy_level FROM memories')
             rows = cursor.fetchall()
-            
+
             for row in rows:
                 key, content, created_at, updated_at, tags_json, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys_json, summary_ref, equipped_items_json, access_count, last_accessed, privacy_level = row
                 memory_store[key] = {
@@ -256,21 +256,21 @@ def load_memory_from_db() -> Dict[str, Any]:
                     "last_accessed": last_accessed if last_accessed else None,
                     "privacy_level": privacy_level if privacy_level else "internal"
                 }
-        
+
         print(f"Loaded {len(memory_store)} memory entries from {db_path}")
         log_progress(f"Loaded {len(memory_store)} memory entries from {db_path}")
     except Exception as e:
         print(f"Failed to load memory database: {e}")
         log_progress(f"Failed to load memory database: {e}")
-    
+
     return memory_store
 
 
 def save_memory_to_db(
-    key: str, 
-    content: str, 
-    created_at: Optional[str] = None, 
-    updated_at: Optional[str] = None, 
+    key: str,
+    content: str,
+    created_at: Optional[str] = None,
+    updated_at: Optional[str] = None,
     tags: Optional[List[str]] = None,
     importance: Optional[float] = None,
     emotion: Optional[str] = None,
@@ -288,7 +288,7 @@ def save_memory_to_db(
 ) -> bool:
     """
     Save memory to SQLite database (persona-scoped).
-    
+
     Args:
         key: Memory key
         content: Memory content
@@ -307,7 +307,7 @@ def save_memory_to_db(
         summary_ref: Optional reference to summary node (defaults to None)
         equipped_items: Optional dict of equipped items {slot: item_name} (defaults to None)
         persona: Persona name (None = use current context)
-    
+
     Returns:
         bool: Success status
     """
@@ -316,14 +316,14 @@ def save_memory_to_db(
             persona = get_current_persona()
         db_path = get_db_path(persona)
         log_progress(f"💾 Attempting to save to DB: {db_path} (persona: {persona})")
-        
+
         now = datetime.now().isoformat()
-        
+
         if created_at is None:
             created_at = now
         if updated_at is None:
             updated_at = now
-        
+
         # Defaults for new fields
         if importance is None:
             importance = 0.5
@@ -344,36 +344,36 @@ def save_memory_to_db(
             related_keys = []
         # summary_ref remains None if not provided (no default)
         # equipped_items remains None if not provided (no default)
-        
+
         # Validate ranges
         importance = max(0.0, min(1.0, importance))
         emotion_intensity = max(0.0, min(1.0, emotion_intensity))
-        
+
         # Privacy level default
         if privacy_level is None:
             privacy_level = "internal"
-        
+
         # Serialize tags, related_keys, and equipped_items as JSON
         tags_json = json.dumps(tags, ensure_ascii=False) if tags else None
         related_keys_json = json.dumps(related_keys, ensure_ascii=False)
         equipped_items_json = json.dumps(equipped_items, ensure_ascii=False) if equipped_items else None
         log_progress(f"💾 Tags JSON: {tags_json}, importance: {importance}, emotion: {emotion}, emotion_intensity: {emotion_intensity}, physical: {physical_state}, mental: {mental_state}, env: {environment}, relation: {relationship_status}, action: {action_tag}, related_keys: {related_keys_json}, summary_ref: {summary_ref}, equipped_items: {equipped_items_json}, privacy_level: {privacy_level}")
-        
+
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
-            
+
             # Check schema before insert
             cursor.execute("PRAGMA table_info(memories)")
             columns = [col[1] for col in cursor.fetchall()]
             log_progress(f"💾 DB columns: {columns}")
-            
+
             cursor.execute("""
                 INSERT OR REPLACE INTO memories (key, content, created_at, updated_at, tags, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys, summary_ref, equipped_items, privacy_level)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (key, content, created_at, updated_at, tags_json, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys_json, summary_ref, equipped_items_json, privacy_level))
             conn.commit()
             log_progress(f"✅ Successfully saved {key} to DB")
-        
+
         return True
     except Exception as e:
         print(f"Failed to save memory to database: {e}")
@@ -387,21 +387,21 @@ def save_memory_to_db(
 def delete_memory_from_db(key: str) -> bool:
     """
     Delete memory from SQLite database (persona-scoped).
-    
+
     Args:
         key: Memory key to delete
-    
+
     Returns:
         bool: Success status
     """
     try:
         db_path = get_db_path()
-        
+
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
             cursor.execute('DELETE FROM memories WHERE key = ?', (key,))
             conn.commit()
-        
+
         return True
     except Exception as e:
         print(f"Failed to delete memory from database: {e}")
@@ -412,10 +412,10 @@ def delete_memory_from_db(key: str) -> bool:
 def create_memory_entry(content: str) -> Dict[str, str]:
     """
     Create memory entry with metadata.
-    
+
     Args:
         content: Memory content
-    
+
     Returns:
         dict: Memory entry with content, created_at, updated_at
     """
@@ -430,7 +430,7 @@ def create_memory_entry(content: str) -> Dict[str, str]:
 def generate_auto_key() -> str:
     """
     Generate auto key from current time.
-    
+
     Returns:
         str: Memory key in format memory_YYYYMMDDHHMMSS
     """
@@ -439,17 +439,17 @@ def generate_auto_key() -> str:
 
 
 def log_operation(
-    operation: str, 
-    key: Optional[str] = None, 
-    before: Optional[Dict] = None, 
-    after: Optional[Dict] = None, 
-    success: bool = True, 
-    error: Optional[str] = None, 
+    operation: str,
+    key: Optional[str] = None,
+    before: Optional[Dict] = None,
+    after: Optional[Dict] = None,
+    success: bool = True,
+    error: Optional[str] = None,
     metadata: Optional[Dict] = None
 ) -> None:
     """
     Log memory operations to operations table.
-    
+
     Args:
         operation: Operation type (create, read, update, delete, etc.)
         key: Memory key involved
@@ -472,11 +472,11 @@ def log_operation(
             "error": error,
             "metadata": json.dumps(metadata or {}, ensure_ascii=False)
         }
-        
+
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                INSERT INTO operations 
+                INSERT INTO operations
                 (timestamp, operation_id, operation, key, before, after, success, error, metadata)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
@@ -498,10 +498,10 @@ def log_operation(
 def increment_access_count(key: str) -> bool:
     """
     Increment access count and update last accessed timestamp.
-    
+
     Args:
         key: Memory key
-    
+
     Returns:
         bool: True if successful
     """
@@ -537,7 +537,7 @@ def save_physical_sensations_history(
 ) -> bool:
     """
     Save physical sensations state to history table.
-    
+
     Args:
         memory_key: Associated memory key (optional)
         fatigue: Fatigue level (0.0-1.0)
@@ -547,7 +547,7 @@ def save_physical_sensations_history(
         heart_rate_metaphor: Heart rate metaphor
         timestamp: Timestamp (defaults to now)
         persona: Persona name (defaults to current)
-    
+
     Returns:
         bool: Success status
     """
@@ -555,24 +555,24 @@ def save_physical_sensations_history(
         if persona is None:
             persona = get_current_persona()
         db_path = get_db_path(persona)
-        
+
         if timestamp is None:
             timestamp = datetime.now().isoformat()
-        
+
         # Validate ranges
         fatigue = max(0.0, min(1.0, fatigue))
         warmth = max(0.0, min(1.0, warmth))
         arousal = max(0.0, min(1.0, arousal))
-        
+
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                INSERT INTO physical_sensations_history 
+                INSERT INTO physical_sensations_history
                 (timestamp, memory_key, fatigue, warmth, arousal, touch_response, heart_rate_metaphor)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             """, (timestamp, memory_key, fatigue, warmth, arousal, touch_response, heart_rate_metaphor))
             conn.commit()
-        
+
         return True
     except Exception as e:
         log_progress(f"❌ Failed to save physical sensations history: {e}")
@@ -588,14 +588,14 @@ def save_emotion_history(
 ) -> bool:
     """
     Save emotion state to history table.
-    
+
     Args:
         memory_key: Associated memory key (optional)
         emotion: Emotion label
         emotion_intensity: Emotion intensity (0.0-1.0)
         timestamp: Timestamp (defaults to now)
         persona: Persona name (defaults to current)
-    
+
     Returns:
         bool: Success status
     """
@@ -603,22 +603,22 @@ def save_emotion_history(
         if persona is None:
             persona = get_current_persona()
         db_path = get_db_path(persona)
-        
+
         if timestamp is None:
             timestamp = datetime.now().isoformat()
-        
+
         # Validate range
         emotion_intensity = max(0.0, min(1.0, emotion_intensity))
-        
+
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                INSERT INTO emotion_history 
+                INSERT INTO emotion_history
                 (timestamp, memory_key, emotion, emotion_intensity)
                 VALUES (?, ?, ?, ?)
             """, (timestamp, memory_key, emotion, emotion_intensity))
             conn.commit()
-        
+
         return True
     except Exception as e:
         log_progress(f"❌ Failed to save emotion history: {e}")
@@ -628,10 +628,10 @@ def save_emotion_history(
 def get_latest_physical_sensations(persona: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """
     Get latest physical sensations state from history table.
-    
+
     Args:
         persona: Persona name (defaults to current)
-    
+
     Returns:
         Dict with physical sensations data, or None if no history
     """
@@ -639,7 +639,7 @@ def get_latest_physical_sensations(persona: Optional[str] = None) -> Optional[Di
         if persona is None:
             persona = get_current_persona()
         db_path = get_db_path(persona)
-        
+
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
             cursor.execute("""
@@ -649,7 +649,7 @@ def get_latest_physical_sensations(persona: Optional[str] = None) -> Optional[Di
                 LIMIT 1
             """)
             row = cursor.fetchone()
-            
+
             if row:
                 return {
                     "timestamp": row[0],
@@ -668,10 +668,10 @@ def get_latest_physical_sensations(persona: Optional[str] = None) -> Optional[Di
 def get_latest_emotion(persona: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """
     Get latest emotion state from history table.
-    
+
     Args:
         persona: Persona name (defaults to current)
-    
+
     Returns:
         Dict with emotion data, or None if no history
     """
@@ -679,7 +679,7 @@ def get_latest_emotion(persona: Optional[str] = None) -> Optional[Dict[str, Any]
         if persona is None:
             persona = get_current_persona()
         db_path = get_db_path(persona)
-        
+
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
             cursor.execute("""
@@ -689,7 +689,7 @@ def get_latest_emotion(persona: Optional[str] = None) -> Optional[Dict[str, Any]
                 LIMIT 1
             """)
             row = cursor.fetchone()
-            
+
             if row:
                 return {
                     "timestamp": row[0],
@@ -708,11 +708,11 @@ def get_physical_sensations_timeline(
 ) -> List[Dict[str, Any]]:
     """
     Get physical sensations timeline for visualization.
-    
+
     Args:
         days: Number of days to retrieve (default: 7)
         persona: Persona name (defaults to current)
-    
+
     Returns:
         List of physical sensations records
     """
@@ -720,10 +720,10 @@ def get_physical_sensations_timeline(
         if persona is None:
             persona = get_current_persona()
         db_path = get_db_path(persona)
-        
+
         from datetime import timedelta
         cutoff = (datetime.now() - timedelta(days=days)).isoformat()
-        
+
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
             cursor.execute("""
@@ -732,7 +732,7 @@ def get_physical_sensations_timeline(
                 WHERE timestamp >= ?
                 ORDER BY timestamp ASC
             """, (cutoff,))
-            
+
             results = []
             for row in cursor.fetchall():
                 results.append({
@@ -755,11 +755,11 @@ def get_emotion_timeline(
 ) -> List[Dict[str, Any]]:
     """
     Get emotion timeline for visualization.
-    
+
     Args:
         days: Number of days to retrieve (default: 7)
         persona: Persona name (defaults to current)
-    
+
     Returns:
         List of emotion records
     """
@@ -767,10 +767,10 @@ def get_emotion_timeline(
         if persona is None:
             persona = get_current_persona()
         db_path = get_db_path(persona)
-        
+
         from datetime import timedelta
         cutoff = (datetime.now() - timedelta(days=days)).isoformat()
-        
+
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
             cursor.execute("""
@@ -779,7 +779,7 @@ def get_emotion_timeline(
                 WHERE timestamp >= ?
                 ORDER BY timestamp ASC
             """, (cutoff,))
-            
+
             results = []
             for row in cursor.fetchall():
                 results.append({
@@ -797,15 +797,15 @@ def get_anniversaries(persona: Optional[str] = None) -> List[Dict[str, Any]]:
     """
     Get anniversary memories grouped by month-day for calendar display.
     Returns memories tagged with 'anniversary', 'milestone', or 'first_time' grouped by MM-DD format.
-    
+
     Anniversary tags should be used for:
     - anniversary: Special commemorative dates (first meeting, relationship milestones)
     - milestone: Important achievements or life events
     - first_time: First time experiences worth remembering
-    
+
     Args:
         persona: Persona name (defaults to current)
-    
+
     Returns:
         List of anniversary records with date and associated memories
     """
@@ -813,11 +813,11 @@ def get_anniversaries(persona: Optional[str] = None) -> List[Dict[str, Any]]:
         if persona is None:
             persona = get_current_persona()
         db_path = get_db_path(persona)
-        
+
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT 
+                SELECT
                     key,
                     content,
                     created_at,
@@ -826,31 +826,31 @@ def get_anniversaries(persona: Optional[str] = None) -> List[Dict[str, Any]]:
                     emotion_intensity,
                     tags
                 FROM memories
-                WHERE tags LIKE '%anniversary%' 
-                   OR tags LIKE '%milestone%' 
+                WHERE tags LIKE '%anniversary%'
+                   OR tags LIKE '%milestone%'
                    OR tags LIKE '%first_time%'
                 ORDER BY created_at DESC
             """)
-            
+
             # Group by month-day
             anniversaries = {}
             for row in cursor.fetchall():
                 key, content, created_at, importance, emotion, emotion_intensity, tags_json = row
-                
+
                 # Extract month-day from created_at (YYYY-MM-DD format)
                 date_obj = datetime.fromisoformat(created_at)
                 month_day = date_obj.strftime("%m-%d")  # "MM-DD"
                 year = date_obj.year
-                
+
                 # Parse tags
                 tags = json.loads(tags_json) if tags_json else []
-                
+
                 # Create short preview (first 100 chars)
                 preview = content[:100] + "..." if len(content) > 100 else content
-                
+
                 if month_day not in anniversaries:
                     anniversaries[month_day] = []
-                
+
                 anniversaries[month_day].append({
                     "key": key,
                     "year": year,
@@ -861,7 +861,7 @@ def get_anniversaries(persona: Optional[str] = None) -> List[Dict[str, Any]]:
                     "emotion_intensity": emotion_intensity,
                     "tags": tags
                 })
-            
+
             # Convert to list format for API
             result = []
             for month_day, memories in sorted(anniversaries.items()):
@@ -870,11 +870,125 @@ def get_anniversaries(persona: Optional[str] = None) -> List[Dict[str, Any]]:
                     "count": len(memories),
                     "memories": memories
                 })
-            
+
             return result
     except Exception as e:
         log_progress(f"❌ Failed to get anniversaries: {e}")
         return []
+
+
+def migrate_anniversaries_to_memories(persona: str = None) -> dict:
+    """
+    Migrate anniversaries from persona_context.json to memories table as tagged memories.
+    Auto-runs on startup. Skips duplicates based on date and tags.
+
+    Args:
+        persona: Persona name (defaults to current)
+
+    Returns:
+        dict: {"migrated": count, "skipped": count, "errors": list}
+    """
+    try:
+        if persona is None:
+            persona = get_current_persona()
+
+        from core.persona_context import load_persona_context
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        from src.utils.config_utils import load_config
+
+        context = load_persona_context(persona)
+        anniversaries = context.get("anniversaries", [])
+
+        if not anniversaries:
+            return {"migrated": 0, "skipped": 0, "errors": []}
+
+        db_path = get_db_path(persona)
+        cfg = load_config()
+        tz = ZoneInfo(cfg.get("timezone", "Asia/Tokyo"))
+
+        migrated = 0
+        skipped = 0
+        errors = []
+
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+
+            for ann in anniversaries:
+                try:
+                    name = ann.get("name", "")
+                    date_str = ann.get("date", "")
+                    recurring = ann.get("recurring", True)
+
+                    if not name or not date_str:
+                        errors.append(f"Missing name or date: {ann}")
+                        continue
+
+                    # Extract MM-DD for duplicate check
+                    try:
+                        date_obj = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+                        month_day = date_obj.strftime("%m-%d")
+                    except:
+                        errors.append(f"Invalid date format: {date_str}")
+                        continue
+
+                    # Check for duplicates: same month-day + anniversary tag
+                    cursor.execute("""
+                        SELECT COUNT(*) FROM memories
+                        WHERE strftime('%m-%d', created_at) = ?
+                          AND tags LIKE '%"anniversary"%'
+                    """, (month_day,))
+
+                    if cursor.fetchone()[0] > 0:
+                        skipped += 1
+                        continue
+
+                    # Create tagged memory
+                    tags = ["anniversary"]
+                    if recurring:
+                        tags.append("yearly")
+
+                    content = f"{name} (記念日)"
+                    if recurring:
+                        content += " - 毎年"
+
+                    # Use the anniversary date as created_at
+                    created_at = datetime.fromisoformat(date_str).replace(tzinfo=tz).isoformat()
+
+                    key = f"anniversary_{month_day.replace('-', '')}_{hash(name) % 10000:04d}"
+
+                    cursor.execute("""
+                        INSERT INTO memories (key, content, created_at, importance, emotion, tags)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    """, (
+                        key,
+                        content,
+                        created_at,
+                        0.9,  # High importance for anniversaries
+                        "gratitude",
+                        json.dumps(tags, ensure_ascii=False)
+                    ))
+
+                    migrated += 1
+
+                except Exception as e:
+                    errors.append(f"Failed to migrate {ann.get('name', 'unknown')}: {str(e)}")
+                    continue
+
+            conn.commit()
+
+        if migrated > 0:
+            log_progress(f"✅ Migrated {migrated} anniversaries to memories (skipped {skipped} duplicates)")
+
+        return {
+            "migrated": migrated,
+            "skipped": skipped,
+            "errors": errors
+        }
+
+    except Exception as e:
+        log_progress(f"❌ Failed to migrate anniversaries: {e}")
+        return {"migrated": 0, "skipped": 0, "errors": [str(e)]}
 
 
 # ===== Phase 41: Promises and Goals Management =====
@@ -882,14 +996,14 @@ def get_anniversaries(persona: Optional[str] = None) -> List[Dict[str, Any]]:
 def save_promise(content: str, due_date: str = None, priority: int = 0, notes: str = None, persona: str = None) -> int:
     """
     Save a new promise to database.
-    
+
     Args:
         content: Promise content
         due_date: Optional due date (ISO format)
         priority: Priority level (default 0)
         notes: Optional notes
         persona: Persona name (defaults to current)
-    
+
     Returns:
         Promise ID
     """
@@ -897,13 +1011,13 @@ def save_promise(content: str, due_date: str = None, priority: int = 0, notes: s
         if persona is None:
             persona = get_current_persona()
         db_path = get_db_path(persona)
-        
+
         from datetime import datetime
         from zoneinfo import ZoneInfo
         from src.utils.config_utils import load_config
         cfg = load_config()
         now = datetime.now(ZoneInfo(cfg.get("timezone", "Asia/Tokyo"))).isoformat()
-        
+
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
             cursor.execute("""
@@ -920,11 +1034,11 @@ def save_promise(content: str, due_date: str = None, priority: int = 0, notes: s
 def get_promises(status: str = 'active', persona: str = None) -> list:
     """
     Get promises from database.
-    
+
     Args:
         status: Filter by status ('active', 'completed', 'cancelled', or 'all')
         persona: Persona name (defaults to current)
-    
+
     Returns:
         List of promise dicts
     """
@@ -932,10 +1046,10 @@ def get_promises(status: str = 'active', persona: str = None) -> list:
         if persona is None:
             persona = get_current_persona()
         db_path = get_db_path(persona)
-        
+
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
-            
+
             if status == 'all':
                 cursor.execute("""
                     SELECT id, content, created_at, due_date, status, completed_at, priority, notes
@@ -949,7 +1063,7 @@ def get_promises(status: str = 'active', persona: str = None) -> list:
                     WHERE status = ?
                     ORDER BY priority DESC, created_at DESC
                 """, (status,))
-            
+
             promises = []
             for row in cursor.fetchall():
                 promises.append({
@@ -971,12 +1085,12 @@ def get_promises(status: str = 'active', persona: str = None) -> list:
 def update_promise_status(promise_id: int, status: str, persona: str = None) -> bool:
     """
     Update promise status.
-    
+
     Args:
         promise_id: Promise ID
         status: New status ('active', 'completed', 'cancelled')
         persona: Persona name (defaults to current)
-    
+
     Returns:
         Success boolean
     """
@@ -984,16 +1098,16 @@ def update_promise_status(promise_id: int, status: str, persona: str = None) -> 
         if persona is None:
             persona = get_current_persona()
         db_path = get_db_path(persona)
-        
+
         from datetime import datetime
         from zoneinfo import ZoneInfo
         from src.utils.config_utils import load_config
         cfg = load_config()
         now = datetime.now(ZoneInfo(cfg.get("timezone", "Asia/Tokyo"))).isoformat()
-        
+
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
-            
+
             if status == 'completed':
                 cursor.execute("""
                     UPDATE promises
@@ -1006,7 +1120,7 @@ def update_promise_status(promise_id: int, status: str, persona: str = None) -> 
                     SET status = ?, completed_at = NULL
                     WHERE id = ?
                 """, (status, promise_id))
-            
+
             conn.commit()
             return cursor.rowcount > 0
     except Exception as e:
@@ -1017,14 +1131,14 @@ def update_promise_status(promise_id: int, status: str, persona: str = None) -> 
 def save_goal(content: str, target_date: str = None, progress: int = 0, notes: str = None, persona: str = None) -> int:
     """
     Save a new goal to database.
-    
+
     Args:
         content: Goal content
         target_date: Optional target date (ISO format)
         progress: Progress percentage 0-100 (default 0)
         notes: Optional notes
         persona: Persona name (defaults to current)
-    
+
     Returns:
         Goal ID
     """
@@ -1032,13 +1146,13 @@ def save_goal(content: str, target_date: str = None, progress: int = 0, notes: s
         if persona is None:
             persona = get_current_persona()
         db_path = get_db_path(persona)
-        
+
         from datetime import datetime
         from zoneinfo import ZoneInfo
         from src.utils.config_utils import load_config
         cfg = load_config()
         now = datetime.now(ZoneInfo(cfg.get("timezone", "Asia/Tokyo"))).isoformat()
-        
+
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
             cursor.execute("""
@@ -1055,11 +1169,11 @@ def save_goal(content: str, target_date: str = None, progress: int = 0, notes: s
 def get_goals(status: str = 'active', persona: str = None) -> list:
     """
     Get goals from database.
-    
+
     Args:
         status: Filter by status ('active', 'completed', 'cancelled', or 'all')
         persona: Persona name (defaults to current)
-    
+
     Returns:
         List of goal dicts
     """
@@ -1067,10 +1181,10 @@ def get_goals(status: str = 'active', persona: str = None) -> list:
         if persona is None:
             persona = get_current_persona()
         db_path = get_db_path(persona)
-        
+
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
-            
+
             if status == 'all':
                 cursor.execute("""
                     SELECT id, content, created_at, target_date, status, completed_at, progress, notes
@@ -1084,7 +1198,7 @@ def get_goals(status: str = 'active', persona: str = None) -> list:
                     WHERE status = ?
                     ORDER BY progress ASC, created_at DESC
                 """, (status,))
-            
+
             goals = []
             for row in cursor.fetchall():
                 goals.append({
@@ -1106,12 +1220,12 @@ def get_goals(status: str = 'active', persona: str = None) -> list:
 def update_goal_progress(goal_id: int, progress: int, persona: str = None) -> bool:
     """
     Update goal progress.
-    
+
     Args:
         goal_id: Goal ID
         progress: Progress percentage 0-100
         persona: Persona name (defaults to current)
-    
+
     Returns:
         Success boolean
     """
@@ -1119,19 +1233,19 @@ def update_goal_progress(goal_id: int, progress: int, persona: str = None) -> bo
         if persona is None:
             persona = get_current_persona()
         db_path = get_db_path(persona)
-        
+
         from datetime import datetime
         from zoneinfo import ZoneInfo
         from src.utils.config_utils import load_config
         cfg = load_config()
         now = datetime.now(ZoneInfo(cfg.get("timezone", "Asia/Tokyo"))).isoformat()
-        
+
         # Auto-complete if progress reaches 100
         status = 'completed' if progress >= 100 else 'active'
-        
+
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
-            
+
             if status == 'completed':
                 cursor.execute("""
                     UPDATE goals
@@ -1144,7 +1258,7 @@ def update_goal_progress(goal_id: int, progress: int, persona: str = None) -> bo
                     SET progress = ?, status = ?
                     WHERE id = ?
                 """, (progress, status, goal_id))
-            
+
             conn.commit()
             return cursor.rowcount > 0
     except Exception as e:
@@ -1155,11 +1269,11 @@ def update_goal_progress(goal_id: int, progress: int, persona: str = None) -> bo
 def get_emotion_history_from_db(limit: int = 10, persona: str = None) -> list:
     """
     Get emotion history from database.
-    
+
     Args:
         limit: Number of recent entries to return
         persona: Persona name (defaults to current)
-    
+
     Returns:
         List of emotion history entries
     """
@@ -1167,7 +1281,7 @@ def get_emotion_history_from_db(limit: int = 10, persona: str = None) -> list:
         if persona is None:
             persona = get_current_persona()
         db_path = get_db_path(persona)
-        
+
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
             cursor.execute("""
@@ -1176,7 +1290,7 @@ def get_emotion_history_from_db(limit: int = 10, persona: str = None) -> list:
                 ORDER BY timestamp DESC
                 LIMIT ?
             """, (limit,))
-            
+
             history = []
             for row in cursor.fetchall():
                 history.append({

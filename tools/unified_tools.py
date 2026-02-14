@@ -79,11 +79,17 @@ async def memory(
         - "goal": Update/clear current goal
         - "favorite": Add to favorites
         - "preference": Update preferences
-        - "anniversary": Manage anniversaries
+        - "anniversary": Manage anniversaries (stored as tagged memories)
         - "sensation": Update physical sensations
         - "emotion_flow": Record emotion change
         - "situation_context": Analyze current situation
         - "update_context": Batch update multiple fields
+
+    Anniversary Tags:
+        Anniversaries are stored as memories with special tags:
+        - 'anniversary': Special commemorative dates (first meeting, relationship milestones)
+        - 'milestone': Important achievements or life events
+        - 'first_time': First time experiences worth remembering
 
     Examples:
         # Memory operations
@@ -92,10 +98,20 @@ async def memory(
         memory(operation="search", query="Python", mode="semantic")
         memory(operation="check_routines")
 
-        # Context operations
-        memory(operation="promise", content="週末に買い物")
+        # Anniversary - Tag-based approach (recommended)
+        memory(operation="create", content="初めて会った日",
+               context_tags=["anniversary"], importance=0.9)
+        memory(operation="create", content="プロジェクト完成",
+               context_tags=["milestone"], importance=0.8)
+
+        # Anniversary - Using anniversary operation
         memory(operation="anniversary", content="結婚記念日",
                persona_info={"date": "2025-11-10"})
+        memory(operation="anniversary")  # List all anniversaries
+
+        # Other context operations
+        memory(operation="promise", content="週末に買い物")
+        memory(operation="goal", content="新しいダンス")
     """
     # Update last conversation time for all operations
     update_last_conversation_time(get_current_persona())

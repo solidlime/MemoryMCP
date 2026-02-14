@@ -61,7 +61,7 @@ Unified memory operations:
 **Context Operations:**
 - `promise`, `goal` - Manage promises and goals
 - `favorite`, `preference` - Update preferences
-- `anniversary` - Manage anniversaries
+- `anniversary` - Manage anniversaries (stored as tagged memories)
 - `sensation`, `emotion_flow` - Track physical/emotional state
 - `situation_context`, `update_context` - Context management
 

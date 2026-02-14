@@ -54,8 +54,10 @@ def load_persona_context(persona: Optional[str] = None) -> dict:
             "arousal": 0.0,
             "touch_response": "normal",
             "heart_rate_metaphor": "calm"
-        },
-        "emotion_history": []
+        }
+        # Note: emotion_history, anniversaries moved to SQLite tables
+        # - emotion_history -> emotion_history table
+        # - anniversaries -> memories table with 'anniversary' tag
     }
 
     try:

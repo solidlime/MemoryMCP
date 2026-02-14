@@ -41,6 +41,34 @@ mcp_memory create "Successfully deployed new feature" \
   --environment "home office"
 ```
 
+### Anniversary/Milestone Creation
+
+**Recommended approach** for creating anniversaries and milestones:
+
+```bash
+# Special commemorative date
+mcp_memory create "初めて会った日 - 忘れられない特別な日" \
+  --tags "anniversary" \
+  --importance 0.9 \
+  --emotion-type "gratitude"
+
+# Important achievement
+mcp_memory create "プロジェクト完成 - 大きな達成" \
+  --tags "milestone" \
+  --importance 0.8 \
+  --emotion-type "joy"
+
+# First time experience
+mcp_memory create "初めての○○ - 特別な体験" \
+  --tags "first_time" \
+  --importance 0.7
+```
+
+**Anniversary Tags:**
+- `anniversary`: Special commemorative dates (first meeting, relationship milestones)
+- `milestone`: Important achievements or life events
+- `first_time`: First time experiences worth remembering
+
 ### Privacy Control
 
 ```bash

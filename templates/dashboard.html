@@ -363,6 +363,50 @@
         </div>
     </div>
 
+    <!-- Memory Usage Statistics Card -->
+    <div class="glass-card rounded-2xl p-6 mb-6">
+        <h2 class="text-2xl font-bold text-white mb-4">📊 Memory Usage Statistics</h2>
+        <p class="text-purple-200 mb-4">操作頻度から低使用率の記憶を特定</p>
+
+        <!-- グラフコンテナ -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <!-- 操作種別の円グラフ -->
+            <div class="glass-card rounded-xl p-4">
+                <h3 class="text-xl text-white mb-3">🔍 操作種別の割合</h3>
+                <canvas id="operationTypeChart" style="max-height: 300px;"></canvas>
+            </div>
+
+            <!-- アクセス頻度の棒グラフ -->
+            <div class="glass-card rounded-xl p-4">
+                <h3 class="text-xl text-white mb-3">📈 アクセス頻度（上位20件）</h3>
+                <canvas id="accessFrequencyChart" style="max-height: 300px;"></canvas>
+            </div>
+        </div>
+
+        <!-- 低使用率アイテムのテーブル -->
+        <div class="glass-card rounded-xl p-4">
+            <h3 class="text-xl text-white mb-3">⚠️ 低使用率アイテム（3回以下のアクセス）</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="text-white border-b border-white/20">
+                            <th class="text-left p-2">Key</th>
+                            <th class="text-left p-2">Preview</th>
+                            <th class="text-center p-2">Total</th>
+                            <th class="text-center p-2">Read</th>
+                            <th class="text-center p-2">Update</th>
+                            <th class="text-center p-2">Last Access</th>
+                            <th class="text-center p-2">Days Inactive</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lowUsageTableBody" class="text-purple-100">
+                        <tr><td colspan="7" class="text-center p-4 text-purple-300">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
     <!-- Audit Log Card -->
     <div class="glass-card rounded-2xl p-6 mb-6">
         <h2 class="text-2xl font-bold text-white mb-4">📝 Audit Log</h2>
@@ -429,6 +473,11 @@
                 if (tagChart) tagChart.resize();
                 if (emotionChart) emotionChart.resize();
                 if (physicalSensationsChart) physicalSensationsChart.resize();
+            }
+
+            // Load memory usage stats if switching to admin tab
+            if (tabName === 'admin') {
+                loadMemoryUsageStats();
             }
         }
 
@@ -1693,6 +1742,134 @@
                 }
             } catch (err) {
                 document.getElementById('auditLogList').innerHTML = `<p class="text-red-300 text-sm">Error: ${err.message}</p>`;
+            }
+        }
+
+        // ─── Memory Usage Statistics ────────────────────────────────
+        let operationTypeChart = null;
+        let accessFrequencyChart = null;
+
+        async function loadMemoryUsageStats() {
+            if (!currentPersona) return;
+
+            try {
+                const res = await fetch(`/api/memory-usage-stats/${currentPersona}?sort_by=frequency&order=desc&max_access_count=3`);
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error);
+
+                // 1. 操作種別の円グラフ
+                const operationTypes = {};
+                data.stats.forEach(stat => {
+                    operationTypes.create = (operationTypes.create || 0) + (stat.create_count || 0);
+                    operationTypes.read = (operationTypes.read || 0) + (stat.read_count || 0);
+                    operationTypes.update = (operationTypes.update || 0) + (stat.update_count || 0);
+                    operationTypes.delete = (operationTypes.delete || 0) + (stat.delete_count || 0);
+                    operationTypes.search = (operationTypes.search || 0) + (stat.search_count || 0);
+                });
+
+                const ctx1 = document.getElementById('operationTypeChart');
+                if (operationTypeChart) operationTypeChart.destroy();
+                operationTypeChart = new Chart(ctx1, {
+                    type: 'pie',
+                    data: {
+                        labels: ['Create', 'Read', 'Update', 'Delete', 'Search'],
+                        datasets: [{
+                            data: [
+                                operationTypes.create || 0,
+                                operationTypes.read || 0,
+                                operationTypes.update || 0,
+                                operationTypes.delete || 0,
+                                operationTypes.search || 0
+                            ],
+                            backgroundColor: [
+                                'rgba(34, 197, 94, 0.7)',   // green
+                                'rgba(59, 130, 246, 0.7)',   // blue
+                                'rgba(251, 191, 36, 0.7)',   // yellow
+                                'rgba(239, 68, 68, 0.7)',    // red
+                                'rgba(168, 85, 247, 0.7)'    // purple
+                            ],
+                            borderColor: 'rgba(255, 255, 255, 0.8)',
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: { color: 'white', font: { size: 12 } }
+                            }
+                        }
+                    }
+                });
+
+                // 2. アクセス頻度の棒グラフ（上位20件）
+                const top20 = data.stats.slice(0, 20);
+                const ctx2 = document.getElementById('accessFrequencyChart');
+                if (accessFrequencyChart) accessFrequencyChart.destroy();
+                accessFrequencyChart = new Chart(ctx2, {
+                    type: 'bar',
+                    data: {
+                        labels: top20.map(s => s.key.length > 20 ? s.key.slice(0, 20) + '...' : s.key),
+                        datasets: [{
+                            label: 'Total Operations',
+                            data: top20.map(s => s.total_operations),
+                            backgroundColor: 'rgba(168, 85, 247, 0.7)',
+                            borderColor: 'rgba(168, 85, 247, 1)',
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        indexAxis: 'y',
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            x: {
+                                beginAtZero: true,
+                                ticks: { color: 'white' },
+                                grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                            },
+                            y: {
+                                ticks: { color: 'white', font: { size: 10 } },
+                                grid: { display: false }
+                            }
+                        }
+                    }
+                });
+
+                // 3. 低使用率アイテムのテーブル
+                const tbody = document.getElementById('lowUsageTableBody');
+                const lowUsageItems = data.stats.filter(s => s.total_operations <= 3);
+
+                if (lowUsageItems.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" class="text-center p-4 text-purple-300">低使用率のアイテムはありません</td></tr>';
+                } else {
+                    tbody.innerHTML = lowUsageItems.map(stat => {
+                        const daysInactive = Math.floor(stat.days_since_last_access || 0);
+                        const lastAccess = stat.last_access_formatted || 'N/A';
+                        const preview = stat.content_preview || '(削除済み)';
+                        const existsBadge = stat.exists ? '✅' : '❌';
+
+                        return `
+                            <tr class="border-b border-white/10 hover:bg-white/5">
+                                <td class="p-2 font-mono text-xs">${stat.key} ${existsBadge}</td>
+                                <td class="p-2 text-xs truncate max-w-xs" title="${preview}">${preview}</td>
+                                <td class="p-2 text-center">${stat.total_operations}</td>
+                                <td class="p-2 text-center">${stat.read_count || 0}</td>
+                                <td class="p-2 text-center">${stat.update_count || 0}</td>
+                                <td class="p-2 text-xs">${lastAccess}</td>
+                                <td class="p-2 text-center ${daysInactive >= 30 ? 'text-red-300' : ''}">${daysInactive}日</td>
+                            </tr>
+                        `;
+                    }).join('');
+                }
+
+            } catch (err) {
+                console.error('Failed to load memory usage stats:', err);
+                document.getElementById('lowUsageTableBody').innerHTML =
+                    `<tr><td colspan="7" class="text-center p-4 text-red-300">Error: ${err.message}</td></tr>`;
             }
         }
 

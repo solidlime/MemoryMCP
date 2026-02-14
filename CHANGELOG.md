@@ -101,6 +101,74 @@ All notable changes to Memory-MCP will be documented in this file.
 **変更ファイル:**
 - `tools/equipment_tools.py`: add_to_inventory, remove_from_inventory に装備品表示ロジック追加
 
+#### Phase 7: Anniversary 自動マイグレーション & 統合表示
+
+**persona_context.json からの自動マイグレーション:**
+- `migrate_anniversaries_to_memories()` 関数追加（core/memory_db.py）
+- get_context() 実行時に persona_context.json の anniversaries を自動マイグレーション
+- MM-DD ベースの重複検出で既存の記念日と衝突を回避
+- マイグレーション後は persona_context.json から anniversaries フィールドを削除
+
+**Anniversary Calendar 統合表示:**
+- `/api/anniversaries/{persona}` を拡張してタグベース + コンテキストベースの両方をマージ
+- 下位互換性を保ちながら統合された記念日リストを返す
+- ダッシュボードで両方のソースからの記念日を表示
+
+**変更ファイル:**
+- `core/memory_db.py`: migrate_anniversaries_to_memories() 追加
+- `tools/context_tools.py`: get_context() でマイグレーション自動実行
+- `src/dashboard.py`: /api/anniversaries エンドポイントを拡張
+
+#### Phase 8: 操作頻度グラフ表示（Admin タブ）
+
+**Memory Usage Statistics カード追加:**
+- Admin タブに3種類の可視化を追加
+  - **Pie Chart**: 操作タイプ別の割合（create/read/update/delete/search）
+  - **Horizontal Bar Chart**: トップ20アクセス頻度の記憶項目
+  - **Low-Usage Table**: 3回以下のアクセスしかない記憶項目の一覧
+    - key, content preview, read/update counts, last access, days inactive を表示
+
+**JavaScript 統合:**
+- `loadMemoryUsageStats()` 関数追加
+- `/api/memory-usage-stats/{persona}?max_access_count=3` からデータ取得
+- Chart.js による動的グラフ生成
+- Admin タブへの切り替え時に自動ロード
+
+**変更ファイル:**
+- `templates/dashboard.html`: Memory Usage Statistics カード UI、loadMemoryUsageStats() 関数、switchTab() 統合
+
+#### Phase 9: Anniversary オペレーション完全統一（タグベース）
+
+**anniversary オペレーションを memories テーブルに変更:**
+- `handle_anniversary()` を全面的に書き換え
+- persona_context.json への保存を廃止し、memories テーブルに 'anniversary' タグ付きで保存
+- Add: save_memory_to_db() で anniversary タグ付きメモリを作成
+- List: get_anniversaries() でタグベースの記念日を取得・表示
+- Delete: delete_memory_from_db() でメモリキー指定削除
+
+**タグベースの統一:**
+- 'anniversary': 特別な記念日（初めて会った日、関係性のマイルストーン）
+- 'milestone': 重要な達成や人生のイベント
+- 'first_time': 初めての体験で覚えておきたいこと
+- create オペレーション + context_tags でも記念日作成可能（推奨）
+
+**不要データの削除:**
+- `persona_context.json` の default_context から emotion_history フィールドを削除
+- emotion_history は emotion_history テーブルに完全移行済み
+- anniversaries は memories テーブルに完全移行済み
+
+**ドキュメント更新:**
+- `tools/unified_tools.py`: memory() docstring に anniversary タグの使用例を追加
+- `.github/skills/memory-mcp/references/context_operations.md`: タグベースの推奨使用方法を追記
+- `.github/skills/memory-mcp/references/memory_operations.md`: Anniversary/Milestone Creation セクション追加
+- `.github/skills/memory-mcp/SKILL.md`: anniversary オペレーションの説明を更新
+
+**変更ファイル:**
+- `tools/handlers/context_handlers.py`: handle_anniversary() 完全書き換え（imports追加、タグベース実装）
+- `core/persona_context.py`: default_context から emotion_history 削除、コメント追加
+- `tools/unified_tools.py`: memory() docstring 拡張（anniversary tags, examples）
+- `.github/skills/memory-mcp/**`: ドキュメント更新
+
 ---
 
 ### Added - 2025-12-11 (Phase 40-41: Timeline Visualization & Anniversary System)

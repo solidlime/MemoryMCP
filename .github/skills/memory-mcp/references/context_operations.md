@@ -122,9 +122,38 @@ mcp_memory preference "music" \
 
 ## Anniversary Operations
 
-Manage important dates and anniversaries.
+**⚠️ Recommended: Use tag-based approach with `create` operation instead**
 
-### Add Anniversary
+Manage important dates and anniversaries. Anniversaries are now stored as memories with special tags in the memories table for better searchability and integration.
+
+### Recommended: Tag-Based Approach
+
+```bash
+# Create anniversary using tags (recommended)
+mcp_memory create "初めて会った日 - 忘れられない特別な日" \
+  --tags "anniversary" \
+  --importance 0.9 \
+  --emotion-type "gratitude"
+
+mcp_memory create "プロジェクト完成 - 大きな達成" \
+  --tags "milestone" \
+  --importance 0.8
+
+mcp_memory create "初めての○○ - 特別な体験" \
+  --tags "first_time" \
+  --importance 0.7
+```
+
+**Anniversary Tags:**
+- `anniversary`: Special commemorative dates (first meeting, relationship milestones)
+- `milestone`: Important achievements or life events
+- `first_time`: First time experiences worth remembering
+
+### Legacy: Anniversary Operation
+
+**Note:** This operation still works but stores data in memories table with 'anniversary' tag.
+
+#### Add Anniversary
 
 ```bash
 mcp_memory anniversary "結婚記念日" \
@@ -134,12 +163,16 @@ mcp_memory anniversary "結婚記念日" \
 **Parameters:**
 - `content`: Anniversary description (required)
 - `persona_info.date`: Date in YYYY-MM-DD format (required)
+- `persona_info.recurring`: Whether yearly recurring (default: true)
 
 ### List Anniversaries
 
 ```bash
+# List all anniversaries from memories table
 mcp_memory anniversary
 ```
+
+Shows all memories tagged with 'anniversary', 'milestone', or 'first_time'.
 
 ### Delete Anniversary
 

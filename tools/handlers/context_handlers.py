@@ -13,6 +13,9 @@ from core.memory_db import (
     update_goal_progress,
     get_emotion_history_from_db,
     save_emotion_history,
+    get_anniversaries,
+    save_memory_to_db,
+    delete_memory_from_db,
 )
 from core import calculate_time_diff
 from core.persona_context import load_persona_context, save_persona_context
@@ -271,86 +274,135 @@ async def handle_update_context(persona_info: Optional[Dict] = None, user_info: 
 
 
 async def handle_anniversary(content: Optional[str], persona_info: Optional[Dict]) -> str:
-    """Manage anniversaries (add, remove, list)."""
+    """
+    Manage anniversaries using memories table with 'anniversary' tag.
+
+    Operations:
+    - List: No parameters → Show all anniversary/milestone/first_time tagged memories
+    - Add: content + persona_info.date → Create anniversary memory
+    - Delete: persona_info.delete_key → Remove anniversary memory
+
+    Tags:
+    - 'anniversary': Special commemorative dates (first meeting, relationship milestones)
+    - 'milestone': Important achievements or life events
+    - 'first_time': First time experiences worth remembering
+
+    Examples:
+        # Add anniversary
+        memory(operation="anniversary", content="初めて会った日",
+               persona_info={"date": "2025-06-15"})
+
+        # List all anniversaries
+        memory(operation="anniversary")
+
+        # Delete anniversary
+        memory(operation="anniversary",
+               persona_info={"delete_key": "memory_20250615_123456"})
+    """
     persona = get_current_persona()
-    context = load_persona_context(persona)
 
-    # Initialize anniversaries list
-    if "anniversaries" not in context:
-        context["anniversaries"] = []
-
-    # Migrate old MM-DD format to YYYY-MM-DD
-    migrated = False
-    for ann in context["anniversaries"]:
-        date_str = ann.get("date", "")
-        if date_str and len(date_str) == 5 and date_str[2] == '-':
-            ann["date"] = f"2025-{date_str}"
-            migrated = True
-    if migrated:
-        save_persona_context(context, persona)
-        log_progress("✅ Migrated anniversary dates to YYYY-MM-DD format")
+    # Delete anniversary by key
+    if persona_info and "delete_key" in persona_info:
+        key = persona_info["delete_key"]
+        if delete_memory_from_db(key):
+            log_progress(f"✅ Deleted anniversary: {key}")
+            return f"✅ Anniversary deleted: {key}"
+        else:
+            return f"❌ Failed to delete anniversary: {key}"
 
     # List all anniversaries
     if not content and not persona_info:
-        if not context["anniversaries"]:
-            return "📅 No anniversaries registered."
+        anniversaries = get_anniversaries(persona)
+
+        if not anniversaries:
+            return "📅 No anniversaries registered.\n\n💡 Tip: Create anniversaries with anniversary/milestone/first_time tags:"\
+                   "\n  memory(operation='create', content='Event description', context_tags=['anniversary'])\n"\
+                   "  memory(operation='anniversary', content='Event', persona_info={'date': '2025-06-15'})"
 
         result = "📅 Registered Anniversaries:\n"
-        current_year = datetime.now().year
-        for i, ann in enumerate(context["anniversaries"], 1):
-            name = ann.get("name", "Unknown")
-            date = ann.get("date", "????-??-??")
-            recurring = ann.get("recurring", True)
-            recur_text = " (毎年)" if recurring else " (一度きり)"
+        result += "=" * 60 + "\n\n"
 
-            try:
-                ann_date = datetime.strptime(date, "%Y-%m-%d")
-                years = current_year - ann_date.year
-                if years > 0:
-                    result += f"{i}. {name}: {date} ({years}年目){recur_text}\n"
-                else:
-                    result += f"{i}. {name}: {date}{recur_text}\n"
-            except:
-                result += f"{i}. {name}: {date}{recur_text}\n"
+        current_year = datetime.now().year
+        total_count = 0
+
+        for ann_group in anniversaries:
+            month_day = ann_group["month_day"]  # "MM-DD"
+            memories = ann_group["memories"]
+
+            for memory in memories:
+                total_count += 1
+                date = memory["date"]  # "YYYY-MM-DD"
+                year = memory["year"]
+                preview = memory["preview"]
+                tags = memory["tags"]
+                key = memory["key"]
+
+                years_ago = current_year - year
+                years_text = f" ({years_ago}年前)" if years_ago > 0 else ""
+
+                # Tag badges
+                tag_badges = []
+                if "anniversary" in tags:
+                    tag_badges.append("🎂anniversary")
+                if "milestone" in tags:
+                    tag_badges.append("🏆milestone")
+                if "first_time" in tags:
+                    tag_badges.append("✨first_time")
+                tags_str = " ".join(tag_badges)
+
+                result += f"{total_count}. {date}{years_text}: {preview}\n"
+                result += f"   [{tags_str}] (key: {key})\n\n"
+
+        result += f"\nTotal: {total_count} anniversaries\n"
         return result
 
     # Add anniversary
     if content and persona_info and "date" in persona_info:
         date_str = persona_info["date"]
-        recurring = persona_info.get("recurring", True)
 
+        # Validate date format
         try:
-            datetime.strptime(date_str, "%Y-%m-%d")
+            date_obj = datetime.strptime(date_str, "%Y-%m-%d")
         except ValueError:
             return f"❌ Error: Invalid date format. Use YYYY-MM-DD (e.g., 2025-11-10)"
 
-        # Check if exists (update)
-        for ann in context["anniversaries"]:
-            if ann.get("name") == content:
-                ann["date"] = date_str
-                ann["recurring"] = recurring
-                save_persona_context(context, persona)
-                return f"✅ Anniversary updated: {content} ({date_str})"
+        # Generate key
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        cfg = load_config()
+        tz = ZoneInfo(cfg.get("timezone", "Asia/Tokyo"))
+        key = f"memory_{datetime.now(tz).strftime('%Y%m%d_%H%M%S')}"
 
-        # Add new
-        context["anniversaries"].append({
-            "name": content,
-            "date": date_str,
-            "recurring": recurring
-        })
-        save_persona_context(context, persona)
-        return f"✅ Anniversary added: {content} ({date_str})"
+        # Create anniversary memory with 'anniversary' tag
+        tags = ["anniversary"]
 
-    # Remove anniversary
-    if content and (not persona_info or "date" not in persona_info):
-        for i, ann in enumerate(context["anniversaries"]):
-            if ann.get("name") == content:
-                context["anniversaries"].pop(i)
-                save_persona_context(context, persona)
-                return f"✅ Anniversary removed: {content}"
-        return f"❌ Anniversary not found: {content}"
+        # Add yearly tag for recurring anniversaries (default: True)
+        if persona_info.get("recurring", True):
+            tags.append("yearly")
 
-    return "❌ Error: Provide content (name) and persona_info={'date': 'YYYY-MM-DD'} to add, or just content to remove"
+        # Use the anniversary date as created_at
+        created_at = date_obj.replace(tzinfo=tz).isoformat()
+
+        success = save_memory_to_db(
+            key=key,
+            content=content,
+            created_at=created_at,
+            tags=tags,
+            importance=0.9,  # High importance for anniversaries
+            emotion="gratitude",
+            persona=persona
+        )
+
+        if success:
+            log_progress(f"✅ Created anniversary: {content} ({date_str})")
+            return f"✅ Anniversary created: {content} ({date_str})\n   Key: {key}\n   Tags: {', '.join(tags)}"
+        else:
+            return f"❌ Failed to create anniversary: {content}"
+
+    return "❌ Error: Invalid parameters\n" \
+           "Add: memory(operation='anniversary', content='Event', persona_info={'date': 'YYYY-MM-DD'})\n" \
+           "List: memory(operation='anniversary')\n" \
+           "Delete: memory(operation='anniversary', persona_info={'delete_key': 'memory_key'})"
 
 
 async def handle_sensation(persona_info: Optional[Dict]) -> str:

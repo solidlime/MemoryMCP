@@ -1282,6 +1282,7 @@ def register_http_routes(mcp, templates):
         """
         Get anniversaries (important memories grouped by month-day).
         Returns list of anniversary dates with associated memories.
+        Combines tag-based memories + persona_context.json anniversaries (for backward compatibility).
         """
         try:
             persona = request.path_params.get("persona")
@@ -1299,8 +1300,68 @@ def register_http_routes(mcp, templates):
 
             try:
                 from core.memory_db import get_anniversaries
+                from core.persona_context import load_persona_context
+                from datetime import datetime
 
+                # Get tag-based anniversaries
                 anniversaries_data = get_anniversaries(persona=persona)
+
+                # Get persona_context.json anniversaries (for backward compatibility)
+                context = load_persona_context(persona)
+                context_anniversaries = context.get("anniversaries", [])
+
+                # Convert persona_context anniversaries to same format
+                if context_anniversaries:
+                    for ann in context_anniversaries:
+                        name = ann.get("name", "")
+                        date_str = ann.get("date", "")
+                        recurring = ann.get("recurring", True)
+
+                        if not name or not date_str:
+                            continue
+
+                        try:
+                            date_obj = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+                            month_day = date_obj.strftime("%m-%d")
+                            year = date_obj.year
+
+                            # Check if this month-day already exists in tag-based data
+                            existing = next((item for item in anniversaries_data if item["month_day"] == month_day), None)
+
+                            if existing:
+                                # Add to existing month-day entry
+                                existing["memories"].append({
+                                    "key": f"context_ann_{month_day.replace('-', '')}",
+                                    "year": year,
+                                    "date": date_str[:10],
+                                    "preview": f"{name} {'(毎年)' if recurring else ''}",
+                                    "importance": 0.9,
+                                    "emotion": "gratitude",
+                                    "tags": ["anniversary", "yearly"] if recurring else ["anniversary"],
+                                    "source": "persona_context"  # Mark as context source
+                                })
+                                existing["count"] += 1
+                            else:
+                                # Create new month-day entry
+                                anniversaries_data.append({
+                                    "month_day": month_day,
+                                    "count": 1,
+                                    "memories": [{
+                                        "key": f"context_ann_{month_day.replace('-', '')}",
+                                        "year": year,
+                                        "date": date_str[:10],
+                                        "preview": f"{name} {'(毎年)' if recurring else ''}",
+                                        "importance": 0.9,
+                                        "emotion": "gratitude",
+                                        "tags": ["anniversary", "yearly"] if recurring else ["anniversary"],
+                                        "source": "persona_context"
+                                    }]
+                                })
+                        except Exception as e:
+                            continue
+
+                    # Sort by month-day
+                    anniversaries_data.sort(key=lambda x: x["month_day"])
 
                 return JSONResponse({
                     "success": True,

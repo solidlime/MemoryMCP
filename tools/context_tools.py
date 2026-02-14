@@ -13,7 +13,7 @@ from core import (
     save_persona_context,
     log_operation,
 )
-from core.memory_db import get_promises, get_goals
+from core.memory_db import get_promises, get_goals, migrate_anniversaries_to_memories
 from src.utils.persona_utils import get_current_persona, get_db_path
 from src.utils.logging_utils import log_progress
 
@@ -22,11 +22,23 @@ async def get_context() -> str:
     """
     Get current conversation state including user/persona info, time since last conversation, and memory stats.
     Auto-updates last conversation timestamp.
+    Auto-migrates anniversaries from persona_context.json to memories on first run.
     """
     try:
         from core.time_utils import calculate_time_diff as calc_time_diff, format_datetime_for_display as format_dt
 
         persona = get_current_persona()
+
+        # ===== Auto-migrate anniversaries (Phase 42) =====
+        # Check if persona_context.json has anniversaries to migrate
+        context = load_persona_context(persona)
+        if context.get("anniversaries") and len(context["anniversaries"]) > 0:
+            migration_result = migrate_anniversaries_to_memories(persona)
+            # Clear anniversaries from persona_context.json after successful migration
+            if migration_result["migrated"] > 0:
+                context["anniversaries"] = []
+                save_persona_context(context, persona)
+                log_progress(f"✅ Cleared {migration_result['migrated']} anniversaries from persona_context.json after migration")
 
         # ===== PART 1: Persona Context =====
         context = load_persona_context(persona)
