@@ -1610,6 +1610,121 @@ def register_http_routes(mcp, templates):
             return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
 
+    # ─── Memory Usage Statistics API ─────────────────────────────────
+
+    @mcp.custom_route("/api/memory-usage-stats/{persona}", methods=["GET"])
+    async def memory_usage_stats(request: Request):
+        """
+        Get memory item usage statistics from operations log.
+        Shows operation frequency per memory key to identify unused/underused memories.
+
+        Query params:
+            sort_by (str): 'frequency', 'last_access', 'key' (default: 'frequency')
+            order (str): 'asc', 'desc' (default: 'desc')
+            min_days_inactive (int): Filter by days since last access (default: 30)
+            max_access_count (int): Filter by max total access count (default: None)
+        """
+        try:
+            persona = request.path_params.get("persona")
+            memory_dir = os.path.join(MEMORY_ROOT, persona)
+            if not os.path.exists(memory_dir):
+                return JSONResponse({"success": False, "error": f"Persona '{persona}' not found"}, status_code=404)
+
+            sort_by = request.query_params.get("sort_by", "frequency")
+            order = request.query_params.get("order", "desc")
+            min_days_inactive = int(request.query_params.get("min_days_inactive", 0))
+            max_access_count = request.query_params.get("max_access_count")
+            if max_access_count:
+                max_access_count = int(max_access_count)
+
+            original_persona = current_persona.get()
+            current_persona.set(persona)
+            try:
+                db_path = get_db_path()
+                with sqlite3.connect(db_path) as conn:
+                    conn.row_factory = sqlite3.Row
+                    cursor = conn.cursor()
+
+                    # Get all memory keys with their operations aggregated
+                    cursor.execute("""
+                        SELECT
+                            key,
+                            COUNT(*) as total_operations,
+                            SUM(CASE WHEN operation = 'create' THEN 1 ELSE 0 END) as create_count,
+                            SUM(CASE WHEN operation = 'read' THEN 1 ELSE 0 END) as read_count,
+                            SUM(CASE WHEN operation = 'update' THEN 1 ELSE 0 END) as update_count,
+                            SUM(CASE WHEN operation = 'delete' THEN 1 ELSE 0 END) as delete_count,
+                            SUM(CASE WHEN operation = 'search' THEN 1 ELSE 0 END) as search_count,
+                            MIN(timestamp) as first_access,
+                            MAX(timestamp) as last_access,
+                            julianday('now') - julianday(MAX(timestamp)) as days_since_last_access
+                        FROM operations
+                        WHERE key IS NOT NULL AND key != ''
+                        GROUP BY key
+                    """)
+
+                    stats = []
+                    now = datetime.now()
+
+                    for row in cursor.fetchall():
+                        item = dict(row)
+
+                        # Apply filters
+                        if min_days_inactive > 0 and item['days_since_last_access'] < min_days_inactive:
+                            continue
+                        if max_access_count is not None and item['total_operations'] > max_access_count:
+                            continue
+
+                        # Format timestamps
+                        item['first_access_formatted'] = item['first_access'][:19] if item['first_access'] else None
+                        item['last_access_formatted'] = item['last_access'][:19] if item['last_access'] else None
+
+                        # Get memory content preview if exists
+                        cursor.execute("SELECT content FROM memories WHERE key = ?", (item['key'],))
+                        mem_row = cursor.fetchone()
+                        if mem_row:
+                            content = mem_row['content']
+                            item['content_preview'] = content[:100] + '...' if len(content) > 100 else content
+                            item['exists'] = True
+                        else:
+                            item['content_preview'] = None
+                            item['exists'] = False
+
+                        stats.append(item)
+
+                    # Sort results
+                    sort_key_map = {
+                        'frequency': 'total_operations',
+                        'last_access': 'last_access',
+                        'key': 'key'
+                    }
+                    sort_key = sort_key_map.get(sort_by, 'total_operations')
+                    reverse = (order == 'desc')
+
+                    stats.sort(key=lambda x: x[sort_key] if x[sort_key] is not None else '', reverse=reverse)
+
+                    # Calculate summary statistics
+                    total_keys = len(stats)
+                    low_usage_count = sum(1 for s in stats if s['total_operations'] <= 3)
+                    inactive_30d_count = sum(1 for s in stats if s['days_since_last_access'] >= 30)
+                    deleted_keys = sum(1 for s in stats if not s['exists'])
+
+                    return JSONResponse({
+                        "success": True,
+                        "total_keys": total_keys,
+                        "summary": {
+                            "low_usage_items": low_usage_count,  # ≤3 operations
+                            "inactive_30_days": inactive_30d_count,
+                            "deleted_keys": deleted_keys
+                        },
+                        "stats": stats
+                    })
+            finally:
+                current_persona.set(original_persona)
+        except Exception as e:
+            return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
     # ─── Unified Timeline API ────────────────────────────────────────
 
     @mcp.custom_route("/api/timeline/{persona}", methods=["GET"])

@@ -33,6 +33,12 @@ async def memory(
     persona_info: Optional[Dict] = None,
     relationship_status: Optional[str] = None,
     action_tag: Optional[str] = None,
+    # Physical sensations parameters (for update_context)
+    arousal: Optional[float] = None,
+    heart_rate: Optional[str] = None,
+    fatigue: Optional[float] = None,
+    warmth: Optional[float] = None,
+    touch_response: Optional[str] = None,
     # Search-specific parameters
     mode: str = "hybrid",
     fuzzy_match: bool = False,
@@ -98,7 +104,10 @@ async def memory(
 
     # Route to appropriate handler
     # Memory operations
-    memory_operations = {"create", "read", "update", "delete", "search", "stats", "check_routines"}
+    memory_operations = ["create", "read", "update", "delete", "search", "stats", "check_routines"]
+    context_operations = ["promise", "goal", "favorite", "preference", "anniversary",
+                         "sensation", "emotion_flow", "situation_context", "update_context"]
+
     if operation in memory_operations:
         return await handle_memory_operation(
             operation=operation,
@@ -132,18 +141,48 @@ async def memory(
         )
 
     # Context operations
-    context_operations = {
-        "promise", "goal", "favorite", "preference", "update_context",
-        "anniversary", "sensation", "emotion_flow", "situation_context"
-    }
     if operation in context_operations:
+        # Merge top-level parameters into persona_info for easier handling
+        merged_persona_info = persona_info.copy() if persona_info else {}
+        merged_user_info = user_info.copy() if user_info else {}
+
+        # Merge direct context parameters
+        if physical_state is not None:
+            merged_persona_info['physical_state'] = physical_state
+        if mental_state is not None:
+            merged_persona_info['mental_state'] = mental_state
+        if environment is not None:
+            merged_persona_info['environment'] = environment
+        if relationship_status is not None:
+            merged_persona_info['relationship_status'] = relationship_status
+        if action_tag is not None:
+            merged_persona_info['action_tag'] = action_tag
+
+        # Merge physical sensations into a nested dict
+        sensations = {}
+        if arousal is not None:
+            sensations['arousal'] = arousal
+        if heart_rate is not None:
+            sensations['heart_rate'] = heart_rate
+        if fatigue is not None:
+            sensations['fatigue'] = fatigue
+        if warmth is not None:
+            sensations['warmth'] = warmth
+        if touch_response is not None:
+            sensations['touch_response'] = touch_response
+
+        if sensations:
+            merged_persona_info['physical_sensations'] = sensations
+
+        # Pass both merged_persona_info and merged_user_info
         return await handle_context_operation(
             operation=operation,
             query=query,
             content=content,
             emotion_type=emotion_type,
             emotion_intensity=emotion_intensity,
-            persona_info=persona_info,
+            persona_info=merged_persona_info,
+            user_info=merged_user_info,
             importance=importance
         )
 
@@ -167,6 +206,7 @@ async def item(
     # Equip/Unequip parameters
     equipment: Optional[Dict[str, str]] = None,
     slots: Optional[List[str] | str] = None,
+    auto_add: bool = True,
     # Search parameters
     query: Optional[str] = None,
     # History parameters
@@ -234,6 +274,7 @@ async def item(
         new_name=new_name,
         equipment=equipment,
         slots=slots,
+        auto_add=auto_add,
         query=query,
         history_slot=history_slot,
         days=days,

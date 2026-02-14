@@ -24,17 +24,17 @@ def add_to_inventory(
     tags: Optional[List[str]] = None
 ) -> str:
     """Add item to inventory.
-    
+
     Args:
         item_name: Item name
         description: Item description (optional)
         quantity: Quantity to add (default: 1)
         category: Category (weapon, armor, consumable, clothing, accessory, misc)
         tags: Tags for grouping items (optional, e.g., ["星月の祈り", "clothing_set"])
-    
+
     Returns:
         Result message
-    
+
     Examples:
         add_to_inventory("Health Potion", "Restores HP", 5, "consumable")
         add_to_inventory("Steel Sword", "Sharp blade", 1, "weapon")
@@ -42,18 +42,30 @@ def add_to_inventory(
     """
     persona = get_current_persona()
     db = EquipmentDB(persona)
-    
+
     item_id = db.add_to_inventory(item_name, quantity, description, category, tags)
-    
+
     inventory = db.get_inventory()
     item_data = next((i for i in inventory if i["item_id"] == item_id), None)
-    
+
+    message_parts = []
+
     if item_data:
         total_qty = item_data["quantity"]
         tags_str = f" 🏷️{tags}" if tags else ""
-        return f"✅ Added {quantity}x '{item_name}' to inventory (total: {total_qty}){tags_str}"
+        message_parts.append(f"✅ Added {quantity}x '{item_name}' to inventory (total: {total_qty}){tags_str}")
     else:
-        return f"⚠️ Failed to add '{item_name}' to inventory"
+        message_parts.append(f"⚠️ Failed to add '{item_name}' to inventory")
+
+    # Show current equipment
+    equipped = db.get_equipped_items()
+    if equipped:
+        equipped_list = [f"{slot}: {item}" for slot, item in equipped.items()]
+        message_parts.append(f"\n👗 Current Equipment:\n  " + "\n  ".join(equipped_list))
+    else:
+        message_parts.append(f"\n👗 Current Equipment: (none)")
+
+    return "\n".join(message_parts)
 
 
 def remove_from_inventory(
@@ -61,77 +73,144 @@ def remove_from_inventory(
     quantity: int = 1
 ) -> str:
     """Remove item from inventory.
-    
+
     Args:
         item_name: Item name
         quantity: Quantity to remove (default: 1)
-    
+
     Returns:
         Result message
-    
+
     Examples:
         remove_from_inventory("Health Potion", 3)
         remove_from_inventory("Steel Sword")
     """
     persona = get_current_persona()
     db = EquipmentDB(persona)
-    
+
     success = db.remove_from_inventory(item_name, quantity)
-    
+
+    message_parts = []
+
     if success:
-        return f"✅ Removed {quantity}x '{item_name}' from inventory"
+        message_parts.append(f"✅ Removed {quantity}x '{item_name}' from inventory")
     else:
-        return f"❌ Item '{item_name}' not found in inventory"
+        message_parts.append(f"❌ Item '{item_name}' not found in inventory")
+
+    # Show current equipment
+    equipped = db.get_equipped_items()
+    if equipped:
+        equipped_list = [f"{slot}: {item}" for slot, item in equipped.items()]
+        message_parts.append(f"\n👗 Current Equipment:\n  " + "\n  ".join(equipped_list))
+    else:
+        message_parts.append(f"\n👗 Current Equipment: (none)")
+
+    return "\n".join(message_parts)
 
 
 def equip_item(
-    equipment: Dict[str, str]
+    equipment: Dict[str, str],
+    auto_add: bool = True
 ) -> str:
     """Equip items from inventory (single-slot mode).
-    
+
     Equips specified items to specified slots without unequipping others.
-    
+
     Args:
         equipment: Dictionary of {slot: item_name}
                    Example: {"top": "囁きのシフォンドレス", "foot": "蓮花サンダル"}
-    
+        auto_add: Automatically add missing items to inventory (default: True)
+
     Returns:
         Result message
-    
+
     Examples:
         equip_item({"weapon": "Steel Sword", "armor": "Leather Armor"})
         equip_item({"top": "白いドレス", "foot": "サンダル"})
+        equip_item({"weapon": "Sword"}, auto_add=False)  # Manual mode
     """
     persona = get_current_persona()
     db = EquipmentDB(persona)
-    
+
     # Check if all items exist in inventory
     inventory = db.get_inventory()
     inventory_items = {i["item_name"] for i in inventory}
-    
+
     missing_items = []
     for slot, item_name in equipment.items():
         if item_name and item_name not in inventory_items:
             missing_items.append(item_name)
-    
+
+    # Handle missing items
     if missing_items:
-        return f"❌ Items not in inventory: {', '.join(missing_items)}. Add them first with add_to_inventory()"
-    
+        if auto_add:
+            # Auto-add missing items to inventory
+            import difflib
+            added_items = []
+            suggestions = {}
+
+            for missing_item in missing_items:
+                # Check for similar items (fuzzy matching)
+                similar = difflib.get_close_matches(missing_item, inventory_items, n=3, cutoff=0.6)
+
+                if similar:
+                    # Store suggestions but still add the requested item
+                    suggestions[missing_item] = similar
+
+                # Auto-add to inventory with auto-detected category
+                category = _auto_detect_category(missing_item)
+                db.add_to_inventory(missing_item, quantity=1, description=None, category=category, tags=None)
+                added_items.append(missing_item)
+
+            # Build message about auto-added items
+            message_parts = [f"✅ Items auto-added to inventory: {', '.join(added_items)}"]
+
+            # Show suggestions if similar items were found
+            if suggestions:
+                message_parts.append("\n💡 Similar items already in inventory:")
+                for missing, similar in suggestions.items():
+                    message_parts.append(f"   '{missing}' → Did you mean: {', '.join(similar)}?")
+
+            # Continue with equipping
+        else:
+            # Manual mode: return error with suggestions
+            import difflib
+            error_parts = [f"❌ Items not in inventory: {', '.join(missing_items)}"]
+
+            # Find similar items for each missing item
+            for missing_item in missing_items:
+                similar = difflib.get_close_matches(missing_item, inventory_items, n=3, cutoff=0.6)
+                if similar:
+                    error_parts.append(f"💡 Did you mean: {', '.join(similar)}?")
+
+            error_parts.append(f"💡 Add them with: item(operation='add', item_name='{missing_items[0]}')")
+            error_parts.append("💡 Or use auto_add=True to add automatically")
+
+            return "\n".join(error_parts)
+            error_parts.append(f"💡 Add them with: item(operation='add', item_name='{missing_items[0]}')")
+            error_parts.append("💡 Or use auto_add=True to add automatically")
+
+            return "\n".join(error_parts)
+
     # Equip items (no auto-unequip)
     results = db.equip_items_batch(equipment)
-    
+
     # Format result message
-    success_items = [f"{slot}: {item}" for slot, item in equipment.items() if results.get(slot, False)]
-    failed_items = [f"{slot}: {item}" for slot, item in equipment.items() if not results.get(slot, True)]
-    
+    success_items = [f"{slot}={item}" for slot, item in equipment.items() if results.get(slot, False)]
+    failed_items = [f"{slot}={item}" for slot, item in equipment.items() if not results.get(slot, True)]
+
     message_parts = []
-    
+
+    # Add auto-add message if items were added
+    if missing_items and auto_add:
+        message_parts.append(f"✅ Items auto-added to inventory: {', '.join(missing_items)}")
+
     if success_items:
         message_parts.append(f"✅ Equipped: {', '.join(success_items)}")
-    
+
     if failed_items:
         message_parts.append(f"❌ Failed: {', '.join(failed_items)}")
-    
+
     # Show current equipment
     equipped = db.get_equipped_items()
     if equipped:
@@ -139,56 +218,107 @@ def equip_item(
         message_parts.append(f"\n👗 Current Equipment:\n  " + "\n  ".join(equipped_list))
     else:
         message_parts.append("\n👗 Current Equipment: (none)")
-    
+
     return "\n".join(message_parts) if message_parts else "✅ Equipment completed"
+
+
+def _auto_detect_category(item_name: str) -> str:
+    """Auto-detect item category from name keywords.
+
+    Args:
+        item_name: Item name
+
+    Returns:
+        Category string
+    """
+    item_lower = item_name.lower()
+
+    # Keyword mappings
+    shoes_keywords = ['サンダル', 'ブーツ', 'シューズ', '靴', 'sandal', 'boot', 'shoe', 'slipper']
+    accessory_keywords = ['髪飾り', 'ネックレス', 'イヤリング', '指輪', 'ブレスレット', '腕輪',
+                          'hair', 'necklace', 'earring', 'ring', 'bracelet', 'accessory', '飾り']
+    top_keywords = ['装束', 'ドレス', 'シフォン', 'トップ', 'シャツ', 'ブラウス',
+                    'dress', 'top', 'shirt', 'blouse', 'tunic', '衣']
+    bottom_keywords = ['スカート', 'パンツ', 'ズボン', 'ボトム',
+                       'skirt', 'pants', 'bottom', 'trousers']
+    weapon_keywords = ['剣', '刀', '弓', '杖', 'sword', 'blade', 'bow', 'staff', 'weapon']
+    armor_keywords = ['鎧', '甲冑', 'armor', 'plate', 'mail']
+
+    # Check keywords
+    for keyword in shoes_keywords:
+        if keyword in item_lower:
+            return 'shoes'
+
+    for keyword in accessory_keywords:
+        if keyword in item_lower:
+            return 'accessory'
+
+    for keyword in top_keywords:
+        if keyword in item_lower:
+            return 'top'
+
+    for keyword in bottom_keywords:
+        if keyword in item_lower:
+            return 'bottom'
+
+    for keyword in weapon_keywords:
+        if keyword in item_lower:
+            return 'weapon'
+
+    for keyword in armor_keywords:
+        if keyword in item_lower:
+            return 'armor'
+
+    # Default to 'other' if no match
+    return 'other'
 
 
 def unequip_item(
     slots: List[str] | str
 ) -> str:
     """Unequip item(s).
-    
+
     Item remains in inventory. Removes equipment from database.
     Logs to equipment history.
-    
+
     Args:
         slots: Single slot name or list of slot names to unequip
                Example: "weapon" or ["top", "foot"]
-    
+
     Returns:
         Result message
-    
+
     Examples:
         unequip_item("weapon")
         unequip_item(["top", "foot"])
     """
     persona = get_current_persona()
     db = EquipmentDB(persona)
-    
+
     # Convert single slot to list
     if isinstance(slots, str):
         slots = [slots]
-    
+
     # Unequip from database
     unequipped = []
     not_equipped = []
-    
+
     for slot in slots:
         item_name = db.unequip_item(slot)
         if item_name:
             unequipped.append(f"{slot}({item_name})")
         else:
             not_equipped.append(slot)
-    
+
     # Format result message
     message_parts = []
-    
+
     if unequipped:
         message_parts.append(f"✅ Unequipped: {', '.join(unequipped)}")
-    
+
     if not_equipped:
         message_parts.append(f"⚠️ No items in: {', '.join(not_equipped)}")
-    
+
     # Show current equipment
     equipped = db.get_equipped_items()
     if equipped:
@@ -196,7 +326,7 @@ def unequip_item(
         message_parts.append(f"\n👗 Current Equipment:\n  " + "\n  ".join(equipped_list))
     else:
         message_parts.append("\n👗 Current Equipment: (none)")
-    
+
     return "\n".join(message_parts) if message_parts else "❌ No slots specified"
 
 
@@ -208,20 +338,20 @@ def update_item(
     new_slot: Optional[str] = None
 ) -> str:
     """Update item information and/or change equipment slot.
-    
+
     Can update item metadata (description, category, tags) and change equipped slot.
     All parameters are optional - specify only what you want to change.
-    
+
     Args:
         item_name: Item name to update
         description: New description (optional)
         category: New category (optional)
         tags: New tags list (optional)
         new_slot: New equipment slot if currently equipped (optional)
-    
+
     Returns:
         Result message
-    
+
     Examples:
         update_item("Steel Sword", description="A very sharp blade")
         update_item("Health Potion", category="consumable", tags=["healing"])
@@ -230,22 +360,22 @@ def update_item(
     """
     persona = get_current_persona()
     db = EquipmentDB(persona)
-    
+
     updates = []
-    
+
     # Update item metadata
     if description is not None or category is not None or tags is not None:
         success = db.update_item_info(item_name, description, category, tags)
         if not success:
             return f"❌ Item '{item_name}' not found"
-        
+
         if description is not None:
             updates.append("description")
         if category is not None:
             updates.append("category")
         if tags is not None:
             updates.append("tags")
-    
+
     # Change equipment slot if specified
     if new_slot is not None:
         # Check if item is currently equipped
@@ -255,18 +385,18 @@ def update_item(
             if name == item_name:
                 old_slot = slot
                 break
-        
+
         if not old_slot:
             return f"❌ Item '{item_name}' is not equipped"
-        
+
         if old_slot == new_slot:
             return f"⚠️ Item '{item_name}' is already in slot '{new_slot}'"
-        
+
         # Unequip from old slot and equip to new slot
         db.unequip_item(old_slot)
         db.equip_item(item_name, new_slot)
         updates.append(f"slot: {old_slot} → {new_slot}")
-    
+
     if updates:
         return f"✅ Updated {', '.join(updates)} for '{item_name}'"
     else:
@@ -278,26 +408,26 @@ def rename_item(
     new_name: str
 ) -> str:
     """Rename an item in inventory.
-    
+
     Changes the display name of an item. All references (inventory, equipment)
     are automatically updated.
-    
+
     Args:
         old_name: Current item name
         new_name: New item name
-    
+
     Returns:
         Result message
-    
+
     Examples:
         rename_item("新しいえっちな服", "魅惑のルージュシフォンドレス")
         rename_item("Old Sword", "Legendary Blade")
     """
     persona = get_current_persona()
     db = EquipmentDB(persona)
-    
+
     success = db.rename_item(old_name, new_name)
-    
+
     if not success:
         # Check if old item exists
         if not db.get_item_by_name(old_name):
@@ -306,7 +436,7 @@ def rename_item(
         if db.get_item_by_name(new_name):
             return f"❌ Item name '{new_name}' is already in use"
         return f"❌ Failed to rename '{old_name}'"
-    
+
     return f"✅ Renamed '{old_name}' → '{new_name}'"
 
 
@@ -316,15 +446,15 @@ def search_inventory(
     tags: Optional[List[str]] = None
 ) -> str:
     """Search inventory.
-    
+
     Args:
         query: Search keyword (partial match on item name, description, and tags)
         category: Category filter (weapon, armor, consumable, clothing, accessory, misc)
         tags: Tag filter (match any of the specified tags, optional)
-    
+
     Returns:
         Formatted inventory list
-    
+
     Examples:
         search_inventory()  # Show all
         search_inventory(category="weapon")  # Weapons only
@@ -333,21 +463,21 @@ def search_inventory(
     """
     persona = get_current_persona()
     db = EquipmentDB(persona)
-    
+
     inventory = db.get_inventory(category, tags)
-    
+
     # Filter by query - search in name, description, AND tags
     if query:
         inventory = [
-            item for item in inventory 
-            if query.lower() in item["item_name"].lower() or 
+            item for item in inventory
+            if query.lower() in item["item_name"].lower() or
                (item["description"] and query.lower() in item["description"].lower()) or
                any(query.lower() in tag.lower() for tag in item.get("tags", []))
         ]
-    
+
     if not inventory:
         return "📦 Inventory is empty"
-    
+
     # Format output
     lines = [f"📦 **Inventory** ({len(inventory)} items):\n"]
     for item in inventory:
@@ -358,7 +488,7 @@ def search_inventory(
             f"- **{item['item_name']}** x{item['quantity']} "
             f"[{item['category']}]{desc}{tags_str}{equipped_str}"
         )
-    
+
     return "\n".join(lines)
 
 
@@ -367,27 +497,27 @@ def get_equipment_history(
     days: int = 7
 ) -> str:
     """Get equipment change history.
-    
+
     Args:
         slot: Slot filter (optional, shows specific slot only)
         days: Number of days to retrieve (default: 7)
-    
+
     Returns:
         Formatted equipment history
-    
+
     Examples:
         get_equipment_history()  # All slots, last 7 days
         get_equipment_history(slot="weapon", days=30)  # Weapon slot, last 30 days
     """
     persona = get_current_persona()
     db = EquipmentDB(persona)
-    
+
     history = db.get_equipment_history(slot, days)
-    
+
     if not history:
         slot_str = f" for slot '{slot}'" if slot else ""
         return f"📜 No equipment history found{slot_str} in the last {days} days"
-    
+
     # Format output
     lines = [f"📜 **Equipment History** (last {days} days):\n"]
     for entry in history:
@@ -397,5 +527,5 @@ def get_equipment_history(
             f"{action_icon} {entry['timestamp'][:10]} - "
             f"{entry['slot']}: {entry['action']} '{item_str}'"
         )
-    
+
     return "\n".join(lines)

@@ -7,7 +7,7 @@ description: Retrieves persona context, creates/searches memories, and manages e
 
 ## Overview
 
-Get current persona context from Memory MCP server by running the `get_context` script. This skill provides a unified CLI client for all Memory MCP operations, enabling comprehensive interaction with the memory system.
+Get current persona context from Memory MCP server by running the `mcp_context` script. This skill provides a unified CLI client for all Memory MCP operations, enabling comprehensive interaction with the memory system.
 
 ## When to Use
 

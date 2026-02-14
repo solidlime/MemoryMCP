@@ -35,6 +35,7 @@ async def handle_item_operation(
     # Equip/Unequip parameters
     equipment: Optional[Dict[str, str]] = None,
     slots: Optional[List[str] | str] = None,
+    auto_add: bool = True,
     # Search parameters
     query: Optional[str] = None,
     # History parameters
@@ -63,6 +64,7 @@ async def handle_item_operation(
         days: Number of days to look back in history (default: 7)
         mode: Analysis mode (currently "memories")
         top_k: Number of results to return (for memories operation, default: 10)
+        auto_add: Automatically add missing items to inventory when equipping (default: True)
 
     Returns:
         Operation result string
@@ -91,7 +93,7 @@ async def handle_item_operation(
     elif operation == "equip":
         if not equipment:
             return "❌ Error: 'equipment' dict is required for equip operation (e.g., {'weapon': 'Sword'})"
-        return _equip_item(equipment=equipment)
+        return _equip_item(equipment=equipment, auto_add=auto_add)
 
     elif operation == "unequip":
         if not slots:

@@ -4,6 +4,105 @@ All notable changes to Memory-MCP will be documented in this file.
 
 ## [Unreleased]
 
+### Added - 2026-02-14 (Phase 42: Usability Improvements for Self-Management)
+
+#### Phase 1: Promises & Goals 一覧表示
+
+**get_context に Promises & Goals の実データ表示を追加:**
+- `get_context()` で active promises と active goals を直接表示
+- 最大5件まで一覧表示（それ以上は件数のみ）
+- 各 Promise/Goal の ID、内容プレビュー、期限、優先度/進捗を表示
+- 設定がない場合は説明メッセージと設定方法のヒントを表示
+
+**変更ファイル:**
+- `tools/context_tools.py`: get_promises, get_goals をインポートし、直接データ取得・表示
+
+#### Phase 2: 呼び方・呼ばれ方の記憶指示追加
+
+**get_context にユーザー/ペルソナ情報の記憶指示を追加:**
+- User Information セクションに記憶すべき情報のヒントを追加
+  - ユーザー名が未設定の場合の記憶方法
+  - ニックネーム、呼び方（preferred_address）の記憶方法
+- Persona Information セクションにも同様のヒントを追加
+  - ペルソナのニックネーム、呼ばれ方の記憶方法
+- 既に設定されている場合は指示を表示しない
+
+**変更ファイル:**
+- `tools/context_tools.py`: User/Persona Information セクションに条件付き指示を追加
+
+#### Phase 3: Context操作パラメータ改善（スキーマエラー削減）
+
+**memory() 関数に直接パラメータを追加:**
+- `arousal`, `heart_rate`, `fatigue`, `warmth`, `touch_response` パラメータ追加
+- トップレベルパラメータを `persona_info` に自動マージする処理を追加
+- `user_info` も `handle_context_operation` に渡せるように改善
+
+**handle_update_context を拡張:**
+- `user_info` フィールド（name, nickname, preferred_address）の更新に対応
+- `physical_state`, `mental_state`, `environment`, `relationship_status`, `action_tag` の更新に対応
+- `physical_sensations` の全フィールド（arousal, heart_rate, fatigue, warmth, touch_response）に対応
+- 更新するフィールドがない場合のエラーメッセージを改善（使用例を表示）
+
+**変更ファイル:**
+- `tools/unified_tools.py`: memory() にパラメータ追加、マージロジック実装
+- `tools/handlers/context_handlers.py`: handle_context_operation に user_info 追加、handle_update_context を拡張
+
+#### Phase 4: Item操作自動追加機能（インベントリエラー削減）
+
+**equip 操作に auto_add 機能を追加:**
+- `item()` 関数に `auto_add: bool = True` パラメータ追加（デフォルトで有効）
+- インベントリにないアイテムを自動で追加してから装備
+- カテゴリ自動推定機能（`_auto_detect_category`）
+  - アイテム名のキーワードから shoes, accessory, top, bottom, weapon, armor などを推定
+  - 日本語・英語の両方に対応
+
+**類似アイテム提案機能:**
+- difflib を使ったファジーマッチング（cutoff=0.6）
+- 存在しないアイテムと類似するアイテムを提案
+- auto_add=False の場合は詳細なエラーメッセージと提案を表示
+
+**変更ファイル:**
+- `tools/unified_tools.py`: item() に auto_add パラメータ追加
+- `tools/handlers/item_handlers.py`: handle_item_operation に auto_add 渡す処理追加
+- `tools/equipment_tools.py`: equip_item に auto_add ロジックと _auto_detect_category 実装
+
+#### Phase 5: ダッシュボード操作頻度表示
+
+**新しい API エンドポイント追加:**
+- `/api/memory-usage-stats/{persona}`: 記憶項目ごとの操作頻度統計
+- operations テーブルから key ごとに集計
+  - 総操作回数、create/read/update/delete/search の内訳
+  - 初回アクセス日時、最終アクセス日時
+  - 最終アクセスからの経過日数
+  - 記憶の存在確認とコンテンツプレビュー
+
+**フィルタリング・ソート機能:**
+- `sort_by`: frequency, last_access, key
+- `order`: asc, desc
+- `min_days_inactive`: 一定期間アクセスがないアイテムをフィルタ
+- `max_access_count`: アクセス回数が少ないアイテムをフィルタ
+
+**サマリー統計:**
+- 総キー数
+- 低使用率アイテム数（≤3回アクセス）
+- 30日間非アクティブアイテム数
+- 削除済みキー数
+
+**変更ファイル:**
+- `src/dashboard.py`: `/api/memory-usage-stats/{persona}` エンドポイント追加
+
+#### Phase 6: インベントリ操作後の装備品表示
+
+**add_to_inventory と remove_from_inventory に装備品表示を追加:**
+- アイテムを追加した後、現在の装備品が表示されるようになった
+- アイテムを削除した後も、現在の装備品が表示されるようになった
+- equip/unequip と同じフォーマットで統一された UX
+
+**変更ファイル:**
+- `tools/equipment_tools.py`: add_to_inventory, remove_from_inventory に装備品表示ロジック追加
+
+---
+
 ### Added - 2025-12-11 (Phase 40-41: Timeline Visualization & Anniversary System)
 
 #### Physical Sensations Timeline (Phase 40)
@@ -308,8 +407,8 @@ memory(operation="search", query="成果", mode="semantic", date_range="昨日")
 memory(operation="search", query="", mode="keyword", date_range="先週")
 
 # タグ + 時間フィルタ
-memory(operation="search", query="", mode="keyword", 
-       search_tags=["technical_achievement"], 
+memory(operation="search", query="", mode="keyword",
+       search_tags=["technical_achievement"],
        date_range="今週")
 ```
 
