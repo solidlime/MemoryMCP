@@ -45,7 +45,7 @@ MCP (Model Context Protocol) 準拠の永続メモリサーバー。RAG検索と
 **検索モード:**
 - `semantic`: セマンティック検索（デフォルト、RAG）
 - `keyword`: キーワード検索（Fuzzy対応）
-- `hybrid`: ハイブリッド検索（semantic 70% + keyword 30%）
+- `hybrid`: ハイブリッド検索（RRF統合: semantic + keyword）
 - `related`: 関連記憶検索（指定記憶と類似）
 - `smart`: スマート検索（曖昧なクエリを自動的にコンテキスト拡張）
 

@@ -29,9 +29,9 @@ from tools.context_tools import get_context as get_context_tool
 
 # Get script directory for output files
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-# Use MEMORY_MCP_DATA_DIR if available (Docker), otherwise use local ./memory
-DATA_DIR = os.getenv("MEMORY_MCP_DATA_DIR", SCRIPT_DIR)
-MEMORY_ROOT = os.path.join(DATA_DIR, "memory")
+# Use consistent memory root from config_utils
+from src.utils.config_utils import ensure_memory_root
+MEMORY_ROOT = ensure_memory_root()
 
 
 def db_count_entries() -> int:

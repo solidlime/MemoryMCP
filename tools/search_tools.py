@@ -3,10 +3,11 @@ Search Tools for Memory MCP
 Provides keyword search and RAG-based semantic search
 """
 
+import re
 import sqlite3
 import json
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Dict, Tuple
 
 # Core imports
 from core import (
@@ -33,6 +34,174 @@ try:
     RAPIDFUZZ_AVAILABLE = True
 except ImportError:
     RAPIDFUZZ_AVAILABLE = False
+
+
+# ============================================================
+# Phase 43: Reciprocal Rank Fusion (RRF) for Hybrid Search
+# ============================================================
+
+def _extract_memory_keys(result_string: str) -> List[str]:
+    """
+    Extract memory keys from formatted search result string.
+
+    Args:
+        result_string: Formatted search result with [memory_xxx] patterns
+
+    Returns:
+        List of memory keys in order of appearance
+    """
+    pattern = r'\[memory_\d+(?:_[a-zA-Z0-9_]+)?\]'
+    matches = re.findall(pattern, result_string)
+    # Remove brackets and return unique keys while preserving order
+    keys = []
+    seen = set()
+    for match in matches:
+        key = match[1:-1]  # Remove [ and ]
+        if key not in seen:
+            keys.append(key)
+            seen.add(key)
+    return keys
+
+
+def _reciprocal_rank_fusion(
+    ranked_lists: List[List[str]],
+    k: int = 60
+) -> List[Tuple[str, float]]:
+    """
+    Merge multiple ranked lists using Reciprocal Rank Fusion (RRF).
+
+    RRF Formula: score(d) = Σ 1 / (k + rank_i(d))
+    where rank_i(d) is the rank of document d in list i.
+
+    Args:
+        ranked_lists: List of ranked memory key lists
+        k: RRF constant (default: 60, standard value from literature)
+
+    Returns:
+        List of (memory_key, rrf_score) tuples sorted by score descending
+    """
+    rrf_scores = {}
+
+    for ranked_list in ranked_lists:
+        for rank, key in enumerate(ranked_list, start=1):
+            if key not in rrf_scores:
+                rrf_scores[key] = 0.0
+            rrf_scores[key] += 1.0 / (k + rank)
+
+    # Sort by score descending
+    sorted_results = sorted(
+        rrf_scores.items(),
+        key=lambda x: x[1],
+        reverse=True
+    )
+
+    return sorted_results
+
+
+def _get_memories_by_keys(keys: List[str], persona: str = None) -> Dict[str, dict]:
+    """
+    Retrieve memory details for given keys.
+
+    Args:
+        keys: List of memory keys
+        persona: Persona name (default: current)
+
+    Returns:
+        Dict mapping keys to memory entries
+    """
+    if not keys:
+        return {}
+
+    if persona is None:
+        persona = get_current_persona()
+
+    db_path = get_db_path(persona)
+    memories = {}
+
+    with sqlite3.connect(db_path) as conn:
+        cursor = conn.cursor()
+        placeholders = ','.join('?' * len(keys))
+        query = f"""
+            SELECT key, content, created_at, tags, importance,
+                   emotion, equipped_items, access_count
+            FROM memories
+            WHERE key IN ({placeholders})
+        """
+        cursor.execute(query, keys)
+
+        for row in cursor.fetchall():
+            key, content, created_at, tags_json, importance, emotion, equipped_json, access_count = row
+            memories[key] = {
+                'content': content,
+                'created_at': created_at,
+                'tags': json.loads(tags_json) if tags_json else [],
+                'importance': importance if importance else 0.5,
+                'emotion': emotion,
+                'equipped_items': json.loads(equipped_json) if equipped_json else {},
+                'access_count': access_count if access_count else 0
+            }
+
+    return memories
+
+
+def _format_hybrid_results(
+    query: str,
+    rrf_results: List[Tuple[str, float]],
+    memories: Dict[str, dict],
+    persona: str,
+    top_k: int = 5
+) -> str:
+    """
+    Format RRF-merged hybrid search results.
+
+    Args:
+        query: Search query
+        rrf_results: List of (key, rrf_score) tuples
+        memories: Dict of memory entries
+        persona: Persona name
+        top_k: Number of results to display
+
+    Returns:
+        Formatted result string
+    """
+    limited_results = rrf_results[:top_k]
+
+    result = f"🔍 Hybrid Search Results (RRF) for '{query}':\n"
+    result += f"📊 Found {len(limited_results)} combined results from semantic + keyword search\n"
+    result += "=" * 60 + "\n\n"
+
+    for idx, (key, rrf_score) in enumerate(limited_results, 1):
+        if key not in memories:
+            continue
+
+        entry = memories[key]
+        content = entry['content']
+        created_at = entry['created_at']
+        tags = entry.get('tags', [])
+        importance = entry.get('importance', 0.5)
+        equipped_items = entry.get('equipped_items', {})
+
+        time_diff = calculate_time_diff(created_at)
+
+        result += f"{idx}. [{key}] (RRF score: {rrf_score:.4f})\n"
+        result += f"   📅 {time_diff['formatted_string']}前\n"
+        result += f"   ⭐ 重要度: {importance:.2f}\n"
+        result += f"   📝 {content}\n"
+
+        if tags:
+            result += f"   🏷️  Tags: {', '.join(tags)}\n"
+
+        if equipped_items:
+            equipped_str = ', '.join(f"{slot}:{item}" for slot, item in equipped_items.items() if item)
+            if equipped_str:
+                result += f"   ⚔️  Equipped: {equipped_str}\n"
+
+        result += "\n"
+
+    result += f"💡 Persona: {persona}\n"
+    result += f"ℹ️  RRF combines semantic (meaning-based) and keyword (exact-match) results"
+
+    return result
 
 
 async def search_memory(
@@ -234,14 +403,16 @@ async def search_memory(
             return await find_related_memories(memory_key, top_k)
 
         elif mode == "hybrid" or mode == "integrated":
-            # Phase 33: Hybrid Search (RAG + Keyword)
+            # Phase 43: Hybrid Search with Reciprocal Rank Fusion (RRF)
+            ranked_lists = []
+
             # 1. Run Semantic Search (RAG)
-            semantic_result = ""
+            semantic_keys = []
             try:
                 from tools.crud_tools import read_memory
                 semantic_result = await read_memory(
                     query=query,
-                    top_k=top_k,
+                    top_k=top_k * 2,  # Get more candidates for RRF
                     min_importance=min_importance,
                     emotion=emotion,
                     action_tag=action_tag,
@@ -253,43 +424,53 @@ async def search_memory(
                     importance_weight=importance_weight,
                     recency_weight=recency_weight
                 )
+                semantic_keys = _extract_memory_keys(semantic_result)
+                if semantic_keys:
+                    ranked_lists.append(semantic_keys)
             except Exception as e:
-                semantic_result = f"⚠️ Semantic search failed: {e}"
+                from src.utils.logging_utils import log_progress
+                log_progress(f"⚠️ Semantic search failed in hybrid mode: {e}")
 
             # 2. Run Keyword Search (if query provided)
-            keyword_result = ""
+            keyword_keys = []
             if query:
-                keyword_result = await search_memory(
-                    query=query,
-                    mode="keyword",
-                    top_k=top_k,
-                    fuzzy_match=fuzzy_match,
-                    fuzzy_threshold=fuzzy_threshold,
-                    tags=tags,
-                    tag_match_mode=tag_match_mode,
-                    date_range=date_range,
-                    equipped_item=equipped_item
-                )
+                try:
+                    keyword_result = await search_memory(
+                        query=query,
+                        mode="keyword",
+                        top_k=top_k * 2,  # Get more candidates for RRF
+                        fuzzy_match=fuzzy_match,
+                        fuzzy_threshold=fuzzy_threshold,
+                        tags=tags,
+                        tag_match_mode=tag_match_mode,
+                        date_range=date_range,
+                        equipped_item=equipped_item
+                    )
+                    keyword_keys = _extract_memory_keys(keyword_result)
+                    if keyword_keys:
+                        ranked_lists.append(keyword_keys)
+                except Exception as e:
+                    from src.utils.logging_utils import log_progress
+                    log_progress(f"⚠️ Keyword search failed in hybrid mode: {e}")
 
-            # 3. Combine Results
-            result = f"🔍 Hybrid Search Results for '{query}':\n\n"
-
-            if "Found" in semantic_result:
-                result += "🧠 Semantic Matches (RAG):\n"
-                # Indent semantic results
-                result += "\n".join(["  " + line for line in semantic_result.split("\n")])
-                result += "\n\n"
-
-            if "Found" in keyword_result:
-                result += "📝 Keyword Matches (Exact/Boolean):\n"
-                # Indent keyword results
-                result += "\n".join(["  " + line for line in keyword_result.split("\n")])
-                result += "\n"
-
-            if "Found" not in semantic_result and "Found" not in keyword_result:
+            # 3. Apply Reciprocal Rank Fusion
+            if not ranked_lists:
                 return f"📭 No memories found for '{query}' (checked both semantic and keyword)."
 
-            return result
+            rrf_results = _reciprocal_rank_fusion(ranked_lists, k=60)
+
+            # 4. Retrieve memory details
+            result_keys = [key for key, score in rrf_results[:top_k * 2]]
+            memories = _get_memories_by_keys(result_keys, persona)
+
+            # 5. Format and return results
+            return _format_hybrid_results(
+                query=query,
+                rrf_results=rrf_results,
+                memories=memories,
+                persona=persona,
+                top_k=top_k
+            )
 
         elif mode == "progressive":
             # Progressive Disclosure Search (claude-mem inspired)

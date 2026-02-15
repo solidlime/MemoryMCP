@@ -109,8 +109,13 @@ curl http://localhost:26262/api/memory \
 |--------|------|------|
 | `semantic` | セマンティック検索（RAG） | 意味的に類似した記憶を検索 |
 | `keyword` | キーワード検索（Fuzzy対応） | 正確な単語・フレーズを検索 |
-| `hybrid` | ハイブリッド（semantic 70% + keyword 30%） | バランスの取れた検索（デフォルト） |
+| `hybrid` | ハイブリッド（RRF統合） | Reciprocal Rank Fusionで semantic + keyword を統合（デフォルト） |
 | `smart` | スマート検索（曖昧クエリ自動拡張） | 「いつものあれ」などを文脈から判断 |
+
+**RRF (Reciprocal Rank Fusion)について:**
+- semantic検索とkeyword検索を統合的にマージ
+- 重複を自動削除し、ランクベースでスコアリング
+- 軽量（ML不要、外部API不要）でNAS環境でも高速動作
 
 ### 自然言語時間フィルタリング
 

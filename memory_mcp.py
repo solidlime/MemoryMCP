@@ -201,35 +201,60 @@ if __name__ == "__main__":
         print("⚠️  Server will start anyway, but RAG features may not work")
         import traceback
         traceback.print_exc()
-    
+
     # Start idle rebuild worker
     try:
         start_idle_rebuilder_thread()
         print("🧵 Idle rebuild worker started")
     except Exception as e:
         print(f"⚠️  Failed to start idle rebuild worker: {e}")
-    
+
     # Phase 21: Start cleanup worker
     try:
         start_cleanup_worker_thread()
         print("🧹 Cleanup worker started")
     except Exception as e:
         print(f"⚠️  Failed to start cleanup worker: {e}")
-    
+
     # Phase 38: Start auto-summarization scheduler (daily/weekly)
     try:
         start_auto_summarization_scheduler()
         print("📅 Auto-summarization scheduler started")
     except Exception as e:
         print(f"⚠️  Failed to start auto-summarization scheduler: {e}")
-    
+
+    # Phase 42: Auto-migrate anniversaries on startup
+    try:
+        from core.memory_db import migrate_anniversaries_to_memories
+        from src.utils.persona_utils import get_persona_dir
+        # Get all persona directories
+        memory_root = ensure_memory_root()
+        if os.path.exists(memory_root):
+            for persona_name in os.listdir(memory_root):
+                persona_path = os.path.join(memory_root, persona_name)
+                if os.path.isdir(persona_path):
+                    context_path = os.path.join(persona_path, "persona_context.json")
+                    if os.path.exists(context_path):
+                        with open(context_path, 'r', encoding='utf-8') as f:
+                            context = json.load(f)
+                        if context.get("anniversaries") and len(context["anniversaries"]) > 0:
+                            result = migrate_anniversaries_to_memories(persona_name)
+                            if result["migrated"] > 0:
+                                context["anniversaries"] = []
+                                with open(context_path, 'w', encoding='utf-8') as f:
+                                    json.dump(context, f, ensure_ascii=False, indent=2)
+                                print(f"🎂 Migrated {result['migrated']} anniversaries for {persona_name}")
+        print("✅ Anniversary migration check completed")
+    except Exception as e:
+        print(f"⚠️  Failed to check anniversary migration: {e}")
+
     # Register dashboard HTTP routes
     try:
         register_http_routes(mcp, templates)
         print("🌐 Dashboard HTTP routes registered")
     except Exception as e:
         print(f"⚠️  Failed to register dashboard routes: {e}")
-    
+
     # ツール/リソースの登録（デコレータではなく動的登録）
     try:
         import tools_memory

@@ -4,6 +4,70 @@ All notable changes to Memory-MCP will be documented in this file.
 
 ## [Unreleased]
 
+### Added - 2026-02-15 (Phase 43: Bug Fixes & Hybrid Search Optimization)
+
+#### 1. MEMORY_ROOT定義のバグ修正 (dashboard.py)
+
+**問題:**
+- `src/dashboard.py` で `MEMORY_ROOT` が `src/memory/` を参照していた
+- `MEMORY_MCP_DATA_DIR` 環境変数が未設定の場合、`SCRIPT_DIR`（src/）をベースにしていた
+- knowledge_graph生成は正しく `data/memory/{persona}/` に保存しているが、ダッシュボードは `src/memory/` を参照
+- **結果**: knowledge_graphが更新されてもダッシュボードに反映されない
+
+**修正:**
+- `src.utils.config_utils.ensure_memory_root()` を使用するように変更
+- `data/memory/` ディレクトリを一貫して使用
+
+**変更ファイル:**
+- `src/dashboard.py`: MEMORY_ROOT定義を修正
+
+#### 2. Anniversaries自動マイグレーション (起動時実行)
+
+**問題:**
+- anniversariesのマイグレーション処理は実装されていたが、`get_context()` 呼び出し時のみ実行
+- ダッシュボードから直接アクセスした場合や、`get_context()` を経由しない場合、マイグレーションが実行されない
+- **結果**: `persona_context.json` の `anniversaries` が memories テーブルに移行されない
+
+**修正:**
+- サーバー起動時に全personaの `persona_context.json` をチェック
+- `anniversaries` データが存在する場合、自動的に memories テーブルにマイグレーション
+- マイグレーション後、`persona_context.json` から `anniversaries` を削除
+
+**変更ファイル:**
+- `memory_mcp.py`: 起動時処理に anniversaries マイグレーションチェックを追加
+
+#### 3. Reciprocal Rank Fusion (RRF) によるハイブリッド検索の最適化
+
+**従来の問題:**
+- ハイブリッド検索（`mode="hybrid"`）は semantic + keyword の結果を単純に並べていただけ
+- 重複削除やスコアベースの統合が実装されていなかった
+- 検索精度が最新のトレンドに対応していなかった
+
+**RRF実装:**
+- Reciprocal Rank Fusion アルゴリズムを実装
+  - Formula: `score(d) = Σ 1 / (k + rank_i(d))`
+  - 標準的な k=60 を使用
+- semantic検索とkeyword検索の結果をランクベースでマージ
+- 重複を自動的に削除し、統合スコアでソート
+- 軽量（O(n log n)）でML不要、外部API不要
+
+**新しいヘルパー関数:**
+- `_extract_memory_keys()`: 検索結果文字列からメモリキーを抽出
+- `_reciprocal_rank_fusion()`: RRFアルゴリズムでランクリストをマージ
+- `_get_memories_by_keys()`: キーリストから詳細情報を取得
+- `_format_hybrid_results()`: RRF結果をフォーマット
+
+**変更ファイル:**
+- `tools/search_tools.py`: RRFヘルパー関数追加、hybridモード実装を書き換え
+
+**利点:**
+- より高精度な検索結果
+- 重複のない統合結果
+- 軽量（DS920+等のNASでも快適に動作）
+- 最新の検索トレンドに対応
+
+---
+
 ### Added - 2026-02-14 (Phase 42: Usability Improvements for Self-Management)
 
 #### Phase 1: Promises & Goals 一覧表示

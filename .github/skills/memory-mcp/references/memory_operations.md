@@ -205,13 +205,21 @@ mcp_memory search "Python coding" \
   --limit 10
 ```
 
-### Hybrid Search (Semantic + Keyword)
+### Hybrid Search (Semantic + Keyword with RRF)
+
+Reciprocal Rank Fusion (RRF) merges semantic and keyword search results intelligently.
 
 ```bash
 mcp_memory search "project deployment" \
   --mode hybrid \
   --limit 5
 ```
+
+**How RRF Works:**
+- Runs semantic and keyword searches in parallel
+- Merges results using rank-based scoring: `score = Σ 1/(k + rank)`
+- Automatically deduplicates and sorts by combined relevance
+- Lightweight (no ML overhead, no external API calls)
 
 ### Related Memories (Similar to Specific Memory)
 
@@ -235,7 +243,7 @@ mcp_memory search "いつものあれ" \
 |------|-------------|----------|
 | `semantic` | Vector similarity search | Conceptual queries, natural language |
 | `keyword` | Exact text matching | Specific terms, names, IDs |
-| `hybrid` | 70% semantic + 30% keyword | Balanced, most queries |
+| `hybrid` | RRF fusion (semantic + keyword) | Most queries, balanced precision+recall |
 | `related` | Find similar to given memory | "More like this" |
 | `smart` | Auto-expand ambiguous queries | Vague or colloquial queries |
 
@@ -426,7 +434,7 @@ done
 ### Search Optimization
 
 - Use `keyword` mode for exact matches (fastest)
-- Use `hybrid` mode for general queries (balanced)
+- Use `hybrid` mode (RRF) for general queries (balanced precision+recall)
 - Use `semantic` mode for concept queries (slowest, most accurate)
 - Limit `top_k` to needed results (default: 5-10)
 
