@@ -5,6 +5,21 @@ Persona-scoped endpoints use `{persona}` as a path parameter (e.g. `nilou`, `def
 
 ---
 
+## Architecture
+
+Memory MCP operates as a **client-server system**:
+
+- **Server (Remote)**: `memory_mcp.py` runs as a FastMCP HTTP server (Docker/NAS)
+- **Client (Local)**: Skills/scripts run locally and make HTTP requests to the server
+- **Configuration**: Server URL is specified in `.github/skills/memory-mcp/references/config.json`
+
+```bash
+# Example: Skills run locally and access remote server
+python scripts/mcp_context  # → HTTP GET http://nas:26262/api/get_context
+```
+
+---
+
 ## MCP Tools REST API
 
 These endpoints provide direct REST API access to MCP tools for GitHub Copilot Skills and other clients.

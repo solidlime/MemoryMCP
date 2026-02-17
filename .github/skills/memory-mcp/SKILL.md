@@ -9,6 +9,18 @@ description: Retrieves persona context, creates/searches memories, and manages e
 
 Get current persona context from Memory MCP server by running the `mcp_context` script. This skill provides a unified CLI client for all Memory MCP operations, enabling comprehensive interaction with the memory system.
 
+**Architecture:** This skill runs **locally** and communicates with the **remote MCP server** via HTTP API. The server URL is configured in `references/config.json`.
+
+```
+Local (VS Code)              Remote (Docker/NAS)
+┌─────────────────┐         ┌──────────────────┐
+│ skills/scripts/ │  HTTP   │ memory_mcp.py    │
+│   mcp_context   │ ─────>  │ (FastMCP Server) │
+│   mcp_memory    │  API    │ Port: 26262      │
+│   mcp_item      │         │                  │
+└─────────────────┘         └──────────────────┘
+```
+
 ## When to Use
 
 **Always use at session start** to:

@@ -4,6 +4,19 @@ All notable changes to Memory-MCP will be documented in this file.
 
 ## [Unreleased]
 
+### Added - 2026-02-17 (Architecture Documentation)
+
+**Clarified Client-Server Architecture:**
+- Added architecture diagrams to README.md, SKILL.md, and HTTP API reference
+- Documented that skills run **locally** and communicate with **remote MCP server** via HTTP API
+- Clarified server runs on Docker/NAS, clients access via config.json URL
+- Files modified: `README.md`, `.github/skills/memory-mcp/SKILL.md`, `docs/http_api_reference.md`
+
+**Rationale:**
+- Prevents confusion about where code executes
+- Makes deployment model explicit
+- Helps users understand local vs. remote components
+
 ### Changed - 2026-02-17 (Code Quality Improvements)
 
 #### 1. Removed Backward Compatibility for Promise/Goal Operations

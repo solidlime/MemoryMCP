@@ -2,6 +2,29 @@
 
 MCP準拠の永続メモリサーバー。Personaごとの記憶を管理し、セマンティック検索とハイブリッド検索で最適な記憶を取得します。
 
+## 🏗️ アーキテクチャ
+
+Memory MCPは**クライアント・サーバーモデル**で動作します：
+
+```
+┌─────────────────────────┐          HTTP API          ┌──────────────────────┐
+│  ローカル (VS Code)      │     (localhost/NAS)        │  リモート (Docker)    │
+│                         │                            │                      │
+│  .github/skills/        │  ────────────────────────> │  memory_mcp.py       │
+│  └─ memory-mcp/         │   GET /api/get_context     │  (FastMCP Server)    │
+│     ├─ SKILL.md         │   POST /api/memory         │                      │
+│     ├─ scripts/         │   POST /api/item           │  Port: 26262         │
+│     └─ config.json      │                            │                      │
+│        (url設定)         │                            │  ↓                   │
+│                         │                            │  SQLite + Qdrant     │
+└─────────────────────────┘                            └──────────────────────┘
+```
+
+**重要:** 
+- **サーバー側 (Docker/NAS)**: `memory_mcp.py` がHTTP APIサーバーとして動作
+- **クライアント側 (ローカル)**: Skillsが `config.json` で指定したURLにHTTP APIでアクセス
+- スキルスクリプトは**ローカルで実行**され、リモートサーバーにリクエストを送信
+
 ## ✨ 特徴
 
 - 🧠 **永続メモリ** - SQLite + Qdrant でデータとベクトルを管理
