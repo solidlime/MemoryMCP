@@ -99,9 +99,9 @@ curl http://localhost:26262/api/memory \
 
 ### 統合ツールAPI (3つの関数のみ)
 
-- **`get_context()`** - 現在のPersona状態・時刻・メモリ統計を取得
-- **`memory(operation, ...)`** - メモリ操作（create/read/update/delete/search/stats/check_routines）とコンテキスト操作（promise/goal/favorite/anniversary等）
-- **`item(operation, ...)`** - アイテム操作（add/remove/equip/unequip/search/history/memories/stats）
+- **`get_context()`** - 現在のPersona状態・時刻・メモリ統計を取得（簡素化された出力）
+- **`memory(operation, ...)`** - メモリ操作（create/read/update/delete/search/stats/check_routines）とコンテキスト操作（promise/goal/update_context）の10種類
+- **`item(operation, ...)`** - アイテム操作（add/remove/equip/unequip/update/search/history/memories）の8種類
 
 ### 検索モード
 
@@ -142,14 +142,18 @@ memory(operation="check_routines", mode="detailed")
 
 ### 記念日管理
 
-```python
-# 記念日追加
-memory(operation="anniversary", content="結婚記念日",
-       persona_info={"date": "2025-11-10", "recurring": True})
+記念日は特殊タグ `anniversary` を使用したメモリとして保存されます。
 
-# 一覧表示
-memory(operation="anniversary")
+```python
+# 記念日を追加（タグ付きメモリとして）
+memory(operation="create", content="結婚記念日",
+       tags=["anniversary", "milestone"], importance=0.9)
+
+# 記念日を検索
+memory(operation="search", query="anniversary", mode="keyword")
 ```
+
+**注**: `get_context()` では30日以内の記念日のみ自動表示されます。
 
 ## 🏗️ アーキテクチャ
 

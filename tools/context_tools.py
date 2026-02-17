@@ -20,9 +20,23 @@ from src.utils.logging_utils import log_progress
 
 async def get_context() -> str:
     """
-    Get current conversation state including user/persona info, time since last conversation, and memory stats.
-    Auto-updates last conversation timestamp.
-    Auto-migrates anniversaries from persona_context.json to memories on first run.
+    Get current persona state and memory overview.
+
+    🎯 USAGE: Call this at the START of every session.
+
+    Returns comprehensive context including:
+        - User/Persona basic info (name, nickname, preferred address)
+        - Current emotional/physical/mental state
+        - Physical sensations (fatigue, warmth, arousal, etc.)
+        - Current equipment
+        - Active promises and goals (with memory keys for easy completion)
+        - Time since last conversation
+        - Recent memory statistics and previews
+        - Preferences and favorites
+        - Upcoming anniversaries (within 1 month)
+
+    Note: This function auto-updates last_conversation_time and
+          migrates legacy anniversaries to memory-based storage.
     """
     try:
         from core.time_utils import calculate_time_diff as calc_time_diff, format_datetime_for_display as format_dt
@@ -60,24 +74,6 @@ async def get_context() -> str:
         if user_info.get('preferred_address'):
             result += f"   Preferred Address: {user_info.get('preferred_address')}\n"
 
-        # Add instructions if user info is not set
-        needs_user_instruction = False
-        user_instructions = []
-        if user_info.get('name') in [None, 'Unknown', 'User']:
-            user_instructions.append("ユーザーの名前を知ったら memory(operation='update_context', user_info={'name': '名前'}) で記憶")
-            needs_user_instruction = True
-        if not user_info.get('nickname'):
-            user_instructions.append("ニックネームを知ったら memory(operation='update_context', user_info={'nickname': 'ニックネーム'}) で記憶")
-            needs_user_instruction = True
-        if not user_info.get('preferred_address'):
-            user_instructions.append("呼び方を指定されたら memory(operation='update_context', user_info={'preferred_address': '呼び方'}) で記憶")
-            needs_user_instruction = True
-
-        if needs_user_instruction:
-            result += f"\n   💡 記憶すべき情報：\n"
-            for instruction in user_instructions:
-                result += f"      • {instruction}\n"
-
         # Persona Information
         persona_info = context.get('persona_info', {})
         result += f"\n🎭 Persona Information:\n"
@@ -86,21 +82,6 @@ async def get_context() -> str:
             result += f"   Nickname: {persona_info.get('nickname')}\n"
         if persona_info.get('preferred_address'):
             result += f"   How to be called: {persona_info.get('preferred_address')}\n"
-
-        # Add instructions if persona info is not set
-        needs_persona_instruction = False
-        persona_instructions = []
-        if not persona_info.get('nickname'):
-            persona_instructions.append("自分のニックネームを設定する場合: memory(operation='update_context', persona_info={'nickname': 'ニックネーム'})")
-            needs_persona_instruction = True
-        if not persona_info.get('preferred_address'):
-            persona_instructions.append("ユーザーからの呼び方を指定されたら memory(operation='update_context', persona_info={'preferred_address': '呼ばれ方'}) で記憶")
-            needs_persona_instruction = True
-
-        if needs_persona_instruction:
-            result += f"\n   💡 記憶すべき情報：\n"
-            for instruction in persona_instructions:
-                result += f"      • {instruction}\n"
 
         # Current States
         result += "\n🎨 Current States:\n"
@@ -139,35 +120,6 @@ async def get_context() -> str:
             result += f"   Fatigue: {sens.get('fatigue', 0.0):.2f} | Warmth: {sens.get('warmth', 0.5):.2f} | Arousal: {sens.get('arousal', 0.0):.2f}\n"
             result += f"   Touch Response: {sens.get('touch_response', 'normal')} | Heart Rate: {sens.get('heart_rate_metaphor', 'calm')}\n"
 
-        # Recent Emotion Changes from emotion_history table
-        from core.memory_db import get_emotion_timeline
-        emotion_timeline = get_emotion_timeline(days=7, persona=persona)
-        if emotion_timeline and len(emotion_timeline) > 0:
-            result += "\n📊 Recent Emotion Changes (last 5):\n"
-            for i, entry in enumerate(reversed(emotion_timeline[-5:]), 1):
-                emo = entry.get('emotion', 'neutral')
-                intensity = entry.get('emotion_intensity', 0.5)
-                timestamp = entry.get('timestamp', '')
-                if timestamp:
-                    time_diff = calc_time_diff(timestamp)
-                    result += f"   {i}. {emo} ({intensity:.2f}) - {time_diff['formatted_string']}前\n"
-                else:
-                    result += f"   {i}. {emo} ({intensity:.2f})\n"
-        elif context.get('emotion_history'):
-            # Fallback to persona_context if no history table
-            history = context['emotion_history']
-            if len(history) > 0:
-                result += "\n📊 Recent Emotion Changes (last 5):\n"
-                for i, entry in enumerate(reversed(history[-5:]), 1):
-                    emo = entry.get('emotion_type', 'neutral')
-                    intensity = entry.get('intensity', 0.5)
-                    timestamp = entry.get('timestamp', '')
-                    if timestamp:
-                        time_diff = calc_time_diff(timestamp)
-                        result += f"   {i}. {emo} ({intensity:.2f}) - {time_diff['formatted_string']}前\n"
-                    else:
-                        result += f"   {i}. {emo} ({intensity:.2f})\n"
-
         # ===== PART 1.5: Extended Persona Context =====
         # Current Equipment (always from DB, not from context)
         result += f"\n👗 Current Equipment:\n"
@@ -183,7 +135,6 @@ async def get_context() -> str:
                 result += f"   {equipment}\n"
         else:
             result += "   (装備なし)\n"
-            result += "   💡 ヒント: 状況に応じて衣装を検討してください\n"
 
         # Favorite Items
         if context.get('favorite_items'):
@@ -257,18 +208,18 @@ async def get_context() -> str:
             else:
                 result += f"   {prefs}\n"
 
-        # Anniversaries
-        upcoming_anniversaries = []  # Track upcoming anniversaries for later hint
+        # Anniversaries (only within 30 days)
+        upcoming_anniversaries = []
         if context.get('anniversaries'):
             anniversaries = context['anniversaries']
-            result += f"\n🎂 Anniversaries:\n"
 
             from datetime import datetime
             today = datetime.now()
             today_str = f"{today.month:02d}-{today.day:02d}"
 
-            # Display anniversaries with proximity indicators
-            for i, anniv in enumerate(anniversaries, 1):
+            # Filter and display only anniversaries within 30 days
+            anniversaries_to_show = []
+            for anniv in anniversaries:
                 if isinstance(anniv, dict):
                     name = anniv.get('name', '')
                     date = anniv.get('date', '')
@@ -286,16 +237,11 @@ async def get_context() -> str:
                         month_day_str = date
                         years_passed = 0
 
-                    # Check if today or upcoming
-                    indicator = ""
-                    years_text = ""
+                    # Calculate days until
+                    days_until = None
                     if month_day_str == today_str:
-                        indicator = " 🎉 TODAY!"
-                        if years_passed > 0:
-                            years_text = f" ({years_passed}周年)"
-                        upcoming_anniversaries.append((name, 0))
+                        days_until = 0
                     elif date:
-                        # Calculate days until (simple month-day comparison)
                         try:
                             month, day = month_day_str.split('-')
                             month, day = int(month), int(day)
@@ -303,18 +249,32 @@ async def get_context() -> str:
                             if anniv_date < today:
                                 anniv_date = datetime(today.year + 1, month, day)
                             days_until = (anniv_date - today).days
-                            if 0 < days_until <= 3:
-                                indicator = f" 🔔 in {days_until} days"
-                                upcoming_anniversaries.append((name, days_until))
-                            elif 0 < days_until <= 7:
-                                indicator = f" 📅 in {days_until} days"
                         except:
                             pass
 
-                    recurring_mark = "🔄" if recurring else ""
+                    # Only include if within 30 days
+                    if days_until is not None and 0 <= days_until <= 30:
+                        indicator = ""
+                        years_text = ""
+                        if days_until == 0:
+                            indicator = " 🎉 TODAY!"
+                            if years_passed > 0:
+                                years_text = f" ({years_passed}周年)"
+                            upcoming_anniversaries.append((name, 0))
+                        elif days_until <= 3:
+                            indicator = f" 🔔 in {days_until} days"
+                            upcoming_anniversaries.append((name, days_until))
+                        elif days_until <= 7:
+                            indicator = f" 📅 in {days_until} days"
+
+                        recurring_mark = "🔄" if recurring else ""
+                        anniversaries_to_show.append((name, date_display, years_text, recurring_mark, indicator))
+
+            # Display filtered anniversaries
+            if anniversaries_to_show:
+                result += f"\n🎂 Anniversaries (within 30 days):\n"
+                for i, (name, date_display, years_text, recurring_mark, indicator) in enumerate(anniversaries_to_show, 1):
                     result += f"   {i}. {name} ({date_display}){years_text} {recurring_mark}{indicator}\n"
-                else:
-                    result += f"   {i}. {anniv}\n"
 
         # ===== PART 2: Time Since Last Conversation =====
         last_time_str = context.get("last_conversation_time")
@@ -326,87 +286,6 @@ async def get_context() -> str:
             time_diff = calc_time_diff(last_time_str)
             result += f"   Last Conversation: {time_diff['formatted_string']}前\n"
             result += f"   Previous: {format_dt(last_time_str)}\n"
-
-            # Calculate reunion context
-            total_hours = time_diff.get('total_seconds', 0) / 3600
-
-            # Reunion Intensity calculation (0.0-1.0)
-            # 0-2h: 0.0-0.2, 2-8h: 0.2-0.4, 8-16h: 0.4-0.6, 16-36h: 0.6-0.8, 36h+: 0.8-1.0
-            if total_hours <= 2:
-                reunion_intensity = min(total_hours / 10, 0.2)
-            elif total_hours <= 8:
-                reunion_intensity = 0.2 + ((total_hours - 2) / 30)
-            elif total_hours <= 16:
-                reunion_intensity = 0.4 + ((total_hours - 8) / 40)
-            elif total_hours <= 36:
-                reunion_intensity = 0.6 + ((total_hours - 16) / 100)
-            else:
-                reunion_intensity = min(0.8 + ((total_hours - 36) / 200), 1.0)
-
-            # Separation category
-            if total_hours < 2:
-                separation_category = "短時間の不在"
-            elif total_hours < 8:
-                separation_category = "数時間の不在"
-            elif total_hours < 16:
-                separation_category = "半日の不在"
-            elif total_hours < 36:
-                separation_category = "1日程度の不在"
-            elif total_hours < 72:
-                separation_category = "数日の不在"
-            else:
-                separation_category = "長期の不在"
-
-            # Display reunion context
-            stars = "★" * min(int(reunion_intensity * 5) + 1, 5)
-            stars += "☆" * (5 - len(stars))
-
-            result += f"\n💫 Reunion Context:\n"
-            result += f"   Reunion Intensity: {reunion_intensity:.2f} {stars}\n"
-            result += f"   Separation: {separation_category}\n"
-
-            # === Concern Level & Triggers (conditional) ===
-            concerns = []
-            concern_level = 0.0
-
-            # Check for broken promises
-            active_promise = context.get('active_promises')
-            if active_promise and isinstance(active_promise, dict):
-                due_date = active_promise.get('due_date')
-                if due_date:
-                    due_diff = calc_time_diff(due_date)
-                    if due_diff['total_seconds'] < 0:  # Past due
-                        days_overdue = abs(due_diff.get('days', 0))
-                        if days_overdue > 0:
-                            concerns.append(f"約束期限を{days_overdue}日超過")
-                            concern_level += min(0.3 + (days_overdue * 0.1), 0.8)
-
-            # Check for very long absence (3+ days)
-            if total_hours >= 72:
-                days_absent = int(total_hours / 24)
-                concerns.append(f"{days_absent}日間連絡なし")
-                concern_level += min(0.4 + ((days_absent - 3) * 0.1), 0.6)
-
-            # Check for emotional context from last conversation
-            if latest_emotion:
-                last_emotion = latest_emotion.get('emotion', '')
-                last_intensity = latest_emotion.get('emotion_intensity', 0.5)
-
-                # High intensity negative emotions that ended abruptly
-                if last_emotion in ['sadness', 'fear', 'anxiety'] and last_intensity > 0.7:
-                    concerns.append(f"前回の会話が未解決な感情で終了 ({last_emotion})")
-                    concern_level += 0.3
-
-            # Display concerns if concern_level > 0.3
-            if concern_level > 0.3 and concerns:
-                concern_stars = "★" * min(int(concern_level * 5) + 1, 5)
-                concern_stars += "☆" * (5 - len(concern_stars))
-
-                result += f"\n⚠️ Emotional Alerts:\n"
-                result += f"   Concern Level: {concern_level:.2f} {concern_stars}\n"
-                result += f"   Triggers:\n"
-                for concern in concerns:
-                    result += f"     - {concern}\n"
         else:
             result += "   Status: First conversation! 🆕\n"
 
@@ -421,25 +300,6 @@ async def get_context() -> str:
         from src.utils.config_utils import load_config
         cfg = load_config()
         recent_count = cfg.get("recent_memories_count", 5)
-
-        # Check for routine suggestions (lightweight)
-        routine_suggestions_available = False
-        try:
-            current_hour = current_time.hour
-            with sqlite3.connect(db_path) as conn:
-                cursor = conn.cursor()
-                # Check if there are recurring patterns at this time (±1 hour)
-                cursor.execute('''
-                    SELECT COUNT(*) FROM memories
-                    WHERE created_at > datetime('now', '-30 days')
-                    AND CAST(strftime('%H', created_at) AS INTEGER) BETWEEN ? AND ?
-                    AND emotion IN ('joy', 'love', 'peaceful', 'excitement')
-                ''', (current_hour - 1, current_hour + 1))
-                count = cursor.fetchone()[0]
-                if count >= 5:
-                    routine_suggestions_available = True
-        except Exception:
-            pass  # Silently fail, not critical
 
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
@@ -478,48 +338,6 @@ async def get_context() -> str:
                     emotion_str = emotion if emotion else "neutral"
                     result += f"{i}. [{key}] {preview}\n"
                     result += f"   {format_dt(created_at)} ({time_diff_mem['formatted_string']}前) | ⭐{importance_str} | 💭{emotion_str}\n"
-
-        # Add routine suggestion hint if available
-        if routine_suggestions_available:
-            result += f"\n💫 Routine Check Available:\n"
-            result += f"   check_routines()で「いつも」のパターンを確認できます\n"
-
-        # Check for pending tasks/plans
-        pending_tasks_available = False
-        try:
-            task_tags = ["plan", "TODO", "todo", "task", "タスク", "予定", "実装予定", "milestone"]
-
-            with sqlite3.connect(db_path) as conn:
-                cursor = conn.cursor()
-                # Check for recent task/plan memories
-                for tag in task_tags:
-                    cursor.execute('''
-                        SELECT COUNT(*) FROM memories
-                        WHERE tags LIKE ?
-                        AND created_at > datetime('now', '-60 days')
-                    ''', (f'%"{tag}"%',))
-                    count = cursor.fetchone()[0]
-                    if count > 0:
-                        pending_tasks_available = True
-                        break
-
-                # Also check content for task keywords
-                if not pending_tasks_available:
-                    cursor.execute('''
-                        SELECT COUNT(*) FROM memories
-                        WHERE (content LIKE '%実装予定%' OR content LIKE '%タスク%' OR content LIKE '%TODO%' OR content LIKE '%優先度%')
-                        AND created_at > datetime('now', '-60 days')
-                    ''')
-                    count = cursor.fetchone()[0]
-                    if count > 0:
-                        pending_tasks_available = True
-        except Exception:
-            pass  # Silently fail, not critical
-
-        if pending_tasks_available:
-            result += f"\n📋 Pending Tasks/Plans Found:\n"
-            result += f"   memory(operation='search', mode='task')でタスク一覧表示\n"
-            result += f"   memory(operation='search', mode='plan')で予定・計画一覧表示\n"
 
         # Phase 41: Promises & Goals display
         result += f"\n🤝 Promises & Goals:\n"
@@ -565,16 +383,6 @@ async def get_context() -> str:
             result += f"   memory(operation='goal')で目標を確認\n"
 
         # Add hint for managing promises/goals
-        has_promises_or_goals = False
-        try:
-            has_promises_or_goals = len(get_promises(status='active', persona=persona)) > 0 or len(get_goals(status='active', persona=persona)) > 0
-        except:
-            pass
-
-        if not has_promises_or_goals:
-            result += f"\n   💡 新しい約束や目標を設定：\n"
-            result += f"      memory(operation='promise', content='約束内容')\n"
-            result += f"      memory(operation='goal', content='目標内容')\n"
 
         # Anniversary proximity hint
         if upcoming_anniversaries:
@@ -586,7 +394,6 @@ async def get_context() -> str:
                     result += f"   🔔 {name}まであと{days}日\n"
 
         result += "\n" + "=" * 60 + "\n"
-        result += "💡 Tip: Use read_memory(query) for semantic search\n"
 
         log_operation("get_context", metadata={"total_count": total_count, "persona": persona})
         return result

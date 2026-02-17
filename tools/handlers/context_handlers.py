@@ -11,18 +11,12 @@ from core.memory_db import (
     save_goal,
     get_goals,
     update_goal_progress,
-    get_emotion_history_from_db,
-    save_emotion_history,
-    get_anniversaries,
-    save_memory_to_db,
-    delete_memory_from_db,
 )
 from core import calculate_time_diff
 from core.persona_context import load_persona_context, save_persona_context
 from src.utils.persona_utils import get_current_persona, get_db_path
 from src.utils.config_utils import load_config
 from src.utils.logging_utils import log_progress
-from tools.helpers.routine_helpers import analyze_situation_context
 
 
 async def handle_promise(query: Optional[str], content: Optional[str], importance: Optional[float]) -> str:
@@ -142,47 +136,6 @@ async def handle_goal(query: Optional[str], content: Optional[str]) -> str:
     return result
 
 
-async def handle_favorite(content: Optional[str]) -> str:
-    """Add item to favorites list."""
-    if not content:
-        return "❌ Error: 'content' is required for favorite operation"
-
-    persona = get_current_persona()
-    context = load_persona_context(persona)
-
-    if "favorite_items" not in context:
-        context["favorite_items"] = []
-
-    if isinstance(context["favorite_items"], str):
-        context["favorite_items"] = [context["favorite_items"]]
-
-    if content not in context["favorite_items"]:
-        context["favorite_items"].append(content)
-        save_persona_context(context, persona)
-        return f"✅ Added to favorites: {content}"
-    else:
-        return f"ℹ️ Already in favorites: {content}"
-
-
-async def handle_preference(persona_info: Dict) -> str:
-    """Update preferences (loves/dislikes)."""
-    if not persona_info or not any(k in persona_info for k in ["loves", "dislikes", "preferences"]):
-        return "❌ Error: No preferences to update. Use persona_info={'loves': [...], 'dislikes': [...]}"
-
-    context = load_persona_context(get_current_persona())
-    if "preferences" not in context:
-        context["preferences"] = {}
-
-    prefs = persona_info.get("preferences", persona_info)
-    updated = []
-    for key in ["loves", "dislikes"]:
-        if key in prefs:
-            context["preferences"][key] = prefs[key]
-            updated.append(key)
-
-    save_persona_context(context, get_current_persona())
-    return f"✅ Preferences updated: {', '.join(updated)}"
-
 
 async def handle_update_context(persona_info: Optional[Dict] = None, user_info: Optional[Dict] = None) -> str:
     """Batch update multiple context fields."""
@@ -273,207 +226,6 @@ async def handle_update_context(persona_info: Optional[Dict] = None, user_info: 
         return "ℹ️ No context fields to update\n💡 Example: memory(operation='update_context', physical_state='relaxed', mental_state='calm')"
 
 
-async def handle_anniversary(content: Optional[str], persona_info: Optional[Dict]) -> str:
-    """
-    Manage anniversaries using memories table with 'anniversary' tag.
-
-    Operations:
-    - List: No parameters → Show all anniversary/milestone/first_time tagged memories
-    - Add: content + persona_info.date → Create anniversary memory
-    - Delete: persona_info.delete_key → Remove anniversary memory
-
-    Tags:
-    - 'anniversary': Special commemorative dates (first meeting, relationship milestones)
-    - 'milestone': Important achievements or life events
-    - 'first_time': First time experiences worth remembering
-
-    Examples:
-        # Add anniversary
-        memory(operation="anniversary", content="初めて会った日",
-               persona_info={"date": "2025-06-15"})
-
-        # List all anniversaries
-        memory(operation="anniversary")
-
-        # Delete anniversary
-        memory(operation="anniversary",
-               persona_info={"delete_key": "memory_20250615_123456"})
-    """
-    persona = get_current_persona()
-
-    # Delete anniversary by key
-    if persona_info and "delete_key" in persona_info:
-        key = persona_info["delete_key"]
-        if delete_memory_from_db(key):
-            log_progress(f"✅ Deleted anniversary: {key}")
-            return f"✅ Anniversary deleted: {key}"
-        else:
-            return f"❌ Failed to delete anniversary: {key}"
-
-    # List all anniversaries
-    if not content and not persona_info:
-        anniversaries = get_anniversaries(persona)
-
-        if not anniversaries:
-            return "📅 No anniversaries registered.\n\n💡 Tip: Create anniversaries with anniversary/milestone/first_time tags:"\
-                   "\n  memory(operation='create', content='Event description', context_tags=['anniversary'])\n"\
-                   "  memory(operation='anniversary', content='Event', persona_info={'date': '2025-06-15'})"
-
-        result = "📅 Registered Anniversaries:\n"
-        result += "=" * 60 + "\n\n"
-
-        current_year = datetime.now().year
-        total_count = 0
-
-        for ann_group in anniversaries:
-            month_day = ann_group["month_day"]  # "MM-DD"
-            memories = ann_group["memories"]
-
-            for memory in memories:
-                total_count += 1
-                date = memory["date"]  # "YYYY-MM-DD"
-                year = memory["year"]
-                preview = memory["preview"]
-                tags = memory["tags"]
-                key = memory["key"]
-
-                years_ago = current_year - year
-                years_text = f" ({years_ago}年前)" if years_ago > 0 else ""
-
-                # Tag badges
-                tag_badges = []
-                if "anniversary" in tags:
-                    tag_badges.append("🎂anniversary")
-                if "milestone" in tags:
-                    tag_badges.append("🏆milestone")
-                if "first_time" in tags:
-                    tag_badges.append("✨first_time")
-                tags_str = " ".join(tag_badges)
-
-                result += f"{total_count}. {date}{years_text}: {preview}\n"
-                result += f"   [{tags_str}] (key: {key})\n\n"
-
-        result += f"\nTotal: {total_count} anniversaries\n"
-        return result
-
-    # Add anniversary
-    if content and persona_info and "date" in persona_info:
-        date_str = persona_info["date"]
-
-        # Validate date format
-        try:
-            date_obj = datetime.strptime(date_str, "%Y-%m-%d")
-        except ValueError:
-            return f"❌ Error: Invalid date format. Use YYYY-MM-DD (e.g., 2025-11-10)"
-
-        # Generate key
-        from datetime import datetime
-        from zoneinfo import ZoneInfo
-        cfg = load_config()
-        tz = ZoneInfo(cfg.get("timezone", "Asia/Tokyo"))
-        key = f"memory_{datetime.now(tz).strftime('%Y%m%d_%H%M%S')}"
-
-        # Create anniversary memory with 'anniversary' tag
-        tags = ["anniversary"]
-
-        # Add yearly tag for recurring anniversaries (default: True)
-        if persona_info.get("recurring", True):
-            tags.append("yearly")
-
-        # Use the anniversary date as created_at
-        created_at = date_obj.replace(tzinfo=tz).isoformat()
-
-        success = save_memory_to_db(
-            key=key,
-            content=content,
-            created_at=created_at,
-            tags=tags,
-            importance=0.9,  # High importance for anniversaries
-            emotion="gratitude",
-            persona=persona
-        )
-
-        if success:
-            log_progress(f"✅ Created anniversary: {content} ({date_str})")
-            return f"✅ Anniversary created: {content} ({date_str})\n   Key: {key}\n   Tags: {', '.join(tags)}"
-        else:
-            return f"❌ Failed to create anniversary: {content}"
-
-    return "❌ Error: Invalid parameters\n" \
-           "Add: memory(operation='anniversary', content='Event', persona_info={'date': 'YYYY-MM-DD'})\n" \
-           "List: memory(operation='anniversary')\n" \
-           "Delete: memory(operation='anniversary', persona_info={'delete_key': 'memory_key'})"
-
-
-async def handle_sensation(persona_info: Optional[Dict]) -> str:
-    """Update physical sensations."""
-    context = load_persona_context(get_current_persona())
-    if "physical_sensations" not in context:
-        context["physical_sensations"] = {
-            "fatigue": 0.0, "warmth": 0.5, "arousal": 0.0,
-            "touch_response": "normal", "heart_rate_metaphor": "calm"
-        }
-
-    sens = context["physical_sensations"]
-    if not persona_info:
-        return (f"💫 Current Physical Sensations:\n"
-               f"   Fatigue: {sens.get('fatigue', 0.0):.2f}\n"
-               f"   Warmth: {sens.get('warmth', 0.5):.2f}\n"
-               f"   Arousal: {sens.get('arousal', 0.0):.2f}\n"
-               f"   Touch Response: {sens.get('touch_response', 'normal')}\n"
-               f"   Heart Rate: {sens.get('heart_rate_metaphor', 'calm')}")
-
-    # Update sensations
-    updated = []
-    for key in ["fatigue", "warmth", "arousal"]:
-        if key in persona_info:
-            sens[key] = max(0.0, min(1.0, float(persona_info[key])))
-            updated.append(key)
-    for key in ["touch_response", "heart_rate_metaphor"]:
-        if key in persona_info:
-            sens[key] = persona_info[key]
-            updated.append(key)
-
-    if updated:
-        save_persona_context(context, get_current_persona())
-        return f"✅ Physical sensations updated: {', '.join(updated)}"
-    return "ℹ️ No sensations to update"
-
-
-async def handle_emotion_flow(emotion_type: Optional[str], emotion_intensity: Optional[float]) -> str:
-    """Record emotion change to history (SQLite only)."""
-    if not emotion_type:
-        # Display history
-        history = get_emotion_history_from_db(limit=10)
-        if not history:
-            return "📊 No emotion history yet."
-
-        result = "📊 Recent Emotion Changes (last 10):\n"
-        for i, entry in enumerate(history, 1):
-            emo = entry['emotion']
-            intensity = entry['emotion_intensity']
-            timestamp = entry['timestamp']
-            time_diff = calculate_time_diff(timestamp)
-            result += f"{i}. {emo} ({intensity:.2f}) - {time_diff['formatted_string']}前\n"
-        return result
-
-    # Save to database
-    intensity = emotion_intensity if emotion_intensity is not None else 0.5
-    save_emotion_history(emotion=emotion_type, emotion_intensity=intensity, memory_key=None)
-    return f"✅ Emotion recorded: {emotion_type} ({intensity:.2f})"
-
-
-async def handle_situation_context() -> str:
-    """Analyze current situation and provide context."""
-    persona = get_current_persona()
-    context = load_persona_context(persona)
-    cfg = load_config()
-    now = datetime.now(ZoneInfo(cfg.get("timezone", "Asia/Tokyo")))
-    db_path = get_db_path()
-
-    return await analyze_situation_context(persona, context, now, db_path)
-
-
 async def handle_context_operation(
     operation: str,
     query: Optional[str] = None,
@@ -488,8 +240,7 @@ async def handle_context_operation(
     Handle context operations.
 
     Args:
-        operation: Operation type (promise, goal, favorite, preference, update_context,
-                  anniversary, sensation, emotion_flow, situation_context)
+        operation: Operation type (promise, goal, update_context)
         query: Query string for specific operations
         content: Content for the operation
         emotion_type: Emotion type
@@ -507,23 +258,10 @@ async def handle_context_operation(
         return await handle_promise(query, content, importance)
     elif operation == "goal":
         return await handle_goal(query, content)
-    elif operation == "favorite":
-        return await handle_favorite(content)
-    elif operation == "preference":
-        if not persona_info:
-            return "❌ Error: persona_info required for preference operation"
-        return await handle_preference(persona_info)
     elif operation == "update_context":
         if not persona_info and not user_info:
             return "ℹ️ No context fields to update\n💡 Example: memory(operation='update_context', physical_state='relaxed', mental_state='calm')"
         return await handle_update_context(persona_info, user_info)
-    elif operation == "anniversary":
-        return await handle_anniversary(content, persona_info)
-    elif operation == "sensation":
-        return await handle_sensation(persona_info)
-    elif operation == "emotion_flow":
-        return await handle_emotion_flow(emotion_type, emotion_intensity)
-    elif operation == "situation_context":
-        return await handle_situation_context()
     else:
-        return f"❌ Error: Unknown context operation '{operation}'"
+        valid_ops = ["promise", "goal", "update_context"]
+        return f"❌ Error: Unknown context operation '{operation}'. Valid operations: {', '.join(valid_ops)}"

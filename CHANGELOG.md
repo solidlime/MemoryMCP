@@ -4,6 +4,99 @@ All notable changes to Memory-MCP will be documented in this file.
 
 ## [Unreleased]
 
+### Changed - 2026-02-17 (Major Refactoring: Simplification & Token Reduction)
+
+#### 1. Memory Operations大幅削減（26→10種類）
+
+**削減されたContext Operations:**
+- `sensation`, `emotion_flow`, `situation_context` - 冗長な感情トラッキング
+- `favorite`, `preference`, `anniversary` - タグベースメモリで代替可能
+
+**削減されたItem Operations:**
+- `item/rename`, `item/stats` - 使用頻度が低い機能
+
+**残存Operations（10種類）:**
+- Memory: `create`, `read`, `update`, `delete`, `search`, `stats`, `check_routines`
+- Context: `promise`, `goal`, `update_context`
+
+**影響:**
+- ツールリストが簡潔になり、LLMの理解が向上
+- 機能は失われず、タグベースメモリで同等の表現が可能
+
+**変更ファイル:**
+- `tools/unified_tools.py`: context_operationsリスト削減
+- `tools/handlers/context_handlers.py`: 6個の廃止ハンドラー削除、import整理
+
+#### 2. get_context()出力の簡素化（60-70%削減）
+
+**削除されたセクション:**
+- Reunion Context（再会強度・別離期間の複雑な計算）
+- Emotional Alerts（約束遅延・長期不在・未解決感情アラート）
+- Routine Check Available（ルーティンヒント）
+- Pending Tasks/Plans Found（タスク一覧ヒント）
+- 各種操作ガイド（promise/goal設定方法、read_memory tip等）
+- User/Persona情報の記憶指示（システムプロンプトで対応）
+- Recent Emotion Changes（最新5件の感情変化）
+- 装備ヒント（"状況に応じて衣装を検討してください"）
+
+**修正されたセクション:**
+- Anniversaries → 30日以内のもののみ表示（from 全件表示）
+
+**保持されたセクション:**
+- Persona Context（Basic Info, Relationship, Equipment）
+- Preferences（好きなもの・嫌いなもの）
+- Physical Sensations（最新の身体感覚）
+- Time Information（現在時刻・前回会話）
+- Memory Statistics（総記憶数・文字数・期間）
+- Recent Memories（最新5件のpreview）
+- Promises & Goals（アクティブな約束・目標）
+- Upcoming Anniversaries（30日以内の記念日アラート）
+
+**効果:**
+- トークン消費を大幅削減（~80行 → ~30行）
+- 本質的な情報のみを提供
+- システムプロンプトとの役割分担が明確化
+
+**変更ファイル:**
+- `tools/context_tools.py`: get_context()関数の大幅簡素化
+
+#### 3. Docstring改善（LLMフレンドリー化）
+
+**新しいDocstring構造:**
+- 🎯 CRITICAL WORKFLOW - 最優先で読むべき使用フロー
+- 📋 OPERATIONS - 利用可能な操作リスト
+- 🏷️ SPECIAL TAGS - タグベース機能の説明
+- 💡 QUICK EXAMPLES - 即座に使える実例
+- ✅ VALID / ❌ INVALID - 明確な使用ルール
+
+**変更内容:**
+- `memory()` docstring: 37%削減、操作リスト簡素化
+- `item()` docstring: 装備誤用の防止ルール強化（"濡れた服"、"涙"等は状態説明のみ）
+- `get_context()` docstring: 冗長な指示セクション削除
+
+**効果:**
+- LLMが理解しやすいシンプルな構造
+- 絵文字ヘッダーで視認性向上
+- 誤用パターンの明示による品質向上
+
+**変更ファイル:**
+- `tools/unified_tools.py`: memory(), item() docstring更新
+- `tools/context_tools.py`: get_context() docstring更新
+
+#### 4. Knowledge Graph修正
+
+**問題:**
+- 新規追加したpersonaでKnowledge Graphが空になる
+- `build_knowledge_graph()` 呼び出し時に `persona` パラメータが欠落
+
+**修正:**
+- `src/dashboard.py` の knowledge_graph ルートで `persona=persona` を追加
+
+**変更ファイル:**
+- `src/dashboard.py`: line 787にpersonaパラメータ追加
+
+---
+
 ### Added - 2026-02-15 (Phase 43: Bug Fixes & Hybrid Search Optimization)
 
 #### 1. MEMORY_ROOT定義のバグ修正 (dashboard.py)

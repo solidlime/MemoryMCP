@@ -56,62 +56,66 @@ async def memory(
     defer_vector: bool = False
 ) -> str:
     """
-    Unified memory operations interface.
+    Unified memory and context management tool.
+
+    🎯 CRITICAL WORKFLOW:
+        1. Session start: ALWAYS call get_context() first
+        2. Every turn: Create memory for significant events/learnings
+        3. Use tags for special memories: anniversary, promise, milestone
+
+    📋 OPERATIONS:
+
+    Memory CRUD:
+        create         - Save new memory with emotion/importance
+        read           - Get memory by key or recent entries
+        update         - Modify existing memory (including promise status)
+        delete         - Remove memory
+        search         - Find memories (modes: semantic, keyword, hybrid)
+        stats          - Get memory statistics
+        check_routines - Find recurring patterns at current time
+
+    Context:
+        promise        - Manage promises (tag-based with status tracking)
+        goal           - Set/update current goals
+        update_context - Update persona state (emotion, physical, environment)
+
+    🏷️ SPECIAL TAGS (use with context_tags=[...]):
+        anniversary - Commemorative dates (first meeting, milestones)
+        promise     - Active promises (track status in persona_info)
+        milestone   - Achievements, significant events
+
+    💡 QUICK EXAMPLES:
+        # Session start
+        get_context()
+
+        # Create memory
+        memory(operation="create", content="Learned Python async",
+               emotion_type="joy", importance=0.7)
+
+        # Promise (tag-based, recommended)
+        memory(operation="create", content="週末にダンス披露",
+               context_tags=["promise"],
+               persona_info={"status": "active", "priority": 8, "due_date": "2025-02-19"})
+
+        # Complete promise (get key from get_context)
+        memory(operation="update", query="memory_20250217_143022",
+               persona_info={"status": "completed"})
+
+        # Update state
+        memory(operation="update_context",
+               physical_state="energetic", mental_state="focused")
 
     Args:
-        operation: Operation type (see below)
+        operation: Operation type (see OPERATIONS above)
         query: Search query or memory key
-        content: Memory content or context value
+        content: Memory content
+        context_tags: Tags for categorization (list of strings)
+        importance: 0.0-1.0, defaults to 0.5
+        persona_info: Dict for status, priority, due_date, etc.
         privacy_level: "public", "internal" (default), "private", "secret"
-        defer_vector: If True, skip vector indexing on save
 
-    Memory Operations:
-        - "create": Create new memory
-        - "read": Retrieve memory by key or recent memories
-        - "update": Update existing memory
-        - "delete": Delete memory
-        - "search": Search memories (keyword/semantic/hybrid/related/smart)
-        - "stats": Get memory statistics
-        - "check_routines": Find recurring patterns at current time
-
-    Context Operations:
-        - "promise": Update/clear active promise
-        - "goal": Update/clear current goal
-        - "favorite": Add to favorites
-        - "preference": Update preferences
-        - "anniversary": Manage anniversaries (stored as tagged memories)
-        - "sensation": Update physical sensations
-        - "emotion_flow": Record emotion change
-        - "situation_context": Analyze current situation
-        - "update_context": Batch update multiple fields
-
-    Anniversary Tags:
-        Anniversaries are stored as memories with special tags:
-        - 'anniversary': Special commemorative dates (first meeting, relationship milestones)
-        - 'milestone': Important achievements or life events
-        - 'first_time': First time experiences worth remembering
-
-    Examples:
-        # Memory operations
-        memory(operation="create", content="Completed project", emotion_type="joy")
-        memory(operation="read", query="memory_20251210123456")
-        memory(operation="search", query="Python", mode="semantic")
-        memory(operation="check_routines")
-
-        # Anniversary - Tag-based approach (recommended)
-        memory(operation="create", content="初めて会った日",
-               context_tags=["anniversary"], importance=0.9)
-        memory(operation="create", content="プロジェクト完成",
-               context_tags=["milestone"], importance=0.8)
-
-        # Anniversary - Using anniversary operation
-        memory(operation="anniversary", content="結婚記念日",
-               persona_info={"date": "2025-11-10"})
-        memory(operation="anniversary")  # List all anniversaries
-
-        # Other context operations
-        memory(operation="promise", content="週末に買い物")
-        memory(operation="goal", content="新しいダンス")
+    Returns:
+        Operation result as formatted string
     """
     # Update last conversation time for all operations
     update_last_conversation_time(get_current_persona())
@@ -121,8 +125,7 @@ async def memory(
     # Route to appropriate handler
     # Memory operations
     memory_operations = ["create", "read", "update", "delete", "search", "stats", "check_routines"]
-    context_operations = ["promise", "goal", "favorite", "preference", "anniversary",
-                         "sensation", "emotion_flow", "situation_context", "update_context"]
+    context_operations = ["promise", "goal", "update_context"]
 
     if operation in memory_operations:
         return await handle_memory_operation(
@@ -233,52 +236,57 @@ async def item(
     top_k: int = 10
 ) -> str:
     """
-    Unified item operations interface.
+    Manage persona inventory and equipment.
 
-    Args:
-        operation: Operation type - "add", "remove", "equip", "unequip",
-                  "update", "rename", "search", "history", "memories", "stats"
-        item_name: Item name (required for most operations)
-        description: Item description (for add/update)
-        quantity: Number of items to add/remove (default: 1)
-        category: Item category (e.g., "weapon", "consumable", "clothing")
-        tags: List of tags for categorization
-        new_name: New item name (for rename operation)
-        equipment: Dict mapping slot names to item names (for equip operation)
-        slots: Slot name(s) to unequip (string or list, for unequip operation)
-        query: Search query string (for search operation)
-        history_slot: Equipment slot to get history for (for history operation)
-        days: Number of days to look back in history (default: 7)
-        mode: Analysis mode (currently "memories")
-        top_k: Number of results to return (for memories operation, default: 10)
+    🎯 CRITICAL RULES:
+        - Physical items ONLY (clothing, accessories, tools)
+        - NOT for emotions, body states, or abstract concepts
+        - State changes (wet, dirty, etc.) → Use update(), NOT new items
 
-    Usage Guidelines:
-        ✅ ADD to item inventory:
-            - Physical items that can be equipped or carried
-            - Categories: 'clothing', 'accessory', 'item', 'weapon', etc.
+    📋 OPERATIONS:
+        add      - Add item to inventory
+        remove   - Remove item from inventory
+        equip    - Equip items to slots (keeps other equipped items)
+        unequip  - Unequip items from slots
+        update   - Modify item properties (name, description, state)
+        search   - Find items in inventory
+        history  - View equipment history
+        memories - Get memories associated with item
 
-        ❌ DO NOT add to item inventory:
-            - Body states or sensations (use memory tool instead)
-            - Memories or emotional moments (use memory tool instead)
+    ✅ VALID items:
+        - Clothing: dresses, shirts, pants, shoes
+        - Accessories: jewelry, bags, hats, scarves
+        - Tools/Weapons: swords, staffs, potions
 
-    Examples:
-        # Add
-        item(operation="add", item_name="Health Potion", category="consumable")
+    ❌ INVALID items (use memory tool instead):
+        - Body states: "疲労", "眠気"
+        - Emotions: "喜び", "悲しみ"
+        - Abstract concepts: "涙", "汗"
+        - Temporary states: "濡れた白いドレス" (→ update existing dress)
+
+    💡 EXAMPLES:
+        # Add new item
+        item(operation="add", item_name="白いドレス", category="clothing")
 
         # Equip (keeps other slots)
-        item(operation="equip", equipment={"top": "White Dress"})
+        item(operation="equip", equipment={"top": "白いドレス", "accessory": "花の髪飾り"})
 
-        # Unequip
-        item(operation="unequip", slots="weapon")
+        # Update item state (NOT new item!)
+        item(operation="update", item_name="白いドレス",
+             description="雨に濡れた白いドレス（乾燥中）")
 
         # Search
         item(operation="search", category="clothing")
 
-        # History
-        item(operation="history", history_slot="weapon", days=30)
+    Args:
+        operation: Operation type (see OPERATIONS above)
+        item_name: Item name (most operations)
+        equipment: {slot: item_name} dict for equip
+        description: Item description (for add/update)
+        category: Item category (clothing, accessory, item, weapon)
 
-        # Memories with item
-        item(operation="memories", item_name="白いドレス", top_k=10)
+    Returns:
+        Operation result as formatted string
     """
     return await handle_item_operation(
         operation=operation,

@@ -784,7 +784,8 @@ def register_http_routes(mcp, templates):
                     graph = build_knowledge_graph(
                         min_count=min_count,
                         min_cooccurrence=min_cooccurrence,
-                        remove_isolated=remove_isolated
+                        remove_isolated=remove_isolated,
+                        persona=persona
                     )
 
                     if output_format == "html":
