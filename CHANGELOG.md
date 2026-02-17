@@ -4,6 +4,73 @@ All notable changes to Memory-MCP will be documented in this file.
 
 ## [Unreleased]
 
+### Changed - 2026-02-17 (UX Improvements: Context Display & Operation Robustness)
+
+#### 1. get_context() 出力の改善
+
+**Memory Statistics削減:**
+- 冗長な統計情報（Total Memories, Total Characters, Date Range）を削除
+- Recent Memories のみを表示（最新5件のプレビュー）
+- トークン消費をさらに削減
+
+**Current Equipment表示強化:**
+- 未装備部位を明示的に表示（例: `top: (未装備)`）
+- 標準スロット定義: top, bottom, shoes, outer, accessories, head
+- 装備選択の指針を追加: 「相手との関係性・時間帯・状況・会話の文脈に応じて適切な装備を選択してください」
+
+**効果:**
+- コンテキスト出力がさらに簡潔に
+- 未装備部位が明確化され、装備管理が容易に
+- 状況に応じた装備選択を促進
+
+**変更ファイル:**
+- `tools/context_tools.py`: get_context()関数の出力フォーマット改善
+
+#### 2. Docstring改善（記憶作成の促進とタグ指示）
+
+**記憶作成頻度の明示:**
+- 「些細な出来事も含めて毎ターン記憶作成推奨」を明記
+- CRITICAL WORKFLOWセクションに記憶作成の重要性を強調
+
+**タグ使用の明確化:**
+- タグは推奨だが必須ではない（タグなしでも記憶作成OK）
+- タグ形式を明示: 単語形式（1-3 words, lowercase, no spaces）
+- 例: `["promise", "milestone", "anniversary", "daily_routine"]`
+
+**効果:**
+- LLMが積極的に記憶を作成するように促進
+- タグ使用のハードルを下げつつ、適切な形式を指導
+- より豊富な記憶データベースの構築
+
+**変更ファイル:**
+- `tools/unified_tools.py`: memory() docstring更新
+- `tools/context_tools.py`: get_context() docstring更新
+
+#### 3. Operation誤記の吸収処理
+
+**問題:**
+- LLMが `operation="update_context, create_memory_if_not_exists"` のようなカンマ区切りの誤った値を渡す
+- `operation="create_memory"` のように存在しない接尾辞を付ける
+
+**修正:**
+- カンマが含まれる場合、最初の有効なoperationのみを抽出
+- `_if_not_exists`, `_memory` などの一般的な誤記を自動除去
+- memory()とitem()の両方で正規化処理を実装
+
+**例:**
+- `"update_context, create_memory_if_not_exists"` → `"update_context"`
+- `"create_memory"` → `"create"`
+
+**効果:**
+- LLMの操作ミスに対して堅牢に
+- エラーメッセージではなく意図した操作を実行
+- ユーザー体験の向上
+
+**変更ファイル:**
+- `tools/unified_tools.py`: memory()とitem()にoperation正規化処理追加
+
+---
+
 ### Changed - 2026-02-17 (Major Refactoring: Simplification & Token Reduction)
 
 #### 1. Memory Operations大幅削減（26→10種類）

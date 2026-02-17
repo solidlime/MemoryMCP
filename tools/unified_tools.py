@@ -60,8 +60,8 @@ async def memory(
 
     🎯 CRITICAL WORKFLOW:
         1. Session start: ALWAYS call get_context() first
-        2. Every turn: Create memory for significant events/learnings
-        3. Use tags for special memories: anniversary, promise, milestone
+        2. Every turn: Create memory (些細な出来事も含めて毎ターン記憶作成推奨)
+        3. Use context_tags for categorization (推奨、必須ではない)
 
     📋 OPERATIONS:
 
@@ -79,7 +79,12 @@ async def memory(
         goal           - Set/update current goals
         update_context - Update persona state (emotion, physical, environment)
 
-    🏷️ SPECIAL TAGS (use with context_tags=[...]):
+    🏷️ TAGS (use with context_tags=[...]):
+        - 推奨だが必須ではない（タグなしでも記憶作成OK）
+        - 形式: 単語のみ（1-3 words, lowercase, no spaces）
+        - 例: ["promise", "milestone", "anniversary", "daily_routine"]
+        
+        Special tags:
         anniversary - Commemorative dates (first meeting, milestones)
         promise     - Active promises (track status in persona_info)
         milestone   - Achievements, significant events
@@ -120,7 +125,14 @@ async def memory(
     # Update last conversation time for all operations
     update_last_conversation_time(get_current_persona())
 
-    operation = operation.lower()
+    # Normalize operation - handle common mistakes like "update_context, create_memory_if_not_exists"
+    operation = operation.lower().strip()
+    if ',' in operation:
+        # Take only the first valid operation before comma
+        operation = operation.split(',')[0].strip()
+    
+    # Remove common suffixes that don't match actual operations
+    operation = operation.replace('_if_not_exists', '').replace('_memory', '')
 
     # Route to appropriate handler
     # Memory operations
@@ -288,6 +300,11 @@ async def item(
     Returns:
         Operation result as formatted string
     """
+    # Normalize operation - handle common mistakes
+    operation = operation.lower().strip()
+    if ',' in operation:
+        operation = operation.split(',')[0].strip()
+    
     return await handle_item_operation(
         operation=operation,
         item_name=item_name,

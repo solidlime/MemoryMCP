@@ -122,19 +122,20 @@ async def get_context() -> str:
 
         # ===== PART 1.5: Extended Persona Context =====
         # Current Equipment (always from DB, not from context)
+        # Show all slots (equipped or not) with context-appropriate guidance
         result += f"\n👗 Current Equipment:\n"
-        if equipped_items:
-            equipment = equipped_items
-            if isinstance(equipment, dict):
-                for equip_type, item in equipment.items():
-                    if isinstance(item, list):
-                        result += f"   {equip_type}: {', '.join(item)}\n"
-                    else:
-                        result += f"   {equip_type}: {item}\n"
-            else:
-                result += f"   {equipment}\n"
+        standard_slots = ["top", "bottom", "shoes", "outer", "accessories", "head"]
+        if equipped_items and isinstance(equipped_items, dict):
+            for slot in standard_slots:
+                item = equipped_items.get(slot)
+                if item:
+                    result += f"   {slot}: {item}\n"
+                else:
+                    result += f"   {slot}: (未装備)\n"
         else:
-            result += "   (装備なし)\n"
+            for slot in standard_slots:
+                result += f"   {slot}: (未装備)\n"
+        result += "\n   💡 相手との関係性・時間帯・状況・会話の文脈に応じて適切な装備を選択してください\n"
 
         # Favorite Items
         if context.get('favorite_items'):
@@ -309,26 +310,12 @@ async def get_context() -> str:
             total_count = cursor.fetchone()[0]
 
             if total_count == 0:
-                result += f"\n📊 Memory Statistics:\n"
+                result += f"\n� Recent Memories:\n"
                 result += f"   No memories yet\n"
             else:
-                # Total characters
-                cursor.execute('SELECT SUM(LENGTH(content)) FROM memories')
-                total_chars = cursor.fetchone()[0] or 0
-
-                # Date range
-                cursor.execute('SELECT MIN(created_at), MAX(created_at) FROM memories')
-                min_date, max_date = cursor.fetchone()
-
                 # Recent entries
                 cursor.execute(f'SELECT key, content, created_at, importance, emotion FROM memories ORDER BY created_at DESC LIMIT {recent_count}')
                 recent = cursor.fetchall()
-
-                # Build memory statistics
-                result += f"\n📊 Memory Statistics:\n"
-                result += f"   Total Memories: {total_count}\n"
-                result += f"   Total Characters: {total_chars:,}\n"
-                result += f"   Date Range: {min_date[:10]} ~ {max_date[:10]}\n"
 
                 result += f"\n🕐 Recent {len(recent)} Memories:\n"
                 for i, (key, content, created_at, importance, emotion) in enumerate(recent, 1):
