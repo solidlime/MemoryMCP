@@ -319,7 +319,7 @@ async def get_context() -> str:
 
                 result += f"\n🕐 Recent {len(recent)} Memories:\n"
                 for i, (key, content, created_at, importance, emotion) in enumerate(recent, 1):
-                    preview = content[:50] + "..." if len(content) > 50 else content
+                    preview = content[:100] + "..." if len(content) > 100 else content
                     time_diff_mem = calc_time_diff(created_at)
                     importance_str = f"{importance:.2f}" if importance is not None else "0.50"
                     emotion_str = emotion if emotion else "neutral"
@@ -362,7 +362,7 @@ async def get_context() -> str:
         if tag_based_promises:
             result += f"   🏷️ Tagged Promises ({len(tag_based_promises)}):\n"
             for i, (key, content, created_at, importance, tags) in enumerate(tag_based_promises[:5], 1):
-                preview = content[:50] + "..." if len(content) > 50 else content
+                preview = content[:100] + "..." if len(content) > 100 else content
                 time_diff = calc_time_diff(created_at)
                 result += f"      {i}. [{key}] {preview}\n"
                 result += f"         {time_diff['formatted_string']}前 | ⭐{importance:.2f}\n"
@@ -371,7 +371,7 @@ async def get_context() -> str:
         if tag_based_goals:
             result += f"   🎯 Tagged Goals ({len(tag_based_goals)}):\n"
             for i, (key, content, created_at, importance, tags) in enumerate(tag_based_goals[:5], 1):
-                preview = content[:50] + "..." if len(content) > 50 else content
+                preview = content[:100] + "..." if len(content) > 100 else content
                 time_diff = calc_time_diff(created_at)
                 result += f"      {i}. [{key}] {preview}\n"
                 result += f"         {time_diff['formatted_string']}前 | ⭐{importance:.2f}\n"

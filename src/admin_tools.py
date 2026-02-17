@@ -42,7 +42,7 @@ from src.utils.persona_utils import current_persona
 
 
 def clean_memory(persona: str, key: str) -> None:
-    """メモリ内の重複行を削除"""
+    """Remove duplicate lines in memory"""
     print(f"🧹 Cleaning memory for persona: {persona}, key: {key}")
     
     # personaを設定
@@ -88,7 +88,7 @@ def clean_memory(persona: str, key: str) -> None:
 
 
 def rebuild_vector_store(persona: str) -> None:
-    """ベクトルストアを再構築"""
+    """Rebuild vector store"""
     print(f"🔨 Rebuilding vector store for persona: {persona}")
     
     # personaを設定
@@ -104,7 +104,7 @@ def rebuild_vector_store(persona: str) -> None:
 
 
 def migrate_backend(source: str, target: str, persona: str, upsert: bool = True) -> None:
-    """バックエンド間でデータを移行"""
+    """Migrate data between backends"""
     print(f"🔄 Migrating {source} → {target} for persona: {persona}")
     
     # personaを設定
@@ -126,7 +126,7 @@ def migrate_backend(source: str, target: str, persona: str, upsert: bool = True)
 
 
 def detect_duplicates(persona: str, threshold: float = 0.85, max_pairs: int = 50) -> None:
-    """重複または類似したメモリを検出"""
+    """Detect duplicate or similar memories"""
     print(f"🔍 Detecting duplicates for persona: {persona} (threshold: {threshold})")
     
     # personaを設定
@@ -143,7 +143,7 @@ def detect_duplicates(persona: str, threshold: float = 0.85, max_pairs: int = 50
 
 def merge_memories(persona: str, memory_keys: List[str], merged_content: Optional[str] = None,
                   keep_all_tags: bool = True, delete_originals: bool = True) -> None:
-    """複数のメモリを1つにマージ"""
+    """Merge multiple memories into one"""
     print(f"🔗 Merging memories for persona: {persona}")
     print(f"   Keys: {', '.join(memory_keys)}")
     
@@ -167,7 +167,7 @@ def merge_memories(persona: str, memory_keys: List[str], merged_content: Optiona
 def generate_knowledge_graph(persona: str, output_format: str = "html",
                              min_count: int = 2, min_cooccurrence: int = 1,
                              remove_isolated: bool = True) -> None:
-    """知識グラフを生成"""
+    """Generate knowledge graph"""
     print(f"📊 Generating knowledge graph for persona: {persona}")
     
     # personaを設定
@@ -223,7 +223,7 @@ def generate_knowledge_graph(persona: str, output_format: str = "html",
 
 
 def migrate_schema(persona: Optional[str] = None) -> None:
-    """SQLiteスキーマをマイグレーション（不足カラムを追加）"""
+    """Migrate SQLite schema (add missing columns)"""
     from scripts.migrate_schema import migrate_database
     import os
     

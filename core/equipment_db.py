@@ -46,7 +46,7 @@ def get_equipment_db_path(persona: str) -> Path:
 
 
 def init_equipment_db(persona: str) -> None:
-    """装備DBを初期化（テーブル作成）"""
+    """Initialize equipment database (create tables)"""
     db_path = get_equipment_db_path(persona)
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
@@ -108,7 +108,7 @@ def init_equipment_db(persona: str) -> None:
 
 
 def _migrate_equipment_db(conn: sqlite3.Connection) -> None:
-    """既存DBスキーマをマイグレーション"""
+    """Migrate existing database schema"""
     cursor = conn.cursor()
 
     # items テーブルに tags カラムがあるか確認
@@ -133,7 +133,7 @@ def _migrate_equipment_db(conn: sqlite3.Connection) -> None:
 
 
 class EquipmentDB:
-    """装備管理データベースクラス"""
+    """Equipment management database class"""
 
     def __init__(self, persona: str):
         self.persona = persona
@@ -154,7 +154,7 @@ class EquipmentDB:
             pass
 
     def _get_connection(self) -> sqlite3.Connection:
-        """DB接続を取得"""
+        """Get database connection"""
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row  # dict-like access
         return conn
@@ -183,61 +183,7 @@ class EquipmentDB:
         return normalized
 
     def _migrate_slot_names(self):
-        """既存のスロット名を正規化（引用符付きスロットを修正）"""
-        try:
-            conn = self._get_connection()
-            cursor = conn.cursor()
-
-            # 引用符付きスロットを検索
-            cursor.execute("""
-                SELECT DISTINCT equipped_slot
-                FROM inventory
-                WHERE persona = ? AND equipped_slot IS NOT NULL
-            """, (self.persona,))
-
-            slots = [row["equipped_slot"] for row in cursor.fetchall()]
-
-            # 正規化が必要なスロットを修正
-            for slot in slots:
-                normalized = self._normalize_slot_name(slot)
-                if slot != normalized:
-                    cursor.execute("""
-                        UPDATE inventory
-                        SET equipped_slot = ?
-                        WHERE persona = ? AND equipped_slot = ?
-                    """, (normalized, self.persona, slot))
-
-            conn.commit()
-            conn.close()
-        except Exception:
-            # マイグレーションが失敗しても継続
-            pass
-
-    @staticmethod
-    def _normalize_slot_name(slot: str) -> str:
-        """スロット名を正規化（引用符、余分な空白を削除）
-
-        Args:
-            slot: 正規化するスロット名
-
-        Returns:
-            正規化されたスロット名
-
-        Examples:
-            _normalize_slot_name('"top"') -> 'top'
-            _normalize_slot_name('  hand  ') -> 'hand'
-            _normalize_slot_name('\"outer\"') -> 'outer'
-        """
-        if not slot:
-            return slot
-        # 引用符を削除（シングル、ダブル、エスケープされた引用符）
-        normalized = slot.strip().strip('"').strip("'").replace('\\"', '').replace("\\\'" , '')
-        # 余分な空白を削除
-        normalized = normalized.strip()
-        return normalized
-
-    def _migrate_slot_names(self):
-        """既存のスロット名を正規化（引用符付きスロットを修正）"""
+        """Normalize existing slot names (fix quoted slots)"""
         try:
             conn = self._get_connection()
             cursor = conn.cursor()
@@ -340,7 +286,7 @@ class EquipmentDB:
         category: str = "misc",
         tags: Optional[List[str]] = None
     ) -> str:
-        """アイテムマスターに新規アイテムを追加"""
+        """Add new item to item master"""
         import json
         item_id = str(uuid.uuid4())
         created_at = get_current_time().isoformat()
@@ -359,7 +305,7 @@ class EquipmentDB:
         return item_id
 
     def get_item_by_name(self, item_name: str) -> Optional[Dict[str, Any]]:
-        """アイテム名でアイテム情報を取得"""
+        """Get item information by item name"""
         conn = self._get_connection()
         cursor = conn.cursor()
 
@@ -381,7 +327,7 @@ class EquipmentDB:
         category: str = "misc",
         tags: Optional[List[str]] = None
     ) -> str:
-        """アイテムを取得、存在しなければ作成"""
+        """Get item if exists, otherwise create new item"""
         existing = self.get_item_by_name(item_name)
         if existing:
             return existing["item_id"]
@@ -394,7 +340,7 @@ class EquipmentDB:
         category: Optional[str] = None,
         tags: Optional[List[str]] = None
     ) -> bool:
-        """アイテム情報を更新"""
+        """Update item information"""
         import json
         item = self.get_item_by_name(item_name)
         if not item:
@@ -477,7 +423,7 @@ class EquipmentDB:
         category: str = "misc",
         tags: Optional[List[str]] = None
     ) -> str:
-        """所持品に追加"""
+        """Add item to inventory"""
         item_id = self.get_or_create_item(item_name, description, category, tags)
         acquired_at = get_current_time().isoformat()
 
@@ -497,7 +443,7 @@ class EquipmentDB:
         return item_id
 
     def remove_from_inventory(self, item_name: str, quantity: int = 1) -> bool:
-        """所持品から削除"""
+        """Remove item from inventory"""
         item = self.get_item_by_name(item_name)
         if not item:
             return False
@@ -537,7 +483,7 @@ class EquipmentDB:
         return True
 
     def get_inventory(self, category: Optional[str] = None, tags: Optional[List[str]] = None) -> List[Dict[str, Any]]:
-        """所持品リストを取得"""
+        """Get inventory list"""
         import json
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -584,7 +530,7 @@ class EquipmentDB:
         return items
 
     def equip_item(self, item_name: str, slot: str) -> bool:
-        """アイテムを装備（同じスロットの既存装備を自動的に外す）"""
+        """Equip item (automatically unequip existing item in same slot)"""
         item = self.get_item_by_name(item_name)
         if not item:
             return False
@@ -645,7 +591,7 @@ class EquipmentDB:
         return results
 
     def unequip_item(self, slot: str) -> Optional[str]:
-        """アイテムを装備解除（フラグのみ変更）"""
+        """Unequip item (change flag only)"""
         # スロット名を正規化
         slot = self._normalize_slot_name(slot)
 
@@ -717,7 +663,7 @@ class EquipmentDB:
         return equipped_items
 
     def get_equipped_items(self) -> Dict[str, str]:
-        """現在装備中のアイテム一覧を取得"""
+        """Get currently equipped items"""
         conn = self._get_connection()
         cursor = conn.cursor()
 
@@ -741,7 +687,7 @@ class EquipmentDB:
         item_name: Optional[str],
         action: str
     ) -> None:
-        """装備変更を履歴に記録"""
+        """Log equipment change to history"""
         item_id = None
         if item_name:
             item = self.get_item_by_name(item_name)
@@ -765,7 +711,7 @@ class EquipmentDB:
         slot: Optional[str] = None,
         days: int = 7
     ) -> List[Dict[str, Any]]:
-        """装備履歴を取得"""
+        """Get equipment history"""
         conn = self._get_connection()
         cursor = conn.cursor()
 

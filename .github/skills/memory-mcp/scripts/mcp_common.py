@@ -71,7 +71,7 @@ else:
 
 
 def load_config() -> Dict[str, Any]:
-    """設定ファイルを読み込む"""
+    """Load configuration file"""
     config_path = Path(__file__).parent.parent / "references" / "config.json"
     if config_path.exists():
         with open(config_path, 'r', encoding='utf-8') as f:

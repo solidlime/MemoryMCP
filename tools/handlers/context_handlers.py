@@ -124,17 +124,13 @@ async def handle_context_operation(
     """
     operation = operation.lower()
 
-    if operation == "promise":
-        return ("⚠️ Promise operation deprecated. Use tag-based approach:\n"
-                "memory(operation='create', content='...', context_tags=['promise'], "
-                "persona_info={'status': 'active'})")
-    elif operation == "goal":
-        return ("⚠️ Goal operation deprecated. Use tag-based approach:\n"
-                "memory(operation='create', content='...', context_tags=['goal'], "
-                "persona_info={'progress': 0})")
+    if operation in ["promise", "goal"]:
+        raise ValueError(f"Operation '{operation}' is no longer supported. "
+                        f"Use tag-based approach: memory(operation='create', content='...', "
+                        f"context_tags=['{operation}'], persona_info={{...}})")
     elif operation == "update_context":
         if not persona_info and not user_info:
             return "ℹ️ No context fields to update\n💡 Example: memory(operation='update_context', physical_state='relaxed', mental_state='calm')"
         return await handle_update_context(persona_info, user_info)
     else:
-        return f"❌ Error: Unknown context operation '{operation}'. Valid operation: update_context (promise/goal are deprecated)"
+        raise ValueError(f"Unknown context operation '{operation}'. Valid operation: update_context")

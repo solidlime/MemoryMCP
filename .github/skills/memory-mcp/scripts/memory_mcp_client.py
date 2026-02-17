@@ -76,7 +76,7 @@ else:
 
 
 def load_config() -> Dict[str, Any]:
-    """設定ファイルを読み込む"""
+    """Load configuration file"""
     config_path = Path(__file__).parent.parent / "references" / "config.json"
     if config_path.exists():
         with open(config_path, 'r', encoding='utf-8') as f:
@@ -154,7 +154,7 @@ def format_output(data: Dict[str, Any], output_format: str = "text") -> str:
 
 
 def cmd_get_context(args: argparse.Namespace, config: Dict[str, Any]) -> int:
-    """get_contextコマンドを実行"""
+    """Execute get_context command"""
     persona = args.persona or config.get("persona", {}).get("default", "default")
     server_url = args.url or config.get("mcp_server", {}).get("url", "http://localhost:26262")
 
@@ -165,7 +165,7 @@ def cmd_get_context(args: argparse.Namespace, config: Dict[str, Any]) -> int:
 
 
 def cmd_memory(args: argparse.Namespace, config: Dict[str, Any]) -> int:
-    """memoryコマンドを実行"""
+    """Execute memory command"""
     persona = args.persona or config.get("persona", {}).get("default", "default")
     server_url = args.url or config.get("mcp_server", {}).get("url", "http://localhost:26262")
 
@@ -239,7 +239,7 @@ def cmd_memory(args: argparse.Namespace, config: Dict[str, Any]) -> int:
 
 
 def cmd_item(args: argparse.Namespace, config: Dict[str, Any]) -> int:
-    """itemコマンドを実行"""
+    """Execute item command"""
     persona = args.persona or config.get("persona", {}).get("default", "default")
     server_url = args.url or config.get("mcp_server", {}).get("url", "http://localhost:26262")
 
@@ -330,7 +330,7 @@ def cmd_item(args: argparse.Namespace, config: Dict[str, Any]) -> int:
 
 
 def main():
-    """メイン処理"""
+    """Main processing"""
     config = load_config()
 
     parser = argparse.ArgumentParser(

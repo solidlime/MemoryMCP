@@ -159,13 +159,13 @@ def _load_env_overrides() -> Dict[str, Any]:
 
 
 def get_config_path() -> str:
-    """設定ファイルパスを取得（常にDATA_DIR/config.json）"""
+    """Get config file path (always DATA_DIR/config.json)"""
     data_dir = get_data_dir()
     return os.path.join(data_dir, "config.json")
 
 
 def get_data_dir() -> str:
-    """データディレクトリのパスを取得（data/をデフォルトに）"""
+    """Get data directory path (default: data/)"""
     env_path = os.environ.get(f"{_ENV_PREFIX}DATA_DIR")
     if env_path:
         return os.path.abspath(env_path)
@@ -174,17 +174,17 @@ def get_data_dir() -> str:
 
 
 def get_memory_root() -> str:
-    """メモリデータディレクトリのパスを取得"""
+    """Get memory data directory path"""
     return os.path.join(get_data_dir(), "memory")
 
 
 def get_cache_dir() -> str:
-    """キャッシュディレクトリのパスを取得"""
+    """Get cache directory path"""
     return os.path.join(get_data_dir(), "cache")
 
 
 def get_logs_dir() -> str:
-    """ログディレクトリのパスを取得"""
+    """Get logs directory path"""
     return os.path.join(get_data_dir(), "logs")
 
 
@@ -201,7 +201,7 @@ def ensure_memory_root() -> str:
 
 
 def get_log_file_path() -> str:
-    """ログファイルパスを取得（常にDATA_DIR/logs/memory_operations.log）"""
+    """Get log file path (always DATA_DIR/logs/memory_operations.log)"""
     logs_dir = get_logs_dir()
     ensure_directory(logs_dir)
     return os.path.join(logs_dir, "memory_operations.log")

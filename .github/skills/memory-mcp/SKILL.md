@@ -59,11 +59,13 @@ Unified memory operations:
 - `check_routines` - Detect recurring patterns
 
 **Context Operations:**
-- `promise`, `goal` - Manage promises and goals
-- `favorite`, `preference` - Update preferences
-- `anniversary` - Manage anniversaries (stored as tagged memories)
-- `sensation`, `emotion_flow` - Track physical/emotional state
-- `situation_context`, `update_context` - Context management
+- `update_context` - Update persona/user info, physical/mental state
+- **Deprecated**: `promise`, `goal` operations removed (use tag-based approach)
+
+**Tag-Based Approach:**
+- Use `context_tags=['promise']` or `['goal']` with `create` operation
+- Store status/progress in `persona_info` parameter
+- Example: `memory(operation='create', content='...', context_tags=['promise'], persona_info={'status': 'active'})`
 
 📖 **[Full Memory Reference →](references/memory_operations.md)**
 📖 **[Full Context Reference →](references/context_operations.md)**

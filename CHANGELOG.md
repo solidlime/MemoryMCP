@@ -4,6 +4,52 @@ All notable changes to Memory-MCP will be documented in this file.
 
 ## [Unreleased]
 
+### Changed - 2026-02-17 (Code Quality Improvements)
+
+#### 1. Removed Backward Compatibility for Promise/Goal Operations
+
+**Breaking Change:**
+- `operation="promise"` and `operation="goal"` now raise `ValueError` instead of returning deprecation warnings
+- Forces migration to tag-based approach: `memory(operation='create', context_tags=['promise'])`
+
+**Rationale:**
+- Eliminates confusion between deprecated and recommended approaches
+- Reduces maintenance burden
+- Enforces consistent data management pattern
+
+#### 2. Doubled Recent Memories Display Length
+
+**Enhancement:**
+- Recent Memories preview increased from 50 to 100 characters
+- Promises & Goals preview increased from 50 to 100 characters
+- Provides better context at a glance in `get_context()` output
+
+**Impact:**
+- More informative context for LLM decision-making
+- Reduced need to fetch full memory content
+- Files modified: `tools/context_tools.py`
+
+#### 3. English-Only Docstrings
+
+**Standardization:**
+- Converted all Japanese docstrings to English
+- Maintains consistency across codebase
+- Files affected: `src/utils/config_utils.py`, `src/admin_tools.py`, `core/equipment_db.py`, `.github/skills/memory-mcp/scripts/*`
+
+#### 4. Refactoring: Removed Duplicate Methods
+
+**Code Cleanup:**
+- Removed duplicate `_normalize_slot_name()` in `core/equipment_db.py`
+- Removed duplicate `_migrate_slot_names()` in `core/equipment_db.py`
+- Net reduction: ~60 lines of redundant code
+
+**Result:**
+- Improved code maintainability
+- Eliminated potential inconsistencies
+- Cleaner class structure
+
+---
+
 ### Removed - 2026-02-17 (Deprecated Tables: Promises & Goals Removal)
 
 #### 1. 専用テーブル（promises/goals）の完全削除
