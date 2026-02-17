@@ -258,9 +258,9 @@ async def search_memory(
         # Hybrid search (Recommended)
         search_memory("Python project")
 
-        # Keyword search (with AND/OR)
-        search_memory("Python OR Rust", mode="keyword")
-        search_memory("Python coding", mode="keyword") # Implies AND
+        # Keyword search (default: OR)
+        search_memory("Python Rust", mode="keyword")  # Matches Python OR Rust
+        search_memory("Python AND Rust", mode="keyword")  # Matches Python AND Rust
 
         # Semantic search (RAG only)
         search_memory("ユーザーの好きな食べ物", mode="semantic")
@@ -650,33 +650,40 @@ async def search_memory(
                 keyword_matches = []
 
                 # Parse query for Boolean logic
-                # "A OR B" -> match A or B
-                # "A B" -> match A and B (implicit AND)
+                # Default: "A B" -> match A or B (implicit OR)
+                # Explicit: "A AND B" -> match A and B
 
-                or_terms = [t.strip() for t in query.split(" OR ")]
+                # Split by AND first
+                and_groups = [g.strip() for g in query.split(" AND ")]
 
                 for key in candidate_keys:
                     entry = memories[key]
                     content = entry['content']
                     content_lower = content.lower()
 
-                    is_match = False
+                    is_match = True
                     match_score = 0
 
-                    # Check each OR term
-                    for or_term in or_terms:
-                        # Check AND terms within OR term (space separated)
-                        and_terms = [t.strip() for t in or_term.split(" ") if t.strip()]
-                        if not and_terms: continue
+                    # All AND groups must match
+                    for and_group in and_groups:
+                        # Within each AND group, terms are OR'ed (space separated)
+                        or_terms = [t.strip() for t in and_group.split() if t.strip()]
+                        if not or_terms:
+                            continue
 
-                        # All AND terms must be present
-                        if all(term.lower() in content_lower for term in and_terms):
-                            is_match = True
-                            # Score based on first term position
-                            first_term = and_terms[0]
-                            pos = content_lower.find(first_term.lower())
-                            match_score = max(match_score, 100 - min(pos, 100))
-                            break # Found a matching OR term
+                        # At least one OR term must be present
+                        group_matched = any(term.lower() in content_lower for term in or_terms)
+                        
+                        if not group_matched:
+                            is_match = False
+                            break
+                        
+                        # Score based on first matching term position
+                        for term in or_terms:
+                            if term.lower() in content_lower:
+                                pos = content_lower.find(term.lower())
+                                match_score = max(match_score, 100 - min(pos, 100))
+                                break
 
                     if is_match:
                         keyword_matches.append((key, match_score))

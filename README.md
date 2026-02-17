@@ -133,9 +133,22 @@ curl http://localhost:26262/api/memory \
 | モード | 説明 | 用途 |
 |--------|------|------|
 | `semantic` | セマンティック検索（RAG） | 意味的に類似した記憶を検索 |
-| `keyword` | キーワード検索（Fuzzy対応） | 正確な単語・フレーズを検索 |
+| `keyword` | キーワード検索（OR/AND対応） | 単語の部分一致検索（デフォルト: OR、"A AND B"で明示的AND） |
 | `hybrid` | ハイブリッド（RRF統合） | Reciprocal Rank Fusionで semantic + keyword を統合（デフォルト） |
 | `smart` | スマート検索（曖昧クエリ自動拡張） | 「いつものあれ」などを文脈から判断 |
+
+**キーワード検索の使い方:**
+```python
+# デフォルト: OR検索（いずれかを含む）
+memory(operation="search", query="Python Rust", mode="keyword")  # Python OR Rust
+
+# AND検索（すべて含む）
+memory(operation="search", query="Python AND Rust", mode="keyword")  # Python AND Rust
+
+# 複合検索
+memory(operation="search", query="Python Rust AND プロジェクト", mode="keyword")
+# → (Python OR Rust) AND プロジェクト
+```
 
 **RRF (Reciprocal Rank Fusion)について:**
 - semantic検索とkeyword検索を統合的にマージ

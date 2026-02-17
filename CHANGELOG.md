@@ -28,6 +28,29 @@ All notable changes to Memory-MCP will be documented in this file.
 - Allows users to balance context detail vs. brevity
 - Consistent with existing `recent_memories_count` configurability
 
+### Changed - 2026-02-17 (Keyword Search Default: OR → Default)
+
+**Changed Keyword Search Behavior:**
+- **Old:** Space-separated terms used implicit AND (all terms must match)
+- **New:** Space-separated terms use OR (any term matches) by default
+- Explicit AND: Use ` AND ` operator (e.g., `"Python AND Rust"`)
+- Files modified: `tools/search_tools.py`, `README.md`, `.github/skills/memory-mcp/references/memory_operations.md`
+
+**Examples:**
+```python
+# Old behavior: "Python Rust" → Python AND Rust
+# New behavior: "Python Rust" → Python OR Rust
+
+# Explicit AND (both old and new)
+search_memory("Python AND Rust", mode="keyword")
+```
+
+**Rationale:**
+- OR is more intuitive default for general search
+- Broader initial results help users refine queries
+- Explicit AND operator provides precise control when needed
+- Aligns with common search engine behavior
+
 ### Changed - 2026-02-17 (Code Quality Improvements)
 
 #### 1. Removed Backward Compatibility for Promise/Goal Operations

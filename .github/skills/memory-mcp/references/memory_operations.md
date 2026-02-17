@@ -199,11 +199,29 @@ mcp_memory search "happy moments with friends" \
 
 ### Keyword Search
 
+Search with Boolean operators (default: OR).
+
 ```bash
-mcp_memory search "Python coding" \
+# Default: OR search (matches any term)
+mcp_memory search "Python Rust" \
+  --mode keyword \
+  --limit 10
+
+# Explicit AND search (matches all terms)
+mcp_memory search "Python AND coding" \
+  --mode keyword \
+  --limit 10
+
+# Complex: (Python OR Rust) AND project
+mcp_memory search "Python Rust AND project" \
   --mode keyword \
   --limit 10
 ```
+
+**Boolean Logic:**
+- **Default:** Space-separated terms are OR'ed (matches any)
+- **AND:** Use ` AND ` to require all terms
+- **Combinations:** AND groups have higher precedence
 
 ### Hybrid Search (Semantic + Keyword with RRF)
 
@@ -242,7 +260,7 @@ mcp_memory search "いつものあれ" \
 | Mode | Description | Use Case |
 |------|-------------|----------|
 | `semantic` | Vector similarity search | Conceptual queries, natural language |
-| `keyword` | Exact text matching | Specific terms, names, IDs |
+| `keyword` | Text matching with Boolean operators (default: OR) | Specific terms with AND/OR logic |
 | `hybrid` | RRF fusion (semantic + keyword) | Most queries, balanced precision+recall |
 | `related` | Find similar to given memory | "More like this" |
 | `smart` | Auto-expand ambiguous queries | Vague or colloquial queries |
