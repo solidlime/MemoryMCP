@@ -13,7 +13,7 @@ from core import (
     save_persona_context,
     log_operation,
 )
-from core.memory_db import get_promises, get_goals, migrate_anniversaries_to_memories
+from core.memory_db import migrate_anniversaries_to_memories
 from src.utils.persona_utils import get_current_persona, get_db_path
 from src.utils.logging_utils import log_progress
 
