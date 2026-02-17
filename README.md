@@ -48,50 +48,9 @@ python memory_mcp.py
 
 ### 基本的な使い方
 
-#### CLI経由 (簡単・推奨)
+### 基本的な使い方
 
-プロジェクトルートの `mcp.py` ラッパーを使用すると、Windows/Mac/Linuxで統一的に操作できます：
-
-```bash
-# セッション開始時にコンテキスト取得
-python mcp.py --persona nilou get_context
-
-# メモリ作成
-python mcp.py --persona nilou memory create \
-  --content "ユーザーは苺が好き" \
-  --emotion_type joy \
-  --importance 0.8
-
-# セマンティック検索
-python mcp.py --persona nilou memory search \
-  --query "好きな食べ物" \
-  --mode semantic
-
-# アイテム追加と装備
-python mcp.py --persona nilou item add --name "白いドレス" --category top
-python mcp.py --persona nilou item equip --slot top --name "白いドレス"
-```
-
-詳細は [Skills ドキュメント](.github/skills/memory-mcp/SKILL.md) を参照してください。
-
-**Docker環境で使用する場合:**
-
-mcp.py を使用するには、`.github/skills/` がイメージに含まれている必要があります。最新版のイメージを使用してください：
-
-```bash
-# イメージを再ビルド
-docker-compose build
-
-# サービスを再起動
-docker-compose up -d
-
-# コンテナ内で使用
-docker exec -it memory-mcp python mcp.py --persona nilou get_context
-```
-
----
-
-#### GitHub Copilot Skills経由
+#### GitHub Copilot Skills経由 (推奨)
 
 `.github/skills/memory-mcp/` の設定に従って、GitHub Copilot から直接利用できます。
 
@@ -113,6 +72,8 @@ memory(operation="search", query="いつものあれ", mode="smart")
 item(operation="add", item_name="白いドレス", category="clothing")
 item(operation="equip", equipment={"top": "白いドレス"})
 ```
+
+詳細は [Skills ドキュメント](.github/skills/memory-mcp/SKILL.md) を参照してください。
 
 #### HTTP API経由
 
