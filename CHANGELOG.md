@@ -4,6 +4,52 @@ All notable changes to Memory-MCP will be documented in this file.
 
 ## [Unreleased]
 
+### Removed - 2026-02-17 (Deprecated Tables: Promises & Goals Removal)
+
+#### 1. 専用テーブル（promises/goals）の完全削除
+
+**問題:**
+- promises/goalsテーブルが存在するが、タグベース方式と重複
+- データ管理が二重化され、メンテナンス負荷が増大
+- タグベース方式が推奨されているにも関わらず、レガシーシステムが残存
+
+**削除対象:**
+- テーブル: `promises`, `goals`
+- 関数（6個）: `save_promise()`, `get_promises()`, `update_promise_status()`, `save_goal()`, `get_goals()`, `update_goal_progress()`
+- ハンドラー: `handle_promise()`, `handle_goal()`
+
+**移行ガイド:**
+```python
+# 旧方式（削除済み）
+memory(operation="promise", content="...")
+
+# 新方式（タグベース）
+memory(operation="create", content="...",
+       context_tags=["promise"],
+       persona_info={"status": "active", "priority": 8})
+
+# 完了マーク
+memory(operation="update", query="memory_20250217_143022",
+       persona_info={"status": "completed"})
+```
+
+**後方互換性:**
+- `operation="promise"` / `"goal"` は非推奨メッセージを返す
+- 既存データは影響なし（memoriesテーブルのタグベースデータは保持）
+
+**効果:**
+- データ管理の一元化
+- コードベースの簡素化（~300行削減）
+- タグベース方式への統一
+
+**変更ファイル:**
+- `core/memory_db.py`: テーブル定義削除、関数6個削除
+- `tools/context_tools.py`: get_promises/get_goalsインポート削除、表示部分削除
+- `tools/handlers/context_handlers.py`: handle_promise/handle_goal削除、非推奨メッセージ追加
+- `tools/unified_tools.py`: context_operationsリスト更新、docstring更新
+
+---
+
 ### Changed - 2026-02-17 (Promises & Goals: Tag-based Display)
 
 #### 1. get_context()でタグベースPromises/Goalsを表示

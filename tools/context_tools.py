@@ -376,45 +376,8 @@ async def get_context() -> str:
                 result += f"      {i}. [{key}] {preview}\n"
                 result += f"         {time_diff['formatted_string']}前 | ⭐{importance:.2f}\n"
 
-        # Get active promises from dedicated table (legacy)
-        promises_from_table = []
-        goals_from_table = []
-        try:
-            promises_from_table = get_promises(status='active', persona=persona)
-            goals_from_table = get_goals(status='active', persona=persona)
-        except Exception:
-            pass
-
-        # Display table-based promises (legacy)
-        if promises_from_table:
-            result += f"   ✅ Table Promises ({len(promises_from_table)}):\n"
-            for p in promises_from_table[:5]:  # Show max 5
-                result += f"      [P{p['id']:03d}] {p['content'][:60]}"
-                if len(p['content']) > 60:
-                    result += "..."
-                if p.get('due_date'):
-                    result += f" (due: {p['due_date'][:10]})"
-                result += f" [priority: {p.get('priority', 0)}]\n"
-            if len(promises_from_table) > 5:
-                result += f"      ... and {len(promises_from_table) - 5} more\n"
-
-        # Display table-based goals (legacy)
-        if goals_from_table:
-            result += f"   🎯 Table Goals ({len(goals_from_table)}):\n"
-            for g in goals_from_table[:5]:  # Show max 5
-                progress_bar = "▓" * (g.get('progress', 0) // 10) + "░" * (10 - g.get('progress', 0) // 10)
-                result += f"      [G{g['id']:03d}] {g['content'][:60]}"
-                if len(g['content']) > 60:
-                    result += "..."
-                result += f" [{progress_bar}] {g.get('progress', 0)}%"
-                if g.get('target_date'):
-                    result += f" (target: {g['target_date'][:10]})"
-                result += "\n"
-            if len(goals_from_table) > 5:
-                result += f"      ... and {len(goals_from_table) - 5} more\n"
-
         # Show hint if no promises/goals
-        if not tag_based_promises and not tag_based_goals and not promises_from_table and not goals_from_table:
+        if not tag_based_promises and not tag_based_goals:
             result += f"   （現在、Promises/Goalsはありません）\n"
             result += f"\n   💡 Create with tags (recommended):\n"
             result += f"      memory(operation='create', content='...',\n"

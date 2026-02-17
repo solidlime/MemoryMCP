@@ -68,16 +68,16 @@ async def memory(
     Memory CRUD:
         create         - Save new memory with emotion/importance
         read           - Get memory by key or recent entries
-        update         - Modify existing memory (including promise status)
+        update         - Modify existing memory (including tagged promise/goal status)
         delete         - Remove memory
         search         - Find memories (modes: semantic, keyword, hybrid)
         stats          - Get memory statistics
         check_routines - Find recurring patterns at current time
 
     Context:
-        promise        - Manage promises (tag-based with status tracking)
-        goal           - Set/update current goals
         update_context - Update persona state (emotion, physical, environment)
+
+    Note: Promises/Goals now use tag-based approach (see TAGS section)
 
     🏷️ TAGS (use with context_tags=[...]):
         - 推奨だが必須ではない（タグなしでも記憶作成OK）
@@ -137,7 +137,7 @@ async def memory(
     # Route to appropriate handler
     # Memory operations
     memory_operations = ["create", "read", "update", "delete", "search", "stats", "check_routines"]
-    context_operations = ["promise", "goal", "update_context"]
+    context_operations = ["update_context"]  # promise/goal deprecated - use tag-based memories
 
     if operation in memory_operations:
         return await handle_memory_operation(

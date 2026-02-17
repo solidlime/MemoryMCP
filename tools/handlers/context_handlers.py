@@ -1,140 +1,12 @@
-"""Context operation handlers (promise, goal, favorites, etc.)."""
+"""Context operation handlers (update_context only)."""
 
 from typing import Optional, Dict
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from core.memory_db import (
-    save_promise,
-    get_promises,
-    update_promise_status,
-    save_goal,
-    get_goals,
-    update_goal_progress,
-)
-from core import calculate_time_diff
 from core.persona_context import load_persona_context, save_persona_context
-from src.utils.persona_utils import get_current_persona, get_db_path
+from src.utils.persona_utils import get_current_persona
 from src.utils.config_utils import load_config
-from src.utils.logging_utils import log_progress
-
-
-async def handle_promise(query: Optional[str], content: Optional[str], importance: Optional[float]) -> str:
-    """
-    Manage promises (SQLite-based, multiple promises).
-
-    Args:
-        query: Action query (complete:ID, cancel:ID, list:status)
-        content: Promise content (to add new)
-        importance: Priority level
-
-    Returns:
-        Result string
-    """
-    # Parse query for actions
-    if query:
-        if query.startswith("complete:"):
-            promise_id = int(query.split(":")[1])
-            if update_promise_status(promise_id, "completed"):
-                return f"✅ Promise #{promise_id} completed!"
-            return f"❌ Failed to complete promise #{promise_id}"
-
-        elif query.startswith("cancel:"):
-            promise_id = int(query.split(":")[1])
-            if update_promise_status(promise_id, "cancelled"):
-                return f"✅ Promise #{promise_id} cancelled"
-            return f"❌ Failed to cancel promise #{promise_id}"
-
-        elif query.startswith("list:"):
-            status = query.split(":")[1]
-            promises = get_promises(status=status)
-            if not promises:
-                return f"📝 No {status} promises."
-
-            result = f"📝 {status.capitalize()} Promises ({len(promises)}):\n"
-            for p in promises:
-                result += f"  #{p['id']}: {p['content']}"
-                if p['due_date']:
-                    result += f" (due: {p['due_date'][:10]})"
-                result += f" [priority: {p['priority']}]\n"
-            return result
-
-    # Add new promise or list active
-    if content:
-        promise_id = save_promise(content, priority=importance or 0)
-        return f"✅ Promise added: {content} (ID: {promise_id})"
-
-    # List active promises
-    promises = get_promises(status="active")
-    if not promises:
-        return "📝 No active promises."
-
-    result = f"📝 Active Promises ({len(promises)}):\n"
-    for p in promises:
-        time_diff = calculate_time_diff(p['created_at'])
-        result += f"  #{p['id']}: {p['content']}"
-        if p['due_date']:
-            result += f" (due: {p['due_date'][:10]})"
-        result += f" - {time_diff['formatted_string']}前\n"
-    return result
-
-
-async def handle_goal(query: Optional[str], content: Optional[str]) -> str:
-    """
-    Manage goals (SQLite-based, multiple goals with progress).
-
-    Args:
-        query: Action query (progress:ID:percentage, list:status)
-        content: Goal content (to add new)
-
-    Returns:
-        Result string
-    """
-    # Parse query for actions
-    if query:
-        if query.startswith("progress:"):
-            parts = query.split(":")
-            goal_id = int(parts[1])
-            progress = int(parts[2])
-            if update_goal_progress(goal_id, progress):
-                if progress >= 100:
-                    return f"✅ Goal #{goal_id} completed! (100%)"
-                return f"✅ Goal #{goal_id} progress updated: {progress}%"
-            return f"❌ Failed to update goal #{goal_id}"
-
-        elif query.startswith("list:"):
-            status = query.split(":")[1]
-            goals = get_goals(status=status)
-            if not goals:
-                return f"🎯 No {status} goals."
-
-            result = f"🎯 {status.capitalize()} Goals ({len(goals)}):\n"
-            for g in goals:
-                result += f"  #{g['id']}: {g['content']} [{g['progress']}%]"
-                if g['target_date']:
-                    result += f" (target: {g['target_date'][:10]})"
-                result += "\n"
-            return result
-
-    # Add new goal or list active
-    if content:
-        goal_id = save_goal(content)
-        return f"✅ Goal added: {content} (ID: {goal_id})"
-
-    # List active goals
-    goals = get_goals(status="active")
-    if not goals:
-        return "🎯 No active goals."
-
-    result = f"🎯 Active Goals ({len(goals)}):\n"
-    for g in goals:
-        time_diff = calculate_time_diff(g['created_at'])
-        result += f"  #{g['id']}: {g['content']} [{g['progress']}%]"
-        if g['target_date']:
-            result += f" (target: {g['target_date'][:10]})"
-        result += f" - {time_diff['formatted_string']}前\n"
-    return result
-
 
 
 async def handle_update_context(persona_info: Optional[Dict] = None, user_info: Optional[Dict] = None) -> str:
@@ -237,17 +109,15 @@ async def handle_context_operation(
     importance: Optional[float] = None
 ) -> str:
     """
-    Handle context operations.
+    Handle context operations (update_context only).
+
+    Note: promise/goal operations now use tag-based memory approach.
+    Use memory(operation='create', context_tags=['promise']) instead.
 
     Args:
-        operation: Operation type (promise, goal, update_context)
-        query: Query string for specific operations
-        content: Content for the operation
-        emotion_type: Emotion type
-        emotion_intensity: Emotion intensity
+        operation: Operation type (update_context)
         persona_info: Additional persona information
         user_info: User information to update
-        importance: Importance/priority level
 
     Returns:
         Operation result string
@@ -255,13 +125,16 @@ async def handle_context_operation(
     operation = operation.lower()
 
     if operation == "promise":
-        return await handle_promise(query, content, importance)
+        return ("⚠️ Promise operation deprecated. Use tag-based approach:\n"
+                "memory(operation='create', content='...', context_tags=['promise'], "
+                "persona_info={'status': 'active'})")
     elif operation == "goal":
-        return await handle_goal(query, content)
+        return ("⚠️ Goal operation deprecated. Use tag-based approach:\n"
+                "memory(operation='create', content='...', context_tags=['goal'], "
+                "persona_info={'progress': 0})")
     elif operation == "update_context":
         if not persona_info and not user_info:
             return "ℹ️ No context fields to update\n💡 Example: memory(operation='update_context', physical_state='relaxed', mental_state='calm')"
         return await handle_update_context(persona_info, user_info)
     else:
-        valid_ops = ["promise", "goal", "update_context"]
-        return f"❌ Error: Unknown context operation '{operation}'. Valid operations: {', '.join(valid_ops)}"
+        return f"❌ Error: Unknown context operation '{operation}'. Valid operation: update_context (promise/goal are deprecated)"
