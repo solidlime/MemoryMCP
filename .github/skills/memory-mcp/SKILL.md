@@ -25,18 +25,37 @@ Get current persona context from Memory MCP server by running the `mcp_context` 
 
 ## How to Execute
 
-These are **Python scripts**, not MCP tools directly callable by Claude. Execute via terminal from the skill directory:
+These are **Python scripts**, not MCP tools directly callable by Claude. Execute via terminal.
+
+### Recommended: Use Cross-Platform Wrapper
 
 ```bash
 # Get context (run at session start)
-python scripts/mcp_context
+python mcp.py --persona nilou get_context
+python mcp.py --persona nilou --format json get_context
 
 # Memory operations
-python scripts/mcp_memory create "Event description" --importance 0.8
-python scripts/mcp_memory search "keyword" --mode semantic
+python mcp.py --persona nilou memory create --content "Event description" --importance 0.8
+python mcp.py --persona nilou memory search --query "keyword" --mode semantic
 
 # Item operations
-python scripts/mcp_item add "Item Name" --category top
+python mcp.py --persona nilou item add --name "Item Name" --category top
+python mcp.py --persona nilou item equip --slot top --name "Item Name"
+```
+
+**Note:** Global options (`--persona`, `--url`, `--format`) must come before the subcommand (`get_context`, `memory`, `item`).
+
+### Alternative: Direct Script Execution
+
+**Windows:**
+```powershell
+python .github/skills/memory-mcp/scripts/memory_mcp_client.py --persona nilou get_context
+python .github/skills/memory-mcp/scripts/memory_mcp_client.py --persona nilou memory create --content "..." --importance 0.8
+```
+
+**Linux/Mac:**
+```bash
+python scripts/mcp_memory create "Event description" --importance 0.8
 python scripts/mcp_item equip --top "Item Name"
 ```
 
@@ -84,22 +103,24 @@ Unified item operations:
 
 ## Quick Start
 
-**Execute from skill directory:**
+**Simplest way (cross-platform):**
 
 ```bash
-# Get context (run at session start)
-python scripts/mcp_context
+# Get context at session start
+python mcp.py --persona nilou get_context
 
 # Create and search memories
-python scripts/mcp_memory create "Important event" --importance 0.8
-python scripts/mcp_memory search "event" --mode semantic
+python mcp.py --persona nilou memory create --content "Important event" --importance 0.8
+python mcp.py --persona nilou memory search --query "event" --mode semantic
 
 # Manage items
-python scripts/mcp_item add "Red Dress" --category top
-python scripts/mcp_item equip --top "Red Dress"
+python mcp.py --persona nilou item add --name "Red Dress" --category top
+python mcp.py --persona nilou item equip --slot top --name "Red Dress"
 ```
 
-**Common Options:** `--persona NAME`, `--url URL`, `--format json`
+**Tip:** Global options like `--persona`, `--url`, `--format` must come **before** the subcommand.
+
+**Common Options:** `--format json` for JSON output, `--url http://custom:port` for custom server
 
 See [Memory Operations](references/memory_operations.md), [Context Operations](references/context_operations.md), and [Item Operations](references/item_operations.md) for complete documentation.
 
