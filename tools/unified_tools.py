@@ -83,7 +83,7 @@ async def memory(
         - 推奨だが必須ではない（タグなしでも記憶作成OK）
         - 形式: 単語のみ（1-3 words, lowercase, no spaces）
         - 例: ["promise", "milestone", "anniversary", "daily_routine"]
-        
+
         Special tags:
         anniversary - Commemorative dates (first meeting, milestones)
         promise     - Active promises (track status in persona_info)
@@ -130,7 +130,7 @@ async def memory(
     if ',' in operation:
         # Take only the first valid operation before comma
         operation = operation.split(',')[0].strip()
-    
+
     # Remove common suffixes that don't match actual operations
     operation = operation.replace('_if_not_exists', '').replace('_memory', '')
 
@@ -304,7 +304,7 @@ async def item(
     operation = operation.lower().strip()
     if ',' in operation:
         operation = operation.split(',')[0].strip()
-    
+
     return await handle_item_operation(
         operation=operation,
         item_name=item_name,

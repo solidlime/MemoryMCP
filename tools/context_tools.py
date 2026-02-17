@@ -329,47 +329,96 @@ async def get_context() -> str:
         # Phase 41: Promises & Goals display
         result += f"\n🤝 Promises & Goals:\n"
 
-        # Get active promises
+        # Get tag-based promises (recommended approach)
+        tag_based_promises = []
+        tag_based_goals = []
         try:
-            promises = get_promises(status='active', persona=persona)
-            if promises:
-                result += f"   ✅ Active Promises ({len(promises)}):\n"
-                for p in promises[:5]:  # Show max 5
-                    result += f"      [P{p['id']:03d}] {p['content'][:60]}"
-                    if len(p['content']) > 60:
-                        result += "..."
-                    if p.get('due_date'):
-                        result += f" (due: {p['due_date'][:10]})"
-                    result += f" [priority: {p.get('priority', 0)}]\n"
-                if len(promises) > 5:
-                    result += f"      ... and {len(promises) - 5} more\n"
-            else:
-                result += f"   （現在アクティブなPromisesはありません）\n"
-        except Exception as e:
-            result += f"   memory(operation='promise')で約束を確認\n"
+            with sqlite3.connect(db_path) as conn:
+                cursor = conn.cursor()
+                
+                # Get promises with "promise" tag
+                cursor.execute("""
+                    SELECT key, content, created_at, importance, tags
+                    FROM memories
+                    WHERE tags LIKE '%"promise"%'
+                    ORDER BY created_at DESC
+                    LIMIT 10
+                """)
+                tag_based_promises = cursor.fetchall()
+                
+                # Get goals with "goal" tag
+                cursor.execute("""
+                    SELECT key, content, created_at, importance, tags
+                    FROM memories
+                    WHERE tags LIKE '%"goal"%'
+                    ORDER BY created_at DESC
+                    LIMIT 10
+                """)
+                tag_based_goals = cursor.fetchall()
+        except Exception:
+            pass
 
-        # Get active goals
+        # Display tag-based promises (recommended)
+        if tag_based_promises:
+            result += f"   🏷️ Tagged Promises ({len(tag_based_promises)}):\n"
+            for i, (key, content, created_at, importance, tags) in enumerate(tag_based_promises[:5], 1):
+                preview = content[:50] + "..." if len(content) > 50 else content
+                time_diff = calc_time_diff(created_at)
+                result += f"      {i}. [{key}] {preview}\n"
+                result += f"         {time_diff['formatted_string']}前 | ⭐{importance:.2f}\n"
+
+        # Display tag-based goals (recommended)
+        if tag_based_goals:
+            result += f"   🎯 Tagged Goals ({len(tag_based_goals)}):\n"
+            for i, (key, content, created_at, importance, tags) in enumerate(tag_based_goals[:5], 1):
+                preview = content[:50] + "..." if len(content) > 50 else content
+                time_diff = calc_time_diff(created_at)
+                result += f"      {i}. [{key}] {preview}\n"
+                result += f"         {time_diff['formatted_string']}前 | ⭐{importance:.2f}\n"
+
+        # Get active promises from dedicated table (legacy)
+        promises_from_table = []
+        goals_from_table = []
         try:
-            goals = get_goals(status='active', persona=persona)
-            if goals:
-                result += f"   🎯 Active Goals ({len(goals)}):\n"
-                for g in goals[:5]:  # Show max 5
-                    progress_bar = "▓" * (g.get('progress', 0) // 10) + "░" * (10 - g.get('progress', 0) // 10)
-                    result += f"      [G{g['id']:03d}] {g['content'][:60]}"
-                    if len(g['content']) > 60:
-                        result += "..."
-                    result += f" [{progress_bar}] {g.get('progress', 0)}%"
-                    if g.get('target_date'):
-                        result += f" (target: {g['target_date'][:10]})"
-                    result += "\n"
-                if len(goals) > 5:
-                    result += f"      ... and {len(goals) - 5} more\n"
-            else:
-                result += f"   （現在アクティブなGoalsはありません）\n"
-        except Exception as e:
-            result += f"   memory(operation='goal')で目標を確認\n"
+            promises_from_table = get_promises(status='active', persona=persona)
+            goals_from_table = get_goals(status='active', persona=persona)
+        except Exception:
+            pass
 
-        # Add hint for managing promises/goals
+        # Display table-based promises (legacy)
+        if promises_from_table:
+            result += f"   ✅ Table Promises ({len(promises_from_table)}):\n"
+            for p in promises_from_table[:5]:  # Show max 5
+                result += f"      [P{p['id']:03d}] {p['content'][:60]}"
+                if len(p['content']) > 60:
+                    result += "..."
+                if p.get('due_date'):
+                    result += f" (due: {p['due_date'][:10]})"
+                result += f" [priority: {p.get('priority', 0)}]\n"
+            if len(promises_from_table) > 5:
+                result += f"      ... and {len(promises_from_table) - 5} more\n"
+
+        # Display table-based goals (legacy)
+        if goals_from_table:
+            result += f"   🎯 Table Goals ({len(goals_from_table)}):\n"
+            for g in goals_from_table[:5]:  # Show max 5
+                progress_bar = "▓" * (g.get('progress', 0) // 10) + "░" * (10 - g.get('progress', 0) // 10)
+                result += f"      [G{g['id']:03d}] {g['content'][:60]}"
+                if len(g['content']) > 60:
+                    result += "..."
+                result += f" [{progress_bar}] {g.get('progress', 0)}%"
+                if g.get('target_date'):
+                    result += f" (target: {g['target_date'][:10]})"
+                result += "\n"
+            if len(goals_from_table) > 5:
+                result += f"      ... and {len(goals_from_table) - 5} more\n"
+
+        # Show hint if no promises/goals
+        if not tag_based_promises and not tag_based_goals and not promises_from_table and not goals_from_table:
+            result += f"   （現在、Promises/Goalsはありません）\n"
+            result += f"\n   💡 Create with tags (recommended):\n"
+            result += f"      memory(operation='create', content='...',\n"
+            result += f"             context_tags=['promise'], persona_info={{'status': 'active'}})\n"
 
         # Anniversary proximity hint
         if upcoming_anniversaries:
