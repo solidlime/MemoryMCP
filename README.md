@@ -74,6 +74,23 @@ python mcp.py --persona nilou item equip --slot top --name "白いドレス"
 
 詳細は [Skills ドキュメント](.github/skills/memory-mcp/SKILL.md) を参照してください。
 
+**Docker環境で使用する場合:**
+
+mcp.py を使用するには、`.github/skills/` がイメージに含まれている必要があります。最新版のイメージを使用してください：
+
+```bash
+# イメージを再ビルド
+docker-compose build
+
+# サービスを再起動
+docker-compose up -d
+
+# コンテナ内で使用
+docker exec -it memory-mcp python mcp.py --persona nilou get_context
+```
+
+---
+
 #### GitHub Copilot Skills経由
 
 `.github/skills/memory-mcp/` の設定に従って、GitHub Copilot から直接利用できます。
