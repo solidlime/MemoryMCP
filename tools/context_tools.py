@@ -335,7 +335,7 @@ async def get_context() -> str:
         try:
             with sqlite3.connect(db_path) as conn:
                 cursor = conn.cursor()
-                
+
                 # Get promises with "promise" tag
                 cursor.execute("""
                     SELECT key, content, created_at, importance, tags
@@ -345,7 +345,7 @@ async def get_context() -> str:
                     LIMIT 10
                 """)
                 tag_based_promises = cursor.fetchall()
-                
+
                 # Get goals with "goal" tag
                 cursor.execute("""
                     SELECT key, content, created_at, importance, tags
