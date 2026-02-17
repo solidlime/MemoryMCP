@@ -13,11 +13,41 @@ Usage:
 All arguments are passed directly to the underlying memory_mcp_client.py script.
 """
 import sys
+import os
 from pathlib import Path
 
+# Try multiple possible locations for memory_mcp_client.py
+# to support both local dev and Docker environments
+POSSIBLE_PATHS = [
+    # Local development structure
+    Path(__file__).parent / ".github" / "skills" / "memory-mcp" / "scripts",
+    # Docker/production structure (if mounted at /opt/memory-mcp)
+    Path(__file__).parent / "scripts",
+    # Alternative: check if we're already in the scripts directory
+    Path(__file__).parent,
+]
+
+# Add environment variable override
+if env_path := os.getenv("MEMORY_MCP_SCRIPTS_DIR"):
+    POSSIBLE_PATHS.insert(0, Path(env_path))
+
+# Find the correct scripts directory
+scripts_dir = None
+for path in POSSIBLE_PATHS:
+    if (path / "memory_mcp_client.py").exists():
+        scripts_dir = path
+        break
+
+if not scripts_dir:
+    print("❌ Error: Could not locate memory_mcp_client.py", file=sys.stderr)
+    print("   Searched in:", file=sys.stderr)
+    for path in POSSIBLE_PATHS:
+        print(f"     - {path}", file=sys.stderr)
+    print("\n   Set MEMORY_MCP_SCRIPTS_DIR environment variable to specify location", file=sys.stderr)
+    sys.exit(1)
+
 # Add scripts directory to Python path
-SCRIPTS_DIR = Path(__file__).parent / ".github" / "skills" / "memory-mcp" / "scripts"
-sys.path.insert(0, str(SCRIPTS_DIR))
+sys.path.insert(0, str(scripts_dir))
 
 # Import and run the main client
 try:
@@ -27,7 +57,7 @@ try:
         sys.exit(main())
 except ImportError as e:
     print(f"❌ Error: Could not import memory_mcp_client: {e}", file=sys.stderr)
-    print(f"   Expected location: {SCRIPTS_DIR / 'memory_mcp_client.py'}", file=sys.stderr)
+    print(f"   Scripts directory: {scripts_dir}", file=sys.stderr)
     sys.exit(1)
 except Exception as e:
     print(f"❌ Unexpected error: {e}", file=sys.stderr)

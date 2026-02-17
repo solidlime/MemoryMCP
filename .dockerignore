@@ -13,8 +13,9 @@ __pycache__/
 *.pyd
 .Python
 
-# Development environment
+# Development environment (but keep skills for CLI wrapper)
 .github/
+!.github/skills/
 .vscode/
 
 # Runtime data (generated at runtime or bind-mounted)
