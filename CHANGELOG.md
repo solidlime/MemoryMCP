@@ -17,6 +17,17 @@ All notable changes to Memory-MCP will be documented in this file.
 - Makes deployment model explicit
 - Helps users understand local vs. remote components
 
+**Made Memory Preview Length Configurable:**
+- Added `memory_preview_length` setting (default: 100 characters)
+- Configurable via environment variable `MEMORY_MCP_MEMORY_PREVIEW_LENGTH`
+- Applies to Recent Memories, Promises, and Goals in `get_context()` output
+- Files modified: `src/utils/config_utils.py`, `tools/context_tools.py`, `Dockerfile`, `README.md`
+
+**Rationale:**
+- Different use cases need different preview lengths
+- Allows users to balance context detail vs. brevity
+- Consistent with existing `recent_memories_count` configurability
+
 ### Changed - 2026-02-17 (Code Quality Improvements)
 
 #### 1. Removed Backward Compatibility for Promise/Goal Operations

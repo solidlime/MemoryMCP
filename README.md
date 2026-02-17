@@ -20,7 +20,7 @@ Memory MCPは**クライアント・サーバーモデル**で動作します：
 └─────────────────────────┘                            └──────────────────────┘
 ```
 
-**重要:** 
+**重要:**
 - **サーバー側 (Docker/NAS)**: `memory_mcp.py` がHTTP APIサーバーとして動作
 - **クライアント側 (ローカル)**: Skillsが `config.json` で指定したURLにHTTP APIでアクセス
 - スキルスクリプトは**ローカルで実行**され、リモートサーバーにリクエストを送信
@@ -227,6 +227,18 @@ curl -H "Authorization: Bearer <persona_name>" ...
 
 # 環境変数
 export PERSONA=nilou
+```
+
+### コンテキスト表示設定
+
+`get_context()` の表示内容をカスタマイズできます。
+
+```bash
+# 最近のメモリ表示件数（デフォルト: 5）
+export MEMORY_MCP_RECENT_MEMORIES_COUNT=10
+
+# メモリプレビューの文字数（デフォルト: 100）
+export MEMORY_MCP_MEMORY_PREVIEW_LENGTH=150
 ```
 
 ### Qdrant設定

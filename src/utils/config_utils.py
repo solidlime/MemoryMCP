@@ -16,6 +16,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "server_port": 26262,
     "timezone": "Asia/Tokyo",
     "recent_memories_count": 5,  # Number of recent memories to show in get_context
+    "memory_preview_length": 100,  # Character length for memory content preview in get_context
     # Phase 25: Qdrant専用化（storage_backend削除、Qdrant必須）
     "qdrant_url": "http://localhost:6333",
     "qdrant_api_key": None,
