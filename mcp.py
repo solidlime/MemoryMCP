@@ -22,7 +22,7 @@ sys.path.insert(0, str(SCRIPTS_DIR))
 # Import and run the main client
 try:
     from memory_mcp_client import main
-    
+
     if __name__ == "__main__":
         sys.exit(main())
 except ImportError as e:
