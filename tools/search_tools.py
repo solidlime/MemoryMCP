@@ -673,11 +673,11 @@ async def search_memory(
 
                         # At least one OR term must be present
                         group_matched = any(term.lower() in content_lower for term in or_terms)
-                        
+
                         if not group_matched:
                             is_match = False
                             break
-                        
+
                         # Score based on first matching term position
                         for term in or_terms:
                             if term.lower() in content_lower:
