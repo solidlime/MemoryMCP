@@ -69,16 +69,17 @@ def _get_rebuild_config():
 class VectorStoreState:
     """Centralized state management for vector store operations.
 
-    This class encapsulates all global state related to RAG, rebuild, cleanup,
-    and summarization operations, making the code more maintainable and testable.
+    Tracks per-persona dirty state so idle-rebuild and background workers
+    always operate on the correct persona, even under concurrent multi-client
+    access with different personas.
 
     Attributes:
         embeddings: HuggingFace embeddings model
         reranker: Cross-encoder reranker model
         sentiment_pipeline: Sentiment analysis pipeline
-        _dirty: Flag indicating vector store needs rebuild
-        _last_write_ts: Last write timestamp
-        _last_rebuild_ts: Last rebuild timestamp
+        _dirty_personas: persona -> last_write_timestamp (presence = dirty)
+        _last_rebuild_ts: persona -> last rebuild timestamp
+        _dirty_lock: protects _dirty_personas / _last_rebuild_ts
         _rebuild_lock: Thread lock for rebuild operations
         _last_cleanup_check: Last cleanup check timestamp
         _cleanup_lock: Thread lock for cleanup operations
@@ -92,10 +93,10 @@ class VectorStoreState:
         self.reranker = None
         self.sentiment_pipeline = None  # Phase 19: Sentiment analysis pipeline
 
-        # Idle rebuild controls
-        self._dirty: bool = False
-        self._last_write_ts: float = 0.0
-        self._last_rebuild_ts: float = 0.0
+        # Per-persona rebuild tracking
+        self._dirty_personas: dict = {}    # persona -> last_write_ts
+        self._last_rebuild_ts: dict = {}   # persona -> last_rebuild_ts
+        self._dirty_lock = threading.Lock()
         self._rebuild_lock = threading.Lock()
 
         # Phase 21: Idle cleanup controls
@@ -106,30 +107,36 @@ class VectorStoreState:
         self._last_summarization_check: float = 0.0
         self._summarization_lock = threading.Lock()
 
-    def mark_dirty(self):
-        """Mark vector store as dirty (needs rebuild)."""
-        self._dirty = True
-        self._last_write_ts = time.time()
+    def mark_dirty(self, persona: str) -> None:
+        """Mark a specific persona's vector store as needing rebuild."""
+        with self._dirty_lock:
+            self._dirty_personas[persona] = time.time()
 
-    @property
-    def is_dirty(self) -> bool:
-        """Check if vector store is dirty."""
-        return self._dirty
+    def is_dirty(self, persona: str) -> bool:
+        """Check if a specific persona's vector store is dirty."""
+        with self._dirty_lock:
+            return persona in self._dirty_personas
 
-    @property
-    def last_write_time(self) -> float:
-        """Get last write timestamp."""
-        return self._last_write_ts
+    def last_write_time(self, persona: str) -> float:
+        """Get last write timestamp for a persona (0.0 if not dirty)."""
+        with self._dirty_lock:
+            return self._dirty_personas.get(persona, 0.0)
 
-    @property
-    def last_rebuild_time(self) -> float:
-        """Get last rebuild timestamp."""
-        return self._last_rebuild_ts
+    def last_rebuild_time(self, persona: str) -> float:
+        """Get last rebuild timestamp for a persona."""
+        with self._dirty_lock:
+            return self._last_rebuild_ts.get(persona, 0.0)
 
-    def update_rebuild_time(self):
-        """Update rebuild timestamp and clear dirty flag."""
-        self._last_rebuild_ts = time.time()
-        self._dirty = False
+    def clear_dirty(self, persona: str) -> None:
+        """Clear dirty flag and record rebuild time for a persona."""
+        with self._dirty_lock:
+            self._dirty_personas.pop(persona, None)
+            self._last_rebuild_ts[persona] = time.time()
+
+    def dirty_personas_snapshot(self) -> list:
+        """Return a snapshot list of (persona, last_write_ts) for all dirty personas."""
+        with self._dirty_lock:
+            return list(self._dirty_personas.items())
 
     def get_rebuild_lock(self) -> threading.Lock:
         """Get rebuild lock for thread synchronization."""
@@ -165,31 +172,34 @@ class VectorStoreState:
 # Global state instance
 _state = VectorStoreState()
 
-# Legacy global variables (deprecated - use _state instead)
-# Kept for backward compatibility during migration
+# RAG model globals (populated during initialization)
 embeddings = None
 reranker = None
 sentiment_pipeline = None
-_dirty: bool = False
-_last_write_ts: float = 0.0
-_last_rebuild_ts: float = 0.0
-_rebuild_lock = threading.Lock()
-_last_cleanup_check: float = 0.0
-_cleanup_lock = threading.Lock()
-_last_summarization_check: float = 0.0
-_summarization_lock = threading.Lock()
 
 
-def mark_vector_store_dirty():
-    """Mark vector store as dirty (needs rebuild).
+def mark_vector_store_dirty(persona: str = None) -> None:
+    """Mark a persona's vector store as needing rebuild.
 
-    DEPRECATED: Use _state.mark_dirty() instead.
-    This function is kept for backward compatibility.
+    Args:
+        persona: Persona name. Defaults to the current request persona.
     """
-    global _dirty, _last_write_ts
-    _dirty = True
-    _last_write_ts = time.time()
-    _state.mark_dirty()
+    if persona is None:
+        persona = get_current_persona()
+    _state.mark_dirty(persona)
+
+
+def _get_all_personas() -> list:
+    """Enumerate all persona directories from the memory root."""
+    from src.utils.config_utils import ensure_memory_root
+    memory_root = ensure_memory_root()
+    try:
+        return [
+            d for d in os.listdir(memory_root)
+            if os.path.isdir(os.path.join(memory_root, d))
+        ]
+    except Exception:
+        return []
 
 def _get_qdrant_adapter(persona: str = None):
     """
@@ -306,21 +316,30 @@ def start_idle_rebuilder_thread():
     return t
 
 def _idle_rebuilder_loop():
-    global _dirty, _last_rebuild_ts
     while True:
         try:
             cfg = _get_rebuild_config()
             if cfg.get("mode", "idle") != "idle":
                 time.sleep(2)
                 continue
-            if _dirty:
-                now = time.time()
-                if (now - _last_write_ts) >= cfg.get("idle_seconds", 30) and (now - _last_rebuild_ts) >= cfg.get("min_interval", 120):
-                    with _rebuild_lock:
-                        if _dirty:
-                            rebuild_vector_store()
-                            _dirty = False
-                            _last_rebuild_ts = time.time()
+
+            now = time.time()
+            idle_secs = cfg.get("idle_seconds", 30)
+            min_interval = cfg.get("min_interval", 120)
+
+            candidates = [
+                (p, ts) for p, ts in _state.dirty_personas_snapshot()
+                if (now - ts) >= idle_secs
+                and (now - _state.last_rebuild_time(p)) >= min_interval
+            ]
+
+            for persona, _ in candidates:
+                with _state.get_rebuild_lock():
+                    if not _state.is_dirty(persona):
+                        continue
+                    rebuild_vector_store(persona=persona)
+                    _state.clear_dirty(persona)
+
             time.sleep(2)
         except Exception:
             time.sleep(5)
@@ -377,9 +396,7 @@ def start_auto_summarization_scheduler():
     return t
 
 def _auto_summarization_scheduler_loop():
-    """Background loop that runs scheduled periodic summarization (daily/weekly)"""
-    global _last_summarization_check
-
+    """Background loop that runs scheduled periodic summarization (daily/weekly)."""
     while True:
         try:
             cfg = _get_auto_summarization_config()
@@ -390,62 +407,54 @@ def _auto_summarization_scheduler_loop():
             now = time.time()
             check_interval = cfg.get("check_interval_seconds", 3600)
 
-            # Wait for check interval
-            if (now - _last_summarization_check) < check_interval:
+            if (now - _state.last_summarization_check_time) < check_interval:
                 time.sleep(60)
                 continue
 
-            # Run summarization check
-            with _summarization_lock:
-                _last_summarization_check = now
+            with _state.get_summarization_lock():
+                _state.update_summarization_check_time()
                 _run_scheduled_summarization(cfg)
 
-            # Sleep after check
             time.sleep(check_interval)
 
         except Exception as e:
-            print(f"⚠️ Summarization worker error: {e}")
+            from src.utils.logging_utils import log_progress
+            log_progress(f"⚠️ Summarization worker error: {e}")
             time.sleep(60)
 
 def _run_scheduled_summarization(cfg):
-    """Run scheduled summarization if due"""
+    """Run scheduled summarization for every known persona if due."""
     from datetime import datetime
     from zoneinfo import ZoneInfo
     from tools.summarization_tools import summarize_last_day, summarize_last_week
-    from src.utils.persona_utils import get_current_persona
+    from src.utils.logging_utils import log_progress
 
     try:
         timezone = load_config().get("timezone", "Asia/Tokyo")
         now = datetime.now(ZoneInfo(timezone))
-        persona = get_current_persona()
 
-        # Check daily summary
-        if cfg.get("schedule_daily", True):
-            target_hour = cfg.get("daily_hour", 3)
-            if now.hour == target_hour:
-                print(f"📝 Running daily summary for {persona}...")
-                result = summarize_last_day(persona=persona)
-                if result:
-                    print(f"✅ Daily summary created: {result}")
+        for persona in _get_all_personas():
+            try:
+                if cfg.get("schedule_daily", True):
+                    if now.hour == cfg.get("daily_hour", 3):
+                        result = summarize_last_day(persona=persona)
+                        if result:
+                            log_progress(f"✅ Daily summary created for {persona}: {result}")
 
-        # Check weekly summary
-        if cfg.get("schedule_weekly", True):
-            target_day = cfg.get("weekly_day", 0)  # 0=Monday
-            if now.weekday() == target_day and now.hour == 3:
-                print(f"📝 Running weekly summary for {persona}...")
-                result = summarize_last_week(persona=persona)
-                if result:
-                    print(f"✅ Weekly summary created: {result}")
+                if cfg.get("schedule_weekly", True):
+                    if now.weekday() == cfg.get("weekly_day", 0) and now.hour == 3:
+                        result = summarize_last_week(persona=persona)
+                        if result:
+                            log_progress(f"✅ Weekly summary created for {persona}: {result}")
+            except Exception as e:
+                log_progress(f"❌ Scheduled summarization error for {persona}: {e}")
 
     except Exception as e:
-        print(f"❌ Scheduled summarization error: {e}")
-        import traceback
-        traceback.print_exc()
+        from src.utils.logging_utils import log_progress
+        log_progress(f"❌ Scheduled summarization loop error: {e}")
 
 def _cleanup_worker_loop():
-    """Background loop that checks for cleanup opportunities during idle time"""
-    global _last_cleanup_check, _last_write_ts
-
+    """Background loop that checks for cleanup opportunities during idle time."""
     while True:
         try:
             cfg = _get_cleanup_config()
@@ -456,56 +465,70 @@ def _cleanup_worker_loop():
             now = time.time()
             check_interval = cfg.get("check_interval_seconds", 300)
 
-            # Wait for check interval
-            if (now - _last_cleanup_check) < check_interval:
+            if (now - _state.last_cleanup_check_time) < check_interval:
                 time.sleep(10)
                 continue
 
-            # Check if idle (no writes for idle_minutes)
+            # Only run when no persona has been written to recently
             idle_seconds = cfg.get("idle_minutes", 30) * 60
-            if (now - _last_write_ts) < idle_seconds:
+            any_recent = any(
+                (now - ts) < idle_seconds
+                for _, ts in _state.dirty_personas_snapshot()
+            )
+            if any_recent:
                 time.sleep(10)
                 continue
 
-            # Run cleanup check
-            with _cleanup_lock:
-                _last_cleanup_check = now
-                _detect_and_save_cleanup_suggestions(cfg)
+            with _state.get_cleanup_lock():
+                _state.update_cleanup_check_time()
+                for persona in _get_all_personas():
+                    try:
+                        _detect_and_save_cleanup_suggestions(cfg, persona=persona)
+                    except Exception as e:
+                        from src.utils.logging_utils import log_progress
+                        log_progress(f"⚠️ Cleanup error for {persona}: {e}")
 
-            # Sleep after successful check
             time.sleep(check_interval)
 
         except Exception as e:
-            print(f"⚠️ Cleanup worker error: {e}")
+            from src.utils.logging_utils import log_progress
+            log_progress(f"⚠️ Cleanup worker error: {e}")
             time.sleep(60)
 
-def _detect_and_save_cleanup_suggestions(cfg):
-    """Detect duplicates and save suggestions to file. Auto-merge if enabled."""
+def _detect_and_save_cleanup_suggestions(cfg, persona: str = None):
+    """Detect duplicates and save suggestions to file. Auto-merge if enabled.
+
+    Args:
+        cfg: Cleanup configuration dict.
+        persona: Target persona. Defaults to current request persona.
+    """
     try:
         from src.utils.persona_utils import get_current_persona, get_persona_dir
+        from src.utils.logging_utils import log_progress
 
-        persona = get_current_persona()
+        if persona is None:
+            persona = get_current_persona()
         threshold = cfg.get("duplicate_threshold", 0.90)
         max_pairs = cfg.get("max_suggestions_per_run", 20)
         auto_merge_enabled = cfg.get("auto_merge_enabled", False)
         auto_merge_threshold = cfg.get("auto_merge_threshold", 0.95)
 
-        print(f"🧹 Running cleanup check for persona: {persona} (threshold: {threshold:.2f})...")
+        log_progress(f"🧹 Running cleanup check for persona: {persona} (threshold: {threshold:.2f})...")
 
         # Detect duplicates
         duplicates = detect_duplicate_memories(threshold, max_pairs)
 
         if not duplicates:
-            print(f"✅ No cleanup suggestions (threshold: {threshold:.2f})")
+            log_progress(f"✅ No cleanup suggestions for {persona} (threshold: {threshold:.2f})")
             return
 
         # Auto-merge if enabled
         merged_count = 0
         if auto_merge_enabled:
-            print(f"🔗 Auto-merge enabled (threshold: {auto_merge_threshold:.2f})")
+            log_progress(f"🔗 Auto-merge enabled for {persona} (threshold: {auto_merge_threshold:.2f})")
             merged_count = _auto_merge_duplicates(duplicates, auto_merge_threshold)
             if merged_count > 0:
-                print(f"✅ Auto-merged {merged_count} duplicate pairs")
+                log_progress(f"✅ Auto-merged {merged_count} duplicate pairs for {persona}")
                 # Re-detect after merging
                 duplicates = detect_duplicate_memories(threshold, max_pairs)
 
@@ -539,13 +562,13 @@ def _detect_and_save_cleanup_suggestions(cfg):
         with open(suggestions_file, 'w', encoding='utf-8') as f:
             json.dump(suggestions_data, f, indent=2, ensure_ascii=False)
 
-        print(f"💾 Cleanup suggestions saved: {len(groups)} groups found")
+        log_progress(f"💾 Cleanup suggestions saved for {persona}: {len(groups)} groups")
         if merged_count > 0:
-            print(f"   🔗 Auto-merged: {merged_count} pairs")
-        print(f"   📁 {suggestions_file}")
+            log_progress(f"   🔗 Auto-merged: {merged_count} pairs")
 
     except Exception as e:
-        print(f"❌ Failed to generate cleanup suggestions: {e}")
+        from src.utils.logging_utils import log_progress
+        log_progress(f"❌ Failed to generate cleanup suggestions for {persona}: {e}")
 
 def _create_cleanup_groups(duplicates, cfg):
     """Create cleanup suggestion groups from duplicate pairs"""
@@ -877,10 +900,13 @@ def _batch_upload_to_qdrant(adapter, docs: list, ids: list, collection: str):
     print(f"✅ Rebuilt vector store: {total_docs} memories indexed in collection '{collection}'")
 
 
-def rebuild_vector_store():
+def rebuild_vector_store(persona: str = None):
     """
     Rebuild Qdrant collection from SQLite database.
     Phase 25: Qdrant-only implementation.
+
+    Args:
+        persona: Target persona. Defaults to the current request persona.
     """
     if not embeddings:
         return
@@ -888,8 +914,9 @@ def rebuild_vector_store():
     try:
         # Get persona-specific configuration
         cfg = load_config()
-        from src.utils.persona_utils import get_current_persona
-        persona = get_current_persona()
+        if persona is None:
+            from src.utils.persona_utils import get_current_persona
+            persona = get_current_persona()
 
         url = cfg.get("qdrant_url", "http://localhost:6333")
         api_key = cfg.get("qdrant_api_key")
@@ -999,7 +1026,7 @@ def add_memory_to_vector_store(key: str, content: str):
     Phase 25: Qdrant-only implementation.
     """
     if not embeddings:
-        mark_vector_store_dirty()
+        mark_vector_store_dirty()  # persona resolved inside
         return
 
     try:
@@ -1034,13 +1061,13 @@ def add_memory_to_vector_store(key: str, content: str):
         prefix = cfg.get("qdrant_collection_prefix", "memory_")
         collection = f"{prefix}{persona}"
         adapter.add_documents([doc], ids=[key])
-        print(f"✅ Added memory {key} to Qdrant collection {collection}")
+        from src.utils.logging_utils import log_progress
+        log_progress(f"✅ Added memory {key} to Qdrant collection {collection}")
 
     except Exception as e:
-        print(f"⚠️  Failed to add memory incrementally: {e}, falling back to dirty flag")
-        import traceback
-        traceback.print_exc()
-        mark_vector_store_dirty()
+        from src.utils.logging_utils import log_progress
+        log_progress(f"⚠️  Failed to add memory incrementally: {e}, falling back to dirty flag")
+        mark_vector_store_dirty(get_current_persona())
 
 def update_memory_in_vector_store(key: str, content: str):
     """
@@ -1088,12 +1115,12 @@ def update_memory_in_vector_store(key: str, content: str):
         doc = Document(page_content=enriched_content, metadata=meta)
         adapter.add_documents([doc], ids=[key])
 
-        print(f"✅ Updated memory {key} in Qdrant collection {collection}")
+        from src.utils.logging_utils import log_progress
+        log_progress(f"✅ Updated memory {key} in Qdrant collection {collection}")
     except Exception as e:
-        print(f"⚠️  Failed to update memory incrementally: {e}, falling back to dirty flag")
-        import traceback
-        traceback.print_exc()
-        mark_vector_store_dirty()
+        from src.utils.logging_utils import log_progress
+        log_progress(f"⚠️  Failed to update memory incrementally: {e}, falling back to dirty flag")
+        mark_vector_store_dirty(get_current_persona())
 
 def delete_memory_from_vector_store(key: str):
     """
@@ -1118,12 +1145,12 @@ def delete_memory_from_vector_store(key: str):
         # Delete from Qdrant
         adapter.delete([key])
 
-        print(f"✅ Deleted memory {key} from Qdrant collection {collection}")
+        from src.utils.logging_utils import log_progress
+        log_progress(f"✅ Deleted memory {key} from Qdrant collection {collection}")
     except Exception as e:
-        print(f"⚠️  Failed to delete memory incrementally: {e}, falling back to dirty flag")
-        import traceback
-        traceback.print_exc()
-        mark_vector_store_dirty()
+        from src.utils.logging_utils import log_progress
+        log_progress(f"⚠️  Failed to delete memory incrementally: {e}, falling back to dirty flag")
+        mark_vector_store_dirty(get_current_persona())
 
 def get_vector_count() -> int:
     """Get total vector count from current persona's Qdrant collection"""

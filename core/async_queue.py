@@ -59,9 +59,11 @@ class VectorStoreQueue:
                     log_progress(f"✅ Background vector store task completed: {func.__name__}")
                 except Exception as e:
                     log_progress(f"❌ Background vector store task failed: {func.__name__}, error: {e}")
-                    # Mark vector store as dirty for rebuild
+                    # Mark the correct persona's vector store dirty for rebuild.
+                    # Prefer persona from task kwargs, fall back to current context.
                     from src.utils.vector_utils import mark_vector_store_dirty
-                    mark_vector_store_dirty()
+                    persona = kwargs.get("persona") if kwargs else None
+                    mark_vector_store_dirty(persona)
                 finally:
                     self._queue.task_done()
                     

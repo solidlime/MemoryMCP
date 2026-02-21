@@ -1,4 +1,5 @@
 import sqlite3
+from contextlib import contextmanager
 from typing import Optional, List, Tuple, Dict, Any
 from cachetools import TTLCache
 from threading import Lock
@@ -12,6 +13,35 @@ def clear_query_cache():
     """Clear all cached query results. Call this when data changes."""
     with _cache_lock:
         _query_cache.clear()
+
+
+@contextmanager
+def get_db_connection(db_path: str):
+    """Context manager that opens a SQLite connection with WAL mode and a
+    generous busy timeout for concurrent write safety.
+
+    WAL mode allows concurrent readers alongside one writer without blocking
+    reads, which is essential when multiple personas or clients access the
+    server simultaneously.  WAL is a persistent DB-level setting; the PRAGMA
+    is fast (no-op) after the first call for a given file.
+
+    Usage::
+
+        with get_db_connection(db_path) as conn:
+            conn.execute(...)
+    """
+    conn = sqlite3.connect(db_path, timeout=30)
+    try:
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=10000")  # 10 s before SQLITE_BUSY
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
 
 # These helpers are kept generic: caller passes db_path
 

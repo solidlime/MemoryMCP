@@ -30,6 +30,11 @@ def load_memory_from_db() -> Dict[str, Any]:
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
 
+            # Enable WAL mode for concurrent read/write access.
+            # WAL is persistent — after the first call this is a fast no-op.
+            cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.execute("PRAGMA busy_timeout=10000")
+
             # Create tables if they don't exist
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS memories (

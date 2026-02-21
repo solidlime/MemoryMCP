@@ -7,10 +7,23 @@ This module handles loading, saving, and managing persona-specific context data.
 import json
 import os
 import shutil
+import threading
 from typing import Optional
 
 from src.utils.persona_utils import get_current_persona, get_persona_context_path
 from src.utils.logging_utils import log_progress
+
+# Per-persona write locks — prevents concurrent JSON corruption for the same persona.
+_context_locks: dict = {}
+_context_locks_mutex = threading.Lock()
+
+
+def _get_context_lock(persona: str) -> threading.Lock:
+    """Return (creating if necessary) the write lock for a given persona."""
+    with _context_locks_mutex:
+        if persona not in _context_locks:
+            _context_locks[persona] = threading.Lock()
+        return _context_locks[persona]
 
 
 def load_persona_context(persona: Optional[str] = None) -> dict:
@@ -91,22 +104,26 @@ def save_persona_context(context: dict, persona: Optional[str] = None) -> bool:
         persona = get_current_persona()
 
     context_path = get_persona_context_path(persona)
+    lock = _get_context_lock(persona)
 
-    try:
-        # Create backup if file exists
-        if os.path.exists(context_path):
-            backup_path = f"{context_path}.backup"
-            shutil.copy2(context_path, backup_path)
+    with lock:
+        try:
+            # Atomic write: write to .tmp then os.replace to prevent partial reads.
+            tmp_path = f"{context_path}.tmp"
+            with open(tmp_path, 'w', encoding='utf-8') as f:
+                json.dump(context, f, indent=2, ensure_ascii=False)
 
-        # Save context
-        with open(context_path, 'w', encoding='utf-8') as f:
-            json.dump(context, f, indent=2, ensure_ascii=False)
+            # Keep one backup of the last good file.
+            if os.path.exists(context_path):
+                shutil.copy2(context_path, f"{context_path}.backup")
 
-        log_progress(f"✅ Saved persona context to {context_path}")
-        return True
-    except Exception as e:
-        log_progress(f"❌ Failed to save persona context: {e}")
-        return False
+            os.replace(tmp_path, context_path)
+
+            log_progress(f"✅ Saved persona context to {context_path}")
+            return True
+        except Exception as e:
+            log_progress(f"❌ Failed to save persona context: {e}")
+            return False
 
 
 def update_last_conversation_time(persona: Optional[str] = None) -> None:
