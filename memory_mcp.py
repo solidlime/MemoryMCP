@@ -144,7 +144,12 @@ mcp = FastMCP(
     name="memory-mcp",
     instructions="Personal memory and context management system with RAG-powered semantic search, multi-persona support, and emotional/relationship tracking",
     host=_early_config.get("server_host", "127.0.0.1"),
-    port=_early_config.get("server_port", 26262)
+    port=_early_config.get("server_port", 26262),
+    # Stateless HTTP: skip MCP session management entirely.
+    # All persistent state lives in SQLite, so per-request sessions are unnecessary.
+    # This prevents "Session not found" errors that occur when long-running sessions
+    # crash or are garbage-collected by the Streamable HTTP session manager.
+    stateless_http=True,
 )
 
 # Initialize Jinja2 templates for dashboard
