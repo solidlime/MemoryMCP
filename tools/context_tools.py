@@ -65,14 +65,19 @@ async def get_context() -> str:
         result = f"📋 Context (persona: {persona})\n"
         result += "=" * 60 + "\n\n"
 
-        # User Information
+        # User Information — prefer bi-temporal DB, fall back to persona_context.json
+        from core.user_state_db import get_current_user_state
+        bt_user = get_current_user_state(persona)
         user_info = context.get('user_info', {})
+        # Merge: bi-temporal takes priority (it's more up-to-date)
+        display_user = {**user_info, **bt_user}
+
         result += f"👤 User Information:\n"
-        result += f"   Name: {user_info.get('name', 'Unknown')}\n"
-        if user_info.get('nickname'):
-            result += f"   Nickname: {user_info.get('nickname')}\n"
-        if user_info.get('preferred_address'):
-            result += f"   Preferred Address: {user_info.get('preferred_address')}\n"
+        result += f"   Name: {display_user.get('name', 'Unknown')}\n"
+        if display_user.get('nickname'):
+            result += f"   Nickname: {display_user.get('nickname')}\n"
+        if display_user.get('preferred_address'):
+            result += f"   Preferred Address: {display_user.get('preferred_address')}\n"
 
         # Persona Information
         persona_info = context.get('persona_info', {})
@@ -326,6 +331,18 @@ async def get_context() -> str:
                     emotion_str = emotion if emotion else "neutral"
                     result += f"{i}. [{key}] {preview}\n"
                     result += f"   {format_dt(created_at)} ({time_diff_mem['formatted_string']}前) | ⭐{importance_str} | 💭{emotion_str}\n"
+
+        # Named Memory Blocks (always-in-context structured segments)
+        from core.memory_blocks_db import list_blocks
+        blocks = list_blocks(persona)
+        if blocks:
+            result += f"\n📦 Memory Blocks:\n"
+            for b in blocks:
+                preview = b["content"][:200] + "..." if len(b["content"]) > 200 else b["content"]
+                result += f"   [{b['name']}] {preview}\n"
+        else:
+            result += f"\n📦 Memory Blocks: (none)\n"
+            result += f"   💡 Create: memory(operation='block_write', query='user_model', content='...')\n"
 
         # Phase 41: Promises & Goals display
         result += f"\n🤝 Promises & Goals:\n"

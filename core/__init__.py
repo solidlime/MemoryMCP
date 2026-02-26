@@ -23,6 +23,28 @@ from .memory_db import (
     log_operation,
 )
 from src.utils.logging_utils import log_progress
+from .forgetting import (
+    start_ebbinghaus_worker,
+    stop_ebbinghaus_worker,
+    boost_on_recall,
+    run_decay_pass,
+    ebbinghaus_retention,
+    compute_strength,
+)
+from .user_state_db import (
+    update_user_state,
+    update_user_state_bulk,
+    get_current_user_state,
+    get_user_state_history,
+    USER_STATE_KEYS,
+)
+from .memory_blocks_db import (
+    read_block,
+    write_block,
+    delete_block,
+    list_blocks,
+    STANDARD_BLOCKS,
+)
 
 __all__ = [
     # Time utilities
@@ -45,4 +67,23 @@ __all__ = [
     'log_operation',
     # Logging
     'log_progress',
+    # Ebbinghaus forgetting curve
+    'start_ebbinghaus_worker',
+    'stop_ebbinghaus_worker',
+    'boost_on_recall',
+    'run_decay_pass',
+    'ebbinghaus_retention',
+    'compute_strength',
+    # Bi-temporal user state
+    'update_user_state',
+    'update_user_state_bulk',
+    'get_current_user_state',
+    'get_user_state_history',
+    'USER_STATE_KEYS',
+    # Named memory blocks
+    'read_block',
+    'write_block',
+    'delete_block',
+    'list_blocks',
+    'STANDARD_BLOCKS',
 ]

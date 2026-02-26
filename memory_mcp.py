@@ -223,6 +223,14 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"⚠️  Failed to start auto-summarization scheduler: {e}")
 
+    # Ebbinghaus forgetting curve background decay worker
+    try:
+        from core.forgetting import start_ebbinghaus_worker
+        start_ebbinghaus_worker()
+        print("🧠 Ebbinghaus decay worker started")
+    except Exception as e:
+        print(f"⚠️  Failed to start Ebbinghaus worker: {e}")
+
     # Phase 42: Auto-migrate anniversaries on startup
     try:
         from core.memory_db import migrate_anniversaries_to_memories

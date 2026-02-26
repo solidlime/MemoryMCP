@@ -137,7 +137,10 @@ async def memory(
     # Route to appropriate handler
     # Memory operations
     memory_operations = ["create", "read", "update", "delete", "search", "stats", "check_routines"]
-    context_operations = ["update_context"]  # promise/goal deprecated - use tag-based memories
+    context_operations = [
+        "update_context",
+        "block_write", "block_read", "block_list", "block_delete",
+    ]
 
     if operation in memory_operations:
         return await handle_memory_operation(

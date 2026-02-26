@@ -5,6 +5,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from core.persona_context import load_persona_context, save_persona_context
+from core.user_state_db import update_user_state_bulk, USER_STATE_KEYS
 from src.utils.persona_utils import get_current_persona
 from src.utils.config_utils import load_config
 
@@ -18,15 +19,24 @@ async def handle_update_context(persona_info: Optional[Dict] = None, user_info: 
     cfg = load_config()
     now = datetime.now(ZoneInfo(cfg.get("timezone", "Asia/Tokyo"))).isoformat()
 
-    # Update user_info fields
+    # Update user_info fields — bi-temporal history + persona_context.json (for fast reads)
     if user_info:
         if 'user_info' not in context:
             context['user_info'] = {}
 
-        for key in ['name', 'nickname', 'preferred_address']:
-            if key in user_info:
+        fields_to_track = {}
+        for key in USER_STATE_KEYS:
+            if key in user_info and user_info[key] is not None:
                 context['user_info'][key] = user_info[key]
                 updated_fields.append(f"user_{key}")
+                fields_to_track[key] = str(user_info[key])
+
+        # Persist bi-temporal history (non-blocking best-effort)
+        if fields_to_track:
+            try:
+                update_user_state_bulk(persona, fields_to_track)
+            except Exception:
+                pass  # history is best-effort; context.json update already done
 
     # Update persona_info fields if provided
     if persona_info:
@@ -132,5 +142,62 @@ async def handle_context_operation(
         if not persona_info and not user_info:
             return "ℹ️ No context fields to update\n💡 Example: memory(operation='update_context', physical_state='relaxed', mental_state='calm')"
         return await handle_update_context(persona_info, user_info)
+
+    # ── Named memory block operations ────────────────────────────────────────
+    elif operation == "block_write":
+        if not query:
+            return "❌ block_write requires query='<block_name>' (e.g. 'user_model')"
+        if not content:
+            return "❌ block_write requires content='<text>'"
+        from core.memory_blocks_db import write_block, STANDARD_BLOCKS
+        persona = get_current_persona()
+        write_block(persona, query, content)
+        desc = STANDARD_BLOCKS.get(query, "custom block")
+        return f"✅ Block '{query}' updated ({desc})"
+
+    elif operation == "block_read":
+        from core.memory_blocks_db import read_block, STANDARD_BLOCKS
+        persona = get_current_persona()
+        if query:
+            text = read_block(persona, query)
+            if text is None:
+                return f"❌ Block '{query}' not found. Use block_list to see available blocks."
+            return f"📦 [{query}]\n{text}"
+        else:
+            # Read all blocks
+            from core.memory_blocks_db import list_blocks
+            blocks = list_blocks(persona)
+            if not blocks:
+                return "📭 No memory blocks found. Create one with block_write."
+            lines = ["📦 All Memory Blocks:"]
+            for b in blocks:
+                preview = b["content"][:120] + "..." if len(b["content"]) > 120 else b["content"]
+                lines.append(f"\n[{b['name']}] {b.get('description','')}\n  {preview}")
+            return "\n".join(lines)
+
+    elif operation == "block_list":
+        from core.memory_blocks_db import list_blocks, STANDARD_BLOCKS
+        persona = get_current_persona()
+        blocks = list_blocks(persona)
+        lines = ["📦 Memory Blocks:"]
+        existing_names = {b["name"] for b in blocks}
+        for b in blocks:
+            lines.append(f"  • {b['name']} (updated: {b['updated_at'][:10]})")
+        if not blocks:
+            lines.append("  (none yet)")
+        lines.append("\n💡 Standard block names: " + ", ".join(STANDARD_BLOCKS.keys()))
+        return "\n".join(lines)
+
+    elif operation == "block_delete":
+        if not query:
+            return "❌ block_delete requires query='<block_name>'"
+        from core.memory_blocks_db import delete_block
+        persona = get_current_persona()
+        delete_block(persona, query)
+        return f"✅ Block '{query}' deleted"
+
     else:
-        raise ValueError(f"Unknown context operation '{operation}'. Valid operation: update_context")
+        raise ValueError(
+            f"Unknown context operation '{operation}'. "
+            f"Valid: update_context, block_write, block_read, block_list, block_delete"
+        )

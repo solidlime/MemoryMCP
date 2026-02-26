@@ -1,213 +1,338 @@
 """
-Forgetting Module for Memory MCP.
+Ebbinghaus Forgetting Curve for Memory MCP.
 
-Phase 28.3: Implements time-based memory decay and forgetting algorithms.
-Memories fade over time unless they are recalled or have strong emotional intensity.
+True Ebbinghaus model:
+    R(t) = e^(-t / S)
+
+where:
+    R = retention (0.0–1.0)
+    t = days since last access
+    S = stability (increases each time the memory is recalled)
+
+strength = importance * R(t)
+
+The `importance` column is immutable (set at creation).
+The `strength` column in memory_strength table holds the current
+effective score used for ranking. It is updated by the background
+decay worker and boosted on each recall.
+
+Stability growth on recall:
+    S_new = S * STABILITY_GROWTH_FACTOR
+    (capped at STABILITY_MAX so a memory can't become immortal)
 """
 
+import math
 import sqlite3
-from datetime import datetime, timedelta
-from typing import List, Dict, Optional
+import threading
+import time
+from datetime import datetime
+from typing import Dict, List, Optional, Tuple
 from zoneinfo import ZoneInfo
+
 from src.utils.config_utils import load_config
 from src.utils.persona_utils import get_db_path
+from src.utils.logging_utils import log_progress
+
+# ── Tuning constants ─────────────────────────────────────────────────────────
+STABILITY_GROWTH_FACTOR = 1.5   # S multiplier per recall
+STABILITY_MAX = 365.0           # caps at ~1 year half-life
+STABILITY_EMOTION_BONUS = {     # extra starting stability based on emotion intensity
+    "high": 10.0,   # emotion_intensity > 0.7
+    "mid": 5.0,     # emotion_intensity > 0.5
+    "low": 1.0,     # otherwise
+}
+DECAY_WORKER_INTERVAL_HOURS = 6  # run decay pass every N hours
+
+_decay_thread: Optional[threading.Thread] = None
+_decay_stop_event = threading.Event()
 
 
-def calculate_time_decay(created_at: str, last_accessed: Optional[str] = None) -> float:
+# ── Core Ebbinghaus functions ─────────────────────────────────────────────────
+
+def ebbinghaus_retention(days_since_access: float, stability: float) -> float:
     """
-    Calculate time decay factor for a memory.
-    
+    R(t) = e^(-t / S)
+
     Args:
-        created_at: ISO 8601 timestamp of memory creation
-        last_accessed: ISO 8601 timestamp of last access (optional, defaults to created_at)
-    
+        days_since_access: Days elapsed since the memory was last accessed
+        stability: Current stability factor (higher = slower decay)
+
     Returns:
-        float: Decay factor (0.0 to 1.0, where 1.0 = no decay)
-    
-    Formula:
-        decay = 1.0 / (1.0 + days_since_access / 30)
-        
-    Examples:
-        - 0 days: 1.0 (no decay)
-        - 30 days: 0.5 (half strength)
-        - 90 days: 0.25 (quarter strength)
-        - 365 days: ~0.076 (very weak)
+        Retention score 0.0–1.0
+    """
+    if days_since_access <= 0:
+        return 1.0
+    s = max(stability, 0.01)
+    return math.exp(-days_since_access / s)
+
+
+def initial_stability(emotion_intensity: float = 0.0) -> float:
+    """
+    Initial stability based on emotional charge at creation time.
+
+    Emotionally charged memories are harder to forget from the start.
+    """
+    if emotion_intensity > 0.7:
+        return STABILITY_EMOTION_BONUS["high"]
+    elif emotion_intensity > 0.5:
+        return STABILITY_EMOTION_BONUS["mid"]
+    return STABILITY_EMOTION_BONUS["low"]
+
+
+def compute_strength(importance: float, retention: float) -> float:
+    """strength = importance * retention, clamped to [0, 1]."""
+    return max(0.0, min(1.0, importance * retention))
+
+
+# ── Database helpers ──────────────────────────────────────────────────────────
+
+def _now_iso(tz: str = "Asia/Tokyo") -> str:
+    return datetime.now(ZoneInfo(tz)).isoformat()
+
+
+def _days_since(ts: Optional[str], tz: str = "Asia/Tokyo") -> float:
+    """Days elapsed since the given ISO timestamp (0 if None or future)."""
+    if not ts:
+        return 0.0
+    try:
+        dt = datetime.fromisoformat(ts)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=ZoneInfo(tz))
+        delta = datetime.now(ZoneInfo(tz)) - dt
+        return max(0.0, delta.total_seconds() / 86400.0)
+    except Exception:
+        return 0.0
+
+
+def ensure_memory_strength_row(
+    conn: sqlite3.Connection, key: str, importance: float, emotion_intensity: float, created_at: str
+) -> None:
+    """Insert a memory_strength row if one doesn't exist (migration helper)."""
+    s = initial_stability(emotion_intensity)
+    conn.execute(
+        """
+        INSERT OR IGNORE INTO memory_strength (key, strength, stability, last_decay_at)
+        VALUES (?, ?, ?, ?)
+        """,
+        (key, importance, s, created_at),
+    )
+
+
+# ── Recall boost ─────────────────────────────────────────────────────────────
+
+def boost_on_recall(key: str, persona_db_path: str) -> None:
+    """
+    Called when a memory is accessed (read/search hit).
+
+    Multiplies stability by STABILITY_GROWTH_FACTOR (capped at STABILITY_MAX),
+    then resets strength to full (importance * 1.0) since the memory
+    was just recalled — effectively restarting the decay clock.
+    """
+    now = _now_iso()
+    try:
+        with sqlite3.connect(persona_db_path) as conn:
+            row = conn.execute(
+                "SELECT stability FROM memory_strength WHERE key = ?", (key,)
+            ).fetchone()
+            if row is None:
+                return
+
+            new_stability = min(row[0] * STABILITY_GROWTH_FACTOR, STABILITY_MAX)
+
+            # Also fetch importance so we can set strength = importance (full recall)
+            imp_row = conn.execute(
+                "SELECT importance FROM memories WHERE key = ?", (key,)
+            ).fetchone()
+            new_strength = imp_row[0] if imp_row else 0.5
+
+            conn.execute(
+                """
+                UPDATE memory_strength
+                SET stability = ?, strength = ?, last_decay_at = ?
+                WHERE key = ?
+                """,
+                (new_stability, new_strength, now, key),
+            )
+            # Update last_accessed on the memory itself
+            conn.execute(
+                "UPDATE memories SET last_accessed = ?, access_count = access_count + 1 WHERE key = ?",
+                (now, key),
+            )
+            conn.commit()
+    except Exception as e:
+        log_progress(f"⚠️  boost_on_recall failed ({key}): {e}")
+
+
+# ── Decay pass ───────────────────────────────────────────────────────────────
+
+def run_decay_pass(db_path: str, persona: str) -> int:
+    """
+    Apply Ebbinghaus decay to all memories for one persona.
+
+    Updates `strength` in memory_strength table.
+    Does NOT touch `importance`.
+
+    Returns:
+        Number of memories updated
     """
     cfg = load_config()
-    timezone = cfg.get("timezone", "Asia/Tokyo")
-    now = datetime.now(ZoneInfo(timezone))
-    
-    # Use last_accessed if available, otherwise use created_at
-    reference_time = last_accessed if last_accessed else created_at
-    
+    tz = cfg.get("timezone", "Asia/Tokyo")
+    now = _now_iso(tz)
+    updated = 0
+
     try:
-        reference_dt = datetime.fromisoformat(reference_time)
-        if reference_dt.tzinfo is None:
-            reference_dt = reference_dt.replace(tzinfo=ZoneInfo(timezone))
-        
-        delta = now - reference_dt
-        days_since = delta.total_seconds() / 86400  # Convert to days
-        
-        # Decay formula: 1.0 / (1.0 + days / 30)
-        decay = 1.0 / (1.0 + days_since / 30.0)
-        
-        return max(0.0, min(1.0, decay))
-    
+        with sqlite3.connect(db_path) as conn:
+            rows = conn.execute(
+                """
+                SELECT m.key, m.importance, m.emotion_intensity, m.last_accessed, m.created_at,
+                       ms.stability
+                FROM memories m
+                LEFT JOIN memory_strength ms ON m.key = ms.key
+                """,
+            ).fetchall()
+
+            for key, importance, emotion_intensity, last_accessed, created_at, stability in rows:
+                # Determine reference timestamp for decay
+                ref_ts = last_accessed or created_at
+                days = _days_since(ref_ts, tz)
+
+                s = stability if stability is not None else initial_stability(emotion_intensity or 0.0)
+                retention = ebbinghaus_retention(days, s)
+                new_strength = compute_strength(importance or 0.5, retention)
+
+                conn.execute(
+                    """
+                    INSERT INTO memory_strength (key, strength, stability, last_decay_at)
+                    VALUES (?, ?, ?, ?)
+                    ON CONFLICT(key) DO UPDATE SET
+                        strength = excluded.strength,
+                        last_decay_at = excluded.last_decay_at
+                    """,
+                    (key, new_strength, s, now),
+                )
+                updated += 1
+
+            conn.commit()
+
+        log_progress(f"📉 Ebbinghaus decay: updated {updated} memories (persona={persona})")
     except Exception as e:
-        print(f"⚠️  Failed to calculate time decay: {e}")
-        return 1.0  # Default to no decay on error
+        log_progress(f"❌ decay pass failed (persona={persona}): {e}")
+
+    return updated
+
+
+# ── Background worker ─────────────────────────────────────────────────────────
+
+def _get_all_personas() -> List[Tuple[str, str]]:
+    """Return list of (persona_name, db_path) for all existing persona dirs."""
+    from src.utils.config_utils import ensure_memory_root
+    import os
+    memory_root = ensure_memory_root()
+    result = []
+    if not os.path.isdir(memory_root):
+        return result
+    for name in os.listdir(memory_root):
+        db_path = os.path.join(memory_root, name, "memory.db")
+        if os.path.isfile(db_path):
+            result.append((name, db_path))
+    return result
+
+
+def _decay_worker_loop() -> None:
+    interval_secs = DECAY_WORKER_INTERVAL_HOURS * 3600
+    log_progress(f"🧠 Ebbinghaus decay worker started (interval={DECAY_WORKER_INTERVAL_HOURS}h)")
+
+    while not _decay_stop_event.is_set():
+        try:
+            for persona, db_path in _get_all_personas():
+                run_decay_pass(db_path, persona)
+        except Exception as e:
+            log_progress(f"❌ Ebbinghaus worker error: {e}")
+
+        _decay_stop_event.wait(interval_secs)
+
+    log_progress("🛑 Ebbinghaus decay worker stopped")
+
+
+def start_ebbinghaus_worker() -> None:
+    """Start the background decay worker thread (idempotent)."""
+    global _decay_thread
+
+    if _decay_thread is not None and _decay_thread.is_alive():
+        return
+
+    _decay_stop_event.clear()
+    _decay_thread = threading.Thread(
+        target=_decay_worker_loop,
+        name="ebbinghaus-decay",
+        daemon=True,
+    )
+    _decay_thread.start()
+    log_progress("✅ Ebbinghaus decay worker thread started")
+
+
+def stop_ebbinghaus_worker() -> None:
+    """Signal the decay worker to stop."""
+    _decay_stop_event.set()
+
+
+# ── Legacy compatibility stubs ────────────────────────────────────────────────
+# These preserve the old API surface so existing callers don't break.
+
+def calculate_time_decay(created_at: str, last_accessed: Optional[str] = None) -> float:
+    """Legacy: returns Ebbinghaus retention with stability=1.0."""
+    days = _days_since(last_accessed or created_at)
+    return ebbinghaus_retention(days, 1.0)
 
 
 def apply_importance_decay(
     importance: float,
     created_at: str,
     emotion_intensity: float = 0.0,
-    last_accessed: Optional[str] = None
+    last_accessed: Optional[str] = None,
 ) -> float:
-    """
-    Apply time-based decay to importance score.
-    
-    Args:
-        importance: Current importance score (0.0-1.0)
-        created_at: ISO 8601 timestamp of memory creation
-        emotion_intensity: Emotion intensity (0.0-1.0, higher = slower decay)
-        last_accessed: ISO 8601 timestamp of last access
-    
-    Returns:
-        float: Decayed importance score (0.0-1.0)
-    
-    Algorithm:
-        - Strong emotions (emotion_intensity > 0.7) decay 70% slower
-        - Medium emotions (0.5-0.7) decay 50% slower
-        - Weak emotions (<0.5) decay at normal rate
-    """
-    time_decay = calculate_time_decay(created_at, last_accessed)
-    
-    # Emotion-based decay resistance
-    if emotion_intensity > 0.7:
-        # Strong emotions: 70% resistance to decay
-        decay_factor = 0.3 + (time_decay * 0.7)
-    elif emotion_intensity > 0.5:
-        # Medium emotions: 50% resistance to decay
-        decay_factor = 0.5 + (time_decay * 0.5)
-    else:
-        # Weak/neutral emotions: normal decay
-        decay_factor = time_decay
-    
-    # Apply decay to importance
-    decayed_importance = importance * decay_factor
-    
-    return max(0.0, min(1.0, decayed_importance))
-
-
-def mark_memories_for_deletion(min_importance: float = 0.0, has_summary: bool = True) -> List[str]:
-    """
-    Find memories that should be deleted based on decay and summarization status.
-    
-    Args:
-        min_importance: Minimum importance threshold (memories below this are marked)
-        has_summary: Only mark memories that have been summarized (summary_ref exists)
-    
-    Returns:
-        List of memory keys to be deleted
-    
-    Deletion criteria:
-        1. importance < min_importance (default: 0.0)
-        2. summary_ref is not NULL (memory has been summarized)
-    """
-    db_path = get_db_path()
-    to_delete = []
-    
-    try:
-        with sqlite3.connect(db_path) as conn:
-            cursor = conn.cursor()
-            
-            if has_summary:
-                # Only mark memories with summary_ref
-                cursor.execute('''
-                    SELECT key, content, importance, emotion_intensity, summary_ref
-                    FROM memories
-                    WHERE importance < ? AND summary_ref IS NOT NULL
-                ''', (min_importance,))
-            else:
-                # Mark all low-importance memories
-                cursor.execute('''
-                    SELECT key, content, importance, emotion_intensity, summary_ref
-                    FROM memories
-                    WHERE importance < ?
-                ''', (min_importance,))
-            
-            rows = cursor.fetchall()
-            
-            for row in rows:
-                key, content, importance, emotion_intensity, summary_ref = row
-                to_delete.append(key)
-                print(f"🗑️  Marked for deletion: {key} (importance: {importance:.3f}, emotion: {emotion_intensity:.3f}, summary: {summary_ref})")
-        
-        return to_delete
-    
-    except Exception as e:
-        print(f"⚠️  Failed to mark memories for deletion: {e}")
-        return []
+    """Legacy: compute_strength with initial stability."""
+    days = _days_since(last_accessed or created_at)
+    s = initial_stability(emotion_intensity)
+    return compute_strength(importance, ebbinghaus_retention(days, s))
 
 
 def decay_all_memories(dry_run: bool = True) -> Dict[str, float]:
-    """
-    Apply time decay to all memories in the database.
-    
-    Args:
-        dry_run: If True, only simulate decay without updating database
-    
-    Returns:
-        Dict mapping memory keys to new importance scores
-    
-    Note:
-        This function should be called periodically (e.g., daily) to simulate forgetting.
-    """
-    db_path = get_db_path()
-    decayed_importances = {}
-    
+    """Legacy: run decay pass for current persona's DB."""
+    from src.utils.persona_utils import get_current_persona
+    persona = get_current_persona()
+    db_path = get_db_path(persona)
+
+    cfg = load_config()
+    tz = cfg.get("timezone", "Asia/Tokyo")
+    results: Dict[str, float] = {}
+
     try:
         with sqlite3.connect(db_path) as conn:
-            cursor = conn.cursor()
-            
-            # Fetch all memories with their metadata
-            cursor.execute('''
-                SELECT key, content, created_at, importance, emotion_intensity
-                FROM memories
-            ''')
-            rows = cursor.fetchall()
-            
-            for row in rows:
-                key, content, created_at, current_importance, emotion_intensity = row
-                
-                # Calculate decayed importance
-                new_importance = apply_importance_decay(
-                    current_importance,
-                    created_at,
-                    emotion_intensity if emotion_intensity else 0.0
-                )
-                
-                decayed_importances[key] = new_importance
-                
-                # Update database if not dry run
-                if not dry_run and new_importance != current_importance:
-                    cursor.execute('''
-                        UPDATE memories
-                        SET importance = ?
-                        WHERE key = ?
-                    ''', (new_importance, key))
-                    
-                    print(f"📉 Decayed: {key} | {current_importance:.3f} → {new_importance:.3f}")
-            
+            rows = conn.execute(
+                """
+                SELECT m.key, m.importance, m.emotion_intensity, m.last_accessed, m.created_at,
+                       ms.stability
+                FROM memories m LEFT JOIN memory_strength ms ON m.key = ms.key
+                """
+            ).fetchall()
+
+            for key, importance, emotion_intensity, last_accessed, created_at, stability in rows:
+                ref_ts = last_accessed or created_at
+                days = _days_since(ref_ts, tz)
+                s = stability if stability is not None else initial_stability(emotion_intensity or 0.0)
+                new_strength = compute_strength(importance or 0.5, ebbinghaus_retention(days, s))
+                results[key] = new_strength
+
+                if not dry_run:
+                    conn.execute(
+                        "UPDATE memory_strength SET strength = ? WHERE key = ?",
+                        (new_strength, key),
+                    )
+
             if not dry_run:
                 conn.commit()
-                print(f"✅ Applied decay to {len(decayed_importances)} memories")
-            else:
-                print(f"🔍 Dry run: Would decay {len(decayed_importances)} memories")
-        
-        return decayed_importances
-    
     except Exception as e:
-        print(f"⚠️  Failed to decay memories: {e}")
-        return {}
+        log_progress(f"❌ decay_all_memories failed: {e}")
+
+    return results

@@ -585,9 +585,13 @@ def _calculate_final_score(
     """Calculate final score including importance, recency, and access frequency."""
     final_score = base_score
 
-    # Importance score
-    if importance_weight > 0 and meta.get("importance") is not None:
-        final_score += importance_weight * meta["importance"]
+    # Ebbinghaus strength score (uses decayed strength if available, else raw importance)
+    if importance_weight > 0:
+        strength = meta.get("strength")
+        importance = meta.get("importance")
+        score_value = strength if strength is not None else importance
+        if score_value is not None:
+            final_score += importance_weight * score_value
 
     # Recency score
     if recency_weight > 0 and meta.get("created_at"):
@@ -609,6 +613,23 @@ def _calculate_final_score(
         final_score += 0.1 * access_score  # 10% weight for access frequency
 
     return final_score
+
+
+def _bulk_fetch_strengths(keys: list) -> dict:
+    """Batch-fetch Ebbinghaus strength values from memory_strength table."""
+    if not keys:
+        return {}
+    try:
+        with sqlite3.connect(get_db_path()) as conn:
+            cur = conn.cursor()
+            placeholders = ",".join("?" * len(keys))
+            cur.execute(
+                f"SELECT key, strength FROM memory_strength WHERE key IN ({placeholders})",
+                keys
+            )
+            return {row[0]: row[1] for row in cur.fetchall()}
+    except Exception:
+        return {}
 
 
 def _filter_and_score_documents(
@@ -646,6 +667,11 @@ def _filter_and_score_documents(
         List of (document, final_score) tuples, sorted by score descending
     """
     start_date, end_date = _parse_date_range(date_range)
+
+    # Bulk-fetch Ebbinghaus strength for all candidate keys
+    all_keys = [doc.metadata.get("key") for doc, _ in docs_with_scores if doc.metadata.get("key")]
+    strength_map = _bulk_fetch_strengths(all_keys)
+
     filtered_docs = []
 
     for doc, score in docs_with_scores:
@@ -661,6 +687,11 @@ def _filter_and_score_documents(
             physical_state, mental_state, relationship_status, equipped_item
         ):
             continue
+
+        # Inject Ebbinghaus strength into meta for scoring
+        key = meta.get("key")
+        if key and key in strength_map:
+            meta["strength"] = strength_map[key]
 
         # Calculate final score
         final_score = _calculate_final_score(score, meta, importance_weight, recency_weight)
@@ -1468,12 +1499,15 @@ async def read_memory(
         # Rerank if reranker is available
         docs = _rerank_documents(query, docs, top_k)
 
-        # Update access counts for returned memories
+        # Update access counts and Ebbinghaus strength for returned memories
         from core.memory_db import increment_access_count
+        from core.forgetting import boost_on_recall
+        db_path = get_db_path()
         for doc in docs:
             key = doc.metadata.get("key")
             if key:
                 increment_access_count(key)
+                boost_on_recall(key, db_path)  # Strengthen recalled memories
 
         # Format and return results
         result = _format_memory_results(

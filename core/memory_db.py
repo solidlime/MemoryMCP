@@ -100,6 +100,49 @@ def load_memory_from_db() -> Dict[str, Any]:
                 )
             """)
 
+            # Ebbinghaus forgetting curve: strength (effective score) and stability (decay resistance)
+            # strength = importance * e^(-days_since_access / stability)
+            # stability increases on each recall (harder to forget)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS memory_strength (
+                    key TEXT PRIMARY KEY,
+                    strength REAL DEFAULT 0.5,
+                    stability REAL DEFAULT 1.0,
+                    last_decay_at TEXT,
+                    FOREIGN KEY (key) REFERENCES memories(key) ON DELETE CASCADE
+                )
+            """)
+
+            # Bi-temporal user state: full history of every user_info field change
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS user_state_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    persona TEXT NOT NULL,
+                    key TEXT NOT NULL,
+                    value TEXT NOT NULL,
+                    valid_from TEXT NOT NULL,
+                    valid_until TEXT DEFAULT NULL,
+                    created_at TEXT NOT NULL
+                )
+            """)
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_user_state_persona_key
+                ON user_state_history(persona, key, valid_until)
+            """)
+
+            # Named memory blocks: structured in-context "RAM" segments
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS memory_blocks (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    persona TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    description TEXT DEFAULT NULL,
+                    updated_at TEXT NOT NULL,
+                    UNIQUE(persona, name)
+                )
+            """)
+
             conn.commit()
 
             if not os.path.exists(db_path) or os.path.getsize(db_path) < 100:
@@ -208,6 +251,13 @@ def load_memory_from_db() -> Dict[str, Any]:
                 cursor.execute('ALTER TABLE memories ADD COLUMN privacy_level TEXT DEFAULT "internal"')
                 conn.commit()
                 log_progress("✅ Database migration complete: privacy_level column added")
+
+            # Backfill memory_strength rows for existing memories (Ebbinghaus)
+            cursor.execute("""
+                INSERT OR IGNORE INTO memory_strength (key, strength, stability, last_decay_at)
+                SELECT key, importance, 1.0, created_at FROM memories
+            """)
+            conn.commit()
 
             cursor.execute('SELECT key, content, created_at, updated_at, tags, importance, emotion, emotion_intensity, physical_state, mental_state, environment, relationship_status, action_tag, related_keys, summary_ref, equipped_items, access_count, last_accessed, privacy_level FROM memories')
             rows = cursor.fetchall()
