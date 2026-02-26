@@ -4,6 +4,30 @@ All notable changes to Memory-MCP will be documented in this file.
 
 ## [Unreleased]
 
+### Added - 2026-02-26 (Ebbinghaus Forgetting, Bi-temporal State, Memory Blocks)
+
+**Ebbinghaus Forgetting Curve** (`core/forgetting.py`):
+- True exponential decay: `R(t) = e^(-t/S)` where S = stability
+- Separate `memory_strength` table — `importance` is immutable, `strength` is the decayed score
+- Initial stability based on emotional intensity (0.7+ → S=10, 0.5+ → S=5, else → S=1)
+- Recall boost: stability × 1.5 on each search hit (models spacing effect), capped at 365 days
+- Background decay worker runs every 6 hours across all personas
+- Search ranking uses `strength` instead of raw `importance` when `importance_weight > 0`
+
+**Bi-temporal User State Tracking** (`core/user_state_db.py`):
+- `user_info` field changes stored with `valid_from`/`valid_until` in `user_state_history` table
+- Old records never deleted — enables "what did the persona know at time T?" queries
+- `get_current_user_state()` returns currently-valid values; `get_user_state_history()` returns full log
+- `update_context` handler writes bi-temporal records alongside `persona_context.json`
+
+**Named Memory Blocks** (`core/memory_blocks_db.py`):
+- Letta/MemGPT-inspired always-in-context segments (`persona_state`, `user_model`, `active_context`)
+- Always shown in `get_context()` output — no search query needed
+- New `memory()` operations: `block_write`, `block_read`, `block_list`, `block_delete`
+- `memory_blocks` table with UPSERT semantics
+
+**New docs**: `docs/memory_features.md`
+
 ### Added - 2026-02-17 (Architecture Documentation)
 
 **Clarified Client-Server Architecture:**

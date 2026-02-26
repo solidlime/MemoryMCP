@@ -40,8 +40,8 @@ def _now_iso() -> str:
 
 
 def read_block(
-    persona: Optional[str] = None,
-    name: str = "",
+    persona: Optional[str],
+    name: str,
 ) -> Optional[str]:
     """
     Read the content of a named memory block.
@@ -71,9 +71,9 @@ def read_block(
 
 
 def write_block(
-    persona: Optional[str] = None,
-    name: str = "",
-    content: str = "",
+    persona: Optional[str],
+    name: str,
+    content: str,
     description: Optional[str] = None,
 ) -> bool:
     """
@@ -120,8 +120,8 @@ def write_block(
 
 
 def delete_block(
-    persona: Optional[str] = None,
-    name: str = "",
+    persona: Optional[str],
+    name: str,
 ) -> bool:
     """Delete a named memory block."""
     if persona is None:

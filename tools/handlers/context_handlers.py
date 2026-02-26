@@ -151,7 +151,8 @@ async def handle_context_operation(
             return "❌ block_write requires content='<text>'"
         from core.memory_blocks_db import write_block, STANDARD_BLOCKS
         persona = get_current_persona()
-        write_block(persona, query, content)
+        if not write_block(persona, query, content):
+            return f"❌ Failed to write block '{query}'"
         desc = STANDARD_BLOCKS.get(query, "custom block")
         return f"✅ Block '{query}' updated ({desc})"
 
@@ -180,7 +181,6 @@ async def handle_context_operation(
         persona = get_current_persona()
         blocks = list_blocks(persona)
         lines = ["📦 Memory Blocks:"]
-        existing_names = {b["name"] for b in blocks}
         for b in blocks:
             lines.append(f"  • {b['name']} (updated: {b['updated_at'][:10]})")
         if not blocks:
@@ -193,7 +193,8 @@ async def handle_context_operation(
             return "❌ block_delete requires query='<block_name>'"
         from core.memory_blocks_db import delete_block
         persona = get_current_persona()
-        delete_block(persona, query)
+        if not delete_block(persona, query):
+            return f"❌ Failed to delete block '{query}'"
         return f"✅ Block '{query}' deleted"
 
     else:

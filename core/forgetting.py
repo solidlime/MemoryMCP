@@ -153,11 +153,6 @@ def boost_on_recall(key: str, persona_db_path: str) -> None:
                 """,
                 (new_stability, new_strength, now, key),
             )
-            # Update last_accessed on the memory itself
-            conn.execute(
-                "UPDATE memories SET last_accessed = ?, access_count = access_count + 1 WHERE key = ?",
-                (now, key),
-            )
             conn.commit()
     except Exception as e:
         log_progress(f"⚠️  boost_on_recall failed ({key}): {e}")

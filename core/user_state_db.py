@@ -24,7 +24,7 @@ from src.utils.logging_utils import log_progress
 USER_STATE_KEYS = {"name", "nickname", "preferred_address"}
 
 
-def _now_iso(persona: Optional[str] = None) -> str:
+def _now_iso() -> str:
     cfg = load_config()
     tz = cfg.get("timezone", "Asia/Tokyo")
     return datetime.now(ZoneInfo(tz)).isoformat()
