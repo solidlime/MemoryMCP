@@ -128,7 +128,7 @@ curl http://localhost:26262/api/memory \
 ### 統合ツールAPI (3つの関数のみ)
 
 - **`get_context()`** - 現在のPersona状態・時刻・メモリ統計を取得（簡素化された出力）
-- **`memory(operation, ...)`** - メモリ操作（create/read/update/delete/search/stats/check_routines）とコンテキスト操作（promise/goal/update_context）の10種類
+- **`memory(operation, ...)`** - メモリCRUD（create/read/search/update/delete/stats/check_routines）、コンテキスト更新（update_context）、Named Memory Blocks（block_write/read/list/delete）の計11種類
 - **`item(operation, ...)`** - アイテム操作（add/remove/equip/unequip/update/search/history/memories）の8種類
 
 ### 検索モード

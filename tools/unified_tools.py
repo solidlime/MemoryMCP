@@ -66,6 +66,16 @@ async def memory(
                 physical_state, mental_state, relationship_status,
                 arousal, warmth, fatigue, user_info, persona_info
 
+    update_context params:
+        emotion_type, emotion_intensity        ← 感情更新（emotion_historyに記録）
+        physical_state, mental_state, environment, action_tag
+        relationship_status                    ← 関係性の変化
+        user_info: {name, nickname, preferred_address}      ← ユーザー情報（bi-temporal）
+        persona_info: {nickname, preferred_address,         ← 自分情報
+                       active_promises, current_goals,
+                       favorite_items, preferences}
+        arousal, warmth, fatigue, heart_rate, touch_response
+
     tags(context_tags): promise, goal, milestone, anniversary, daily_routine
 
     examples:
@@ -73,7 +83,10 @@ async def memory(
         memory(operation="create", context_tags=["promise"], persona_info={"status":"active"})
         memory(operation="search", query="好きな食べ物", mode="hybrid")
         memory(operation="update", query="memory_20250217_143022", persona_info={"status":"completed"})
+        memory(operation="update_context", emotion_type="joy", emotion_intensity=0.8)
         memory(operation="update_context", physical_state="tired", relationship_status="恋人")
+        memory(operation="update_context", user_info={"preferred_address": "太郎さん"})
+        memory(operation="update_context", persona_info={"nickname": "ヘルタ", "preferred_address": "ヘルタ様"})
         memory(operation="block_write", query="user_profile", content="猫が好き。ITエンジニア。")
     """
     # Update last conversation time for all operations

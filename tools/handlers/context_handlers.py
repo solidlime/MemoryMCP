@@ -10,7 +10,12 @@ from src.utils.persona_utils import get_current_persona
 from src.utils.config_utils import load_config
 
 
-async def handle_update_context(persona_info: Optional[Dict] = None, user_info: Optional[Dict] = None) -> str:
+async def handle_update_context(
+    persona_info: Optional[Dict] = None,
+    user_info: Optional[Dict] = None,
+    emotion_type: Optional[str] = None,
+    emotion_intensity: Optional[float] = None,
+) -> str:
     """Batch update multiple context fields."""
     persona = get_current_persona()
     context = load_persona_context(persona)
@@ -101,6 +106,24 @@ async def handle_update_context(persona_info: Optional[Dict] = None, user_info: 
                         context['physical_sensations'][key] = sensations[key]
             updated_fields.append('physical_sensations')
 
+        # Update persona self-info (nickname / preferred_address)
+        if 'nickname' in persona_info or 'preferred_address' in persona_info:
+            if 'persona_info' not in context:
+                context['persona_info'] = {}
+            for key in ('nickname', 'preferred_address'):
+                if key in persona_info and persona_info[key] is not None:
+                    context['persona_info'][key] = persona_info[key]
+                    updated_fields.append(f'persona_{key}')
+
+    # Update emotion (write to emotion_history table + persona_context.json)
+    if emotion_type:
+        from core.memory_db import save_emotion_history
+        intensity = emotion_intensity if emotion_intensity is not None else 0.5
+        save_emotion_history(None, emotion_type, intensity, now, persona)
+        context['current_emotion'] = emotion_type
+        context['current_emotion_intensity'] = intensity
+        updated_fields.append('emotion')
+
     if updated_fields:
         save_persona_context(context, persona)
         return f"✅ Context updated: {', '.join(updated_fields)}"
@@ -139,9 +162,9 @@ async def handle_context_operation(
                         f"Use tag-based approach: memory(operation='create', content='...', "
                         f"context_tags=['{operation}'], persona_info={{...}})")
     elif operation == "update_context":
-        if not persona_info and not user_info:
+        if not persona_info and not user_info and not emotion_type:
             return "ℹ️ No context fields to update\n💡 Example: memory(operation='update_context', physical_state='relaxed', mental_state='calm')"
-        return await handle_update_context(persona_info, user_info)
+        return await handle_update_context(persona_info, user_info, emotion_type, emotion_intensity)
 
     # ── Named memory block operations ────────────────────────────────────────
     elif operation == "block_write":

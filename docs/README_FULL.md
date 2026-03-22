@@ -28,127 +28,150 @@ MCP (Model Context Protocol) 準拠の永続メモリサーバー。RAG検索と
 ### 公開ツール (3つ)
 
 #### 1. `get_context()`
-現在のペルソナの状態、時刻、メモリ統計を取得。**毎回のレスポンス時に呼び出すこと**。
+現在のペルソナの状態・時刻・メモリ統計を取得。**セッション開始時に必ず呼び出すこと**。
+
+返却内容: ユーザー/ペルソナ情報、感情・身体・精神状態、装備、最近の記憶、約束/目標、前回会話からの経過時間、記念日（30日以内）、Memory Blocks
 
 #### 2. `memory(operation, ...)`
-統合メモリ操作インターフェース。
+統合メモリ・コンテキスト操作インターフェース。
 
 **Operations:**
-- `create`: 新規メモリ作成
-- `update`: メモリ更新
-- `delete`: メモリ削除
-- `search`: 統合検索（semantic/keyword/hybrid/related/smart）
-- `check_routines`: 現在時刻の繰り返しパターン検出
-- `anniversary`: 記念日管理（追加/削除/一覧）
-- `stats`: メモリ統計取得
+
+| operation | 説明 |
+|-----------|------|
+| `create` | 新規メモリ作成（感情・重要度・タグ付き） |
+| `read` / `search` | メモリ取得・検索（同一動作） |
+| `update` | 既存メモリの内容/メタデータ更新 |
+| `delete` | メモリ削除 |
+| `stats` | メモリ統計取得 |
+| `check_routines` | 現在時刻の繰り返しパターン検出 |
+| `update_context` | ペルソナの現在状態を更新（メモリ作成なし） |
+| `block_write` | Named Memory Block の書き込み/更新 |
+| `block_read` | Named Memory Block の読み込み |
+| `block_list` | Named Memory Block 一覧 |
+| `block_delete` | Named Memory Block の削除 |
+
+**`update_context` パラメータ:**
+```python
+# 感情更新（emotion_history テーブルに記録）
+memory(operation="update_context", emotion_type="joy", emotion_intensity=0.8)
+
+# 身体・精神状態
+memory(operation="update_context",
+       physical_state="tired", mental_state="calm",
+       environment="home", action_tag="reading")
+
+# 身体感覚
+memory(operation="update_context",
+       arousal=0.3, warmth=0.7, fatigue=0.5,
+       heart_rate="calm", touch_response="normal")
+
+# 関係性の変化
+memory(operation="update_context", relationship_status="恋人")
+
+# ユーザー情報更新（bi-temporalで変更履歴保持）
+memory(operation="update_context",
+       user_info={"name": "田中太郎", "nickname": "たろ", "preferred_address": "太郎さん"})
+
+# ペルソナ自身の情報更新
+memory(operation="update_context",
+       persona_info={"nickname": "ヘルタ", "preferred_address": "ヘルタ様"})
+
+# 約束・目標・お気に入り・嗜好
+memory(operation="update_context",
+       persona_info={
+           "active_promises": {"content": "週末に映画を見る", "due_date": "2025-03-28"},
+           "current_goals": "研究論文を書き上げる",
+           "favorite_items": ["白いドレス", "星の杖"],
+           "preferences": {"loves": ["猫", "宇宙"], "dislikes": ["退屈"]}
+       })
+```
 
 **検索モード:**
-- `semantic`: セマンティック検索（デフォルト、RAG）
-- `keyword`: キーワード検索（Fuzzy対応）
-- `hybrid`: ハイブリッド検索（RRF統合: semantic + keyword）
-- `related`: 関連記憶検索（指定記憶と類似）
-- `smart`: スマート検索（曖昧なクエリを自動的にコンテキスト拡張）
+- `semantic`: セマンティック検索（RAG）
+- `keyword`: キーワード検索（OR/AND対応）
+- `hybrid`: ハイブリッド検索（RRF統合、デフォルト）
+- `smart`: スマート検索（曖昧なクエリを自動拡張）
 
-**時間フィルタリング:**
-- 自然言語対応: 「今日」「昨日」「先週」「今週」「今月」「3日前」
-- 日付範囲指定: `date_range="2025-11-01,2025-11-15"`
-- semantic/hybrid/keywordモード全対応
+**タグ（`context_tags` で使用）:**
+- `promise`: 約束（`persona_info={"status":"active"}` と組み合わせ）
+- `goal`: 目標
+- `milestone`: 達成・重要イベント
+- `anniversary`: 記念日（`get_context` で30日以内を自動表示）
+- `daily_routine`: 日常パターン
 
 **例:**
 ```python
 # 作成
-memory(operation="create", content="User likes strawberry",
+memory(operation="create", content="ユーザーは苺が好き",
        emotion_type="joy", importance=0.8)
 
-# 記念日タグ付き作成
-memory(operation="create", content="初めて一緒に映画を見た日",
-       emotion_type="joy", importance=0.9,
-       context_tags=["first_time", "anniversary"])
+# 約束（タグベース推奨）
+memory(operation="create", content="週末にダンスを披露する",
+       context_tags=["promise"],
+       persona_info={"status": "active", "due_date": "2025-03-28"})
 
-memory(operation="create", content="プロジェクトのリリース完了",
-       emotion_type="accomplishment", importance=0.85,
-       context_tags=["milestone", "technical_achievement"])
+# 約束を完了に更新（キーは get_context で確認）
+memory(operation="update", query="memory_20250217_143022",
+       persona_info={"status": "completed"})
 
-# セマンティック検索（デフォルト）
+# セマンティック検索
 memory(operation="search", query="好きな食べ物", mode="semantic", top_k=5)
 
-# キーワード検索
-memory(operation="search", query="Python", mode="keyword", fuzzy_match=True)
+# ハイブリッド検索（デフォルト）
+memory(operation="search", query="プロジェクト進捗", mode="hybrid")
 
-# ハイブリッド検索（semantic 70% + keyword 30%）
-memory(operation="search", query="プロジェクト", mode="hybrid")
+# スマート検索
+memory(operation="search", query="いつものあれ", mode="smart")
 
 # 時間フィルタリング
-memory(operation="search", query="成果", mode="semantic", date_range="昨日")
-memory(operation="search", query="", mode="keyword", date_range="先週")
+memory(operation="search", query="成果", date_range="今週")
 
 # タグ検索
-memory(operation="search", query="", mode="keyword",
-       search_tags=["technical_achievement"], tag_match_mode="all")
+memory(operation="search", search_tags=["promise"], tag_match_mode="all")
 
-# スマート検索（曖昧クエリ自動拡張、日英対応）
-memory(operation="search", query="いつものあれ", mode="smart")  # 日本語
-memory(operation="search", query="the usual", mode="smart")  # English
-memory(operation="search", query="約束", mode="smart")  # 自動でpromiseタグ追加
+# Memory Block（常時コンテキストに載る構造化メモ）
+memory(operation="block_write", query="user_model",
+       content="田中太郎、ITエンジニア、猫好き。")
+memory(operation="block_read", query="user_model")
 
 # ルーティンチェック
-memory(operation="check_routines")  # 現在時刻の繰り返しパターン検出
-memory(operation="check_routines", mode="detailed")  # 詳細：時間帯別パターン分析
-
-# 記念日管理
-memory(operation="anniversary")  # 一覧表示
-memory(operation="anniversary", content="結婚記念日",
-       persona_info={"date": "10-28", "recurring": True})  # 追加
-memory(operation="anniversary", content="結婚記念日")  # 削除
-
-# 身体感覚記録
-memory(operation="sensation")  # 現在の感覚表示
-memory(operation="sensation", persona_info={
-    "fatigue": 0.3, "warmth": 0.8, "arousal": 0.6,
-    "touch_response": "sensitive", "heart_rate_metaphor": "elevated"
-})  # 感覚更新
-
-# 感情変化追跡
-memory(operation="emotion_flow")  # 履歴表示
-memory(operation="emotion_flow", emotion_type="love", emotion_intensity=0.95)  # 記録
-
-# 状況分析（情報提供）
-memory(operation="situation_context")  # 現在の状況分析と類似記憶
+memory(operation="check_routines")
 ```
 
 #### 3. `item(operation, ...)`
-統合アイテム/装備操作インターフェース。
+統合アイテム/装備操作インターフェース。**物理アイテムのみ対象**（感情・身体状態・抽象概念は `memory` ツールを使用）。
 
 **Operations:**
 - `add`: インベントリにアイテム追加
 - `remove`: インベントリからアイテム削除
-- `equip`: アイテム装備（指定スロットのみ）
-- `unequip`: アイテム装備解除（単一/複数スロット）
-- `update`: アイテムメタデータ更新
+- `equip`: アイテム装備（他スロットは維持）
+- `unequip`: アイテム装備解除
+- `update`: アイテムメタデータ更新（状態変化はnewアイテムではなくupdateで）
 - `search`: インベントリ検索
 - `history`: 装備変更履歴取得
 - `memories`: アイテムを含むメモリ検索
-- `stats`: アイテム使用統計
+
+**装備スロット:** `top`, `bottom`, `shoes`, `outer`, `accessories`, `head`
 
 **例:**
 ```python
-# 追加
-item(operation="add", item_name="Health Potion", quantity=5)
+# 追加と装備
+item(operation="add", item_name="白いドレス", category="clothing")
+item(operation="equip", equipment={"top": "白いドレス", "accessories": "花の髪飾り"})
 
-# 装備
-item(operation="equip", equipment={"weapon": "Sword", "armor": "Shield"})
+# 状態変化 → update（新アイテム追加ではない）
+item(operation="update", item_name="白いドレス",
+     description="雨に濡れた白いドレス（乾燥中）")
 
-# 装備解除（単一）
-item(operation="unequip", slots="weapon")
-
-# 装備解除（複数）
-item(operation="unequip", slots=["weapon", "armor"])
+# 装備解除（複数スロット）
+item(operation="unequip", slots=["top", "accessories"])
 
 # 検索
-item(operation="search", category="weapon")
+item(operation="search", category="clothing")
 
-# 装備履歴（特定スロット）
-item(operation="history", history_slot="weapon", days=30)
+# 装備履歴
+item(operation="history", history_slot="top", days=30)
 ```
 
 ### 内部実装
