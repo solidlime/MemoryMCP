@@ -20,23 +20,10 @@ from src.utils.logging_utils import log_progress
 
 async def get_context() -> str:
     """
-    Get current persona state and memory overview.
+    Get current persona state and memory overview. Call FIRST at every session start.
 
-    🎯 USAGE: Call this at the START of every session.
-
-    Returns comprehensive context including:
-        - User/Persona basic info (name, nickname, preferred address)
-        - Current emotional/physical/mental state
-        - Physical sensations (fatigue, warmth, arousal, etc.)
-        - Current equipment
-        - Active promises and goals (with memory keys for easy completion)
-        - Time since last conversation
-        - Recent memory statistics and previews
-        - Preferences and favorites
-        - Upcoming anniversaries (within 1 month)
-
-    Note: This function auto-updates last_conversation_time and
-          migrates legacy anniversaries to memory-based storage.
+    Returns: user/persona info, emotion, physical/mental state, equipment,
+             recent memories, promises, goals, time since last conversation, anniversaries.
     """
     try:
         from core.time_utils import calculate_time_diff as calc_time_diff, format_datetime_for_display as format_dt

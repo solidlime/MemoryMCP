@@ -56,71 +56,25 @@ async def memory(
     defer_vector: bool = False
 ) -> str:
     """
-    Unified memory and context management tool.
+    Unified memory & context management tool.
 
-    🎯 CRITICAL WORKFLOW:
-        1. Session start: ALWAYS call get_context() first
-        2. Every turn: Create memory (些細な出来事も含めて毎ターン記憶作成推奨)
-        3. Use context_tags for categorization (推奨、必須ではない)
+    ops: create, read, search, update, delete, stats, check_routines,
+         update_context, block_write, block_read, block_list, block_delete
 
-    📋 OPERATIONS:
+    key params: query, content, importance(0-1), emotion_type, context_tags,
+                mode(semantic/keyword/hybrid/smart), search_tags, date_range, top_k,
+                physical_state, mental_state, relationship_status,
+                arousal, warmth, fatigue, user_info, persona_info
 
-    Memory CRUD:
-        create         - Save new memory with emotion/importance
-        read           - Get memory by key or recent entries
-        update         - Modify existing memory (including tagged promise/goal status)
-        delete         - Remove memory
-        search         - Find memories (modes: semantic, keyword, hybrid)
-        stats          - Get memory statistics
-        check_routines - Find recurring patterns at current time
+    tags(context_tags): promise, goal, milestone, anniversary, daily_routine
 
-    Context:
-        update_context - Update persona state (emotion, physical, environment)
-
-    Note: Promises/Goals now use tag-based approach (see TAGS section)
-
-    🏷️ TAGS (use with context_tags=[...]):
-        - 推奨だが必須ではない（タグなしでも記憶作成OK）
-        - 形式: 単語のみ（1-3 words, lowercase, no spaces）
-        - 例: ["promise", "milestone", "anniversary", "daily_routine"]
-
-        Special tags:
-        anniversary - Commemorative dates (first meeting, milestones)
-        promise     - Active promises (track status in persona_info)
-        milestone   - Achievements, significant events
-
-    💡 QUICK EXAMPLES:
-        # Session start
-        get_context()
-
-        # Create memory
-        memory(operation="create", content="Learned Python async",
-               emotion_type="joy", importance=0.7)
-
-        # Promise (tag-based, recommended)
-        memory(operation="create", content="週末にダンス披露",
-               context_tags=["promise"],
-               persona_info={"status": "active", "priority": 8, "due_date": "2025-02-19"})
-
-        # Complete promise (get key from get_context)
-        memory(operation="update", query="memory_20250217_143022",
-               persona_info={"status": "completed"})
-
-        # Update state
-        memory(operation="update_context",
-               physical_state="energetic", mental_state="focused")
-
-    Args:
-        operation: Operation type (see OPERATIONS above)
-        query: Search query or memory key
-        content: Memory content
-        context_tags: Tags for categorization (list of strings)
-        importance: 0.0-1.0, defaults to 0.5
-        persona_info: Dict for status, priority, due_date, etc.
-        privacy_level: "public", "internal" (default), "private", "secret"
-
-    Returns:
-        Operation result as formatted string
+    examples:
+        memory(operation="create", content="...", emotion_type="joy", importance=0.7)
+        memory(operation="create", context_tags=["promise"], persona_info={"status":"active"})
+        memory(operation="search", query="好きな食べ物", mode="hybrid")
+        memory(operation="update", query="memory_20250217_143022", persona_info={"status":"completed"})
+        memory(operation="update_context", physical_state="tired", relationship_status="恋人")
+        memory(operation="block_write", query="user_profile", content="猫が好き。ITエンジニア。")
     """
     # Update last conversation time for all operations
     update_last_conversation_time(get_current_persona())
@@ -251,57 +205,18 @@ async def item(
     top_k: int = 10
 ) -> str:
     """
-    Manage persona inventory and equipment.
+    Manage persona inventory & equipment. Physical items ONLY.
 
-    🎯 CRITICAL RULES:
-        - Physical items ONLY (clothing, accessories, tools)
-        - NOT for emotions, body states, or abstract concepts
-        - State changes (wet, dirty, etc.) → Use update(), NOT new items
+    ops: add, remove, equip, unequip, update, search, history, memories
+    slots: top, bottom, shoes, outer, accessories, head
+    NOT for emotions/body states/abstract concepts — use memory tool instead
+    State changes (wet, dirty) → update() existing item, do NOT add new
 
-    📋 OPERATIONS:
-        add      - Add item to inventory
-        remove   - Remove item from inventory
-        equip    - Equip items to slots (keeps other equipped items)
-        unequip  - Unequip items from slots
-        update   - Modify item properties (name, description, state)
-        search   - Find items in inventory
-        history  - View equipment history
-        memories - Get memories associated with item
-
-    ✅ VALID items:
-        - Clothing: dresses, shirts, pants, shoes
-        - Accessories: jewelry, bags, hats, scarves
-        - Tools/Weapons: swords, staffs, potions
-
-    ❌ INVALID items (use memory tool instead):
-        - Body states: "疲労", "眠気"
-        - Emotions: "喜び", "悲しみ"
-        - Abstract concepts: "涙", "汗"
-        - Temporary states: "濡れた白いドレス" (→ update existing dress)
-
-    💡 EXAMPLES:
-        # Add new item
+    examples:
         item(operation="add", item_name="白いドレス", category="clothing")
-
-        # Equip (keeps other slots)
-        item(operation="equip", equipment={"top": "白いドレス", "accessory": "花の髪飾り"})
-
-        # Update item state (NOT new item!)
-        item(operation="update", item_name="白いドレス",
-             description="雨に濡れた白いドレス（乾燥中）")
-
-        # Search
+        item(operation="equip", equipment={"top": "白いドレス", "accessories": "花の髪飾り"})
+        item(operation="update", item_name="白いドレス", description="雨に濡れた状態")
         item(operation="search", category="clothing")
-
-    Args:
-        operation: Operation type (see OPERATIONS above)
-        item_name: Item name (most operations)
-        equipment: {slot: item_name} dict for equip
-        description: Item description (for add/update)
-        category: Item category (clothing, accessory, item, weapon)
-
-    Returns:
-        Operation result as formatted string
     """
     # Normalize operation - handle common mistakes
     operation = operation.lower().strip()
