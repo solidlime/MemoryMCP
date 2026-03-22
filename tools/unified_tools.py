@@ -32,6 +32,8 @@ async def memory(
     user_info: Optional[Dict] = None,
     persona_info: Optional[Dict] = None,
     relationship_status: Optional[str] = None,
+    nickname: Optional[str] = None,
+    relationship_type: Optional[str] = None,
     action_tag: Optional[str] = None,
     # Physical sensations parameters (for update_context)
     arousal: Optional[float] = None,
@@ -70,6 +72,8 @@ async def memory(
         emotion_type, emotion_intensity        ← 感情更新（emotion_historyに記録）
         physical_state, mental_state, environment, action_tag
         relationship_status                    ← 関係性の変化
+        nickname                               ← persona_info.nicknameへのショートカット
+        relationship_type                      ← relationship_statusの別名（エイリアス）
         user_info: {name, nickname, preferred_address}      ← ユーザー情報（bi-temporal）
         persona_info: {nickname, preferred_address,         ← 自分情報
                        active_promises, current_goals,
@@ -156,6 +160,10 @@ async def memory(
             merged_persona_info['environment'] = environment
         if relationship_status is not None:
             merged_persona_info['relationship_status'] = relationship_status
+        if nickname is not None:
+            merged_persona_info['nickname'] = nickname
+        if relationship_type is not None and relationship_status is None:
+            merged_persona_info['relationship_status'] = relationship_type
         if action_tag is not None:
             merged_persona_info['action_tag'] = action_tag
 
