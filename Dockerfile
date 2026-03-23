@@ -54,18 +54,15 @@ RUN find /usr/local/lib/python3.12/site-packages -type d -name __pycache__ -exec
     find /usr/local/lib/python3.12/site-packages -type f -name '*.h' -delete && \
     rm -rf /usr/local/lib/python3.12/site-packages/pip /usr/local/lib/python3.12/site-packages/setuptools
 
-# Copy application code (v2: memory_mcp package + data only)
+# Copy application code (v2: memory_mcp package only)
 COPY memory_mcp/ ${APP_HOME}/memory_mcp/
-COPY data/ ${APP_HOME}/data/
 COPY pyproject.toml ${APP_HOME}/
-
-# Remove config.json from app directory (will be loaded from data/ at runtime)
-RUN rm -f ${APP_HOME}/data/config.json 2>/dev/null || true
 
 # Create directories for runtime data and caches
 RUN mkdir -p ${DATA_HOME}/memory \
     && mkdir -p ${DATA_HOME}/logs \
-    && mkdir -p ${DATA_HOME}/cache
+    && mkdir -p ${DATA_HOME}/cache \
+    && mkdir -p ${APP_HOME}/data
 
 # Default runtime environment
 ENV HF_HOME=${DATA_HOME}/cache/huggingface \
