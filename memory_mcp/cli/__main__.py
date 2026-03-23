@@ -62,8 +62,16 @@ def main() -> None:
     stats_parser = subparsers.add_parser("stats", help="Show persona statistics")
     stats_parser.add_argument("--persona", required=True)
 
+    # -- auto-import ---------------------------------------------------
+    auto_import_parser = subparsers.add_parser("auto-import", help="Auto-import all .zip files from a directory")
+    auto_import_parser.add_argument(
+        "--import-dir",
+        required=True,
+        help="Directory to scan for .zip files",
+    )
+
     # keep linters happy — parsers are used via subparsers
-    _ = (import_parser, export_parser, migrate_parser, stats_parser)
+    _ = (import_parser, export_parser, migrate_parser, stats_parser, auto_import_parser)
 
     args = parser.parse_args()
     if not args.command:
@@ -77,6 +85,7 @@ def main() -> None:
         "export": _handle_export,
         "migrate": _handle_migrate,
         "stats": _handle_stats,
+        "auto-import": _handle_auto_import,
     }
     handlers[args.command](args, settings)
 
@@ -176,6 +185,23 @@ def _handle_stats(args: argparse.Namespace, settings: Settings) -> None:
     _print_count(inv, "equipment_history", "Equipment history")
 
     conn.close()
+
+
+def _handle_auto_import(args: argparse.Namespace, settings: Settings) -> None:
+    """Run auto-import for all .zip files found in the given directory."""
+    from memory_mcp.application.auto_import import run_auto_import
+
+    settings.import_dir = args.import_dir
+
+    results = run_auto_import(settings)
+    if not results:
+        print("No .zip files found in", args.import_dir)
+        return
+
+    for persona, counts in results.items():
+        print(f"Imported persona '{persona}':")
+        for table, count in counts.items():
+            print(f"  {table}: {count} records")
 
 
 def _print_count(db, table: str, label: str) -> None:

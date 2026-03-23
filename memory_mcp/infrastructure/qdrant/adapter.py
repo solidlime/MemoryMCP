@@ -121,6 +121,65 @@ class QdrantVectorStore:
             logger.error("Failed to count vectors for '%s': %s", persona, e)
             return Failure(VectorStoreError(str(e)))
 
+    def upsert_batch(
+        self,
+        persona: str,
+        memories: list[tuple[str, str]],
+        batch_size: int = 64,
+    ) -> Result[int, VectorStoreError]:
+        """Batch upsert multiple memories. Returns count of upserted points."""
+        if not memories:
+            return Success(0)
+        try:
+            from qdrant_client.models import PointStruct
+
+            contents = [content for _, content in memories]
+            vectors = self.embedding.encode_batch(contents, is_query=False)
+            total = 0
+            for i in range(0, len(memories), batch_size):
+                batch = memories[i : i + batch_size]
+                batch_vectors = vectors[i : i + batch_size]
+                points = []
+                for (key, content), vec in zip(batch, batch_vectors, strict=True):
+                    points.append(
+                        PointStruct(
+                            id=self._key_to_id(key),
+                            vector=vec.tolist(),
+                            payload={"key": key, "content": content},
+                        )
+                    )
+                self.client_manager.client.upsert(
+                    collection_name=self.collection_name(persona),
+                    points=points,
+                )
+                total += len(points)
+            logger.info(
+                "Batch upserted %d vectors for persona: %s",
+                total,
+                persona,
+            )
+            return Success(total)
+        except Exception as e:
+            logger.error("Failed to batch upsert for '%s': %s", persona, e)
+            return Failure(VectorStoreError(str(e)))
+
+    def rebuild_collection(self, persona: str) -> Result[None, VectorStoreError]:
+        """Delete and recreate collection for a persona."""
+        name = self.collection_name(persona)
+        try:
+            try:
+                self.client_manager.client.delete_collection(name)
+                logger.info("Deleted collection: %s", name)
+            except Exception:
+                logger.debug(
+                    "Collection %s did not exist, skipping delete",
+                    name,
+                )
+            return self.ensure_collection(persona)
+        except Exception as e:
+            logger.error("Failed to rebuild collection '%s': %s", name, e)
+            return Failure(VectorStoreError(str(e)))
+
     @staticmethod
     def _key_to_id(key: str) -> str:
         """Convert a memory key to a deterministic UUID-like hex string for Qdrant."""

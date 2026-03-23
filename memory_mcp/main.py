@@ -21,8 +21,22 @@ def create_app() -> FastMCP:
 
     mcp = FastMCP(
         "MemoryMCP",
+        host=settings.server.host,
+        port=settings.server.port,
         stateless_http=True,
     )
+
+    # Auto-import on startup
+    if settings.import_dir:
+        try:
+            from memory_mcp.application.auto_import import run_auto_import
+
+            results = run_auto_import(settings)
+            if results:
+                for persona, counts in results.items():
+                    logger.info("Auto-imported persona '%s': %s", persona, counts)
+        except Exception:
+            logger.exception("Auto-import failed")
 
     register_tools(mcp)
     register_http_routes(mcp)
@@ -35,12 +49,7 @@ mcp = create_app()
 
 def main() -> None:
     """Run the MemoryMCP server."""
-    settings = Settings()
-    mcp.run(
-        transport="streamable-http",
-        host=settings.server.host,
-        port=settings.server.port,
-    )
+    mcp.run(transport="streamable-http")
 
 
 if __name__ == "__main__":
