@@ -47,6 +47,10 @@
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
+        @keyframes toastFadeIn {
+            from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+            to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
     </style>
 </head>
 <body class="p-6">
@@ -519,9 +523,21 @@
         // Persona selection change
         document.getElementById('personaSelect').addEventListener('change', async (e) => {
             const newPersona = e.target.value;
-            console.log(`Persona changed from "${currentPersona}" to "${newPersona}"`);
+            if (!newPersona || newPersona === currentPersona) return;
+
             currentPersona = newPersona;
-            await loadDashboardData(currentPersona);
+            console.log(`Persona changed to "${currentPersona}"`);
+
+            const select = e.target;
+            select.disabled = true;
+
+            try {
+                await loadDashboardData(currentPersona);
+                updateLastRefreshTime();
+                showToast(`ペルソナ切替: ${currentPersona}`);
+            } finally {
+                select.disabled = false;
+            }
         });
 
         // Refresh data
@@ -607,8 +623,11 @@
                 await loadAnniversariesData(persona);
 
                 // Load Observation Stream & Audit Log
-                loadObservations(1);
-                loadAuditLog(1);
+                await loadObservations(1);
+                await loadAuditLog(1);
+
+                // Load Memory Usage Stats (Admin tab)
+                await loadMemoryUsageStats();
 
             } catch (error) {
                 console.error('Failed to load dashboard data:', error);
@@ -1260,6 +1279,23 @@
         function hideProgress() {
             // Keep progress bar visible to show completion state
             // It will remain in the result area
+        }
+
+        function showToast(message, duration = 2500) {
+            const existing = document.getElementById('personaToast');
+            if (existing) existing.remove();
+            const toast = document.createElement('div');
+            toast.id = 'personaToast';
+            toast.textContent = message;
+            toast.style.cssText = `
+                position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+                background: rgba(30,30,50,0.92); color: #a78bfa; border: 1px solid #7c3aed;
+                padding: 10px 24px; border-radius: 8px; font-size: 14px;
+                z-index: 9999; pointer-events: none;
+                animation: toastFadeIn 0.25s ease;
+            `;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), duration);
         }
 
         function showAdminResult(result, isError = false) {

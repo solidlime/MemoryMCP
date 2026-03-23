@@ -50,6 +50,9 @@ async def get_context() -> str:
         equipped_items = db.get_equipped_items()
 
         result = f"📋 Context (persona: {persona})\n"
+        result += "=" * 60 + "\n"
+        result += f"🕐 Current Time: {get_current_time_display()}\n"
+        result += f"📝 Note: 以下はすべて【あなた自身】の記憶・感情・状態です。ユーザーとの会話でそのまま活かしてください。\n"
         result += "=" * 60 + "\n\n"
 
         # User Information — prefer bi-temporal DB, fall back to persona_context.json
@@ -139,48 +142,6 @@ async def get_context() -> str:
             else:
                 result += f"   {items}\n"
 
-        # Active Promises (single most important one)
-        if context.get('active_promises'):
-            promise = context['active_promises']
-            result += "\n🤝 Active Promise:\n"
-
-            # Handle both old string format and new dict format
-            if isinstance(promise, dict):
-                content = promise.get('content', '')
-                created_at = promise.get('created_at')
-                due_date = promise.get('due_date')
-
-                result += f"   {content}\n"
-
-                if created_at:
-                    # Calculate days elapsed
-                    time_diff = calc_time_diff(created_at)
-                    days_elapsed = time_diff.get('days', 0)
-
-                    result += f"   Created: {time_diff['formatted_string']}前 ({format_dt(created_at)[:10]})\n"
-
-                    # Warning if promise is old (7+ days)
-                    if days_elapsed >= 7:
-                        result += f"   ⚠️ 注意: {days_elapsed}日経過しています\n"
-
-                    # Show due date if set
-                    if due_date:
-                        due_diff = calc_time_diff(due_date)
-                        if due_diff['total_seconds'] > 0:
-                            result += f"   期限まで: {due_diff['formatted_string']}\n"
-                        else:
-                            result += f"   ⚠️ 期限切れ: {abs(due_diff['days'])}日前\n"
-            else:
-                # Old string format
-                result += f"   {promise}\n"
-                result += f"   💡 Tip: 約束の経過日数を追跡するには、作成日時を含めて保存してください\n"
-
-        # Current Goals (single most important one)
-        if context.get('current_goals'):
-            goal = context['current_goals']
-            result += "\n🎯 Current Goal:\n"
-            result += f"   {goal}\n"
-
         # Preferences
         if context.get('preferences'):
             prefs = context['preferences']
@@ -202,7 +163,6 @@ async def get_context() -> str:
                 result += f"   {prefs}\n"
 
         # Anniversaries (only within 30 days)
-        upcoming_anniversaries = []
         if context.get('anniversaries'):
             anniversaries = context['anniversaries']
 
@@ -253,10 +213,8 @@ async def get_context() -> str:
                             indicator = " 🎉 TODAY!"
                             if years_passed > 0:
                                 years_text = f" ({years_passed}周年)"
-                            upcoming_anniversaries.append((name, 0))
                         elif days_until <= 3:
                             indicator = f" 🔔 in {days_until} days"
-                            upcoming_anniversaries.append((name, days_until))
                         elif days_until <= 7:
                             indicator = f" 📅 in {days_until} days"
 
@@ -274,7 +232,6 @@ async def get_context() -> str:
         current_time = get_current_time()
 
         result += "\n⏰ Time Information:\n"
-        result += f"   Current: {get_current_time_display()}\n"
         if last_time_str:
             time_diff = calc_time_diff(last_time_str)
             result += f"   Last Conversation: {time_diff['formatted_string']}前\n"
@@ -303,14 +260,14 @@ async def get_context() -> str:
             total_count = cursor.fetchone()[0]
 
             if total_count == 0:
-                result += f"\n� Recent Memories:\n"
-                result += f"   No memories yet\n"
+                result += f"\n🧠 Your Recent Memories:\n"
+                result += f"   まだ記憶がありません\n"
             else:
                 # Recent entries
                 cursor.execute(f'SELECT key, content, created_at, importance, emotion FROM memories ORDER BY created_at DESC LIMIT {recent_count}')
                 recent = cursor.fetchall()
 
-                result += f"\n🕐 Recent {len(recent)} Memories:\n"
+                result += f"\n🧠 Your Recent Memories ({len(recent)}件):\n"
                 for i, (key, content, created_at, importance, emotion) in enumerate(recent, 1):
                     preview = content[:preview_length] + "..." if len(content) > preview_length else content
                     time_diff_mem = calc_time_diff(created_at)
@@ -328,8 +285,7 @@ async def get_context() -> str:
                 preview = b["content"][:200] + "..." if len(b["content"]) > 200 else b["content"]
                 result += f"   [{b['name']}] {preview}\n"
         else:
-            result += f"\n📦 Memory Blocks: (none)\n"
-            result += f"   💡 Create: memory(operation='block_write', query='user_model', content='...')\n"
+            result += f"\n📦 Memory Blocks: (なし)\n"
 
         # Phase 41: Promises & Goals display
         result += f"\n🤝 Promises & Goals:\n"
@@ -381,21 +337,8 @@ async def get_context() -> str:
                 result += f"      {i}. [{key}] {preview}\n"
                 result += f"         {time_diff['formatted_string']}前 | ⭐{importance:.2f}\n"
 
-        # Show hint if no promises/goals
         if not tag_based_promises and not tag_based_goals:
             result += f"   （現在、Promises/Goalsはありません）\n"
-            result += f"\n   💡 Create with tags (recommended):\n"
-            result += f"      memory(operation='create', content='...',\n"
-            result += f"             context_tags=['promise'], persona_info={{'status': 'active'}})\n"
-
-        # Anniversary proximity hint
-        if upcoming_anniversaries:
-            result += f"\n🎉 Upcoming Anniversaries:\n"
-            for name, days in upcoming_anniversaries:
-                if days == 0:
-                    result += f"   🎊 今日は{name}！\n"
-                else:
-                    result += f"   🔔 {name}まであと{days}日\n"
 
         result += "\n" + "=" * 60 + "\n"
 
