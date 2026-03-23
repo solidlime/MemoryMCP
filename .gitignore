@@ -59,6 +59,10 @@ logs/
 # Serena project files
 .serena/
 
+# Agent memory & spec (local session files)
+.agent/
+.spec/
+
 # IDE
 .idea/
 *.swp
