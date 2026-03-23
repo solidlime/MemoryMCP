@@ -265,7 +265,7 @@ def register_http_routes(mcp, templates):
     @mcp.custom_route("/", methods=["GET"])
     async def dashboard(request: Request):
         """Serve the dashboard HTML page."""
-        return templates.TemplateResponse("dashboard.html", {"request": request})
+        return templates.TemplateResponse(request, "dashboard.html")
 
     @mcp.custom_route("/health", methods=["GET"])
     async def healthcheck(request: Request):
