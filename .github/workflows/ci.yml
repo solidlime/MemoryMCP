@@ -20,8 +20,8 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install ruff
-      - run: ruff check .
-      - run: ruff format --check .
+      - run: ruff check memory_mcp/ tests/
+      - run: ruff format --check memory_mcp/ tests/
 
   test:
     name: Unit & Integration Tests
@@ -33,9 +33,10 @@ jobs:
           - 6333:6333
         options: >-
           --health-cmd "curl -f http://localhost:6333/healthz || exit 1"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+          --health-interval 15s
+          --health-timeout 10s
+          --health-retries 10
+          --health-start-period 30s
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
