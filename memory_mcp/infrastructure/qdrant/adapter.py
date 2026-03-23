@@ -1,0 +1,131 @@
+from __future__ import annotations
+
+import hashlib
+from typing import TYPE_CHECKING
+
+from memory_mcp.domain.shared.errors import VectorStoreError
+from memory_mcp.domain.shared.result import Failure, Result, Success
+from memory_mcp.infrastructure.logging.structured import get_logger
+
+if TYPE_CHECKING:
+    from memory_mcp.infrastructure.embedding.model import EmbeddingModel
+    from memory_mcp.infrastructure.qdrant.client import QdrantClientManager
+
+logger = get_logger(__name__)
+
+
+class QdrantVectorStore:
+    """Vector store adapter for memory search using Qdrant."""
+
+    def __init__(
+        self,
+        client_manager: QdrantClientManager,
+        embedding_model: EmbeddingModel,
+        collection_prefix: str = "memory_",
+    ) -> None:
+        self.client_manager = client_manager
+        self.embedding = embedding_model
+        self.collection_prefix = collection_prefix
+
+    def collection_name(self, persona: str) -> str:
+        """Get the collection name for a persona."""
+        return f"{self.collection_prefix}{persona}"
+
+    def ensure_collection(self, persona: str) -> Result[None, VectorStoreError]:
+        """Create the Qdrant collection for a persona if it does not exist."""
+        name = self.collection_name(persona)
+        try:
+            from qdrant_client.models import Distance, VectorParams
+
+            collections = self.client_manager.client.get_collections().collections
+            if not any(c.name == name for c in collections):
+                self.client_manager.client.create_collection(
+                    collection_name=name,
+                    vectors_config=VectorParams(
+                        size=self.embedding.dimension,
+                        distance=Distance.COSINE,
+                    ),
+                )
+                logger.info("Created Qdrant collection: %s", name)
+            return Success(None)
+        except Exception as e:
+            logger.error("Failed to ensure collection %s: %s", name, e)
+            return Failure(VectorStoreError(str(e)))
+
+    def upsert(
+        self,
+        persona: str,
+        key: str,
+        content: str,
+        metadata: dict | None = None,
+    ) -> Result[None, VectorStoreError]:
+        """Embed and upsert a memory into the vector store."""
+        try:
+            from qdrant_client.models import PointStruct
+
+            vector = self.embedding.encode(content, is_query=False)
+            payload = {"key": key, "content": content}
+            if metadata:
+                payload.update(metadata)
+
+            point = PointStruct(
+                id=self._key_to_id(key),
+                vector=vector.tolist(),
+                payload=payload,
+            )
+            self.client_manager.client.upsert(
+                collection_name=self.collection_name(persona),
+                points=[point],
+            )
+            logger.info("Upserted vector for key: %s", key)
+            return Success(None)
+        except Exception as e:
+            logger.error("Failed to upsert vector for %s: %s", key, e)
+            return Failure(VectorStoreError(str(e)))
+
+    def search(
+        self, persona: str, query: str, limit: int = 10
+    ) -> Result[list[tuple[str, float]], VectorStoreError]:
+        """Semantic search. Returns list of (memory_key, score)."""
+        try:
+            vector = self.embedding.encode(query, is_query=True)
+            results = self.client_manager.client.search(
+                collection_name=self.collection_name(persona),
+                query_vector=vector.tolist(),
+                limit=limit,
+            )
+            return Success([(r.payload["key"], r.score) for r in results])
+        except Exception as e:
+            logger.error("Failed to search vectors for '%s': %s", query, e)
+            return Failure(VectorStoreError(str(e)))
+
+    def delete(self, persona: str, key: str) -> Result[None, VectorStoreError]:
+        """Delete a point from the vector store."""
+        try:
+            from qdrant_client.models import PointIdsList
+
+            self.client_manager.client.delete(
+                collection_name=self.collection_name(persona),
+                points_selector=PointIdsList(points=[self._key_to_id(key)]),
+            )
+            logger.info("Deleted vector for key: %s", key)
+            return Success(None)
+        except Exception as e:
+            logger.error("Failed to delete vector for %s: %s", key, e)
+            return Failure(VectorStoreError(str(e)))
+
+    def count(self, persona: str) -> Result[int, VectorStoreError]:
+        """Count points in the persona's collection."""
+        try:
+            info = self.client_manager.client.get_collection(
+                collection_name=self.collection_name(persona)
+            )
+            return Success(info.points_count)
+        except Exception as e:
+            logger.error("Failed to count vectors for '%s': %s", persona, e)
+            return Failure(VectorStoreError(str(e)))
+
+    @staticmethod
+    def _key_to_id(key: str) -> str:
+        """Convert a memory key to a deterministic UUID-like hex string for Qdrant."""
+        return hashlib.md5(key.encode()).hexdigest()  # noqa: S324

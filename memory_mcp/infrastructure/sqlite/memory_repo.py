@@ -1,0 +1,411 @@
+from __future__ import annotations
+
+import json
+from typing import TYPE_CHECKING, Any
+
+from memory_mcp.domain.memory.entities import Memory, MemoryStrength
+from memory_mcp.domain.shared.errors import RepositoryError
+from memory_mcp.domain.shared.result import Failure, Result, Success
+from memory_mcp.domain.shared.time_utils import format_iso, get_now
+from memory_mcp.infrastructure.logging.structured import get_logger
+
+if TYPE_CHECKING:
+    from memory_mcp.infrastructure.sqlite.connection import SQLiteConnection
+
+logger = get_logger(__name__)
+
+
+class SQLiteMemoryRepository:
+    """SQLite-backed implementation of the MemoryRepository protocol."""
+
+    def __init__(self, connection: SQLiteConnection) -> None:
+        self._conn = connection
+
+    @property
+    def _db(self):
+        return self._conn.get_memory_db()
+
+    # ------------------------------------------------------------------
+    # Memory CRUD
+    # ------------------------------------------------------------------
+
+    def save(self, memory: Memory) -> Result[str, RepositoryError]:
+        """Persist a Memory entity. Returns the memory key on success."""
+        try:
+            now = format_iso(get_now())
+            self._db.execute(
+                """
+                INSERT OR REPLACE INTO memories (
+                    key, content, created_at, updated_at, tags, importance,
+                    emotion, emotion_intensity, physical_state, mental_state,
+                    environment, relationship_status, action_tag, source_context,
+                    related_keys, summary_ref, equipped_items, access_count,
+                    last_accessed, privacy_level
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    memory.key,
+                    memory.content,
+                    format_iso(memory.created_at),
+                    now,
+                    json.dumps(memory.tags, ensure_ascii=False),
+                    memory.importance,
+                    memory.emotion,
+                    memory.emotion_intensity,
+                    memory.physical_state,
+                    memory.mental_state,
+                    memory.environment,
+                    memory.relationship_status,
+                    memory.action_tag,
+                    memory.source_context,
+                    json.dumps(memory.related_keys, ensure_ascii=False),
+                    memory.summary_ref,
+                    memory.equipped_items,
+                    memory.access_count,
+                    format_iso(memory.last_accessed) if memory.last_accessed else None,
+                    memory.privacy_level,
+                ),
+            )
+            self._db.commit()
+            logger.info("Memory saved: %s", memory.key)
+            return Success(memory.key)
+        except Exception as e:
+            logger.error("Failed to save memory %s: %s", memory.key, e)
+            return Failure(RepositoryError(str(e)))
+
+    def find_by_key(self, key: str) -> Result[Memory | None, RepositoryError]:
+        """Find a single memory by its key."""
+        try:
+            row = self._db.execute(
+                "SELECT * FROM memories WHERE key = ?", (key,)
+            ).fetchone()
+            if row is None:
+                return Success(None)
+            return Success(self._row_to_memory(row))
+        except Exception as e:
+            logger.error("Failed to find memory %s: %s", key, e)
+            return Failure(RepositoryError(str(e)))
+
+    def find_recent(self, limit: int = 10) -> Result[list[Memory], RepositoryError]:
+        """Return the most recently updated memories."""
+        try:
+            rows = self._db.execute(
+                "SELECT * FROM memories ORDER BY updated_at DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+            return Success([self._row_to_memory(r) for r in rows])
+        except Exception as e:
+            logger.error("Failed to find recent memories: %s", e)
+            return Failure(RepositoryError(str(e)))
+
+    def find_by_tags(
+        self, tags: list[str], limit: int = 10
+    ) -> Result[list[Memory], RepositoryError]:
+        """Find memories that contain any of the specified tags."""
+        try:
+            rows = self._db.execute(
+                "SELECT * FROM memories ORDER BY updated_at DESC"
+            ).fetchall()
+            result: list[Memory] = []
+            tag_set = set(tags)
+            for row in rows:
+                memory_tags = set(self._parse_json_list(row["tags"]))
+                if memory_tags & tag_set:
+                    result.append(self._row_to_memory(row))
+                    if len(result) >= limit:
+                        break
+            return Success(result)
+        except Exception as e:
+            logger.error("Failed to find memories by tags %s: %s", tags, e)
+            return Failure(RepositoryError(str(e)))
+
+    def update(self, key: str, **kwargs: Any) -> Result[Memory, RepositoryError]:
+        """Update specific fields of a memory."""
+        try:
+            existing = self._db.execute(
+                "SELECT * FROM memories WHERE key = ?", (key,)
+            ).fetchone()
+            if existing is None:
+                return Failure(RepositoryError(f"Memory not found: {key}"))
+
+            updates: dict[str, Any] = {}
+            for field, value in kwargs.items():
+                if field in ("tags", "related_keys"):
+                    updates[field] = json.dumps(value, ensure_ascii=False)
+                elif field in ("created_at", "updated_at", "last_accessed") and value is not None:
+                    updates[field] = format_iso(value) if not isinstance(value, str) else value
+                else:
+                    updates[field] = value
+            updates["updated_at"] = format_iso(get_now())
+
+            set_clause = ", ".join(f"{k} = ?" for k in updates)
+            values = list(updates.values()) + [key]
+            self._db.execute(
+                f"UPDATE memories SET {set_clause} WHERE key = ?",  # noqa: S608
+                values,
+            )
+            self._db.commit()
+
+            updated_row = self._db.execute(
+                "SELECT * FROM memories WHERE key = ?", (key,)
+            ).fetchone()
+            logger.info("Memory updated: %s", key)
+            return Success(self._row_to_memory(updated_row))
+        except Exception as e:
+            logger.error("Failed to update memory %s: %s", key, e)
+            return Failure(RepositoryError(str(e)))
+
+    def delete(self, key: str) -> Result[None, RepositoryError]:
+        """Delete a memory and its strength record."""
+        try:
+            self._db.execute("DELETE FROM memory_strength WHERE memory_key = ?", (key,))
+            self._db.execute("DELETE FROM memories WHERE key = ?", (key,))
+            self._db.commit()
+            logger.info("Memory deleted: %s", key)
+            return Success(None)
+        except Exception as e:
+            logger.error("Failed to delete memory %s: %s", key, e)
+            return Failure(RepositoryError(str(e)))
+
+    def count(self) -> Result[int, RepositoryError]:
+        """Count total memories."""
+        try:
+            row = self._db.execute("SELECT COUNT(*) as cnt FROM memories").fetchone()
+            return Success(row["cnt"])
+        except Exception as e:
+            logger.error("Failed to count memories: %s", e)
+            return Failure(RepositoryError(str(e)))
+
+    def find_all(self) -> Result[list[Memory], RepositoryError]:
+        """Return all memories."""
+        try:
+            rows = self._db.execute(
+                "SELECT * FROM memories ORDER BY updated_at DESC"
+            ).fetchall()
+            return Success([self._row_to_memory(r) for r in rows])
+        except Exception as e:
+            logger.error("Failed to find all memories: %s", e)
+            return Failure(RepositoryError(str(e)))
+
+    # ------------------------------------------------------------------
+    # Keyword search
+    # ------------------------------------------------------------------
+
+    def search_keyword(
+        self, query: str, limit: int = 10
+    ) -> Result[list[tuple[Memory, float]], RepositoryError]:
+        """Search memories by keyword with relevance scoring."""
+        try:
+            rows = self._db.execute(
+                "SELECT * FROM memories WHERE content LIKE ? ORDER BY updated_at DESC",
+                (f"%{query}%",),
+            ).fetchall()
+            scored: list[tuple[Memory, float]] = []
+            for row in rows:
+                score = self._simple_relevance_score(row["content"], query)
+                scored.append((self._row_to_memory(row), score))
+            scored.sort(key=lambda x: x[1], reverse=True)
+            return Success(scored[:limit])
+        except Exception as e:
+            logger.error("Failed to search memories for '%s': %s", query, e)
+            return Failure(RepositoryError(str(e)))
+
+    # ------------------------------------------------------------------
+    # Memory strength
+    # ------------------------------------------------------------------
+
+    def get_strength(
+        self, key: str
+    ) -> Result[MemoryStrength | None, RepositoryError]:
+        """Get the strength record for a memory."""
+        try:
+            row = self._db.execute(
+                "SELECT * FROM memory_strength WHERE memory_key = ?", (key,)
+            ).fetchone()
+            if row is None:
+                return Success(None)
+            return Success(self._row_to_strength(row))
+        except Exception as e:
+            logger.error("Failed to get strength for %s: %s", key, e)
+            return Failure(RepositoryError(str(e)))
+
+    def save_strength(
+        self, strength: MemoryStrength
+    ) -> Result[None, RepositoryError]:
+        """Save or update a memory strength record."""
+        try:
+            self._db.execute(
+                """
+                INSERT OR REPLACE INTO memory_strength
+                    (memory_key, strength, stability, last_decay, recall_count, last_recall)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    strength.memory_key,
+                    strength.strength,
+                    strength.stability,
+                    format_iso(strength.last_decay) if strength.last_decay else None,
+                    strength.recall_count,
+                    format_iso(strength.last_recall) if strength.last_recall else None,
+                ),
+            )
+            self._db.commit()
+            return Success(None)
+        except Exception as e:
+            logger.error("Failed to save strength for %s: %s", strength.memory_key, e)
+            return Failure(RepositoryError(str(e)))
+
+    def get_all_strengths(self) -> Result[list[MemoryStrength], RepositoryError]:
+        """Get all memory strength records."""
+        try:
+            rows = self._db.execute("SELECT * FROM memory_strength").fetchall()
+            return Success([self._row_to_strength(r) for r in rows])
+        except Exception as e:
+            logger.error("Failed to get all strengths: %s", e)
+            return Failure(RepositoryError(str(e)))
+
+    # ------------------------------------------------------------------
+    # Memory blocks
+    # ------------------------------------------------------------------
+
+    def get_block(
+        self, block_name: str
+    ) -> Result[dict | None, RepositoryError]:
+        """Get a named memory block."""
+        try:
+            row = self._db.execute(
+                "SELECT * FROM memory_blocks WHERE block_name = ?", (block_name,)
+            ).fetchone()
+            if row is None:
+                return Success(None)
+            return Success(dict(row))
+        except Exception as e:
+            logger.error("Failed to get block %s: %s", block_name, e)
+            return Failure(RepositoryError(str(e)))
+
+    def save_block(
+        self,
+        block_name: str,
+        content: str,
+        block_type: str = "custom",
+        max_tokens: int = 500,
+        priority: int = 0,
+        metadata: str = "{}",
+    ) -> Result[None, RepositoryError]:
+        """Save or update a named memory block."""
+        try:
+            now = format_iso(get_now())
+            self._db.execute(
+                """
+                INSERT INTO memory_blocks
+                    (block_name, content, block_type, max_tokens, priority,
+                     created_at, updated_at, metadata)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(block_name) DO UPDATE SET
+                    content = excluded.content,
+                    block_type = excluded.block_type,
+                    max_tokens = excluded.max_tokens,
+                    priority = excluded.priority,
+                    updated_at = excluded.updated_at,
+                    metadata = excluded.metadata
+                """,
+                (block_name, content, block_type, max_tokens, priority, now, now, metadata),
+            )
+            self._db.commit()
+            return Success(None)
+        except Exception as e:
+            logger.error("Failed to save block %s: %s", block_name, e)
+            return Failure(RepositoryError(str(e)))
+
+    def list_blocks(self) -> Result[list[dict], RepositoryError]:
+        """List all memory blocks."""
+        try:
+            rows = self._db.execute(
+                "SELECT * FROM memory_blocks ORDER BY priority DESC"
+            ).fetchall()
+            return Success([dict(r) for r in rows])
+        except Exception as e:
+            logger.error("Failed to list blocks: %s", e)
+            return Failure(RepositoryError(str(e)))
+
+    def delete_block(self, block_name: str) -> Result[None, RepositoryError]:
+        """Delete a named memory block."""
+        try:
+            self._db.execute(
+                "DELETE FROM memory_blocks WHERE block_name = ?", (block_name,)
+            )
+            self._db.commit()
+            return Success(None)
+        except Exception as e:
+            logger.error("Failed to delete block %s: %s", block_name, e)
+            return Failure(RepositoryError(str(e)))
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _parse_json_list(value: str | None) -> list[str]:
+        """Safely parse a JSON-encoded list from a database field."""
+        if not value:
+            return []
+        try:
+            parsed = json.loads(value)
+            return parsed if isinstance(parsed, list) else []
+        except (json.JSONDecodeError, TypeError):
+            return []
+
+    @staticmethod
+    def _parse_iso_or_none(value: str | None):
+        """Parse ISO datetime string or return None."""
+        if not value:
+            return None
+        from memory_mcp.domain.shared.time_utils import parse_iso
+        return parse_iso(value)
+
+    def _row_to_memory(self, row) -> Memory:
+        """Convert a database row to a Memory entity."""
+        return Memory(
+            key=row["key"],
+            content=row["content"],
+            created_at=self._parse_iso_or_none(row["created_at"]) or get_now(),
+            updated_at=self._parse_iso_or_none(row["updated_at"]) or get_now(),
+            importance=row["importance"] or 0.5,
+            emotion=row["emotion"] or "neutral",
+            emotion_intensity=row["emotion_intensity"] or 0.0,
+            tags=self._parse_json_list(row["tags"]),
+            privacy_level=row["privacy_level"] or "internal",
+            physical_state=row["physical_state"],
+            mental_state=row["mental_state"],
+            environment=row["environment"],
+            relationship_status=row["relationship_status"],
+            action_tag=row["action_tag"],
+            source_context=row["source_context"],
+            related_keys=self._parse_json_list(row["related_keys"]),
+            summary_ref=row["summary_ref"],
+            equipped_items=row["equipped_items"],
+            access_count=row["access_count"] or 0,
+            last_accessed=self._parse_iso_or_none(row["last_accessed"]),
+        )
+
+    def _row_to_strength(self, row) -> MemoryStrength:
+        """Convert a database row to a MemoryStrength entity."""
+        return MemoryStrength(
+            memory_key=row["memory_key"],
+            strength=row["strength"] or 1.0,
+            stability=row["stability"] or 1.0,
+            last_decay=self._parse_iso_or_none(row["last_decay"]),
+            recall_count=row["recall_count"] or 0,
+            last_recall=self._parse_iso_or_none(row["last_recall"]),
+        )
+
+    @staticmethod
+    def _simple_relevance_score(content: str, query: str) -> float:
+        """Simple relevance: count query term occurrences."""
+        query_lower = query.lower()
+        content_lower = content.lower()
+        terms = query_lower.split()
+        if not terms:
+            return 0.0
+        matches = sum(1 for t in terms if t in content_lower)
+        return matches / len(terms)

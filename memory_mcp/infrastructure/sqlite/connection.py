@@ -1,0 +1,190 @@
+from __future__ import annotations
+
+import sqlite3
+from pathlib import Path
+
+from memory_mcp.infrastructure.logging.structured import get_logger
+
+logger = get_logger(__name__)
+
+_MEMORY_SCHEMA = """\
+CREATE TABLE IF NOT EXISTS memories (
+    key TEXT PRIMARY KEY,
+    content TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    tags TEXT DEFAULT '[]',
+    importance REAL DEFAULT 0.5,
+    emotion TEXT DEFAULT 'neutral',
+    emotion_intensity REAL DEFAULT 0.0,
+    physical_state TEXT,
+    mental_state TEXT,
+    environment TEXT,
+    relationship_status TEXT,
+    action_tag TEXT,
+    source_context TEXT,
+    related_keys TEXT DEFAULT '[]',
+    summary_ref TEXT,
+    equipped_items TEXT,
+    access_count INTEGER DEFAULT 0,
+    last_accessed TEXT,
+    privacy_level TEXT DEFAULT 'internal'
+);
+
+CREATE TABLE IF NOT EXISTS memory_strength (
+    memory_key TEXT PRIMARY KEY,
+    strength REAL DEFAULT 1.0,
+    stability REAL DEFAULT 1.0,
+    last_decay TEXT,
+    recall_count INTEGER DEFAULT 0,
+    last_recall TEXT,
+    FOREIGN KEY (memory_key) REFERENCES memories(key)
+);
+
+CREATE TABLE IF NOT EXISTS memory_blocks (
+    block_name TEXT PRIMARY KEY,
+    content TEXT NOT NULL,
+    block_type TEXT DEFAULT 'custom',
+    max_tokens INTEGER DEFAULT 500,
+    priority INTEGER DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    metadata TEXT DEFAULT '{}'
+);
+
+CREATE TABLE IF NOT EXISTS context_state (
+    persona TEXT NOT NULL,
+    key TEXT NOT NULL,
+    value TEXT,
+    valid_from TEXT NOT NULL,
+    valid_until TEXT,
+    change_source TEXT,
+    PRIMARY KEY (persona, key, valid_from)
+);
+
+CREATE TABLE IF NOT EXISTS emotion_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    emotion_type TEXT NOT NULL,
+    intensity REAL DEFAULT 0.5,
+    timestamp TEXT NOT NULL,
+    trigger_memory_key TEXT,
+    context TEXT
+);
+
+CREATE TABLE IF NOT EXISTS user_info (
+    persona TEXT NOT NULL,
+    key TEXT NOT NULL,
+    value TEXT,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (persona, key)
+);
+
+CREATE TABLE IF NOT EXISTS persona_info (
+    persona TEXT NOT NULL,
+    key TEXT NOT NULL,
+    value TEXT,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (persona, key)
+);
+
+CREATE TABLE IF NOT EXISTS goals (
+    id TEXT PRIMARY KEY,
+    description TEXT NOT NULL,
+    status TEXT DEFAULT 'active',
+    priority INTEGER DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    completed_at TEXT,
+    metadata TEXT DEFAULT '{}'
+);
+
+CREATE TABLE IF NOT EXISTS promises (
+    id TEXT PRIMARY KEY,
+    description TEXT NOT NULL,
+    status TEXT DEFAULT 'active',
+    priority INTEGER DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    fulfilled_at TEXT,
+    metadata TEXT DEFAULT '{}'
+);
+"""
+
+_INVENTORY_SCHEMA = """\
+CREATE TABLE IF NOT EXISTS items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT UNIQUE NOT NULL,
+    category TEXT,
+    description TEXT,
+    quantity INTEGER DEFAULT 1,
+    tags TEXT DEFAULT '[]',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS equipment_slots (
+    slot TEXT PRIMARY KEY,
+    item_name TEXT,
+    equipped_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS equipment_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    action TEXT NOT NULL,
+    slot TEXT,
+    item_name TEXT,
+    timestamp TEXT NOT NULL,
+    details TEXT
+);
+"""
+
+
+class SQLiteConnection:
+    """SQLite connection manager with WAL mode and per-persona DB isolation."""
+
+    def __init__(self, data_dir: str, persona: str) -> None:
+        self.data_dir = data_dir
+        self.persona = persona
+        self._connections: dict[str, sqlite3.Connection] = {}
+
+    def get_memory_db(self) -> sqlite3.Connection:
+        """Get connection to memory.sqlite for this persona."""
+        return self._get_or_create(f"{self.persona}/memory.sqlite")
+
+    def get_inventory_db(self) -> sqlite3.Connection:
+        """Get connection to inventory.sqlite for this persona."""
+        return self._get_or_create(f"{self.persona}/inventory.sqlite")
+
+    def _get_or_create(self, relative_path: str) -> sqlite3.Connection:
+        if relative_path not in self._connections:
+            db_path = Path(self.data_dir) / relative_path
+            db_path.parent.mkdir(parents=True, exist_ok=True)
+            conn = sqlite3.connect(str(db_path))
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA foreign_keys=ON")
+            conn.row_factory = sqlite3.Row
+            self._connections[relative_path] = conn
+            logger.info("SQLite connection opened: %s", db_path)
+        return self._connections[relative_path]
+
+    def initialize_schema(self) -> None:
+        """Create all tables if they don't exist."""
+        memory_conn = self.get_memory_db()
+        memory_conn.executescript(_MEMORY_SCHEMA)
+        memory_conn.commit()
+        logger.info("Memory schema initialized for persona '%s'", self.persona)
+
+        inventory_conn = self.get_inventory_db()
+        inventory_conn.executescript(_INVENTORY_SCHEMA)
+        inventory_conn.commit()
+        logger.info("Inventory schema initialized for persona '%s'", self.persona)
+
+    def close(self) -> None:
+        """Close all managed connections."""
+        for path, conn in self._connections.items():
+            try:
+                conn.close()
+                logger.info("SQLite connection closed: %s", path)
+            except Exception as e:
+                logger.warning("Error closing SQLite connection %s: %s", path, e)
+        self._connections.clear()
