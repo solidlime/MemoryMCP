@@ -1,5 +1,4 @@
 """Placeholder test to verify pytest setup works."""
-import pytest
 
 class TestSetup:
     def test_pytest_works(self):

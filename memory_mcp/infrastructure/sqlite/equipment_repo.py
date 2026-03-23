@@ -264,6 +264,85 @@ class SQLiteEquipmentRepository:
             return Failure(RepositoryError(str(e)))
 
     # ------------------------------------------------------------------
+    # Protocol aliases (EquipmentRepository protocol compliance)
+    # ------------------------------------------------------------------
+
+    def find_item_by_name(self, name: str) -> Result[Item | None, RepositoryError]:
+        """Alias for ``find_item`` to satisfy the EquipmentRepository protocol."""
+        return self.find_item(name)
+
+    def equip_slot(self, slot: str, item_name: str) -> Result[None, RepositoryError]:
+        """Alias for ``equip`` to satisfy the EquipmentRepository protocol."""
+        return self.equip(slot, item_name)
+
+    def unequip_slot(self, slot: str) -> Result[None, RepositoryError]:
+        """Alias for ``unequip`` to satisfy the EquipmentRepository protocol."""
+        return self.unequip(slot)
+
+    def get_all_slots(self) -> Result[list, RepositoryError]:
+        """Return all equipment slots as EquipmentSlot-like objects."""
+        from memory_mcp.domain.equipment.entities import EquipmentSlot
+
+        result = self.get_equipment()
+        if not result.is_ok:
+            return Failure(result.error)
+        slots = []
+        for slot_name, item_name in result.value.items():
+            slots.append(EquipmentSlot(slot=slot_name, item_name=item_name))
+        return Success(slots)
+
+    def add_history(self, entry: EquipmentHistory) -> Result[None, RepositoryError]:
+        """Add an equipment history entry."""
+        try:
+            self._db.execute(
+                """
+                INSERT INTO equipment_history (action, slot, item_name, timestamp, details)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    entry.action,
+                    entry.slot,
+                    entry.item_name,
+                    format_iso(entry.timestamp) if entry.timestamp else format_iso(get_now()),
+                    entry.details,
+                ),
+            )
+            self._db.commit()
+            return Success(None)
+        except Exception as e:
+            logger.error("Failed to add equipment history: %s", e)
+            return Failure(RepositoryError(str(e)))
+
+    def search_items(
+        self, query: str | None = None, category: str | None = None
+    ) -> Result[list[Item], RepositoryError]:
+        """Search items by name substring and/or category."""
+        try:
+            if query and category:
+                rows = self._db.execute(
+                    "SELECT * FROM items WHERE name LIKE ? AND category = ? ORDER BY name",
+                    (f"%{query}%", category),
+                ).fetchall()
+            elif query:
+                rows = self._db.execute(
+                    "SELECT * FROM items WHERE name LIKE ? ORDER BY name",
+                    (f"%{query}%",),
+                ).fetchall()
+            elif category:
+                rows = self._db.execute(
+                    "SELECT * FROM items WHERE category = ? ORDER BY name",
+                    (category,),
+                ).fetchall()
+            else:
+                rows = self._db.execute(
+                    "SELECT * FROM items ORDER BY name"
+                ).fetchall()
+            return Success([self._row_to_item(r) for r in rows])
+        except Exception as e:
+            logger.error("Failed to search items: %s", e)
+            return Failure(RepositoryError(str(e)))
+
+    # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
 
