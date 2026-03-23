@@ -63,3 +63,14 @@ class Settings(BaseSettings):
     default_persona: str = "default"
     contradiction_threshold: float = 0.85
     duplicate_threshold: float = 0.90
+
+
+_settings_instance: Settings | None = None
+
+
+def get_settings() -> Settings:
+    """Return a cached Settings singleton."""
+    global _settings_instance
+    if _settings_instance is None:
+        _settings_instance = Settings()
+    return _settings_instance

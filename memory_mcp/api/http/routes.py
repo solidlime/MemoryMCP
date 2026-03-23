@@ -9,10 +9,10 @@ from memory_mcp.application.use_cases import AppContextRegistry
 from memory_mcp.config.settings import Settings
 
 
-def register_http_routes(app) -> None:
-    """Register HTTP routes on the Starlette app."""
+def register_http_routes(mcp) -> None:
+    """Register HTTP routes on the FastMCP server."""
 
-    @app.route("/health")
+    @mcp.custom_route("/health", methods=["GET"])
     async def health(request: Request) -> JSONResponse:
         """Health check endpoint."""
         ctx = AppContextRegistry.get("default")
@@ -25,7 +25,7 @@ def register_http_routes(app) -> None:
             }
         )
 
-    @app.route("/api/personas")
+    @mcp.custom_route("/api/personas", methods=["GET"])
     async def list_personas(request: Request) -> JSONResponse:
         """List available personas by scanning data directory."""
         settings = Settings()
@@ -37,7 +37,7 @@ def register_http_routes(app) -> None:
                     personas.append(d)
         return JSONResponse({"personas": personas})
 
-    @app.route("/api/stats/{persona}")
+    @mcp.custom_route("/api/stats/{persona}", methods=["GET"])
     async def persona_stats(request: Request) -> JSONResponse:
         """Get stats for a specific persona."""
         persona = request.path_params["persona"]

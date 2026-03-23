@@ -25,16 +25,18 @@ def create_app() -> FastMCP:
     )
 
     register_tools(mcp)
-    register_http_routes(mcp._app)
+    register_http_routes(mcp)
 
     return mcp
 
 
+mcp = create_app()
+
+
 def main() -> None:
     """Run the MemoryMCP server."""
-    app = create_app()
     settings = Settings()
-    app.run(
+    mcp.run(
         transport="streamable-http",
         host=settings.server.host,
         port=settings.server.port,
