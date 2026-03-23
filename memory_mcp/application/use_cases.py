@@ -13,6 +13,7 @@ from memory_mcp.infrastructure.embedding.model import EmbeddingModel
 from memory_mcp.infrastructure.qdrant.adapter import QdrantVectorStore
 from memory_mcp.infrastructure.qdrant.client import QdrantClientManager
 from memory_mcp.infrastructure.sqlite.connection import SQLiteConnection
+from memory_mcp.infrastructure.sqlite.entity_repo import SQLiteEntityRepository
 from memory_mcp.infrastructure.sqlite.equipment_repo import SQLiteEquipmentRepository
 from memory_mcp.infrastructure.sqlite.memory_repo import SQLiteMemoryRepository
 from memory_mcp.infrastructure.sqlite.persona_repo import SQLitePersonaRepository
@@ -75,11 +76,17 @@ class AppContext:
         self.memory_repo = SQLiteMemoryRepository(self.connection.get_memory_db())
         self.persona_repo = SQLitePersonaRepository(self.connection.get_memory_db())
         self.equipment_repo = SQLiteEquipmentRepository(self.connection.get_inventory_db())
+        self.entity_repo = SQLiteEntityRepository(self.connection)
 
         # Services
         self.memory_service = MemoryService(self.memory_repo)
         self.persona_service = PersonaService(self.persona_repo)
         self.equipment_service = EquipmentService(self.equipment_repo)
+
+        # Entity graph (optional — never blocks core memory operations)
+        from memory_mcp.domain.memory.graph import EntityService
+
+        self.entity_service = EntityService(self.entity_repo)
 
         # Vector store (lazy)
         self._vector_store: QdrantVectorStore | None = None

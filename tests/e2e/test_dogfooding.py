@@ -219,7 +219,7 @@ class TestMigration:
         r2 = engine.run_all()
         assert r2.is_ok
         # Second run shouldn't break anything
-        assert engine.get_applied_versions() == ["001", "002"]
+        assert engine.get_applied_versions() == ["001", "002", "003", "004"]
         conn.close()
 
     def test_source_context_column_exists(self, tmp_path):

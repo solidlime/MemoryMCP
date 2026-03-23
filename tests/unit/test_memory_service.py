@@ -126,6 +126,54 @@ class InMemoryMemoryRepository:
         self._blocks.pop(block_name, None)
         return Success(None)
 
+    # Memory versions
+    def save_version(
+        self,
+        memory_key: str,
+        version: int,
+        content: str,
+        metadata: dict | None,
+        changed_by: str,
+        change_type: str,
+    ) -> Result[None, RepositoryError]:
+        if not hasattr(self, "_versions"):
+            self._versions: dict[str, list[dict]] = {}
+        if memory_key not in self._versions:
+            self._versions[memory_key] = []
+        self._versions[memory_key].append({
+            "memory_key": memory_key,
+            "version": version,
+            "content": content,
+            "metadata": metadata,
+            "changed_by": changed_by,
+            "change_type": change_type,
+            "created_at": "2025-01-01T00:00:00+09:00",
+        })
+        return Success(None)
+
+    def get_versions(self, memory_key: str) -> Result[list[dict], RepositoryError]:
+        if not hasattr(self, "_versions"):
+            self._versions: dict[str, list[dict]] = {}
+        return Success(self._versions.get(memory_key, []))
+
+    def get_version(
+        self, memory_key: str, version: int
+    ) -> Result[dict | None, RepositoryError]:
+        if not hasattr(self, "_versions"):
+            self._versions: dict[str, list[dict]] = {}
+        for v in self._versions.get(memory_key, []):
+            if v["version"] == version:
+                return Success(v)
+        return Success(None)
+
+    def get_latest_version_number(self, memory_key: str) -> Result[int, RepositoryError]:
+        if not hasattr(self, "_versions"):
+            self._versions: dict[str, list[dict]] = {}
+        versions = self._versions.get(memory_key, [])
+        if not versions:
+            return Success(0)
+        return Success(max(v["version"] for v in versions))
+
 
 # ---------------------------------------------------------------------------
 # Fixtures

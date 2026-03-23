@@ -18,8 +18,13 @@ if TYPE_CHECKING:
 class MemoryService:
     """Domain service for memory operations."""
 
-    def __init__(self, repo: MemoryRepository) -> None:
+    def __init__(
+        self,
+        repo: MemoryRepository,
+        entity_service: object | None = None,
+    ) -> None:
         self._repo = repo
+        self._entity_service = entity_service
 
     def create_memory(
         self,
@@ -54,6 +59,28 @@ class MemoryService:
         result = self._repo.save(memory)
         if not result.is_ok:
             return Failure(result.error)
+
+        # Record version 1
+        self._repo.save_version(
+            memory_key=key,
+            version=1,
+            content=memory.content,
+            metadata=None,
+            changed_by="user",
+            change_type="create",
+        )
+
+        # Entity extraction hook (best-effort, never blocks create)
+        if self._entity_service is not None:
+            import contextlib
+
+            with contextlib.suppress(Exception):
+                self._entity_service.extract_and_link(
+                    memory_key=key,
+                    content=content.strip(),
+                    tags=tags,
+                )
+
         return Success(memory)
 
     def get_memory(self, key: str) -> Result[Memory, DomainError]:
@@ -73,10 +100,33 @@ class MemoryService:
         if existing.value is None:
             return Failure(MemoryNotFoundError(f"Memory not found: {key}"))
 
+        # Capture pre-update snapshot for versioning
+        old_memory = existing.value
+        snapshot = {
+            "content": old_memory.content,
+            "importance": old_memory.importance,
+            "emotion": old_memory.emotion,
+            "tags": old_memory.tags,
+            "privacy_level": old_memory.privacy_level,
+        }
+
         updates["updated_at"] = get_now()
         result = self._repo.update(key, **updates)
         if not result.is_ok:
             return Failure(result.error)
+
+        # Record new version
+        ver_result = self._repo.get_latest_version_number(key)
+        next_ver = (ver_result.value + 1) if ver_result.is_ok else 1
+        self._repo.save_version(
+            memory_key=key,
+            version=next_ver,
+            content=str(updates.get("content", old_memory.content)),
+            metadata=snapshot,
+            changed_by="user",
+            change_type="update",
+        )
+
         return Success(result.value)
 
     def delete_memory(self, key: str) -> Result[None, DomainError]:
@@ -86,6 +136,26 @@ class MemoryService:
             return Failure(existing.error)
         if existing.value is None:
             return Failure(MemoryNotFoundError(f"Memory not found: {key}"))
+
+        # Record delete version
+        old_memory = existing.value
+        ver_result = self._repo.get_latest_version_number(key)
+        next_ver = (ver_result.value + 1) if ver_result.is_ok else 1
+        snapshot = {
+            "content": old_memory.content,
+            "importance": old_memory.importance,
+            "emotion": old_memory.emotion,
+            "tags": old_memory.tags,
+        }
+        self._repo.save_version(
+            memory_key=key,
+            version=next_ver,
+            content=old_memory.content,
+            metadata=snapshot,
+            changed_by="user",
+            change_type="delete",
+        )
+
         return self._repo.delete(key)
 
     def get_recent(self, limit: int = 10) -> Result[list[Memory], DomainError]:
@@ -163,6 +233,10 @@ class MemoryService:
     def list_blocks(self) -> Result[list[dict], DomainError]:
         """List all memory blocks."""
         return self._repo.list_blocks()
+
+    def get_memory_history(self, key: str) -> Result[list[dict], DomainError]:
+        """Get version history for a memory."""
+        return self._repo.get_versions(key)
 
     def delete_block(self, block_name: str) -> Result[None, DomainError]:
         """Delete a named memory block."""

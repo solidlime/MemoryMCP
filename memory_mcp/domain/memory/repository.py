@@ -65,3 +65,22 @@ class MemoryRepository(Protocol):
     def list_blocks(self) -> Result[list[dict], RepositoryError]: ...
 
     def delete_block(self, block_name: str) -> Result[None, RepositoryError]: ...
+
+    # Memory versions
+    def save_version(
+        self,
+        memory_key: str,
+        version: int,
+        content: str,
+        metadata: dict | None,
+        changed_by: str,
+        change_type: str,
+    ) -> Result[None, RepositoryError]: ...
+
+    def get_versions(self, memory_key: str) -> Result[list[dict], RepositoryError]: ...
+
+    def get_version(
+        self, memory_key: str, version: int
+    ) -> Result[dict | None, RepositoryError]: ...
+
+    def get_latest_version_number(self, memory_key: str) -> Result[int, RepositoryError]: ...

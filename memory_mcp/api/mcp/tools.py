@@ -72,12 +72,19 @@ def register_tools(mcp: FastMCP) -> None:
         priority: int | None = None,
         description: str | None = None,
         status: str | None = None,
+        entity_id: str | None = None,
+        entity_type: str | None = None,
+        source_entity: str | None = None,
+        target_entity: str | None = None,
+        relation_type: str | None = None,
+        depth: int = 1,
     ) -> str:
         """Create, read, update, delete memories and manage memory blocks.
 
-        Operations: create, read, update, delete, stats,
+        Operations: create, read, update, delete, check_contradictions, stats,
                    block_write, block_read, block_list, block_delete,
-                   promise, goal
+                   promise, goal,
+                   entity_search, entity_graph, entity_add_relation
         """
         persona = _resolve_persona()
         ctx = AppContextRegistry.get(persona)
@@ -151,6 +158,56 @@ def register_tools(mcp: FastMCP) -> None:
                 return f"Memory deleted: {key}"
             return f"Error: {result.error}"
 
+        elif operation == "check_contradictions":
+            if not content and not memory_key:
+                return "Error: content or memory_key required"
+            check_content = content
+            exclude = None
+            if memory_key and not content:
+                mem_result = ctx.memory_service.get_memory(memory_key)
+                if not mem_result.is_ok:
+                    return f"Error: {mem_result.error}"
+                check_content = mem_result.value.content
+                exclude = memory_key
+            if not check_content:
+                return "Error: could not determine content to check"
+
+            from memory_mcp.domain.memory.contradiction import ContradictionDetector
+
+            threshold = ctx.settings.contradiction_threshold
+            detector = ContradictionDetector(
+                vector_store=ctx.vector_store,
+                threshold=threshold,
+            )
+            report_result = detector.find_potential_contradictions(
+                check_content, persona, exclude_key=exclude
+            )
+            if not report_result.is_ok:
+                return f"Error: {report_result.error}"
+            report = report_result.value
+            if not report.candidates:
+                return "No contradictions found."
+            lines = [f"Found {len(report.candidates)} potential contradiction(s) (threshold={report.threshold}):"]
+            for c in report.candidates:
+                lines.append(f"  - {c.memory_key} (similarity={c.similarity:.3f})")
+            return "\n".join(lines)
+
+        elif operation == "history":
+            if not memory_key:
+                return "Error: memory_key required for history"
+            result = ctx.memory_service.get_memory_history(memory_key)
+            if not result.is_ok:
+                return f"Error: {result.error}"
+            versions = result.value
+            if not versions:
+                return "No version history found."
+            lines = [f"Version history for {memory_key} ({len(versions)} versions):"]
+            for v in versions:
+                lines.append(
+                    f"  v{v['version']} [{v['change_type']}] by {v['changed_by']} at {v['created_at']}"
+                )
+            return "\n".join(lines)
+
         elif operation == "stats":
             result = ctx.memory_service.get_stats()
             if result.is_ok:
@@ -184,6 +241,63 @@ def register_tools(mcp: FastMCP) -> None:
                 return "Error: block_name required"
             result = ctx.memory_service.delete_block(block_name)
             return "Block deleted" if result.is_ok else f"Error: {result.error}"
+
+        # -- Entity graph operations -----------------------------------------
+
+        elif operation == "entity_search":
+            q = query or entity_id or ""
+            if not q:
+                return "Error: query or entity_id required"
+            result = ctx.entity_service.find_entities(q, entity_type)
+            if not result.is_ok:
+                return f"Error: {result.error}"
+            entities = result.value
+            if not entities:
+                return "No entities found."
+            return "\n".join(
+                f"- {e.id} (type={e.entity_type}, mentions={e.mention_count})"
+                for e in entities
+            )
+
+        elif operation == "entity_graph":
+            eid = entity_id or query
+            if not eid:
+                return "Error: entity_id required"
+            result = ctx.entity_service.get_entity_graph(eid, depth)
+            if not result.is_ok:
+                return f"Error: {result.error}"
+            graph = result.value
+            lines: list[str] = [
+                f"=== Entity: {graph.center.id} (type={graph.center.entity_type}, mentions={graph.center.mention_count}) ===",
+            ]
+            if graph.relations:
+                lines.append("\n--- Relations ---")
+                for rel in graph.relations:
+                    lines.append(
+                        f"  {rel.source_entity} --[{rel.relation_type}]--> {rel.target_entity}"
+                        f" (confidence={rel.confidence})"
+                    )
+            if graph.related_entities:
+                lines.append("\n--- Related Entities ---")
+                for re_ in graph.related_entities:
+                    lines.append(f"  {re_.id} (type={re_.entity_type})")
+            if graph.related_memories:
+                lines.append("\n--- Related Memories ---")
+                for mk in graph.related_memories:
+                    lines.append(f"  {mk}")
+            return "\n".join(lines)
+
+        elif operation == "entity_add_relation":
+            if not source_entity or not target_entity or not relation_type:
+                return "Error: source_entity, target_entity, and relation_type required"
+            result = ctx.entity_service.add_relation(
+                source_entity, target_entity, relation_type, memory_key
+            )
+            return (
+                f"Relation added: {source_entity} --[{relation_type}]--> {target_entity}"
+                if result.is_ok
+                else f"Error: {result.error}"
+            )
 
         else:
             return f"Unknown operation: {operation}"

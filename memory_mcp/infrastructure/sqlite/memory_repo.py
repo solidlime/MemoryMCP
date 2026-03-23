@@ -341,6 +341,115 @@ class SQLiteMemoryRepository:
             return Failure(RepositoryError(str(e)))
 
     # ------------------------------------------------------------------
+    # Memory versions
+    # ------------------------------------------------------------------
+
+    def save_version(
+        self,
+        memory_key: str,
+        version: int,
+        content: str,
+        metadata: dict | None,
+        changed_by: str,
+        change_type: str,
+    ) -> Result[None, RepositoryError]:
+        """Save a version snapshot of a memory."""
+        try:
+            now = format_iso(get_now())
+            self._db.execute(
+                """
+                INSERT INTO memory_versions
+                    (memory_key, version, content, metadata,
+                     changed_by, change_type, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    memory_key,
+                    version,
+                    content,
+                    json.dumps(metadata, ensure_ascii=False)
+                    if metadata
+                    else None,
+                    changed_by,
+                    change_type,
+                    now,
+                ),
+            )
+            self._db.commit()
+            logger.info(
+                "Version %d saved for memory %s (%s)",
+                version,
+                memory_key,
+                change_type,
+            )
+            return Success(None)
+        except Exception as e:
+            logger.error(
+                "Failed to save version for %s: %s", memory_key, e
+            )
+            return Failure(RepositoryError(str(e)))
+
+    def get_versions(
+        self, memory_key: str
+    ) -> Result[list[dict], RepositoryError]:
+        """Get all version records for a memory, ordered by version."""
+        try:
+            rows = self._db.execute(
+                "SELECT * FROM memory_versions "
+                "WHERE memory_key = ? ORDER BY version ASC",
+                (memory_key,),
+            ).fetchall()
+            return Success([dict(r) for r in rows])
+        except Exception as e:
+            logger.error(
+                "Failed to get versions for %s: %s", memory_key, e
+            )
+            return Failure(RepositoryError(str(e)))
+
+    def get_version(
+        self, memory_key: str, version: int
+    ) -> Result[dict | None, RepositoryError]:
+        """Get a specific version record."""
+        try:
+            row = self._db.execute(
+                "SELECT * FROM memory_versions "
+                "WHERE memory_key = ? AND version = ?",
+                (memory_key, version),
+            ).fetchone()
+            return Success(dict(row) if row else None)
+        except Exception as e:
+            logger.error(
+                "Failed to get version %d for %s: %s",
+                version,
+                memory_key,
+                e,
+            )
+            return Failure(RepositoryError(str(e)))
+
+    def get_latest_version_number(
+        self, memory_key: str
+    ) -> Result[int, RepositoryError]:
+        """Get the latest version number for a memory, 0 if none."""
+        try:
+            row = self._db.execute(
+                "SELECT MAX(version) as max_ver "
+                "FROM memory_versions WHERE memory_key = ?",
+                (memory_key,),
+            ).fetchone()
+            return Success(
+                row["max_ver"]
+                if row and row["max_ver"] is not None
+                else 0
+            )
+        except Exception as e:
+            logger.error(
+                "Failed to get latest version for %s: %s",
+                memory_key,
+                e,
+            )
+            return Failure(RepositoryError(str(e)))
+
+    # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
 
