@@ -54,8 +54,10 @@ RUN find /usr/local/lib/python3.12/site-packages -type d -name __pycache__ -exec
     find /usr/local/lib/python3.12/site-packages -type f -name '*.h' -delete && \
     rm -rf /usr/local/lib/python3.12/site-packages/pip /usr/local/lib/python3.12/site-packages/setuptools
 
-# Copy application code
-COPY . ${APP_HOME}
+# Copy application code (v2: memory_mcp package + data only)
+COPY memory_mcp/ ${APP_HOME}/memory_mcp/
+COPY data/ ${APP_HOME}/data/
+COPY pyproject.toml ${APP_HOME}/
 
 # Remove config.json from app directory (will be loaded from data/ at runtime)
 RUN rm -f ${APP_HOME}/data/config.json 2>/dev/null || true
@@ -109,8 +111,8 @@ EXPOSE 26262
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:26262/health || exit 1
 
-# Run the MCP server
-CMD ["python", "memory_mcp.py"]
+# Run the MCP server (v2: package entrypoint)
+CMD ["python", "-m", "memory_mcp.main"]
 
 # Notes:
 # - Development tip: place environment overrides in a top-level `.env` (or use Compose `env_file:`)

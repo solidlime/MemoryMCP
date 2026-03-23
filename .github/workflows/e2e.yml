@@ -59,7 +59,7 @@ jobs:
 
       - name: Start MCP server
         run: |
-          python memory_mcp.py &
+          python -m memory_mcp.main &
           sleep 10
           curl -f http://localhost:26262/health || exit 1
         env:

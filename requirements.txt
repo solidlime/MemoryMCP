@@ -1,49 +1,24 @@
-# LLMチェーンとRAG用
-langchain>=1.0.0
-langchain-community>=0.4
-langchain-core>=1.0.0
-langchain-huggingface>=1.0.0
+# ==========================================
+# memory-mcp v2 dependencies
+# ==========================================
 
-# 埋め込みモデルとReranker
+# Embedding & Reranker
 sentence-transformers>=3.0.0
-transformers>=4.35.0
 sentencepiece>=0.1.99  # Required for cl-nagoya/ruri-v3-30m tokenizer
 
-# PyTorch CPU版
+# PyTorch CPU版（sentence-transformersの依存として自動インストールされる）
 # Docker: Dockerfile で --index-url を使って CPU 版を先にインストール
 # ローカル開発: pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
-# requirements.txt では依存関係として記載（バージョン管理用）
-# torch>=2.0.0
-# torchvision>=0.15.0
-# torchaudio>=2.0.0
 
-# Phase 25: FAISS削除（Qdrant専用化）
-# faiss-cpu>=1.7.4  # 削除
+# MCP Server
+mcp>=1.0.0
 
-# その他依存
-numpy>=1.24.0
-scipy>=1.10.0
-aiohttp>=3.9.0
+# Data Validation & Settings
 pydantic>=2.0.0,<3.0.0
-tqdm>=4.64.0
+pydantic-settings>=2.0.0
 
-# MCPサーバー用
-fastmcp>=0.9.0
-fastapi>=0.115.0
-uvicorn[standard]>=0.32.0
-
-# Phase 16: Enhanced Search
-rapidfuzz>=3.0.0
-
-# Phase 18: Performance Optimization
-cachetools>=5.3.0
-
-# Phase 20: Knowledge Graph & Analysis
-networkx>=3.0
-pyvis>=0.3.0
-
-# Phase 22: Web Dashboard
-jinja2>=3.1.0
-
-# Phase 23 → Phase 25: Qdrant Backend（必須化）
+# Vector Store
 qdrant-client>=1.8.2
+
+# Numerical
+numpy>=1.24.0
