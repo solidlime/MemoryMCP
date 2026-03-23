@@ -38,9 +38,7 @@ class PersonaService:
         if not state_result.is_ok:
             return Failure(state_result.error)
 
-        intensity_result = self._repo.update_state(
-            persona, "emotion_intensity", str(intensity)
-        )
+        intensity_result = self._repo.update_state(persona, "emotion_intensity", str(intensity))
         if not intensity_result.is_ok:
             return Failure(intensity_result.error)
 
@@ -65,9 +63,15 @@ class PersonaService:
         Updates only non-None values.
         """
         allowed_keys = {
-            "physical_state", "mental_state", "environment",
-            "fatigue", "warmth", "arousal", "heart_rate",
-            "touch_response", "action_tag",
+            "physical_state",
+            "mental_state",
+            "environment",
+            "fatigue",
+            "warmth",
+            "arousal",
+            "heart_rate",
+            "touch_response",
+            "action_tag",
         }
         for key, value in states.items():
             if key not in allowed_keys:
@@ -79,21 +83,13 @@ class PersonaService:
                 return Failure(result.error)
         return Success(None)
 
-    def update_relationship(
-        self, persona: str, status: str
-    ) -> Result[None, DomainError]:
+    def update_relationship(self, persona: str, status: str) -> Result[None, DomainError]:
         """Update relationship status."""
         if not status or not status.strip():
-            return Failure(
-                PersonaValidationError("Relationship status must not be empty")
-            )
-        return self._repo.update_state(
-            persona, "relationship_status", status.strip()
-        )
+            return Failure(PersonaValidationError("Relationship status must not be empty"))
+        return self._repo.update_state(persona, "relationship_status", status.strip())
 
-    def update_user_info(
-        self, persona: str, user_info: dict
-    ) -> Result[None, DomainError]:
+    def update_user_info(self, persona: str, user_info: dict) -> Result[None, DomainError]:
         """Merge updates into user info."""
         if not user_info:
             return Success(None)
@@ -103,9 +99,7 @@ class PersonaService:
                 return Failure(result.error)
         return Success(None)
 
-    def update_persona_info(
-        self, persona: str, persona_info: dict
-    ) -> Result[None, DomainError]:
+    def update_persona_info(self, persona: str, persona_info: dict) -> Result[None, DomainError]:
         """Merge updates into persona info."""
         if not persona_info:
             return Success(None)
@@ -115,11 +109,7 @@ class PersonaService:
                 return Failure(result.error)
         return Success(None)
 
-    def record_conversation_time(
-        self, persona: str
-    ) -> Result[None, DomainError]:
+    def record_conversation_time(self, persona: str) -> Result[None, DomainError]:
         """Record current time as last conversation time."""
         now = get_now()
-        return self._repo.update_state(
-            persona, "last_conversation_time", now.isoformat()
-        )
+        return self._repo.update_state(persona, "last_conversation_time", now.isoformat())

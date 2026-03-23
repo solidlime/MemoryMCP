@@ -83,9 +83,7 @@ class QdrantVectorStore:
             logger.error("Failed to upsert vector for %s: %s", key, e)
             return Failure(VectorStoreError(str(e)))
 
-    def search(
-        self, persona: str, query: str, limit: int = 10
-    ) -> Result[list[tuple[str, float]], VectorStoreError]:
+    def search(self, persona: str, query: str, limit: int = 10) -> Result[list[tuple[str, float]], VectorStoreError]:
         """Semantic search. Returns list of (memory_key, score)."""
         try:
             vector = self.embedding.encode(query, is_query=True)
@@ -117,9 +115,7 @@ class QdrantVectorStore:
     def count(self, persona: str) -> Result[int, VectorStoreError]:
         """Count points in the persona's collection."""
         try:
-            info = self.client_manager.client.get_collection(
-                collection_name=self.collection_name(persona)
-            )
+            info = self.client_manager.client.get_collection(collection_name=self.collection_name(persona))
             return Success(info.points_count)
         except Exception as e:
             logger.error("Failed to count vectors for '%s': %s", persona, e)

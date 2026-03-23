@@ -18,6 +18,7 @@ from memory_mcp.infrastructure.sqlite.memory_repo import SQLiteMemoryRepository
 # InMemory repo with version support (for unit tests)
 # ---------------------------------------------------------------------------
 
+
 class InMemoryVersionedRepository:
     """Protocol-compatible in-memory repo with version support."""
 
@@ -77,8 +78,15 @@ class InMemoryVersionedRepository:
     def get_block(self, block_name: str) -> Result[dict | None, RepositoryError]:
         return Success(self._blocks.get(block_name))
 
-    def save_block(self, block_name: str, content: str, block_type: str = "custom",
-                   max_tokens: int = 500, priority: int = 0, metadata: dict | None = None) -> Result[None, RepositoryError]:
+    def save_block(
+        self,
+        block_name: str,
+        content: str,
+        block_type: str = "custom",
+        max_tokens: int = 500,
+        priority: int = 0,
+        metadata: dict | None = None,
+    ) -> Result[None, RepositoryError]:
         self._blocks[block_name] = {"block_name": block_name, "content": content}
         return Success(None)
 
@@ -90,19 +98,22 @@ class InMemoryVersionedRepository:
         return Success(None)
 
     # Version methods
-    def save_version(self, memory_key: str, version: int, content: str,
-                     metadata: dict | None, changed_by: str, change_type: str) -> Result[None, RepositoryError]:
+    def save_version(
+        self, memory_key: str, version: int, content: str, metadata: dict | None, changed_by: str, change_type: str
+    ) -> Result[None, RepositoryError]:
         if memory_key not in self._versions:
             self._versions[memory_key] = []
-        self._versions[memory_key].append({
-            "memory_key": memory_key,
-            "version": version,
-            "content": content,
-            "metadata": metadata,
-            "changed_by": changed_by,
-            "change_type": change_type,
-            "created_at": "2025-01-01T00:00:00+09:00",
-        })
+        self._versions[memory_key].append(
+            {
+                "memory_key": memory_key,
+                "version": version,
+                "content": content,
+                "metadata": metadata,
+                "changed_by": changed_by,
+                "change_type": change_type,
+                "created_at": "2025-01-01T00:00:00+09:00",
+            }
+        )
         return Success(None)
 
     def get_versions(self, memory_key: str) -> Result[list[dict], RepositoryError]:
@@ -124,6 +135,7 @@ class InMemoryVersionedRepository:
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def repo():
@@ -152,6 +164,7 @@ def sqlite_repo(sqlite_conn):
 # ---------------------------------------------------------------------------
 # Unit Tests: MemoryService versioning
 # ---------------------------------------------------------------------------
+
 
 class TestMemoryVersioning:
     def test_create_records_version_1(self, service: MemoryService, repo: InMemoryVersionedRepository):
@@ -218,12 +231,15 @@ class TestMemoryVersioning:
     def test_version_persisted_in_sqlite(self, sqlite_repo: SQLiteMemoryRepository, sqlite_conn):
         """SQLiteに永続化される"""
         now = get_now()
-        m = Memory(key="memory_test_ver", content="sqlite version test",
-                   created_at=now, updated_at=now)
+        m = Memory(key="memory_test_ver", content="sqlite version test", created_at=now, updated_at=now)
         sqlite_repo.save(m)
         sqlite_repo.save_version(
-            memory_key="memory_test_ver", version=1, content="sqlite version test",
-            metadata=None, changed_by="user", change_type="create",
+            memory_key="memory_test_ver",
+            version=1,
+            content="sqlite version test",
+            metadata=None,
+            changed_by="user",
+            change_type="create",
         )
         result = sqlite_repo.get_versions("memory_test_ver")
         assert result.is_ok
@@ -236,12 +252,20 @@ class TestMemoryVersioning:
     def test_get_specific_version(self, sqlite_repo: SQLiteMemoryRepository, sqlite_conn):
         """特定バージョンが取得できる"""
         sqlite_repo.save_version(
-            memory_key="mem_specific", version=1, content="first",
-            metadata=None, changed_by="user", change_type="create",
+            memory_key="mem_specific",
+            version=1,
+            content="first",
+            metadata=None,
+            changed_by="user",
+            change_type="create",
         )
         sqlite_repo.save_version(
-            memory_key="mem_specific", version=2, content="second",
-            metadata={"content": "first"}, changed_by="user", change_type="update",
+            memory_key="mem_specific",
+            version=2,
+            content="second",
+            metadata={"content": "first"},
+            changed_by="user",
+            change_type="update",
         )
         result = sqlite_repo.get_version("mem_specific", 2)
         assert result.is_ok
@@ -254,11 +278,19 @@ class TestMemoryVersioning:
         """最新バージョン番号の取得"""
         assert sqlite_repo.get_latest_version_number("nonexistent").value == 0
         sqlite_repo.save_version(
-            memory_key="mem_latest", version=1, content="a",
-            metadata=None, changed_by="user", change_type="create",
+            memory_key="mem_latest",
+            version=1,
+            content="a",
+            metadata=None,
+            changed_by="user",
+            change_type="create",
         )
         sqlite_repo.save_version(
-            memory_key="mem_latest", version=2, content="b",
-            metadata=None, changed_by="user", change_type="update",
+            memory_key="mem_latest",
+            version=2,
+            content="b",
+            metadata=None,
+            changed_by="user",
+            change_type="update",
         )
         assert sqlite_repo.get_latest_version_number("mem_latest").value == 2

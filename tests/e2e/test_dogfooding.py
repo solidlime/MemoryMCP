@@ -372,9 +372,7 @@ class TestPersonaState:
     def test_update_physical_state(self, fresh_conn):
         repo = SQLitePersonaRepository(fresh_conn)
         svc = PersonaService(repo)
-        result = svc.update_physical_state(
-            "fresh", physical_state="元気", mental_state="集中"
-        )
+        result = svc.update_physical_state("fresh", physical_state="元気", mental_state="集中")
         assert result.is_ok
         ctx = svc.get_context("fresh")
         assert ctx.is_ok
@@ -789,9 +787,7 @@ class TestExportImportRoundtrip:
         # 1. Import herta
         conn1, _ = _import_zip(tmp_path, "herta")
         db1 = conn1.get_memory_db()
-        original_count = db1.execute(
-            "SELECT COUNT(*) as c FROM memories"
-        ).fetchone()["c"]
+        original_count = db1.execute("SELECT COUNT(*) as c FROM memories").fetchone()["c"]
 
         # 2. Export to JSONL
         export_path = tmp_path / "roundtrip.jsonl"
@@ -907,12 +903,8 @@ class TestCrossPersonaIsolation:
         conn_h, _ = _import_zip(tmp_path, "herta")
         conn_c, _ = _import_zip(tmp_path, "citlali")
 
-        h_count = conn_h.get_memory_db().execute(
-            "SELECT COUNT(*) as c FROM memories"
-        ).fetchone()["c"]
-        c_count = conn_c.get_memory_db().execute(
-            "SELECT COUNT(*) as c FROM memories"
-        ).fetchone()["c"]
+        h_count = conn_h.get_memory_db().execute("SELECT COUNT(*) as c FROM memories").fetchone()["c"]
+        c_count = conn_c.get_memory_db().execute("SELECT COUNT(*) as c FROM memories").fetchone()["c"]
 
         assert h_count == PERSONA_EXPECTED_COUNTS["herta"]
         assert c_count == PERSONA_EXPECTED_COUNTS["citlali"]

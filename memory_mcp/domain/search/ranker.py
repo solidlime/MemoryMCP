@@ -10,9 +10,7 @@ from memory_mcp.domain.search.engine import SearchQuery, SearchResult
 class ResultRanker(Protocol):
     """Protocol for result ranking strategies."""
 
-    def rank(
-        self, results: list[SearchResult], query: SearchQuery
-    ) -> list[SearchResult]: ...
+    def rank(self, results: list[SearchResult], query: SearchQuery) -> list[SearchResult]: ...
 
 
 class RRFRanker:
@@ -21,9 +19,7 @@ class RRFRanker:
     def __init__(self, k: int = 60) -> None:
         self.k = k
 
-    def rank(
-        self, results: list[SearchResult], query: SearchQuery
-    ) -> list[SearchResult]:
+    def rank(self, results: list[SearchResult], query: SearchQuery) -> list[SearchResult]:
         """Rank results using RRF formula: score = sum(1/(k + rank_i))."""
         if not results:
             return []
@@ -57,6 +53,7 @@ class RRFRanker:
 
             if query.recency_weight > 0 and original.memory.created_at:
                 from datetime import datetime
+
                 now = datetime.now(UTC)
                 created = original.memory.created_at
                 if created.tzinfo is None:
@@ -65,11 +62,13 @@ class RRFRanker:
                 recency_bonus = 1.0 / (1.0 + age_days)
                 adjusted_score += query.recency_weight * recency_bonus
 
-            merged.append(SearchResult(
-                memory=original.memory,
-                score=adjusted_score,
-                source="hybrid",
-            ))
+            merged.append(
+                SearchResult(
+                    memory=original.memory,
+                    score=adjusted_score,
+                    source="hybrid",
+                )
+            )
 
         merged.sort(key=lambda x: x.score, reverse=True)
         return merged
@@ -84,9 +83,7 @@ class ForgettingCurveRanker:
     ) -> None:
         self._strengths = strength_lookup or {}
 
-    def rank(
-        self, results: list[SearchResult], query: SearchQuery
-    ) -> list[SearchResult]:
+    def rank(self, results: list[SearchResult], query: SearchQuery) -> list[SearchResult]:
         """Multiply scores by recall probability if strength data exists."""
         if not self._strengths:
             return results
@@ -94,10 +91,12 @@ class ForgettingCurveRanker:
         adjusted: list[SearchResult] = []
         for r in results:
             recall = self._strengths.get(r.memory.key, 1.0)
-            adjusted.append(SearchResult(
-                memory=r.memory,
-                score=r.score * recall,
-                source=r.source,
-            ))
+            adjusted.append(
+                SearchResult(
+                    memory=r.memory,
+                    score=r.score * recall,
+                    source=r.source,
+                )
+            )
         adjusted.sort(key=lambda x: x.score, reverse=True)
         return adjusted

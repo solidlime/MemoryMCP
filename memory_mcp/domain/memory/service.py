@@ -180,11 +180,13 @@ class MemoryService:
                 tag_dist[tag] = tag_dist.get(tag, 0) + 1
             emotion_dist[m.emotion] = emotion_dist.get(m.emotion, 0) + 1
 
-        return Success({
-            "total_count": count_result.value,
-            "tag_distribution": tag_dist,
-            "emotion_distribution": emotion_dist,
-        })
+        return Success(
+            {
+                "total_count": count_result.value,
+                "tag_distribution": tag_dist,
+                "emotion_distribution": emotion_dist,
+            }
+        )
 
     def boost_recall(self, key: str) -> Result[MemoryStrength, DomainError]:
         """Boost memory strength on recall."""

@@ -10,6 +10,7 @@ from memory_mcp.domain.shared.result import Failure, Success
 # Mock vector store
 # ---------------------------------------------------------------------------
 
+
 class MockVectorStore:
     """Mock vector store for testing."""
 
@@ -27,13 +28,16 @@ class MockVectorStore:
 # Tests
 # ---------------------------------------------------------------------------
 
+
 class TestContradictionDetector:
     def test_find_no_contradictions(self):
         """矛盾なし時は空リスト"""
-        store = MockVectorStore(results=[
-            ("mem_1", 0.3),
-            ("mem_2", 0.5),
-        ])
+        store = MockVectorStore(
+            results=[
+                ("mem_1", 0.3),
+                ("mem_2", 0.5),
+            ]
+        )
         detector = ContradictionDetector(vector_store=store, threshold=0.85)
         result = detector.find_potential_contradictions("test content", "persona1")
         assert result.is_ok
@@ -43,11 +47,13 @@ class TestContradictionDetector:
 
     def test_find_potential_contradictions(self):
         """類似度が閾値以上の記憶が返される"""
-        store = MockVectorStore(results=[
-            ("mem_1", 0.90),
-            ("mem_2", 0.87),
-            ("mem_3", 0.60),
-        ])
+        store = MockVectorStore(
+            results=[
+                ("mem_1", 0.90),
+                ("mem_2", 0.87),
+                ("mem_3", 0.60),
+            ]
+        )
         detector = ContradictionDetector(vector_store=store, threshold=0.85)
         result = detector.find_potential_contradictions("test content", "persona1")
         assert result.is_ok
@@ -60,14 +66,14 @@ class TestContradictionDetector:
 
     def test_exclude_self(self):
         """自分自身は除外される"""
-        store = MockVectorStore(results=[
-            ("mem_self", 0.99),
-            ("mem_other", 0.90),
-        ])
-        detector = ContradictionDetector(vector_store=store, threshold=0.85)
-        result = detector.find_potential_contradictions(
-            "test content", "persona1", exclude_key="mem_self"
+        store = MockVectorStore(
+            results=[
+                ("mem_self", 0.99),
+                ("mem_other", 0.90),
+            ]
         )
+        detector = ContradictionDetector(vector_store=store, threshold=0.85)
+        result = detector.find_potential_contradictions("test content", "persona1", exclude_key="mem_self")
         assert result.is_ok
         report = result.value
         assert len(report.candidates) == 1
@@ -75,11 +81,13 @@ class TestContradictionDetector:
 
     def test_threshold_filtering(self):
         """閾値未満の結果はフィルタされる"""
-        store = MockVectorStore(results=[
-            ("mem_1", 0.84),
-            ("mem_2", 0.85),
-            ("mem_3", 0.86),
-        ])
+        store = MockVectorStore(
+            results=[
+                ("mem_1", 0.84),
+                ("mem_2", 0.85),
+                ("mem_3", 0.86),
+            ]
+        )
         detector = ContradictionDetector(vector_store=store, threshold=0.85)
         result = detector.find_potential_contradictions("test", "persona1")
         assert result.is_ok
@@ -109,10 +117,12 @@ class TestContradictionDetector:
 
     def test_custom_threshold(self):
         """カスタム閾値が正しく適用される"""
-        store = MockVectorStore(results=[
-            ("mem_1", 0.70),
-            ("mem_2", 0.80),
-        ])
+        store = MockVectorStore(
+            results=[
+                ("mem_1", 0.70),
+                ("mem_2", 0.80),
+            ]
+        )
         detector = ContradictionDetector(vector_store=store, threshold=0.75)
         result = detector.find_potential_contradictions("test", "persona1")
         assert result.is_ok

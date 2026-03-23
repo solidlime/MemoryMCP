@@ -32,18 +32,14 @@ class SQLiteKeywordSearch:
     def search(self, query: str, limit: int = 10):
         result = self.repo.search_keyword(query, limit)
         if result.is_ok:
-            return Success(
-                [SearchResult(memory=m, score=s, source="keyword") for m, s in result.value]
-            )
+            return Success([SearchResult(memory=m, score=s, source="keyword") for m, s in result.value])
         return Failure(SearchError(str(result.error)))
 
 
 class QdrantSemanticSearch:
     """Adapter: QdrantVectorStore -> SemanticSearchStrategy Protocol."""
 
-    def __init__(
-        self, vector_store: QdrantVectorStore, memory_repo: SQLiteMemoryRepository
-    ) -> None:
+    def __init__(self, vector_store: QdrantVectorStore, memory_repo: SQLiteMemoryRepository) -> None:
         self.vector_store = vector_store
         self.memory_repo = memory_repo
         self._persona: str = ""
@@ -57,9 +53,7 @@ class QdrantSemanticSearch:
         for key, score in result.value:
             mem_result = self.memory_repo.find_by_key(key)
             if mem_result.is_ok and mem_result.value:
-                search_results.append(
-                    SearchResult(memory=mem_result.value, score=score, source="semantic")
-                )
+                search_results.append(SearchResult(memory=mem_result.value, score=score, source="semantic"))
         return Success(search_results)
 
 
@@ -99,14 +93,10 @@ class AppContext:
         """Lazy-init vector store. Returns None if Qdrant unavailable."""
         if self._vector_store is None:
             try:
-                mgr = QdrantClientManager(
-                    self.settings.qdrant.url, self.settings.qdrant.api_key
-                )
+                mgr = QdrantClientManager(self.settings.qdrant.url, self.settings.qdrant.api_key)
                 if mgr.health_check():
                     emb = self.embedding_model
-                    self._vector_store = QdrantVectorStore(
-                        mgr, emb, self.settings.qdrant.collection_prefix
-                    )
+                    self._vector_store = QdrantVectorStore(mgr, emb, self.settings.qdrant.collection_prefix)
                     self._vector_store.ensure_collection(self.persona)
             except Exception:
                 pass
@@ -115,20 +105,14 @@ class AppContext:
     @property
     def embedding_model(self) -> EmbeddingModel:
         if self._embedding is None:
-            self._embedding = EmbeddingModel(
-                self.settings.embedding.model, self.settings.embedding.device
-            )
+            self._embedding = EmbeddingModel(self.settings.embedding.model, self.settings.embedding.device)
         return self._embedding
 
     @property
     def search_engine(self) -> SearchEngine:
         if self._search_engine is None:
             keyword = SQLiteKeywordSearch(self.memory_repo)
-            semantic = (
-                QdrantSemanticSearch(self.vector_store, self.memory_repo)
-                if self.vector_store
-                else None
-            )
+            semantic = QdrantSemanticSearch(self.vector_store, self.memory_repo) if self.vector_store else None
             ranker = RRFRanker()
             self._search_engine = SearchEngine(keyword, semantic, ranker)
         return self._search_engine

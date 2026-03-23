@@ -32,9 +32,7 @@ class SQLitePersonaRepository:
     # Persona state (bi-temporal)
     # ------------------------------------------------------------------
 
-    def get_current_state(
-        self, persona: str
-    ) -> Result[PersonaState, RepositoryError]:
+    def get_current_state(self, persona: str) -> Result[PersonaState, RepositoryError]:
         """Build the current persona state from context_state, user_info, persona_info."""
         try:
             # Get current context values (valid_until IS NULL means "current")
@@ -78,9 +76,7 @@ class SQLitePersonaRepository:
                     action_tag=state_map.get("action_tag"),
                     user_info=user_info,
                     persona_info=persona_info,
-                    last_conversation_time=_parse_or_none(
-                        state_map.get("last_conversation_time")
-                    ),
+                    last_conversation_time=_parse_or_none(state_map.get("last_conversation_time")),
                 )
             )
         except Exception as e:
@@ -125,9 +121,7 @@ class SQLitePersonaRepository:
             logger.error("Failed to update state %s/%s: %s", persona, key, e)
             return Failure(RepositoryError(str(e)))
 
-    def get_state_history(
-        self, persona: str, key: str, limit: int = 20
-    ) -> Result[list[ContextEntry], RepositoryError]:
+    def get_state_history(self, persona: str, key: str, limit: int = 20) -> Result[list[ContextEntry], RepositoryError]:
         """Get the change history for a specific state key."""
         try:
             rows = self._db.execute(
@@ -148,9 +142,7 @@ class SQLitePersonaRepository:
     # Emotion history
     # ------------------------------------------------------------------
 
-    def add_emotion_record(
-        self, persona: str, record: EmotionRecord
-    ) -> Result[None, RepositoryError]:
+    def add_emotion_record(self, persona: str, record: EmotionRecord) -> Result[None, RepositoryError]:
         """Add an emotion record to history."""
         try:
             now = format_iso(get_now())
@@ -175,9 +167,7 @@ class SQLitePersonaRepository:
             logger.error("Failed to add emotion record: %s", e)
             return Failure(RepositoryError(str(e)))
 
-    def get_emotion_history(
-        self, persona: str, limit: int = 20
-    ) -> Result[list[EmotionRecord], RepositoryError]:
+    def get_emotion_history(self, persona: str, limit: int = 20) -> Result[list[EmotionRecord], RepositoryError]:
         """Get recent emotion history."""
         try:
             rows = self._db.execute(
@@ -197,9 +187,7 @@ class SQLitePersonaRepository:
     # User / Persona info (key-value store)
     # ------------------------------------------------------------------
 
-    def set_user_info(
-        self, persona: str, key: str, value: str
-    ) -> Result[None, RepositoryError]:
+    def set_user_info(self, persona: str, key: str, value: str) -> Result[None, RepositoryError]:
         """Set a user info key-value pair (upsert)."""
         try:
             now = format_iso(get_now())
@@ -216,9 +204,7 @@ class SQLitePersonaRepository:
             logger.error("Failed to set user_info %s/%s: %s", persona, key, e)
             return Failure(RepositoryError(str(e)))
 
-    def set_persona_info(
-        self, persona: str, key: str, value: str
-    ) -> Result[None, RepositoryError]:
+    def set_persona_info(self, persona: str, key: str, value: str) -> Result[None, RepositoryError]:
         """Set a persona info key-value pair (upsert)."""
         try:
             now = format_iso(get_now())
@@ -235,9 +221,7 @@ class SQLitePersonaRepository:
             logger.error("Failed to set persona_info %s/%s: %s", persona, key, e)
             return Failure(RepositoryError(str(e)))
 
-    def get_user_info(
-        self, persona: str
-    ) -> Result[dict, RepositoryError]:
+    def get_user_info(self, persona: str) -> Result[dict, RepositoryError]:
         """Get all user_info for a persona."""
         try:
             rows = self._db.execute(
@@ -249,9 +233,7 @@ class SQLitePersonaRepository:
             logger.error("Failed to get user_info for '%s': %s", persona, e)
             return Failure(RepositoryError(str(e)))
 
-    def get_persona_info(
-        self, persona: str
-    ) -> Result[dict, RepositoryError]:
+    def get_persona_info(self, persona: str) -> Result[dict, RepositoryError]:
         """Get all persona_info for a persona."""
         try:
             rows = self._db.execute(

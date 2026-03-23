@@ -39,9 +39,7 @@ class SQLiteEquipmentRepository:
         """Add a new item. If it already exists, increment its quantity."""
         try:
             now = format_iso(get_now())
-            existing = self._db.execute(
-                "SELECT id, quantity FROM items WHERE name = ?", (item.name,)
-            ).fetchone()
+            existing = self._db.execute("SELECT id, quantity FROM items WHERE name = ?", (item.name,)).fetchone()
 
             if existing is not None:
                 new_qty = existing["quantity"] + item.quantity
@@ -69,9 +67,7 @@ class SQLiteEquipmentRepository:
                 ),
             )
             self._db.commit()
-            item_id = self._db.execute(
-                "SELECT id FROM items WHERE name = ?", (item.name,)
-            ).fetchone()["id"]
+            item_id = self._db.execute("SELECT id FROM items WHERE name = ?", (item.name,)).fetchone()["id"]
             logger.info("Item added: %s (id=%d)", item.name, item_id)
             return Success(item_id)
         except Exception as e:
@@ -92,9 +88,7 @@ class SQLiteEquipmentRepository:
     def find_item(self, name: str) -> Result[Item | None, RepositoryError]:
         """Find an item by name."""
         try:
-            row = self._db.execute(
-                "SELECT * FROM items WHERE name = ?", (name,)
-            ).fetchone()
+            row = self._db.execute("SELECT * FROM items WHERE name = ?", (name,)).fetchone()
             if row is None:
                 return Success(None)
             return Success(self._row_to_item(row))
@@ -102,9 +96,7 @@ class SQLiteEquipmentRepository:
             logger.error("Failed to find item %s: %s", name, e)
             return Failure(RepositoryError(str(e)))
 
-    def list_items(
-        self, category: str | None = None
-    ) -> Result[list[Item], RepositoryError]:
+    def list_items(self, category: str | None = None) -> Result[list[Item], RepositoryError]:
         """List all items, optionally filtered by category."""
         try:
             if category:
@@ -113,22 +105,16 @@ class SQLiteEquipmentRepository:
                     (category,),
                 ).fetchall()
             else:
-                rows = self._db.execute(
-                    "SELECT * FROM items ORDER BY name"
-                ).fetchall()
+                rows = self._db.execute("SELECT * FROM items ORDER BY name").fetchall()
             return Success([self._row_to_item(r) for r in rows])
         except Exception as e:
             logger.error("Failed to list items: %s", e)
             return Failure(RepositoryError(str(e)))
 
-    def update_item(
-        self, name: str, **updates
-    ) -> Result[Item, RepositoryError]:
+    def update_item(self, name: str, **updates) -> Result[Item, RepositoryError]:
         """Update specific fields of an item."""
         try:
-            existing = self._db.execute(
-                "SELECT * FROM items WHERE name = ?", (name,)
-            ).fetchone()
+            existing = self._db.execute("SELECT * FROM items WHERE name = ?", (name,)).fetchone()
             if existing is None:
                 return Failure(RepositoryError(f"Item not found: {name}"))
 
@@ -165,9 +151,7 @@ class SQLiteEquipmentRepository:
     def equip(self, slot: str, item_name: str) -> Result[None, RepositoryError]:
         """Equip an item to a slot."""
         if slot not in VALID_SLOTS:
-            return Failure(
-                RepositoryError(f"Invalid slot: {slot}. Valid: {', '.join(sorted(VALID_SLOTS))}")
-            )
+            return Failure(RepositoryError(f"Invalid slot: {slot}. Valid: {', '.join(sorted(VALID_SLOTS))}"))
         try:
             now = format_iso(get_now())
             self._db.execute(
@@ -197,14 +181,10 @@ class SQLiteEquipmentRepository:
     def unequip(self, slot: str) -> Result[None, RepositoryError]:
         """Unequip the item from a slot."""
         if slot not in VALID_SLOTS:
-            return Failure(
-                RepositoryError(f"Invalid slot: {slot}. Valid: {', '.join(sorted(VALID_SLOTS))}")
-            )
+            return Failure(RepositoryError(f"Invalid slot: {slot}. Valid: {', '.join(sorted(VALID_SLOTS))}"))
         try:
             now = format_iso(get_now())
-            current = self._db.execute(
-                "SELECT item_name FROM equipment_slots WHERE slot = ?", (slot,)
-            ).fetchone()
+            current = self._db.execute("SELECT item_name FROM equipment_slots WHERE slot = ?", (slot,)).fetchone()
             item_name = current["item_name"] if current else None
 
             self._db.execute(
@@ -244,9 +224,7 @@ class SQLiteEquipmentRepository:
             logger.error("Failed to get equipment: %s", e)
             return Failure(RepositoryError(str(e)))
 
-    def get_history(
-        self, days: int = 7
-    ) -> Result[list[EquipmentHistory], RepositoryError]:
+    def get_history(self, days: int = 7) -> Result[list[EquipmentHistory], RepositoryError]:
         """Get equipment history for the last N days."""
         try:
             cutoff = format_iso(get_now() - timedelta(days=days))
@@ -334,9 +312,7 @@ class SQLiteEquipmentRepository:
                     (category,),
                 ).fetchall()
             else:
-                rows = self._db.execute(
-                    "SELECT * FROM items ORDER BY name"
-                ).fetchall()
+                rows = self._db.execute("SELECT * FROM items ORDER BY name").fetchall()
             return Success([self._row_to_item(r) for r in rows])
         except Exception as e:
             logger.error("Failed to search items: %s", e)

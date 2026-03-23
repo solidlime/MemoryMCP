@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 # InMemory PersonaRepository
 # ---------------------------------------------------------------------------
 
+
 class InMemoryPersonaRepository:
     """Protocol-compatible in-memory repo for PersonaService tests."""
 
@@ -30,9 +31,7 @@ class InMemoryPersonaRepository:
         self._user_info: dict[str, dict[str, str]] = {}
         self._persona_info: dict[str, dict[str, str]] = {}
 
-    def get_current_state(
-        self, persona: str
-    ) -> Result[PersonaState, RepositoryError]:
+    def get_current_state(self, persona: str) -> Result[PersonaState, RepositoryError]:
         state_map = self._state.get(persona, {})
         user_info = self._user_info.get(persona, {})
         persona_info = self._persona_info.get(persona, {})
@@ -62,49 +61,35 @@ class InMemoryPersonaRepository:
         self._state[persona][key] = value
         return Success(None)
 
-    def get_state_history(
-        self, persona: str, key: str, limit: int = 20
-    ) -> Result[list[ContextEntry], RepositoryError]:
+    def get_state_history(self, persona: str, key: str, limit: int = 20) -> Result[list[ContextEntry], RepositoryError]:
         return Success([])
 
-    def add_emotion_record(
-        self, persona: str, record: EmotionRecord
-    ) -> Result[None, RepositoryError]:
+    def add_emotion_record(self, persona: str, record: EmotionRecord) -> Result[None, RepositoryError]:
         if persona not in self._emotions:
             self._emotions[persona] = []
         self._emotions[persona].append(record)
         return Success(None)
 
-    def get_emotion_history(
-        self, persona: str, limit: int = 20
-    ) -> Result[list[EmotionRecord], RepositoryError]:
+    def get_emotion_history(self, persona: str, limit: int = 20) -> Result[list[EmotionRecord], RepositoryError]:
         records = self._emotions.get(persona, [])
         return Success(records[-limit:])
 
-    def set_user_info(
-        self, persona: str, key: str, value: str
-    ) -> Result[None, RepositoryError]:
+    def set_user_info(self, persona: str, key: str, value: str) -> Result[None, RepositoryError]:
         if persona not in self._user_info:
             self._user_info[persona] = {}
         self._user_info[persona][key] = value
         return Success(None)
 
-    def set_persona_info(
-        self, persona: str, key: str, value: str
-    ) -> Result[None, RepositoryError]:
+    def set_persona_info(self, persona: str, key: str, value: str) -> Result[None, RepositoryError]:
         if persona not in self._persona_info:
             self._persona_info[persona] = {}
         self._persona_info[persona][key] = value
         return Success(None)
 
-    def get_user_info(
-        self, persona: str
-    ) -> Result[dict, RepositoryError]:
+    def get_user_info(self, persona: str) -> Result[dict, RepositoryError]:
         return Success(self._user_info.get(persona, {}))
 
-    def get_persona_info(
-        self, persona: str
-    ) -> Result[dict, RepositoryError]:
+    def get_persona_info(self, persona: str) -> Result[dict, RepositoryError]:
         return Success(self._persona_info.get(persona, {}))
 
 
@@ -128,6 +113,7 @@ def service(repo):
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 class TestGetContext:
     def test_default_state(self, service: PersonaService):
@@ -171,9 +157,7 @@ class TestUpdateEmotion:
 
 class TestUpdatePhysicalState:
     def test_updates_fields(self, service: PersonaService, repo: InMemoryPersonaRepository):
-        result = service.update_physical_state(
-            PERSONA, physical_state="tired", mental_state="calm"
-        )
+        result = service.update_physical_state(PERSONA, physical_state="tired", mental_state="calm")
         assert result.is_ok
         assert repo._state[PERSONA]["physical_state"] == "tired"
         assert repo._state[PERSONA]["mental_state"] == "calm"

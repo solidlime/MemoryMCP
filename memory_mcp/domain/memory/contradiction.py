@@ -74,34 +74,42 @@ class ContradictionDetector:
         These are "similar but different" candidates that may be contradictions.
         """
         if self._vector_store is None:
-            return Success(ContradictionReport(
-                query_content=content,
-                candidates=[],
-                threshold=self._threshold,
-            ))
+            return Success(
+                ContradictionReport(
+                    query_content=content,
+                    candidates=[],
+                    threshold=self._threshold,
+                )
+            )
 
         search_result = self._vector_store.search(persona, content, limit=10)
         if not search_result.is_ok:
-            return Success(ContradictionReport(
-                query_content=content,
-                candidates=[],
-                threshold=self._threshold,
-            ))
+            return Success(
+                ContradictionReport(
+                    query_content=content,
+                    candidates=[],
+                    threshold=self._threshold,
+                )
+            )
 
         candidates: list[ContradictionCandidate] = []
         for key, score in search_result.value:
             if exclude_key and key == exclude_key:
                 continue
             if score >= self._threshold:
-                candidates.append(ContradictionCandidate(
-                    memory_key=key,
-                    content="",  # Content populated by caller if needed
-                    similarity=score,
-                    created_at="",
-                ))
+                candidates.append(
+                    ContradictionCandidate(
+                        memory_key=key,
+                        content="",  # Content populated by caller if needed
+                        similarity=score,
+                        created_at="",
+                    )
+                )
 
-        return Success(ContradictionReport(
-            query_content=content,
-            candidates=candidates,
-            threshold=self._threshold,
-        ))
+        return Success(
+            ContradictionReport(
+                query_content=content,
+                candidates=candidates,
+                threshold=self._threshold,
+            )
+        )

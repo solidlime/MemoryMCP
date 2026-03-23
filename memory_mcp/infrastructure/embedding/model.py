@@ -70,9 +70,7 @@ class EmbeddingModel:
         assert self._model is not None
         prefix = _QUERY_PREFIX if is_query else _DOCUMENT_PREFIX
         prefixed = [f"{prefix}{t}" for t in texts]
-        return self._model.encode(
-            prefixed, batch_size=batch_size, normalize_embeddings=True
-        )
+        return self._model.encode(prefixed, batch_size=batch_size, normalize_embeddings=True)
 
     def _load_model(self) -> None:
         """Lazy load the sentence-transformers model."""
@@ -81,6 +79,4 @@ class EmbeddingModel:
         logger.info("Loading embedding model: %s (device=%s)", self.model_name, self.device)
         self._model = SentenceTransformer(self.model_name, device=self.device)
         self._dimension = self._model.get_sentence_embedding_dimension()
-        logger.info(
-            "Embedding model loaded: dim=%d, model=%s", self._dimension, self.model_name
-        )
+        logger.info("Embedding model loaded: dim=%d, model=%s", self._dimension, self.model_name)

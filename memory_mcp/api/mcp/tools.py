@@ -179,9 +179,7 @@ def register_tools(mcp: FastMCP) -> None:
                 vector_store=ctx.vector_store,
                 threshold=threshold,
             )
-            report_result = detector.find_potential_contradictions(
-                check_content, persona, exclude_key=exclude
-            )
+            report_result = detector.find_potential_contradictions(check_content, persona, exclude_key=exclude)
             if not report_result.is_ok:
                 return f"Error: {report_result.error}"
             report = report_result.value
@@ -203,9 +201,7 @@ def register_tools(mcp: FastMCP) -> None:
                 return "No version history found."
             lines = [f"Version history for {memory_key} ({len(versions)} versions):"]
             for v in versions:
-                lines.append(
-                    f"  v{v['version']} [{v['change_type']}] by {v['changed_by']} at {v['created_at']}"
-                )
+                lines.append(f"  v{v['version']} [{v['change_type']}] by {v['changed_by']} at {v['created_at']}")
             return "\n".join(lines)
 
         elif operation == "stats":
@@ -254,10 +250,7 @@ def register_tools(mcp: FastMCP) -> None:
             entities = result.value
             if not entities:
                 return "No entities found."
-            return "\n".join(
-                f"- {e.id} (type={e.entity_type}, mentions={e.mention_count})"
-                for e in entities
-            )
+            return "\n".join(f"- {e.id} (type={e.entity_type}, mentions={e.mention_count})" for e in entities)
 
         elif operation == "entity_graph":
             eid = entity_id or query
@@ -290,9 +283,7 @@ def register_tools(mcp: FastMCP) -> None:
         elif operation == "entity_add_relation":
             if not source_entity or not target_entity or not relation_type:
                 return "Error: source_entity, target_entity, and relation_type required"
-            result = ctx.entity_service.add_relation(
-                source_entity, target_entity, relation_type, memory_key
-            )
+            result = ctx.entity_service.add_relation(source_entity, target_entity, relation_type, memory_key)
             return (
                 f"Relation added: {source_entity} --[{relation_type}]--> {target_entity}"
                 if result.is_ok
@@ -385,9 +376,7 @@ def register_tools(mcp: FastMCP) -> None:
         updated: list[str] = []
 
         if emotion is not None:
-            result = ctx.persona_service.update_emotion(
-                persona, emotion, emotion_intensity or 0.5
-            )
+            result = ctx.persona_service.update_emotion(persona, emotion, emotion_intensity or 0.5)
             if result.is_ok:
                 updated.append(f"emotion={emotion}")
 
@@ -470,39 +459,27 @@ def register_tools(mcp: FastMCP) -> None:
         if operation == "add":
             if not item_name:
                 return "Error: item_name required"
-            result = ctx.equipment_service.add_item(
-                item_name, category, description, quantity, tags
-            )
+            result = ctx.equipment_service.add_item(item_name, category, description, quantity, tags)
             return f"Item added: {item_name}" if result.is_ok else f"Error: {result.error}"
 
         elif operation == "remove":
             if not item_name:
                 return "Error: item_name required"
             result = ctx.equipment_service.remove_item(item_name)
-            return (
-                f"Item removed: {item_name}" if result.is_ok else f"Error: {result.error}"
-            )
+            return f"Item removed: {item_name}" if result.is_ok else f"Error: {result.error}"
 
         elif operation == "equip":
             if not equipment:
                 return 'Error: equipment dict required (e.g. {"top": "白いドレス"})'
             result = ctx.equipment_service.equip(equipment, auto_add)
-            return (
-                f"Equipped: {equipment}" if result.is_ok else f"Error: {result.error}"
-            )
+            return f"Equipped: {equipment}" if result.is_ok else f"Error: {result.error}"
 
         elif operation == "unequip":
-            target_slots = (
-                slots if isinstance(slots, list) else [slots] if slots else []
-            )
+            target_slots = slots if isinstance(slots, list) else [slots] if slots else []
             if not target_slots:
                 return "Error: slots required"
             result = ctx.equipment_service.unequip(target_slots)
-            return (
-                f"Unequipped: {target_slots}"
-                if result.is_ok
-                else f"Error: {result.error}"
-            )
+            return f"Unequipped: {target_slots}" if result.is_ok else f"Error: {result.error}"
 
         elif operation == "update":
             if not item_name:
@@ -517,9 +494,7 @@ def register_tools(mcp: FastMCP) -> None:
             if tags is not None:
                 updates["tags"] = tags
             result = ctx.equipment_service.update_item(item_name, **updates)
-            return (
-                f"Item updated: {item_name}" if result.is_ok else f"Error: {result.error}"
-            )
+            return f"Item updated: {item_name}" if result.is_ok else f"Error: {result.error}"
 
         elif operation == "search":
             result = ctx.equipment_service.search_items(query or item_name, category)
@@ -527,9 +502,7 @@ def register_tools(mcp: FastMCP) -> None:
                 items = result.value
                 if not items:
                     return "No items found."
-                return "\n".join(
-                    f"- {i.name} (category={i.category}, qty={i.quantity})" for i in items
-                )
+                return "\n".join(f"- {i.name} (category={i.category}, qty={i.quantity})" for i in items)
             return f"Error: {result.error}"
 
         elif operation == "history":
@@ -538,10 +511,7 @@ def register_tools(mcp: FastMCP) -> None:
                 history = result.value
                 if not history:
                     return "No history found."
-                return "\n".join(
-                    f"[{h.timestamp}] {h.action}: {h.item_name} ({h.slot})"
-                    for h in history
-                )
+                return "\n".join(f"[{h.timestamp}] {h.action}: {h.item_name} ({h.slot})" for h in history)
             return f"Error: {result.error}"
 
         else:

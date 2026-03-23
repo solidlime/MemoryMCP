@@ -32,16 +32,12 @@ class MigrationEngine:
 
     def get_current_version(self) -> str | None:
         db = self.conn.get_memory_db()
-        row = db.execute(
-            "SELECT version FROM _migrations ORDER BY version DESC LIMIT 1"
-        ).fetchone()
+        row = db.execute("SELECT version FROM _migrations ORDER BY version DESC LIMIT 1").fetchone()
         return row[0] if row else None
 
     def get_applied_versions(self) -> list[str]:
         db = self.conn.get_memory_db()
-        rows = db.execute(
-            "SELECT version FROM _migrations ORDER BY version"
-        ).fetchall()
+        rows = db.execute("SELECT version FROM _migrations ORDER BY version").fetchall()
         return [r[0] for r in rows]
 
     def apply(self, version: str, description: str, upgrade_fn) -> Result:

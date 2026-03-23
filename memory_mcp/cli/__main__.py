@@ -33,7 +33,9 @@ def main() -> None:
     import_parser = subparsers.add_parser("import", help="Import data")
     import_parser.add_argument("--persona", required=True)
     import_parser.add_argument(
-        "--input", required=True, help="Path to zip file, directory, or JSONL file",
+        "--input",
+        required=True,
+        help="Path to zip file, directory, or JSONL file",
     )
     import_parser.add_argument(
         "--format",
@@ -47,7 +49,9 @@ def main() -> None:
     export_parser.add_argument("--persona", required=True)
     export_parser.add_argument("--output", required=True)
     export_parser.add_argument(
-        "--format", default="jsonl", choices=["jsonl"],
+        "--format",
+        default="jsonl",
+        choices=["jsonl"],
     )
 
     # -- migrate -------------------------------------------------------
@@ -91,11 +95,7 @@ def _handle_import(args: argparse.Namespace, settings: Settings) -> None:
 
     input_path = Path(args.input)
 
-    fmt = (
-        ("jsonl" if input_path.suffix == ".jsonl" else "legacy")
-        if args.format == "auto"
-        else args.format
-    )
+    fmt = ("jsonl" if input_path.suffix == ".jsonl" else "legacy") if args.format == "auto" else args.format
 
     if fmt == "legacy":
         importer = LegacyImporter(conn, args.persona)

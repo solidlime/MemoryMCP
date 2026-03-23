@@ -8,9 +8,7 @@ logger = get_logger(__name__)
 class QdrantClientManager:
     """Manages Qdrant client lifecycle and health checking."""
 
-    def __init__(
-        self, url: str = "http://localhost:6333", api_key: str | None = None
-    ) -> None:
+    def __init__(self, url: str = "http://localhost:6333", api_key: str | None = None) -> None:
         self.url = url
         self.api_key = api_key
         self._client: object | None = None

@@ -22,12 +22,27 @@ class SimpleEntityExtractor:
     )
 
     # Common katakana stopwords to exclude
-    _STOPWORDS: set[str] = frozenset({
-        "メモリ", "コンテキスト", "エラー", "テスト", "データ",
-        "ステータス", "タグ", "リスト", "ブロック", "アイテム",
-        "カテゴリ", "システム", "サーバー", "クライアント",
-        "コンテンツ", "メタデータ", "パラメータ",
-    })
+    _STOPWORDS: set[str] = frozenset(
+        {
+            "メモリ",
+            "コンテキスト",
+            "エラー",
+            "テスト",
+            "データ",
+            "ステータス",
+            "タグ",
+            "リスト",
+            "ブロック",
+            "アイテム",
+            "カテゴリ",
+            "システム",
+            "サーバー",
+            "クライアント",
+            "コンテンツ",
+            "メタデータ",
+            "パラメータ",
+        }
+    )
 
     def extract(self, text: str) -> list[tuple[str, str]]:
         """Return ``[(entity_name, entity_type), ...]`` from *text*.

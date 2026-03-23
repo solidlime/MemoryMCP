@@ -49,6 +49,7 @@ class EntityGraph:
 # Repository protocol
 # ---------------------------------------------------------------------------
 
+
 @runtime_checkable
 class EntityRepository(Protocol):
     """Persistence interface for the entity graph."""
@@ -63,30 +64,23 @@ class EntityRepository(Protocol):
 
     def save_relation(self, relation: EntityRelation) -> Result[None, DomainError]: ...
 
-    def get_relations(
-        self, entity_id: str, direction: str = "both"
-    ) -> Result[list[EntityRelation], DomainError]: ...
+    def get_relations(self, entity_id: str, direction: str = "both") -> Result[list[EntityRelation], DomainError]: ...
 
     def link_memory_entity(
         self, memory_key: str, entity_id: str, role: str = "mentioned"
     ) -> Result[None, DomainError]: ...
 
-    def get_entity_memories(
-        self, entity_id: str, limit: int = 50
-    ) -> Result[list[str], DomainError]: ...
+    def get_entity_memories(self, entity_id: str, limit: int = 50) -> Result[list[str], DomainError]: ...
 
-    def get_memory_entities(
-        self, memory_key: str
-    ) -> Result[list[Entity], DomainError]: ...
+    def get_memory_entities(self, memory_key: str) -> Result[list[Entity], DomainError]: ...
 
-    def get_entity_graph(
-        self, entity_id: str, depth: int = 1
-    ) -> Result[EntityGraph, DomainError]: ...
+    def get_entity_graph(self, entity_id: str, depth: int = 1) -> Result[EntityGraph, DomainError]: ...
 
 
 # ---------------------------------------------------------------------------
 # Domain service
 # ---------------------------------------------------------------------------
+
 
 class EntityService:
     """Domain service orchestrating entity extraction and graph queries."""
@@ -101,6 +95,7 @@ class EntityService:
             from memory_mcp.domain.memory.entity_extractor import (
                 SimpleEntityExtractor,
             )
+
             extractor = SimpleEntityExtractor()
         self.extractor = extractor
 
@@ -173,11 +168,13 @@ class EntityService:
             for eid in (source.lower().strip(), target.lower().strip()):
                 existing = self.repo.get_entity(eid)
                 if existing.is_ok and existing.value is None:
-                    self.repo.save_entity(Entity(
-                        id=eid,
-                        first_seen=now_str,
-                        last_seen=now_str,
-                    ))
+                    self.repo.save_entity(
+                        Entity(
+                            id=eid,
+                            first_seen=now_str,
+                            last_seen=now_str,
+                        )
+                    )
 
             relation = EntityRelation(
                 source_entity=source.lower().strip(),
@@ -193,9 +190,7 @@ class EntityService:
 
     # -- read operations ---------------------------------------------------
 
-    def get_entity_graph(
-        self, entity_id: str, depth: int = 1
-    ) -> Result[EntityGraph, DomainError]:
+    def get_entity_graph(self, entity_id: str, depth: int = 1) -> Result[EntityGraph, DomainError]:
         """Retrieve the sub-graph centred on *entity_id*."""
         return self.repo.get_entity_graph(entity_id.lower().strip(), depth)
 
@@ -205,8 +200,6 @@ class EntityService:
         """Search entities by name pattern."""
         return self.repo.find_entities(query, entity_type, limit)
 
-    def find_related_memories(
-        self, entity_id: str, limit: int = 20
-    ) -> Result[list[str], DomainError]:
+    def find_related_memories(self, entity_id: str, limit: int = 20) -> Result[list[str], DomainError]:
         """Return memory keys linked to *entity_id*."""
         return self.repo.get_entity_memories(entity_id.lower().strip(), limit)

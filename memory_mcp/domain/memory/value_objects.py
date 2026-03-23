@@ -4,10 +4,28 @@ import re
 from dataclasses import dataclass
 
 ALLOWED_EMOTIONS: list[str] = [
-    "neutral", "joy", "sadness", "anger", "fear", "surprise",
-    "disgust", "trust", "anticipation", "love", "nostalgia",
-    "curiosity", "pride", "shame", "guilt", "envy", "gratitude",
-    "awe", "contempt", "anxiety", "excitement", "calm",
+    "neutral",
+    "joy",
+    "sadness",
+    "anger",
+    "fear",
+    "surprise",
+    "disgust",
+    "trust",
+    "anticipation",
+    "love",
+    "nostalgia",
+    "curiosity",
+    "pride",
+    "shame",
+    "guilt",
+    "envy",
+    "gratitude",
+    "awe",
+    "contempt",
+    "anxiety",
+    "excitement",
+    "calm",
 ]
 
 ALLOWED_PRIVACY_LEVELS: list[str] = ["internal", "shared", "secret"]
@@ -23,10 +41,7 @@ class MemoryKey:
 
     def __post_init__(self) -> None:
         if not _KEY_PATTERN.match(self.value):
-            raise ValueError(
-                f"Invalid memory key format: {self.value!r}. "
-                f"Expected {{prefix}}_YYYYMMDDHHMMSS"
-            )
+            raise ValueError(f"Invalid memory key format: {self.value!r}. Expected {{prefix}}_YYYYMMDDHHMMSS")
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,10 +64,7 @@ class Emotion:
 
     def __post_init__(self) -> None:
         if self.value not in ALLOWED_EMOTIONS:
-            raise ValueError(
-                f"Invalid emotion: {self.value!r}. "
-                f"Allowed: {ALLOWED_EMOTIONS}"
-            )
+            raise ValueError(f"Invalid emotion: {self.value!r}. Allowed: {ALLOWED_EMOTIONS}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,7 +75,4 @@ class PrivacyLevel:
 
     def __post_init__(self) -> None:
         if self.value not in ALLOWED_PRIVACY_LEVELS:
-            raise ValueError(
-                f"Invalid privacy level: {self.value!r}. "
-                f"Allowed: {ALLOWED_PRIVACY_LEVELS}"
-            )
+            raise ValueError(f"Invalid privacy level: {self.value!r}. Allowed: {ALLOWED_PRIVACY_LEVELS}")

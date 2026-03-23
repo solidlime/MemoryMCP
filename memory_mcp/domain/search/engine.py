@@ -52,9 +52,7 @@ class SearchEngine:
         self._semantic = semantic_search
         self._ranker = ranker
 
-    def search(
-        self, query: SearchQuery
-    ) -> Result[list[SearchResult], SearchError]:
+    def search(self, query: SearchQuery) -> Result[list[SearchResult], SearchError]:
         """Execute search based on query mode."""
         if query.mode == "keyword":
             return self._keyword_search(query)
@@ -65,54 +63,34 @@ class SearchEngine:
         else:
             return Failure(SearchError(f"Unknown search mode: {query.mode}"))
 
-    def _keyword_search(
-        self, query: SearchQuery
-    ) -> Result[list[SearchResult], SearchError]:
+    def _keyword_search(self, query: SearchQuery) -> Result[list[SearchResult], SearchError]:
         """Execute keyword-only search."""
         result = self._keyword.search(query.text, limit=query.top_k)
         if not result.is_ok:
             return Failure(result.error)
-        return Success([
-            SearchResult(memory=m, score=s, source="keyword")
-            for m, s in result.value
-        ])
+        return Success([SearchResult(memory=m, score=s, source="keyword") for m, s in result.value])
 
-    def _semantic_search(
-        self, query: SearchQuery
-    ) -> Result[list[SearchResult], SearchError]:
+    def _semantic_search(self, query: SearchQuery) -> Result[list[SearchResult], SearchError]:
         """Execute semantic-only search."""
         if self._semantic is None:
-            return Failure(
-                SearchError("Semantic search unavailable: no vector store configured")
-            )
+            return Failure(SearchError("Semantic search unavailable: no vector store configured"))
         result = self._semantic.search(query.text, limit=query.top_k)
         if not result.is_ok:
             return Failure(result.error)
-        return Success([
-            SearchResult(memory=m, score=s, source="semantic")
-            for m, s in result.value
-        ])
+        return Success([SearchResult(memory=m, score=s, source="semantic") for m, s in result.value])
 
-    def _hybrid_search(
-        self, query: SearchQuery
-    ) -> Result[list[SearchResult], SearchError]:
+    def _hybrid_search(self, query: SearchQuery) -> Result[list[SearchResult], SearchError]:
         """Execute hybrid search combining keyword and semantic results."""
         all_results: list[SearchResult] = []
 
         kw_result = self._keyword.search(query.text, limit=query.top_k)
         if kw_result.is_ok:
-            all_results.extend(
-                SearchResult(memory=m, score=s, source="keyword")
-                for m, s in kw_result.value
-            )
+            all_results.extend(SearchResult(memory=m, score=s, source="keyword") for m, s in kw_result.value)
 
         if self._semantic is not None:
             sem_result = self._semantic.search(query.text, limit=query.top_k)
             if sem_result.is_ok:
-                all_results.extend(
-                    SearchResult(memory=m, score=s, source="semantic")
-                    for m, s in sem_result.value
-                )
+                all_results.extend(SearchResult(memory=m, score=s, source="semantic") for m, s in sem_result.value)
 
         if not all_results:
             return Success([])

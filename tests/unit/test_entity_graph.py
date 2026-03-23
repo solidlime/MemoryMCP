@@ -14,6 +14,7 @@ from memory_mcp.infrastructure.sqlite.entity_repo import SQLiteEntityRepository
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def sqlite_conn(tmp_path):
     """Create a fresh SQLiteConnection with schema initialised."""
@@ -41,6 +42,7 @@ def entity_service(entity_repo, extractor):
 # ===========================================================================
 # SimpleEntityExtractor
 # ===========================================================================
+
 
 class TestSimpleEntityExtractor:
     def test_extract_katakana_names(self, extractor: SimpleEntityExtractor):
@@ -95,6 +97,7 @@ class TestSimpleEntityExtractor:
 # ===========================================================================
 # SQLiteEntityRepository
 # ===========================================================================
+
 
 class TestSQLiteEntityRepository:
     def test_save_and_get_entity(self, entity_repo: SQLiteEntityRepository):
@@ -228,8 +231,12 @@ class TestSQLiteEntityRepository:
         now = format_iso(get_now())
         for eid in ("a", "b", "c"):
             entity_repo.save_entity(Entity(id=eid, entity_type="person", first_seen=now, last_seen=now))
-        entity_repo.save_relation(EntityRelation(source_entity="a", target_entity="b", relation_type="knows", created_at=now))
-        entity_repo.save_relation(EntityRelation(source_entity="b", target_entity="c", relation_type="knows", created_at=now))
+        entity_repo.save_relation(
+            EntityRelation(source_entity="a", target_entity="b", relation_type="knows", created_at=now)
+        )
+        entity_repo.save_relation(
+            EntityRelation(source_entity="b", target_entity="c", relation_type="knows", created_at=now)
+        )
         entity_repo.link_memory_entity("mem_001", "a")
 
         # depth=1 should find b but not c
@@ -256,6 +263,7 @@ class TestSQLiteEntityRepository:
 # ===========================================================================
 # EntityService
 # ===========================================================================
+
 
 class TestEntityService:
     def test_extract_and_link(self, entity_service: EntityService, entity_repo: SQLiteEntityRepository):
@@ -299,9 +307,9 @@ class TestEntityService:
         now = format_iso(get_now())
         entity_repo.save_entity(Entity(id="ヘルタ", entity_type="person", first_seen=now, last_seen=now))
         entity_repo.save_entity(Entity(id="カフカ", entity_type="person", first_seen=now, last_seen=now))
-        entity_repo.save_relation(EntityRelation(
-            source_entity="ヘルタ", target_entity="カフカ", relation_type="knows", created_at=now
-        ))
+        entity_repo.save_relation(
+            EntityRelation(source_entity="ヘルタ", target_entity="カフカ", relation_type="knows", created_at=now)
+        )
         entity_repo.link_memory_entity("mem_001", "ヘルタ")
 
         result = entity_service.get_entity_graph("ヘルタ")

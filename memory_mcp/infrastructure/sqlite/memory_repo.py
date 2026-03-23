@@ -76,9 +76,7 @@ class SQLiteMemoryRepository:
     def find_by_key(self, key: str) -> Result[Memory | None, RepositoryError]:
         """Find a single memory by its key."""
         try:
-            row = self._db.execute(
-                "SELECT * FROM memories WHERE key = ?", (key,)
-            ).fetchone()
+            row = self._db.execute("SELECT * FROM memories WHERE key = ?", (key,)).fetchone()
             if row is None:
                 return Success(None)
             return Success(self._row_to_memory(row))
@@ -98,14 +96,10 @@ class SQLiteMemoryRepository:
             logger.error("Failed to find recent memories: %s", e)
             return Failure(RepositoryError(str(e)))
 
-    def find_by_tags(
-        self, tags: list[str], limit: int = 10
-    ) -> Result[list[Memory], RepositoryError]:
+    def find_by_tags(self, tags: list[str], limit: int = 10) -> Result[list[Memory], RepositoryError]:
         """Find memories that contain any of the specified tags."""
         try:
-            rows = self._db.execute(
-                "SELECT * FROM memories ORDER BY updated_at DESC"
-            ).fetchall()
+            rows = self._db.execute("SELECT * FROM memories ORDER BY updated_at DESC").fetchall()
             result: list[Memory] = []
             tag_set = set(tags)
             for row in rows:
@@ -122,9 +116,7 @@ class SQLiteMemoryRepository:
     def update(self, key: str, **kwargs: Any) -> Result[Memory, RepositoryError]:
         """Update specific fields of a memory."""
         try:
-            existing = self._db.execute(
-                "SELECT * FROM memories WHERE key = ?", (key,)
-            ).fetchone()
+            existing = self._db.execute("SELECT * FROM memories WHERE key = ?", (key,)).fetchone()
             if existing is None:
                 return Failure(RepositoryError(f"Memory not found: {key}"))
 
@@ -146,9 +138,7 @@ class SQLiteMemoryRepository:
             )
             self._db.commit()
 
-            updated_row = self._db.execute(
-                "SELECT * FROM memories WHERE key = ?", (key,)
-            ).fetchone()
+            updated_row = self._db.execute("SELECT * FROM memories WHERE key = ?", (key,)).fetchone()
             logger.info("Memory updated: %s", key)
             return Success(self._row_to_memory(updated_row))
         except Exception as e:
@@ -179,9 +169,7 @@ class SQLiteMemoryRepository:
     def find_all(self) -> Result[list[Memory], RepositoryError]:
         """Return all memories."""
         try:
-            rows = self._db.execute(
-                "SELECT * FROM memories ORDER BY updated_at DESC"
-            ).fetchall()
+            rows = self._db.execute("SELECT * FROM memories ORDER BY updated_at DESC").fetchall()
             return Success([self._row_to_memory(r) for r in rows])
         except Exception as e:
             logger.error("Failed to find all memories: %s", e)
@@ -191,9 +179,7 @@ class SQLiteMemoryRepository:
     # Keyword search
     # ------------------------------------------------------------------
 
-    def search_keyword(
-        self, query: str, limit: int = 10
-    ) -> Result[list[tuple[Memory, float]], RepositoryError]:
+    def search_keyword(self, query: str, limit: int = 10) -> Result[list[tuple[Memory, float]], RepositoryError]:
         """Search memories by keyword with relevance scoring."""
         try:
             rows = self._db.execute(
@@ -214,14 +200,10 @@ class SQLiteMemoryRepository:
     # Memory strength
     # ------------------------------------------------------------------
 
-    def get_strength(
-        self, key: str
-    ) -> Result[MemoryStrength | None, RepositoryError]:
+    def get_strength(self, key: str) -> Result[MemoryStrength | None, RepositoryError]:
         """Get the strength record for a memory."""
         try:
-            row = self._db.execute(
-                "SELECT * FROM memory_strength WHERE memory_key = ?", (key,)
-            ).fetchone()
+            row = self._db.execute("SELECT * FROM memory_strength WHERE memory_key = ?", (key,)).fetchone()
             if row is None:
                 return Success(None)
             return Success(self._row_to_strength(row))
@@ -229,9 +211,7 @@ class SQLiteMemoryRepository:
             logger.error("Failed to get strength for %s: %s", key, e)
             return Failure(RepositoryError(str(e)))
 
-    def save_strength(
-        self, strength: MemoryStrength
-    ) -> Result[None, RepositoryError]:
+    def save_strength(self, strength: MemoryStrength) -> Result[None, RepositoryError]:
         """Save or update a memory strength record."""
         try:
             self._db.execute(
@@ -268,14 +248,10 @@ class SQLiteMemoryRepository:
     # Memory blocks
     # ------------------------------------------------------------------
 
-    def get_block(
-        self, block_name: str
-    ) -> Result[dict | None, RepositoryError]:
+    def get_block(self, block_name: str) -> Result[dict | None, RepositoryError]:
         """Get a named memory block."""
         try:
-            row = self._db.execute(
-                "SELECT * FROM memory_blocks WHERE block_name = ?", (block_name,)
-            ).fetchone()
+            row = self._db.execute("SELECT * FROM memory_blocks WHERE block_name = ?", (block_name,)).fetchone()
             if row is None:
                 return Success(None)
             return Success(dict(row))
@@ -320,9 +296,7 @@ class SQLiteMemoryRepository:
     def list_blocks(self) -> Result[list[dict], RepositoryError]:
         """List all memory blocks."""
         try:
-            rows = self._db.execute(
-                "SELECT * FROM memory_blocks ORDER BY priority DESC"
-            ).fetchall()
+            rows = self._db.execute("SELECT * FROM memory_blocks ORDER BY priority DESC").fetchall()
             return Success([dict(r) for r in rows])
         except Exception as e:
             logger.error("Failed to list blocks: %s", e)
@@ -331,9 +305,7 @@ class SQLiteMemoryRepository:
     def delete_block(self, block_name: str) -> Result[None, RepositoryError]:
         """Delete a named memory block."""
         try:
-            self._db.execute(
-                "DELETE FROM memory_blocks WHERE block_name = ?", (block_name,)
-            )
+            self._db.execute("DELETE FROM memory_blocks WHERE block_name = ?", (block_name,))
             self._db.commit()
             return Success(None)
         except Exception as e:
@@ -367,9 +339,7 @@ class SQLiteMemoryRepository:
                     memory_key,
                     version,
                     content,
-                    json.dumps(metadata, ensure_ascii=False)
-                    if metadata
-                    else None,
+                    json.dumps(metadata, ensure_ascii=False) if metadata else None,
                     changed_by,
                     change_type,
                     now,
@@ -384,36 +354,26 @@ class SQLiteMemoryRepository:
             )
             return Success(None)
         except Exception as e:
-            logger.error(
-                "Failed to save version for %s: %s", memory_key, e
-            )
+            logger.error("Failed to save version for %s: %s", memory_key, e)
             return Failure(RepositoryError(str(e)))
 
-    def get_versions(
-        self, memory_key: str
-    ) -> Result[list[dict], RepositoryError]:
+    def get_versions(self, memory_key: str) -> Result[list[dict], RepositoryError]:
         """Get all version records for a memory, ordered by version."""
         try:
             rows = self._db.execute(
-                "SELECT * FROM memory_versions "
-                "WHERE memory_key = ? ORDER BY version ASC",
+                "SELECT * FROM memory_versions WHERE memory_key = ? ORDER BY version ASC",
                 (memory_key,),
             ).fetchall()
             return Success([dict(r) for r in rows])
         except Exception as e:
-            logger.error(
-                "Failed to get versions for %s: %s", memory_key, e
-            )
+            logger.error("Failed to get versions for %s: %s", memory_key, e)
             return Failure(RepositoryError(str(e)))
 
-    def get_version(
-        self, memory_key: str, version: int
-    ) -> Result[dict | None, RepositoryError]:
+    def get_version(self, memory_key: str, version: int) -> Result[dict | None, RepositoryError]:
         """Get a specific version record."""
         try:
             row = self._db.execute(
-                "SELECT * FROM memory_versions "
-                "WHERE memory_key = ? AND version = ?",
+                "SELECT * FROM memory_versions WHERE memory_key = ? AND version = ?",
                 (memory_key, version),
             ).fetchone()
             return Success(dict(row) if row else None)
@@ -426,21 +386,14 @@ class SQLiteMemoryRepository:
             )
             return Failure(RepositoryError(str(e)))
 
-    def get_latest_version_number(
-        self, memory_key: str
-    ) -> Result[int, RepositoryError]:
+    def get_latest_version_number(self, memory_key: str) -> Result[int, RepositoryError]:
         """Get the latest version number for a memory, 0 if none."""
         try:
             row = self._db.execute(
-                "SELECT MAX(version) as max_ver "
-                "FROM memory_versions WHERE memory_key = ?",
+                "SELECT MAX(version) as max_ver FROM memory_versions WHERE memory_key = ?",
                 (memory_key,),
             ).fetchone()
-            return Success(
-                row["max_ver"]
-                if row and row["max_ver"] is not None
-                else 0
-            )
+            return Success(row["max_ver"] if row and row["max_ver"] is not None else 0)
         except Exception as e:
             logger.error(
                 "Failed to get latest version for %s: %s",
@@ -470,6 +423,7 @@ class SQLiteMemoryRepository:
         if not value:
             return None
         from memory_mcp.domain.shared.time_utils import parse_iso
+
         return parse_iso(value)
 
     def _row_to_memory(self, row) -> Memory:

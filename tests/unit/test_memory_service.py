@@ -22,6 +22,7 @@ TZ = ZoneInfo("Asia/Tokyo")
 # InMemory implementations for testing
 # ---------------------------------------------------------------------------
 
+
 class InMemoryMemoryRepository:
     """Protocol-compatible in-memory repo for MemoryService tests."""
 
@@ -38,14 +39,10 @@ class InMemoryMemoryRepository:
         return Success(self._store.get(key))
 
     def find_recent(self, limit: int = 10) -> Result[list[Memory], RepositoryError]:
-        memories = sorted(
-            self._store.values(), key=lambda m: m.updated_at, reverse=True
-        )
+        memories = sorted(self._store.values(), key=lambda m: m.updated_at, reverse=True)
         return Success(memories[:limit])
 
-    def find_by_tags(
-        self, tags: list[str], limit: int = 10
-    ) -> Result[list[Memory], RepositoryError]:
+    def find_by_tags(self, tags: list[str], limit: int = 10) -> Result[list[Memory], RepositoryError]:
         tag_set = set(tags)
         result = [m for m in self._store.values() if set(m.tags) & tag_set]
         return Success(result[:limit])
@@ -67,9 +64,7 @@ class InMemoryMemoryRepository:
     def count(self) -> Result[int, RepositoryError]:
         return Success(len(self._store))
 
-    def search_keyword(
-        self, query: str, limit: int = 10
-    ) -> Result[list[tuple[Memory, float]], RepositoryError]:
+    def search_keyword(self, query: str, limit: int = 10) -> Result[list[tuple[Memory, float]], RepositoryError]:
         results = []
         for m in self._store.values():
             if query.lower() in m.content.lower():
@@ -79,14 +74,10 @@ class InMemoryMemoryRepository:
     def find_all(self) -> Result[list[Memory], RepositoryError]:
         return Success(list(self._store.values()))
 
-    def get_strength(
-        self, key: str
-    ) -> Result[MemoryStrength | None, RepositoryError]:
+    def get_strength(self, key: str) -> Result[MemoryStrength | None, RepositoryError]:
         return Success(self._strengths.get(key))
 
-    def save_strength(
-        self, strength: MemoryStrength
-    ) -> Result[None, RepositoryError]:
+    def save_strength(self, strength: MemoryStrength) -> Result[None, RepositoryError]:
         self._strengths[strength.memory_key] = strength
         return Success(None)
 
@@ -95,9 +86,7 @@ class InMemoryMemoryRepository:
     ) -> Result[list[MemoryStrength], RepositoryError]:
         return Success(list(self._strengths.values()))
 
-    def get_block(
-        self, block_name: str
-    ) -> Result[dict | None, RepositoryError]:
+    def get_block(self, block_name: str) -> Result[dict | None, RepositoryError]:
         return Success(self._blocks.get(block_name))
 
     def save_block(
@@ -140,15 +129,17 @@ class InMemoryMemoryRepository:
             self._versions: dict[str, list[dict]] = {}
         if memory_key not in self._versions:
             self._versions[memory_key] = []
-        self._versions[memory_key].append({
-            "memory_key": memory_key,
-            "version": version,
-            "content": content,
-            "metadata": metadata,
-            "changed_by": changed_by,
-            "change_type": change_type,
-            "created_at": "2025-01-01T00:00:00+09:00",
-        })
+        self._versions[memory_key].append(
+            {
+                "memory_key": memory_key,
+                "version": version,
+                "content": content,
+                "metadata": metadata,
+                "changed_by": changed_by,
+                "change_type": change_type,
+                "created_at": "2025-01-01T00:00:00+09:00",
+            }
+        )
         return Success(None)
 
     def get_versions(self, memory_key: str) -> Result[list[dict], RepositoryError]:
@@ -156,9 +147,7 @@ class InMemoryMemoryRepository:
             self._versions: dict[str, list[dict]] = {}
         return Success(self._versions.get(memory_key, []))
 
-    def get_version(
-        self, memory_key: str, version: int
-    ) -> Result[dict | None, RepositoryError]:
+    def get_version(self, memory_key: str, version: int) -> Result[dict | None, RepositoryError]:
         if not hasattr(self, "_versions"):
             self._versions: dict[str, list[dict]] = {}
         for v in self._versions.get(memory_key, []):
@@ -179,6 +168,7 @@ class InMemoryMemoryRepository:
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def repo():
     return InMemoryMemoryRepository()
@@ -192,6 +182,7 @@ def service(repo):
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 class TestCreateMemory:
     def test_create_success(self, service: MemoryService):

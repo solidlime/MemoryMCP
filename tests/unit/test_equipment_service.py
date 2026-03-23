@@ -19,6 +19,7 @@ from memory_mcp.domain.shared.result import Failure, Result, Success
 # InMemory EquipmentRepository
 # ---------------------------------------------------------------------------
 
+
 class InMemoryEquipmentRepository:
     """Protocol-compatible in-memory repo for EquipmentService tests."""
 
@@ -31,14 +32,10 @@ class InMemoryEquipmentRepository:
         self._items[item.name] = item
         return Success(item)
 
-    def find_item_by_name(
-        self, name: str
-    ) -> Result[Item | None, RepositoryError]:
+    def find_item_by_name(self, name: str) -> Result[Item | None, RepositoryError]:
         return Success(self._items.get(name))
 
-    def update_item(
-        self, name: str, **kwargs: Any
-    ) -> Result[Item, RepositoryError]:
+    def update_item(self, name: str, **kwargs: Any) -> Result[Item, RepositoryError]:
         if name not in self._items:
             return Failure(RepositoryError(f"Not found: {name}"))
         item = self._items[name]
@@ -62,15 +59,13 @@ class InMemoryEquipmentRepository:
             results = [i for i in results if i.category == category]
         if query:
             results = [
-                i for i in results
-                if query.lower() in (i.name or "").lower()
-                or query.lower() in (i.description or "").lower()
+                i
+                for i in results
+                if query.lower() in (i.name or "").lower() or query.lower() in (i.description or "").lower()
             ]
         return Success(results)
 
-    def equip_slot(
-        self, slot: str, item_name: str
-    ) -> Result[None, RepositoryError]:
+    def equip_slot(self, slot: str, item_name: str) -> Result[None, RepositoryError]:
         self._slots[slot] = item_name
         return Success(None)
 
@@ -81,25 +76,20 @@ class InMemoryEquipmentRepository:
     def get_all_slots(
         self,
     ) -> Result[list[EquipmentSlot], RepositoryError]:
-        return Success([
-            EquipmentSlot(slot=s, item_name=n) for s, n in self._slots.items()
-        ])
+        return Success([EquipmentSlot(slot=s, item_name=n) for s, n in self._slots.items()])
 
-    def add_history(
-        self, entry: EquipmentHistory
-    ) -> Result[None, RepositoryError]:
+    def add_history(self, entry: EquipmentHistory) -> Result[None, RepositoryError]:
         self._history.append(entry)
         return Success(None)
 
-    def get_history(
-        self, days: int = 7
-    ) -> Result[list[EquipmentHistory], RepositoryError]:
+    def get_history(self, days: int = 7) -> Result[list[EquipmentHistory], RepositoryError]:
         return Success(self._history)
 
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def repo():
@@ -114,6 +104,7 @@ def service(repo):
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 class TestAddItem:
     def test_add_new_item(self, service: EquipmentService, repo: InMemoryEquipmentRepository):
@@ -171,10 +162,13 @@ class TestEquip:
         assert equip_events[-1].item_name == "帽子"
 
     def test_equip_multiple_slots(self, service: EquipmentService, repo: InMemoryEquipmentRepository):
-        result = service.equip({
-            "top": "シャツ",
-            "bottom": "スカート",
-        }, auto_add=True)
+        result = service.equip(
+            {
+                "top": "シャツ",
+                "bottom": "スカート",
+            },
+            auto_add=True,
+        )
         assert result.is_ok
         eq = result.unwrap()
         assert eq["top"] == "シャツ"

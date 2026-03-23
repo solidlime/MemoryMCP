@@ -46,12 +46,14 @@ class EquipmentService:
             result = self._repo.update_item(name.strip(), quantity=new_qty)
             if not result.is_ok:
                 return Failure(result.error)
-            self._repo.add_history(EquipmentHistory(
-                action="add",
-                item_name=name.strip(),
-                timestamp=get_now(),
-                details=f"quantity +{quantity} (total: {new_qty})",
-            ))
+            self._repo.add_history(
+                EquipmentHistory(
+                    action="add",
+                    item_name=name.strip(),
+                    timestamp=get_now(),
+                    details=f"quantity +{quantity} (total: {new_qty})",
+                )
+            )
             return result
 
         now = get_now()
@@ -66,12 +68,14 @@ class EquipmentService:
         )
         result = self._repo.add_item(item)
         if result.is_ok:
-            self._repo.add_history(EquipmentHistory(
-                action="add",
-                item_name=name.strip(),
-                timestamp=now,
-                details=f"new item (quantity: {quantity})",
-            ))
+            self._repo.add_history(
+                EquipmentHistory(
+                    action="add",
+                    item_name=name.strip(),
+                    timestamp=now,
+                    details=f"new item (quantity: {quantity})",
+                )
+            )
         return result
 
     def remove_item(self, name: str) -> Result[None, DomainError]:
@@ -90,16 +94,16 @@ class EquipmentService:
 
         result = self._repo.remove_item(name)
         if result.is_ok:
-            self._repo.add_history(EquipmentHistory(
-                action="remove",
-                item_name=name,
-                timestamp=get_now(),
-            ))
+            self._repo.add_history(
+                EquipmentHistory(
+                    action="remove",
+                    item_name=name,
+                    timestamp=get_now(),
+                )
+            )
         return result
 
-    def update_item(
-        self, name: str, **updates: object
-    ) -> Result[Item, DomainError]:
+    def update_item(self, name: str, **updates: object) -> Result[Item, DomainError]:
         """Update item fields."""
         existing = self._repo.find_item_by_name(name)
         if not existing.is_ok:
@@ -110,12 +114,14 @@ class EquipmentService:
         updates["updated_at"] = get_now()
         result = self._repo.update_item(name, **updates)
         if result.is_ok:
-            self._repo.add_history(EquipmentHistory(
-                action="update",
-                item_name=name,
-                timestamp=get_now(),
-                details=str(list(updates.keys())),
-            ))
+            self._repo.add_history(
+                EquipmentHistory(
+                    action="update",
+                    item_name=name,
+                    timestamp=get_now(),
+                    details=str(list(updates.keys())),
+                )
+            )
         return result
 
     def equip(
@@ -129,60 +135,56 @@ class EquipmentService:
 
         for slot, item_name in equipment.items():
             if slot not in VALID_SLOTS:
-                return Failure(
-                    ItemValidationError(
-                        f"Invalid slot: {slot!r}. Valid: {VALID_SLOTS}"
-                    )
-                )
+                return Failure(ItemValidationError(f"Invalid slot: {slot!r}. Valid: {VALID_SLOTS}"))
 
             if auto_add:
                 existing = self._repo.find_item_by_name(item_name)
                 if existing.is_ok and existing.value is None:
-                    self._repo.add_item(Item(
-                        name=item_name,
-                        created_at=now,
-                        updated_at=now,
-                    ))
+                    self._repo.add_item(
+                        Item(
+                            name=item_name,
+                            created_at=now,
+                            updated_at=now,
+                        )
+                    )
 
             equip_result = self._repo.equip_slot(slot, item_name)
             if not equip_result.is_ok:
                 return Failure(equip_result.error)
 
-            self._repo.add_history(EquipmentHistory(
-                action="equip",
-                item_name=item_name,
-                slot=slot,
-                timestamp=now,
-            ))
+            self._repo.add_history(
+                EquipmentHistory(
+                    action="equip",
+                    item_name=item_name,
+                    slot=slot,
+                    timestamp=now,
+                )
+            )
             results[slot] = item_name
 
         return Success(results)
 
-    def unequip(
-        self, slots: list[str] | str
-    ) -> Result[None, DomainError]:
+    def unequip(self, slots: list[str] | str) -> Result[None, DomainError]:
         """Unequip items from given slots."""
         if isinstance(slots, str):
             slots = [slots]
 
         for slot in slots:
             if slot not in VALID_SLOTS:
-                return Failure(
-                    ItemValidationError(
-                        f"Invalid slot: {slot!r}. Valid: {VALID_SLOTS}"
-                    )
-                )
+                return Failure(ItemValidationError(f"Invalid slot: {slot!r}. Valid: {VALID_SLOTS}"))
 
             slots_result = self._repo.get_all_slots()
             if slots_result.is_ok:
                 for s in slots_result.value:
                     if s.slot == slot and s.item_name:
-                        self._repo.add_history(EquipmentHistory(
-                            action="unequip",
-                            item_name=s.item_name,
-                            slot=slot,
-                            timestamp=get_now(),
-                        ))
+                        self._repo.add_history(
+                            EquipmentHistory(
+                                action="unequip",
+                                item_name=s.item_name,
+                                slot=slot,
+                                timestamp=get_now(),
+                            )
+                        )
 
             result = self._repo.unequip_slot(slot)
             if not result.is_ok:
@@ -205,8 +207,6 @@ class EquipmentService:
             return Failure(result.error)
         return Success({s.slot: s.item_name for s in result.value})
 
-    def get_history(
-        self, days: int = 7
-    ) -> Result[list[EquipmentHistory], DomainError]:
+    def get_history(self, days: int = 7) -> Result[list[EquipmentHistory], DomainError]:
         """Get equipment change history."""
         return self._repo.get_history(days)

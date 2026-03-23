@@ -20,6 +20,7 @@ from memory_mcp.infrastructure.sqlite.persona_repo import SQLitePersonaRepositor
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def sqlite_conn(tmp_path):
     """Create a fresh SQLiteConnection in a temp directory."""
@@ -47,6 +48,7 @@ def equipment_repo(sqlite_conn):
 # ---------------------------------------------------------------------------
 # SQLiteMemoryRepository Tests
 # ---------------------------------------------------------------------------
+
 
 class TestSQLiteMemoryRepo:
     def _make_memory(self, key: str = "memory_20250101120000", content: str = "test") -> Memory:
@@ -206,9 +208,7 @@ class TestSQLitePersonaRepo:
         assert len(history.unwrap()) == 2
 
     def test_add_and_get_emotion_history(self, persona_repo: SQLitePersonaRepository):
-        record = EmotionRecord(
-            emotion_type="joy", intensity=0.8, timestamp=get_now(), context="good news"
-        )
+        record = EmotionRecord(emotion_type="joy", intensity=0.8, timestamp=get_now(), context="good news")
         persona_repo.add_emotion_record(PERSONA, record)
         result = persona_repo.get_emotion_history(PERSONA)
         assert result.is_ok
@@ -236,6 +236,7 @@ class TestSQLitePersonaRepo:
 # ---------------------------------------------------------------------------
 # SQLiteEquipmentRepository Tests
 # ---------------------------------------------------------------------------
+
 
 class TestSQLiteEquipmentRepo:
     def _make_item(self, name: str = "白いドレス", category: str = "clothing") -> Item:

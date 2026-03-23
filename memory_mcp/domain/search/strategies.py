@@ -12,15 +12,11 @@ if TYPE_CHECKING:
 class KeywordSearchStrategy(Protocol):
     """Strategy for keyword-based memory search."""
 
-    def search(
-        self, query: str, limit: int = 10
-    ) -> Result[list[tuple[Memory, float]], SearchError]: ...
+    def search(self, query: str, limit: int = 10) -> Result[list[tuple[Memory, float]], SearchError]: ...
 
 
 @runtime_checkable
 class SemanticSearchStrategy(Protocol):
     """Strategy for semantic/vector-based memory search."""
 
-    def search(
-        self, query: str, limit: int = 10
-    ) -> Result[list[tuple[Memory, float]], SearchError]: ...
+    def search(self, query: str, limit: int = 10) -> Result[list[tuple[Memory, float]], SearchError]: ...

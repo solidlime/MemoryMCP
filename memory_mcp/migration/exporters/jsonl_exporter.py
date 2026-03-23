@@ -37,17 +37,26 @@ class JSONLExporter:
             with open(output_path, "w", encoding="utf-8") as f:
                 # memories
                 count += self._export_table(
-                    f, db, "SELECT * FROM memories", "memory",
+                    f,
+                    db,
+                    "SELECT * FROM memories",
+                    "memory",
                 )
 
                 # memory_strength
                 count += self._export_table(
-                    f, db, "SELECT * FROM memory_strength", "strength",
+                    f,
+                    db,
+                    "SELECT * FROM memory_strength",
+                    "strength",
                 )
 
                 # memory_blocks
                 count += self._export_table(
-                    f, db, "SELECT * FROM memory_blocks", "block",
+                    f,
+                    db,
+                    "SELECT * FROM memory_blocks",
+                    "block",
                 )
 
                 # context_state (filtered by persona)
@@ -61,7 +70,10 @@ class JSONLExporter:
 
                 # emotion_history
                 count += self._export_table(
-                    f, db, "SELECT * FROM emotion_history", "emotion",
+                    f,
+                    db,
+                    "SELECT * FROM emotion_history",
+                    "emotion",
                 )
 
                 # user_info (filtered by persona)
@@ -84,27 +96,42 @@ class JSONLExporter:
 
                 # goals
                 count += self._export_table(
-                    f, db, "SELECT * FROM goals", "goal",
+                    f,
+                    db,
+                    "SELECT * FROM goals",
+                    "goal",
                 )
 
                 # promises
                 count += self._export_table(
-                    f, db, "SELECT * FROM promises", "promise",
+                    f,
+                    db,
+                    "SELECT * FROM promises",
+                    "promise",
                 )
 
                 # items
                 count += self._export_table(
-                    f, inv_db, "SELECT * FROM items", "item",
+                    f,
+                    inv_db,
+                    "SELECT * FROM items",
+                    "item",
                 )
 
                 # equipment_slots
                 count += self._export_table(
-                    f, inv_db, "SELECT * FROM equipment_slots", "equipment_slot",
+                    f,
+                    inv_db,
+                    "SELECT * FROM equipment_slots",
+                    "equipment_slot",
                 )
 
                 # equipment_history
                 count += self._export_table(
-                    f, inv_db, "SELECT * FROM equipment_history", "equipment_history",
+                    f,
+                    inv_db,
+                    "SELECT * FROM equipment_history",
+                    "equipment_history",
                 )
 
             return Success(count)
@@ -133,8 +160,6 @@ class JSONLExporter:
 
         for row in rows:
             record: dict = {"type": record_type, **dict(row)}
-            file_handle.write(
-                json.dumps(record, ensure_ascii=False, default=str) + "\n"
-            )
+            file_handle.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
             count += 1
         return count

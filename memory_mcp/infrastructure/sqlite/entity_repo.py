@@ -62,9 +62,7 @@ class SQLiteEntityRepository:
 
     def get_entity(self, entity_id: str) -> Result[Entity | None, RepositoryError]:
         try:
-            row = self._db.execute(
-                "SELECT * FROM entities WHERE id = ?", (entity_id,)
-            ).fetchone()
+            row = self._db.execute("SELECT * FROM entities WHERE id = ?", (entity_id,)).fetchone()
             if row is None:
                 return Success(None)
             return Success(self._row_to_entity(row))
@@ -121,9 +119,7 @@ class SQLiteEntityRepository:
             logger.error("Failed to save relation %s->%s: %s", relation.source_entity, relation.target_entity, e)
             return Failure(RepositoryError(str(e)))
 
-    def get_relations(
-        self, entity_id: str, direction: str = "both"
-    ) -> Result[list[EntityRelation], RepositoryError]:
+    def get_relations(self, entity_id: str, direction: str = "both") -> Result[list[EntityRelation], RepositoryError]:
         try:
             if direction == "outgoing":
                 rows = self._db.execute(
@@ -163,9 +159,7 @@ class SQLiteEntityRepository:
             logger.error("Failed to link memory %s → entity %s: %s", memory_key, entity_id, e)
             return Failure(RepositoryError(str(e)))
 
-    def get_entity_memories(
-        self, entity_id: str, limit: int = 50
-    ) -> Result[list[str], RepositoryError]:
+    def get_entity_memories(self, entity_id: str, limit: int = 50) -> Result[list[str], RepositoryError]:
         try:
             rows = self._db.execute(
                 "SELECT memory_key FROM memory_entities WHERE entity_id = ? LIMIT ?",
@@ -176,9 +170,7 @@ class SQLiteEntityRepository:
             logger.error("Failed to get memories for entity %s: %s", entity_id, e)
             return Failure(RepositoryError(str(e)))
 
-    def get_memory_entities(
-        self, memory_key: str
-    ) -> Result[list[Entity], RepositoryError]:
+    def get_memory_entities(self, memory_key: str) -> Result[list[Entity], RepositoryError]:
         try:
             rows = self._db.execute(
                 """
@@ -197,9 +189,7 @@ class SQLiteEntityRepository:
     # Graph traversal
     # ------------------------------------------------------------------
 
-    def get_entity_graph(
-        self, entity_id: str, depth: int = 1
-    ) -> Result[EntityGraph, RepositoryError]:
+    def get_entity_graph(self, entity_id: str, depth: int = 1) -> Result[EntityGraph, RepositoryError]:
         """Build a sub-graph centred on *entity_id* up to *depth* hops."""
         try:
             center_result = self.get_entity(entity_id)
@@ -240,12 +230,14 @@ class SQLiteEntityRepository:
             mem_result = self.get_entity_memories(entity_id)
             memories = mem_result.value if mem_result.is_ok else []
 
-            return Success(EntityGraph(
-                center=center,
-                relations=all_relations,
-                related_entities=related_entities,
-                related_memories=memories,
-            ))
+            return Success(
+                EntityGraph(
+                    center=center,
+                    relations=all_relations,
+                    related_entities=related_entities,
+                    related_memories=memories,
+                )
+            )
         except Exception as e:
             logger.error("Failed to get entity graph for %s: %s", entity_id, e)
             return Failure(RepositoryError(str(e)))
