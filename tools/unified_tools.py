@@ -61,7 +61,7 @@ async def memory(
     Unified memory & context management tool.
 
     ops: create, read, search, update, delete, stats, check_routines,
-         update_context, block_write, block_read, block_list, block_delete
+         update_context
 
     key params: query, content, importance(0-1), emotion_type, context_tags,
                 mode(semantic/keyword/hybrid/smart), search_tags, date_range, top_k,
@@ -91,7 +91,6 @@ async def memory(
         memory(operation="update_context", physical_state="tired", relationship_status="恋人")
         memory(operation="update_context", user_info={"preferred_address": "太郎さん"})
         memory(operation="update_context", persona_info={"nickname": "ヘルタ", "preferred_address": "ヘルタ様"})
-        memory(operation="block_write", query="user_profile", content="猫が好き。ITエンジニア。")
     """
     # Update last conversation time for all operations
     update_last_conversation_time(get_current_persona())
@@ -110,7 +109,6 @@ async def memory(
     memory_operations = ["create", "read", "update", "delete", "search", "stats", "check_routines"]
     context_operations = [
         "update_context",
-        "block_write", "block_read", "block_list", "block_delete",
     ]
 
     if operation in memory_operations:

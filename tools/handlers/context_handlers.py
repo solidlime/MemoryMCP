@@ -166,62 +166,14 @@ async def handle_context_operation(
             return "ℹ️ No context fields to update\n💡 Example: memory(operation='update_context', physical_state='relaxed', mental_state='calm')"
         return await handle_update_context(persona_info, user_info, emotion_type, emotion_intensity)
 
-    # ── Named memory block operations ────────────────────────────────────────
-    elif operation == "block_write":
-        if not query:
-            return "❌ block_write requires query='<block_name>' (e.g. 'user_model')"
-        if not content:
-            return "❌ block_write requires content='<text>'"
-        from core.memory_blocks_db import write_block, STANDARD_BLOCKS
-        persona = get_current_persona()
-        if not write_block(persona, query, content):
-            return f"❌ Failed to write block '{query}'"
-        desc = STANDARD_BLOCKS.get(query, "custom block")
-        return f"✅ Block '{query}' updated ({desc})"
-
-    elif operation == "block_read":
-        from core.memory_blocks_db import read_block, STANDARD_BLOCKS
-        persona = get_current_persona()
-        if query:
-            text = read_block(persona, query)
-            if text is None:
-                return f"❌ Block '{query}' not found. Use block_list to see available blocks."
-            return f"📦 [{query}]\n{text}"
-        else:
-            # Read all blocks
-            from core.memory_blocks_db import list_blocks
-            blocks = list_blocks(persona)
-            if not blocks:
-                return "📭 No memory blocks found. Create one with block_write."
-            lines = ["📦 All Memory Blocks:"]
-            for b in blocks:
-                preview = b["content"][:120] + "..." if len(b["content"]) > 120 else b["content"]
-                lines.append(f"\n[{b['name']}] {b.get('description','')}\n  {preview}")
-            return "\n".join(lines)
-
-    elif operation == "block_list":
-        from core.memory_blocks_db import list_blocks, STANDARD_BLOCKS
-        persona = get_current_persona()
-        blocks = list_blocks(persona)
-        lines = ["📦 Memory Blocks:"]
-        for b in blocks:
-            lines.append(f"  • {b['name']} (updated: {b['updated_at'][:10]})")
-        if not blocks:
-            lines.append("  (none yet)")
-        lines.append("\n💡 Standard block names: " + ", ".join(STANDARD_BLOCKS.keys()))
-        return "\n".join(lines)
-
-    elif operation == "block_delete":
-        if not query:
-            return "❌ block_delete requires query='<block_name>'"
-        from core.memory_blocks_db import delete_block
-        persona = get_current_persona()
-        if not delete_block(persona, query):
-            return f"❌ Failed to delete block '{query}'"
-        return f"✅ Block '{query}' deleted"
+    # ── Named memory block operations (廃止済み) ─────────────────────────────
+    elif operation in ("block_write", "block_read", "block_list", "block_delete"):
+        raise ValueError(
+            f"Operation '{operation}' は廃止されました。Memory Blocks 機能は削除されています。"
+        )
 
     else:
         raise ValueError(
             f"Unknown context operation '{operation}'. "
-            f"Valid: update_context, block_write, block_read, block_list, block_delete"
+            f"Valid: update_context"
         )
