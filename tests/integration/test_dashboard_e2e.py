@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 import shutil
 import tempfile
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta, timezone
 from unittest.mock import patch
 
 import httpx
@@ -44,6 +44,7 @@ def _reset_singletons():
     AppContextRegistry._settings = None
     RuntimeConfigManager.reset()
     import memory_mcp.config.settings as _s
+
     _s._settings_instance = None
     yield
     # --- after ---
@@ -515,10 +516,13 @@ async def test_full_dogfooding_flow(client):
             (
                 key,
                 f"E2Eテスト記憶 {i}: 宇宙ステーションの実験データ番号{i}。",
-                ts, ts,
+                ts,
+                ts,
                 _json.dumps(["e2e", "science"], ensure_ascii=False),
                 0.6 + 0.1 * i,
-                "curiosity", 0.5, "internal",
+                "curiosity",
+                0.5,
+                "internal",
             ),
         )
         db.execute(

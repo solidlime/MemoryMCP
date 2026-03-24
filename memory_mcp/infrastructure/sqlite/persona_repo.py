@@ -187,6 +187,7 @@ class SQLitePersonaRepository:
         """Get emotion history for the last N days, ordered by timestamp ascending."""
         try:
             from datetime import timedelta
+
             cutoff = get_now() - timedelta(days=days)
             rows = self._db.execute(
                 """

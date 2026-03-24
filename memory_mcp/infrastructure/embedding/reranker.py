@@ -98,7 +98,8 @@ class RerankerModel:
             self._model = None
 
             if not self.enabled:
-                del old_model
+                if old_model is not None:
+                    del old_model
                 return {
                     "status": "disabled",
                     "model": self.model_name,
@@ -107,7 +108,8 @@ class RerankerModel:
 
             try:
                 self._load_model()
-                del old_model
+                if old_model is not None:
+                    del old_model
                 return {
                     "status": "ready",
                     "model": self.model_name,

@@ -1,15 +1,18 @@
 """Tests for RuntimeConfigManager."""
+
 from __future__ import annotations
 
 import json
 import os
-import tempfile
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import pytest
 
-from memory_mcp.config.runtime_config import RuntimeConfigManager, SETTINGS_META
+from memory_mcp.config.runtime_config import SETTINGS_META, RuntimeConfigManager
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @pytest.fixture(autouse=True)

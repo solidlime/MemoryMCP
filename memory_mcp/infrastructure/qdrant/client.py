@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import contextlib
+
 from memory_mcp.infrastructure.logging.structured import get_logger
 
 logger = get_logger(__name__)
@@ -62,10 +64,8 @@ class QdrantClientManager:
             collections = self._client.get_collections().collections
             # 旧クライアントをクローズ
             if old_client is not None:
-                try:
+                with contextlib.suppress(Exception):
                     old_client.close()
-                except Exception:
-                    pass
             logger.info("Qdrant reconnected to %s", self.url)
             return {
                 "status": "connected",

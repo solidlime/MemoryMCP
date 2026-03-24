@@ -468,9 +468,7 @@ class SQLiteMemoryRepository:
     def get_goals(self) -> Result[list[dict], RepositoryError]:
         """Get all goals."""
         try:
-            rows = self._db.execute(
-                "SELECT * FROM goals ORDER BY priority DESC, created_at DESC"
-            ).fetchall()
+            rows = self._db.execute("SELECT * FROM goals ORDER BY priority DESC, created_at DESC").fetchall()
             return Success([dict(r) for r in rows])
         except Exception as e:
             logger.error("Failed to get goals: %s", e)
@@ -479,9 +477,7 @@ class SQLiteMemoryRepository:
     def get_promises(self) -> Result[list[dict], RepositoryError]:
         """Get all promises."""
         try:
-            rows = self._db.execute(
-                "SELECT * FROM promises ORDER BY priority DESC, created_at DESC"
-            ).fetchall()
+            rows = self._db.execute("SELECT * FROM promises ORDER BY priority DESC, created_at DESC").fetchall()
             return Success([dict(r) for r in rows])
         except Exception as e:
             logger.error("Failed to get promises: %s", e)

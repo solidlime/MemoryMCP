@@ -1,13 +1,17 @@
 """Runtime configuration manager with hot-reload support."""
+
 from __future__ import annotations
 
 import json
 import os
 import threading
 from pathlib import Path
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
 
-from memory_mcp.config.settings import Settings, get_settings
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+from memory_mcp.config.settings import get_settings
 from memory_mcp.infrastructure.logging.structured import get_logger
 
 logger = get_logger(__name__)

@@ -102,7 +102,8 @@ class EmbeddingModel:
             try:
                 self._load_model()
                 # 旧モデルのクリーンアップ
-                del old_model
+                if old_model is not None:
+                    del old_model
                 return {
                     "status": "ready",
                     "model": self.model_name,

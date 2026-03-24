@@ -65,7 +65,8 @@ class SearchEngine:
 
     @staticmethod
     def _to_search_results(
-        pairs: list[tuple[Memory, float]], source: str,
+        pairs: list[tuple[Memory, float]],
+        source: str,
     ) -> list[SearchResult]:
         """Convert (Memory, score) tuples from strategies into SearchResult objects."""
         return [SearchResult(memory=m, score=s, source=source) for m, s in pairs]

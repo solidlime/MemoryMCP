@@ -140,17 +140,19 @@ def register_http_routes(mcp) -> None:  # noqa: C901, PLR0915
             promises_result = ctx.memory_repo.get_promises()
             promises = promises_result.value if promises_result.is_ok else []
 
-            return JSONResponse({
-                "persona": persona,
-                "stats": stats,
-                "context": context,
-                "recent": recent,
-                "blocks": blocks,
-                "equipment": equipment,
-                "strengths": strengths_summary,
-                "goals": goals,
-                "promises": promises,
-            })
+            return JSONResponse(
+                {
+                    "persona": persona,
+                    "stats": stats,
+                    "context": context,
+                    "recent": recent,
+                    "blocks": blocks,
+                    "equipment": equipment,
+                    "strengths": strengths_summary,
+                    "goals": goals,
+                    "promises": promises,
+                }
+            )
         except Exception as exc:
             return JSONResponse({"error": str(exc)}, status_code=500)
 
@@ -166,10 +168,12 @@ def register_http_routes(mcp) -> None:  # noqa: C901, PLR0915
             result = ctx.memory_service.get_recent(limit=limit)
             if not result.is_ok:
                 return JSONResponse({"error": str(result.error)}, status_code=500)
-            return JSONResponse({
-                "persona": persona,
-                "memories": [_memory_to_dict(m) for m in result.value],
-            })
+            return JSONResponse(
+                {
+                    "persona": persona,
+                    "memories": [_memory_to_dict(m) for m in result.value],
+                }
+            )
         except Exception as exc:
             return JSONResponse({"error": str(exc)}, status_code=500)
 
@@ -195,18 +199,20 @@ def register_http_routes(mcp) -> None:  # noqa: C901, PLR0915
             result = ctx.search_engine.search(query)
             if not result.is_ok:
                 return JSONResponse({"error": str(result.error)}, status_code=500)
-            return JSONResponse({
-                "persona": persona,
-                "query": q,
-                "results": [
-                    {
-                        "memory": _memory_to_dict(r.memory),
-                        "score": round(r.score, 4),
-                        "source": r.source,
-                    }
-                    for r in result.value
-                ],
-            })
+            return JSONResponse(
+                {
+                    "persona": persona,
+                    "query": q,
+                    "results": [
+                        {
+                            "memory": _memory_to_dict(r.memory),
+                            "score": round(r.score, 4),
+                            "source": r.source,
+                        }
+                        for r in result.value
+                    ],
+                }
+            )
         except Exception as exc:
             return JSONResponse({"error": str(exc)}, status_code=500)
 
@@ -227,18 +233,22 @@ def register_http_routes(mcp) -> None:  # noqa: C901, PLR0915
             grouped: dict[str, list[dict]] = defaultdict(list)
             for record in result.value:
                 date_str = record.timestamp.strftime("%Y-%m-%d") if record.timestamp else "unknown"
-                grouped[date_str].append({
-                    "emotion_type": record.emotion_type,
-                    "intensity": record.intensity,
-                    "timestamp": record.timestamp.isoformat() if record.timestamp else None,
-                    "trigger_memory_key": record.trigger_memory_key,
-                    "context": record.context,
-                })
-            return JSONResponse({
-                "persona": persona,
-                "days": days,
-                "history": dict(grouped),
-            })
+                grouped[date_str].append(
+                    {
+                        "emotion_type": record.emotion_type,
+                        "intensity": record.intensity,
+                        "timestamp": record.timestamp.isoformat() if record.timestamp else None,
+                        "trigger_memory_key": record.trigger_memory_key,
+                        "context": record.context,
+                    }
+                )
+            return JSONResponse(
+                {
+                    "persona": persona,
+                    "days": days,
+                    "history": dict(grouped),
+                }
+            )
         except Exception as exc:
             return JSONResponse({"error": str(exc)}, status_code=500)
 
@@ -256,20 +266,26 @@ def register_http_routes(mcp) -> None:  # noqa: C901, PLR0915
             return JSONResponse({"error": f"Persona '{persona}' not found"}, status_code=404)
         try:
             result = ctx.memory_repo.find_with_pagination(
-                page=page, per_page=per_page, tag=tag, query=q, sort_order=sort_order,
+                page=page,
+                per_page=per_page,
+                tag=tag,
+                query=q,
+                sort_order=sort_order,
             )
             if not result.is_ok:
                 return JSONResponse({"error": str(result.error)}, status_code=500)
             memories, total_count = result.value
             total_pages = (total_count + per_page - 1) // per_page
-            return JSONResponse({
-                "persona": persona,
-                "page": page,
-                "per_page": per_page,
-                "total_count": total_count,
-                "total_pages": total_pages,
-                "memories": [_memory_to_dict(m) for m in memories],
-            })
+            return JSONResponse(
+                {
+                    "persona": persona,
+                    "page": page,
+                    "per_page": per_page,
+                    "total_count": total_count,
+                    "total_pages": total_pages,
+                    "memories": [_memory_to_dict(m) for m in memories],
+                }
+            )
         except Exception as exc:
             return JSONResponse({"error": str(exc)}, status_code=500)
 
@@ -291,17 +307,16 @@ def register_http_routes(mcp) -> None:  # noqa: C901, PLR0915
             for s in strengths:
                 idx = min(int(s.strength * 10), 9)
                 buckets[idx] += 1
-            histogram = [
-                {"range": f"{i / 10:.1f}-{(i + 1) / 10:.1f}", "count": buckets[i]}
-                for i in range(10)
-            ]
+            histogram = [{"range": f"{i / 10:.1f}-{(i + 1) / 10:.1f}", "count": buckets[i]} for i in range(10)]
 
-            return JSONResponse({
-                "persona": persona,
-                "total": len(strengths),
-                "strengths": [_strength_to_dict(s) for s in strengths],
-                "histogram": histogram,
-            })
+            return JSONResponse(
+                {
+                    "persona": persona,
+                    "total": len(strengths),
+                    "strengths": [_strength_to_dict(s) for s in strengths],
+                    "histogram": histogram,
+                }
+            )
         except Exception as exc:
             return JSONResponse({"error": str(exc)}, status_code=500)
 
@@ -373,8 +388,10 @@ def register_http_routes(mcp) -> None:  # noqa: C901, PLR0915
             from memory_mcp.config.runtime_config import RuntimeConfigManager
 
             config = RuntimeConfigManager()
-            return JSONResponse({
-                "reload_status": config.reload_status.get_all(),
-            })
+            return JSONResponse(
+                {
+                    "reload_status": config.reload_status.get_all(),
+                }
+            )
         except Exception as exc:
             return JSONResponse({"error": str(exc)}, status_code=500)
