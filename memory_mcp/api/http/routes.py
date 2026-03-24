@@ -87,12 +87,9 @@ def register_http_routes(mcp) -> None:  # noqa: C901, PLR0915
     @mcp.custom_route("/", methods=["GET"])
     async def dashboard_page(request: Request) -> HTMLResponse:
         """Serve the dashboard HTML page."""
-        html = (
-            "<html><head><title>MemoryMCP Dashboard</title></head>"
-            "<body><h1>MemoryMCP Dashboard</h1>"
-            "<p>Coming soon...</p></body></html>"
-        )
-        return HTMLResponse(html)
+        from memory_mcp.api.http.dashboard import render_dashboard
+
+        return HTMLResponse(render_dashboard())
 
     @mcp.custom_route("/api/dashboard/{persona}", methods=["GET"])
     async def dashboard_data(request: Request) -> JSONResponse:
