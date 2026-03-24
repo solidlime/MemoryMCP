@@ -87,11 +87,23 @@ class LegacyImporter:
                 zf.extractall(tmp_dir)
 
             extracted = Path(tmp_dir)
-            subdirs = [d for d in extracted.iterdir() if d.is_dir()]
-
-            # Use first sub-directory if present, otherwise root
-            source_dir = subdirs[0] if subdirs else extracted
+            source_dir = self._find_source_dir(extracted)
             return self.import_from_directory(str(source_dir))
+
+    def _find_source_dir(self, root: Path) -> Path:
+        """Find the directory containing persona data files (memory.sqlite etc.).
+
+        Searches recursively so that zips with nested folder structures work
+        correctly regardless of depth.
+        """
+        for db_file in root.rglob("memory.sqlite"):
+            return db_file.parent
+        for db_file in root.rglob("inventory.sqlite"):
+            return db_file.parent
+        for json_file in root.rglob("persona_context.json"):
+            return json_file.parent
+        subdirs = [d for d in root.iterdir() if d.is_dir()]
+        return subdirs[0] if subdirs else root
 
     # ------------------------------------------------------------------
     # Private — per-table import helpers
@@ -519,7 +531,10 @@ class LegacyImporter:
                 count += 1
 
         # current_goals → goals table
-        for i, goal in enumerate(data.get("current_goals", [])):
+        goals_raw = data.get("current_goals", [])
+        if isinstance(goals_raw, str):
+            goals_raw = [goals_raw] if goals_raw.strip() else []
+        for i, goal in enumerate(goals_raw):
             goal_text = goal if isinstance(goal, str) else json.dumps(goal, ensure_ascii=False)
             goal_id = f"legacy_goal_{i}"
             target_db.execute(
@@ -533,7 +548,10 @@ class LegacyImporter:
             count += 1
 
         # active_promises → promises table
-        for i, promise in enumerate(data.get("active_promises", [])):
+        promises_raw = data.get("active_promises", [])
+        if isinstance(promises_raw, str):
+            promises_raw = [promises_raw] if promises_raw.strip() else []
+        for i, promise in enumerate(promises_raw):
             promise_text = promise if isinstance(promise, str) else json.dumps(promise, ensure_ascii=False)
             promise_id = f"legacy_promise_{i}"
             target_db.execute(

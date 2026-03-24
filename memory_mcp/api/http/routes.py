@@ -149,6 +149,17 @@ def register_http_routes(mcp) -> None:  # noqa: C901, PLR0915
             equip_result = ctx.equipment_service.get_equipment()
             equipment = equip_result.value if equip_result.is_ok else {}
 
+            # Inventory items
+            items_result = ctx.equipment_service.search_items()
+            items_raw = items_result.value if items_result.is_ok else []
+            items = []
+            for it in items_raw:
+                d = asdict(it)
+                for k in ("created_at", "updated_at"):
+                    if k in d and d[k] is not None:
+                        d[k] = d[k].isoformat()
+                items.append(d)
+
             # Strengths summary
             strength_result = ctx.memory_repo.get_all_strengths()
             strengths_raw = strength_result.value if strength_result.is_ok else []
@@ -175,6 +186,7 @@ def register_http_routes(mcp) -> None:  # noqa: C901, PLR0915
                     "recent": recent,
                     "blocks": blocks,
                     "equipment": equipment,
+                    "items": items,
                     "strengths": strengths_summary,
                     "goals": goals,
                     "promises": promises,

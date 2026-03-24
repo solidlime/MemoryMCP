@@ -411,6 +411,25 @@ def render_dashboard() -> str:
             .main-content { padding: 16px; }
             .stat-value { font-size: 1.5rem; }
         }
+        /* Memory Detail Modal */
+        .mem-modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1000;
+            display: flex; align-items: center; justify-content: center;
+            padding: 20px; backdrop-filter: blur(4px);
+        }
+        .mem-modal {
+            background: var(--bg-secondary); border: 1px solid var(--glass-border);
+            border-radius: var(--card-radius); max-width: 700px; width: 100%;
+            max-height: 85vh; overflow-y: auto; padding: 24px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+        }
+        .mem-modal-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+        .mem-modal-close { background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer; padding: 0 4px; line-height: 1; }
+        .mem-modal-close:hover { color: var(--text-primary); }
+        .mem-modal-content { white-space: pre-wrap; word-break: break-word; font-size: 0.9rem; color: var(--text-secondary); line-height: 1.7; margin-bottom: 16px; padding: 12px; background: var(--glass-bg); border-radius: 8px; }
+        .mem-modal-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.82rem; }
+        .mem-modal-row:last-child { border-bottom: none; }
+        .mem-modal-key { color: var(--text-muted); min-width: 100px; flex-shrink: 0; }
     </style>
 </head>
 <body>
@@ -504,6 +523,11 @@ def render_dashboard() -> str:
             </div>
         </section>
     </main>
+
+    <!-- Memory Detail Modal -->
+    <div id="mem-modal-overlay" class="mem-modal-overlay" style="display:none" onclick="if(event.target===this)closeMemModal()">
+        <div class="mem-modal" id="mem-modal-content"></div>
+    </div>
 
     <!-- Toast container -->
     <div id="toast-container" class="toast-container"></div>
@@ -671,6 +695,7 @@ async function loadOverview() {
         const stats = data.stats || {};
         const ctx = data.context || {};
         const equip = data.equipment || {};
+        const items = data.items || [];
         const str = data.strengths || {};
 
         // --- Build tag/emotion distributions from stats ---
@@ -723,6 +748,11 @@ async function loadOverview() {
             });
             return html;
         }
+
+        // --- Profile: user_info / persona_info / relationship ---
+        const userInfo = ctx.user_info || {};
+        const personaInfo = ctx.persona_info || {};
+        const relStatus = ctx.relationship_status || ctx.relationship_type || '--';
 
         // --- Recent memories grouped by date (for 7-day chart) ---
         const recent = data.recent || [];
@@ -796,6 +826,30 @@ async function loadOverview() {
                     ${renderItems(data.promises, 'promises')}
                 </div>
             </div>
+        </div>
+        <!-- Profile & Relationship -->
+        <div class="glass p-6 mb-6">
+            <div class="card-title">👤 Profile & Relationship</div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:8px;font-weight:600">Relationship</div>
+                    <div style="font-size:0.9rem;color:var(--accent-pink);font-weight:600;margin-bottom:12px">${esc(relStatus)}</div>
+                    <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:6px;font-weight:600">User Info</div>
+                    ${Object.entries(userInfo).length ? Object.entries(userInfo).map(([k,v]) => `<div style="display:flex;gap:8px;padding:4px 0;font-size:0.85rem"><span style="color:var(--text-muted);min-width:120px">${esc(k.replace(/_/g,' '))}</span><span style="color:var(--text-secondary)">${esc(String(v))}</span></div>`).join('') : '<span style="color:var(--text-muted)">No user info</span>'}
+                </div>
+                <div>
+                    <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:6px;font-weight:600">Persona Info</div>
+                    ${Object.entries(personaInfo).length ? Object.entries(personaInfo).map(([k,v]) => `<div style="display:flex;gap:8px;padding:4px 0;font-size:0.85rem"><span style="color:var(--text-muted);min-width:120px">${esc(k.replace(/_/g,' '))}</span><span style="color:var(--accent-purple)">${esc(String(v))}</span></div>`).join('') : '<span style="color:var(--text-muted)">No persona info</span>'}
+                </div>
+            </div>
+        </div>
+        <!-- Inventory -->
+        <div class="glass p-6 mb-6">
+            <div class="card-title">🎒 Inventory</div>
+            ${items.length === 0
+                ? '<span style="color:var(--text-muted)">No items in inventory</span>'
+                : `<div style="display:grid;gap:4px">${items.map(it => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04)"><span class="badge badge-blue">${esc(it.category || 'item')}</span><span style="flex:1;font-size:0.85rem;color:var(--text-secondary)">${esc(it.name)}</span>${it.quantity > 1 ? `<span style="font-size:0.78rem;color:var(--text-muted)">x${it.quantity}</span>` : ''}<span class="badge badge-purple">${esc(it.description ? it.description.slice(0,30) + (it.description.length > 30 ? '...' : '') : '')}</span></div>`).join('')}</div>`
+            }
         </div>
         <!-- Charts -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -884,6 +938,8 @@ async function loadAnalytics(days=7) {
                 <div style="display:flex;gap:6px">
                     <button class="glass-btn emo-days-btn ${days===7?'active':''}" data-days="7" style="padding:4px 12px;font-size:0.78rem">7d</button>
                     <button class="glass-btn emo-days-btn ${days===30?'active':''}" data-days="30" style="padding:4px 12px;font-size:0.78rem">30d</button>
+                    <button class="glass-btn emo-days-btn ${days===90?'active':''}" data-days="90" style="padding:4px 12px;font-size:0.78rem">3M</button>
+                    <button class="glass-btn emo-days-btn ${days===365?'active':''}" data-days="365" style="padding:4px 12px;font-size:0.78rem">1Y</button>
                 </div>
             </div>
             <div style="height:280px;position:relative"><canvas id="chart-emotions"></canvas></div>
@@ -1006,7 +1062,19 @@ function renderMemoryList(el, memories, tagOptions, totalPages, totalCount, isSe
             const timeHtml = m.created_at ? '<span>📅 ' + relativeTime(m.created_at) + '</span>' : '';
             const scoreHtml = m._score != null ? '<span class="badge badge-green">Score: ' + m._score.toFixed(3) + '</span>' : '';
 
-            html += `<div class="memory-card">
+            html += `<div class="memory-card" style="cursor:pointer" data-memkey="${esc(m.memory_key || m.key || '')}" data-memjson='${JSON.stringify({
+                memory_key: m.memory_key || m.key || '',
+                content: m.content || '',
+                tags: m.context_tags || m.tags || [],
+                emotion_type: m.emotion_type || '',
+                emotion_intensity: m.emotion_intensity,
+                importance: m.importance,
+                strength: m._score != null ? m._score : (m.strength != null ? m.strength : null),
+                privacy_level: m.privacy_level || '',
+                source_context: m.source_context || '',
+                created_at: m.created_at || '',
+                updated_at: m.updated_at || '',
+            }).replace(/'/g, "&#39;")}'>
                 <div class="memory-key">${esc(m.memory_key || m.key || '--')}</div>
                 <div class="memory-content">${esc(truncate(m.content || '', 200))}</div>
                 <div class="memory-meta">${tagsHtml} ${emoHtml} ${strHtml} ${scoreHtml} ${timeHtml}</div>
@@ -1046,6 +1114,14 @@ function bindMemoryEvents() {
     document.querySelectorAll('.mem-page-btn').forEach(btn => {
         btn.onclick = () => loadMemories(parseInt(btn.dataset.page));
     });
+    document.querySelectorAll('.memory-card[data-memjson]').forEach(card => {
+        card.onclick = () => {
+            try {
+                const mem = JSON.parse(card.getAttribute('data-memjson').replace(/&#39;/g, "'"));
+                openMemModal(mem);
+            } catch(e) { console.error('Modal parse error', e); }
+        };
+    });
 }
 
 /* =================================================================
@@ -1082,6 +1158,9 @@ function renderSettings(el, settings, status) {
     let html = '';
     for (const [cat, fields] of Object.entries(settings)) {
         if (typeof fields !== 'object' || fields === null) continue;
+        // Skip categories with no renderable fields
+        const hasFields = Object.values(fields).some(f => typeof f === 'object' && f !== null);
+        if (!hasFields) continue;
         const icon = categoryIcons[cat] || '⚙️';
         const catLabel = cat.charAt(0).toUpperCase() + cat.slice(1);
 
@@ -1114,14 +1193,13 @@ function renderSettings(el, settings, status) {
 
             html += '<div class="setting-row">';
             var desc = meta.description || '';
-            var tooltipParts = [desc];
-            if (hot) tooltipParts.push('🔄 Hot-reload OK');
-            else tooltipParts.push('🔒 Requires restart');
-            if (meta.reload_time) tooltipParts.push('⏱ ' + meta.reload_time);
-            var tooltipText = tooltipParts.filter(Boolean).join(' | ');
-            html += '<label class="setting-label" for="' + inputId + '"' + (tooltipText ? ' title="' + esc(tooltipText) + '"' : '') + '>' + esc(key.replace(/_/g, ' '));
-            if (desc) html += ' <span class="tooltip-icon" title="' + esc(tooltipText) + '">ℹ️</span>';
-            html += '</label>';
+            var reloadHint = hot ? '🔄 Hot-reload OK' : '🔒 Requires restart';
+            if (meta.reload_time) reloadHint += ' (⏱ ' + meta.reload_time + ')';
+            var tooltipText = reloadHint;
+            html += '<div style="display:flex;flex-direction:column;gap:2px;flex:0 0 auto;min-width:160px">';
+            html += '<label class="setting-label" for="' + inputId + '" title="' + esc(tooltipText) + '" style="margin-bottom:0">' + esc(key.replace(/_/g, ' ')) + '</label>';
+            if (desc) html += '<span style="font-size:0.7rem;color:var(--text-muted);line-height:1.3">' + esc(desc) + '</span>';
+            html += '</div>';
             html += sourceIcon(src);
             if (!hot) html += '<span title="Restart required" style="cursor:help">🔒</span>';
 
@@ -1247,6 +1325,41 @@ function startStatusPoll() {
         } catch(e) { /* ignore poll errors */ }
     }, 2000);
 }
+
+/* =================================================================
+   MEMORY DETAIL MODAL
+   ================================================================= */
+function openMemModal(mem) {
+    const overlay = document.getElementById('mem-modal-overlay');
+    const content = document.getElementById('mem-modal-content');
+    const tags = (mem.tags || []).map(t => '<span class="badge badge-purple">' + esc(t) + '</span>').join(' ');
+    const emoHtml = mem.emotion_type ? '<span class="badge badge-pink">😊 ' + esc(mem.emotion_type) + (mem.emotion_intensity != null ? ' (' + (mem.emotion_intensity * 100).toFixed(0) + '%)' : '') + '</span>' : '';
+    content.innerHTML = `
+        <div class="mem-modal-header">
+            <div>
+                <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:4px">Memory Key</div>
+                <div style="font-family:monospace;font-size:0.85rem;color:var(--accent-purple)">${esc(mem.memory_key)}</div>
+            </div>
+            <button class="mem-modal-close" onclick="closeMemModal()">✕</button>
+        </div>
+        <div class="mem-modal-content">${esc(mem.content)}</div>
+        <div>
+            ${tags || emoHtml ? `<div class="mem-modal-row"><span class="mem-modal-key">Tags/Emotion</span><span>${tags} ${emoHtml}</span></div>` : ''}
+            ${mem.importance != null ? `<div class="mem-modal-row"><span class="mem-modal-key">Importance</span><span style="color:var(--accent-yellow)">${(mem.importance).toFixed(2)}</span></div>` : ''}
+            ${mem.strength != null ? `<div class="mem-modal-row"><span class="mem-modal-key">Strength</span><span style="color:var(--accent-green)">⚡${(mem.strength).toFixed(3)}</span></div>` : ''}
+            ${mem.privacy_level ? `<div class="mem-modal-row"><span class="mem-modal-key">Privacy</span><span>${esc(mem.privacy_level)}</span></div>` : ''}
+            ${mem.source_context ? `<div class="mem-modal-row"><span class="mem-modal-key">Source</span><span style="color:var(--text-muted)">${esc(mem.source_context)}</span></div>` : ''}
+            ${mem.created_at ? `<div class="mem-modal-row"><span class="mem-modal-key">Created</span><span>📅 ${relativeTime(mem.created_at)} <span style="color:var(--text-muted);font-size:0.75rem">(${new Date(mem.created_at).toLocaleString('ja-JP')})</span></span></div>` : ''}
+            ${mem.updated_at ? `<div class="mem-modal-row"><span class="mem-modal-key">Updated</span><span>📅 ${relativeTime(mem.updated_at)}</span></div>` : ''}
+        </div>`;
+    overlay.style.display = 'flex';
+    document.addEventListener('keydown', _memModalKeyHandler);
+}
+function closeMemModal() {
+    document.getElementById('mem-modal-overlay').style.display = 'none';
+    document.removeEventListener('keydown', _memModalKeyHandler);
+}
+function _memModalKeyHandler(e) { if (e.key === 'Escape') closeMemModal(); }
 
 /* =================================================================
    TAB 5: ADMIN
