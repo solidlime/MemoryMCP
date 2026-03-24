@@ -70,12 +70,12 @@ class TestGenerateMemoryKey:
     def test_default_prefix(self):
         key = generate_memory_key()
         assert key.startswith("memory_")
-        assert re.match(r"^memory_\d{14}_\d{6}_[0-9a-f]{4}$", key)
+        assert re.match(r"^memory_\d{14}_\d{6}_[0-9a-f]{8}$", key)
 
     def test_custom_prefix(self):
         key = generate_memory_key("emotion")
         assert key.startswith("emotion_")
-        assert re.match(r"^emotion_\d{14}_\d{6}_[0-9a-f]{4}$", key)
+        assert re.match(r"^emotion_\d{14}_\d{6}_[0-9a-f]{8}$", key)
 
     def test_uniqueness_within_same_second(self):
         keys = [generate_memory_key() for _ in range(100)]
@@ -88,7 +88,7 @@ class TestGenerateMemoryKey:
         assert parts[0] == "memory"
         assert len(parts[1]) == 14 and parts[1].isdigit()
         assert len(parts[2]) == 6 and parts[2].isdigit()
-        assert len(parts[3]) == 4 and re.match(r"^[0-9a-f]{4}$", parts[3])
+        assert len(parts[3]) == 8 and re.match(r"^[0-9a-f]{8}$", parts[3])
 
     def test_not_empty(self):
         key = generate_memory_key()

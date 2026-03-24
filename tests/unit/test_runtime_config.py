@@ -28,7 +28,7 @@ def tmp_data_dir(tmp_path: Path):
     """Provide a temporary data directory and patch get_settings to use it."""
     from memory_mcp.config.settings import Settings
 
-    mock_settings = Settings(data_dir=str(tmp_path))
+    mock_settings = Settings(data_root=str(tmp_path))
     with patch("memory_mcp.config.runtime_config.get_settings", return_value=mock_settings):
         yield tmp_path
 
@@ -88,7 +88,7 @@ def test_overrides_persist_to_file(tmp_data_dir: Path):
     mgr = RuntimeConfigManager()
     mgr.update("general", "log_level", "DEBUG")
 
-    overrides_file = tmp_data_dir / "config_overrides.json"
+    overrides_file = tmp_data_dir / "config" / "config_overrides.json"
     assert overrides_file.exists()
 
     with open(overrides_file) as f:

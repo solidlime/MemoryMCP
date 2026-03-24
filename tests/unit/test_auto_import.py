@@ -26,14 +26,10 @@ def import_settings(tmp_path):
     """Create Settings with temporary directories for auto-import tests."""
     from memory_mcp.application.use_cases import AppContextRegistry
 
-    import_dir = tmp_path / "import"
-    import_dir.mkdir()
-    data_dir = tmp_path / "data"
-    data_dir.mkdir()
-
-    settings = Settings()
-    settings.data_dir = str(data_dir)
-    settings.import_dir = str(import_dir)
+    settings = Settings(data_root=str(tmp_path))
+    # computed_field: data_dir = tmp_path/memory, import_dir = tmp_path/import
+    Path(settings.data_dir).mkdir(parents=True, exist_ok=True)
+    Path(settings.import_dir).mkdir(parents=True, exist_ok=True)
 
     AppContextRegistry.configure(settings)
     return settings
@@ -58,14 +54,14 @@ def test_disabled_when_import_dir_empty(tmp_path):
     """import_dir が空なら即 {} を返し、LegacyImporter は呼ばれない。"""
     mock_importer_cls = MagicMock()
 
-    settings = Settings()
-    settings.import_dir = ""
-    settings.data_dir = str(tmp_path)
+    mock_settings = MagicMock()
+    mock_settings.import_dir = ""
+    mock_settings.data_dir = str(tmp_path)
 
     from unittest.mock import patch
 
     with patch("memory_mcp.application.auto_import.LegacyImporter", mock_importer_cls):
-        result = run_auto_import(settings)
+        result = run_auto_import(mock_settings)
 
     assert result == {}
     mock_importer_cls.assert_not_called()
@@ -75,11 +71,11 @@ def test_creates_import_dir_if_not_exists(tmp_path):
     """存在しないディレクトリを指定 → 作成されて {} を返す。"""
     non_existent = tmp_path / "does_not_exist"
 
-    settings = Settings()
-    settings.data_dir = str(tmp_path)
-    settings.import_dir = str(non_existent)
+    mock_settings = MagicMock()
+    mock_settings.data_dir = str(tmp_path)
+    mock_settings.import_dir = str(non_existent)
 
-    result = run_auto_import(settings)
+    result = run_auto_import(mock_settings)
 
     assert non_existent.exists()
     assert non_existent.is_dir()

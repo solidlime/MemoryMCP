@@ -67,7 +67,11 @@ class TestSettings:
         s = Settings()
         assert s.server.port == 9999
 
-    def test_env_override_data_dir(self, monkeypatch):
-        monkeypatch.setenv("MEMORY_MCP_DATA_DIR", "/custom/data")
+    def test_env_override_data_root(self, monkeypatch):
+        monkeypatch.setenv("MEMORY_MCP_DATA_ROOT", "/custom/data")
         s = Settings()
-        assert s.data_dir == "/custom/data"
+        assert s.data_root == "/custom/data"
+        assert s.data_dir == "/custom/data/memory"
+        assert s.import_dir == "/custom/data/import"
+        assert s.cache_dir == "/custom/data/cache"
+        assert s.config_dir == "/custom/data/config"

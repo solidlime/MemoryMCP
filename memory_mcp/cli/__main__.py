@@ -191,9 +191,7 @@ def _handle_auto_import(args: argparse.Namespace, settings: Settings) -> None:
     """Run auto-import for all .zip files found in the given directory."""
     from memory_mcp.application.auto_import import run_auto_import
 
-    settings.import_dir = args.import_dir
-
-    results = run_auto_import(settings)
+    results = run_auto_import(settings, import_dir=args.import_dir)
     if not results:
         print("No .zip files found in", args.import_dir)
         return

@@ -95,7 +95,7 @@ class RuntimeConfigManager:
         self._overrides: dict[str, Any] = {}
         self._callbacks: dict[str, list[Callable]] = {}
         self._reload_status = ReloadStatus()
-        self._overrides_path = Path(self._settings.data_dir) / "config_overrides.json"
+        self._overrides_path = Path(self._settings.config_dir) / "config_overrides.json"
         self._load_overrides()
 
     def _load_overrides(self) -> None:

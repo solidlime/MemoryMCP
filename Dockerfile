@@ -26,7 +26,7 @@ RUN pip install --no-cache-dir \
 FROM python:3.12-slim
 
 ENV APP_HOME=/opt/memory-mcp \
-    DATA_HOME=/data \
+    MEMORY_MCP_DATA_ROOT=/data \
     TZ=Asia/Tokyo
 
 # Set working directory
@@ -59,20 +59,10 @@ COPY memory_mcp/ ${APP_HOME}/memory_mcp/
 COPY pyproject.toml ${APP_HOME}/
 
 # Create directories for runtime data and caches
-RUN mkdir -p ${DATA_HOME}/memory \
-    ${DATA_HOME}/import \
-    ${DATA_HOME}/import/done \
-    ${DATA_HOME}/cache \
-    ${DATA_HOME}/logs \
-    ${APP_HOME}/data
+RUN mkdir -p /data
 
 # Default runtime environment — v2 Settings fields only
-ENV HF_HOME=${DATA_HOME}/cache/huggingface \
-    SENTENCE_TRANSFORMERS_HOME=${DATA_HOME}/cache/sentence_transformers \
-    TORCH_HOME=${DATA_HOME}/cache/torch \
-    MEMORY_MCP_DATA_DIR=${DATA_HOME}/memory \
-    MEMORY_MCP_IMPORT_DIR=${DATA_HOME}/import \
-    MEMORY_MCP_SERVER__HOST=0.0.0.0 \
+ENV MEMORY_MCP_SERVER__HOST=0.0.0.0 \
     MEMORY_MCP_SERVER__PORT=26262 \
     MEMORY_MCP_EMBEDDING__MODEL=cl-nagoya/ruri-v3-30m \
     MEMORY_MCP_EMBEDDING__DEVICE=cpu \
@@ -91,7 +81,7 @@ ENV HF_HOME=${DATA_HOME}/cache/huggingface \
 EXPOSE 26262
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
     CMD curl -f http://localhost:26262/health || exit 1
 
 # Run the MCP server (v2: package entrypoint)

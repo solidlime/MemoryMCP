@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from pydantic import BaseModel
+from pathlib import Path
+
+from pydantic import BaseModel, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -58,12 +60,50 @@ class Settings(BaseSettings):
     qdrant: QdrantConfig = QdrantConfig()
     forgetting: ForgettingConfig = ForgettingConfig()
     timezone: str = "Asia/Tokyo"
-    data_dir: str = "./data/memory"
-    import_dir: str = "./data/import"  # empty = auto-import disabled
+    data_root: str = "./data"
     log_level: str = "INFO"
     default_persona: str = "default"
     contradiction_threshold: float = 0.85
     duplicate_threshold: float = 0.90
+
+    @computed_field
+    @property
+    def data_dir(self) -> str:
+        """Persona別DB格納ディレクトリ: {data_root}/memory"""
+        return f"{self.data_root}/memory"
+
+    @computed_field
+    @property
+    def import_dir(self) -> str:
+        """Auto-Import ZIP配置ディレクトリ: {data_root}/import"""
+        return f"{self.data_root}/import"
+
+    @computed_field
+    @property
+    def cache_dir(self) -> str:
+        """モデルキャッシュディレクトリ: {data_root}/cache"""
+        return f"{self.data_root}/cache"
+
+    @computed_field
+    @property
+    def config_dir(self) -> str:
+        """設定ファイルディレクトリ: {data_root}/config"""
+        return f"{self.data_root}/config"
+
+    def ensure_directories(self) -> None:
+        """起動時に必要なディレクトリを全て作成する。"""
+        dirs = [
+            self.data_dir,
+            self.import_dir,
+            Path(self.import_dir) / "done",
+            self.cache_dir,
+            Path(self.cache_dir) / "huggingface",
+            Path(self.cache_dir) / "sentence_transformers",
+            Path(self.cache_dir) / "torch",
+            self.config_dir,
+        ]
+        for d in dirs:
+            Path(d).mkdir(parents=True, exist_ok=True)
 
 
 _settings_instance: Settings | None = None

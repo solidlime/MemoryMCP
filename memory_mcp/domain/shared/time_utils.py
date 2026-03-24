@@ -28,7 +28,7 @@ def parse_iso(s: str) -> datetime:
 def generate_memory_key(prefix: str = "memory") -> str:
     """Generate a timestamped memory key: {prefix}_YYYYMMDDHHMMSS_microseconds_random."""
     now = get_now()
-    random_suffix = secrets.token_hex(2)
+    random_suffix = secrets.token_hex(4)
     return f"{prefix}_{now.strftime('%Y%m%d%H%M%S')}_{now.microsecond:06d}_{random_suffix}"
 
 

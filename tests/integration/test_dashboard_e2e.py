@@ -58,7 +58,7 @@ def _reset_singletons():
 async def client(tmp_data_dir, _reset_singletons):
     """httpx AsyncClient backed by a fresh MemoryMCP Starlette app."""
     env_overrides = {
-        "MEMORY_MCP_DATA_DIR": tmp_data_dir,
+        "MEMORY_MCP_DATA_ROOT": tmp_data_dir,
         "MEMORY_MCP_SERVER__HOST": "127.0.0.1",
         "MEMORY_MCP_SERVER__PORT": "19999",
         "MEMORY_MCP_QDRANT__URL": "http://localhost:1",  # intentionally unreachable
@@ -157,11 +157,11 @@ def _seed_goals_and_promises(persona: str = "testpersona") -> None:
     db = _get_db(persona)
     now_str = format_iso(get_now())
     db.execute(
-        "INSERT INTO goals (id, description, status, priority, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT OR REPLACE INTO goals (id, description, status, priority, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
         ("goal_001", "宇宙の謎を解明する", "active", 1, now_str, now_str),
     )
     db.execute(
-        "INSERT INTO promises (id, description, status, priority, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT OR REPLACE INTO promises (id, description, status, priority, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
         ("promise_001", "毎日研究を続ける", "active", 1, now_str, now_str),
     )
     db.commit()

@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
 from mcp.server.fastmcp import FastMCP
 
 from memory_mcp.api.http.routes import register_http_routes
@@ -33,6 +36,14 @@ def create_app() -> MemoryFastMCP:
     logger.info("Starting MemoryMCP v2.0.0 on %s:%s", settings.server.host, settings.server.port)
 
     AppContextRegistry.configure(settings)
+
+    # ディレクトリ構造を確保
+    settings.ensure_directories()
+
+    # キャッシュ環境変数を自動設定（未設定の場合のみ）
+    os.environ.setdefault("HF_HOME", str(Path(settings.cache_dir) / "huggingface"))
+    os.environ.setdefault("SENTENCE_TRANSFORMERS_HOME", str(Path(settings.cache_dir) / "sentence_transformers"))
+    os.environ.setdefault("TORCH_HOME", str(Path(settings.cache_dir) / "torch"))
 
     mcp = MemoryFastMCP(
         "MemoryMCP",

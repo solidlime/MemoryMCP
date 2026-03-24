@@ -19,21 +19,24 @@ logger = get_logger(__name__)
 
 def run_auto_import(
     settings: Settings,
+    *,
+    import_dir: str | None = None,
 ) -> dict[str, dict[str, int]]:
     """Scan import directory and import all .zip files found.
 
     Returns a dict mapping persona names to their import counts.
     """
-    if not settings.import_dir:
+    effective_import_dir = import_dir or settings.import_dir
+    if not effective_import_dir:
         return {}
 
-    import_dir = Path(settings.import_dir)
+    import_path = Path(effective_import_dir)
 
-    if not import_dir.exists():
-        import_dir.mkdir(parents=True, exist_ok=True)
+    if not import_path.exists():
+        import_path.mkdir(parents=True, exist_ok=True)
         return {}
 
-    zip_files: list[Path] = list(import_dir.glob("*.zip"))
+    zip_files: list[Path] = list(import_path.glob("*.zip"))
     if not zip_files:
         return {}
 
@@ -99,7 +102,7 @@ def run_auto_import(
                 )
 
             # ------ move processed zip to done/ ------
-            done_dir: Path = import_dir / "done"
+            done_dir: Path = import_path / "done"
             done_dir.mkdir(parents=True, exist_ok=True)
             shutil.move(str(zip_path), str(done_dir / zip_path.name))
             logger.info("Moved %s to %s", zip_path.name, done_dir)
