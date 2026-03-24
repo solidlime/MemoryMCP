@@ -1,6 +1,23 @@
 version: '3.8'
 
 services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      # Persist Qdrant vector data on host (ensures ./storage is always pre-created)
+      - ./data/qdrant:/qdrant/storage
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "sh", "-c", "curl -sf http://localhost:6333/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
   memory-mcp:
     build:
       context: .
@@ -12,6 +29,12 @@ services:
       # Persist all data (memory, logs, cache) on host
       - ./data:/data
     restart: unless-stopped
+    depends_on:
+      qdrant:
+        condition: service_healthy
+    environment:
+      # Point to the qdrant service (overrides Dockerfile default of localhost:6333)
+      MEMORY_MCP_QDRANT__URL: http://qdrant:6333
     # Load env vars from .env file (ignored by git) so you can override Dockerfile defaults
     env_file:
       - .env

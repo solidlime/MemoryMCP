@@ -5,7 +5,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-# サーバー起動（HTTPサーバー + MCPサーバーを同時起動）
+# Docker での起動（推奨）: memory-mcp + Qdrant を一括起動
+docker-compose up -d
+
+# 停止
+docker-compose down
+
+# ログ確認
+docker-compose logs -f memory-mcp
+docker-compose logs -f qdrant
+
+# サーバー起動（ローカル開発時: Qdrant は別途起動が必要）
+docker run -d -p 6333:6333 -v ./data/qdrant:/qdrant/storage qdrant/qdrant
 python -m memory_mcp.main
 
 # 全テスト実行（サーバーが localhost:26262 で起動中であること）
@@ -16,10 +27,6 @@ python run_tests.py --test http      # HTTP APIテスト
 python run_tests.py --test search    # 検索精度テスト
 python run_tests.py --test migrate   # DBスキーママイグレーション
 python run_tests.py -v               # 詳細出力
-
-# Qdrantサーバー（必須）
-docker run -d -p 6333:6333 qdrant/qdrant
-# または docker-compose up -d
 
 # PyTorch CPU版（ローカル開発時のみ）
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu

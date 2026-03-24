@@ -49,7 +49,17 @@ class QdrantVectorStore:
                 logger.info("Created Qdrant collection: %s", name)
             return Success(None)
         except Exception as e:
-            logger.error("Failed to ensure collection %s: %s", name, e)
+            err_str = str(e)
+            if "No such file or directory" in err_str or "storage" in err_str.lower():
+                logger.error(
+                    "Failed to ensure collection %s: %s\n"
+                    "HINT: Qdrant's storage directory is missing. "
+                    "Run via `docker-compose up -d` so the ./data/qdrant volume is mounted, "
+                    "or pre-create the storage directory before starting Qdrant standalone.",
+                    name, e,
+                )
+            else:
+                logger.error("Failed to ensure collection %s: %s", name, e)
             return Failure(VectorStoreError(str(e)))
 
     def upsert(
