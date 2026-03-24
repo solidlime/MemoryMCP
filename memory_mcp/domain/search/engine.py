@@ -63,12 +63,19 @@ class SearchEngine:
         else:
             return Failure(SearchError(f"Unknown search mode: {query.mode}"))
 
+    @staticmethod
+    def _to_search_results(
+        pairs: list[tuple[Memory, float]], source: str,
+    ) -> list[SearchResult]:
+        """Convert (Memory, score) tuples from strategies into SearchResult objects."""
+        return [SearchResult(memory=m, score=s, source=source) for m, s in pairs]
+
     def _keyword_search(self, query: SearchQuery) -> Result[list[SearchResult], SearchError]:
         """Execute keyword-only search."""
         result = self._keyword.search(query.text, limit=query.top_k)
         if not result.is_ok:
             return Failure(result.error)
-        return Success(result.value)
+        return Success(self._to_search_results(result.value, "keyword"))
 
     def _semantic_search(self, query: SearchQuery) -> Result[list[SearchResult], SearchError]:
         """Execute semantic-only search."""
@@ -77,7 +84,7 @@ class SearchEngine:
         result = self._semantic.search(query.text, limit=query.top_k)
         if not result.is_ok:
             return Failure(result.error)
-        return Success(result.value)
+        return Success(self._to_search_results(result.value, "semantic"))
 
     def _hybrid_search(self, query: SearchQuery) -> Result[list[SearchResult], SearchError]:
         """Execute hybrid search combining keyword and semantic results."""
@@ -85,12 +92,12 @@ class SearchEngine:
 
         kw_result = self._keyword.search(query.text, limit=query.top_k)
         if kw_result.is_ok:
-            all_results.extend(kw_result.value)
+            all_results.extend(self._to_search_results(kw_result.value, "keyword"))
 
         if self._semantic is not None:
             sem_result = self._semantic.search(query.text, limit=query.top_k)
             if sem_result.is_ok:
-                all_results.extend(sem_result.value)
+                all_results.extend(self._to_search_results(sem_result.value, "semantic"))
 
         if not all_results:
             return Success([])
