@@ -14,10 +14,14 @@ All notable changes to Memory-MCP will be documented in this file.
 - **get_context出力**: v1スタイルのリッチ出力に刷新（15セクション、物理感覚/記念日/promise/goal等を復活）
 - **デフォルトテーマ**: ダッシュボードのデフォルトをlightモードに変更
 - **MCPツールdocstring**: 全5ツールのdocstringを大幅改善（operation別パラメータ説明・使用例追加）
+- **BREAKING**: `MEMORY_MCP_DATA_DIR` and `MEMORY_MCP_IMPORT_DIR` env vars replaced by single `MEMORY_MCP_DATA_ROOT`
+- All sub-paths (`memory/`, `import/`, `cache/`, `config/`) automatically derived from `data_root`
 
 ### Added
 - **Settingsツールチップ**: 各設定項目にℹ️アイコン付き説明文とホットリロード可否を表示
 - **PersonaMiddleware**: ASGIミドルウェアによるリクエスト単位のペルソナ識別
+- `ensure_directories()` auto-creates all required directories on startup
+- `HF_HOME`, `SENTENCE_TRANSFORMERS_HOME`, `TORCH_HOME` auto-configured from `{data_root}/cache/`
 
 ## [2.0.0] - 2025-03-23
 
