@@ -68,7 +68,7 @@ class SearchEngine:
         result = self._keyword.search(query.text, limit=query.top_k)
         if not result.is_ok:
             return Failure(result.error)
-        return Success([SearchResult(memory=m, score=s, source="keyword") for m, s in result.value])
+        return Success(result.value)
 
     def _semantic_search(self, query: SearchQuery) -> Result[list[SearchResult], SearchError]:
         """Execute semantic-only search."""
@@ -77,7 +77,7 @@ class SearchEngine:
         result = self._semantic.search(query.text, limit=query.top_k)
         if not result.is_ok:
             return Failure(result.error)
-        return Success([SearchResult(memory=m, score=s, source="semantic") for m, s in result.value])
+        return Success(result.value)
 
     def _hybrid_search(self, query: SearchQuery) -> Result[list[SearchResult], SearchError]:
         """Execute hybrid search combining keyword and semantic results."""
@@ -85,12 +85,12 @@ class SearchEngine:
 
         kw_result = self._keyword.search(query.text, limit=query.top_k)
         if kw_result.is_ok:
-            all_results.extend(SearchResult(memory=m, score=s, source="keyword") for m, s in kw_result.value)
+            all_results.extend(kw_result.value)
 
         if self._semantic is not None:
             sem_result = self._semantic.search(query.text, limit=query.top_k)
             if sem_result.is_ok:
-                all_results.extend(SearchResult(memory=m, score=s, source="semantic") for m, s in sem_result.value)
+                all_results.extend(sem_result.value)
 
         if not all_results:
             return Success([])

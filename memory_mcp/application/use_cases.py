@@ -67,9 +67,9 @@ class AppContext:
         self.connection.initialize_schema()
 
         # Repositories
-        self.memory_repo = SQLiteMemoryRepository(self.connection.get_memory_db())
-        self.persona_repo = SQLitePersonaRepository(self.connection.get_memory_db())
-        self.equipment_repo = SQLiteEquipmentRepository(self.connection.get_inventory_db())
+        self.memory_repo = SQLiteMemoryRepository(self.connection)
+        self.persona_repo = SQLitePersonaRepository(self.connection)
+        self.equipment_repo = SQLiteEquipmentRepository(self.connection)
         self.entity_repo = SQLiteEntityRepository(self.connection)
 
         # Services
