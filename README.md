@@ -67,6 +67,17 @@ memory_mcp/
 └── cli/                 # CLIツール
 ```
 
+### データディレクトリ
+
+```
+./data/                    # データルート（Dockerでは /data にマウント）
+├── memory/{persona}/      # ペルソナ別DB（memory.sqlite, inventory.sqlite）
+├── import/                # auto-import用ZIP配置ディレクトリ
+│   └── done/              # 処理済みZIP移動先
+├── cache/                 # モデルキャッシュ（HuggingFace/SentenceTransformers/Torch）
+└── logs/                  # ログファイル
+```
+
 ## 🚀 クイックスタート
 
 ### pip でインストール
@@ -250,11 +261,22 @@ search_memory(query="", date_range="3日前")
 | `MEMORY_MCP_EMBEDDING__MODEL` | `cl-nagoya/ruri-v3-30m` | 埋め込みモデル |
 | `MEMORY_MCP_RERANKER__MODEL` | `hotchpotch/japanese-reranker-xsmall-v2` | Rerankerモデル |
 | `MEMORY_MCP_TIMEZONE` | `Asia/Tokyo` | タイムゾーン |
-| `MEMORY_MCP_DATA_DIR` | `./data` | データディレクトリ |
+| `MEMORY_MCP_DATA_DIR` | `./data/memory` | データディレクトリ |
 | `MEMORY_MCP_LOG_LEVEL` | `INFO` | ログレベル |
+| `MEMORY_MCP_IMPORT_DIR` | `./data/import` | Auto-Importディレクトリ |
 | `PERSONA` | *(なし)* | デフォルトPersona名 |
+| `MEMORY_MCP_DEFAULT_PERSONA` | *(なし)* | デフォルトPersona名（PERSONA未設定時のフォールバック） |
 
-Persona識別は Bearerトークン（`Authorization: Bearer <name>`）または `PERSONA` 環境変数で行う。
+### ペルソナ識別
+
+リクエストごとにPersonaを識別する。以下の優先順位で解決される：
+
+| 優先順位 | 方法 | 設定例 |
+|---------|------|--------|
+| 1 | Bearer トークン | `Authorization: Bearer {persona_name}` |
+| 2 | X-Persona ヘッダー | `X-Persona: {persona_name}` |
+| 3 | 環境変数 | `PERSONA` または `MEMORY_MCP_DEFAULT_PERSONA` |
+| 4 | デフォルト | `"default"` |
 
 ## 🧪 テスト
 
@@ -287,6 +309,14 @@ python -m memory_mcp.cli migrate --target latest
 # Persona統計
 python -m memory_mcp.cli stats --persona herta
 ```
+
+## 📥 Auto-Import
+
+サーバー起動時にZIPファイルを自動インポートする機能。
+
+- `MEMORY_MCP_IMPORT_DIR` 環境変数でディレクトリを指定（デフォルト: `./data/import`）
+- `.zip` ファイルを配置 → サーバー起動時に自動インポート
+- 処理済みファイルは `done/` サブディレクトリに移動
 
 ## 🐳 Docker
 

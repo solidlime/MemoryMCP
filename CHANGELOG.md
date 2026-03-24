@@ -4,6 +4,21 @@ All notable changes to Memory-MCP will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **タイムスタンプ上書きバグ**: `generate_memory_key()` にマイクロ秒+ランダムsuffixを追加し、同秒内のキー衝突を解消
+- **X-Personaヘッダー未反映**: ASGIミドルウェア+ContextVarでBearer/X-Personaヘッダーからペルソナ解決可能に（優先順位: Bearer > X-Persona > 環境変数 > "default"）
+- **ペルソナセレクタ**: memory.sqliteが存在するディレクトリのみをリストするよう修正
+
+### Changed
+- **ディレクトリ構造**: ペルソナデータを `/data/memory/{persona}/` に、インポートを `/data/import/` に分離
+- **get_context出力**: v1スタイルのリッチ出力に刷新（15セクション、物理感覚/記念日/promise/goal等を復活）
+- **デフォルトテーマ**: ダッシュボードのデフォルトをlightモードに変更
+- **MCPツールdocstring**: 全5ツールのdocstringを大幅改善（operation別パラメータ説明・使用例追加）
+
+### Added
+- **Settingsツールチップ**: 各設定項目にℹ️アイコン付き説明文とホットリロード可否を表示
+- **PersonaMiddleware**: ASGIミドルウェアによるリクエスト単位のペルソナ識別
+
 ## [2.0.0] - 2025-03-23
 
 ### 🏗️ Architecture

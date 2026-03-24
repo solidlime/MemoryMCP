@@ -30,7 +30,7 @@ pip install -r requirements.txt
 
 ### エントリポイント
 
-`memory_mcp.py` が唯一のエントリポイント。FastMCPサーバーとして起動し、HTTP API（port 26262）も同時に公開する。Persona識別はBearerトークンまたは `PERSONA` 環境変数で行う。
+`memory_mcp.py` が唯一のエントリポイント。FastMCPサーバーとして起動し、HTTP API（port 26262）も同時に公開する。Persona識別はBearerトークン、X-Personaヘッダー、または環境変数（PERSONA / MEMORY_MCP_DEFAULT_PERSONA）で行う（優先順位: Bearer > X-Persona > 環境変数 > "default"）。
 
 ### レイヤー構成
 
@@ -68,7 +68,7 @@ memory_mcp.py            # FastMCP初期化・ツール登録・HTTPルート登
 
 ### 永続化
 
-- **SQLite**: 記憶エントリ・ユーザー状態・装備・Personaコンテキスト（`data/<persona>/`配下）
+- **SQLite**: 記憶エントリ・ユーザー状態・装備・Personaコンテキスト（`data/memory/<persona>/`配下）
 - **Qdrant**: ベクトルストア（`memory_<persona>` コレクション）
 - **config.json**: `src/utils/config_utils.py` の `load_config()` が読み込む。デフォルト値は `DEFAULT_CONFIG` 参照。
 
