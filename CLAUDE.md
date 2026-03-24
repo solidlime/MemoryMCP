@@ -16,7 +16,8 @@ docker-compose logs -f memory-mcp
 docker-compose logs -f qdrant
 
 # サーバー起動（ローカル開発時: Qdrant は別途起動が必要）
-docker run -d -p 6333:6333 -v ./data/qdrant:/qdrant/storage qdrant/qdrant
+# volume mount 付きで起動しないと ./storage エラーになるので注意
+docker run -d -p 6333:6333 -v "$(pwd)/data/qdrant:/qdrant/storage" qdrant/qdrant
 python -m memory_mcp.main
 
 # 全テスト実行（サーバーが localhost:26262 で起動中であること）
