@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from memory_mcp.domain.equipment.service import EquipmentService
 from memory_mcp.domain.memory.service import MemoryService
 from memory_mcp.domain.persona.service import PersonaService
-from memory_mcp.domain.search.engine import SearchEngine, SearchResult
+from memory_mcp.domain.search.engine import SearchEngine
 from memory_mcp.domain.search.ranker import RRFRanker
 from memory_mcp.domain.shared.errors import SearchError
 from memory_mcp.domain.shared.result import Failure, Success
@@ -32,7 +32,7 @@ class SQLiteKeywordSearch:
     def search(self, query: str, limit: int = 10):
         result = self.repo.search_keyword(query, limit)
         if result.is_ok:
-            return Success([SearchResult(memory=m, score=s, source="keyword") for m, s in result.value])
+            return Success(result.value)
         return Failure(SearchError(str(result.error)))
 
 
@@ -49,11 +49,11 @@ class QdrantSemanticSearch:
         if not result.is_ok:
             return Failure(SearchError(str(result.error)))
 
-        search_results: list[SearchResult] = []
+        search_results: list[tuple] = []
         for key, score in result.value:
             mem_result = self.memory_repo.find_by_key(key)
             if mem_result.is_ok and mem_result.value:
-                search_results.append(SearchResult(memory=mem_result.value, score=score, source="semantic"))
+                search_results.append((mem_result.value, score))
         return Success(search_results)
 
 
