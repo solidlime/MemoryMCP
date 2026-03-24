@@ -364,6 +364,12 @@ def render_dashboard() -> str:
         .source-env { background: rgba(52,211,153,0.15); color: var(--accent-green); }
         .source-override { background: rgba(96,165,250,0.15); color: var(--accent-blue); }
         .source-default { background: rgba(148,163,184,0.15); color: var(--text-muted); }
+        .setting-label { position: relative; }
+        .tooltip-icon { cursor: help; opacity: 0.6; font-size: 0.75rem; margin-left: 2px; }
+        .tooltip-icon:hover { opacity: 1; }
+        .setting-badge { font-size: 0.65rem; padding: 1px 5px; border-radius: 6px; margin-left: 4px; vertical-align: middle; }
+        .badge-hot { background: rgba(52,211,153,0.15); color: var(--accent-green); }
+        .badge-restart { background: rgba(251,146,60,0.15); color: #fb923c; }
 
         /* ============================================================
            SCROLLBAR
@@ -616,7 +622,7 @@ function errorCard(msg) {
    THEME TOGGLE
    ================================================================= */
 function applyTheme() {
-    const dark = localStorage.getItem('mmcp-dark') !== 'false';
+    const dark = localStorage.getItem('mmcp-dark') === 'true';
     document.documentElement.className = dark ? 'dark' : 'light';
     document.getElementById('dark-toggle').textContent = dark ? '🌙' : '☀️';
     // Re-render charts for color update
@@ -1107,7 +1113,15 @@ function renderSettings(el, settings, status) {
             const inputType = isPassword ? 'password' : (typeof val === 'number' ? 'number' : 'text');
 
             html += '<div class="setting-row">';
-            html += '<label class="setting-label" for="' + inputId + '">' + esc(key.replace(/_/g, ' ')) + '</label>';
+            var desc = meta.description || '';
+            var tooltipParts = [desc];
+            if (hot) tooltipParts.push('🔄 Hot-reload OK');
+            else tooltipParts.push('🔒 Requires restart');
+            if (meta.reload_time) tooltipParts.push('⏱ ' + meta.reload_time);
+            var tooltipText = tooltipParts.filter(Boolean).join(' | ');
+            html += '<label class="setting-label" for="' + inputId + '"' + (tooltipText ? ' title="' + esc(tooltipText) + '"' : '') + '>' + esc(key.replace(/_/g, ' '));
+            if (desc) html += ' <span class="tooltip-icon" title="' + esc(tooltipText) + '">ℹ️</span>';
+            html += '</label>';
             html += sourceIcon(src);
             if (!hot) html += '<span title="Restart required" style="cursor:help">🔒</span>';
 

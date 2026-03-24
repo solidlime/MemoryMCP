@@ -11,3 +11,11 @@
 - Promises & Goals は `context_tags=['promise'/'goal']` のタグベース実装
 - get_context のメイン実装は `tools/context_tools.py`、オペレーション処理は `tools/handlers/context_handlers.py`
 
+### X-Persona ヘッダー対応（2025-07-18）
+- FastMCPのContextからHTTPヘッダーには直接アクセス不可（MCPプロトコル層の情報のみ）
+- 解決策: `contextvars.ContextVar` + ASGIミドルウェア（`PersonaMiddleware`）でリクエストスコープにペルソナを注入
+- FastMCPへのミドルウェア追加はサブクラス化（`MemoryFastMCP`）で`streamable_http_app()`/`sse_app()`をオーバーライドし`add_middleware()`する
+- ペルソナ優先順位: Bearer token > X-Persona header > PERSONA env > MEMORY_MCP_DEFAULT_PERSONA env > "default"
+- `middleware.py` の `get_current_persona()` が全レイヤー共通のペルソナ解決エントリポイント
+- routes.py のHTTPルートでは `_resolve_persona_from_request()` がpath param > header > env のフォールバックを提供
+

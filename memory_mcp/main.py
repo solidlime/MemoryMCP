@@ -3,13 +3,28 @@ from __future__ import annotations
 from mcp.server.fastmcp import FastMCP
 
 from memory_mcp.api.http.routes import register_http_routes
+from memory_mcp.api.mcp.middleware import PersonaMiddleware
 from memory_mcp.api.mcp.tools import register_tools
 from memory_mcp.application.use_cases import AppContextRegistry
 from memory_mcp.config.settings import Settings
 from memory_mcp.infrastructure.logging.structured import get_logger, setup_logging
 
 
-def create_app() -> FastMCP:
+class MemoryFastMCP(FastMCP):
+    """FastMCP subclass that injects PersonaMiddleware for header-based persona resolution."""
+
+    def streamable_http_app(self):
+        app = super().streamable_http_app()
+        app.add_middleware(PersonaMiddleware)
+        return app
+
+    def sse_app(self, mount_path=None):
+        app = super().sse_app(mount_path)
+        app.add_middleware(PersonaMiddleware)
+        return app
+
+
+def create_app() -> MemoryFastMCP:
     """Create and configure the FastMCP application."""
     settings = Settings()
     setup_logging(settings.log_level)
@@ -19,7 +34,7 @@ def create_app() -> FastMCP:
 
     AppContextRegistry.configure(settings)
 
-    mcp = FastMCP(
+    mcp = MemoryFastMCP(
         "MemoryMCP",
         host=settings.server.host,
         port=settings.server.port,

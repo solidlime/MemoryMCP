@@ -15,6 +15,8 @@ services:
     # Load env vars from .env file (ignored by git) so you can override Dockerfile defaults
     env_file:
       - .env
+    environment:
+      - MEMORY_MCP_IMPORT_DIR=/data/import
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:26262/health"]
       interval: 30s

@@ -58,8 +58,8 @@ class Settings(BaseSettings):
     qdrant: QdrantConfig = QdrantConfig()
     forgetting: ForgettingConfig = ForgettingConfig()
     timezone: str = "Asia/Tokyo"
-    data_dir: str = "./data"
-    import_dir: str = ""  # empty = auto-import disabled
+    data_dir: str = "./data/memory"
+    import_dir: str = "./data/import"  # empty = auto-import disabled
     log_level: str = "INFO"
     default_persona: str = "default"
     contradiction_threshold: float = 0.85

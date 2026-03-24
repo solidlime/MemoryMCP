@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import secrets
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -25,9 +26,10 @@ def parse_iso(s: str) -> datetime:
 
 
 def generate_memory_key(prefix: str = "memory") -> str:
-    """Generate a timestamped memory key: {prefix}_YYYYMMDDHHMMSS."""
+    """Generate a timestamped memory key: {prefix}_YYYYMMDDHHMMSS_microseconds_random."""
     now = get_now()
-    return f"{prefix}_{now.strftime('%Y%m%d%H%M%S')}"
+    random_suffix = secrets.token_hex(2)
+    return f"{prefix}_{now.strftime('%Y%m%d%H%M%S')}_{now.microsecond:06d}_{random_suffix}"
 
 
 def relative_time_str(dt: datetime, now: datetime | None = None) -> str:

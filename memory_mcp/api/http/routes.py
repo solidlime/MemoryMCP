@@ -4,6 +4,7 @@ import asyncio
 import os
 from collections import defaultdict
 from dataclasses import asdict
+from pathlib import Path
 
 from starlette.requests import Request  # noqa: TC002
 from starlette.responses import HTMLResponse, JSONResponse  # noqa: TC002
@@ -38,6 +39,32 @@ def _strength_to_dict(s) -> dict:
     return d
 
 
+def _resolve_persona_from_request(request: Request, *, default: str | None = None) -> str:
+    """Resolve persona from path params, HTTP headers, or environment.
+
+    Priority: path parameter > Bearer token > X-Persona header > *default* > env var.
+    """
+    persona = request.path_params.get("persona")
+    if persona:
+        return persona
+
+    authorization = request.headers.get("authorization")
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization[7:].strip()
+        if token:
+            return token
+
+    x_persona = request.headers.get("x-persona")
+    if x_persona:
+        stripped = x_persona.strip()
+        if stripped:
+            return stripped
+
+    if default is not None:
+        return default
+    return os.environ.get("PERSONA", os.environ.get("MEMORY_MCP_DEFAULT_PERSONA", "default"))
+
+
 def register_http_routes(mcp) -> None:  # noqa: C901, PLR0915
     """Register HTTP routes on the FastMCP server."""
 
@@ -48,7 +75,7 @@ def register_http_routes(mcp) -> None:  # noqa: C901, PLR0915
     @mcp.custom_route("/health", methods=["GET"])
     async def health(request: Request) -> JSONResponse:
         """Health check endpoint."""
-        ctx = AppContextRegistry.get("default")
+        ctx = AppContextRegistry.get(_resolve_persona_from_request(request, default="default"))
         qdrant_ok = ctx.vector_store is not None
         return JSONResponse(
             {
@@ -63,17 +90,17 @@ def register_http_routes(mcp) -> None:  # noqa: C901, PLR0915
         """List available personas by scanning data directory."""
         settings = Settings()
         data_dir = settings.data_dir
-        personas: list[str] = []
-        if os.path.exists(data_dir):
-            for d in os.listdir(data_dir):
-                if os.path.isdir(os.path.join(data_dir, d)) and not d.startswith("_"):
-                    personas.append(d)
+        data_path = Path(data_dir)
+        if data_path.exists():
+            personas = sorted([d.name for d in data_path.iterdir() if d.is_dir() and (d / "memory.sqlite").exists()])
+        else:
+            personas = []
         return JSONResponse({"personas": personas})
 
     @mcp.custom_route("/api/stats/{persona}", methods=["GET"])
     async def persona_stats(request: Request) -> JSONResponse:
         """Get stats for a specific persona."""
-        persona = request.path_params["persona"]
+        persona = _resolve_persona_from_request(request)
         ctx = _safe_get_context(persona)
         if ctx is None:
             return JSONResponse({"error": f"Persona '{persona}' not found"}, status_code=404)
@@ -94,7 +121,7 @@ def register_http_routes(mcp) -> None:  # noqa: C901, PLR0915
     @mcp.custom_route("/api/dashboard/{persona}", methods=["GET"])
     async def dashboard_data(request: Request) -> JSONResponse:
         """Aggregated dashboard data for a persona."""
-        persona = request.path_params["persona"]
+        persona = _resolve_persona_from_request(request)
         ctx = _safe_get_context(persona)
         if ctx is None:
             return JSONResponse({"error": f"Persona '{persona}' not found"}, status_code=404)
@@ -159,7 +186,7 @@ def register_http_routes(mcp) -> None:  # noqa: C901, PLR0915
     @mcp.custom_route("/api/recent/{persona}", methods=["GET"])
     async def recent_memories(request: Request) -> JSONResponse:
         """Get recent memories for a persona."""
-        persona = request.path_params["persona"]
+        persona = _resolve_persona_from_request(request)
         limit = int(request.query_params.get("limit", "10"))
         ctx = _safe_get_context(persona)
         if ctx is None:
@@ -180,7 +207,7 @@ def register_http_routes(mcp) -> None:  # noqa: C901, PLR0915
     @mcp.custom_route("/api/search/{persona}", methods=["GET"])
     async def search_memories(request: Request) -> JSONResponse:
         """Search memories for a persona."""
-        persona = request.path_params["persona"]
+        persona = _resolve_persona_from_request(request)
         q = request.query_params.get("q", "")
         limit = int(request.query_params.get("limit", "20"))
         if not q:
@@ -219,7 +246,7 @@ def register_http_routes(mcp) -> None:  # noqa: C901, PLR0915
     @mcp.custom_route("/api/emotions/{persona}", methods=["GET"])
     async def emotion_history(request: Request) -> JSONResponse:
         """Get emotion history for a persona, grouped by date."""
-        persona = request.path_params["persona"]
+        persona = _resolve_persona_from_request(request)
         days = int(request.query_params.get("days", "7"))
         ctx = _safe_get_context(persona)
         if ctx is None:
@@ -255,7 +282,7 @@ def register_http_routes(mcp) -> None:  # noqa: C901, PLR0915
     @mcp.custom_route("/api/observations/{persona}", methods=["GET"])
     async def observations(request: Request) -> JSONResponse:
         """Paginated memory observations with optional filtering."""
-        persona = request.path_params["persona"]
+        persona = _resolve_persona_from_request(request)
         page = int(request.query_params.get("page", "1"))
         per_page = int(request.query_params.get("per_page", "20"))
         tag = request.query_params.get("tag") or None
@@ -292,7 +319,7 @@ def register_http_routes(mcp) -> None:  # noqa: C901, PLR0915
     @mcp.custom_route("/api/strengths/{persona}", methods=["GET"])
     async def memory_strengths(request: Request) -> JSONResponse:
         """Get all memory strengths with histogram distribution."""
-        persona = request.path_params["persona"]
+        persona = _resolve_persona_from_request(request)
         ctx = _safe_get_context(persona)
         if ctx is None:
             return JSONResponse({"error": f"Persona '{persona}' not found"}, status_code=404)
@@ -323,7 +350,7 @@ def register_http_routes(mcp) -> None:  # noqa: C901, PLR0915
     @mcp.custom_route("/api/admin/rebuild/{persona}", methods=["POST"])
     async def rebuild_vectors(request: Request) -> JSONResponse:
         """Rebuild Qdrant vector collection for a persona (async, returns 202)."""
-        persona = request.path_params["persona"]
+        persona = _resolve_persona_from_request(request)
         ctx = _safe_get_context(persona)
         if ctx is None:
             return JSONResponse({"error": f"Persona '{persona}' not found"}, status_code=404)

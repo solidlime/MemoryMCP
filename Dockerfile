@@ -60,15 +60,18 @@ COPY pyproject.toml ${APP_HOME}/
 
 # Create directories for runtime data and caches
 RUN mkdir -p ${DATA_HOME}/memory \
-    && mkdir -p ${DATA_HOME}/logs \
-    && mkdir -p ${DATA_HOME}/cache \
-    && mkdir -p ${APP_HOME}/data
+    ${DATA_HOME}/import \
+    ${DATA_HOME}/import/done \
+    ${DATA_HOME}/cache \
+    ${DATA_HOME}/logs \
+    ${APP_HOME}/data
 
 # Default runtime environment — v2 Settings fields only
 ENV HF_HOME=${DATA_HOME}/cache/huggingface \
     SENTENCE_TRANSFORMERS_HOME=${DATA_HOME}/cache/sentence_transformers \
     TORCH_HOME=${DATA_HOME}/cache/torch \
-    MEMORY_MCP_DATA_DIR=${DATA_HOME} \
+    MEMORY_MCP_DATA_DIR=${DATA_HOME}/memory \
+    MEMORY_MCP_IMPORT_DIR=${DATA_HOME}/import \
     MEMORY_MCP_SERVER__HOST=0.0.0.0 \
     MEMORY_MCP_SERVER__PORT=26262 \
     MEMORY_MCP_EMBEDDING__MODEL=cl-nagoya/ruri-v3-30m \

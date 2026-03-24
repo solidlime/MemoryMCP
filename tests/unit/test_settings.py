@@ -48,7 +48,7 @@ class TestSettings:
         monkeypatch.delenv("MEMORY_MCP_DATA_DIR", raising=False)
         s = Settings()
         assert s.timezone == "Asia/Tokyo"
-        assert s.data_dir == "./data"
+        assert s.data_dir == "./data/memory"
         assert s.log_level == "INFO"
         assert s.default_persona == "default"
         assert s.server.port == 26262

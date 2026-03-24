@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import os
 from typing import TYPE_CHECKING
 
 from mcp.server.fastmcp import FastMCP  # noqa: TC002
 
+from memory_mcp.api.mcp.middleware import get_current_persona
 from memory_mcp.application.use_cases import AppContextRegistry
 from memory_mcp.domain.search.engine import SearchQuery
 
@@ -18,11 +18,16 @@ def register_tools(mcp: FastMCP) -> None:
 
     @mcp.tool()
     async def get_context() -> str:
-        """Get current persona state and memory overview.
-        Call FIRST at every session start.
+        """Get current persona state and memory overview. Call FIRST at every session start.
 
-        Returns: user/persona info, emotion, physical/mental state, equipment,
-                 recent memories, promises, goals, time since last conversation.
+        Returns a comprehensive snapshot including:
+        - User info (name, nickname, preferred address) and persona info
+        - Current emotion with history, physical/mental state, environment
+        - Equipment (slots: top, bottom, shoes, outer, accessories, head)
+        - Memory stats (total count, tag/emotion distribution)
+        - Recent memories (latest entries as preview)
+        - Active promises and goals (via context_tags)
+        - Time elapsed since last conversation
         """
         persona = _resolve_persona()
         ctx = AppContextRegistry.get(persona)
@@ -79,12 +84,48 @@ def register_tools(mcp: FastMCP) -> None:
         relation_type: str | None = None,
         depth: int = 1,
     ) -> str:
-        """Create, read, update, delete memories and manage memory blocks.
+        """Create, read, update, delete memories and manage entities.
 
-        Operations: create, read, update, delete, check_contradictions, stats,
-                   block_write, block_read, block_list, block_delete,
-                   promise, goal,
-                   entity_search, entity_graph, entity_add_relation
+        Operations and their parameters:
+          create   - content(required), importance, emotion_type, emotion_intensity,
+                     tags, privacy_level, source_context, defer_vector
+          read     - memory_key (omit to get 10 most recent)
+          update   - memory_key(required), content, importance, emotion_type,
+                     emotion_intensity, tags, privacy_level
+          delete   - memory_key or query (required)
+          check_contradictions - content or memory_key (required)
+          history  - memory_key(required)
+          stats    - (no params)
+          block_write  - block_name(required), content(required), block_type,
+                         max_tokens, priority
+          block_read   - block_name(required)
+          block_list   - (no params)
+          block_delete - block_name(required)
+          entity_search     - query or entity_id, entity_type(optional)
+          entity_graph      - entity_id(required), depth(default=1)
+          entity_add_relation - source_entity(required), target_entity(required),
+                                relation_type(required), memory_key(optional)
+
+        Common parameters:
+          operation - str, required. One of the operations listed above.
+          content - str. Memory text for create/update/block_write.
+          query - str. Search text for delete/entity_search.
+          memory_key - str. Unique memory identifier.
+          importance - float (0.0-1.0). Memory importance score.
+          emotion_type - str. Emotion label (e.g. "joy", "sadness").
+          tags - list[str]. Categorization tags.
+          context_tags - list[str]. Special tags: "promise", "goal", etc.
+          defer_vector - bool (default: False). Skip immediate vector indexing.
+
+        Notes:
+            Promises & goals: Use context_tags with create operation.
+                memory(operation="create", content="Promise: ...", context_tags=["promise"])
+                memory(operation="create", content="Goal: ...", context_tags=["goal"])
+
+        Examples:
+            memory(operation="create", content="User loves coffee", importance=0.7)
+            memory(operation="read", memory_key="mem_20250101_120000")
+            memory(operation="entity_graph", entity_id="user123", depth=2)
         """
         persona = _resolve_persona()
         ctx = AppContextRegistry.get(persona)
@@ -305,10 +346,29 @@ def register_tools(mcp: FastMCP) -> None:
         importance_weight: float = 0.0,
         recency_weight: float = 0.0,
     ) -> str:
-        """Search memories with semantic, keyword, or hybrid mode.
+        """Search memories with semantic, keyword, or hybrid retrieval.
 
-        Modes: hybrid (default), semantic, keyword, smart
-        date_range: "7d", "30d", "昨日", "一昨日", "先週", "2025-01-01~2025-06-01"
+        Args:
+            query - str, required. Search text.
+            mode - str, default "hybrid". Search strategy:
+                "hybrid": Combines keyword + semantic results via RRF ranking.
+                "semantic": Vector similarity search only (Qdrant).
+                "keyword": SQLite FTS keyword matching only.
+                "smart": Same as hybrid with query expansion.
+            top_k - int, default 5. Maximum number of results.
+            tags - list[str] | None. Filter by tags.
+            date_range - str | None. Time filter, e.g. "7d", "30d",
+                "昨日", "一昨日", "先週", "2025-01-01~2025-06-01".
+            min_importance - float | None. Minimum importance threshold.
+            emotion - str | None. Filter by emotion type.
+            importance_weight - float, default 0.0. Boost score by importance
+                (applied in RRF ranking: score += weight * importance).
+            recency_weight - float, default 0.0. Boost score by recency
+                (applied in RRF ranking: score += weight * 1/(1+age_days)).
+
+        Examples:
+            search_memory(query="favorite food", mode="hybrid", top_k=10)
+            search_memory(query="promise", tags=["promise"], date_range="30d")
         """
         persona = _resolve_persona()
         ctx = AppContextRegistry.get(persona)
@@ -365,11 +425,44 @@ def register_tools(mcp: FastMCP) -> None:
         nickname: str | None = None,
         relationship_type: str | None = None,
     ) -> str:
-        """Update persona context state.
+        """Update persona context state. All parameters optional; only provided values are updated.
 
-        Updates emotion, physical, mental, relationship, user/persona info.
-        All parameters are optional. Only provided values are updated.
+        Emotion:
+            emotion - str. Emotion type (e.g. "joy", "sadness", "anger").
+            emotion_intensity - float (0.0-1.0). Intensity, default 0.5 if omitted.
+
+        State:
+            physical_state - str. Physical condition description.
+            mental_state - str. Mental condition description.
+            environment - str. Current environment/location.
+
+        Relationship:
+            relationship_status - str. Relationship status label.
+            relationship_type - str. Alias for relationship_status.
+
+        User info:
+            user_info - dict. Keys: name, nickname, preferred_address.
+
+        Persona info:
+            persona_info - dict. Keys: nickname, preferred_address,
+                active_promises, current_goals, favorite_items, preferences.
+            nickname - str. Shortcut for persona_info["nickname"].
+
+        Body sensations:
+            fatigue - float (0.0-1.0). Fatigue level.
+            warmth - float (0.0-1.0). Warmth level.
+            arousal - float (0.0-1.0). Arousal level.
+            heart_rate - str. Heart rate description.
+            touch_response - str. Touch response description.
+
+        Other:
+            action_tag - str. Action tag for current activity.
+
         Changes are recorded with bi-temporal history.
+
+        Examples:
+            update_context(emotion="joy", emotion_intensity=0.8)
+            update_context(user_info={"nickname": "太郎"}, physical_state="tired")
         """
         persona = _resolve_persona()
         ctx = AppContextRegistry.get(persona)
@@ -448,10 +541,27 @@ def register_tools(mcp: FastMCP) -> None:
         query: str | None = None,
         days: int = 7,
     ) -> str:
-        """Manage persona inventory and equipment.
+        """Manage persona inventory and equipment. Physical items ONLY.
 
-        Operations: add, remove, equip, unequip, update, search, history
-        Slots: top, bottom, shoes, outer, accessories, head
+        Operations and their parameters:
+            add     - item_name(required), category, description, quantity, tags
+            remove  - item_name(required)
+            equip   - equipment(dict required, e.g. {"top": "白いドレス", "head": "花の髪飾り"}),
+                      auto_add(default: True, auto-create items if not in inventory)
+            unequip - slots(str or list, e.g. "top" or ["top", "head"])
+            update  - item_name(required), category, description, quantity, tags
+            search  - query or category
+            history - days(default: 7)
+
+        Valid equipment slots: top, bottom, shoes, outer, accessories, head
+
+        State changes (wet, dirty) should use update on existing items,
+        not add new ones.
+
+        Examples:
+            item(operation="add", item_name="白いドレス", category="clothing")
+            item(operation="equip", equipment={"top": "白いドレス"})
+            item(operation="search", category="clothing")
         """
         persona = _resolve_persona()
         ctx = AppContextRegistry.get(persona)
@@ -519,8 +629,8 @@ def register_tools(mcp: FastMCP) -> None:
 
 
 def _resolve_persona() -> str:
-    """Resolve persona from environment variable."""
-    return os.environ.get("PERSONA", os.environ.get("MEMORY_MCP_DEFAULT_PERSONA", "default"))
+    """Resolve persona via middleware (contextvar → env fallback)."""
+    return get_current_persona()
 
 
 def _format_context_response(
