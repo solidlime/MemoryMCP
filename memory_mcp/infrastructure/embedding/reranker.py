@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 from typing import TYPE_CHECKING
 
 from memory_mcp.infrastructure.logging.structured import get_logger
@@ -21,6 +22,7 @@ class RerankerModel:
         self.model_name = model_name
         self.enabled = enabled
         self._model: CrossEncoder | None = None
+        self._lock = threading.Lock()
 
     def rerank(
         self,
@@ -80,3 +82,59 @@ class RerankerModel:
         logger.info("Loading reranker model: %s", self.model_name)
         self._model = CrossEncoder(self.model_name)
         logger.info("Reranker model loaded: %s", self.model_name)
+
+    def reload_model(self, new_model_name: str | None = None, new_enabled: bool | None = None) -> dict:
+        """モデルを再ロードする（スレッドセーフ）。"""
+        with self._lock:
+            old_model = self._model
+            old_name = self.model_name
+            old_enabled = self.enabled
+
+            if new_model_name:
+                self.model_name = new_model_name
+            if new_enabled is not None:
+                self.enabled = new_enabled
+
+            self._model = None
+
+            if not self.enabled:
+                del old_model
+                return {
+                    "status": "disabled",
+                    "model": self.model_name,
+                    "message": "Reranker disabled",
+                }
+
+            try:
+                self._load_model()
+                del old_model
+                return {
+                    "status": "ready",
+                    "model": self.model_name,
+                    "message": f"Reranker reloaded: {self.model_name}",
+                }
+            except Exception as e:
+                logger.error("Failed to reload reranker model: %s", e)
+                self._model = old_model
+                self.model_name = old_name
+                self.enabled = old_enabled
+                return {
+                    "status": "error",
+                    "model": self.model_name,
+                    "message": f"Reload failed, reverted: {e}",
+                }
+
+    def get_status(self) -> dict:
+        """現在のモデル状態を返す。"""
+        if not self.enabled:
+            return {"status": "disabled", "model": self.model_name}
+        return {
+            "status": "ready" if self._model is not None else "not_loaded",
+            "model": self.model_name,
+        }
+
+    def unload(self) -> None:
+        """モデルをメモリから解放する。"""
+        with self._lock:
+            self._model = None
+            logger.info("Reranker model unloaded: %s", self.model_name)

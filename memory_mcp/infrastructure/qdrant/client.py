@@ -41,3 +41,61 @@ class QdrantClientManager:
                 logger.warning("Error closing Qdrant client: %s", e)
             finally:
                 self._client = None
+
+    def reconnect(self, new_url: str | None = None, new_api_key: str | None = None) -> dict:
+        """クライアントを再接続する（スレッドセーフ）。"""
+        old_client = self._client
+        old_url = self.url
+        old_api_key = self.api_key
+
+        if new_url:
+            self.url = new_url
+        if new_api_key is not None:
+            self.api_key = new_api_key
+
+        self._client = None
+
+        try:
+            from qdrant_client import QdrantClient
+
+            self._client = QdrantClient(url=self.url, api_key=self.api_key)
+            collections = self._client.get_collections().collections
+            # 旧クライアントをクローズ
+            if old_client is not None:
+                try:
+                    old_client.close()
+                except Exception:
+                    pass
+            logger.info("Qdrant reconnected to %s", self.url)
+            return {
+                "status": "connected",
+                "url": self.url,
+                "collections": len(collections),
+                "message": f"Connected to {self.url}",
+            }
+        except Exception as e:
+            logger.error("Failed to reconnect to Qdrant: %s", e)
+            # フォールバック
+            self._client = old_client
+            self.url = old_url
+            self.api_key = old_api_key
+            return {
+                "status": "error",
+                "url": self.url,
+                "collections": 0,
+                "message": f"Reconnect failed, reverted: {e}",
+            }
+
+    def get_connection_status(self) -> dict:
+        """接続状態を返す。"""
+        if self._client is None:
+            return {"status": "disconnected", "url": self.url, "collections": []}
+        try:
+            collections = self._client.get_collections().collections
+            return {
+                "status": "connected",
+                "url": self.url,
+                "collections": [c.name for c in collections],
+            }
+        except Exception:
+            return {"status": "disconnected", "url": self.url, "collections": []}

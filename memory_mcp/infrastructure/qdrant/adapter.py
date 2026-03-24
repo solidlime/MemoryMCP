@@ -184,3 +184,11 @@ class QdrantVectorStore:
     def _key_to_id(key: str) -> str:
         """Convert a memory key to a deterministic UUID-like hex string for Qdrant."""
         return hashlib.md5(key.encode()).hexdigest()  # noqa: S324
+
+    def reconnect(self, new_url: str | None = None, new_api_key: str | None = None) -> dict:
+        """Qdrantクライアントを再接続する。client_managerに委譲。"""
+        return self.client_manager.reconnect(new_url=new_url, new_api_key=new_api_key)
+
+    def get_connection_status(self) -> dict:
+        """接続状態を返す。client_managerに委譲。"""
+        return self.client_manager.get_connection_status()

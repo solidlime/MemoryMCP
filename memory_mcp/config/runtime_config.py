@@ -228,3 +228,87 @@ class RuntimeConfigManager:
         """Reset singleton (for testing)."""
         with cls._lock:
             cls._instance = None
+
+
+def register_model_reload_callbacks(config_manager: RuntimeConfigManager) -> None:
+    """embedding/reranker/qdrantのホットリロードコールバックを登録する。
+
+    AppContextRegistryの全ペルソナのコンテキストに対してモデルリロードを実行する。
+    """
+    from memory_mcp.application.use_cases import AppContextRegistry
+
+    def on_embedding_change(key: str, new_value: Any) -> None:
+        """Embeddingモデル設定変更時のコールバック。"""
+        config_manager.reload_status.set("embedding", "loading")
+        logger.info("Embedding config changed: %s = %s", key, new_value)
+
+        results = []
+        for persona, ctx in AppContextRegistry._contexts.items():
+            if ctx._embedding is not None:
+                kwargs = {}
+                if key == "model":
+                    kwargs["new_model_name"] = new_value
+                elif key == "device":
+                    kwargs["new_device"] = new_value
+                result = ctx._embedding.reload_model(**kwargs)
+                results.append({"persona": persona, **result})
+                # search_engine をリセット（embedding変更で再構築が必要）
+                ctx._search_engine = None
+
+        status = "ready" if all(r.get("status") == "ready" for r in results) else "error"
+        error_msg = "; ".join(r["message"] for r in results if r.get("status") == "error") or None
+        config_manager.reload_status.set("embedding", status, error=error_msg)
+        logger.info("Embedding reload complete: %s (%d contexts)", status, len(results))
+
+    def on_reranker_change(key: str, new_value: Any) -> None:
+        """Rerankerモデル設定変更時のコールバック。"""
+        config_manager.reload_status.set("reranker", "loading")
+        logger.info("Reranker config changed: %s = %s", key, new_value)
+
+        results = []
+        for persona, ctx in AppContextRegistry._contexts.items():
+            if ctx._reranker is not None:
+                kwargs = {}
+                if key == "model":
+                    kwargs["new_model_name"] = new_value
+                elif key == "enabled":
+                    kwargs["new_enabled"] = new_value
+                result = ctx._reranker.reload_model(**kwargs)
+                results.append({"persona": persona, **result})
+
+        status = "ready" if all(r.get("status") in ("ready", "disabled") for r in results) else "error"
+        error_msg = "; ".join(r["message"] for r in results if r.get("status") == "error") or None
+        config_manager.reload_status.set("reranker", status, error=error_msg)
+        logger.info("Reranker reload complete: %s (%d contexts)", status, len(results))
+
+    def on_qdrant_change(key: str, new_value: Any) -> None:
+        """Qdrant設定変更時のコールバック。"""
+        config_manager.reload_status.set("qdrant", "loading")
+        logger.info("Qdrant config changed: %s = %s", key, new_value if key != "api_key" else "***")
+
+        results = []
+        for persona, ctx in AppContextRegistry._contexts.items():
+            if ctx._vector_store is not None:
+                kwargs = {}
+                if key == "url":
+                    kwargs["new_url"] = new_value
+                elif key == "api_key":
+                    kwargs["new_api_key"] = new_value
+                result = ctx._vector_store.reconnect(**kwargs)
+                results.append({"persona": persona, **result})
+                # collection_prefix 変更時はvector_storeをリセット
+                if key == "collection_prefix":
+                    ctx._vector_store.collection_prefix = new_value
+                    ctx._vector_store.ensure_collection(persona)
+                # search_engine をリセット
+                ctx._search_engine = None
+
+        status = "ready" if all(r.get("status") == "connected" for r in results) else "error"
+        error_msg = "; ".join(r["message"] for r in results if r.get("status") == "error") or None
+        config_manager.reload_status.set("qdrant", status, error=error_msg)
+        logger.info("Qdrant reload complete: %s (%d contexts)", status, len(results))
+
+    config_manager.register_callback("embedding", on_embedding_change)
+    config_manager.register_callback("reranker", on_reranker_change)
+    config_manager.register_callback("qdrant", on_qdrant_change)
+    logger.info("Model reload callbacks registered")

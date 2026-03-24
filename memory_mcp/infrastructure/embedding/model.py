@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 from typing import TYPE_CHECKING
 
 from memory_mcp.infrastructure.logging.structured import get_logger
@@ -29,6 +30,7 @@ class EmbeddingModel:
         self.device = device
         self._model: SentenceTransformer | None = None
         self._dimension: int | None = None
+        self._lock = threading.Lock()
 
     @property
     def dimension(self) -> int:
@@ -80,3 +82,58 @@ class EmbeddingModel:
         self._model = SentenceTransformer(self.model_name, device=self.device)
         self._dimension = self._model.get_sentence_embedding_dimension()
         logger.info("Embedding model loaded: dim=%d, model=%s", self._dimension, self.model_name)
+
+    def reload_model(self, new_model_name: str | None = None, new_device: str | None = None) -> dict:
+        """モデルを再ロードする（スレッドセーフ）。"""
+        with self._lock:
+            old_model = self._model
+            old_dimension = self._dimension
+            old_name = self.model_name
+            old_device = self.device
+
+            if new_model_name:
+                self.model_name = new_model_name
+            if new_device:
+                self.device = new_device
+
+            self._model = None
+            self._dimension = None
+
+            try:
+                self._load_model()
+                # 旧モデルのクリーンアップ
+                del old_model
+                return {
+                    "status": "ready",
+                    "model": self.model_name,
+                    "dimension": self._dimension,
+                    "message": f"Model reloaded: {self.model_name}",
+                }
+            except Exception as e:
+                logger.error("Failed to reload embedding model: %s", e)
+                # フォールバック: 旧モデルに戻す
+                self._model = old_model
+                self._dimension = old_dimension
+                self.model_name = old_name
+                self.device = old_device
+                return {
+                    "status": "error",
+                    "model": self.model_name,
+                    "dimension": self._dimension,
+                    "message": f"Reload failed, reverted: {e}",
+                }
+
+    def get_status(self) -> dict:
+        """現在のモデル状態を返す。"""
+        return {
+            "status": "ready" if self._model is not None else "not_loaded",
+            "model": self.model_name,
+            "dimension": self._dimension,
+        }
+
+    def unload(self) -> None:
+        """モデルをメモリから解放する。"""
+        with self._lock:
+            self._model = None
+            self._dimension = None
+            logger.info("Embedding model unloaded: %s", self.model_name)
