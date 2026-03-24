@@ -403,6 +403,91 @@ class SQLiteMemoryRepository:
             return Failure(RepositoryError(str(e)))
 
     # ------------------------------------------------------------------
+    # Paginated queries (dashboard)
+    # ------------------------------------------------------------------
+
+    def find_with_pagination(
+        self,
+        page: int = 1,
+        per_page: int = 20,
+        tag: str | None = None,
+        query: str | None = None,
+        sort_order: str = "desc",
+    ) -> Result[tuple[list[Memory], int], RepositoryError]:
+        """Return paginated memories with optional filtering.
+
+        Returns (memories, total_count) tuple.
+        """
+        try:
+            conditions: list[str] = []
+            params: list[str] = []
+
+            if tag:
+                conditions.append("tags LIKE ?")
+                params.append(f"%{tag}%")
+            if query:
+                conditions.append("content LIKE ?")
+                params.append(f"%{query}%")
+
+            where_clause = (" WHERE " + " AND ".join(conditions)) if conditions else ""
+            order = "ASC" if sort_order.lower() == "asc" else "DESC"
+
+            count_row = self._db.execute(
+                f"SELECT COUNT(*) as cnt FROM memories{where_clause}",  # noqa: S608
+                params,
+            ).fetchone()
+            total_count: int = count_row["cnt"]
+
+            offset = (page - 1) * per_page
+            rows = self._db.execute(
+                f"SELECT * FROM memories{where_clause} ORDER BY updated_at {order} LIMIT ? OFFSET ?",  # noqa: S608
+                [*params, per_page, offset],
+            ).fetchall()
+
+            return Success(([self._row_to_memory(r) for r in rows], total_count))
+        except Exception as e:
+            logger.error("Failed to find memories with pagination: %s", e)
+            return Failure(RepositoryError(str(e)))
+
+    def get_all_tags(self) -> Result[list[str], RepositoryError]:
+        """Return a deduplicated list of all tags used across memories."""
+        try:
+            rows = self._db.execute("SELECT tags FROM memories").fetchall()
+            all_tags: set[str] = set()
+            for row in rows:
+                all_tags.update(self._parse_json_list(row["tags"]))
+            return Success(sorted(all_tags))
+        except Exception as e:
+            logger.error("Failed to get all tags: %s", e)
+            return Failure(RepositoryError(str(e)))
+
+    # ------------------------------------------------------------------
+    # Goals / Promises
+    # ------------------------------------------------------------------
+
+    def get_goals(self) -> Result[list[dict], RepositoryError]:
+        """Get all goals."""
+        try:
+            rows = self._db.execute(
+                "SELECT * FROM goals ORDER BY priority DESC, created_at DESC"
+            ).fetchall()
+            return Success([dict(r) for r in rows])
+        except Exception as e:
+            logger.error("Failed to get goals: %s", e)
+            return Failure(RepositoryError(str(e)))
+
+    def get_promises(self) -> Result[list[dict], RepositoryError]:
+        """Get all promises."""
+        try:
+            rows = self._db.execute(
+                "SELECT * FROM promises ORDER BY priority DESC, created_at DESC"
+            ).fetchall()
+            return Success([dict(r) for r in rows])
+        except Exception as e:
+            logger.error("Failed to get promises: %s", e)
+            return Failure(RepositoryError(str(e)))
+
+    # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
 

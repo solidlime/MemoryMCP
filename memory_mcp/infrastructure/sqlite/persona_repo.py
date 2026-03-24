@@ -183,6 +183,24 @@ class SQLitePersonaRepository:
             logger.error("Failed to get emotion history: %s", e)
             return Failure(RepositoryError(str(e)))
 
+    def get_emotion_history_by_days(self, persona: str, days: int = 7) -> Result[list[EmotionRecord], RepositoryError]:
+        """Get emotion history for the last N days, ordered by timestamp ascending."""
+        try:
+            from datetime import timedelta
+            cutoff = get_now() - timedelta(days=days)
+            rows = self._db.execute(
+                """
+                SELECT * FROM emotion_history
+                WHERE timestamp >= ?
+                ORDER BY timestamp ASC
+                """,
+                (cutoff.isoformat(),),
+            ).fetchall()
+            return Success([self._row_to_emotion_record(r) for r in rows])
+        except Exception as e:
+            logger.error("Failed to get emotion history by days: %s", e)
+            return Failure(RepositoryError(str(e)))
+
     # ------------------------------------------------------------------
     # User / Persona info (key-value store)
     # ------------------------------------------------------------------
