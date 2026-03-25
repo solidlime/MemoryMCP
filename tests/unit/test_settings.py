@@ -44,7 +44,8 @@ class TestDefaultValues:
 
 class TestSettings:
     def test_full_defaults(self, monkeypatch):
-        # CI環境で MEMORY_MCP_DATA_DIR が設定されている可能性があるため削除
+        # CI環境で MEMORY_MCP_DATA_ROOT / MEMORY_MCP_DATA_DIR が設定されている可能性があるため削除
+        monkeypatch.delenv("MEMORY_MCP_DATA_ROOT", raising=False)
         monkeypatch.delenv("MEMORY_MCP_DATA_DIR", raising=False)
         s = Settings()
         assert s.timezone == "Asia/Tokyo"
