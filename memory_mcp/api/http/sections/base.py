@@ -236,7 +236,7 @@ def render_head() -> str:
             margin: 0 auto;
             padding: 24px;
         }
-        .tab-panel { display: none; animation: fadeIn 0.35s ease; }
+        .tab-panel { display: none; }
         .tab-panel.active { display: block; }
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(8px); }
@@ -435,6 +435,44 @@ def render_head() -> str:
         .mem-modal-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.82rem; }
         .mem-modal-row:last-child { border-bottom: none; }
         .mem-modal-key { color: var(--text-muted); min-width: 100px; flex-shrink: 0; }
+
+        /* ── Phase 5: Skeleton loading (extended) ── */
+        .skeleton-card { height: 120px; margin-bottom: 12px; }
+        .skeleton-line { height: 16px; margin-bottom: 8px; }
+        .skeleton-line.short { width: 60%; }
+        .skeleton-circle { width: 48px; height: 48px; border-radius: 50%; }
+
+        /* ── Phase 5: Transitions & Animations ── */
+        .tab-panel.active { animation: fadeInUp 0.4s ease forwards; }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(16px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-in { animation: fadeInUp 0.4s ease forwards; }
+        .glass:hover { transform: translateY(-2px); }
+        .mem-modal-overlay { opacity: 0; transition: opacity 0.2s ease; }
+        .mem-modal-overlay.show { opacity: 1; }
+        .mem-modal { transform: scale(0.95); transition: transform 0.2s ease; }
+        .mem-modal-overlay.show .mem-modal { transform: scale(1); }
+        .count-up { display: inline-block; }
+        .collapsible { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
+        .collapsible.open { max-height: 2000px; }
+
+        /* ── Phase 5: Mobile optimization ── */
+        @media (max-width: 640px) {
+            .tab-bar { flex-wrap: wrap; }
+            .tab-bar .tab-btn { flex: 1 1 auto; min-width: 0; font-size: 0.75rem; padding: 8px 6px; gap: 2px; }
+            .mobile-toggle { display: flex !important; }
+            .grid { grid-template-columns: 1fr !important; }
+            .stat-value { font-size: 1.5rem !important; }
+            .mem-modal-overlay { padding: 8px; }
+            .mem-modal { width: 100% !important; max-width: none !important; max-height: 90vh !important; }
+            #graph-container { height: 400px !important; }
+        }
+        @media (max-width: 1024px) {
+            .lg\:grid-cols-4 { grid-template-columns: repeat(2, 1fr) !important; }
+            .lg\:grid-cols-3 { grid-template-columns: repeat(2, 1fr) !important; }
+        }
     </style>
 </head>"""
 
@@ -471,7 +509,13 @@ def render_nav(tabs: List[dict]) -> str:
             + "</button>"
         )
     return (
-        '    <nav class="tab-bar" role="tablist">\n        '
+        '    <nav class="tab-bar" role="tablist">\n'
+        '        <button class="mobile-toggle" onclick="toggleMobileNav()" '
+        'aria-label="Toggle navigation" '
+        'style="display:none;align-items:center;gap:4px;padding:8px 12px;'
+        'background:none;border:1px solid rgba(255,255,255,0.2);border-radius:8px;'
+        'color:rgba(255,255,255,0.7);cursor:pointer;font-size:0.9rem;">'
+        '☰ Menu</button>\n        '
         + "\n        ".join(buttons)
         + "\n    </nav>"
     )
@@ -609,6 +653,35 @@ function toggleTheme() {
 }
 
 /* =================================================================
+   SKELETON LOADING
+   ================================================================= */
+function showSkeleton(tabId) {
+    const container = document.getElementById('tab-' + tabId);
+    if (!container) return;
+    const skeletons = {
+        overview: '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">'
+            + '<div class="skeleton skeleton-card glass"></div>'.repeat(4)
+            + '</div><div class="grid grid-cols-1 lg:grid-cols-2 gap-6">'
+            + '<div class="skeleton glass" style="height:200px"></div>'.repeat(2) + '</div>',
+        analytics: '<div class="skeleton skeleton-chart glass mb-6"></div>'
+            + '<div class="grid grid-cols-1 md:grid-cols-2 gap-4">'
+            + '<div class="skeleton glass" style="height:200px"></div>'.repeat(2) + '</div>',
+        memories: '<div class="skeleton skeleton-line mb-4" style="height:48px"></div>'
+            + '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">'
+            + '<div class="skeleton skeleton-card glass"></div>'.repeat(6) + '</div>',
+        settings: '<div class="skeleton glass mb-4" style="height:160px"></div>'.repeat(3),
+        graph: '<div class="skeleton glass" style="height:600px"></div>',
+        'import-export': '<div class="skeleton glass mb-4" style="height:200px"></div>'
+            + '<div class="skeleton glass" style="height:200px"></div>',
+        personas: '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">'
+            + '<div class="skeleton skeleton-card glass"></div>'.repeat(3) + '</div>',
+        admin: '<div class="skeleton glass" style="height:300px"></div>'
+    };
+    const content = container.querySelector('[id$="-content"]') || container;
+    content.innerHTML = skeletons[tabId] || '<div class="skeleton skeleton-card glass"></div>';
+}
+
+/* =================================================================
    TAB SWITCHING
    ================================================================= */
 function switchTab(tab) {
@@ -621,6 +694,7 @@ function switchTab(tab) {
     document.querySelectorAll('.tab-panel').forEach(p => {
         p.classList.toggle('active', p.id === 'tab-' + tab);
     });
+    showSkeleton(tab);
     loadTab(tab);
 }
 function loadTab(tab) {
@@ -756,6 +830,79 @@ async function init() {
         }
     });
 }
+
+/* =================================================================
+   COUNT-UP ANIMATION
+   ================================================================= */
+function animateCount(el, target, duration) {
+    duration = duration || 800;
+    const startTime = performance.now();
+    function update(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        el.textContent = Math.round(target * eased).toLocaleString();
+        if (progress < 1) requestAnimationFrame(update);
+    }
+    requestAnimationFrame(update);
+}
+
+/* =================================================================
+   STAGGERED CARD ANIMATION
+   ================================================================= */
+function animateCards(container) {
+    if (!container) return;
+    const cards = container.querySelectorAll('.glass');
+    cards.forEach(function(card, i) {
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(16px)';
+        setTimeout(function() {
+            card.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+            card.style.opacity = '1';
+            card.style.transform = 'translateY(0)';
+        }, i * 60);
+    });
+}
+
+/* =================================================================
+   MOBILE NAV TOGGLE
+   ================================================================= */
+function toggleMobileNav() {
+    const nav = document.querySelector('.tab-bar');
+    if (nav) nav.classList.toggle('mobile-open');
+}
+
+/* =================================================================
+   KEYBOARD SHORTCUTS (Ctrl+F / Escape)
+   ================================================================= */
+document.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        var searchInput = document.querySelector('.tab-panel.active input[type="text"][placeholder*="earch"]');
+        if (searchInput) { e.preventDefault(); searchInput.focus(); }
+    }
+    if (e.key === 'Escape') {
+        document.querySelectorAll('.mem-modal-overlay').forEach(function(m) {
+            m.style.display = 'none';
+            m.classList.remove('show');
+        });
+    }
+});
+
+/* =================================================================
+   ARIA LABELS ON LOAD
+   ================================================================= */
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.tab-btn').forEach(function(btn, i) {
+        btn.setAttribute('role', 'tab');
+        btn.setAttribute('aria-label', btn.textContent.trim());
+        btn.setAttribute('tabindex', '0');
+    });
+    document.querySelectorAll('.tab-panel').forEach(function(tab) {
+        tab.setAttribute('role', 'tabpanel');
+    });
+    var tablist = document.querySelector('.tab-bar');
+    if (tablist) tablist.setAttribute('role', 'tablist');
+});
 
 // Boot
 init();"""
