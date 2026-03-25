@@ -385,39 +385,88 @@ class LegacyImporter:
         return count
 
     def _import_items(self, src_db: sqlite3.Connection) -> int:
+        """Import items from v1 inventory.sqlite.
+
+        v1 schema: items(item_id, item_name, description, category, tags, created_at)
+                 + inventory(persona, item_id, quantity, is_equipped, equipped_slot, acquired_at)
+        v2 schema: items(id INTEGER, name, category, description, quantity, tags, created_at, updated_at)
+        """
         target_db = self.target.get_inventory_db()
         count = 0
 
+        # Detect schema version by checking column names
         try:
-            rows = src_db.execute("SELECT * FROM items").fetchall()
+            cols = {r[1] for r in src_db.execute("PRAGMA table_info(items)").fetchall()}
         except sqlite3.OperationalError as e:
             logger.warning("Source DB has no 'items' table: %s", e)
             return 0
 
-        logger.info("Importing %d items from source DB", len(rows))
+        is_v1 = "item_id" in cols  # v1 uses item_id/item_name
+
+        if is_v1:
+            # Join items with inventory to get quantity
+            try:
+                rows = src_db.execute(
+                    """
+                    SELECT i.item_id, i.item_name, i.category, i.description,
+                           i.tags, i.created_at,
+                           COALESCE(inv.quantity, 1) AS quantity
+                    FROM items i
+                    LEFT JOIN inventory inv USING (item_id)
+                    GROUP BY i.item_id
+                    """
+                ).fetchall()
+            except sqlite3.OperationalError:
+                rows = src_db.execute("SELECT * FROM items").fetchall()
+        else:
+            rows = src_db.execute("SELECT * FROM items").fetchall()
+
+        logger.info("Importing %d items from source DB (v1=%s)", len(rows), is_v1)
         for row in rows:
             try:
-                target_db.execute(
-                    """
-                    INSERT OR REPLACE INTO items
-                    (id, name, category, description, quantity,
-                     tags, created_at, updated_at)
-                    VALUES (?,?,?,?,?,?,?,?)
-                    """,
-                    (
-                        row["id"],
-                        row["name"],
-                        row["category"],
-                        row["description"],
-                        row["quantity"],
-                        row["tags"],
-                        row["created_at"],
-                        row["updated_at"],
-                    ),
-                )
+                if is_v1:
+                    name = row["item_name"]
+                    created_at = row["created_at"]
+                    target_db.execute(
+                        """
+                        INSERT OR REPLACE INTO items
+                        (name, category, description, quantity,
+                         tags, created_at, updated_at)
+                        VALUES (?,?,?,?,?,?,?)
+                        """,
+                        (
+                            name,
+                            row["category"],
+                            row["description"],
+                            row["quantity"],
+                            row["tags"] or "[]",
+                            created_at,
+                            created_at,
+                        ),
+                    )
+                else:
+                    target_db.execute(
+                        """
+                        INSERT OR REPLACE INTO items
+                        (id, name, category, description, quantity,
+                         tags, created_at, updated_at)
+                        VALUES (?,?,?,?,?,?,?,?)
+                        """,
+                        (
+                            row["id"],
+                            row["name"],
+                            row["category"],
+                            row["description"],
+                            row["quantity"],
+                            row["tags"],
+                            row["created_at"],
+                            row["updated_at"],
+                        ),
+                    )
                 count += 1
             except Exception as e:  # noqa: BLE001
-                logger.warning("Skipping item '%s': %s", row["name"] if "name" in row.keys() else "?", e)
+                item_label = row["item_name"] if is_v1 else (row["name"] if "name" in row.keys() else "?")
+                logger.warning("Skipping item '%s': %s", item_label, e)
                 continue
 
         target_db.commit()
@@ -425,14 +474,45 @@ class LegacyImporter:
         return count
 
     def _import_equipment_slots(self, src_db: sqlite3.Connection) -> int:
+        """Import equipment slots from v1 inventory.sqlite.
+
+        v1 schema: inventory(persona, item_id, is_equipped, equipped_slot, ...)
+                   items(item_id, item_name, ...)
+        v2 schema: equipment_slots(slot, item_name, equipped_at)
+        """
         target_db = self.target.get_inventory_db()
         count = 0
 
+        # Detect v1 vs v2
         try:
-            rows = src_db.execute("SELECT * FROM equipment_slots").fetchall()
-        except sqlite3.OperationalError as e:
-            logger.warning("Source DB has no 'equipment_slots' table: %s", e)
-            return 0
+            cols = {r[1] for r in src_db.execute("PRAGMA table_info(items)").fetchall()}
+        except sqlite3.OperationalError:
+            cols = set()
+
+        is_v1 = "item_id" in cols
+
+        if is_v1:
+            try:
+                rows = src_db.execute(
+                    """
+                    SELECT inv.equipped_slot AS slot,
+                           i.item_name       AS item_name,
+                           inv.acquired_at   AS equipped_at
+                    FROM inventory inv
+                    JOIN items i USING (item_id)
+                    WHERE inv.is_equipped = 1
+                      AND inv.equipped_slot IS NOT NULL
+                    """
+                ).fetchall()
+            except sqlite3.OperationalError as e:
+                logger.warning("Could not read v1 inventory for equipment_slots: %s", e)
+                return 0
+        else:
+            try:
+                rows = src_db.execute("SELECT * FROM equipment_slots").fetchall()
+            except sqlite3.OperationalError as e:
+                logger.warning("Source DB has no 'equipment_slots' table: %s", e)
+                return 0
 
         for row in rows:
             try:
@@ -454,17 +534,47 @@ class LegacyImporter:
                 continue
 
         target_db.commit()
+        logger.info("Imported %d equipment slots (v1=%s)", count, is_v1)
         return count
 
     def _import_equipment_history(self, src_db: sqlite3.Connection) -> int:
+        """Import equipment history from v1 inventory.sqlite.
+
+        v1 schema: equipment_history(id, persona, item_id, slot, action, timestamp)
+                   items(item_id, item_name)
+        v2 schema: equipment_history(id, action, slot, item_name, timestamp, details)
+        """
         target_db = self.target.get_inventory_db()
         count = 0
 
+        # Detect v1 vs v2
         try:
-            rows = src_db.execute("SELECT * FROM equipment_history").fetchall()
+            cols = {r[1] for r in src_db.execute("PRAGMA table_info(equipment_history)").fetchall()}
         except sqlite3.OperationalError as e:
             logger.warning("Source DB has no 'equipment_history' table: %s", e)
             return 0
+
+        is_v1 = "item_id" in cols  # v1 uses item_id FK, v2 uses item_name TEXT
+
+        if is_v1:
+            try:
+                rows = src_db.execute(
+                    """
+                    SELECT eh.id, eh.action, eh.slot, eh.timestamp,
+                           i.item_name
+                    FROM equipment_history eh
+                    LEFT JOIN items i USING (item_id)
+                    """
+                ).fetchall()
+            except sqlite3.OperationalError as e:
+                logger.warning("Could not read v1 equipment_history: %s", e)
+                return 0
+        else:
+            try:
+                rows = src_db.execute("SELECT * FROM equipment_history").fetchall()
+            except sqlite3.OperationalError as e:
+                logger.warning("Source DB has no 'equipment_history' table: %s", e)
+                return 0
 
         for row in rows:
             try:
@@ -480,7 +590,7 @@ class LegacyImporter:
                         row["slot"],
                         row["item_name"],
                         row["timestamp"],
-                        row["details"],
+                        None,  # v1 has no details column
                     ),
                 )
                 count += 1
@@ -489,6 +599,7 @@ class LegacyImporter:
                 continue
 
         target_db.commit()
+        logger.info("Imported %d equipment_history rows (v1=%s)", count, is_v1)
         return count
 
     # ------------------------------------------------------------------
