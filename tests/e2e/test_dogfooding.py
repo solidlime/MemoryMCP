@@ -37,6 +37,8 @@ from memory_mcp.migration.engine import MigrationEngine
 from memory_mcp.migration.exporters.jsonl_exporter import JSONLExporter
 from memory_mcp.migration.importers.legacy_importer import LegacyImporter
 
+pytestmark = pytest.mark.e2e
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 DATA_DIR = PROJECT_ROOT / "data"
 

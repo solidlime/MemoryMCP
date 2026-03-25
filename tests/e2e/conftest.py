@@ -3,6 +3,7 @@ Playwright E2E Test Fixtures.
 
 MemoryMCP WebUI ダッシュボードの E2E テスト用フィクスチャ集。
 テスト専用サーバーを起動し、テストペルソナにシードデータを投入する。
+環境変数 MEMORY_MCP_URL が設定されている場合は既存サーバーを再利用する。
 """
 
 import os
@@ -13,9 +14,12 @@ import time
 import pytest
 import requests
 
-TEST_PORT = 26299
+# 環境変数 MEMORY_MCP_URL がある場合は既存サーバーを再利用
+EXTERNAL_URL = os.environ.get("MEMORY_MCP_URL")
+TEST_PORT = int(os.environ.get("MEMORY_MCP_PORT", "26299"))
+BASE_URL = EXTERNAL_URL or f"http://localhost:{TEST_PORT}"
+
 TEST_PERSONA = "e2e_test_persona"
-BASE_URL = f"http://localhost:{TEST_PORT}"
 DASHBOARD_URL = f"{BASE_URL}"
 
 # テスト用データディレクトリ
@@ -24,7 +28,22 @@ E2E_DATA_ROOT = os.path.join(os.path.dirname(__file__), "..", "..", "data", "e2e
 
 @pytest.fixture(scope="session")
 def server():
-    """MemoryMCPサーバーをE2Eテスト用に起動する。"""
+    """MemoryMCPサーバーをE2Eテスト用に起動する。MEMORY_MCP_URL が設定されている場合はスキップ。"""
+    if EXTERNAL_URL:
+        # 既存サーバーのヘルスチェックのみ
+        for _ in range(30):
+            try:
+                r = requests.get(f"{EXTERNAL_URL}/health", timeout=2)
+                if r.status_code == 200:
+                    break
+            except Exception:
+                pass
+            time.sleep(2)
+        else:
+            raise RuntimeError(f"External server at {EXTERNAL_URL} is not responding")
+        yield None
+        return
+
     env = os.environ.copy()
     env["MEMORY_MCP_SERVER_PORT"] = str(TEST_PORT)
     env["MEMORY_MCP_DATA_ROOT"] = E2E_DATA_ROOT

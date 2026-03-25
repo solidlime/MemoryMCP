@@ -57,21 +57,11 @@ jobs:
             unzip -o "$zip" -d "$name"
           done
 
-      - name: Start MCP server
-        run: |
-          python -m memory_mcp.main &
-          sleep 10
-          curl -f http://localhost:26262/health || exit 1
-        env:
-          MEMORY_MCP_QDRANT_URL: http://localhost:6333
-          MEMORY_MCP_DATA_DIR: ./data/_tmp
-
       - name: Run E2E tests
         run: pytest tests/e2e/ -v --tb=long -m e2e
         env:
-          MEMORY_MCP_URL: http://localhost:26262
           MEMORY_MCP_QDRANT_URL: http://localhost:6333
-          MEMORY_MCP_DATA_DIR: ./data/_tmp
+          MEMORY_MCP_DATA_ROOT: ./data/_tmp
 
       - name: Upload test results
         if: always()

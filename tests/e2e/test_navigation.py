@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import pytest
 
+pytestmark = pytest.mark.e2e
+
 # 全タブ定義（data-tab 属性値の順序）
 ALL_TABS: list[str] = [
     "overview",

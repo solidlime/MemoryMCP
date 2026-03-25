@@ -1,3 +1,6 @@
+# DEPRECATED: This workflow duplicates docker.yml which is more feature-rich
+# (Buildx, GHA cache, redesign/v2 branch support, workflow_dispatch with tag input).
+# Kept for historical reference. Use docker.yml instead.
 name: Docker Image CI/CD
 
 on:
