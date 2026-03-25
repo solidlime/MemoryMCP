@@ -31,6 +31,9 @@ def _memory_to_dict(m) -> dict:
     for k in ("created_at", "updated_at", "last_accessed", "last_decay", "last_recall"):
         if k in d and d[k] is not None:
             d[k] = d[k].isoformat()
+    # Rename emotion → emotion_type: domain model uses 'emotion', API/JS uses 'emotion_type'
+    if "emotion" in d:
+        d["emotion_type"] = d.pop("emotion")
     return d
 
 
