@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from memory_mcp.infrastructure.logging.structured import get_logger
@@ -131,7 +131,7 @@ class SummarizationWorker:
         stats: dict,
     ) -> None:
         """Create a simple statistical summary memory entry."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         date_str = now.strftime("%Y-%m-%d")
 
         total: int = stats.get("total_count", 0)
