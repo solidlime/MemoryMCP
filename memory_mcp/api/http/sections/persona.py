@@ -107,6 +107,7 @@ def render_persona_js() -> str:
         "async function loadPersonas() {\n"
         "    var grid = document.getElementById('persona-grid');\n"
         "    if (!grid) return;\n"
+        "    grid.innerHTML = '<div style=\"text-align:center;color:var(--text-muted);padding:40px\">Loading personas...</div>';\n"
         "    try {\n"
         "        var listData = await api('/api/personas');\n"
         "        var personas = listData.personas || [];\n"

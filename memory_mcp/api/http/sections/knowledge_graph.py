@@ -224,6 +224,8 @@ function populateGraphFilters(nodes) {
     });
 
     var tagFilter = document.getElementById('graph-tag-filter');
+    var emotionFilter = document.getElementById('graph-emotion-filter');
+    if (!tagFilter || !emotionFilter) return;
     var currentTags = Array.from(tagFilter.selectedOptions).map(function(o) { return o.value; }).filter(Boolean);
     tagFilter.innerHTML = '<option value="">All Tags</option>' +
         Array.from(tagSet).sort().map(function(t) {
@@ -231,7 +233,6 @@ function populateGraphFilters(nodes) {
                    (currentTags.includes(t) ? ' selected' : '') + '>' + esc(t) + '</option>';
         }).join('');
 
-    var emotionFilter = document.getElementById('graph-emotion-filter');
     var currentEmo = emotionFilter.value;
     emotionFilter.innerHTML = '<option value="">All Emotions</option>' +
         Array.from(emotionSet).sort().map(function(e) {
