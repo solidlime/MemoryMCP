@@ -1152,7 +1152,8 @@ function renderSettings(el, settings, status) {
     const reloadStatus = (status && status.reload_status) || {};
     const categoryIcons = {
         server: '🖥️', embedding: '🧠', reranker: '🔍', qdrant: '📦',
-        worker: '⏰', general: '⚙️', search: '🔎', persona: '👤'
+        worker: '⏰', general: '⚙️', search: '🔎', persona: '👤',
+        summarization: '🤖', forgetting: '🧹'
     };
 
     let html = '';

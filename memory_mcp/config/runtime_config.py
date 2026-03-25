@@ -42,6 +42,16 @@ SETTINGS_META: dict[str, dict[str, dict]] = {
         "decay_interval_seconds": {"hot_reload": True, "description": "Decay worker interval (seconds)"},
         "min_strength": {"hot_reload": True, "description": "Minimum memory strength"},
     },
+    "summarization": {
+        "enabled": {"hot_reload": True, "description": "Enable LLM-based summarization feature"},
+        "use_llm": {"hot_reload": True, "description": "Use LLM for summarization (False = statistical summary)"},
+        "llm_api_url": {"hot_reload": True, "description": "LLM API endpoint URL (OpenAI-compatible)"},
+        "llm_api_key": {"hot_reload": True, "description": "LLM API key", "masked": True},
+        "llm_model": {"hot_reload": True, "description": "LLM model name (e.g. anthropic/claude-3.5-sonnet)"},
+        "llm_max_tokens": {"hot_reload": True, "description": "Maximum tokens for summary generation"},
+        "check_interval_seconds": {"hot_reload": True, "description": "Background summarization check interval (seconds)"},
+        "min_importance": {"hot_reload": True, "description": "Minimum importance score for memories to summarize"},
+    },
     "general": {
         "timezone": {"hot_reload": True, "description": "Timezone"},
         "log_level": {"hot_reload": True, "description": "Log level"},

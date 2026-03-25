@@ -36,6 +36,19 @@ class ServerConfig(BaseModel):
     port: int = 26262
 
 
+class SummarizationConfig(BaseModel):
+    """LLM-based summarization configuration."""
+
+    enabled: bool = False
+    use_llm: bool = False
+    llm_api_url: str = "https://openrouter.ai/api/v1"
+    llm_api_key: str | None = None
+    llm_model: str = "anthropic/claude-3.5-sonnet"
+    llm_max_tokens: int = 500
+    check_interval_seconds: int = 3600
+    min_importance: float = 0.3
+
+
 class ForgettingConfig(BaseModel):
     """Ebbinghaus forgetting curve configuration."""
 
@@ -58,6 +71,7 @@ class Settings(BaseSettings):
     embedding: EmbeddingConfig = EmbeddingConfig()
     reranker: RerankerConfig = RerankerConfig()
     qdrant: QdrantConfig = QdrantConfig()
+    summarization: SummarizationConfig = SummarizationConfig()
     forgetting: ForgettingConfig = ForgettingConfig()
     timezone: str = "Asia/Tokyo"
     data_root: str = "./data"
