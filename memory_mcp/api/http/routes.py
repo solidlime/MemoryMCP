@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import asyncio
+import io
 import os
+import shutil
+import zipfile
 from collections import defaultdict
 from dataclasses import asdict
 from pathlib import Path
 
 from starlette.requests import Request  # noqa: TC002
-from starlette.responses import HTMLResponse, JSONResponse  # noqa: TC002
+from starlette.responses import HTMLResponse, JSONResponse, StreamingResponse  # noqa: TC002
 
 from memory_mcp.application.use_cases import AppContextRegistry
 from memory_mcp.config.settings import Settings
@@ -222,6 +225,9 @@ def register_http_routes(mcp) -> None:  # noqa: C901, PLR0915
         persona = _resolve_persona_from_request(request)
         q = request.query_params.get("q", "")
         limit = int(request.query_params.get("limit", "20"))
+        mode = request.query_params.get("mode", "hybrid")
+        if mode not in ("semantic", "keyword", "hybrid", "smart"):
+            mode = "hybrid"
         if not q:
             return JSONResponse({"error": "Query parameter 'q' is required"}, status_code=400)
         ctx = _safe_get_context(persona)
@@ -230,7 +236,7 @@ def register_http_routes(mcp) -> None:  # noqa: C901, PLR0915
         try:
             from memory_mcp.domain.search.engine import SearchQuery
 
-            query = SearchQuery(text=q, mode="hybrid", top_k=limit)
+            query = SearchQuery(text=q, mode=mode, top_k=limit)
             # Set persona for semantic search adapter if available
             if hasattr(ctx.search_engine, "_semantic") and ctx.search_engine._semantic is not None:
                 ctx.search_engine._semantic._persona = persona  # noqa: SLF001
@@ -432,5 +438,345 @@ def register_http_routes(mcp) -> None:  # noqa: C901, PLR0915
                     "reload_status": config.reload_status.get_all(),
                 }
             )
+        except Exception as exc:
+            return JSONResponse({"error": str(exc)}, status_code=500)
+
+    # ------------------------------------------------------------------
+    # Memory CRUD routes
+    # ------------------------------------------------------------------
+
+    @mcp.custom_route("/api/memories/{persona}", methods=["POST"])
+    async def create_memory(request: Request) -> JSONResponse:
+        """Create a new memory for a persona."""
+        persona = _resolve_persona_from_request(request)
+        ctx = _safe_get_context(persona)
+        if ctx is None:
+            return JSONResponse({"error": f"Persona '{persona}' not found"}, status_code=404)
+        try:
+            body = await request.json()
+        except Exception:
+            return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
+        content = body.get("content")
+        if not content:
+            return JSONResponse({"error": "Field 'content' is required"}, status_code=400)
+        try:
+            result = ctx.memory_service.create_memory(
+                content=content,
+                importance=body.get("importance", 0.5),
+                emotion=body.get("emotion_type", "neutral"),
+                emotion_intensity=body.get("emotion_intensity", 0.0),
+                tags=body.get("tags"),
+                privacy_level=body.get("privacy_level", "internal"),
+                source_context=body.get("source_context"),
+            )
+            if not result.is_ok:
+                return JSONResponse({"error": str(result.error)}, status_code=500)
+            # Index in vector store if available
+            mem = result.value
+            if ctx.vector_store is not None:
+                try:
+                    ctx.vector_store.upsert(persona, mem.key, mem.content)
+                except Exception:
+                    pass
+            return JSONResponse(
+                {"status": "ok", "memory": _memory_to_dict(mem)},
+                status_code=201,
+            )
+        except Exception as exc:
+            return JSONResponse({"error": str(exc)}, status_code=500)
+
+    @mcp.custom_route("/api/memories/{persona}/{key}", methods=["PUT"])
+    async def update_memory(request: Request) -> JSONResponse:
+        """Update an existing memory."""
+        persona = _resolve_persona_from_request(request)
+        key = request.path_params.get("key", "")
+        if not key:
+            return JSONResponse({"error": "Memory key is required"}, status_code=400)
+        ctx = _safe_get_context(persona)
+        if ctx is None:
+            return JSONResponse({"error": f"Persona '{persona}' not found"}, status_code=404)
+        try:
+            body = await request.json()
+        except Exception:
+            return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
+        try:
+            # Build updates dict from allowed fields
+            allowed = {"content", "importance", "emotion_type", "emotion_intensity", "tags", "privacy_level", "source_context"}
+            updates = {}
+            for field in allowed:
+                if field in body:
+                    # Map emotion_type -> emotion for domain model
+                    if field == "emotion_type":
+                        updates["emotion"] = body[field]
+                    else:
+                        updates[field] = body[field]
+            if not updates:
+                return JSONResponse({"error": "No valid fields to update"}, status_code=400)
+            result = ctx.memory_service.update_memory(key, **updates)
+            if not result.is_ok:
+                return JSONResponse({"error": str(result.error)}, status_code=404)
+            # Re-index in vector store if content changed
+            mem = result.value
+            if "content" in updates and ctx.vector_store is not None:
+                try:
+                    ctx.vector_store.upsert(persona, mem.key, mem.content)
+                except Exception:
+                    pass
+            return JSONResponse({"status": "ok", "memory": _memory_to_dict(mem)})
+        except Exception as exc:
+            return JSONResponse({"error": str(exc)}, status_code=500)
+
+    @mcp.custom_route("/api/memories/{persona}/{key}", methods=["DELETE"])
+    async def delete_memory(request: Request) -> JSONResponse:
+        """Delete a memory by key."""
+        persona = _resolve_persona_from_request(request)
+        key = request.path_params.get("key", "")
+        if not key:
+            return JSONResponse({"error": "Memory key is required"}, status_code=400)
+        ctx = _safe_get_context(persona)
+        if ctx is None:
+            return JSONResponse({"error": f"Persona '{persona}' not found"}, status_code=404)
+        try:
+            result = ctx.memory_service.delete_memory(key)
+            if not result.is_ok:
+                return JSONResponse({"error": str(result.error)}, status_code=404)
+            # Remove from vector store if available
+            if ctx.vector_store is not None:
+                try:
+                    ctx.vector_store.delete(persona, key)
+                except Exception:
+                    pass
+            return JSONResponse({"status": "ok", "deleted": key})
+        except Exception as exc:
+            return JSONResponse({"error": str(exc)}, status_code=500)
+
+    # ------------------------------------------------------------------
+    # Graph data routes
+    # ------------------------------------------------------------------
+
+    @mcp.custom_route("/api/graph/{persona}", methods=["GET"])
+    async def graph_data(request: Request) -> JSONResponse:
+        """Get memory graph data (nodes and edges) for visualization."""
+        persona = _resolve_persona_from_request(request)
+        limit = int(request.query_params.get("limit", "200"))
+        ctx = _safe_get_context(persona)
+        if ctx is None:
+            return JSONResponse({"error": f"Persona '{persona}' not found"}, status_code=404)
+        try:
+            result = ctx.memory_repo.find_recent(limit=limit)
+            if not result.is_ok:
+                return JSONResponse({"error": str(result.error)}, status_code=500)
+            memories = result.value
+
+            nodes = []
+            edges = []
+            edge_set = set()  # Deduplicate edges
+            tag_to_keys: dict[str, list[str]] = defaultdict(list)
+
+            for mem in memories:
+                nodes.append({
+                    "key": mem.key,
+                    "content": mem.content[:100] if mem.content else "",
+                    "tags": mem.tags or [],
+                    "emotion_type": mem.emotion,
+                    "importance": mem.importance,
+                })
+                # Track tag -> memory key mapping for co-occurrence edges
+                for tag in (mem.tags or []):
+                    tag_to_keys[tag].append(mem.key)
+                # Edges from related_keys
+                for related in (mem.related_keys or []):
+                    pair = tuple(sorted([mem.key, related]))
+                    if pair not in edge_set:
+                        edge_set.add(pair)
+                        edges.append({
+                            "source": mem.key,
+                            "target": related,
+                            "type": "related",
+                        })
+
+            # Edges from tag co-occurrence
+            for tag, keys in tag_to_keys.items():
+                if len(keys) > 1:
+                    # Limit co-occurrence edges for tags with many memories
+                    capped = keys[:20]
+                    for i in range(len(capped)):
+                        for j in range(i + 1, len(capped)):
+                            pair = tuple(sorted([capped[i], capped[j]]))
+                            if pair not in edge_set:
+                                edge_set.add(pair)
+                                edges.append({
+                                    "source": capped[i],
+                                    "target": capped[j],
+                                    "type": "tag",
+                                    "tag": tag,
+                                })
+
+            return JSONResponse({
+                "persona": persona,
+                "nodes": nodes,
+                "edges": edges,
+                "node_count": len(nodes),
+                "edge_count": len(edges),
+            })
+        except Exception as exc:
+            return JSONResponse({"error": str(exc)}, status_code=500)
+
+    # ------------------------------------------------------------------
+    # Import / Export routes
+    # ------------------------------------------------------------------
+
+    @mcp.custom_route("/api/import/{persona}", methods=["POST"])
+    async def import_data(request: Request) -> JSONResponse:
+        """Import persona data from a ZIP file upload."""
+        persona = _resolve_persona_from_request(request)
+        ctx = _safe_get_context(persona)
+        if ctx is None:
+            return JSONResponse({"error": f"Persona '{persona}' not found"}, status_code=404)
+        try:
+            form = await request.form()
+            upload = form.get("file")
+            if upload is None:
+                return JSONResponse({"error": "No file uploaded. Use multipart form field 'file'."}, status_code=400)
+            file_bytes = await upload.read()
+            if not file_bytes:
+                return JSONResponse({"error": "Uploaded file is empty"}, status_code=400)
+
+            # Save to temp location within data directory
+            settings = Settings()
+            import_dir = Path(settings.import_dir)
+            import_dir.mkdir(parents=True, exist_ok=True)
+            zip_path = import_dir / f"_upload_{persona}.zip"
+            zip_path.write_bytes(file_bytes)
+
+            try:
+                from memory_mcp.migration.importers.legacy_importer import LegacyImporter
+
+                importer = LegacyImporter(ctx.connection, persona)
+                result = importer.import_from_zip(str(zip_path))
+                if not result.is_ok:
+                    return JSONResponse({"error": str(result.error)}, status_code=500)
+                return JSONResponse({
+                    "status": "ok",
+                    "persona": persona,
+                    "imported": result.value,
+                })
+            finally:
+                # Clean up uploaded zip
+                if zip_path.exists():
+                    zip_path.unlink()
+        except Exception as exc:
+            return JSONResponse({"error": str(exc)}, status_code=500)
+
+    @mcp.custom_route("/api/export/{persona}", methods=["GET"])
+    async def export_data(request: Request) -> StreamingResponse:
+        """Export persona data as a ZIP file download."""
+        persona = _resolve_persona_from_request(request)
+        settings = Settings()
+        persona_dir = Path(settings.data_dir) / persona
+        if not persona_dir.exists():
+            return JSONResponse({"error": f"Persona '{persona}' not found"}, status_code=404)
+        try:
+            buf = io.BytesIO()
+            with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+                for file_path in persona_dir.rglob("*"):
+                    if file_path.is_file():
+                        arcname = str(file_path.relative_to(persona_dir))
+                        zf.write(file_path, arcname)
+            buf.seek(0)
+            return StreamingResponse(
+                buf,
+                media_type="application/zip",
+                headers={"Content-Disposition": f'attachment; filename="{persona}_export.zip"'},
+            )
+        except Exception as exc:
+            return JSONResponse({"error": str(exc)}, status_code=500)
+
+    # ------------------------------------------------------------------
+    # Persona management routes
+    # ------------------------------------------------------------------
+
+    @mcp.custom_route("/api/personas", methods=["POST"])
+    async def create_persona(request: Request) -> JSONResponse:
+        """Create a new persona with initialized databases."""
+        try:
+            body = await request.json()
+        except Exception:
+            return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
+        persona_name = body.get("name")
+        if not persona_name:
+            return JSONResponse({"error": "Field 'name' is required"}, status_code=400)
+        # Validate name (alphanumeric, hyphens, underscores)
+        import re
+        if not re.match(r"^[a-zA-Z0-9_-]+$", persona_name):
+            return JSONResponse(
+                {"error": "Persona name must contain only alphanumeric characters, hyphens, and underscores"},
+                status_code=400,
+            )
+        settings = Settings()
+        persona_dir = Path(settings.data_dir) / persona_name
+        if persona_dir.exists():
+            return JSONResponse({"error": f"Persona '{persona_name}' already exists"}, status_code=409)
+        try:
+            # Initialize by getting context (this creates dirs and schema)
+            ctx = AppContextRegistry.get(persona_name)
+            if ctx is None:
+                return JSONResponse({"error": "Failed to initialize persona"}, status_code=500)
+            return JSONResponse(
+                {"status": "ok", "persona": persona_name, "message": f"Persona '{persona_name}' created"},
+                status_code=201,
+            )
+        except Exception as exc:
+            return JSONResponse({"error": str(exc)}, status_code=500)
+
+    @mcp.custom_route("/api/personas/{persona}", methods=["DELETE"])
+    async def delete_persona(request: Request) -> JSONResponse:
+        """Delete a persona and all its data."""
+        persona = _resolve_persona_from_request(request)
+        if persona == "default":
+            return JSONResponse({"error": "Cannot delete the default persona"}, status_code=403)
+        settings = Settings()
+        persona_dir = Path(settings.data_dir) / persona
+        if not persona_dir.exists():
+            return JSONResponse({"error": f"Persona '{persona}' not found"}, status_code=404)
+        try:
+            # Close connections if cached
+            if persona in AppContextRegistry._contexts:
+                AppContextRegistry._contexts[persona].close()
+                del AppContextRegistry._contexts[persona]
+            # Remove directory
+            shutil.rmtree(persona_dir)
+            return JSONResponse({"status": "ok", "deleted": persona})
+        except Exception as exc:
+            return JSONResponse({"error": str(exc)}, status_code=500)
+
+    @mcp.custom_route("/api/personas/{persona}/profile", methods=["PUT"])
+    async def update_persona_profile(request: Request) -> JSONResponse:
+        """Update persona profile (user_info, persona_info, relationship)."""
+        persona = _resolve_persona_from_request(request)
+        ctx = _safe_get_context(persona)
+        if ctx is None:
+            return JSONResponse({"error": f"Persona '{persona}' not found"}, status_code=404)
+        try:
+            body = await request.json()
+        except Exception:
+            return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
+        try:
+            updated = []
+            if "user_info" in body and isinstance(body["user_info"], dict):
+                result = ctx.persona_service.update_user_info(persona, body["user_info"])
+                if result.is_ok:
+                    updated.append("user_info")
+            if "persona_info" in body and isinstance(body["persona_info"], dict):
+                result = ctx.persona_service.update_persona_info(persona, body["persona_info"])
+                if result.is_ok:
+                    updated.append("persona_info")
+            if "relationship_status" in body:
+                result = ctx.persona_service.update_relationship(persona, body["relationship_status"])
+                if result.is_ok:
+                    updated.append("relationship_status")
+            if not updated:
+                return JSONResponse({"error": "No valid fields to update"}, status_code=400)
+            return JSONResponse({"status": "ok", "updated": updated})
         except Exception as exc:
             return JSONResponse({"error": str(exc)}, status_code=500)
