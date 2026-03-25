@@ -122,12 +122,12 @@ async function loadOverview() {
             equipHtml += '<span class="badge badge-blue" style="min-width:80px;text-align:center">' + esc(slot) + '</span>';
             if (itemName) {
                 equipHtml += '<span style="flex:1;font-size:0.85rem;color:var(--text-secondary)">' + esc(itemName) + '</span>';
-                equipHtml += '<button onclick="unequipSlot(\'' + esc(slot) + '\')" style="font-size:0.72rem;padding:2px 8px;border-radius:4px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);color:var(--text-muted);cursor:pointer" title="Unequip">✕</button>';
+                equipHtml += '<button data-slot="' + esc(slot) + '" onclick="unequipSlot(this.dataset.slot)" style="font-size:0.72rem;padding:2px 8px;border-radius:4px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);color:var(--text-muted);cursor:pointer" title="Unequip">✕</button>';
             } else {
                 equipHtml += '<span style="flex:1;font-size:0.82rem;color:var(--text-muted);font-style:italic">empty</span>';
                 const slotItems = items.filter(it => it.name);
                 if (slotItems.length > 0) {
-                    equipHtml += '<select onchange="if(this.value) changeEquipSlot(\'' + esc(slot) + '\',this.value)" style="font-size:0.78rem;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);border-radius:4px;color:var(--text-secondary);padding:2px 4px"><option value="">equip...</option>';
+                    equipHtml += '<select data-slot="' + esc(slot) + '" onchange="if(this.value) changeEquipSlot(this.dataset.slot, this.value)" style="font-size:0.78rem;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);border-radius:4px;color:var(--text-secondary);padding:2px 4px"><option value="">equip...</option>';
                     slotItems.forEach(it => { equipHtml += '<option value="' + esc(it.name) + '">' + esc(it.name) + '</option>'; });
                     equipHtml += '</select>';
                 }
@@ -190,7 +190,7 @@ async function loadOverview() {
                 invHtml += '<span style="flex:1;font-size:0.85rem;color:var(--text-secondary)" title="' + esc(desc) + '">' + esc(it.name) + '</span>';
                 if (it.quantity > 1) invHtml += '<span style="font-size:0.78rem;color:var(--text-muted)">x' + it.quantity + '</span>';
                 if (truncDesc) invHtml += '<span class="badge badge-purple" title="' + esc(desc) + '">' + esc(truncDesc) + '</span>';
-                invHtml += '<button onclick="deleteItem(\'' + esc(it.name).replace(/'/g, "\\'") + '\')" style="padding:2px 8px;border-radius:4px;border:1px solid rgba(255,100,100,0.3);background:rgba(255,100,100,0.08);color:#f87171;cursor:pointer;font-size:0.78rem" title="Delete item">🗑️</button>';
+                invHtml += '<button data-item="' + esc(it.name) + '" onclick="deleteItem(this.dataset.item)" style="padding:2px 8px;border-radius:4px;border:1px solid rgba(255,100,100,0.3);background:rgba(255,100,100,0.08);color:#f87171;cursor:pointer;font-size:0.78rem" title="Delete item">🗑️</button>';
                 invHtml += '</div>';
             });
             invHtml += '</div>';
