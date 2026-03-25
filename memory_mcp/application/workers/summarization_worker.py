@@ -3,6 +3,7 @@
 Periodically checks all active personas for new memories and creates
 summary records to help maintain long-term context coherence.
 """
+
 from __future__ import annotations
 
 import threading
@@ -78,9 +79,7 @@ class SummarizationWorker:
             try:
                 self._summarize_persona(persona)
             except Exception:
-                logger.exception(
-                    "SummarizationWorker: error summarizing persona=%s", persona
-                )
+                logger.exception("SummarizationWorker: error summarizing persona=%s", persona)
 
     def _summarize_persona(self, persona: str) -> None:
         """Summarize memories for a single persona if new memories exist."""
@@ -137,9 +136,7 @@ class SummarizationWorker:
         total: int = stats.get("total_count", 0)
         tag_dist: dict = stats.get("tag_distribution", {})
         top_tags = sorted(tag_dist.items(), key=lambda x: x[1], reverse=True)[:5]
-        top_tags_str = (
-            ", ".join(f"{t}({c})" for t, c in top_tags) if top_tags else "none"
-        )
+        top_tags_str = ", ".join(f"{t}({c})" for t, c in top_tags) if top_tags else "none"
 
         summary_content = (
             f"[Daily Summary {date_str}] "
@@ -159,9 +156,7 @@ class SummarizationWorker:
                 source_context="summarization_worker",
             )
             if result.is_ok:
-                logger.info(
-                    "SummarizationWorker: created summary for %s", persona
-                )
+                logger.info("SummarizationWorker: created summary for %s", persona)
             else:
                 logger.warning(
                     "SummarizationWorker: failed to create summary for %s: %s",
@@ -169,6 +164,4 @@ class SummarizationWorker:
                     result.error,
                 )
         except Exception:
-            logger.exception(
-                "SummarizationWorker: error creating summary for %s", persona
-            )
+            logger.exception("SummarizationWorker: error creating summary for %s", persona)
