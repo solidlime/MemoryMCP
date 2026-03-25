@@ -47,6 +47,10 @@ class SummarizationConfig(BaseModel):
     llm_max_tokens: int = 500
     check_interval_seconds: int = 3600
     min_importance: float = 0.3
+    # Daily summarization worker settings
+    interval_hours: float = 24.0
+    min_new_memories: int = 1
+    max_memories_per_summary: int = 20
 
 
 class ForgettingConfig(BaseModel):

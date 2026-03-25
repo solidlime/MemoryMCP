@@ -201,14 +201,15 @@ async function loadGraph() {
         renderNetwork(container, filtered.nodes, filtered.edges);
 
         if (statsEl) {
-            statsEl.textContent = filtered.nodes.length + ' nodes \\u00b7 ' + filtered.edges.length + ' edges';
+            statsEl.textContent = filtered.nodes.length + ' nodes \u00b7 ' + filtered.edges.length + ' edges';
         }
 
-        if (loading) loading.style.display = 'none';
-
     } catch (e) {
+        if (container) container.innerHTML = errorCard('Failed to load graph: ' + e.message);
+    } finally {
+        var l = document.getElementById('graph-loading');
+        if (l) l.style.display = 'none';
         if (loading) loading.style.display = 'none';
-        container.innerHTML = errorCard('Failed to load graph: ' + e.message);
     }
 }
 

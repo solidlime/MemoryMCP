@@ -67,6 +67,13 @@ def create_app() -> MemoryFastMCP:
     register_tools(mcp)
     register_http_routes(mcp)
 
+    # Start background workers
+    if settings.summarization.enabled:
+        from memory_mcp.application.workers import SummarizationWorker
+
+        summarization_worker = SummarizationWorker(settings)
+        summarization_worker.start()
+
     return mcp
 
 
