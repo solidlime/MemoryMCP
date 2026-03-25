@@ -6,20 +6,96 @@ def render_overview_tab() -> str:
     return """        <!-- ========== OVERVIEW TAB ========== -->
         <section id="tab-overview" class="tab-panel active" role="tabpanel">
             <div id="overview-content">
+                <div class="glass p-6 mb-6"><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-text" style="width:70%"></div></div>
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                     <div class="glass p-6"><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-text" style="width:80%"></div><div class="skeleton skeleton-text" style="width:60%"></div><div class="skeleton skeleton-text" style="width:70%"></div></div>
                     <div class="glass p-6"><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-text" style="width:90%"></div><div class="skeleton skeleton-text" style="width:75%"></div></div>
                 </div>
                 <div class="glass p-6 mb-6"><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-text"></div><div class="skeleton skeleton-text" style="width:85%"></div></div>
                 <div class="glass p-6 mb-6"><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-text" style="width:70%"></div></div>
+                <div class="glass p-6 mb-6"><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-text" style="width:80%"></div></div>
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6"><div class="glass p-6"><div class="skeleton skeleton-chart"></div></div><div class="glass p-6"><div class="skeleton skeleton-chart"></div></div></div>
             </div>
         </section>"""
 
 
 def render_overview_js() -> str:
-    """Return the loadOverview() JavaScript function as a plain string."""
-    return """async function loadOverview() {
+    """Return the loadOverview() JavaScript function and helpers as a plain string."""
+    return """
+// --- Inventory CRUD helpers (global scope) ---
+async function deleteItem(itemName) {
+    if (!confirm('Delete item: ' + itemName + '?')) return;
+    try {
+        await api('/api/items/' + encodeURIComponent(S.persona) + '/' + encodeURIComponent(itemName), {method:'DELETE'});
+        loadOverview();
+    } catch (e) {
+        alert('Failed to delete item: ' + e.message);
+    }
+}
+
+function openAddItemModal() {
+    const m = document.getElementById('add-item-modal');
+    if (m) { m.style.display = 'flex'; }
+}
+
+function closeAddItemModal() {
+    const m = document.getElementById('add-item-modal');
+    if (m) { m.style.display = 'none'; }
+    ['new-item-name','new-item-category','new-item-desc','new-item-qty'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = id === 'new-item-qty' ? '1' : '';
+    });
+}
+
+async function saveNewItem() {
+    const nameEl = document.getElementById('new-item-name');
+    const name = (nameEl ? nameEl.value : '').trim();
+    if (!name) { alert('Item name is required'); return; }
+    const category = (document.getElementById('new-item-category') || {}).value || '';
+    const desc = (document.getElementById('new-item-desc') || {}).value || '';
+    const qty = parseInt((document.getElementById('new-item-qty') || {}).value || '1', 10) || 1;
+    try {
+        await api('/api/items/' + encodeURIComponent(S.persona), {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({item_name: name, category: category || null, description: desc || null, quantity: qty})
+        });
+        closeAddItemModal();
+        loadOverview();
+    } catch (e) {
+        alert('Failed to add item: ' + e.message);
+    }
+}
+
+async function changeEquipSlot(slot, itemName) {
+    try {
+        const body = {};
+        body[slot] = itemName;
+        await api('/api/items/' + encodeURIComponent(S.persona) + '/equip', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify(body)
+        });
+        loadOverview();
+    } catch (e) {
+        alert('Failed to change equipment: ' + e.message);
+    }
+}
+
+async function unequipSlot(slot) {
+    try {
+        await api('/api/items/' + encodeURIComponent(S.persona) + '/unequip', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({slots: [slot]})
+        });
+        loadOverview();
+    } catch (e) {
+        alert('Failed to unequip: ' + e.message);
+    }
+}
+
+async function loadOverview() {
     const el = document.getElementById('overview-content');
     try {
         const data = await api('/api/dashboard/' + encodeURIComponent(S.persona));
@@ -36,15 +112,29 @@ def render_overview_js() -> str:
         const topTags = Object.entries(tagDist).sort((a,b) => b[1]-a[1]).slice(0,5);
         const topEmo = Object.entries(emoDist).sort((a,b) => b[1]-a[1]).slice(0,5);
 
-        // --- Equipment list ---
-        let equipHtml = '';
-        if (equip && typeof equip === 'object') {
-            const slots = Object.entries(equip).filter(([_,v]) => v);
-            if (slots.length === 0) equipHtml = '<span style="color:var(--text-muted)">None equipped</span>';
-            else slots.forEach(([slot, item]) => {
-                equipHtml += '<div style="display:flex;gap:6px;margin-top:4px"><span class="badge badge-blue">' + esc(slot) + '</span><span style="color:var(--text-secondary)">' + esc(typeof item === 'string' ? item : item.name || JSON.stringify(item)) + '</span></div>';
-            });
-        }
+        // --- Equipment display ---
+        const EQUIP_SLOTS = ['top','bottom','shoes','outer','accessories','head'];
+        let equipHtml = '<div style="display:grid;gap:6px;margin-top:8px">';
+        EQUIP_SLOTS.forEach(slot => {
+            const current = equip[slot];
+            const itemName = typeof current === 'string' ? current : (current ? (current.name || '') : '');
+            equipHtml += '<div style="display:flex;align-items:center;gap:8px">';
+            equipHtml += '<span class="badge badge-blue" style="min-width:80px;text-align:center">' + esc(slot) + '</span>';
+            if (itemName) {
+                equipHtml += '<span style="flex:1;font-size:0.85rem;color:var(--text-secondary)">' + esc(itemName) + '</span>';
+                equipHtml += '<button onclick="unequipSlot(\'' + esc(slot) + '\')" style="font-size:0.72rem;padding:2px 8px;border-radius:4px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);color:var(--text-muted);cursor:pointer" title="Unequip">✕</button>';
+            } else {
+                equipHtml += '<span style="flex:1;font-size:0.82rem;color:var(--text-muted);font-style:italic">empty</span>';
+                const slotItems = items.filter(it => it.name);
+                if (slotItems.length > 0) {
+                    equipHtml += '<select onchange="if(this.value) changeEquipSlot(\'' + esc(slot) + '\',this.value)" style="font-size:0.78rem;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);border-radius:4px;color:var(--text-secondary);padding:2px 4px"><option value="">equip...</option>';
+                    slotItems.forEach(it => { equipHtml += '<option value="' + esc(it.name) + '">' + esc(it.name) + '</option>'; });
+                    equipHtml += '</select>';
+                }
+            }
+            equipHtml += '</div>';
+        });
+        equipHtml += '</div>';
 
         // --- Core blocks ---
         let blocksHtml = '';
@@ -66,10 +156,10 @@ def render_overview_js() -> str:
         }
 
         // --- Goals & Promises ---
-        function renderItems(items, label) {
-            if (!items || items.length === 0) return '<span style="color:var(--text-muted)">No ' + label + '</span>';
+        function renderGoalItems(goalItems, label) {
+            if (!goalItems || goalItems.length === 0) return '<span style="color:var(--text-muted)">No ' + label + '</span>';
             let html = '';
-            items.forEach(item => {
+            goalItems.forEach(item => {
                 const status = (item.status || '').toLowerCase();
                 const icon = status === 'done' || status === 'completed' ? '✅' : status === 'active' || status === 'in_progress' ? '🔄' : '⏳';
                 html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 0">';
@@ -85,6 +175,26 @@ def render_overview_js() -> str:
         const userInfo = ctx.user_info || {};
         const personaInfo = ctx.persona_info || {};
         const relStatus = ctx.relationship_status || ctx.relationship_type || '--';
+
+        // --- Inventory items HTML ---
+        let invHtml = '';
+        if (items.length === 0) {
+            invHtml = '<span style="color:var(--text-muted)">No items in inventory</span>';
+        } else {
+            invHtml = '<div style="display:grid;gap:4px">';
+            items.forEach(it => {
+                const desc = it.description || '';
+                const truncDesc = desc.length > 40 ? desc.slice(0, 40) + '...' : desc;
+                invHtml += '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04)">';
+                invHtml += '<span class="badge badge-blue">' + esc(it.category || 'item') + '</span>';
+                invHtml += '<span style="flex:1;font-size:0.85rem;color:var(--text-secondary)" title="' + esc(desc) + '">' + esc(it.name) + '</span>';
+                if (it.quantity > 1) invHtml += '<span style="font-size:0.78rem;color:var(--text-muted)">x' + it.quantity + '</span>';
+                if (truncDesc) invHtml += '<span class="badge badge-purple" title="' + esc(desc) + '">' + esc(truncDesc) + '</span>';
+                invHtml += '<button onclick="deleteItem(\'' + esc(it.name).replace(/'/g, "\\'") + '\')" style="padding:2px 8px;border-radius:4px;border:1px solid rgba(255,100,100,0.3);background:rgba(255,100,100,0.08);color:#f87171;cursor:pointer;font-size:0.78rem" title="Delete item">🗑️</button>';
+                invHtml += '</div>';
+            });
+            invHtml += '</div>';
+        }
 
         // --- Recent memories grouped by date (for 7-day chart) ---
         const recent = data.recent || [];
@@ -105,38 +215,38 @@ def render_overview_js() -> str:
         const dayLabels = Object.keys(dayMap).map(d => fmtDate(d));
         const dayCounts = Object.values(dayMap);
 
-        // --- Render ---
+        // --- Render (new section order) ---
         el.innerHTML = `
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            <!-- Memory Info -->
-            <div class="glass p-6">
-                <div class="card-title">📊 Memory Info</div>
-                <div class="grid grid-cols-2 gap-4 mb-4">
-                    <div><div class="stat-value">${stats.total_count ?? '--'}</div><div class="stat-label">Total Memories</div></div>
-                    <div><div class="stat-value" style="font-size:1.3rem">${esc(ctx.emotion || '--')}</div><div class="stat-label">Current Emotion${ctx.emotion_intensity != null ? ' (' + (ctx.emotion_intensity * 100).toFixed(0) + '%)' : ''}</div></div>
+        <!-- Goals & Promises -->
+        <div class="glass p-6 mb-6">
+            <div class="card-title">🎯 Goals & Promises</div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <div style="font-size:0.8rem;font-weight:600;color:var(--accent-green);margin-bottom:8px">Goals</div>
+                    ${renderGoalItems(data.goals, 'goals')}
                 </div>
-                <div style="display:flex;gap:16px;margin-bottom:12px;flex-wrap:wrap">
-                    <div><span style="font-size:0.78rem;color:var(--text-muted)">Physical:</span> <span style="font-size:0.85rem">${esc(ctx.physical_state || '--')}</span></div>
-                    <div><span style="font-size:0.78rem;color:var(--text-muted)">Mental:</span> <span style="font-size:0.85rem">${esc(ctx.mental_state || '--')}</span></div>
+                <div>
+                    <div style="font-size:0.8rem;font-weight:600;color:var(--accent-pink);margin-bottom:8px">Promises</div>
+                    ${renderGoalItems(data.promises, 'promises')}
                 </div>
-                <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:6px">Equipment:</div>
-                ${equipHtml}
             </div>
-            <!-- Metrics -->
-            <div class="glass p-6">
-                <div class="card-title">📈 Metrics</div>
-                <div style="margin-bottom:14px">
-                    <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:6px">Top Tags</div>
-                    <div style="display:flex;flex-wrap:wrap;gap:6px">${topTags.length ? topTags.map(([t,c]) => '<span class="badge badge-purple">' + esc(t) + ' <span style="opacity:0.7">(' + c + ')</span></span>').join('') : '<span style="color:var(--text-muted)">--</span>'}</div>
+        </div>
+        <!-- Emotion / State -->
+        <div class="glass p-6 mb-6">
+            <div class="card-title">💫 Emotion &amp; State</div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <div style="font-size:2rem;font-weight:700;color:var(--accent-yellow);margin-bottom:4px">${esc(ctx.emotion || '--')}</div>
+                    <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:12px">Emotion${ctx.emotion_intensity != null ? ' · ' + (ctx.emotion_intensity * 100).toFixed(0) + '% intensity' : ''}</div>
+                    <div style="display:flex;flex-direction:column;gap:6px">
+                        <div><span style="font-size:0.78rem;color:var(--text-muted)">Physical: </span><span style="font-size:0.85rem">${esc(ctx.physical_state || '--')}</span></div>
+                        <div><span style="font-size:0.78rem;color:var(--text-muted)">Mental: </span><span style="font-size:0.85rem">${esc(ctx.mental_state || '--')}</span></div>
+                        <div><span style="font-size:0.78rem;color:var(--text-muted)">Environment: </span><span style="font-size:0.85rem">${esc(ctx.environment || '--')}</span></div>
+                    </div>
                 </div>
-                <div style="margin-bottom:14px">
-                    <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:6px">Top Emotions</div>
-                    <div style="display:flex;flex-wrap:wrap;gap:6px">${topEmo.length ? topEmo.map(([e,c]) => '<span class="badge badge-pink">' + esc(e) + ' <span style="opacity:0.7">(' + c + ')</span></span>').join('') : '<span style="color:var(--text-muted)">--</span>'}</div>
-                </div>
-                <div style="display:flex;gap:20px;flex-wrap:wrap;font-size:0.85rem">
-                    <div><span style="color:var(--text-muted)">Avg Strength:</span> <span style="color:var(--accent-green);font-weight:600">${str.avg ?? '--'}</span></div>
-                    <div><span style="color:var(--text-muted)">Tagged:</span> <span style="color:var(--accent-blue);font-weight:600">${stats.tagged_ratio != null ? (stats.tagged_ratio * 100).toFixed(1) + '%' : '--'}</span></div>
-                    <div><span style="color:var(--text-muted)">Linked:</span> <span style="color:var(--accent-yellow);font-weight:600">${stats.linked_ratio != null ? (stats.linked_ratio * 100).toFixed(1) + '%' : '--'}</span></div>
+                <div>
+                    <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:8px;font-weight:600">Equipment</div>
+                    ${equipHtml}
                 </div>
             </div>
         </div>
@@ -145,23 +255,9 @@ def render_overview_js() -> str:
             <div class="card-title">🧠 Core Memory Blocks</div>
             ${blocksHtml}
         </div>
-        <!-- Goals & Promises -->
-        <div class="glass p-6 mb-6">
-            <div class="card-title">🎯 Goals & Promises</div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                    <div style="font-size:0.8rem;font-weight:600;color:var(--accent-green);margin-bottom:8px">Goals</div>
-                    ${renderItems(data.goals, 'goals')}
-                </div>
-                <div>
-                    <div style="font-size:0.8rem;font-weight:600;color:var(--accent-pink);margin-bottom:8px">Promises</div>
-                    ${renderItems(data.promises, 'promises')}
-                </div>
-            </div>
-        </div>
         <!-- Profile & Relationship -->
         <div class="glass p-6 mb-6">
-            <div class="card-title">👤 Profile & Relationship</div>
+            <div class="card-title">👤 Profile &amp; Relationship</div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:8px;font-weight:600">Relationship</div>
@@ -175,13 +271,31 @@ def render_overview_js() -> str:
                 </div>
             </div>
         </div>
+        <!-- Memory Stats -->
+        <div class="glass p-6 mb-6">
+            <div class="card-title">📈 Memory Stats</div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                <div><div class="stat-value">${stats.total_count ?? '--'}</div><div class="stat-label">Total Memories</div></div>
+                <div><div class="stat-value" style="color:var(--accent-green)">${str.avg ?? '--'}</div><div class="stat-label">Avg Strength</div></div>
+                <div><div class="stat-value" style="color:var(--accent-blue)">${stats.tagged_ratio != null ? (stats.tagged_ratio * 100).toFixed(1) + '%' : '--'}</div><div class="stat-label">Tagged</div></div>
+                <div><div class="stat-value" style="color:var(--accent-yellow)">${stats.linked_ratio != null ? (stats.linked_ratio * 100).toFixed(1) + '%' : '--'}</div><div class="stat-label">Linked</div></div>
+            </div>
+            <div style="margin-bottom:10px">
+                <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:6px">Top Tags</div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px">${topTags.length ? topTags.map(([t,c]) => '<span class="badge badge-purple">' + esc(t) + ' <span style="opacity:0.7">(' + c + ')</span></span>').join('') : '<span style="color:var(--text-muted)">--</span>'}</div>
+            </div>
+            <div>
+                <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:6px">Top Emotions</div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px">${topEmo.length ? topEmo.map(([e,c]) => '<span class="badge badge-pink">' + esc(e) + ' <span style="opacity:0.7">(' + c + ')</span></span>').join('') : '<span style="color:var(--text-muted)">--</span>'}</div>
+            </div>
+        </div>
         <!-- Inventory -->
         <div class="glass p-6 mb-6">
-            <div class="card-title">🎒 Inventory</div>
-            ${items.length === 0
-                ? '<span style="color:var(--text-muted)">No items in inventory</span>'
-                : `<div style="display:grid;gap:4px">${items.map(it => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04)"><span class="badge badge-blue">${esc(it.category || 'item')}</span><span style="flex:1;font-size:0.85rem;color:var(--text-secondary)">${esc(it.name)}</span>${it.quantity > 1 ? `<span style="font-size:0.78rem;color:var(--text-muted)">x${it.quantity}</span>` : ''}<span class="badge badge-purple">${esc(it.description ? it.description.slice(0,30) + (it.description.length > 30 ? '...' : '') : '')}</span></div>`).join('')}</div>`
-            }
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                <div class="card-title" style="margin-bottom:0">🎒 Inventory</div>
+                <button onclick="openAddItemModal()" style="padding:4px 14px;border-radius:6px;border:1px solid rgba(167,139,250,0.4);background:rgba(167,139,250,0.1);color:var(--accent-purple);cursor:pointer;font-size:0.82rem;font-weight:600">+ Add Item</button>
+            </div>
+            ${invHtml}
         </div>
         <!-- Charts -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -192,6 +306,22 @@ def render_overview_js() -> str:
             <div class="glass p-6">
                 <div class="card-title">🏷️ Tag Distribution</div>
                 <div style="height:220px;position:relative"><canvas id="chart-tags"></canvas></div>
+            </div>
+        </div>
+        <!-- Add Item Modal -->
+        <div id="add-item-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:1000;align-items:center;justify-content:center">
+            <div style="background:#1e1b2e;border:1px solid rgba(167,139,250,0.3);border-radius:14px;padding:28px;width:420px;max-width:92vw;box-shadow:0 24px 64px rgba(0,0,0,0.6)">
+                <div style="font-weight:700;font-size:1.05rem;margin-bottom:18px;color:var(--accent-purple)">➕ Add Inventory Item</div>
+                <div style="display:flex;flex-direction:column;gap:12px">
+                    <input id="new-item-name" type="text" placeholder="Item name *" style="width:100%;padding:8px 12px;border-radius:7px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.07);color:var(--text-primary);font-size:0.88rem;outline:none;box-sizing:border-box">
+                    <input id="new-item-category" type="text" placeholder="Category (e.g. clothing, weapon)" style="width:100%;padding:8px 12px;border-radius:7px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.07);color:var(--text-primary);font-size:0.88rem;outline:none;box-sizing:border-box">
+                    <input id="new-item-desc" type="text" placeholder="Description" style="width:100%;padding:8px 12px;border-radius:7px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.07);color:var(--text-primary);font-size:0.88rem;outline:none;box-sizing:border-box">
+                    <input id="new-item-qty" type="number" value="1" min="1" placeholder="Quantity" style="width:100%;padding:8px 12px;border-radius:7px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.07);color:var(--text-primary);font-size:0.88rem;outline:none;box-sizing:border-box">
+                </div>
+                <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">
+                    <button onclick="closeAddItemModal()" style="padding:7px 18px;border-radius:7px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);color:var(--text-muted);cursor:pointer;font-size:0.88rem">Cancel</button>
+                    <button onclick="saveNewItem()" style="padding:7px 18px;border-radius:7px;border:1px solid rgba(167,139,250,0.5);background:rgba(167,139,250,0.2);color:var(--accent-purple);cursor:pointer;font-size:0.88rem;font-weight:600">Save</button>
+                </div>
             </div>
         </div>`;
 
