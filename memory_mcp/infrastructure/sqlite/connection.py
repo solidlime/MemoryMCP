@@ -151,6 +151,15 @@ CREATE TABLE IF NOT EXISTS memory_versions (
     UNIQUE(memory_key, version)
 );
 CREATE INDEX IF NOT EXISTS idx_memory_versions_key ON memory_versions(memory_key);
+
+CREATE TABLE IF NOT EXISTS search_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    query TEXT NOT NULL,
+    mode TEXT DEFAULT 'hybrid',
+    result_count INTEGER DEFAULT 0,
+    searched_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_search_log_time ON search_log(searched_at DESC);
 """
 
 _INVENTORY_SCHEMA = """\

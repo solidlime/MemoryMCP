@@ -243,3 +243,29 @@ class MemoryService:
     def delete_block(self, block_name: str) -> Result[None, DomainError]:
         """Delete a named memory block."""
         return self._repo.delete_block(block_name)
+
+    def get_goals(self) -> Result[list[dict], DomainError]:
+        """Get all goals."""
+        return self._repo.get_goals()
+
+    def get_promises(self) -> Result[list[dict], DomainError]:
+        """Get all promises."""
+        return self._repo.get_promises()
+
+    # --- Smart Recent + Search Log + Gap Alert ---
+
+    def get_smart_recent(self, limit: int = 8) -> Result[list[Memory], DomainError]:
+        """Get memories ranked by smart score (importance * recency * strength)."""
+        return self._repo.find_smart_recent(limit)
+
+    def log_search(self, query: str, mode: str, result_count: int) -> Result[None, DomainError]:
+        """Log a search query."""
+        return self._repo.log_search(query, mode, result_count)
+
+    def get_recent_searches(self, limit: int = 5) -> Result[list[dict], DomainError]:
+        """Get recent search queries for topic detection."""
+        return self._repo.get_recent_searches(limit)
+
+    def count_decayed_important(self) -> Result[int, DomainError]:
+        """Count important memories with low strength."""
+        return self._repo.count_decayed_important()

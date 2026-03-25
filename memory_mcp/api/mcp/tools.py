@@ -40,7 +40,7 @@ def register_tools(mcp: FastMCP) -> None:
         stats_result = ctx.memory_service.get_stats()
         stats = stats_result.value if stats_result.is_ok else {}
 
-        recent_result = ctx.memory_service.get_recent(5)
+        recent_result = ctx.memory_service.get_smart_recent(8)
         recent = recent_result.value if recent_result.is_ok else []
 
         equip_result = ctx.equipment_service.get_equipment()
@@ -49,13 +49,25 @@ def register_tools(mcp: FastMCP) -> None:
         blocks_result = ctx.memory_service.list_blocks()
         blocks = blocks_result.value if blocks_result.is_ok else []
 
+        goals_result = ctx.memory_service.get_goals()
+        goals = goals_result.value if goals_result.is_ok else []
+
+        promises_result = ctx.memory_service.get_promises()
+        promises = promises_result.value if promises_result.is_ok else []
+
+        searches_result = ctx.memory_service.get_recent_searches(3)
+        recent_searches = searches_result.value if searches_result.is_ok else []
+
+        decayed_result = ctx.memory_service.count_decayed_important()
+        decayed_count = decayed_result.value if decayed_result.is_ok else 0
+
         time_since = ""
         if state.last_conversation_time:
             time_since = relative_time_str(state.last_conversation_time)
 
         ctx.persona_service.record_conversation_time(persona)
 
-        return _format_context_response(state, stats, recent, equipment, blocks, time_since)
+        return _format_context_response(state, stats, recent, equipment, blocks, time_since, goals, promises, recent_searches, decayed_count)
 
     @mcp.tool()
     async def memory(
@@ -395,6 +407,9 @@ def register_tools(mcp: FastMCP) -> None:
         if not result.value:
             return "No results found."
 
+        # Log search for topic detection
+        ctx.memory_service.log_search(query, mode, len(result.value))
+
         lines: list[str] = []
         for sr in result.value:
             m = sr.memory
@@ -640,17 +655,48 @@ def _format_context_response(
     equipment: dict,
     blocks: list,
     time_since: str,
+    goals: list,
+    promises: list,
+    recent_searches: list | None = None,
+    decayed_count: int = 0,
 ) -> str:
     """Format get_context response as structured text."""
     lines: list[str] = []
 
+    # Header
     lines.append(f"=== Persona: {state.persona} ===")
     if time_since:
         lines.append(f"Last conversation: {time_since}")
 
+    # Active Commitments (before everything else)
+    active_goals = [g for g in goals if g.get('status') == 'active']
+    active_promises = [p for p in promises if p.get('status') == 'active']
+    if active_goals or active_promises:
+        lines.append("\n⚠️ ACTIVE COMMITMENTS:")
+        if active_goals:
+            lines.append("🎯 Goals:")
+            for g in active_goals:
+                lines.append(f"  - [{g.get('id', '?')}] {g.get('description', '')} (priority: {g.get('priority', 0)})")
+        if active_promises:
+            lines.append("🤝 Promises:")
+            for p in active_promises:
+                lines.append(f"  - [{p.get('id', '?')}] {p.get('description', '')}")
+
+    # Memory gap alert
+    if time_since and decayed_count > 0:
+        show_alert = False
+        if "d" in time_since or "w" in time_since or "mo" in time_since or "y" in time_since:
+            show_alert = True
+        if show_alert:
+            lines.append(f"\n⏰ TIME ALERT: {time_since} since last conversation")
+            lines.append(f"- {decayed_count} important memories have decayed (strength < 0.3)")
+            lines.append('- Consider: search_memory("important") to refresh context')
+
+    # Emotion (existing)
     lines.append("\n--- Emotion ---")
     lines.append(f"Current: {state.emotion} (intensity: {state.emotion_intensity})")
 
+    # State (existing)
     lines.append("\n--- State ---")
     if state.physical_state:
         lines.append(f"Physical: {state.physical_state}")
@@ -661,34 +707,99 @@ def _format_context_response(
     if state.relationship_status:
         lines.append(f"Relationship: {state.relationship_status}")
 
+    # User Info (existing)
     if state.user_info:
         lines.append("\n--- User Info ---")
         for k, v in state.user_info.items():
             lines.append(f"{k}: {v}")
 
+    # Persona Info (existing)
     if state.persona_info:
         lines.append("\n--- Persona Info ---")
         for k, v in state.persona_info.items():
             lines.append(f"{k}: {v}")
 
+    # Memory Blocks (existing)
     if blocks:
         lines.append("\n--- Memory Blocks (Core Memory) ---")
         for b in blocks:
             lines.append(f"[{b.get('block_name', '?')}] {b.get('content', '')[:200]}")
 
+    # Equipment (existing)
     equipped = {k: v for k, v in equipment.items() if v}
     if equipped:
         lines.append("\n--- Equipment ---")
         for slot, item_name in equipped.items():
             lines.append(f"{slot}: {item_name}")
 
+    # Memory Stats (existing)
     if stats:
         lines.append("\n--- Memory Stats ---")
         lines.append(f"Total memories: {stats.get('total', 0)}")
 
+    # Recent Memories (existing)
     if recent:
         lines.append("\n--- Recent Memories ---")
         for m in recent[:5]:
             lines.append(f"[{m.key}] {m.content[:100]}...")
+
+    # Last Conversation Topics
+    if recent_searches:
+        lines.append("\n--- Last Conversation Topics ---")
+        for s in recent_searches:
+            time_str = s.get("searched_at", "")
+            lines.append(f'- "{s.get("query", "")}" ({s.get("result_count", 0)} results, {time_str})')
+
+    # Suggested Searches (NEW)
+    suggestions = []
+    if active_goals:
+        suggestions.append(f'  - search_memory("goals") — {len(active_goals)} active goal(s)')
+    if active_promises:
+        suggestions.append(f'  - search_memory("promise") — {len(active_promises)} active promise(s)')
+
+    if stats:
+        tag_dist = stats.get('tag_distribution', {})
+        top_tags = sorted(tag_dist.items(), key=lambda x: x[1], reverse=True)[:3]
+        for tag, count in top_tags:
+            suggestions.append(f'  - search_memory("{tag}") — {count} memories with this tag')
+
+    if recent and len(recent) > 0:
+        recent_tags = set()
+        for m in recent[:3]:
+            if hasattr(m, 'tags') and m.tags:
+                recent_tags.update(m.tags)
+        if recent_tags:
+            hint_tag = next(iter(recent_tags))
+            suggestions.append(f'  - search_memory("{hint_tag}") — recent conversation topic')
+
+    if suggestions:
+        lines.append("\n💡 SUGGESTED SEARCHES (call search_memory if relevant):")
+        lines.extend(suggestions)
+
+    # AI Instructions (NEW)
+    preferred_address = ""
+    if state.user_info:
+        preferred_address = state.user_info.get('preferred_address', '') or state.user_info.get('nickname', '') or state.user_info.get('name', '')
+
+    persona_nickname = ""
+    if state.persona_info:
+        persona_nickname = state.persona_info.get('nickname', '') or ''
+
+    instructions = ["\n📌 AI INSTRUCTIONS:"]
+    instructions.append(f"- Maintain current emotion ({state.emotion}, intensity: {state.emotion_intensity}) naturally in responses")
+    if preferred_address:
+        instructions.append(f'- Address user as "{preferred_address}"')
+    if persona_nickname:
+        instructions.append(f'- You are called "{persona_nickname}"')
+    if state.relationship_status:
+        instructions.append(f"- Relationship context: {state.relationship_status}")
+    instructions.append("- Call search_memory() when conversation references past events, preferences, or shared history")
+    if active_promises:
+        instructions.append("- Proactively mention promise progress when contextually appropriate")
+    if active_goals:
+        instructions.append("- Reference active goals when relevant to guide conversation")
+    instructions.append("- If uncertain about past context, search before assuming")
+
+    lines.extend(instructions)
 
     return "\n".join(lines)

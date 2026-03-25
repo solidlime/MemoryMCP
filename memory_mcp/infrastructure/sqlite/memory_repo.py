@@ -484,6 +484,84 @@ class SQLiteMemoryRepository:
             return Failure(RepositoryError(str(e)))
 
     # ------------------------------------------------------------------
+    # Smart recent + Search log + Gap alert
+    # ------------------------------------------------------------------
+
+    def find_smart_recent(self, limit: int = 8) -> Result[list[Memory], RepositoryError]:
+        """Get memories ranked by importance * recency * strength."""
+        try:
+            rows = self._db.execute(
+                """
+                SELECT m.*,
+                    m.importance * 0.4 +
+                    (1.0 / (1.0 + (julianday('now') - julianday(m.created_at)) * 0.1)) * 0.3 +
+                    COALESCE(ms.strength, 0.5) * 0.3 AS smart_score
+                FROM memories m
+                LEFT JOIN memory_strength ms ON m.key = ms.memory_key
+                ORDER BY smart_score DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+            return Success([self._row_to_memory(r) for r in rows])
+        except Exception as e:
+            logger.error("Failed to get smart recent: %s", e)
+            return Failure(RepositoryError(str(e)))
+
+    def log_search(self, query: str, mode: str, result_count: int) -> Result[None, RepositoryError]:
+        """Log a search query for topic detection."""
+        try:
+            self._ensure_search_log_table()
+            self._db.execute(
+                "INSERT INTO search_log (query, mode, result_count, searched_at) VALUES (?, ?, ?, datetime('now'))",
+                (query, mode, result_count),
+            )
+            self._db.commit()
+            return Success(None)
+        except Exception as e:
+            logger.error("Failed to log search: %s", e)
+            return Failure(RepositoryError(str(e)))
+
+    def get_recent_searches(self, limit: int = 5) -> Result[list[dict], RepositoryError]:
+        """Get recent search queries."""
+        try:
+            self._ensure_search_log_table()
+            rows = self._db.execute(
+                "SELECT query, mode, result_count, searched_at FROM search_log ORDER BY searched_at DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+            return Success([dict(r) for r in rows])
+        except Exception as e:
+            logger.error("Failed to get recent searches: %s", e)
+            return Failure(RepositoryError(str(e)))
+
+    def count_decayed_important(self, min_importance: float = 0.7, max_strength: float = 0.3) -> Result[int, RepositoryError]:
+        """Count important memories that have decayed below strength threshold."""
+        try:
+            row = self._db.execute(
+                "SELECT COUNT(*) as cnt FROM memories m INNER JOIN memory_strength ms ON m.key = ms.memory_key WHERE m.importance >= ? AND ms.strength <= ?",
+                (min_importance, max_strength),
+            ).fetchone()
+            return Success(row["cnt"] if row else 0)
+        except Exception as e:
+            logger.error("Failed to count decayed: %s", e)
+            return Failure(RepositoryError(str(e)))
+
+    def _ensure_search_log_table(self) -> None:
+        """Create search_log table if it doesn't exist (safety fallback)."""
+        self._db.execute(
+            """
+            CREATE TABLE IF NOT EXISTS search_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                query TEXT NOT NULL,
+                mode TEXT DEFAULT 'hybrid',
+                result_count INTEGER DEFAULT 0,
+                searched_at TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+            """
+        )
+
+    # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
 
