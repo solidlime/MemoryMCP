@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 MCP Common - Shared utilities for MCP client scripts
 
@@ -11,21 +10,22 @@ Provides common functionality for all MCP client scripts:
 """
 
 import json
-import sys
 import os
+import sys
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Any
+
 import requests
 
 # 環境変数でPythonのI/OエンコーディングをUTF-8に強制
-os.environ['PYTHONIOENCODING'] = 'utf-8'
+os.environ["PYTHONIOENCODING"] = "utf-8"
 if sys.platform == "win32":
-    os.environ['PYTHONUTF8'] = '1'
+    os.environ["PYTHONUTF8"] = "1"
 
 # コンソール出力のエンコーディングをUTF-8に設定（Windows対応）
 if sys.platform == "win32":
-    import io
     import ctypes
+    import io
 
     # Windows APIでコンソールをUTF-8モードに設定
     try:
@@ -36,55 +36,33 @@ if sys.platform == "win32":
         pass
 
     # stdout/stderr を UTF-8 で再ラップ
-    if hasattr(sys.stdout, 'buffer'):
+    if hasattr(sys.stdout, "buffer"):
         sys.stdout = io.TextIOWrapper(
-            sys.stdout.buffer,
-            encoding='utf-8',
-            errors='replace',
-            line_buffering=True,
-            write_through=True
+            sys.stdout.buffer, encoding="utf-8", errors="replace", line_buffering=True, write_through=True
         )
-    if hasattr(sys.stderr, 'buffer'):
+    if hasattr(sys.stderr, "buffer"):
         sys.stderr = io.TextIOWrapper(
-            sys.stderr.buffer,
-            encoding='utf-8',
-            errors='replace',
-            line_buffering=True,
-            write_through=True
+            sys.stderr.buffer, encoding="utf-8", errors="replace", line_buffering=True, write_through=True
         )
 else:
     import io
-    if hasattr(sys.stdout, 'buffer'):
-        sys.stdout = io.TextIOWrapper(
-            sys.stdout.buffer,
-            encoding='utf-8',
-            errors='replace',
-            line_buffering=True
-        )
-    if hasattr(sys.stderr, 'buffer'):
-        sys.stderr = io.TextIOWrapper(
-            sys.stderr.buffer,
-            encoding='utf-8',
-            errors='replace',
-            line_buffering=True
-        )
+
+    if hasattr(sys.stdout, "buffer"):
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace", line_buffering=True)
+    if hasattr(sys.stderr, "buffer"):
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace", line_buffering=True)
 
 
-def load_config() -> Dict[str, Any]:
+def load_config() -> dict[str, Any]:
     """Load configuration file"""
     config_path = Path(__file__).parent.parent / "references" / "config.json"
     if config_path.exists():
-        with open(config_path, 'r', encoding='utf-8') as f:
+        with open(config_path, encoding="utf-8") as f:
             return json.load(f)
     return {}
 
 
-def call_mcp_tool(
-    tool_name: str,
-    params: Dict[str, Any],
-    persona: str,
-    server_url: str
-) -> Dict[str, Any]:
+def call_mcp_tool(tool_name: str, params: dict[str, Any], persona: str, server_url: str) -> dict[str, Any]:
     """
     MCPツールを呼び出す
 
@@ -98,10 +76,7 @@ def call_mcp_tool(
         レスポンスJSON
     """
     url = f"{server_url}/mcp/v1/tools/{tool_name}"
-    headers = {
-        "Authorization": f"Bearer {persona}",
-        "Content-Type": "application/json"
-    }
+    headers = {"Authorization": f"Bearer {persona}", "Content-Type": "application/json"}
 
     try:
         response = requests.post(url, json=params, headers=headers, timeout=30)
@@ -111,7 +86,7 @@ def call_mcp_tool(
         return {"error": str(e), "success": False}
 
 
-def format_output(data: Dict[str, Any], output_format: str = "text") -> str:
+def format_output(data: dict[str, Any], output_format: str = "text") -> str:
     """
     出力をフォーマット
 
@@ -140,7 +115,7 @@ def format_output(data: Dict[str, Any], output_format: str = "text") -> str:
     return "\n".join(output)
 
 
-def get_config_defaults(config: Dict[str, Any]) -> tuple[str, str]:
+def get_config_defaults(config: dict[str, Any]) -> tuple[str, str]:
     """
     設定のデフォルト値を取得
 

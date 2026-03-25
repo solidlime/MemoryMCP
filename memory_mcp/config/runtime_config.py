@@ -49,7 +49,10 @@ SETTINGS_META: dict[str, dict[str, dict]] = {
         "llm_api_key": {"hot_reload": True, "description": "LLM API key", "masked": True},
         "llm_model": {"hot_reload": True, "description": "LLM model name (e.g. anthropic/claude-3.5-sonnet)"},
         "llm_max_tokens": {"hot_reload": True, "description": "Maximum tokens for summary generation"},
-        "check_interval_seconds": {"hot_reload": True, "description": "Background summarization check interval (seconds)"},
+        "check_interval_seconds": {
+            "hot_reload": True,
+            "description": "Background summarization check interval (seconds)",
+        },
         "min_importance": {"hot_reload": True, "description": "Minimum importance score for memories to summarize"},
     },
     "general": {

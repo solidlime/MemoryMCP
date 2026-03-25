@@ -4,16 +4,15 @@ Provides the shared HTML head, navigation bar, utility JavaScript,
 and the overall page shell that section-specific renderers plug into.
 """
 
-from typing import List
-
 
 # ---------------------------------------------------------------------------
 # 1. render_head
 # ---------------------------------------------------------------------------
 
+
 def render_head() -> str:
     """Return the full <head>…</head> block (meta, CDN scripts, all CSS)."""
-    return """<head>
+    return r"""<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MemoryMCP Dashboard</title>
@@ -481,7 +480,8 @@ def render_head() -> str:
 # 2. render_nav
 # ---------------------------------------------------------------------------
 
-def render_nav(tabs: List[dict]) -> str:
+
+def render_nav(tabs: list[dict]) -> str:
     """Build ``<nav class="tab-bar">`` dynamically from *tabs*.
 
     Each element in *tabs* is ``{"id": "...", "icon": "...", "label": "..."}``.
@@ -513,17 +513,16 @@ def render_nav(tabs: List[dict]) -> str:
         '        <button class="mobile-toggle" onclick="toggleMobileNav()" '
         'aria-label="Toggle navigation" '
         'style="display:none;align-items:center;gap:4px;padding:8px 12px;'
-        'background:none;border:1px solid rgba(255,255,255,0.2);border-radius:8px;'
+        "background:none;border:1px solid rgba(255,255,255,0.2);border-radius:8px;"
         'color:rgba(255,255,255,0.7);cursor:pointer;font-size:0.9rem;">'
-        '☰ Menu</button>\n        '
-        + "\n        ".join(buttons)
-        + "\n    </nav>"
+        "☰ Menu</button>\n        " + "\n        ".join(buttons) + "\n    </nav>"
     )
 
 
 # ---------------------------------------------------------------------------
 # 3. render_utilities_js
 # ---------------------------------------------------------------------------
+
 
 def render_utilities_js() -> str:
     """Return ALL shared JavaScript (no ``<script>`` wrapper)."""
@@ -640,7 +639,7 @@ function errorCard(msg) {
    THEME TOGGLE
    ================================================================= */
 function applyTheme() {
-    const dark = localStorage.getItem('mmcp-dark') === 'true';
+    const dark = localStorage.getItem('mmcp-dark') !== 'false';
     document.documentElement.className = dark ? 'dark' : 'light';
     document.getElementById('dark-toggle').textContent = dark ? '🌙' : '☀️';
     // Re-render charts for color update
@@ -798,7 +797,11 @@ async function init() {
     document.getElementById('persona-select').onchange = (e) => {
         S.persona = e.target.value;
         S.dashCache = null;
-        S.mem = { page: 1, tag: '', q: '', perPage: 20 };
+        // Reset pagination/search without losing extended properties from memories.js
+        Object.assign(S.mem, { page: 1, tag: '', q: '', perPage: 20,
+            selectMode: false, advOpen: false, dateFrom: '', dateTo: '',
+            searchTags: [], emotion: '' });
+        if (S.mem.selected instanceof Set) S.mem.selected.clear();
         loadTab(S.tab);
     };
 
@@ -912,6 +915,7 @@ init();"""
 # 4. render_layout_shell
 # ---------------------------------------------------------------------------
 
+
 def render_layout_shell(nav_html: str, tab_contents: str, tab_js: str) -> str:
     """Compose the full HTML page.
 
@@ -920,9 +924,7 @@ def render_layout_shell(nav_html: str, tab_contents: str, tab_js: str) -> str:
     """
     return (
         "<!DOCTYPE html>\n"
-        '<html lang="ja" class="dark">\n'
-        + render_head()
-        + "\n<body>\n"
+        '<html lang="ja" class="dark">\n' + render_head() + "\n<body>\n"
         "    <!-- Background Orbs -->\n"
         '    <div class="orb orb-1"></div>\n'
         '    <div class="orb orb-2"></div>\n'
@@ -951,11 +953,9 @@ def render_layout_shell(nav_html: str, tab_contents: str, tab_js: str) -> str:
         '            <button id="dark-toggle" class="glass-btn" title="Toggle theme">🌙</button>\n'
         "        </div>\n"
         "    </header>\n"
+        "\n" + nav_html + "\n"
         "\n"
-        + nav_html + "\n"
-        "\n"
-        '    <main class="main-content">\n'
-        + tab_contents + "\n"
+        '    <main class="main-content">\n' + tab_contents + "\n"
         "    </main>\n"
         "\n"
         "    <!-- Memory Detail Modal -->\n"
@@ -966,10 +966,8 @@ def render_layout_shell(nav_html: str, tab_contents: str, tab_js: str) -> str:
         "    <!-- Toast container -->\n"
         '    <div id="toast-container" class="toast-container"></div>\n'
         "\n"
-        "<script>\n"
-        + render_utilities_js() + "\n"
-        "\n"
-        + tab_js + "\n"
+        "<script>\n" + render_utilities_js() + "\n"
+        "\n" + tab_js + "\n"
         "</script>\n"
         "</body>\n"
         "</html>"

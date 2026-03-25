@@ -22,3 +22,7 @@ qdrant-client>=1.8.2
 
 # Numerical
 numpy>=1.24.0
+
+# E2E Testing (Playwright)
+playwright>=1.40.0
+pytest-playwright>=0.4.0

@@ -378,17 +378,17 @@ def render_memories_js() -> str:
         "    /* ── Search bar ── */\n"
         "    var html = '<div class=\"glass p-4 mb-6\">';\n"
         "    html += '<div style=\"display:flex;gap:8px;flex-wrap:wrap;align-items:center\">';\n"
-        "    html += '<input id=\"mem-search\" type=\"text\" class=\"glass-input\" style=\"flex:1;min-width:200px\" placeholder=\"Search memories...\" value=\"' + esc(S.mem.q) + '\">';\n"
+        '    html += \'<input id="mem-search" type="text" class="glass-input" style="flex:1;min-width:200px" placeholder="Search memories..." value="\' + esc(S.mem.q) + \'">\';\n'
         "    html += '<select id=\"mem-tag\" class=\"glass-input\">' + tagOptions + '</select>';\n"
-        "    html += '<button id=\"mem-search-btn\" class=\"glass-btn\">&#128269; Search</button>';\n"
-        "    html += '<button id=\"adv-search-toggle\" class=\"glass-btn\" style=\"font-size:0.8rem\">&#128269; Advanced</button>';\n"
+        '    html += \'<button id="mem-search-btn" class="glass-btn">&#128269; Search</button>\';\n'
+        '    html += \'<button id="adv-search-toggle" class="glass-btn" style="font-size:0.8rem">&#128269; Advanced</button>\';\n'
         "    html += '</div>';\n"
         "\n"
         "    /* ── Advanced search panel ── */\n"
         "    html += '<div id=\"adv-search-panel\" class=\"adv-search-panel' + (S.mem.advOpen ? ' open' : '') + '\">';\n"
         "\n"
         "    /* Search mode */\n"
-        "    html += '<div class=\"adv-search-row\" style=\"margin-top:8px\">';\n"
+        '    html += \'<div class="adv-search-row" style="margin-top:8px">\';\n'
         "    html += '<span class=\"adv-search-label\">Mode</span>';\n"
         "    html += '<div class=\"mode-btn-group\">';\n"
         "    var modes = ['semantic','keyword','hybrid','smart'];\n"
@@ -401,25 +401,25 @@ def render_memories_js() -> str:
         "    /* Date range */\n"
         "    html += '<div class=\"adv-search-row\">';\n"
         "    html += '<span class=\"adv-search-label\">Date From</span>';\n"
-        "    html += '<input type=\"date\" id=\"adv-date-from\" class=\"glass-input\" style=\"font-size:0.8rem\" value=\"' + esc(S.mem.dateFrom) + '\">';\n"
-        "    html += '<span class=\"adv-search-label\" style=\"min-width:auto\">To</span>';\n"
-        "    html += '<input type=\"date\" id=\"adv-date-to\" class=\"glass-input\" style=\"font-size:0.8rem\" value=\"' + esc(S.mem.dateTo) + '\">';\n"
+        '    html += \'<input type="date" id="adv-date-from" class="glass-input" style="font-size:0.8rem" value="\' + esc(S.mem.dateFrom) + \'">\';\n'
+        '    html += \'<span class="adv-search-label" style="min-width:auto">To</span>\';\n'
+        '    html += \'<input type="date" id="adv-date-to" class="glass-input" style="font-size:0.8rem" value="\' + esc(S.mem.dateTo) + \'">\';\n'
         "    html += '</div>';\n"
         "\n"
         "    /* Importance range */\n"
         "    html += '<div class=\"adv-search-row\">';\n"
         "    html += '<span class=\"adv-search-label\">Importance</span>';\n"
         "    html += '<span class=\"range-value\" id=\"adv-imp-min-val\">' + S.mem.impMin.toFixed(2) + '</span>';\n"
-        "    html += '<input type=\"range\" class=\"glass-range\" id=\"adv-imp-min\" min=\"0\" max=\"1\" step=\"0.01\" value=\"' + S.mem.impMin + '\" style=\"max-width:140px\">';\n"
+        '    html += \'<input type="range" class="glass-range" id="adv-imp-min" min="0" max="1" step="0.01" value="\' + S.mem.impMin + \'" style="max-width:140px">\';\n'
         "    html += '<span style=\"color:var(--text-muted);font-size:0.75rem\">~</span>';\n"
-        "    html += '<input type=\"range\" class=\"glass-range\" id=\"adv-imp-max\" min=\"0\" max=\"1\" step=\"0.01\" value=\"' + S.mem.impMax + '\" style=\"max-width:140px\">';\n"
+        '    html += \'<input type="range" class="glass-range" id="adv-imp-max" min="0" max="1" step="0.01" value="\' + S.mem.impMax + \'" style="max-width:140px">\';\n'
         "    html += '<span class=\"range-value\" id=\"adv-imp-max-val\">' + S.mem.impMax.toFixed(2) + '</span>';\n"
         "    html += '</div>';\n"
         "\n"
         "    /* Tags filter pills */\n"
         "    html += '<div class=\"adv-search-row\">';\n"
         "    html += '<span class=\"adv-search-label\">Tags</span>';\n"
-        "    html += '<div class=\"filter-tags-wrap\" id=\"adv-tags-wrap\">';\n"
+        '    html += \'<div class="filter-tags-wrap" id="adv-tags-wrap">\';\n'
         "    for (var ti = 0; ti < allKnownTags.length; ti++) {\n"
         "        var t = allKnownTags[ti];\n"
         "        var isActive = S.mem.searchTags.indexOf(t) !== -1;\n"
@@ -431,7 +431,7 @@ def render_memories_js() -> str:
         "    /* Emotion filter */\n"
         "    html += '<div class=\"adv-search-row\">';\n"
         "    html += '<span class=\"adv-search-label\">Emotion</span>';\n"
-        "    html += '<select id=\"adv-emotion\" class=\"glass-input\" style=\"font-size:0.8rem\">';\n"
+        '    html += \'<select id="adv-emotion" class="glass-input" style="font-size:0.8rem">\';\n'
         "    html += '<option value=\"\">Any</option>';\n"
         "    var emos = ['joy','sadness','anger','fear','surprise','disgust','trust','anticipation','calm','excitement','love','anxiety','neutral'];\n"
         "    for (var ei = 0; ei < emos.length; ei++) {\n"
@@ -440,9 +440,9 @@ def render_memories_js() -> str:
         "    html += '</select></div>';\n"
         "\n"
         "    /* Apply / Clear buttons */\n"
-        "    html += '<div class=\"adv-search-row\" style=\"justify-content:flex-end;margin-top:4px\">';\n"
-        "    html += '<button id=\"adv-clear-btn\" class=\"glass-btn\" style=\"font-size:0.78rem\">Clear</button>';\n"
-        "    html += '<button id=\"adv-apply-btn\" class=\"glass-btn glass-btn-success\" style=\"font-size:0.78rem\">Apply Filters</button>';\n"
+        '    html += \'<div class="adv-search-row" style="justify-content:flex-end;margin-top:4px">\';\n'
+        '    html += \'<button id="adv-clear-btn" class="glass-btn" style="font-size:0.78rem">Clear</button>\';\n'
+        '    html += \'<button id="adv-apply-btn" class="glass-btn glass-btn-success" style="font-size:0.78rem">Apply Filters</button>\';\n'
         "    html += '</div>';\n"
         "\n"
         "    html += '</div>'; /* close adv-search-panel */\n"
@@ -450,10 +450,10 @@ def render_memories_js() -> str:
         "\n"
         "    /* ── Toolbar row ── */\n"
         "    html += '<div class=\"mem-toolbar\">';\n"
-        "    html += '<button id=\"mem-new-btn\" class=\"glass-btn glass-btn-success\" style=\"font-size:0.82rem\">&#10133; New Memory</button>';\n"
+        '    html += \'<button id="mem-new-btn" class="glass-btn glass-btn-success" style="font-size:0.82rem">&#10133; New Memory</button>\';\n'
         "    html += '<button id=\"mem-select-toggle\" class=\"glass-btn\" style=\"font-size:0.82rem\">' + (selMode ? '&#9745; Select ON' : '&#9744; Select') + '</button>';\n"
         "    html += '<div class=\"mem-toolbar-spacer\"></div>';\n"
-        "    html += '<select id=\"mem-sort\" class=\"glass-input mem-sort-select\">';\n"
+        '    html += \'<select id="mem-sort" class="glass-input mem-sort-select">\';\n'
         "    var sortOpts = [['date_desc','Newest First'],['date_asc','Oldest First'],['imp_desc','Importance \\u2193'],['str_desc','Strength \\u2193'],['updated_desc','Recently Updated']];\n"
         "    for (var si = 0; si < sortOpts.length; si++) {\n"
         "        html += '<option value=\"' + sortOpts[si][0] + '\"' + (S.mem.sort === sortOpts[si][0] ? ' selected' : '') + '>' + sortOpts[si][1] + '</option>';\n"
@@ -467,14 +467,14 @@ def render_memories_js() -> str:
         "\n"
         "    /* ── Batch bar ── */\n"
         "    html += '<div id=\"mem-batch-bar\" class=\"mem-batch-bar' + (selMode ? ' active' : '') + '\">';\n"
-        "    html += '<button id=\"batch-select-all\" class=\"glass-btn\" style=\"font-size:0.78rem\">Select All</button>';\n"
-        "    html += '<button id=\"batch-deselect\" class=\"glass-btn\" style=\"font-size:0.78rem\">Deselect All</button>';\n"
+        '    html += \'<button id="batch-select-all" class="glass-btn" style="font-size:0.78rem">Select All</button>\';\n'
+        '    html += \'<button id="batch-deselect" class="glass-btn" style="font-size:0.78rem">Deselect All</button>\';\n'
         "    html += '<div class=\"mem-toolbar-spacer\"></div>';\n"
-        "    html += '<button id=\"batch-delete\" class=\"glass-btn glass-btn-danger\" style=\"font-size:0.78rem\">&#128465; Delete Selected (<span id=\"batch-count\">' + S.mem.selected.size + '</span>)</button>';\n"
+        '    html += \'<button id="batch-delete" class="glass-btn glass-btn-danger" style="font-size:0.78rem">&#128465; Delete Selected (<span id="batch-count">\' + S.mem.selected.size + \'</span>)</button>\';\n'
         "    html += '</div>';\n"
         "\n"
         "    /* ── Memory items ── */\n"
-        "    html += '<div id=\"mem-list\" class=\"glass\" style=\"overflow:hidden\">';\n"
+        '    html += \'<div id="mem-list" class="glass" style="overflow:hidden">\';\n'
         "    if (memories.length === 0) {\n"
         "        html += '<div style=\"padding:40px;text-align:center;color:var(--text-muted)\">No memories found</div>';\n"
         "    } else if (S.mem.viewMode === 'compact') {\n"
@@ -502,7 +502,7 @@ def render_memories_js() -> str:
         "            html += '<span class=\"mem-compact-key\">' + esc(truncate(key, 20)) + '</span>';\n"
         "            html += '<span class=\"mem-compact-content\">' + esc(truncate(m.content || '', 80)) + '</span>';\n"
         "            html += '<span class=\"mem-compact-meta\">' + tagsHtml + '</span>';\n"
-        "            html += '<span class=\"mem-compact-meta\"><span class=\"mem-compact-imp\"><span class=\"mem-compact-imp-fill\" style=\"width:' + impPct + '%\"></span></span></span>';\n"
+        '            html += \'<span class="mem-compact-meta"><span class="mem-compact-imp"><span class="mem-compact-imp-fill" style="width:\' + impPct + \'%"></span></span></span>\';\n'
         "            html += '<span class=\"mem-compact-meta\" style=\"font-size:0.72rem;color:var(--text-muted);min-width:50px\">' + timeStr + '</span>';\n"
         "            html += '</div>';\n"
         "        });\n"
@@ -735,7 +735,7 @@ def render_memories_js() -> str:
         "    h += '<button class=\"copy-btn\" onclick=\"navigator.clipboard.writeText(\\'' + esc(mem.memory_key).replace(/'/g,'\\\\\\'')"
         " + '\\');toast(\\'Key copied!\\',\\'info\\')\" title=\"Copy key\">\\uD83D\\uDCCB</button>';\n"
         "    h += '</div></div>';\n"
-        "    h += '<button class=\"mem-modal-close\" onclick=\"closeMemModal()\">\\u2715</button>';\n"
+        '    h += \'<button class="mem-modal-close" onclick="closeMemModal()">\\u2715</button>\';\n'
         "    h += '</div>';\n"
         "\n"
         "    /* Full content */\n"
@@ -748,10 +748,10 @@ def render_memories_js() -> str:
         "\n"
         "    /* Emotion */\n"
         "    if (mem.emotion_type) {\n"
-        "        h += '<div class=\"mem-modal-row\"><span class=\"mem-modal-key\">Emotion</span><span>';\n"
+        '        h += \'<div class="mem-modal-row"><span class="mem-modal-key">Emotion</span><span>\';\n'
         "        h += '<span class=\"badge\" style=\"background:' + emoColor + '22;color:' + emoColor + ';border:1px solid ' + emoColor + '44\">' + esc(mem.emotion_type) + '</span>';\n"
         "        if (mem.emotion_intensity != null) {\n"
-        "            h += ' <div class=\"modal-progress\" style=\"display:inline-flex;width:120px;vertical-align:middle\">';\n"
+        '            h += \' <div class="modal-progress" style="display:inline-flex;width:120px;vertical-align:middle">\';\n'
         "            h += '<div class=\"modal-progress-bar\"><div class=\"modal-progress-fill\" style=\"width:' + (mem.emotion_intensity * 100) + '%;background:' + emoColor + '\"></div></div>';\n"
         "            h += '<span style=\"font-size:0.75rem;color:' + emoColor + '\">' + mem.emotion_intensity.toFixed(2) + '</span></div>';\n"
         "        }\n"
@@ -760,25 +760,25 @@ def render_memories_js() -> str:
         "\n"
         "    /* Importance */\n"
         "    if (mem.importance != null) {\n"
-        "        h += '<div class=\"mem-modal-row\"><span class=\"mem-modal-key\">Importance</span><span>';\n"
-        "        h += '<div class=\"modal-progress\" style=\"display:inline-flex;width:160px\">';\n"
-        "        h += '<div class=\"modal-progress-bar\"><div class=\"modal-progress-fill\" style=\"width:' + (mem.importance * 100) + '%;background:linear-gradient(90deg,var(--accent-purple),var(--accent-yellow))\"></div></div>';\n"
+        '        h += \'<div class="mem-modal-row"><span class="mem-modal-key">Importance</span><span>\';\n'
+        '        h += \'<div class="modal-progress" style="display:inline-flex;width:160px">\';\n'
+        '        h += \'<div class="modal-progress-bar"><div class="modal-progress-fill" style="width:\' + (mem.importance * 100) + \'%;background:linear-gradient(90deg,var(--accent-purple),var(--accent-yellow))"></div></div>\';\n'
         "        h += '<span style=\"font-size:0.78rem;color:var(--accent-yellow);font-weight:600\">' + mem.importance.toFixed(2) + '</span></div>';\n"
         "        h += '</span></div>';\n"
         "    }\n"
         "\n"
         "    /* Strength */\n"
         "    if (mem.strength != null) {\n"
-        "        h += '<div class=\"mem-modal-row\"><span class=\"mem-modal-key\">Strength</span><span>';\n"
-        "        h += '<div class=\"modal-progress\" style=\"display:inline-flex;width:160px\">';\n"
-        "        h += '<div class=\"modal-progress-bar\"><div class=\"modal-progress-fill\" style=\"width:' + Math.min(mem.strength * 100, 100) + '%;background:linear-gradient(90deg,var(--accent-green),var(--accent-blue))\"></div></div>';\n"
+        '        h += \'<div class="mem-modal-row"><span class="mem-modal-key">Strength</span><span>\';\n'
+        '        h += \'<div class="modal-progress" style="display:inline-flex;width:160px">\';\n'
+        '        h += \'<div class="modal-progress-bar"><div class="modal-progress-fill" style="width:\' + Math.min(mem.strength * 100, 100) + \'%;background:linear-gradient(90deg,var(--accent-green),var(--accent-blue))"></div></div>\';\n'
         "        h += '<span style=\"font-size:0.78rem;color:var(--accent-green);font-weight:600\">' + mem.strength.toFixed(3) + '</span></div>';\n"
         "        h += '</span></div>';\n"
         "    }\n"
         "\n"
         "    /* Score (search) */\n"
         "    if (mem._score != null) {\n"
-        "        h += '<div class=\"mem-modal-row\"><span class=\"mem-modal-key\">Search Score</span><span class=\"badge badge-green\">' + mem._score.toFixed(3) + '</span></div>';\n"
+        '        h += \'<div class="mem-modal-row"><span class="mem-modal-key">Search Score</span><span class="badge badge-green">\' + mem._score.toFixed(3) + \'</span></div>\';\n'
         "    }\n"
         "\n"
         "    /* Privacy */\n"
@@ -788,25 +788,25 @@ def render_memories_js() -> str:
         "\n"
         "    /* Source context */\n"
         "    if (mem.source_context) {\n"
-        "        h += '<div class=\"mem-modal-row\"><span class=\"mem-modal-key\">Source</span><span style=\"color:var(--text-muted)\">' + esc(mem.source_context) + '</span></div>';\n"
+        '        h += \'<div class="mem-modal-row"><span class="mem-modal-key">Source</span><span style="color:var(--text-muted)">\' + esc(mem.source_context) + \'</span></div>\';\n'
         "    }\n"
         "\n"
         "    /* Created at */\n"
         "    if (mem.created_at) {\n"
-        "        h += '<div class=\"mem-modal-row\"><span class=\"mem-modal-key\">Created</span><span>\\uD83D\\uDCC5 ' + relativeTime(mem.created_at)"
+        '        h += \'<div class="mem-modal-row"><span class="mem-modal-key">Created</span><span>\\uD83D\\uDCC5 \' + relativeTime(mem.created_at)'
         " + ' <span style=\"color:var(--text-muted);font-size:0.75rem\">(' + new Date(mem.created_at).toLocaleString() + ')</span></span></div>';\n"
         "    }\n"
         "\n"
         "    /* Updated at */\n"
         "    if (mem.updated_at) {\n"
-        "        h += '<div class=\"mem-modal-row\"><span class=\"mem-modal-key\">Updated</span><span>\\uD83D\\uDCC5 ' + relativeTime(mem.updated_at)"
+        '        h += \'<div class="mem-modal-row"><span class="mem-modal-key">Updated</span><span>\\uD83D\\uDCC5 \' + relativeTime(mem.updated_at)'
         " + ' <span style=\"color:var(--text-muted);font-size:0.75rem\">(' + new Date(mem.updated_at).toLocaleString() + ')</span></span></div>';\n"
         "    }\n"
         "\n"
         "    /* Action buttons */\n"
         "    h += '<div style=\"display:flex;gap:8px;margin-top:16px;justify-content:flex-end\">';\n"
         "    h += '<button class=\"glass-btn glass-btn-danger\" onclick=\"deleteMemory(\\'' + esc(mem.memory_key).replace(/'/g,'\\\\\\'') + '\\')\">\\uD83D\\uDDD1 Delete</button>';\n"
-        "    h += '<button class=\"glass-btn glass-btn-success\" id=\"mem-modal-edit-btn\">\\u270F\\uFE0F Edit</button>';\n"
+        '    h += \'<button class="glass-btn glass-btn-success" id="mem-modal-edit-btn">\\u270F\\uFE0F Edit</button>\';\n'
         "    h += '</div>';\n"
         "\n"
         "    content.innerHTML = h;\n"

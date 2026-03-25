@@ -56,7 +56,8 @@ class QdrantVectorStore:
                     "HINT: Qdrant's storage directory is missing. "
                     "Run via `docker-compose up -d` so the ./data/qdrant volume is mounted, "
                     "or pre-create the storage directory before starting Qdrant standalone.",
-                    name, e,
+                    name,
+                    e,
                 )
             else:
                 logger.error("Failed to ensure collection %s: %s", name, e)

@@ -73,7 +73,20 @@ def register_tools(mcp: FastMCP) -> None:
 
         ctx.persona_service.record_conversation_time(persona)
 
-        return _format_context_response(state, stats, recent, equipment, blocks, time_since, goals, promises, recent_searches, decayed_count, memory_index, relationship_highlights)
+        return _format_context_response(
+            state,
+            stats,
+            recent,
+            equipment,
+            blocks,
+            time_since,
+            goals,
+            promises,
+            recent_searches,
+            decayed_count,
+            memory_index,
+            relationship_highlights,
+        )
 
     @mcp.tool()
     async def memory(
@@ -677,8 +690,8 @@ def _format_context_response(
         lines.append(f"Last conversation: {time_since}")
 
     # Active Commitments (before everything else)
-    active_goals = [g for g in goals if g.get('status') == 'active']
-    active_promises = [p for p in promises if p.get('status') == 'active']
+    active_goals = [g for g in goals if g.get("status") == "active"]
+    active_promises = [p for p in promises if p.get("status") == "active"]
     if active_goals or active_promises:
         lines.append("\n⚠️ ACTIVE COMMITMENTS:")
         if active_goals:
@@ -743,24 +756,24 @@ def _format_context_response(
     # Memory Stats (existing)
     if stats:
         lines.append("\n--- Memory Stats ---")
-        lines.append(f"Total memories: {stats.get('total', 0)}")
+        lines.append(f"Total memories: {stats.get('total_count', 0)}")
 
     # Memory Index
     if memory_index:
         lines.append(f"\n--- Memory Index ({memory_index.get('total', 0)} total) ---")
-        top_tags = memory_index.get('top_tags', [])
+        top_tags = memory_index.get("top_tags", [])
         if top_tags:
             tag_str = ", ".join(f"{tag}({count})" for tag, count in top_tags)
             lines.append(f"📂 Tags: {tag_str}")
-        emotion_dist = memory_index.get('emotion_dist', [])
+        emotion_dist = memory_index.get("emotion_dist", [])
         if emotion_dist:
             emo_str = ", ".join(f"{emo}({count})" for emo, count in emotion_dist)
             lines.append(f"😊 Emotions: {emo_str}")
-        timeline = memory_index.get('timeline', [])
+        timeline = memory_index.get("timeline", [])
         if timeline:
             tl_str = ", ".join(f"{month}={count}" for month, count in timeline)
             lines.append(f"📅 Timeline: {tl_str}")
-        high_imp = memory_index.get('high_importance_count', 0)
+        high_imp = memory_index.get("high_importance_count", 0)
         if high_imp:
             lines.append(f"🔥 High importance (≥0.8): {high_imp} memories")
 
@@ -792,7 +805,7 @@ def _format_context_response(
         suggestions.append(f'  - search_memory("promise") — {len(active_promises)} active promise(s)')
 
     if stats:
-        tag_dist = stats.get('tag_distribution', {})
+        tag_dist = stats.get("tag_distribution", {})
         top_tags = sorted(tag_dist.items(), key=lambda x: x[1], reverse=True)[:3]
         for tag, count in top_tags:
             suggestions.append(f'  - search_memory("{tag}") — {count} memories with this tag')
@@ -800,7 +813,7 @@ def _format_context_response(
     if recent and len(recent) > 0:
         recent_tags = set()
         for m in recent[:3]:
-            if hasattr(m, 'tags') and m.tags:
+            if hasattr(m, "tags") and m.tags:
                 recent_tags.update(m.tags)
         if recent_tags:
             hint_tag = next(iter(recent_tags))
@@ -813,21 +826,29 @@ def _format_context_response(
     # AI Instructions (NEW)
     preferred_address = ""
     if state.user_info:
-        preferred_address = state.user_info.get('preferred_address', '') or state.user_info.get('nickname', '') or state.user_info.get('name', '')
+        preferred_address = (
+            state.user_info.get("preferred_address", "")
+            or state.user_info.get("nickname", "")
+            or state.user_info.get("name", "")
+        )
 
     persona_nickname = ""
     if state.persona_info:
-        persona_nickname = state.persona_info.get('nickname', '') or ''
+        persona_nickname = state.persona_info.get("nickname", "") or ""
 
     instructions = ["\n📌 AI INSTRUCTIONS:"]
-    instructions.append(f"- Maintain current emotion ({state.emotion}, intensity: {state.emotion_intensity}) naturally in responses")
+    instructions.append(
+        f"- Maintain current emotion ({state.emotion}, intensity: {state.emotion_intensity}) naturally in responses"
+    )
     if preferred_address:
         instructions.append(f'- Address user as "{preferred_address}"')
     if persona_nickname:
         instructions.append(f'- You are called "{persona_nickname}"')
     if state.relationship_status:
         instructions.append(f"- Relationship context: {state.relationship_status}")
-    instructions.append("- Call search_memory() when conversation references past events, preferences, or shared history")
+    instructions.append(
+        "- Call search_memory() when conversation references past events, preferences, or shared history"
+    )
     if active_promises:
         instructions.append("- Proactively mention promise progress when contextually appropriate")
     if active_goals:

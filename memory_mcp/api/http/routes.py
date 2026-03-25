@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import io
 import os
 import shutil
@@ -376,7 +377,7 @@ def register_http_routes(mcp) -> None:  # noqa: C901, PLR0915
             return JSONResponse({"error": "Vector store unavailable"}, status_code=503)
         try:
             # Run rebuild in background to avoid blocking
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             loop.run_in_executor(None, ctx.vector_store.rebuild_collection, persona)
             return JSONResponse(
                 {"status": "accepted", "message": f"Rebuild started for '{persona}'"},
@@ -474,10 +475,8 @@ def register_http_routes(mcp) -> None:  # noqa: C901, PLR0915
             # Index in vector store if available
             mem = result.value
             if ctx.vector_store is not None:
-                try:
+                with contextlib.suppress(Exception):
                     ctx.vector_store.upsert(persona, mem.key, mem.content)
-                except Exception:
-                    pass
             return JSONResponse(
                 {"status": "ok", "memory": _memory_to_dict(mem)},
                 status_code=201,
@@ -501,7 +500,15 @@ def register_http_routes(mcp) -> None:  # noqa: C901, PLR0915
             return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
         try:
             # Build updates dict from allowed fields
-            allowed = {"content", "importance", "emotion_type", "emotion_intensity", "tags", "privacy_level", "source_context"}
+            allowed = {
+                "content",
+                "importance",
+                "emotion_type",
+                "emotion_intensity",
+                "tags",
+                "privacy_level",
+                "source_context",
+            }
             updates = {}
             for field in allowed:
                 if field in body:
@@ -518,10 +525,8 @@ def register_http_routes(mcp) -> None:  # noqa: C901, PLR0915
             # Re-index in vector store if content changed
             mem = result.value
             if "content" in updates and ctx.vector_store is not None:
-                try:
+                with contextlib.suppress(Exception):
                     ctx.vector_store.upsert(persona, mem.key, mem.content)
-                except Exception:
-                    pass
             return JSONResponse({"status": "ok", "memory": _memory_to_dict(mem)})
         except Exception as exc:
             return JSONResponse({"error": str(exc)}, status_code=500)
@@ -542,10 +547,8 @@ def register_http_routes(mcp) -> None:  # noqa: C901, PLR0915
                 return JSONResponse({"error": str(result.error)}, status_code=404)
             # Remove from vector store if available
             if ctx.vector_store is not None:
-                try:
+                with contextlib.suppress(Exception):
                     ctx.vector_store.delete(persona, key)
-                except Exception:
-                    pass
             return JSONResponse({"status": "ok", "deleted": key})
         except Exception as exc:
             return JSONResponse({"error": str(exc)}, status_code=500)
@@ -574,26 +577,30 @@ def register_http_routes(mcp) -> None:  # noqa: C901, PLR0915
             tag_to_keys: dict[str, list[str]] = defaultdict(list)
 
             for mem in memories:
-                nodes.append({
-                    "key": mem.key,
-                    "content": mem.content[:100] if mem.content else "",
-                    "tags": mem.tags or [],
-                    "emotion_type": mem.emotion,
-                    "importance": mem.importance,
-                })
+                nodes.append(
+                    {
+                        "key": mem.key,
+                        "content": mem.content[:100] if mem.content else "",
+                        "tags": mem.tags or [],
+                        "emotion_type": mem.emotion,
+                        "importance": mem.importance,
+                    }
+                )
                 # Track tag -> memory key mapping for co-occurrence edges
-                for tag in (mem.tags or []):
+                for tag in mem.tags or []:
                     tag_to_keys[tag].append(mem.key)
                 # Edges from related_keys
-                for related in (mem.related_keys or []):
+                for related in mem.related_keys or []:
                     pair = tuple(sorted([mem.key, related]))
                     if pair not in edge_set:
                         edge_set.add(pair)
-                        edges.append({
-                            "source": mem.key,
-                            "target": related,
-                            "type": "related",
-                        })
+                        edges.append(
+                            {
+                                "source": mem.key,
+                                "target": related,
+                                "type": "related",
+                            }
+                        )
 
             # Edges from tag co-occurrence
             for tag, keys in tag_to_keys.items():
@@ -605,20 +612,24 @@ def register_http_routes(mcp) -> None:  # noqa: C901, PLR0915
                             pair = tuple(sorted([capped[i], capped[j]]))
                             if pair not in edge_set:
                                 edge_set.add(pair)
-                                edges.append({
-                                    "source": capped[i],
-                                    "target": capped[j],
-                                    "type": "tag",
-                                    "tag": tag,
-                                })
+                                edges.append(
+                                    {
+                                        "source": capped[i],
+                                        "target": capped[j],
+                                        "type": "tag",
+                                        "tag": tag,
+                                    }
+                                )
 
-            return JSONResponse({
-                "persona": persona,
-                "nodes": nodes,
-                "edges": edges,
-                "node_count": len(nodes),
-                "edge_count": len(edges),
-            })
+            return JSONResponse(
+                {
+                    "persona": persona,
+                    "nodes": nodes,
+                    "edges": edges,
+                    "node_count": len(nodes),
+                    "edge_count": len(edges),
+                }
+            )
         except Exception as exc:
             return JSONResponse({"error": str(exc)}, status_code=500)
 
@@ -656,11 +667,13 @@ def register_http_routes(mcp) -> None:  # noqa: C901, PLR0915
                 result = importer.import_from_zip(str(zip_path))
                 if not result.is_ok:
                     return JSONResponse({"error": str(result.error)}, status_code=500)
-                return JSONResponse({
-                    "status": "ok",
-                    "persona": persona,
-                    "imported": result.value,
-                })
+                return JSONResponse(
+                    {
+                        "status": "ok",
+                        "persona": persona,
+                        "imported": result.value,
+                    }
+                )
             finally:
                 # Clean up uploaded zip
                 if zip_path.exists():
@@ -708,6 +721,7 @@ def register_http_routes(mcp) -> None:  # noqa: C901, PLR0915
             return JSONResponse({"error": "Field 'name' is required"}, status_code=400)
         # Validate name (alphanumeric, hyphens, underscores)
         import re
+
         if not re.match(r"^[a-zA-Z0-9_-]+$", persona_name):
             return JSONResponse(
                 {"error": "Persona name must contain only alphanumeric characters, hyphens, and underscores"},

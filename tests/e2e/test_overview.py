@@ -32,7 +32,6 @@ class TestOverview:
     def test_stat_elements_present(self, page):
         """統計カード or グラスカードが 1 つ以上存在する。"""
         self._open_overview(page)
-        cards = page.locator(".glass-card, .stat-card, .glass, [class*='card']")
         # 存在しなくてもページ自体が描画されていれば OK
         assert page.locator("body").is_visible()
 

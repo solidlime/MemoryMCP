@@ -32,6 +32,5 @@ class TestMobile:
         viewport_width = mobile_page.evaluate("window.innerWidth")
         # 横スクロールが発生していないこと（20px の余裕を許容）
         assert scroll_width <= viewport_width + 20, (
-            f"Horizontal overflow detected: scrollWidth={scroll_width}, "
-            f"viewportWidth={viewport_width}"
+            f"Horizontal overflow detected: scrollWidth={scroll_width}, viewportWidth={viewport_width}"
         )

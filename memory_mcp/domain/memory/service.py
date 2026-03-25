@@ -269,3 +269,13 @@ class MemoryService:
     def count_decayed_important(self) -> Result[int, DomainError]:
         """Count important memories with low strength."""
         return self._repo.count_decayed_important()
+
+    # --- Context Intelligence C ---
+
+    def get_memory_index(self) -> Result[dict, DomainError]:
+        """Get compressed memory index."""
+        return self._repo.get_memory_index()
+
+    def get_relationship_highlights(self, limit: int = 5) -> Result[list, DomainError]:
+        """Get important relationship memories."""
+        return self._repo.find_relationship_highlights(limit)

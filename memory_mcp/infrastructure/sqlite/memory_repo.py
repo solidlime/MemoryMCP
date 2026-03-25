@@ -535,7 +535,9 @@ class SQLiteMemoryRepository:
             logger.error("Failed to get recent searches: %s", e)
             return Failure(RepositoryError(str(e)))
 
-    def count_decayed_important(self, min_importance: float = 0.7, max_strength: float = 0.3) -> Result[int, RepositoryError]:
+    def count_decayed_important(
+        self, min_importance: float = 0.7, max_strength: float = 0.3
+    ) -> Result[int, RepositoryError]:
         """Count important memories that have decayed below strength threshold."""
         try:
             row = self._db.execute(
@@ -560,6 +562,83 @@ class SQLiteMemoryRepository:
             )
             """
         )
+
+    def get_memory_index(self) -> Result[dict, RepositoryError]:
+        """Get compressed memory index for context snapshot."""
+        try:
+            total = self._db.execute("SELECT COUNT(*) as cnt FROM memories").fetchone()["cnt"]
+
+            tag_rows = self._db.execute("""
+                SELECT tags FROM memories WHERE tags IS NOT NULL AND tags != '' AND tags != '[]'
+            """).fetchall()
+            tag_dist: dict[str, int] = {}
+            for row in tag_rows:
+                try:
+                    tags = json.loads(row["tags"]) if isinstance(row["tags"], str) else row["tags"]
+                    if isinstance(tags, list):
+                        for t in tags:
+                            tag_dist[t] = tag_dist.get(t, 0) + 1
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            top_tags = sorted(tag_dist.items(), key=lambda x: x[1], reverse=True)[:10]
+
+            emotion_rows = self._db.execute("""
+                SELECT emotion, COUNT(*) as cnt FROM memories
+                WHERE emotion IS NOT NULL AND emotion != ''
+                GROUP BY emotion ORDER BY cnt DESC
+            """).fetchall()
+            emotion_dist = [(r["emotion"], r["cnt"]) for r in emotion_rows]
+
+            timeline_rows = self._db.execute("""
+                SELECT strftime('%Y-%m', created_at) as month, COUNT(*) as cnt
+                FROM memories
+                WHERE created_at >= datetime('now', '-12 months')
+                GROUP BY month ORDER BY month
+            """).fetchall()
+            timeline = [(r["month"], r["cnt"]) for r in timeline_rows]
+
+            high_imp = self._db.execute("SELECT COUNT(*) as cnt FROM memories WHERE importance >= 0.8").fetchone()[
+                "cnt"
+            ]
+
+            return Success(
+                {
+                    "total": total,
+                    "top_tags": top_tags,
+                    "emotion_dist": emotion_dist,
+                    "timeline": timeline,
+                    "high_importance_count": high_imp,
+                }
+            )
+        except Exception as e:
+            logger.error("Failed to get memory index: %s", e)
+            return Failure(RepositoryError(str(e)))
+
+    def find_relationship_highlights(self, limit: int = 5) -> Result[list, RepositoryError]:
+        """Find important relationship-related memories."""
+        try:
+            rows = self._db.execute(
+                """
+                SELECT * FROM memories
+                WHERE importance >= 0.7
+                AND (
+                    tags LIKE '%relationship%'
+                    OR tags LIKE '%first_meeting%'
+                    OR tags LIKE '%milestone%'
+                    OR tags LIKE '%promise%'
+                    OR tags LIKE '%important_moment%'
+                    OR tags LIKE '%nickname%'
+                    OR tags LIKE '%shared_experience%'
+                )
+                ORDER BY importance DESC, created_at ASC
+                LIMIT ?
+            """,
+                (limit,),
+            ).fetchall()
+            return Success([self._row_to_memory(r) for r in rows])
+        except Exception as e:
+            logger.error("Failed to find relationship highlights: %s", e)
+            return Failure(RepositoryError(str(e)))
 
     # ------------------------------------------------------------------
     # Internal helpers

@@ -465,7 +465,7 @@ class LegacyImporter:
                     )
                 count += 1
             except Exception as e:  # noqa: BLE001
-                item_label = row["item_name"] if is_v1 else (row["name"] if "name" in row.keys() else "?")
+                item_label = row["item_name"] if is_v1 else row.get("name", "?")
                 logger.warning("Skipping item '%s': %s", item_label, e)
                 continue
 
@@ -530,7 +530,7 @@ class LegacyImporter:
                 )
                 count += 1
             except Exception as e:  # noqa: BLE001
-                logger.warning("Skipping equipment_slot '%s': %s", row["slot"] if "slot" in row.keys() else "?", e)
+                logger.warning("Skipping equipment_slot '%s': %s", row.get("slot", "?"), e)
                 continue
 
         target_db.commit()
