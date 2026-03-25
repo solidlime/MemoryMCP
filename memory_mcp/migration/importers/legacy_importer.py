@@ -10,6 +10,9 @@ from typing import TYPE_CHECKING
 from memory_mcp.domain.shared.errors import MigrationError
 from memory_mcp.domain.shared.result import Failure, Result, Success
 from memory_mcp.domain.shared.time_utils import format_iso, get_now
+from memory_mcp.infrastructure.logging.structured import get_logger
+
+logger = get_logger(__name__)
 
 if TYPE_CHECKING:
     from memory_mcp.infrastructure.sqlite.connection import SQLiteConnection
@@ -68,6 +71,8 @@ class LegacyImporter:
                 counts["equipment_history"] = self._import_equipment_history(src)
             finally:
                 src.close()
+        else:
+            logger.warning("inventory.sqlite not found in %s — skipping inventory import", source_dir_path)
 
         # 3. persona_context.json → context_state + user_info + persona_info
         context_path = source_dir_path / "persona_context.json"
@@ -385,9 +390,11 @@ class LegacyImporter:
 
         try:
             rows = src_db.execute("SELECT * FROM items").fetchall()
-        except sqlite3.OperationalError:
+        except sqlite3.OperationalError as e:
+            logger.warning("Source DB has no 'items' table: %s", e)
             return 0
 
+        logger.info("Importing %d items from source DB", len(rows))
         for row in rows:
             try:
                 target_db.execute(
@@ -409,10 +416,12 @@ class LegacyImporter:
                     ),
                 )
                 count += 1
-            except Exception:  # noqa: BLE001
+            except Exception as e:  # noqa: BLE001
+                logger.warning("Skipping item '%s': %s", row["name"] if "name" in row.keys() else "?", e)
                 continue
 
         target_db.commit()
+        logger.info("Imported %d/%d items", count, len(rows))
         return count
 
     def _import_equipment_slots(self, src_db: sqlite3.Connection) -> int:
@@ -421,7 +430,8 @@ class LegacyImporter:
 
         try:
             rows = src_db.execute("SELECT * FROM equipment_slots").fetchall()
-        except sqlite3.OperationalError:
+        except sqlite3.OperationalError as e:
+            logger.warning("Source DB has no 'equipment_slots' table: %s", e)
             return 0
 
         for row in rows:
@@ -439,7 +449,8 @@ class LegacyImporter:
                     ),
                 )
                 count += 1
-            except Exception:  # noqa: BLE001
+            except Exception as e:  # noqa: BLE001
+                logger.warning("Skipping equipment_slot '%s': %s", row["slot"] if "slot" in row.keys() else "?", e)
                 continue
 
         target_db.commit()
@@ -451,7 +462,8 @@ class LegacyImporter:
 
         try:
             rows = src_db.execute("SELECT * FROM equipment_history").fetchall()
-        except sqlite3.OperationalError:
+        except sqlite3.OperationalError as e:
+            logger.warning("Source DB has no 'equipment_history' table: %s", e)
             return 0
 
         for row in rows:
@@ -472,7 +484,8 @@ class LegacyImporter:
                     ),
                 )
                 count += 1
-            except Exception:  # noqa: BLE001
+            except Exception as e:  # noqa: BLE001
+                logger.warning("Skipping equipment_history row: %s", e)
                 continue
 
         target_db.commit()

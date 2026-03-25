@@ -97,11 +97,12 @@ class QdrantVectorStore:
         """Semantic search. Returns list of (memory_key, score)."""
         try:
             vector = self.embedding.encode(query, is_query=True)
-            results = self.client_manager.client.search(
+            response = self.client_manager.client.query_points(
                 collection_name=self.collection_name(persona),
-                query_vector=vector.tolist(),
+                query=vector.tolist(),
                 limit=limit,
             )
+            results = response.points
             return Success([(r.payload["key"], r.score) for r in results])
         except Exception as e:
             logger.error("Failed to search vectors for '%s': %s", query, e)
