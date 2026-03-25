@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-from memory_mcp.config.settings import get_settings
+from memory_mcp.config.settings import Settings, get_settings
 from memory_mcp.infrastructure.logging.structured import get_logger
 
 logger = get_logger(__name__)
@@ -102,6 +102,7 @@ class RuntimeConfigManager:
             return
         self._initialized = True
         self._settings = get_settings()
+        self._default_settings = Settings()
         self._overrides: dict[str, Any] = {}
         self._callbacks: dict[str, list[Callable]] = {}
         self._reload_status = ReloadStatus()
@@ -160,6 +161,15 @@ class RuntimeConfigManager:
             return getattr(sub, key, None)
         return None
 
+    def _get_default_value(self, category: str, key: str) -> Any:
+        """Get the default value for a setting from a clean Settings instance."""
+        if category == "general":
+            return getattr(self._default_settings, key, None)
+        sub = getattr(self._default_settings, category, None)
+        if sub is not None:
+            return getattr(sub, key, None)
+        return None
+
     def get_all(self) -> dict:
         """Get all settings with metadata for the dashboard."""
         result: dict[str, dict] = {}
@@ -167,8 +177,10 @@ class RuntimeConfigManager:
             result[category] = {}
             for key, meta in keys.items():
                 value, source = self.get_effective_value(category, key)
+                default_val = self._get_default_value(category, key)
                 entry = {
                     "value": "***" if meta.get("masked") and value else value,
+                    "default_value": default_val,
                     "source": source,
                     **meta,
                 }
