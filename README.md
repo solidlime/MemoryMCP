@@ -153,9 +153,12 @@ result = get_context()
 | `update` | 既存記憶を更新（バージョン履歴あり） |
 | `delete` | 記憶を削除 |
 | `stats` | メモリ統計を取得 |
-| `check_routines` | ルーティンパターンを検出 |
 | `check_contradictions` | 既存記憶との矛盾を検出 |
 | `history` | 記憶の編集履歴を取得 |
+| `block_write` | 名前付きメモリブロックを書き込み |
+| `block_read` | 名前付きメモリブロックを読み取り |
+| `block_list` | ブロック一覧を取得 |
+| `block_delete` | ブロックを削除 |
 | `entity_search` | エンティティ（人物・場所）を検索 |
 | `entity_graph` | エンティティの関係性グラフを取得 |
 | `entity_add_relation` | エンティティ間の関係を追加 |

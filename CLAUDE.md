@@ -54,15 +54,17 @@ memory_mcp/
 └── cli/                 # CLIツール
 ```
 
-### 公開ツールAPI（3本のみ）
+### 公開ツールAPI（5本）
 
-| ツール | 主なoperations |
-|--------|---------------|
+| ツール | 主なoperations / パラメータ |
+|--------|---------------------------|
 | `get_context()` | なし（状態サマリー返却） |
-| `memory(operation, ...)` | `create / read / update / delete / search / stats / check_routines / update_context` |
-| `item(operation, ...)` | `add / remove / equip / unequip / update / search / history / memories` |
+| `memory(operation, ...)` | `create / read / update / delete / check_contradictions / history / stats / block_write / block_read / block_list / block_delete / entity_search / entity_graph / entity_add_relation` |
+| `search_memory(query, ...)` | `mode="semantic/keyword/hybrid/smart"`, `top_k`, `tags`, `date_range`, `min_importance`, `emotion`, `importance_weight`, `recency_weight` |
+| `update_context(...)` | `emotion`, `emotion_intensity`, `physical_state`, `mental_state`, `environment`, `fatigue`, `warmth`, `arousal`, `user_info`, `persona_info` |
+| `item(operation, ...)` | `add / remove / equip / unequip / update / search / history` |
 
-`memory()` の検索モード: `semantic`（Qdrant）/ `keyword`（SQLite LIKE + RapidFuzz）/ `hybrid`（RRF統合）/ `smart`（クエリ自動拡張）
+`search_memory()` の検索モード: `semantic`（Qdrant）/ `keyword`（SQLite LIKE + RapidFuzz）/ `hybrid`（RRF統合、デフォルト）/ `smart`（クエリ自動拡張）
 
 ### 永続化
 
