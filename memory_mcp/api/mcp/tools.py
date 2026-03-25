@@ -61,13 +61,19 @@ def register_tools(mcp: FastMCP) -> None:
         decayed_result = ctx.memory_service.count_decayed_important()
         decayed_count = decayed_result.value if decayed_result.is_ok else 0
 
+        index_result = ctx.memory_service.get_memory_index()
+        memory_index = index_result.value if index_result.is_ok else None
+
+        highlights_result = ctx.memory_service.get_relationship_highlights(5)
+        relationship_highlights = highlights_result.value if highlights_result.is_ok else []
+
         time_since = ""
         if state.last_conversation_time:
             time_since = relative_time_str(state.last_conversation_time)
 
         ctx.persona_service.record_conversation_time(persona)
 
-        return _format_context_response(state, stats, recent, equipment, blocks, time_since, goals, promises, recent_searches, decayed_count)
+        return _format_context_response(state, stats, recent, equipment, blocks, time_since, goals, promises, recent_searches, decayed_count, memory_index, relationship_highlights)
 
     @mcp.tool()
     async def memory(
@@ -659,6 +665,8 @@ def _format_context_response(
     promises: list,
     recent_searches: list | None = None,
     decayed_count: int = 0,
+    memory_index: dict | None = None,
+    relationship_highlights: list | None = None,
 ) -> str:
     """Format get_context response as structured text."""
     lines: list[str] = []
@@ -736,6 +744,32 @@ def _format_context_response(
     if stats:
         lines.append("\n--- Memory Stats ---")
         lines.append(f"Total memories: {stats.get('total', 0)}")
+
+    # Memory Index
+    if memory_index:
+        lines.append(f"\n--- Memory Index ({memory_index.get('total', 0)} total) ---")
+        top_tags = memory_index.get('top_tags', [])
+        if top_tags:
+            tag_str = ", ".join(f"{tag}({count})" for tag, count in top_tags)
+            lines.append(f"📂 Tags: {tag_str}")
+        emotion_dist = memory_index.get('emotion_dist', [])
+        if emotion_dist:
+            emo_str = ", ".join(f"{emo}({count})" for emo, count in emotion_dist)
+            lines.append(f"😊 Emotions: {emo_str}")
+        timeline = memory_index.get('timeline', [])
+        if timeline:
+            tl_str = ", ".join(f"{month}={count}" for month, count in timeline)
+            lines.append(f"📅 Timeline: {tl_str}")
+        high_imp = memory_index.get('high_importance_count', 0)
+        if high_imp:
+            lines.append(f"🔥 High importance (≥0.8): {high_imp} memories")
+
+    # Relationship Highlights
+    if relationship_highlights:
+        lines.append("\n--- Relationship Highlights ---")
+        for m in relationship_highlights:
+            tag_str = ", ".join((m.tags or [])[:3])
+            lines.append(f"- [{m.key}] {m.content[:80]}... ({tag_str})")
 
     # Recent Memories (existing)
     if recent:
