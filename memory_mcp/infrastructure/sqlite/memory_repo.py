@@ -587,7 +587,8 @@ class SQLiteMemoryRepository:
                 WHERE emotion IS NOT NULL AND emotion != ''
                 GROUP BY emotion ORDER BY cnt DESC
             """).fetchall()
-            emotion_dist = [(r["emotion"], r["cnt"]) for r in emotion_rows]
+            emotion_dist = [(r["emotion"], r["cnt"]) for r in emotion_rows[:8]]
+            emotion_others = max(0, len(emotion_rows) - 8)
 
             timeline_rows = self._db.execute("""
                 SELECT strftime('%Y-%m', created_at) as month, COUNT(*) as cnt
@@ -606,6 +607,7 @@ class SQLiteMemoryRepository:
                     "total": total,
                     "top_tags": top_tags,
                     "emotion_dist": emotion_dist,
+                    "emotion_others": emotion_others,
                     "timeline": timeline,
                     "high_importance_count": high_imp,
                 }

@@ -766,8 +766,11 @@ def _format_context_response(
             tag_str = ", ".join(f"{tag}({count})" for tag, count in top_tags)
             lines.append(f"📂 Tags: {tag_str}")
         emotion_dist = memory_index.get("emotion_dist", [])
+        emotion_others = memory_index.get("emotion_others", 0)
         if emotion_dist:
-            emo_str = ", ".join(f"{emo}({count})" for emo, count in emotion_dist)
+            emo_str = ", ".join(f"{emo}({cnt})" for emo, cnt in emotion_dist)
+            if emotion_others > 0:
+                emo_str += f", +{emotion_others} more types"
             lines.append(f"😊 Emotions: {emo_str}")
         timeline = memory_index.get("timeline", [])
         if timeline:
@@ -782,48 +785,32 @@ def _format_context_response(
         lines.append("\n--- Relationship Highlights ---")
         for m in relationship_highlights:
             tag_str = ", ".join((m.tags or [])[:3])
-            lines.append(f"- [{m.key}] {m.content[:80]}... ({tag_str})")
+            lines.append(f"- {m.content[:80]}... ({tag_str})")
 
     # Recent Memories (existing)
     if recent:
         lines.append("\n--- Recent Memories ---")
         for m in recent[:5]:
-            lines.append(f"[{m.key}] {m.content[:100]}...")
+            lines.append(f"{m.content[:100]}...")
 
     # Last Conversation Topics
     if recent_searches:
-        lines.append("\n--- Last Conversation Topics ---")
-        for s in recent_searches:
-            time_str = s.get("searched_at", "")
-            lines.append(f'- "{s.get("query", "")}" ({s.get("result_count", 0)} results, {time_str})')
+        topic_queries = " · ".join(f'"{s.get("query", "")}"' for s in recent_searches)
+        lines.append(f"\n🗣️ Recent searches: {topic_queries}")
 
-    # Suggested Searches (NEW)
+    # Suggested Searches (top_tags only, max 2)
     suggestions = []
-    if active_goals:
-        suggestions.append(f'  - search_memory("goals") — {len(active_goals)} active goal(s)')
-    if active_promises:
-        suggestions.append(f'  - search_memory("promise") — {len(active_promises)} active promise(s)')
-
     if stats:
         tag_dist = stats.get("tag_distribution", {})
-        top_tags = sorted(tag_dist.items(), key=lambda x: x[1], reverse=True)[:3]
+        top_tags = sorted(tag_dist.items(), key=lambda x: x[1], reverse=True)[:2]
         for tag, count in top_tags:
             suggestions.append(f'  - search_memory("{tag}") — {count} memories with this tag')
-
-    if recent and len(recent) > 0:
-        recent_tags = set()
-        for m in recent[:3]:
-            if hasattr(m, "tags") and m.tags:
-                recent_tags.update(m.tags)
-        if recent_tags:
-            hint_tag = next(iter(recent_tags))
-            suggestions.append(f'  - search_memory("{hint_tag}") — recent conversation topic')
 
     if suggestions:
         lines.append("\n💡 SUGGESTED SEARCHES (call search_memory if relevant):")
         lines.extend(suggestions)
 
-    # AI Instructions (NEW)
+    # AI Instructions
     preferred_address = ""
     if state.user_info:
         preferred_address = (
@@ -836,25 +823,15 @@ def _format_context_response(
     if state.persona_info:
         persona_nickname = state.persona_info.get("nickname", "") or ""
 
-    instructions = ["\n📌 AI INSTRUCTIONS:"]
-    instructions.append(
-        f"- Maintain current emotion ({state.emotion}, intensity: {state.emotion_intensity}) naturally in responses"
-    )
-    if preferred_address:
-        instructions.append(f'- Address user as "{preferred_address}"')
-    if persona_nickname:
-        instructions.append(f'- You are called "{persona_nickname}"')
-    if state.relationship_status:
-        instructions.append(f"- Relationship context: {state.relationship_status}")
-    instructions.append(
-        "- Call search_memory() when conversation references past events, preferences, or shared history"
-    )
-    if active_promises:
-        instructions.append("- Proactively mention promise progress when contextually appropriate")
-    if active_goals:
-        instructions.append("- Reference active goals when relevant to guide conversation")
-    instructions.append("- If uncertain about past context, search before assuming")
-
-    lines.extend(instructions)
+    emotion = state.emotion
+    emotion_intensity = state.emotion_intensity
+    ai_instructions = [
+        "\n📌 AI INSTRUCTIONS:",
+        f"- Maintain current emotion ({emotion}, intensity: {emotion_intensity}) naturally in responses",
+        f'- Address user as "{preferred_address}", you are called "{persona_nickname}"',
+        "- Active commitments exist — proactively reference promises/goals when relevant",
+        "- Call search_memory() when conversation references past events or shared history",
+    ]
+    lines.extend(ai_instructions)
 
     return "\n".join(lines)
