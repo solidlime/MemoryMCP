@@ -24,3 +24,5 @@
 - **Memory モーダル非表示バグ**: `memories.py` の `openMemModal` override が `overlay.classList.add('show')` を呼んでいなかった → CSS transition で opacity:0 のまま（display:flex でも見えない）。base.py のオリジナルには `classList.add('show')` がある
 - **conftest.py URL バグ**: `dashboard_url` fixture が `/dashboard/{persona}` を返していた → 404。正しくはルート `/`。ダッシュボードは SPA でペルソナは `#persona-select` ドロップダウンで選択する
 - **`#chart-emotions` 未表示は正常**: emotion データなし時は canvas を "No emotion data" div に置換 → テストでの false positive に注意
+- **Persona emoji `\\U0001fXXXX` は JS 非対応**: Python の 8桁 Unicode エスケープ(`\\U`) は JavaScript で解釈されない。`\\uXXXX`(4桁) か実際のUnicode文字を使うこと
+- **vis-network tooltip は DOM 要素を渡す**: `title` に HTML文字列を渡すと plain text で描画される。`document.createElement('div')` に innerHTML をセットして返す必要がある

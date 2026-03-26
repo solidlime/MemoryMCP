@@ -181,9 +181,9 @@ def register_http_routes(mcp) -> None:  # noqa: C901, PLR0915
             strength_values = [s.strength for s in strengths_raw]
             strengths_summary = {
                 "total": len(strength_values),
-                "avg": round(sum(strength_values) / len(strength_values), 3) if strength_values else 0,
-                "min": round(min(strength_values), 3) if strength_values else 0,
-                "max": round(max(strength_values), 3) if strength_values else 0,
+                "avg": round(sum(strength_values) / len(strength_values), 3) if strength_values else None,
+                "min": round(min(strength_values), 3) if strength_values else None,
+                "max": round(max(strength_values), 3) if strength_values else None,
             }
 
             # Goals & Promises
@@ -192,6 +192,18 @@ def register_http_routes(mcp) -> None:  # noqa: C901, PLR0915
 
             promises_result = ctx.memory_repo.get_promises()
             promises = promises_result.value if promises_result.is_ok else []
+
+            # Inject linked_ratio: ratio of memories that are linked to entities
+            try:
+                total_count = stats.get("total_count", 0)
+                if total_count > 0:
+                    linked_row = ctx.entity_repo._db.execute(
+                        "SELECT COUNT(DISTINCT memory_key) AS cnt FROM memory_entities WHERE memory_key != ''"
+                    ).fetchone()
+                    linked_count = linked_row["cnt"] if linked_row else 0
+                    stats["linked_ratio"] = min(linked_count / total_count, 1.0)
+            except Exception:
+                pass
 
             return JSONResponse(
                 {

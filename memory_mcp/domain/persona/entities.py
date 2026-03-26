@@ -21,6 +21,7 @@ class PersonaState:
     heart_rate: str | None = None
     touch_response: str | None = None
     action_tag: str | None = None
+    speech_style: str | None = None
     user_info: dict = field(default_factory=dict)
     persona_info: dict = field(default_factory=dict)
     last_conversation_time: datetime | None = None

@@ -33,8 +33,8 @@ def render_settings_js() -> str:
 
     Contains: CONSTANTS, loadSettings(), sourceIcon(), renderSettings(),
     filterSettings(), toggleCategory(), resetField(), resetCategory(),
-    applyDependsRules(), validateField(), saveProfile(), loadProfile(),
-    deleteProfile(), renderProfiles(), startStatusPoll().
+    applyDependsRules(), validateField(), saveSettingsProfile(), loadSettingsProfile(),
+    deleteSettingsProfile(), renderSettingsProfiles(), startStatusPoll().
     Returns a plain string — no <script> tags.
     """
     return """
@@ -259,7 +259,7 @@ function renderSettings(el, settings, status) {
 
     /* Save profile button */
     var saveProfileBtn = document.getElementById('save-profile-btn');
-    if (saveProfileBtn) saveProfileBtn.onclick = saveProfile;
+    if (saveProfileBtn) saveProfileBtn.onclick = saveSettingsProfile;
 
     /* Search clear button */
     var searchClearBtn = document.getElementById('settings-search-clear');
@@ -392,18 +392,18 @@ function renderSettings(el, settings, status) {
             var action = btn.dataset.profileAction;
             var name = btn.dataset.profileName;
             if (action === 'load-builtin') {
-                loadProfile(name, BUILTIN_PROFILES[name]);
+                loadSettingsProfile(name, BUILTIN_PROFILES[name]);
             } else if (action === 'load-user') {
                 var data = localStorage.getItem('memorymcp_profile_' + name);
-                if (data) loadProfile(name, JSON.parse(data));
+                if (data) loadSettingsProfile(name, JSON.parse(data));
             } else if (action === 'delete') {
-                deleteProfile(name);
+                deleteSettingsProfile(name);
             }
         });
     }
 
     applyDependsRules();
-    renderProfiles();
+    renderSettingsProfiles();
 }
 
 /* ═══════════════════════ SEARCH / FILTER ═══════════════════════ */
@@ -548,7 +548,7 @@ function validateField(cat, key, value, meta) {
 
 /* ═══════════════════════ PROFILES ═══════════════════════ */
 
-function saveProfile() {
+function saveSettingsProfile() {
     var name = prompt('Enter profile name:');
     if (!name || !name.trim()) return;
     var settings = S.settingsData;
@@ -563,10 +563,10 @@ function saveProfile() {
     }
     localStorage.setItem('memorymcp_profile_' + name.trim(), JSON.stringify(profile));
     toast('💾 Profile "' + esc(name.trim()) + '" saved', 'success');
-    renderProfiles();
+    renderSettingsProfiles();
 }
 
-async function loadProfile(name, profile) {
+async function loadSettingsProfile(name, profile) {
     if (!confirm('Load profile "' + esc(name) + '"? This will apply all settings from the profile.')) return;
     try {
         var count = 0;
@@ -583,14 +583,14 @@ async function loadProfile(name, profile) {
     }
 }
 
-function deleteProfile(name) {
+function deleteSettingsProfile(name) {
     if (!confirm('Delete profile "' + esc(name) + '"?')) return;
     localStorage.removeItem('memorymcp_profile_' + name);
     toast('Profile "' + esc(name) + '" deleted', 'info');
-    renderProfiles();
+    renderSettingsProfiles();
 }
 
-function renderProfiles() {
+function renderSettingsProfiles() {
     var container = document.getElementById('profiles-list');
     if (!container) return;
     var html = '';

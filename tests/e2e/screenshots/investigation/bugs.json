@@ -2,17 +2,5 @@
   {
     "tab": "analytics",
     "bug": "#chart-emotions が存在しない"
-  },
-  {
-    "tab": "graph",
-    "bug": "パネルのコンテンツが空（0文字）"
-  },
-  {
-    "tab": "import-export",
-    "bug": "パネルのコンテンツが空（0文字）"
-  },
-  {
-    "tab": "personas",
-    "bug": "パネルのコンテンツが空（0文字）"
   }
 ]

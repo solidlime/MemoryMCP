@@ -184,11 +184,15 @@ class MemoryService:
                 tag_dist[tag] = tag_dist.get(tag, 0) + 1
             emotion_dist[m.emotion] = emotion_dist.get(m.emotion, 0) + 1
 
+        total_count = count_result.value
+        tagged_count = sum(1 for m in memories if m.tags)
+
         return Success(
             {
-                "total_count": count_result.value,
+                "total_count": total_count,
                 "tag_distribution": tag_dist,
                 "emotion_distribution": emotion_dist,
+                "tagged_ratio": tagged_count / total_count if total_count > 0 else None,
             }
         )
 

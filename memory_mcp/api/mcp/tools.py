@@ -454,6 +454,7 @@ def register_tools(mcp: FastMCP) -> None:
         heart_rate: str | None = None,
         touch_response: str | None = None,
         action_tag: str | None = None,
+        speech_style: str | None = None,
         user_info: dict | None = None,
         persona_info: dict | None = None,
         nickname: str | None = None,
@@ -491,12 +492,14 @@ def register_tools(mcp: FastMCP) -> None:
 
         Other:
             action_tag - str. Action tag for current activity.
+            speech_style - str. Speech tone/style to carry over (e.g. "甘えた口調", "息切れしながら", "怒り気味").
 
         Changes are recorded with bi-temporal history.
 
         Examples:
             update_context(emotion="joy", emotion_intensity=0.8)
             update_context(user_info={"nickname": "太郎"}, physical_state="tired")
+            update_context(speech_style="甘えた口調、少し息切れ")
         """
         persona = _resolve_persona()
         ctx = AppContextRegistry.get(persona)
@@ -526,6 +529,8 @@ def register_tools(mcp: FastMCP) -> None:
             physical_updates["touch_response"] = touch_response
         if action_tag is not None:
             physical_updates["action_tag"] = action_tag
+        if speech_style is not None:
+            physical_updates["speech_style"] = speech_style
 
         if physical_updates:
             result = ctx.persona_service.update_physical_state(persona, **physical_updates)
@@ -727,6 +732,8 @@ def _format_context_response(
         lines.append(f"Environment: {state.environment}")
     if state.relationship_status:
         lines.append(f"Relationship: {state.relationship_status}")
+    if state.speech_style:
+        lines.append(f"Speech Style: {state.speech_style}")
 
     # User Info (existing)
     if state.user_info:

@@ -74,9 +74,10 @@ class SQLitePersonaRepository:
                     heart_rate=state_map.get("heart_rate"),
                     touch_response=state_map.get("touch_response"),
                     action_tag=state_map.get("action_tag"),
+                    speech_style=state_map.get("speech_style"),
                     user_info=user_info,
                     persona_info=persona_info,
-                    last_conversation_time=_parse_or_none(state_map.get("last_conversation_time")),
+                    last_conversation_time=_resolve_last_conversation_time(self._db, state_map),
                 )
             )
         except Exception as e:
@@ -289,6 +290,25 @@ class SQLitePersonaRepository:
             trigger_memory_key=row["trigger_memory_key"],
             context=row["context"],
         )
+
+
+def _resolve_last_conversation_time(db, state_map: dict):
+    """Derive last conversation time from the most recent memory operation.
+
+    Falls back to the stored context_state value if no memories exist.
+    """
+    try:
+        row = db.execute(
+            "SELECT MAX(COALESCE(updated_at, created_at)) AS last_activity FROM memories"
+        ).fetchone()
+        if row and row["last_activity"]:
+            memory_time = parse_iso(row["last_activity"])
+            stored_time = _parse_or_none(state_map.get("last_conversation_time"))
+            candidates = [t for t in (memory_time, stored_time) if t is not None]
+            return max(candidates) if candidates else None
+    except Exception:
+        pass
+    return _parse_or_none(state_map.get("last_conversation_time"))
 
 
 def _safe_float(value: str | None) -> float | None:

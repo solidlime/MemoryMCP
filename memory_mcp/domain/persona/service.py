@@ -72,6 +72,7 @@ class PersonaService:
             "heart_rate",
             "touch_response",
             "action_tag",
+            "speech_style",
         }
         for key, value in states.items():
             if key not in allowed_keys:
