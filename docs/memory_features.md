@@ -124,3 +124,15 @@ CREATE TABLE memory_blocks (
     UNIQUE(persona, name)
 );
 ```
+
+### HTTP API でのアクセス
+
+Block memory は MCP ツール経由に加え、HTTP API 経由でも操作できる。
+
+| メソッド | パス | 説明 |
+|---|---|---|
+| `GET` | `/api/blocks/{persona}` | ブロック一覧を取得 |
+| `POST` | `/api/blocks/{persona}` | ブロックを書き込み（`block_name` + `content` 必須） |
+| `DELETE` | `/api/blocks/{persona}/{block_name}` | ブロックを削除 |
+
+詳細は [HTTP API Reference — Core Memory Blocks](./http_api_reference.md#core-memory-blocks) を参照。

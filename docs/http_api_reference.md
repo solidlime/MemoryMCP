@@ -252,6 +252,63 @@ Export all persona data as a ZIP file download.
 
 ---
 
+## Core Memory Blocks
+
+Blocks are named segments always injected into `get_context()` output — high-priority working memory for the AI agent.
+Also accessible via MCP tool (`memory(operation="block_*", ...)`).
+
+### `GET /api/blocks/{persona}`
+List all Core Memory Blocks for a persona.
+
+**Response:**
+```json
+{
+  "persona": "herta",
+  "blocks": [
+    {
+      "name": "user_model",
+      "content": "Pythonエンジニア。簡潔な説明を好む。FastAPIプロジェクト進行中。",
+      "description": null,
+      "updated_at": "2025-07-15T12:00:00"
+    }
+  ]
+}
+```
+
+**Standard block names:**
+
+| Name | Purpose |
+|------|---------|
+| `persona_state` | Persona's current internal state and ongoing goals |
+| `user_model` | What the agent knows/infers about the user |
+| `active_context` | Current session focus, open questions, ongoing topics |
+
+Custom block names are also allowed.
+
+### `POST /api/blocks/{persona}`
+Write (create or overwrite) a Core Memory Block.
+
+**Request body:**
+```json
+{
+  "block_name": "user_model",
+  "content": "Pythonエンジニア。簡潔な説明を好む。FastAPIプロジェクト進行中。"
+}
+```
+
+Both `block_name` and `content` are required.
+
+**Response:** `{ "ok": true }`
+
+### `DELETE /api/blocks/{persona}/{block_name}`
+Delete a Core Memory Block by name.
+
+**Path params:** `block_name` — name of the block to delete (supports slashes via `:path`)
+
+**Response:** `{ "ok": true }`
+
+---
+
 ## Vector Store Admin
 
 ### `POST /api/admin/rebuild/{persona}`
