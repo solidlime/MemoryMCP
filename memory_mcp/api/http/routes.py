@@ -120,10 +120,18 @@ def register_http_routes(mcp) -> None:  # noqa: C901, PLR0915
 
     @mcp.custom_route("/", methods=["GET"])
     async def dashboard_page(request: Request) -> HTMLResponse:
-        """Serve the dashboard HTML page."""
+        """Serve the dashboard HTML page (no persona pre-selected)."""
         from memory_mcp.api.http.dashboard import render_dashboard
 
         return HTMLResponse(render_dashboard())
+
+    @mcp.custom_route("/dashboard/{persona}", methods=["GET"])
+    async def dashboard_page_persona(request: Request) -> HTMLResponse:
+        """Serve the dashboard HTML page with a specific persona pre-selected."""
+        from memory_mcp.api.http.dashboard import render_dashboard
+
+        persona = _resolve_persona_from_request(request)
+        return HTMLResponse(render_dashboard(persona))
 
     @mcp.custom_route("/api/dashboard/{persona}", methods=["GET"])
     async def dashboard_data(request: Request) -> JSONResponse:

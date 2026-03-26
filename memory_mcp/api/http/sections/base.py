@@ -793,7 +793,10 @@ async function init() {
             opt.value = p; opt.textContent = p;
             sel.appendChild(opt);
         });
-        S.persona = personas[0];
+        const _initP = (typeof window.__INITIAL_PERSONA__ !== 'undefined') ? window.__INITIAL_PERSONA__ : null;
+        const _target = (_initP && personas.includes(_initP)) ? _initP : personas[0];
+        S.persona = _target;
+        sel.value = _target;
         loadTab(S.tab);
     } catch (e) {
         toast('Failed to load personas: ' + e.message, 'error');
@@ -922,12 +925,19 @@ init();"""
 # ---------------------------------------------------------------------------
 
 
-def render_layout_shell(nav_html: str, tab_contents: str, tab_js: str) -> str:
+def render_layout_shell(nav_html: str, tab_contents: str, tab_js: str, initial_persona: str | None = None) -> str:
     """Compose the full HTML page.
 
     Uses string concatenation (NOT f-strings) because the embedded
     JavaScript relies on ``${}`` template literals.
     """
+    # Inject initial persona as a JS variable so the SPA can pre-select it
+    if initial_persona:
+        safe_persona = initial_persona.replace("\\", "\\\\").replace('"', '\\"').replace("<", "").replace(">", "").replace("&", "")
+        persona_init_script = '<script>window.__INITIAL_PERSONA__="' + safe_persona + '";</script>\n'
+    else:
+        persona_init_script = ""
+
     return (
         "<!DOCTYPE html>\n"
         '<html lang="ja" class="dark">\n' + render_head() + "\n<body>\n"
@@ -972,7 +982,8 @@ def render_layout_shell(nav_html: str, tab_contents: str, tab_js: str) -> str:
         "    <!-- Toast container -->\n"
         '    <div id="toast-container" class="toast-container"></div>\n'
         "\n"
-        "<script>\n" + render_utilities_js() + "\n"
+        + persona_init_script
+        + "<script>\n" + render_utilities_js() + "\n"
         "\n" + tab_js + "\n"
         "</script>\n"
         "</body>\n"

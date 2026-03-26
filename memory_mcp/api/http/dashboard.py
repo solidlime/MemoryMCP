@@ -60,4 +60,4 @@ def render_dashboard(persona: str | None = None) -> str:
         )
     )
 
-    return render_layout_shell(nav_html, tab_contents, tab_js)
+    return render_layout_shell(nav_html, tab_contents, tab_js, initial_persona=persona)

@@ -19,7 +19,8 @@ EXTERNAL_URL = os.environ.get("MEMORY_MCP_URL")
 TEST_PORT = int(os.environ.get("MEMORY_MCP_PORT", "26299"))
 BASE_URL = EXTERNAL_URL or f"http://localhost:{TEST_PORT}"
 
-TEST_PERSONA = "e2e_test_persona"
+# MEMORY_MCP_TEST_PERSONA で上書き可能（例: 本番サーバーの実ペルソナを使う場合）
+TEST_PERSONA = os.environ.get("MEMORY_MCP_TEST_PERSONA", "e2e_test_persona")
 DASHBOARD_URL = f"{BASE_URL}"
 
 # テスト用データディレクトリ
