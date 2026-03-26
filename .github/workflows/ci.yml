@@ -1,10 +1,63 @@
 name: CI
 
 on:
-  pull_request:
-    branches: [main, "redesign/v2"]
   push:
-    branches: ["redesign/v2"]
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install ruff
+      - run: ruff check memory_mcp/
+      - run: ruff format --check memory_mcp/
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - run: pip install -r requirements.txt pytest pytest-asyncio
+      - run: python -m pytest tests/unit/ -v --tb=short --timeout=60
+
+  integration-tests:
+    runs-on: ubuntu-latest
+    services:
+      qdrant:
+        image: qdrant/qdrant:latest
+        ports:
+          - 6333:6333
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - run: pip install -r requirements.txt pytest pytest-asyncio httpx
+      - name: Wait for Qdrant
+        run: for i in $(seq 1 30); do curl -sf http://localhost:6333/healthz && break || sleep 2; done
+      - run: python -m pytest tests/integration/ -v --tb=short --timeout=120
+        env:
+          MEMORY_MCP_QDRANT_URL: http://localhost:6333
+          MEMORY_MCP_DATA_ROOT: /tmp/test_data
+
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -20,11 +73,29 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install ruff
-      - run: ruff check memory_mcp/ tests/
-      - run: ruff format --check memory_mcp/ tests/
+      - run: ruff check memory_mcp/
+      - run: ruff format --check memory_mcp/
 
-  test:
-    name: Unit & Integration Tests
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install CPU-only torch (fast install)
+        run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Install test tools
+        run: pip install pytest pytest-asyncio pytest-cov
+      - name: Run unit tests
+        run: python -m pytest tests/unit/ -v --tb=short -m "not e2e and not slow" --timeout=60
+
+  integration-tests:
+    name: Integration Tests
     runs-on: ubuntu-latest
     services:
       qdrant:
@@ -45,17 +116,23 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - name: Install PyTorch CPU
-        run: pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+      - name: Install CPU-only torch
+        run: pip install torch --index-url https://download.pytorch.org/whl/cpu
       - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Install test tools
+        run: pip install pytest pytest-asyncio pytest-cov httpx
+      - name: Wait for Qdrant
         run: |
-          pip install -r requirements.txt
-          pip install pytest pytest-asyncio pytest-cov
-      - name: Run tests
-        run: pytest tests/ -v --cov=memory_mcp --cov-report=xml --cov-report=term-missing -m "not e2e and not slow"
+          for i in {1..30}; do
+            if curl -sf http://localhost:6333/healthz; then break; fi
+            sleep 2
+          done
+      - name: Run integration tests
+        run: python -m pytest tests/integration/ -v --tb=short --timeout=120 --cov=memory_mcp --cov-report=xml --cov-report=term-missing
         env:
           MEMORY_MCP_QDRANT_URL: http://localhost:6333
-          MEMORY_MCP_DATA_ROOT: ./data/test
+          MEMORY_MCP_DATA_ROOT: /tmp/test_data
       - name: Upload coverage
         if: always() && env.CODECOV_TOKEN != ''
         uses: codecov/codecov-action@v4

@@ -298,9 +298,7 @@ def _resolve_last_conversation_time(db, state_map: dict):
     Falls back to the stored context_state value if no memories exist.
     """
     try:
-        row = db.execute(
-            "SELECT MAX(COALESCE(updated_at, created_at)) AS last_activity FROM memories"
-        ).fetchone()
+        row = db.execute("SELECT MAX(COALESCE(updated_at, created_at)) AS last_activity FROM memories").fetchone()
         if row and row["last_activity"]:
             memory_time = parse_iso(row["last_activity"])
             stored_time = _parse_or_none(state_map.get("last_conversation_time"))

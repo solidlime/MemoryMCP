@@ -238,6 +238,7 @@ item(operation="search", category="clothing")
 | `semantic` | Qdrantベクトル検索 | 意味的に類似した記憶を検索。曖昧・抽象的なクエリに強い |
 | `keyword` | SQLite LIKE + RapidFuzz | 単語の完全・部分一致検索。固有名詞・IDの検索に強い |
 | `hybrid` | RRF統合 | Reciprocal Rank Fusionで両エンジンのランクを統合（**デフォルト**） |
+| `smart` | ハイブリッド + クエリ拡張 | 曖昧・短いクエリをコンテキストで自動拡張してから検索 |
 
 ### 自然言語時間フィルタリング
 

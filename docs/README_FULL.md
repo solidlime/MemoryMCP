@@ -20,12 +20,12 @@ MCP (Model Context Protocol) 準拠の永続メモリサーバー。RAG検索と
 - **優先度スコアリング**: 重要度 × 時間減衰 × アクセス頻度の複合スコア
 - **Webダッシュボード**: 統計・日次推移・知識グラフの可視化
 - **最適化Docker**: 2.65GB (CPU版PyTorch)
-- **統合API**: 3つの統合ツールで簡潔なインターフェース (75%削減)
+- **統合API**: 5つのMCPツールで全機能にアクセス
 - **GitHub Copilot Skills対応**: トークン消費80〜90%削減 🚀
 
 ## MCPツール API
 
-### 公開ツール (3つ)
+### 公開ツール (5つ)
 
 #### 1. `get_context()`
 現在のペルソナの状態・時刻・メモリ統計を取得。**セッション開始時に必ず呼び出すこと**。
@@ -40,52 +40,23 @@ MCP (Model Context Protocol) 準拠の永続メモリサーバー。RAG検索と
 | operation | 説明 |
 |-----------|------|
 | `create` | 新規メモリ作成（感情・重要度・タグ付き） |
-| `read` / `search` | メモリ取得・検索（同一動作） |
+| `read` | 記憶を読み取り（memory_key省略で最新10件） |
 | `update` | 既存メモリの内容/メタデータ更新 |
 | `delete` | メモリ削除 |
 | `stats` | メモリ統計取得 |
-| `check_routines` | 現在時刻の繰り返しパターン検出 |
-| `update_context` | ペルソナの現在状態を更新（メモリ作成なし） |
+| `check_contradictions` | 既存記憶との矛盾を検出 |
+| `history` | 記憶の編集履歴を取得 |
 | `block_write` | Named Memory Block の書き込み/更新 |
 | `block_read` | Named Memory Block の読み込み |
 | `block_list` | Named Memory Block 一覧 |
 | `block_delete` | Named Memory Block の削除 |
+| `entity_search` | エンティティ（人物・場所）を検索 |
+| `entity_graph` | エンティティの関係性グラフを取得 |
+| `entity_add_relation` | エンティティ間の関係を追加 |
 
-**`update_context` パラメータ:**
-```python
-# 感情更新（emotion_history テーブルに記録）
-memory(operation="update_context", emotion_type="joy", emotion_intensity=0.8)
+> **Note**: `update_context` は独立したMCPツールです（`memory` operationではありません）。
+> 詳細は下記「#### 3. `update_context(...)`」を参照。
 
-# 身体・精神状態
-memory(operation="update_context",
-       physical_state="tired", mental_state="calm",
-       environment="home", action_tag="reading")
-
-# 身体感覚
-memory(operation="update_context",
-       arousal=0.3, warmth=0.7, fatigue=0.5,
-       heart_rate="calm", touch_response="normal")
-
-# 関係性の変化
-memory(operation="update_context", relationship_status="恋人")
-
-# ユーザー情報更新（bi-temporalで変更履歴保持）
-memory(operation="update_context",
-       user_info={"name": "田中太郎", "nickname": "たろ", "preferred_address": "太郎さん"})
-
-# ペルソナ自身の情報更新
-memory(operation="update_context",
-       persona_info={"nickname": "ヘルタ", "preferred_address": "ヘルタ様"})
-
-# 約束・目標・お気に入り・嗜好
-memory(operation="update_context",
-       persona_info={
-           "active_promises": {"content": "週末に映画を見る", "due_date": "2025-03-28"},
-           "current_goals": "研究論文を書き上げる",
-           "favorite_items": ["白いドレス", "星の杖"],
-           "preferences": {"loves": ["猫", "宇宙"], "dislikes": ["退屈"]}
-       })
-```
 
 **検索モード:**
 - `semantic`: セマンティック検索（RAG）
@@ -116,30 +87,64 @@ memory(operation="update", query="memory_20250217_143022",
        persona_info={"status": "completed"})
 
 # セマンティック検索
-memory(operation="search", query="好きな食べ物", mode="semantic", top_k=5)
+search_memory(query="好きな食べ物", mode="semantic", top_k=5)
 
 # ハイブリッド検索（デフォルト）
-memory(operation="search", query="プロジェクト進捗", mode="hybrid")
+search_memory(query="プロジェクト進捗", mode="hybrid")
 
-# スマート検索
-memory(operation="search", query="いつものあれ", mode="smart")
+# スマート検索（クエリ自動拡張）
+search_memory(query="いつものあれ", mode="smart")
 
 # 時間フィルタリング
-memory(operation="search", query="成果", date_range="今週")
+search_memory(query="成果", date_range="今週")
 
 # タグ検索
-memory(operation="search", search_tags=["promise"], tag_match_mode="all")
+search_memory(query="", tags=["promise"])
 
 # Memory Block（常時コンテキストに載る構造化メモ）
-memory(operation="block_write", query="user_model",
+memory(operation="block_write", block_name="user_model",
        content="田中太郎、ITエンジニア、猫好き。")
-memory(operation="block_read", query="user_model")
-
-# ルーティンチェック
-memory(operation="check_routines")
+memory(operation="block_read", block_name="user_model")
 ```
 
-#### 3. `item(operation, ...)`
+#### 3. `search_memory(query, ...)`
+
+ハイブリッド検索エンジン。記憶の意味的・キーワード検索を行う。
+
+**検索モード:**
+
+| モード | 説明 |
+|--------|------|
+| `semantic` | Qdrantベクトル検索（意味的類似検索） |
+| `keyword` | SQLite LIKE + RapidFuzz（完全・部分一致） |
+| `hybrid` | RRF統合（デフォルト・推奨） |
+| `smart` | ハイブリッド + クエリ自動拡張 |
+
+```python
+search_memory(query="好きな食べ物", mode="semantic", top_k=5)
+search_memory(query="プロジェクト", mode="hybrid", date_range="先週")
+search_memory(query="", tags=["promise"], top_k=10)
+```
+
+#### 4. `update_context(...)`
+
+感情・身体・精神状態・ユーザー情報のリアルタイム更新。
+
+```python
+# 感情更新
+update_context(emotion="joy", emotion_intensity=0.8)
+
+# 身体・精神状態
+update_context(physical_state="tired", mental_state="focused", environment="home")
+
+# ユーザー情報更新（bi-temporal: 変更履歴保持）
+update_context(user_info={"name": "田中太郎", "preferred_address": "太郎さん"})
+
+# 身体感覚
+update_context(fatigue=0.7, warmth=0.5, arousal=0.3)
+```
+
+#### 5. `item(operation, ...)`
 統合アイテム/装備操作インターフェース。**物理アイテムのみ対象**（感情・身体状態・抽象概念は `memory` ツールを使用）。
 
 **Operations:**
@@ -150,8 +155,6 @@ memory(operation="check_routines")
 - `update`: アイテムメタデータ更新（状態変化はnewアイテムではなくupdateで）
 - `search`: インベントリ検索
 - `history`: 装備変更履歴取得
-- `memories`: アイテムを含むメモリ検索
-
 **装備スロット:** `top`, `bottom`, `shoes`, `outer`, `accessories`, `head`
 
 **例:**
@@ -176,7 +179,7 @@ item(operation="history", history_slot="top", days=30)
 
 ### 内部実装
 
-個別のツール実装は `tools/` ディレクトリに保存されていますが、MCPインターフェースとしては上記3つの統合ツールのみが公開されています。
+個別のツール実装は `tools/` ディレクトリに保存されていますが、MCPインターフェースとしては上記5つのツールが公開されています。
 
 ## GitHub Copilot Skills 🚀
 

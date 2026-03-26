@@ -130,7 +130,7 @@ Claude Desktop から接続する前に、外部サーバーが起動済みで�
 docker compose up -d
 
 # または直接起動
-python memory_mcp.py
+python -m memory_mcp.main
 
 # ヘルスチェック
 curl http://<server-ip>:26262/health

@@ -57,6 +57,10 @@ def render_analytics_js() -> str:
         const weak = values.filter(v => v < 0.3).length;
         const strong = values.filter(v => v > 0.7).length;
 
+        // --- Render Charts ---
+        destroyChart('chart-emotions');
+        destroyChart('chart-strength');
+
         el.innerHTML = `
         <div class="glass p-6 mb-6">
             <div class="card-title" style="justify-content:space-between;flex-wrap:wrap">
@@ -86,10 +90,6 @@ def render_analytics_js() -> str:
             btn.addEventListener('click', () => loadAnalytics(parseInt(btn.dataset.days)));
         });
 
-        // --- Render Charts ---
-        destroyChart('chart-emotions');
-        destroyChart('chart-strength');
-
         const emoCtx = document.getElementById('chart-emotions');
         if (emoCtx && datasets.length) {
             S.charts['chart-emotions'] = new Chart(emoCtx, {
@@ -102,7 +102,9 @@ def render_analytics_js() -> str:
         }
 
         const strCtx = document.getElementById('chart-strength');
-        if (strCtx && histogram.length) {
+        if (strCtx && (total === 0 || (histogram.length && histogram.every(h => h.count === 0)))) {
+            strCtx.parentElement.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted)">No memory strength data yet \u2014 memories need to be recalled or decayed first</div>';
+        } else if (strCtx && histogram.length) {
             S.charts['chart-strength'] = new Chart(strCtx, {
                 type: 'bar',
                 data: {

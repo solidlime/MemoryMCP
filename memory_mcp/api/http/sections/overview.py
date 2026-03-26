@@ -22,6 +22,58 @@ def render_overview_tab() -> str:
 def render_overview_js() -> str:
     """Return the loadOverview() JavaScript function and helpers as a plain string."""
     return """
+
+// --- Block CRUD helpers (global scope) ---
+function showCreateBlock() {
+    document.getElementById('block-modal-title').textContent = '\u270f\ufe0f New Block';
+    document.getElementById('block-modal-mode').value = 'create';
+    document.getElementById('block-modal-name').value = '';
+    document.getElementById('block-modal-name').disabled = false;
+    document.getElementById('block-modal-content').value = '';
+    document.getElementById('block-modal-priority').value = '0';
+    document.getElementById('block-edit-modal').style.display = 'flex';
+}
+
+function showEditBlock(name, content, priority) {
+    document.getElementById('block-modal-title').textContent = '\u270f\ufe0f Edit Block: ' + name;
+    document.getElementById('block-modal-mode').value = 'edit';
+    document.getElementById('block-modal-name').value = name;
+    document.getElementById('block-modal-name').disabled = true;
+    document.getElementById('block-modal-content').value = content || '';
+    document.getElementById('block-modal-priority').value = priority || 0;
+    document.getElementById('block-edit-modal').style.display = 'flex';
+}
+
+function hideBlockModal() {
+    document.getElementById('block-edit-modal').style.display = 'none';
+}
+
+async function saveBlock() {
+    var name = document.getElementById('block-modal-name').value.trim();
+    var content = document.getElementById('block-modal-content').value.trim();
+    var priority = parseInt(document.getElementById('block-modal-priority').value) || 0;
+    if (!name || !content) { toast('Block name and content required', 'error'); return; }
+    try {
+        await api('/api/blocks/' + encodeURIComponent(S.persona), {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({block_name: name, content: content, priority: priority})
+        });
+        hideBlockModal();
+        toast('Block saved!', 'success');
+        loadOverview();
+    } catch (e) { toast('Failed to save block: ' + e.message, 'error'); }
+}
+
+async function deleteBlock(name) {
+    if (!confirm('Delete block "' + name + '"?')) return;
+    try {
+        await api('/api/blocks/' + encodeURIComponent(S.persona) + '/' + encodeURIComponent(name), {method: 'DELETE'});
+        toast('Block deleted', 'success');
+        loadOverview();
+    } catch (e) { toast('Failed: ' + e.message, 'error'); }
+}
+
 // --- Inventory CRUD helpers (global scope) ---
 async function deleteItem(itemName) {
     if (!confirm('Delete item: ' + itemName + '?')) return;
@@ -147,6 +199,10 @@ async function loadOverview() {
                 blocksHtml += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">';
                 blocksHtml += '<span style="font-weight:600;color:var(--accent-purple);font-size:0.85rem">' + esc(name) + '</span>';
                 if (priority != null) blocksHtml += '<span class="badge badge-yellow">P' + esc(String(priority)) + '</span>';
+                blocksHtml += '<div style="display:flex;gap:6px;margin-left:auto">';
+                blocksHtml += '<button class="glass-btn" data-bname="' + esc(name) + '" data-bcontent="' + esc(content) + '" data-bpriority="' + (priority || 0) + '" onclick="var el=this;showEditBlock(el.dataset.bname,el.dataset.bcontent,parseInt(el.dataset.bpriority||0))" style="padding:3px 10px;font-size:0.75rem">\u270f\ufe0f Edit</button>';
+                blocksHtml += '<button class="glass-btn" data-bname="' + esc(name) + '" onclick="deleteBlock(this.dataset.bname)" style="padding:3px 10px;font-size:0.75rem;color:var(--accent-red)">&#128465; Delete</button>';
+                blocksHtml += '</div>';
                 blocksHtml += '</div>';
                 if (content) blocksHtml += '<div style="font-size:0.82rem;color:var(--text-muted)">' + esc(truncate(String(content), 80)) + '</div>';
                 blocksHtml += '</div>';
@@ -252,7 +308,10 @@ async function loadOverview() {
         </div>
         <!-- Core Memory Blocks -->
         <div class="glass p-6 mb-6">
-            <div class="card-title">🧠 Core Memory Blocks</div>
+            <div class="card-title" style="justify-content:space-between">
+                <span>&#129504; Core Memory Blocks</span>
+                <button onclick="showCreateBlock()" class="glass-btn" style="padding:4px 12px;font-size:0.78rem">&#65291; New Block</button>
+            </div>
             ${blocksHtml}
         </div>
         <!-- Profile & Relationship -->
@@ -321,6 +380,30 @@ async function loadOverview() {
                 <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">
                     <button onclick="closeAddItemModal()" style="padding:7px 18px;border-radius:7px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);color:var(--text-muted);cursor:pointer;font-size:0.88rem">Cancel</button>
                     <button onclick="saveNewItem()" style="padding:7px 18px;border-radius:7px;border:1px solid rgba(167,139,250,0.5);background:rgba(167,139,250,0.2);color:var(--accent-purple);cursor:pointer;font-size:0.88rem;font-weight:600">Save</button>
+                </div>
+            </div>
+        </div>
+        <!-- Block Edit Modal -->
+        <div id="block-edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(8px);z-index:1000;align-items:center;justify-content:center">
+            <div class="glass p-6" style="max-width:500px;width:90%;border-radius:16px;max-height:80vh;overflow-y:auto">
+                <h3 style="font-size:1.2rem;font-weight:600;color:var(--text-primary);margin-bottom:16px">
+                    <span id="block-modal-title">&#9999;&#65039; New Block</span></h3>
+                <input type="hidden" id="block-modal-mode" value="create">
+                <div style="margin-bottom:12px">
+                    <label style="display:block;font-size:0.85rem;color:var(--text-muted);margin-bottom:4px">Block Name</label>
+                    <input type="text" id="block-modal-name" class="glass-input" style="width:100%;padding:8px 12px;box-sizing:border-box" placeholder="e.g. system_notes">
+                </div>
+                <div style="margin-bottom:12px">
+                    <label style="display:block;font-size:0.85rem;color:var(--text-muted);margin-bottom:4px">Content</label>
+                    <textarea id="block-modal-content" class="glass-input" rows="6" style="width:100%;padding:8px 12px;box-sizing:border-box;resize:vertical"></textarea>
+                </div>
+                <div style="margin-bottom:16px">
+                    <label style="display:block;font-size:0.85rem;color:var(--text-muted);margin-bottom:4px">Priority (0-100)</label>
+                    <input type="number" id="block-modal-priority" class="glass-input" style="width:100%;padding:8px 12px;box-sizing:border-box" value="0" min="0" max="100">
+                </div>
+                <div style="display:flex;gap:12px;justify-content:flex-end">
+                    <button onclick="hideBlockModal()" class="glass-btn" style="padding:8px 20px">Cancel</button>
+                    <button onclick="saveBlock()" class="glass-btn" style="padding:8px 20px;background:var(--accent);color:white">Save</button>
                 </div>
             </div>
         </div>`;

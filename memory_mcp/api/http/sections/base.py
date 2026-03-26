@@ -442,7 +442,7 @@ def render_head() -> str:
         .skeleton-circle { width: 48px; height: 48px; border-radius: 50%; }
 
         /* ── Phase 5: Transitions & Animations ── */
-        .tab-panel.active { animation: fadeInUp 0.4s ease forwards; }
+        .tab-panel.active { animation: fadeInUp 0.4s ease; }
         @keyframes fadeInUp {
             from { opacity: 0; transform: translateY(16px); }
             to { opacity: 1; transform: translateY(0); }

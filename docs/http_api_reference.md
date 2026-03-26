@@ -49,9 +49,8 @@ Health check with Qdrant connectivity status.
 ```json
 {
   "status": "ok",
-  "persona": "herta",
-  "qdrant": true,
-  "memory_count": 142
+  "version": "2.0.0",
+  "qdrant": "connected"
 }
 ```
 
@@ -150,13 +149,14 @@ Get the most recent memories for a persona.
 **Response:** `{ "memories": [ { memory object... } ] }`
 
 ### `GET /api/search/{persona}`
-Keyword search over memories (dashboard/UI use).
+Search memories for a persona.
 
 **Query params:**
 | Param | Type | Default | Description |
 |-------|------|---------|-------------|
-| `q` | str | `""` | Search text |
+| `q` | str | `""` | Search text (required) |
 | `limit` | int | 20 | Max results |
+| `mode` | str | `hybrid` | Search mode: `semantic`, `keyword`, `hybrid`, `smart` |
 
 ---
 

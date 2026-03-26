@@ -535,35 +535,53 @@ class _KeywordAdapter:
         return self._repo.search_keyword(query, limit)
 
 
-@pytest.mark.usefixtures("_check_zip_data")
-class TestSearch:
-    """Phase F: Keyword search against imported data."""
+@pytest.fixture()
+def seeded_conn(fresh_conn):
+    """Connection pre-loaded with Japanese memories for search testing (no zip files needed)."""
+    repo = SQLiteMemoryRepository(fresh_conn)
+    now = get_now()
+    seeds = [
+        Memory(key="seed_001", content="ヘルタは宇宙の法則を研究している天才科学者", created_at=now, updated_at=now, tags=["science"]),
+        Memory(key="seed_002", content="好きな食べ物はラーメンです。毎日食べたい", created_at=now, updated_at=now, tags=["food"]),
+        Memory(key="seed_003", content="記憶とは何か、哲学的に考える問いだ", created_at=now, updated_at=now, tags=["philosophy"]),
+        Memory(key="seed_004", content="今日も元気に宇宙ステーションで研究を続けている", created_at=now, updated_at=now, tags=["daily"]),
+        Memory(key="seed_005", content="memory management is important for intelligent systems", created_at=now, updated_at=now, tags=["tech"]),
+        Memory(key="seed_006", content="好奇心は宇宙の謎を解く鍵である", created_at=now, updated_at=now, tags=["science", "philosophy"]),
+    ]
+    for m in seeds:
+        repo.save(m)
+    return fresh_conn
 
-    def test_keyword_search(self, herta_conn):
-        repo = SQLiteMemoryRepository(herta_conn)
+
+class TestSearch:
+    """Phase F: Keyword search (uses seeded data — no zip files required)."""
+
+    def test_keyword_search(self, seeded_conn):
+        """Keyword search finds Japanese terms in seeded data."""
+        repo = SQLiteMemoryRepository(seeded_conn)
         result = repo.search_keyword("ヘルタ", limit=10)
         assert result.is_ok
-        # herta data should mention ヘルタ at least once
-        assert len(result.value) >= 0
+        assert len(result.value) >= 1
 
-    def test_keyword_search_returns_results(self, nilou_conn):
-        """nilou's 1210 memories should yield some matches for common words."""
-        repo = SQLiteMemoryRepository(nilou_conn)
+    def test_keyword_search_returns_results(self, seeded_conn):
+        """Keyword search returns results for English terms."""
+        repo = SQLiteMemoryRepository(seeded_conn)
         result = repo.search_keyword("memory", limit=5)
         assert result.is_ok
+        assert len(result.value) >= 1
 
-    def test_search_engine_keyword_mode(self, herta_conn):
-        """SearchEngine with keyword-only strategy."""
-        repo = SQLiteMemoryRepository(herta_conn)
+    def test_search_engine_keyword_mode(self, seeded_conn):
+        """SearchEngine with keyword-only strategy returns results."""
+        repo = SQLiteMemoryRepository(seeded_conn)
         adapter = _KeywordAdapter(repo)
         engine = SearchEngine(keyword_search=adapter)
         query = SearchQuery(text="好き", mode="keyword", top_k=5)
         result = engine.search(query)
         assert result.is_ok
 
-    def test_search_engine_hybrid_fallback(self, herta_conn):
+    def test_search_engine_hybrid_fallback(self, seeded_conn):
         """Hybrid mode without semantic still returns keyword results."""
-        repo = SQLiteMemoryRepository(herta_conn)
+        repo = SQLiteMemoryRepository(seeded_conn)
         adapter = _KeywordAdapter(repo)
         engine = SearchEngine(keyword_search=adapter, semantic_search=None)
         query = SearchQuery(text="記憶", mode="hybrid", top_k=5)

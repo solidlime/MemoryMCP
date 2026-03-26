@@ -186,6 +186,22 @@ function _graphFontColor() {
     return document.documentElement.classList.contains('light') ? '#1e1b4b' : '#f1f5f9';
 }
 
+function _graphEdgeColor(isRelated) {
+    var isLight = document.documentElement.classList.contains('light');
+    if (isRelated) {
+        return {
+            color:     isLight ? 'rgba(109,40,217,0.75)' : 'rgba(167,139,250,0.85)',
+            highlight: isLight ? '#7c3aed' : '#c4b5fd',
+            hover:     isLight ? '#7c3aed' : '#c4b5fd'
+        };
+    }
+    return {
+        color:     isLight ? 'rgba(100,116,139,0.55)' : 'rgba(148,163,184,0.65)',
+        highlight: isLight ? '#475569' : '#94a3b8',
+        hover:     isLight ? '#475569' : '#94a3b8'
+    };
+}
+
 /* ---- Main loader ---- */
 
 async function loadGraph() {
@@ -283,12 +299,8 @@ function buildVisData(nodes, edges) {
             from: e.source,
             to: e.target,
             dashes: !isRelated,
-            width: isRelated ? 2.5 : 1,
-            color: {
-                color:     isRelated ? 'rgba(167,139,250,0.5)' : 'rgba(148,163,184,0.25)',
-                highlight: isRelated ? '#a78bfa' : '#94a3b8',
-                hover:     isRelated ? '#a78bfa' : '#94a3b8'
-            },
+            width: isRelated ? 2.5 : 1.5,
+            color: _graphEdgeColor(isRelated),
             smooth: { type: 'continuous' },
             _type: e.type,
             _tag:  e.tag || '',

@@ -1,23 +1,59 @@
-name: E2E Dogfooding
+name: E2E Tests
 
 on:
-  schedule:
-    - cron: "0 3 * * 1"  # 毎週月曜 03:00 UTC
-  workflow_dispatch:
+  push:
+    branches: [main]
   pull_request:
     branches: [main]
-    paths:
-      - "memory_mcp/**"
-      - "tests/e2e/**"
-      - "data/*.zip"
+  workflow_dispatch:
 
 concurrency:
   group: e2e-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  dogfooding:
-    name: E2E Dogfooding Test
+  e2e:
+    name: E2E Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      qdrant:
+        image: qdrant/qdrant:latest
+        ports:
+          - 6333:6333
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - run: pip install -r requirements.txt pytest pytest-asyncio
+      - run: pip install playwright && playwright install --with-deps chromium
+      - name: Wait for Qdrant
+        run: for i in $(seq 1 30); do curl -sf http://localhost:6333/healthz && break || sleep 2; done
+      - name: Start server
+        run: python -m memory_mcp.main &
+        env:
+          MEMORY_MCP_QDRANT_URL: http://localhost:6333
+          MEMORY_MCP_DATA_ROOT: /tmp/e2e_data
+      - name: Wait for server
+        run: for i in $(seq 1 30); do curl -sf http://localhost:26262/health && break || sleep 2; done
+      - run: python -m pytest tests/e2e/ -v --tb=short --timeout=120
+        env:
+          MEMORY_MCP_BASE_URL: http://localhost:26262
+          MEMORY_MCP_DATA_ROOT: /tmp/e2e_data
+          MEMORY_MCP_QDRANT_URL: http://localhost:6333
+
     runs-on: ubuntu-latest
     timeout-minutes: 30
     services:
@@ -39,35 +75,61 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - name: Install PyTorch CPU
-        run: pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+      - name: Install CPU-only torch
+        run: pip install torch --index-url https://download.pytorch.org/whl/cpu
 
       - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-          pip install pytest pytest-asyncio pytest-cov
+        run: pip install -r requirements.txt
 
-      - name: Unzip legacy data
+      - name: Install test tools
+        run: pip install pytest pytest-asyncio playwright pytest-playwright
+
+      - name: Install Playwright browsers
+        run: playwright install --with-deps chromium
+
+      - name: Wait for Qdrant
         run: |
-          mkdir -p data/_tmp
-          cd data/_tmp
-          for zip in ../herta.zip ../nilou.zip ../citlali.zip; do
-            name=$(basename "$zip" .zip)
-            mkdir -p "$name"
-            unzip -o "$zip" -d "$name"
+          for i in {1..30}; do
+            if curl -sf http://localhost:6333/healthz; then break; fi
+            sleep 2
           done
 
-      - name: Run E2E tests
-        run: pytest tests/e2e/ -v --tb=long -m e2e
+      - name: Start MemoryMCP server
+        run: python -m memory_mcp.main &
+        env:
+          MEMORY_MCP_QDRANT__URL: http://localhost:6333
+          MEMORY_MCP_DATA_ROOT: /tmp/e2e_data
+          MEMORY_MCP_SERVER__PORT: "26262"
+          MEMORY_MCP_LOG_LEVEL: WARNING
+          MEMORY_MCP_FORGETTING__ENABLED: "false"
+
+      - name: Wait for MemoryMCP server
+        run: |
+          for i in {1..30}; do
+            if curl -sf http://localhost:26262/health; then break; fi
+            sleep 2
+          done
+
+      - name: Run dogfooding tests (no Playwright, no zip)
+        run: python -m pytest tests/e2e/test_dogfooding.py -v --tb=short -m "e2e" --timeout=120
         env:
           MEMORY_MCP_QDRANT_URL: http://localhost:6333
-          MEMORY_MCP_DATA_ROOT: ./data/_tmp
+          MEMORY_MCP_DATA_ROOT: /tmp/e2e_data
 
-      - name: Upload test results
+      - name: Run Playwright UI tests
+        run: python -m pytest tests/e2e/ --ignore=tests/e2e/test_dogfooding.py -v --tb=short -m "e2e" --timeout=120
+        env:
+          MEMORY_MCP_URL: http://localhost:26262
+          MEMORY_MCP_PORT: "26262"
+          MEMORY_MCP_QDRANT_URL: http://localhost:6333
+          MEMORY_MCP_DATA_ROOT: /tmp/e2e_data
+
+      - name: Upload test artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: e2e-results
           path: |
-            data/_tmp/
+            test-results/
             pytest-results.xml
+          if-no-files-found: ignore

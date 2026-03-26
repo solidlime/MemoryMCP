@@ -5,210 +5,204 @@
 ```mermaid
 flowchart TD
     Start([memory operation 呼び出し]) --> Parse[operation パラメータを解析]
-    
-    Parse --> BasicOps{基本操作?}
+
+    Parse --> BasicOps{基本CRUD操作?}
     BasicOps -->|create| Create[create_memory 実行]
     BasicOps -->|read| Read[read_memory 実行]
     BasicOps -->|update| Update[update_memory 実行]
     BasicOps -->|delete| Delete[delete_memory 実行]
-    BasicOps -->|search| Search{曖昧なクエリ?}
     BasicOps -->|stats| Stats[get_memory_stats 実行]
-    
-    Search -->|Yes| Expand[コンテキストで補完]
-    Search -->|No| Direct[直接検索実行]
-    Expand --> SearchExec[search_memory 実行]
-    Direct --> SearchExec
-    
-    BasicOps -->|No| ContextOps{コンテキスト操作?}
-    
-    ContextOps -->|promise| Promise[約束の更新/完了]
-    ContextOps -->|goal| Goal[目標の更新/達成]
-    ContextOps -->|favorite| Favorite[お気に入り追加]
-    ContextOps -->|preference| Preference[好き/嫌い更新]
-    ContextOps -->|moment| Moment[特別な瞬間記録]
-    ContextOps -->|anniversary| Anniversary[記念日管理]
-    ContextOps -->|sensation| Sensation[身体感覚更新]
-    ContextOps -->|emotion_flow| EmotionFlow[感情変化記録]
-    
-    ContextOps -->|No| AdvancedOps{高度な操作?}
-    
-    AdvancedOps -->|check_routines| CheckRoutines[ルーティン確認]
-    AdvancedOps -->|update_context| UpdateContext[コンテキスト一括更新]
-    AdvancedOps -->|situation_context| SituationContext[状況分析]
-    
+
+    BasicOps -->|No| AdvancedOps{高度な記憶操作?}
+    AdvancedOps -->|check_contradictions| Contradict[矛盾検出 実行]
+    AdvancedOps -->|history| History[編集履歴取得 実行]
+
+    AdvancedOps -->|No| BlockOps{Block操作?}
+    BlockOps -->|block_write| BlockWrite[ブロック書き込み]
+    BlockOps -->|block_read| BlockRead[ブロック読み取り]
+    BlockOps -->|block_list| BlockList[ブロック一覧]
+    BlockOps -->|block_delete| BlockDelete[ブロック削除]
+
+    BlockOps -->|No| EntityOps{エンティティ操作?}
+    EntityOps -->|entity_search| EntitySearch[エンティティ検索]
+    EntityOps -->|entity_graph| EntityGraph[関係性グラフ取得]
+    EntityOps -->|entity_add_relation| EntityRelation[関係を追加]
+
+    EntityOps -->|No| Error[エラー: 不明な操作]
+
     Create --> End([結果を返す])
     Read --> End
     Update --> End
     Delete --> End
-    SearchExec --> End
     Stats --> End
-    Promise --> End
-    Goal --> End
-    Favorite --> End
-    Preference --> End
-    Moment --> End
-    Anniversary --> End
-    Sensation --> End
-    EmotionFlow --> End
-    CheckRoutines --> End
-    UpdateContext --> End
-    SituationContext --> End
-    
-    AdvancedOps -->|No| Error[エラー: 不明な操作]
+    Contradict --> End
+    History --> End
+    BlockWrite --> End
+    BlockRead --> End
+    BlockList --> End
+    BlockDelete --> End
+    EntitySearch --> End
+    EntityGraph --> End
+    EntityRelation --> End
     Error --> End
-    
+
     style Start fill:#e1f5ff
     style End fill:#e1f5ff
     style BasicOps fill:#fff4e1
-    style ContextOps fill:#f0e1ff
-    style AdvancedOps fill:#e1ffe1
-    style Search fill:#ffe1e1
+    style AdvancedOps fill:#f0e1ff
+    style BlockOps fill:#e1ffe1
+    style EntityOps fill:#ffe1f0
     style Error fill:#ffcccc
 ```
 
 ## 操作カテゴリ別詳細
 
-### 1. 基本操作（Basic Operations）
+### 1. 基本CRUD操作
+
 ```mermaid
 flowchart LR
-    A[基本操作] --> B[create: 新規記憶作成]
+    A[基本CRUD] --> B[create: 新規記憶作成]
     A --> C[read: 記憶読み取り]
-    A --> D[update: 記憶更新]
+    A --> D[update: 記憶更新（履歴保持）]
     A --> E[delete: 記憶削除]
-    A --> F[search: 記憶検索]
-    A --> G[stats: 統計情報]
-    
+    A --> F[stats: 統計情報取得]
+
     style A fill:#fff4e1
 ```
 
-### 2. コンテキスト操作（Context Operations）
-```mermaid
-flowchart TD
-    A[コンテキスト操作] --> B[Promise & Goal]
-    A --> C[Preferences]
-    A --> D[Moments & Anniversaries]
-    A --> E[Sensations & Emotions]
-    
-    B --> B1[promise: 約束管理]
-    B --> B2[goal: 目標管理]
-    
-    C --> C1[favorite: お気に入り]
-    C --> C2[preference: 好き/嫌い]
-    
-    D --> D1[moment: 特別な瞬間]
-    D --> D2[anniversary: 記念日]
-    
-    E --> E1[sensation: 身体感覚]
-    E --> E2[emotion_flow: 感情履歴]
-    
-    style A fill:#f0e1ff
-    style B fill:#e3f2fd
-    style C fill:#f3e5f5
-    style D fill:#fff3e0
-    style E fill:#fce4ec
-```
+**パラメータの主要な組み合わせ:**
 
-### 3. 高度な操作（Advanced Operations）
+| operation | 必須 | 任意 |
+|-----------|------|------|
+| `create` | `content` | `importance`, `emotion_type`, `emotion_intensity`, `tags`, `context_tags`, `privacy_level`, `defer_vector` |
+| `read` | — | `memory_key`（省略で最新10件） |
+| `update` | `memory_key` | `content`, `importance`, `emotion_type`, `tags` |
+| `delete` | `memory_key` または `query` | — |
+| `stats` | — | — |
+
+### 2. 高度な記憶操作
+
 ```mermaid
 flowchart LR
-    A[高度な操作] --> B[check_routines: ルーティン確認]
-    A --> C[update_context: 一括更新]
-    A --> D[situation_context: 状況分析]
-    
-    B --> B1[時間/曜日パターン分析]
-    C --> C1[複数フィールド同時更新]
-    D --> D1[現在の状態総合判断]
-    
+    A[高度な操作] --> B[check_contradictions: 矛盾検出]
+    A --> C[history: 編集履歴取得]
+
+    B --> B1[ベクトル類似度で既存記憶と比較]
+    C --> C1[memory_keyの変更履歴を全件返却]
+
+    style A fill:#f0e1ff
+```
+
+**使用例:**
+```python
+# 既存記憶との矛盾チェック
+memory(operation="check_contradictions",
+       content="ユーザーはいちごが嫌い")
+# → 類似した記憶との矛盾を検出・返却
+
+# 編集履歴取得
+memory(operation="history",
+       memory_key="memory_20250101_120000")
+```
+
+### 3. Named Memory Blocks
+
+```mermaid
+flowchart TD
+    A[Block操作] --> B[block_write: ブロック書き込み/更新]
+    A --> C[block_read: ブロック読み取り]
+    A --> D[block_list: 全ブロック一覧]
+    A --> E[block_delete: ブロック削除]
+
+    B --> B1[get_context()の先頭にpriority降順で注入]
+    C --> C1[block_name指定でコンテンツ返却]
+    D --> D1[全ブロック名・メタデータ一覧]
+    E --> E1[block_name指定で削除]
+
     style A fill:#e1ffe1
 ```
 
-## 検索フローの詳細
+**使用例:**
+```python
+# ブロック書き込み（最大トークン数・優先度指定可）
+memory(operation="block_write",
+       block_name="user_model",
+       content="田中太郎、Pythonエンジニア、猫好き。",
+       priority=10)
 
-```mermaid
-flowchart TD
-    Start[search操作] --> Check{クエリは曖昧?}
-    
-    Check -->|Yes| Ambiguous[曖昧フレーズ検出]
-    Check -->|No| Direct[直接検索]
-    
-    Ambiguous --> Expand[コンテキスト情報で補完]
-    Expand --> List[候補リストアップ]
-    
-    List --> AddContext[・現在の約束<br/>・目標<br/>・最近の会話]
-    
-    AddContext --> Execute[search_memory実行]
-    Direct --> Execute
-    
-    Execute --> Filter{フィルタ条件あり?}
-    
-    Filter -->|Yes| ApplyFilter[・タグフィルタ<br/>・日付範囲<br/>・重要度<br/>・装備品]
-    Filter -->|No| Return[結果を返す]
-    
-    ApplyFilter --> Return
-    
-    style Check fill:#ffe1e1
-    style Ambiguous fill:#fff9c4
-    style Expand fill:#c8e6c9
+# ブロック読み取り
+memory(operation="block_read", block_name="user_model")
+
+# 全ブロック一覧
+memory(operation="block_list")
+
+# ブロック削除
+memory(operation="block_delete", block_name="user_model")
 ```
 
-## ヘルパー関数の役割
+**標準ブロック名:**
 
-```mermaid
-flowchart TD
-    A[ヘルパー関数] --> B[_is_ambiguous_query]
-    A --> C[_get_current_timestamp]
-    A --> D[_update_single_field]
-    A --> E[_append_to_list_field]
-    A --> F[_check_routines_impl]
-    A --> G[_analyze_situation_context]
-    
-    B --> B1[曖昧なクエリを検出<br/>・いつものあれ<br/>・that thing]
-    C --> C1[タイムゾーン対応<br/>タイムスタンプ生成]
-    D --> D1[単一フィールド<br/>更新/削除]
-    E --> E1[リストフィールドに<br/>項目追加]
-    F --> F1[ルーティン<br/>パターン分析]
-    G --> G1[状況コンテキスト<br/>総合分析]
-    
-    style A fill:#e1f5ff
-    style B fill:#fff9c4
-    style C fill:#c8e6c9
-    style D fill:#f8bbd0
-    style E fill:#ce93d8
-    style F fill:#90caf9
-    style G fill:#ffccbc
-```
+| block_name | 用途 |
+|------------|------|
+| `persona_state` | ペルソナの現在の内部状態・目標 |
+| `user_model` | ユーザーについての推定・既知情報 |
+| `active_context` | 現在のセッションの焦点・未解決の質問 |
 
-## コード削減効果
+> **Note**: ブロックは `get_context()` レスポンスの先頭に `priority` 降順で自動注入される。
+
+### 4. エンティティグラフ操作
 
 ```mermaid
 flowchart LR
-    A[リファクタリング前] -->|Phase 1| B[Phase 1完了]
-    B -->|Phase 2| C[Phase 2完了]
-    
-    A -->|1151行| A1[重複コード多数]
-    B -->|1151行| B1[4 operations簡潔化<br/>100行削減効果]
-    C -->|1127行| C1[6 operations簡潔化<br/>120行以上削減]
-    
-    style A fill:#ffcccc
-    style B fill:#fff9c4
-    style C fill:#c8e6c9
+    A[エンティティ操作] --> B[entity_search: エンティティ検索]
+    A --> C[entity_graph: 関係性グラフ取得]
+    A --> D[entity_add_relation: 関係を追加]
+
+    B --> B1[query または entity_id で検索]
+    C --> C1[entity_id + depth でグラフ展開]
+    D --> D1[source/target/relation_type を指定]
+
+    style A fill:#ffe1f0
 ```
 
-## 主要な改善ポイント
+**使用例:**
+```python
+# エンティティ検索
+memory(operation="entity_search", query="田中")
+memory(operation="entity_search", entity_type="person")
 
-1. **ヘルパー関数による共通処理の集約**
-   - タイムスタンプ生成
-   - 単一フィールド更新
-   - リスト追加処理
+# 関係性グラフ取得（depth=2で2ホップ展開）
+memory(operation="entity_graph",
+       entity_id="user_tanaka", depth=2)
 
-2. **早期バリデーション**
-   - パラメータチェックを最初に実行
-   - エラーメッセージの明確化
+# 関係を追加
+memory(operation="entity_add_relation",
+       source_entity="user_tanaka",
+       target_entity="company_acme",
+       relation_type="works_at")
+```
 
-3. **コードの一貫性**
-   - 同じパターンは同じヘルパー関数を使用
-   - 保守性の大幅向上
+## 全 operation 一覧
 
-4. **可読性の向上**
-   - 長い処理 → 短く簡潔に
-   - 意図が明確になった
+| operation | カテゴリ | 必須パラメータ |
+|-----------|---------|--------------|
+| `create` | 基本CRUD | `content` |
+| `read` | 基本CRUD | — |
+| `update` | 基本CRUD | `memory_key` |
+| `delete` | 基本CRUD | `memory_key` or `query` |
+| `stats` | 基本CRUD | — |
+| `check_contradictions` | 高度な操作 | `content` or `memory_key` |
+| `history` | 高度な操作 | `memory_key` |
+| `block_write` | Block | `block_name`, `content` |
+| `block_read` | Block | `block_name` |
+| `block_list` | Block | — |
+| `block_delete` | Block | `block_name` |
+| `entity_search` | Entity | `query` or `entity_id` |
+| `entity_graph` | Entity | `entity_id` |
+| `entity_add_relation` | Entity | `source_entity`, `target_entity`, `relation_type` |
+
+> **検索は `search_memory()` ツールを使用**  
+> `memory()` に `search` operation は存在しない。記憶の検索には `search_memory(query, mode, ...)` を呼ぶこと。
+
+> **状態更新は `update_context()` ツールを使用**  
+> 感情・身体状態・ユーザー情報の更新には `update_context(...)` を呼ぶこと。`memory()` の operation ではない。

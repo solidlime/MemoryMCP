@@ -74,7 +74,7 @@ history = get_user_state_history("herta", "name")
 # → [{"value": "らうらう", "valid_from": "...", "valid_until": None, "is_current": True}, ...]
 ```
 
-When `memory(operation="update_context", user_info={"name": "..."})` is called, the current record is invalidated and a new one is inserted atomically.
+When `update_context(user_info={"name": "..."})` is called, the current record is invalidated and a new one is inserted atomically.
 
 ---
 
@@ -98,20 +98,17 @@ Custom block names are also allowed.
 
 ```python
 # Write a block
-memory(operation="block_write", query="user_model",
+memory(operation="block_write", block_name="user_model",
        content="らうらうはmemory-mcpを開発中。Python好き。")
 
 # Read a specific block
-memory(operation="block_read", query="user_model")
+memory(operation="block_read", block_name="user_model")
 
-# Read all blocks
-memory(operation="block_read")
-
-# List block names
+# List all block names
 memory(operation="block_list")
 
 # Delete a block
-memory(operation="block_delete", query="user_model")
+memory(operation="block_delete", block_name="user_model")
 ```
 
 ### Schema
