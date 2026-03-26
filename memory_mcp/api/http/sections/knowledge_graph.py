@@ -304,7 +304,10 @@ function buildTooltip(n) {
     }
     h += '<div>\\u2b50 Importance: ' + ((n.importance || 0) * 100).toFixed(0) + '%</div>';
     h += '</div>';
-    return h;
+    /* vis-network renders string titles as plain text; return a DOM element for HTML */
+    var el = document.createElement('div');
+    el.innerHTML = h;
+    return el;
 }
 
 /* ---- Client-side filtering ---- */
