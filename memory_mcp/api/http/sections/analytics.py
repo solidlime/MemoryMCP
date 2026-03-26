@@ -17,6 +17,10 @@ def render_analytics_js() -> str:
     return """async function loadAnalytics(days=7) {
     const el = document.getElementById('analytics-content');
     try {
+        if (typeof Chart === 'undefined') {
+            el.innerHTML = errorCard('Chart.js library not available. Please check internet connectivity.');
+            return;
+        }
         const [emoData, strData] = await Promise.all([
             api('/api/emotions/' + encodeURIComponent(S.persona) + '?days=' + days),
             api('/api/strengths/' + encodeURIComponent(S.persona))
@@ -118,6 +122,8 @@ def render_analytics_js() -> str:
                 },
                 options: chartOpts({ plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true }, x: {} } })
             });
+        } else if (strCtx) {
+            strCtx.parentElement.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted)">No strength data available</div>';
         }
         updateLastTime();
     } catch (e) {

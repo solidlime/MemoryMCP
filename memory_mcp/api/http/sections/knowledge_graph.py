@@ -338,6 +338,10 @@ function applyGraphFilters(visNodes, visEdges) {
 /* ---- Render / re-render vis.Network ---- */
 
 function renderNetwork(container, nodes, edges) {
+    if (typeof vis === 'undefined') {
+        container.innerHTML = errorCard('vis-network library not available. Please check internet connectivity.');
+        return;
+    }
     var loading = document.getElementById('graph-loading');
 
     /* Empty state */

@@ -697,7 +697,7 @@ function switchTab(tab) {
     loadTab(tab);
 }
 function loadTab(tab) {
-    if (!S.persona && tab !== 'settings') return;
+    if (!S.persona && tab !== 'settings' && tab !== 'personas') return;
     switch(tab) {
         case 'overview': loadOverview(); break;
         case 'analytics': loadAnalytics(); break;
@@ -737,10 +737,13 @@ function openMemModal(mem) {
             ${mem.updated_at ? `<div class="mem-modal-row"><span class="mem-modal-key">Updated</span><span>📅 ${relativeTime(mem.updated_at)}</span></div>` : ''}
         </div>`;
     overlay.style.display = 'flex';
+    overlay.classList.add('show');
     document.addEventListener('keydown', _memModalKeyHandler);
 }
 function closeMemModal() {
-    document.getElementById('mem-modal-overlay').style.display = 'none';
+    const overlay = document.getElementById('mem-modal-overlay');
+    overlay.classList.remove('show');
+    setTimeout(() => { overlay.style.display = 'none'; }, 220);
     document.removeEventListener('keydown', _memModalKeyHandler);
 }
 function _memModalKeyHandler(e) { if (e.key === 'Escape') closeMemModal(); }

@@ -497,7 +497,7 @@ def render_memories_js() -> str:
         "                _source: m._source || ''\n"
         "            }));\n"
         "\n"
-        "            html += '<div class=\"memory-compact\" data-memkey=\"' + esc(key) + '\" data-memjson=\\'' + memJson + '\\'>';\n"
+        "            html += '<div class=\"memory-compact\" data-memkey=\"' + esc(key) + '\" data-memjson=\"' + memJson + '\">';\n"
         "            html += '<span class=\"' + cbClass + '\"><input type=\"checkbox\" class=\"mem-checkbox\" data-key=\"' + esc(key) + '\"' + checked + '></span>';\n"
         "            html += '<span class=\"mem-compact-key\">' + esc(truncate(key, 20)) + '</span>';\n"
         "            html += '<span class=\"mem-compact-content\">' + esc(truncate(m.content || '', 80)) + '</span>';\n"
@@ -529,7 +529,7 @@ def render_memories_js() -> str:
         "                _source: m._source || ''\n"
         "            }));\n"
         "\n"
-        "            html += '<div class=\"memory-card\" style=\"cursor:pointer\" data-memkey=\"' + esc(key) + '\" data-memjson=\\'' + memJson + '\\'>';\n"
+        '            html += \'<div class="memory-card" style="cursor:pointer" data-memkey="\' + esc(key) + \'" data-memjson="\' + memJson + \'">\';\n'
         "            html += '<div style=\"display:flex;align-items:center;gap:8px\">';\n"
         "            html += '<span class=\"' + cbClass + '\"><input type=\"checkbox\" class=\"mem-checkbox\" data-key=\"' + esc(key) + '\"' + checked + '></span>';\n"
         "            html += '<div class=\"memory-key\">' + esc(key) + '</div>';\n"
