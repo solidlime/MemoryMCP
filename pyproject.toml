@@ -1,0 +1,34 @@
+[project]
+name = "memory-mcp"
+version = "2.0.0"
+description = "Persistent memory server for LLM agents via MCP"
+requires-python = ">=3.12"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "A", "SIM", "TCH"]
+ignore = ["E501"]  # line length handled by formatter
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = [
+    "unit: Unit tests (no external dependencies)",
+    "integration: Integration tests (requires DB)",
+    "e2e: End-to-end dogfooding tests",
+    "slow: Slow tests (embedding model loading etc)",
+]
+
+[tool.coverage.run]
+source = ["memory_mcp"]
+omit = ["tests/*", "*/migrations/*"]
+
+[tool.coverage.report]
+fail_under = 45
+show_missing = true

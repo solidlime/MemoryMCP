@@ -1,132 +1,117 @@
 # Memory MCP — HTTP API Reference
 
-All endpoints are served from the MCP HTTP server (default port `26262`).
-Persona-scoped endpoints use `{persona}` as a path parameter (e.g. `nilou`, `default`).
+All endpoints are served from the MCP HTTP server (default port **`26262`**).  
+Persona is resolved from the `Authorization: Bearer <persona>` header, `X-Persona` header, or falls back to `"default"`.
 
 ---
 
-## Architecture
+## Authentication / 認証
 
-Memory MCP operates as a **client-server system**:
-
-- **Server (Remote)**: `memory_mcp.py` runs as a FastMCP HTTP server (Docker/NAS)
-- **Client (Local)**: Skills/scripts run locally and make HTTP requests to the server
-- **Configuration**: Server URL is specified in `.github/skills/memory-mcp/references/config.json`
-
-```bash
-# Example: Skills run locally and access remote server
-python scripts/mcp_context  # → HTTP GET http://nas:26262/api/get_context
-```
+| Priority | Method | Example |
+|----------|--------|---------|
+| 1 | Bearer token | `Authorization: Bearer herta` |
+| 2 | X-Persona header | `X-Persona: herta` |
+| 3 | Environment variable | `PERSONA=herta` or `MEMORY_MCP_DEFAULT_PERSONA=herta` |
+| 4 | Default | `"default"` |
 
 ---
 
-## MCP Tools REST API
+## MCP Transport
 
-These endpoints provide direct REST API access to MCP tools for GitHub Copilot Skills and other clients.
-All requests use `Authorization: Bearer <persona>` header.
+The FastMCP server exposes the standard MCP protocol at:
 
-### `POST /mcp/v1/tools/memory`
-Unified memory operations.
-
-**Request body:**
-```json
-{
-  "operation": "create|read|search|update|delete|stats|check_routines|anniversary",
-  "content": "...",
-  "query": "...",
-  ...other parameters...
-}
+```
+POST /mcp          # MCP Streamable HTTP transport (for MCP clients)
 ```
 
-**Operations:**
-- `create`: Create new memory
-- `read`: Read memory by key
-- `search`: Search memories (semantic/keyword/hybrid/related/smart)
-- `update`: Update existing memory
-- `delete`: Delete memory
-- `stats`: Get memory statistics
-- `check_routines`: Detect recurring patterns
-- `anniversary`: Manage anniversaries
-
-### `POST /mcp/v1/tools/item`
-Unified item/equipment operations.
-
-**Request body:**
+**Claude Desktop / MCP client config:**
 ```json
 {
-  "operation": "add|remove|equip|unequip|update|search|history|memories|stats",
-  "item_name": "...",
-  ...other parameters...
-}
-```
-
-**Operations:**
-- `add`: Add item to inventory
-- `remove`: Remove item
-- `equip`: Equip item
-- `unequip`: Unequip item
-- `update`: Update item details
-- `search`: Search inventory
-- `history`: Get equipment history
-- `memories`: Get memories associated with item
-- `stats`: Get item statistics
-
-### `POST /mcp/v1/tools/get_context`
-### `GET /mcp/v1/tools/get_context`
-Get current persona context, time, and memory statistics.
-
-**Response:**
-```json
-{
-  "success": true,
-  "result": {
-    "content": [
-      {
-        "text": "Current time: 2026-02-09 10:30:00\nPersona: nilou\nTotal memories: 142\n...",
-        "type": "text"
+  "mcpServers": {
+    "memory": {
+      "url": "http://localhost:26262/mcp",
+      "headers": {
+        "Authorization": "Bearer <persona_name>"
       }
-    ]
+    }
   }
 }
 ```
 
 ---
 
-## Dashboard & Health
+## Health & Personas
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/` | Web dashboard UI |
-| GET | `/health` | Health check + stats |
-| GET | `/api/personas` | List available personas |
+### `GET /health`
+Health check with Qdrant connectivity status.
+
+**Response:**
+```json
+{
+  "status": "ok",
+  "persona": "herta",
+  "qdrant": true,
+  "memory_count": 142
+}
+```
+
+### `GET /api/personas`
+List all available personas (scans data directory).
+
+**Response:** `{ "personas": ["herta", "default", "alice"] }`
+
+### `POST /api/personas`
+Create a new persona with initialized databases.
+
+**Request body:** `{ "persona": "alice" }`
+
+### `DELETE /api/personas/{persona}`
+Delete a persona and all its data. Cannot delete `"default"`.
+
+### `PUT /api/personas/{persona}/profile`
+Update persona profile fields.
+
+**Request body:**
+```json
+{
+  "user_info": { "name": "Alice", "preferred_address": "Alice-san" },
+  "persona_info": { "nickname": "Al" },
+  "relationship": "friend"
+}
+```
+
+### `GET /api/stats/{persona}`
+Get memory and vector statistics for a persona.
 
 ---
 
-## Dashboard Data
+## Dashboard
+
+### `GET /`
+Serve the web dashboard UI (HTML).
 
 ### `GET /api/dashboard/{persona}`
-Returns combined dashboard payload (info, metrics, stats, knowledge graph URL).
+Aggregated dashboard payload for a persona.
 
 **Response fields:**
-- `info` – persona context (name, relationship, favorites, etc.)
-- `metrics` – total memories, content chars, vector count, tagged/linked counts
-- `stats` – timeline array, tag distribution, top links
-  - `stats.timeline` – array of `{date, count}` for last N days (configurable via `dashboard.timeline_days`, default 14)
-- `knowledge_graph_url` – URL to the latest knowledge graph HTML, or `null`
+- `info` — persona context (name, relationship, emotion, equipment, etc.)
+- `metrics` — total memories, content chars, vector count, tagged/linked counts
+- `stats.timeline` — `[{date, count}]` array for the last N days (default 14)
+- `knowledge_graph_url` — URL to the knowledge graph HTML, or `null`
 
 ---
 
-## Observation Stream (Memory Browsing)
+## Memory Browsing
 
 ### `GET /api/observations/{persona}`
-Paginated list of all memories, sorted chronologically.
+Paginated list of memories, sorted chronologically.
 
 **Query params:**
 | Param | Type | Default | Description |
 |-------|------|---------|-------------|
 | `page` | int | 1 | Page number (1-based) |
 | `per_page` | int | 20 | Items per page (max 100) |
-| `sort` | str | `desc` | `desc` (newest first) or `asc` |
+| `sort` | str | `desc` | `desc` = newest first, `asc` = oldest first |
 | `tag` | str | — | Filter by tag |
 | `q` | str | — | Keyword search in content |
 
@@ -146,153 +131,158 @@ Paginated list of all memories, sorted chronologically.
       "emotion_intensity": 0.8,
       "importance": 0.9,
       "tags": ["coding", "milestone"],
-      "context_tags": ["workspace"],
+      "context_tags": ["promise"],
       "created_at": "2025-01-01T12:00:00",
       "updated_at": "2025-01-01T12:00:00",
       "privacy_level": "internal",
       "action_tag": "achievement",
-      "environment": "vscode"
+      "environment": "home"
     }
   ]
 }
 ```
 
-### `GET /api/memory/{persona}/{key}`
-Get full detail for a single memory by its key.
+### `GET /api/recent/{persona}`
+Get the most recent memories for a persona.
 
-**Response:**
-```json
-{
-  "success": true,
-  "memory": { "...full row..." },
-  "linked_keys": ["other_memory_key"],
-  "history": [
-    { "timestamp": "...", "operation": "create", "success": 1, "error": null }
-  ]
-}
-```
+**Query params:** `limit` (int, default 10)
 
----
+**Response:** `{ "memories": [ { memory object... } ] }`
 
-## Emotion & Sensation Timelines
-
-### `GET /api/emotion-timeline/{persona}`
-Daily and weekly emotion aggregations.
-
-**Query params:** `days` (default 30)
-
-### `GET /api/physical-sensations-timeline/{persona}`
-Physical sensation history (fatigue, warmth, arousal).
-
-**Query params:** `days` (default 30)
-
----
-
-## Anniversaries
-
-### `GET /api/anniversaries/{persona}`
-Anniversary-tagged memories grouped by month-day.
-
----
-
-## Audit Log
-
-### `GET /api/audit-log/{persona}`
-Browse the operations audit log with filtering and pagination.
+### `GET /api/search/{persona}`
+Keyword search over memories (dashboard/UI use).
 
 **Query params:**
 | Param | Type | Default | Description |
 |-------|------|---------|-------------|
-| `page` | int | 1 | Page number (1-based) |
-| `per_page` | int | 50 | Items per page (max 200) |
-| `operation` | str | — | Filter by op type (create/read/update/delete/search) |
-| `key` | str | — | Filter by memory key (substring match) |
-| `success` | str | — | `true` or `false` |
-| `since` | str | — | ISO date filter (e.g. `2025-01-01`) |
+| `q` | str | `""` | Search text |
+| `limit` | int | 20 | Max results |
+
+---
+
+## Memory CRUD
+
+### `POST /api/memories/{persona}`
+Create a new memory directly via HTTP.
+
+**Request body:**
+```json
+{
+  "content": "User prefers dark mode.",
+  "importance": 0.7,
+  "emotion_type": "neutral",
+  "emotion_intensity": 0.0,
+  "tags": ["preferences"],
+  "privacy_level": "internal"
+}
+```
+
+**Response:** `{ "success": true, "key": "memory_20250715_103000" }`
+
+### `PUT /api/memories/{persona}/{key}`
+Update an existing memory by key.
+
+**Request body:** Same fields as POST (all optional).
+
+### `DELETE /api/memories/{persona}/{key}`
+Delete a memory by key.
+
+**Response:** `{ "success": true }`
+
+---
+
+## Analytics
+
+### `GET /api/emotions/{persona}`
+Emotion history grouped by date.
+
+**Query params:** `days` (int, default 7)
 
 **Response:**
 ```json
 {
-  "success": true,
-  "total": 520,
-  "page": 1,
-  "per_page": 50,
-  "total_pages": 11,
-  "operation_breakdown": { "create": 200, "read": 150, "search": 120, "update": 40, "delete": 10 },
-  "items": [
-    {
-      "id": 520,
-      "timestamp": "2025-07-15T10:30:00",
-      "operation_id": "uuid...",
-      "operation": "create",
-      "key": "memory_20250715_103000",
-      "success": 1,
-      "error": null,
-      "metadata": {}
-    }
+  "history": {
+    "2025-07-15": [
+      { "emotion_type": "joy", "intensity": 0.8, "trigger": "shipped new feature" }
+    ]
+  }
+}
+```
+
+### `GET /api/strengths/{persona}`
+Memory strength distribution (Ebbinghaus decay values).
+
+**Response:**
+```json
+{
+  "total": 142,
+  "histogram": [
+    { "bucket": "0.0–0.2", "count": 30 },
+    { "bucket": "0.8–1.0", "count": 55 }
   ]
 }
 ```
 
 ---
 
-## Unified Timeline
+## Knowledge Graph
 
-### `GET /api/timeline/{persona}`
-Merges memories, emotions, physical sensations, and operations into a single chronological stream.
+### `GET /api/graph/{persona}`
+Memory relationship graph for visualization (nodes + edges).
 
-**Query params:**
-| Param | Type | Default | Description |
-|-------|------|---------|-------------|
-| `days` | int | 7 | Days to look back (max 90) |
-| `types` | str | `memory,emotion,sensation,operation` | Comma-separated event types |
-| `limit` | int | 100 | Max events (max 500) |
+**Query params:** `limit` (int, default 200)
 
 **Response:**
 ```json
 {
-  "success": true,
-  "days": 7,
-  "total_events": 85,
-  "type_counts": { "memory": 30, "emotion": 25, "sensation": 20, "operation": 10 },
-  "events": [
-    { "type": "memory", "timestamp": "...", "key": "...", "summary": "...", "emotion_type": "joy", ... },
-    { "type": "emotion", "timestamp": "...", "emotion_type": "love", "emotion_intensity": 0.9, "trigger": "..." },
-    { "type": "sensation", "timestamp": "...", "fatigue": 0.3, "warmth": 0.7, "arousal": 0.2 },
-    { "type": "operation", "timestamp": "...", "operation": "search", "key": null, "success": true }
-  ]
+  "nodes": [ { "id": "memory_...", "label": "preview...", "importance": 0.8 } ],
+  "edges": [ { "source": "memory_a", "target": "memory_b", "weight": 1 } ]
 }
 ```
 
 ---
 
-## Admin Tools
+## Import / Export
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/admin/clean` | Clean/delete a memory by key |
-| POST | `/api/admin/rebuild` | Rebuild vector store |
-| POST | `/api/admin/rebuild-stream` | Rebuild vector store (SSE stream) |
-| POST | `/api/admin/migrate` | Migrate vector backend |
-| POST | `/api/admin/migrate-schema` | Migrate DB schema (add missing columns) |
-| POST | `/api/admin/detect-duplicates` | Detect duplicate memories |
-| POST | `/api/admin/merge-memories` | Merge duplicate memories |
-| POST | `/api/admin/generate-knowledge-graph` | Generate knowledge graph |
-| POST | `/api/admin/create-summary` | Create memory summary |
-| GET  | `/api/admin/create-summary-stream` | Create summary (SSE stream) |
+### `POST /api/import/{persona}`
+Import persona data from a ZIP file upload (multipart/form-data).
+
+### `GET /api/export/{persona}`
+Export all persona data as a ZIP file download.
 
 ---
 
-## Configuration Notes
+## Vector Store Admin
 
-### Privacy Filtering
-Dashboard and observation APIs respect `privacy.dashboard_max_level` config.
-Only memories with privacy rank ≤ configured level are shown.
+### `POST /api/admin/rebuild/{persona}`
+Rebuild the Qdrant vector collection for a persona (async, returns 202 Accepted).
 
-Levels: `public` (0) < `internal` (1) < `private` (2) < `secret` (3)
+**Response:** `{ "status": "rebuilding", "persona": "herta" }`
 
-### Resource Profiles
-Set `resource_profile` in config to tune for hardware:
-- `"normal"` – full features, default settings
-- `"low"` – DS920+ 20GB optimized (relaxed reranker, longer intervals)
-- `"minimal"` – very constrained (no reranker, no semantic fallback)
+---
+
+## Runtime Settings
+
+### `GET /api/settings`
+Get all runtime configuration values with metadata.
+
+### `PUT /api/settings`
+Update a runtime setting.
+
+**Request body:** `{ "key": "log_level", "value": "DEBUG" }`
+
+### `GET /api/settings/status`
+Get reload status for runtime settings.
+
+---
+
+## Privacy Levels
+
+Memories have a `privacy_level` field that controls dashboard visibility:
+
+| Level | Value | Description |
+|-------|-------|-------------|
+| `public` | 0 | Visible to all |
+| `internal` | 1 | Default — shown in dashboard |
+| `private` | 2 | Hidden from dashboard |
+| `secret` | 3 | Hidden from all read APIs |

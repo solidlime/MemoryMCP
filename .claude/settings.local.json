@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__plugin_serena_serena__check_onboarding_performed",
+      "mcp__plugin_serena_serena__list_memories",
+      "mcp__plugin_serena_serena__activate_project",
+      "mcp__plugin_serena_serena__read_memory",
+      "mcp__plugin_serena_serena__list_dir",
+      "mcp__plugin_serena_serena__read_file",
+      "mcp__plugin_serena_serena__execute_shell_command",
+      "mcp__plugin_serena_serena__replace_content",
+      "mcp__plugin_serena_serena__create_text_file",
+      "mcp__plugin_serena_serena__search_for_pattern",
+      "Bash(cd \"D:/VSCode/MemoryMCP\" && git push 2>&1)",
+      "WebSearch",
+      "Bash(cat:*)",
+      "Bash(node:*)",
+      "Bash(head:*)",
+      "Bash(claude mcp:*)",
+      "mcp__memory-mcp__get_context",
+      "mcp__memory-mcp__memory",
+      "mcp__memory-mcp__item",
+      "mcp__plugin_serena_serena__get_symbols_overview",
+      "mcp__plugin_serena_serena__find_symbol",
+      "Bash(cd:*)",
+      "Bash(tail:*)",
+      "Bash(cd /d/VSCode/MemoryMCP && python -c \"\nimport tempfile, sqlite3, os\nfrom core.memory_db import init_db\n\n# Create temp DB and initialize schema\ntmp = tempfile.mktemp\\(suffix='.db'\\)\n\n# Override get_db_path to use temp\nimport src.utils.persona_utils as pu\norig = pu.get_db_path\npu.get_db_path = lambda persona=None: tmp\n\ninit_db\\(\\)\n\n# Verify new tables exist\nwith sqlite3.connect\\(tmp\\) as conn:\n    tables = {row[0] for row in conn.execute\\(\\\\\"SELECT name FROM sqlite_master WHERE type='table'\\\\\"\\).fetchall\\(\\)}\n    assert 'memory_strength' in tables, f'memory_strength missing from {tables}'\n    assert 'user_state_history' in tables, f'user_state_history missing from {tables}'\n    assert 'memory_blocks' in tables, f'memory_blocks missing from {tables}'\n\nprint\\('Schema tables OK:', tables\\)\nos.unlink\\(tmp\\)\n\" 2>&1)",
+      "Bash(cd /d/VSCode/MemoryMCP && python -c \"\nimport tempfile, sqlite3, os, sys\n\ntmp = tempfile.mktemp\\(suffix='.db'\\)\n\n# Patch get_db_path before imports\nimport src.utils.persona_utils as pu\npu.get_db_path = lambda persona=None: tmp\n\nfrom core.memory_db import load_memory_from_db\nload_memory_from_db\\(\\)  # triggers table creation\n\nwith sqlite3.connect\\(tmp\\) as conn:\n    tables = {r[0] for r in conn.execute\\(\\\\\"SELECT name FROM sqlite_master WHERE type='table'\\\\\"\\).fetchall\\(\\)}\n\nfor t in ['memory_strength', 'user_state_history', 'memory_blocks']:\n    assert t in tables, f'{t} missing from {tables}'\n\nprint\\('Schema OK:', sorted\\(tables\\)\\)\nos.unlink\\(tmp\\)\n\" 2>&1)",
+      "Bash(grep:*)",
+      "Bash(ls:*)",
+      "Bash(python:*)",
+      "Bash(pip show mcp)",
+      "mcp__plugin_serena_serena__find_file",
+      "WebFetch(domain:pixiv.github.io)",
+      "WebFetch(domain:wawasensei.dev)",
+      "Bash(D:/VSCode/Nous/venv/Scripts/python.exe:*)",
+      "Bash(\"D:/VSCode/Nous/.venv/Scripts/python.exe\":*)"
+    ]
+  }
+}

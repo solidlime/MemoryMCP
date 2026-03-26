@@ -42,19 +42,20 @@ Memory MCP Client - Unified CLI for all MCP tools
 
 import argparse
 import json
-import sys
 import os
+import sys
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Any
+
 import requests
 
 # 環境変数でPythonのI/OエンコーディングをUTF-8に強制
-os.environ['PYTHONIOENCODING'] = 'utf-8'
+os.environ["PYTHONIOENCODING"] = "utf-8"
 
 # コンソール出力のエンコーディングをUTF-8に設定（Windows対応）
 if sys.platform == "win32":
-    import io
     import ctypes
+    import io
 
     # Windows APIでコンソールをUTF-8モードに設定
     try:
@@ -66,30 +67,26 @@ if sys.platform == "win32":
         pass  # 失敗しても続行（管理者権限不要の環境用）
 
     # stdout/stderrをUTF-8でラップ
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace', line_buffering=True)
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace', line_buffering=True)
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace", line_buffering=True)
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace", line_buffering=True)
 else:
     # Linux/Macでもエンコーディングを明示
     import io
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace', line_buffering=True)
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace', line_buffering=True)
+
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace", line_buffering=True)
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace", line_buffering=True)
 
 
-def load_config() -> Dict[str, Any]:
+def load_config() -> dict[str, Any]:
     """Load configuration file"""
     config_path = Path(__file__).parent.parent / "references" / "config.json"
     if config_path.exists():
-        with open(config_path, 'r', encoding='utf-8') as f:
+        with open(config_path, encoding="utf-8") as f:
             return json.load(f)
     return {}
 
 
-def call_mcp_tool(
-    tool_name: str,
-    params: Dict[str, Any],
-    persona: str,
-    server_url: str
-) -> Dict[str, Any]:
+def call_mcp_tool(tool_name: str, params: dict[str, Any], persona: str, server_url: str) -> dict[str, Any]:
     """
     MCPツールを呼び出す
 
@@ -103,22 +100,19 @@ def call_mcp_tool(
         dict: レスポンスデータ
     """
     url = f"{server_url}/mcp/v1/tools/{tool_name}"
-    headers = {
-        "Authorization": f"Bearer {persona}",
-        "Content-Type": "application/json"
-    }
+    headers = {"Authorization": f"Bearer {persona}", "Content-Type": "application/json"}
 
     try:
         response = requests.post(url, headers=headers, json=params, timeout=30)
         response.raise_for_status()
         # 明示的にUTF-8でデコードしてからJSONパース
-        text = response.content.decode('utf-8')
+        text = response.content.decode("utf-8")
         return json.loads(text)
     except requests.exceptions.RequestException as e:
         return {"error": str(e)}
 
 
-def format_output(data: Dict[str, Any], output_format: str = "text") -> str:
+def format_output(data: dict[str, Any], output_format: str = "text") -> str:
     """
     レスポンスデータを整形
 
@@ -153,7 +147,7 @@ def format_output(data: Dict[str, Any], output_format: str = "text") -> str:
     return "\n".join(output)
 
 
-def cmd_get_context(args: argparse.Namespace, config: Dict[str, Any]) -> int:
+def cmd_get_context(args: argparse.Namespace, config: dict[str, Any]) -> int:
     """Execute get_context command"""
     persona = args.persona or config.get("persona", {}).get("default", "default")
     server_url = args.url or config.get("mcp_server", {}).get("url", "http://localhost:26262")
@@ -164,7 +158,7 @@ def cmd_get_context(args: argparse.Namespace, config: Dict[str, Any]) -> int:
     return 0 if "error" not in result else 1
 
 
-def cmd_memory(args: argparse.Namespace, config: Dict[str, Any]) -> int:
+def cmd_memory(args: argparse.Namespace, config: dict[str, Any]) -> int:
     """Execute memory command"""
     persona = args.persona or config.get("persona", {}).get("default", "default")
     server_url = args.url or config.get("mcp_server", {}).get("url", "http://localhost:26262")
@@ -238,7 +232,7 @@ def cmd_memory(args: argparse.Namespace, config: Dict[str, Any]) -> int:
     return 0 if "error" not in result else 1
 
 
-def cmd_item(args: argparse.Namespace, config: Dict[str, Any]) -> int:
+def cmd_item(args: argparse.Namespace, config: dict[str, Any]) -> int:
     """Execute item command"""
     persona = args.persona or config.get("persona", {}).get("default", "default")
     server_url = args.url or config.get("mcp_server", {}).get("url", "http://localhost:26262")
@@ -336,43 +330,31 @@ def main():
     parser = argparse.ArgumentParser(
         description="Memory MCP Client - 全MCPツールのCLIインターフェース",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=__doc__
+        epilog=__doc__,
     )
 
     # 共通オプション
     parser.add_argument(
-        "--persona",
-        help=f"ペルソナ名（デフォルト: {config.get('persona', {}).get('default', 'default')}）"
+        "--persona", help=f"ペルソナ名（デフォルト: {config.get('persona', {}).get('default', 'default')}）"
     )
     parser.add_argument(
         "--url",
-        help=f"MCPサーバーURL（デフォルト: {config.get('mcp_server', {}).get('url', 'http://localhost:26262')}）"
+        help=f"MCPサーバーURL（デフォルト: {config.get('mcp_server', {}).get('url', 'http://localhost:26262')}）",
     )
-    parser.add_argument(
-        "--format",
-        choices=["json", "text"],
-        default="text",
-        help="出力形式（デフォルト: text）"
-    )
+    parser.add_argument("--format", choices=["json", "text"], default="text", help="出力形式（デフォルト: text）")
 
     # サブコマンド
     subparsers = parser.add_subparsers(dest="tool", help="MCPツール", required=True)
 
     # ===== get_context =====
-    parser_context = subparsers.add_parser(
-        "get_context",
-        help="ペルソナの状態、時刻、メモリ統計を取得"
-    )
+    parser_context = subparsers.add_parser("get_context", help="ペルソナの状態、時刻、メモリ統計を取得")  # noqa: F841
 
     # ===== memory =====
-    parser_memory = subparsers.add_parser(
-        "memory",
-        help="メモリ操作"
-    )
+    parser_memory = subparsers.add_parser("memory", help="メモリ操作")
     parser_memory.add_argument(
         "operation",
         choices=["create", "update", "delete", "search", "stats", "check_routines", "anniversary"],
-        help="操作タイプ"
+        help="操作タイプ",
     )
     parser_memory.add_argument("--key", help="メモリキー（update/delete用）")
     parser_memory.add_argument("--content", help="メモリ内容（create/update用）")
@@ -383,20 +365,19 @@ def main():
     parser_memory.add_argument("--context_tags", help="コンテキストタグ（カンマ区切り）")
     parser_memory.add_argument("--action_tag", help="行動タグ")
     parser_memory.add_argument("--query", help="検索クエリ（search用）")
-    parser_memory.add_argument("--mode", choices=["semantic", "keyword", "hybrid", "related", "smart"], help="検索モード")
+    parser_memory.add_argument(
+        "--mode", choices=["semantic", "keyword", "hybrid", "related", "smart"], help="検索モード"
+    )
     parser_memory.add_argument("--top_k", type=int, help="検索結果数")
     parser_memory.add_argument("--date_range", help="日付範囲（例: '昨日', '先週', '2025-01-01,2025-01-31'）")
     parser_memory.add_argument("--delete_key", help="削除する記念日キー（anniversary用）")
 
     # ===== item =====
-    parser_item = subparsers.add_parser(
-        "item",
-        help="アイテム操作"
-    )
+    parser_item = subparsers.add_parser("item", help="アイテム操作")
     parser_item.add_argument(
         "operation",
         choices=["add", "remove", "equip", "unequip", "update", "search", "history", "memories", "stats"],
-        help="操作タイプ"
+        help="操作タイプ",
     )
     parser_item.add_argument("--name", help="アイテム名")
     parser_item.add_argument("--category", help="カテゴリ（clothing/accessory/item）")
@@ -406,7 +387,9 @@ def main():
     parser_item.add_argument("--equipped", type=bool, help="装備中のみ検索（True/False）")
     # equip operation用
     parser_item.add_argument("--slot", help="装備スロット（equip/unequip用、例: top, foot, hand）")
-    parser_item.add_argument("--equipment", help="装備辞書JSON（equip用、例: '{\"top\": \"白いドレス\", \"foot\": \"サンダル\"}'）")
+    parser_item.add_argument(
+        "--equipment", help='装備辞書JSON（equip用、例: \'{"top": "白いドレス", "foot": "サンダル"}\'）'
+    )
     # unequip operation用
     parser_item.add_argument("--slots", help="装備解除するスロット（カンマ区切り、unequip用、例: top,foot）")
 

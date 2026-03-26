@@ -1,71 +1,44 @@
-# Docker build exclusions for memory-mcp
-
-# Data directory (bind-mounted at runtime)
-data/
-
-# Model cache (will be bind-mounted from host)
-.cache/
-
-# Python cache
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-
-# Development environment
-.github/
-.vscode/
-
-# Runtime data (generated at runtime or bind-mounted)
-memory/
-*.sqlite
-*.sqlite-journal
-
-# Virtual environment
-venv-rag/
-venv/
-env/
-ENV/
-
-# OS files
-.DS_Store
-Thumbs.db
-.AppleDouble
-.LSOverride
-
-# Logs (bind-mounted)
-*.log
-
 # Git
 .git/
 .gitignore
 .gitattributes
 
-# Test files
+# GitHub
+.github/
+
+# Tests
 tests/
 test_*.py
 *_test.py
-scripts/test_*.py
 
-# Output files (not needed in production)
+# Development
+.vscode/
+.idea/
+.serena/
+.agent/
+.spec/
+
+# Data (bind-mounted at runtime)
+data/
+
+# Cache
+.cache/
+__pycache__/
+*.pyc
+
+# Virtual env
+venv*/
+env/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docs
+*.md
+!README.md
+docs/
+
+# Output
 output/
 logs/
-
-# Additional documentation
-*.md
-
-# Serena project files
-.serena/
-
-# IDE
-.idea/
-*.swp
-*.swo
-*~
-
-# Keep Dockerfile and compose within the build context (they should not be excluded)
-# Exclude only large runtime artifacts and local caches
-# Keep Dockerfile and docker-compose.yml in the build context
-# docker-compose.yml
-# .dockerignore

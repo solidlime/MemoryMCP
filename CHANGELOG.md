@@ -4,6 +4,69 @@ All notable changes to Memory-MCP will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **タイムスタンプ上書きバグ**: `generate_memory_key()` にマイクロ秒+ランダムsuffixを追加し、同秒内のキー衝突を解消
+- **X-Personaヘッダー未反映**: ASGIミドルウェア+ContextVarでBearer/X-Personaヘッダーからペルソナ解決可能に（優先順位: Bearer > X-Persona > 環境変数 > "default"）
+- **ペルソナセレクタ**: memory.sqliteが存在するディレクトリのみをリストするよう修正
+
+### Changed
+- **ディレクトリ構造**: ペルソナデータを `/data/memory/{persona}/` に、インポートを `/data/import/` に分離
+- **get_context出力**: v1スタイルのリッチ出力に刷新（15セクション、物理感覚/記念日/promise/goal等を復活）
+- **デフォルトテーマ**: ダッシュボードのデフォルトをlightモードに変更
+- **MCPツールdocstring**: 全5ツールのdocstringを大幅改善（operation別パラメータ説明・使用例追加）
+- **BREAKING**: `MEMORY_MCP_DATA_DIR` and `MEMORY_MCP_IMPORT_DIR` env vars replaced by single `MEMORY_MCP_DATA_ROOT`
+- All sub-paths (`memory/`, `import/`, `cache/`, `config/`) automatically derived from `data_root`
+
+### Added
+- **Settingsツールチップ**: 各設定項目にℹ️アイコン付き説明文とホットリロード可否を表示
+- **PersonaMiddleware**: ASGIミドルウェアによるリクエスト単位のペルソナ識別
+- `ensure_directories()` auto-creates all required directories on startup
+- `HF_HOME`, `SENTENCE_TRANSFORMERS_HOME`, `TORCH_HOME` auto-configured from `{data_root}/cache/`
+
+## [2.0.0] - 2025-03-23
+
+### 🏗️ Architecture
+- Clean Architecture + DDD で完全再設計
+- 旧コード62ファイル（19,784行）を除去し新アーキテクチャに移行
+- domain/ → infrastructure/ → application/ → api/ の4層構造
+- Result[T, E] 型によるエラーハンドリング（try-except-pass 廃止）
+- Pydantic BaseSettings による型安全な設定管理（MEMORY_MCP_ prefix）
+- Repository パターンでDB実装を抽象化
+
+### ✨ Added
+- **5 MCP ツール体制**: get_context / memory / search_memory / update_context / item
+- **矛盾検出**: ベクトル類似度ベースの記憶矛盾検出（cosine ≥ 0.85）
+- **記憶バージョニング**: 全編集の履歴保持・任意時点へのロールバック
+- **エンティティグラフ**: SQLiteベースの人物・場所関係グラフ（BFS探索対応）
+- **日本語時間フィルタ**: 「昨日」「一昨日」「3日前」「先週」「先月」等13パターン対応
+- **CLIツール**: import/export/migrate/stats コマンド
+- **スキーママイグレーション**: v001〜v004の自動マイグレーション
+- **旧データインポート**: herta.zip / nilou.zip / citlali.zip の完全インポート対応
+- **CI/CD**: GitHub Actions 3ワークフロー（ci/docker/e2e）
+- **Docker**: GHCR自動ビルド・プッシュ
+- **285テスト**: Unit 210 + E2E 75（全3 Personaのドッグフーディング含む）
+- **structlog**: 構造化ログ
+
+### 🔧 Changed
+- エントリポイント: `memory_mcp.py` → `python -m memory_mcp.main`
+- 設定: `config.json` → 環境変数（MEMORY_MCP_* prefix）
+- 状態管理: `persona_context.json` → SQLite統合（bi-temporal）
+- 検索: `mode="smart"` 廃止、`semantic` / `keyword` / `hybrid` の3モード
+- ツールAPI: 58パラメータの巨大関数 → 5つの責務別ツールに分割
+
+### 🗑️ Removed
+- 旧アーキテクチャ: core/, tools/, src/ 配下の全ファイル
+- memory_mcp.py（旧エントリポイント）
+- persona_context.json（SQLiteに統合）
+- config.json（環境変数に統合）
+- Named Memory Blocks（block_write/block_read）→ 将来再実装予定
+- run_tests.py（pytest に移行）
+
+### 📦 Dependencies
+- 追加: pydantic-settings, structlog
+- 維持: fastmcp, qdrant-client, sentence-transformers, rapidfuzz
+- 開発: pytest, pytest-asyncio, pytest-cov, ruff
+
 ### Added - 2026-02-26 (Ebbinghaus Forgetting, Bi-temporal State, Memory Blocks)
 
 **Ebbinghaus Forgetting Curve** (`core/forgetting.py`):
