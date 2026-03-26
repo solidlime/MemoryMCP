@@ -69,6 +69,15 @@ def render_graph_tab() -> str:
             #graph-container .vis-network {
               outline: none;
             }
+
+            /* Override vis-network default tooltip style */
+            #graph-container .vis-tooltip {
+              white-space: normal !important;
+              background: transparent !important;
+              border: none !important;
+              padding: 0 !important;
+              box-shadow: none !important;
+            }
           </style>
 
           <div id="graph-content">
@@ -294,18 +303,16 @@ function buildVisData(nodes, edges) {
 /* ---- Tooltip HTML ---- */
 
 function buildTooltip(n) {
-    var h = '<div style="max-width:280px;padding:8px;font-size:12px">';
-    h += '<div style="margin-bottom:6px;font-weight:600;color:#f1f5f9">' + esc(truncate(n.content, 100)) + '</div>';
+    var el = document.createElement('div');
+    el.style.cssText = 'background:#1e293b;color:#e2e8f0;border-radius:8px;padding:10px 12px;font-size:12px;line-height:1.6;max-width:300px;white-space:normal;word-break:break-word;box-shadow:0 4px 16px rgba(0,0,0,0.5);';
+    var h = '<div style="margin-bottom:6px;font-weight:600;color:#f8fafc">' + esc(truncate(n.content, 120)) + '</div>';
     if (n.tags && n.tags.length) {
-        h += '<div style="margin-bottom:4px">\\ud83c\\udff7\\ufe0f ' + n.tags.map(function(t) { return esc(t); }).join(', ') + '</div>';
+        h += '<div style="margin-bottom:4px;color:#94a3b8">&#127991; ' + n.tags.map(function(t) { return esc(t); }).join(', ') + '</div>';
     }
     if (n.emotion_type) {
-        h += '<div style="margin-bottom:4px">\\ud83d\\udcad ' + esc(n.emotion_type) + '</div>';
+        h += '<div style="margin-bottom:4px;color:#94a3b8">&#128173; ' + esc(n.emotion_type) + '</div>';
     }
-    h += '<div>\\u2b50 Importance: ' + ((n.importance || 0) * 100).toFixed(0) + '%</div>';
-    h += '</div>';
-    /* vis-network renders string titles as plain text; return a DOM element for HTML */
-    var el = document.createElement('div');
+    h += '<div style="color:#94a3b8">&#11088; Importance: ' + ((n.importance || 0) * 100).toFixed(0) + '%</div>';
     el.innerHTML = h;
     return el;
 }

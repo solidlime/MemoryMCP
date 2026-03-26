@@ -430,7 +430,7 @@ def render_head() -> str:
         .mem-modal-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
         .mem-modal-close { background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer; padding: 0 4px; line-height: 1; }
         .mem-modal-close:hover { color: var(--text-primary); }
-        .mem-modal-content { white-space: pre-wrap; word-break: break-word; font-size: 0.9rem; color: var(--text-secondary); line-height: 1.7; margin-bottom: 16px; padding: 12px; background: var(--glass-bg); border-radius: 8px; }
+        .mem-modal-content { white-space: pre-wrap; word-break: break-word; font-size: 0.9rem; color: var(--text-secondary); line-height: 1.7; margin-bottom: 16px; padding: 12px; background: var(--glass-bg); border-radius: 8px; max-height: none; overflow: visible; }
         .mem-modal-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.82rem; }
         .mem-modal-row:last-child { border-bottom: none; }
         .mem-modal-key { color: var(--text-muted); min-width: 100px; flex-shrink: 0; }
@@ -938,7 +938,9 @@ def render_layout_shell(nav_html: str, tab_contents: str, tab_js: str, initial_p
     """
     # Inject initial persona as a JS variable so the SPA can pre-select it
     if initial_persona:
-        safe_persona = initial_persona.replace("\\", "\\\\").replace('"', '\\"').replace("<", "").replace(">", "").replace("&", "")
+        safe_persona = (
+            initial_persona.replace("\\", "\\\\").replace('"', '\\"').replace("<", "").replace(">", "").replace("&", "")
+        )
         persona_init_script = '<script>window.__INITIAL_PERSONA__="' + safe_persona + '";</script>\n'
     else:
         persona_init_script = ""
@@ -986,9 +988,7 @@ def render_layout_shell(nav_html: str, tab_contents: str, tab_js: str, initial_p
         "\n"
         "    <!-- Toast container -->\n"
         '    <div id="toast-container" class="toast-container"></div>\n'
-        "\n"
-        + persona_init_script
-        + "<script>\n" + render_utilities_js() + "\n"
+        "\n" + persona_init_script + "<script>\n" + render_utilities_js() + "\n"
         "\n" + tab_js + "\n"
         "</script>\n"
         "</body>\n"

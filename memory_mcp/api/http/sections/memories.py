@@ -269,7 +269,7 @@ def render_memories_js() -> str:
         "   MEMORIES TAB \u2014 Extended State + Full CRUD\n"
         "   ================================================================= */\n"
         "Object.assign(S.mem, {\n"
-        "    sort: 'date_desc', viewMode: 'card', selectMode: false, selected: new Set(),\n"
+        "    sort: 'date_desc', viewMode: 'compact', selectMode: false, selected: new Set(),\n"
         "    searchMode: 'hybrid', dateFrom: '', dateTo: '', impMin: 0, impMax: 1,\n"
         "    searchTags: [], emotion: '', advOpen: false\n"
         "});\n"
