@@ -78,7 +78,9 @@ memory(
 )
 ```
 
-**Emotion types**: `joy`, `sadness`, `anger`, `fear`, `surprise`, `disgust`, `love`, `neutral`
+**Emotion types (22)**: `joy`, `sadness`, `anger`, `fear`, `surprise`, `disgust`, `love`, `neutral`,
+`anticipation`, `trust`, `anxiety`, `excitement`, `frustration`, `nostalgia`,
+`pride`, `shame`, `guilt`, `loneliness`, `contentment`, `curiosity`, `awe`, `relief`
 
 ### Importance guidelines / 重要度の目安
 
@@ -164,6 +166,9 @@ update_context(emotion="anger", emotion_intensity=0.6)
 
 # Conversation ends on a positive note
 update_context(emotion="joy", emotion_intensity=0.7)
+
+# User is nervous about an upcoming event
+update_context(emotion="anxiety", emotion_intensity=0.7)
 ```
 
 ### Physical / mental state
@@ -335,30 +340,42 @@ memory(
 Copy and paste this at the start of your system prompt to enable autonomous memory usage:
 
 ```
-You have access to a persistent memory system via MCP tools. Use these tools autonomously to remember and recall information about the user.
+You have persistent memory via MCP tools. **Use them proactively — do not wait to be asked.**
 
-## Memory Tool Usage Rules
+## Rules
 
-1. **Session start**: Always call `get_context()` as your very first action before responding.
-2. **During conversation**: Call `search_memory()` before answering questions about the user's past, preferences, or context.
-3. **After learning something**: Call `memory(operation="create", ...)` to save meaningful information.
-4. **Emotion changes**: Call `update_context(emotion=..., emotion_intensity=...)` when the user's mood shifts.
-5. **Promises made**: Use `memory(operation="create", context_tags=["promise"])` immediately.
-6. **User info updates**: Use `update_context(user_info={...})` when names or preferences change.
+**Session start** — call `get_context()` FIRST, every time, no exceptions.
 
-## Importance Guidelines
-- 0.9–1.0: Life events, key decisions, strong emotions
-- 0.7–0.8: Preferences, recurring topics, relationships
-- 0.5–0.6: Work context, projects, habits
-- 0.1–0.4: Casual mentions, passing details
+**Record immediately** when the user:
+- Shares a preference, opinion, or personal detail → `memory(operation="create", importance=0.7+)`
+- Makes a decision or achieves something → `importance=0.8+`
+- Expresses strong emotion → also call `update_context(emotion=..., emotion_intensity=...)`
+- States a promise/commitment → `memory(operation="create", context_tags=["promise"])`
+- Sets a goal → `memory(operation="create", context_tags=["goal"])`
 
-## Search Strategy
-- Default to `mode="hybrid"` for balanced recall
-- Use `mode="keyword"` for names, IDs, specific terms
-- Use `mode="semantic"` for abstract or emotional queries
-- Filter with `date_range` for time-relevant questions
+**Search before responding** when the user asks about:
+- Their own past, preferences, relationships, or context
+- Anything you might have recorded previously
+→ `search_memory(query="...", mode="hybrid", top_k=5)`
 
-Never ask the user if they want you to remember something — just do it when the information is meaningful.
+**Update context** in real-time:
+- Mood shift → `update_context(emotion="joy", emotion_intensity=0.8)`
+- Name/nickname change → `update_context(user_info={"preferred_address": "..."})`
+
+## Importance Scale
+| Score | Use for |
+|-------|---------|
+| 0.9–1.0 | Life events, key decisions, strong emotions |
+| 0.7–0.8 | Preferences, goals, relationships |
+| 0.5–0.6 | Work context, habits, recurring topics |
+| 0.1–0.4 | Casual mentions, trivia |
+
+## Emotion Types (22)
+joy · sadness · anger · fear · surprise · disgust · love · neutral ·
+anticipation · trust · anxiety · excitement · frustration · nostalgia ·
+pride · shame · guilt · loneliness · contentment · curiosity · awe · relief
+
+Never ask "should I remember this?" — just record it.
 ```
 
 ---
