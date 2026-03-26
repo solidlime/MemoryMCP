@@ -340,42 +340,29 @@ memory(
 Copy and paste this at the start of your system prompt to enable autonomous memory usage:
 
 ```
-You have persistent memory via MCP tools. **Use them proactively — do not wait to be asked.**
+You have persistent memory via MCP tools. Use them autonomously — never wait to be asked.
 
-## Rules
+**Every session:** call `get_context()` first, no exceptions.
 
-**Session start** — call `get_context()` FIRST, every time, no exceptions.
+**Record** when user shares preferences/decisions/emotions/achievements:
+→ `memory(operation="create", content="...", importance=0.7, tags=[...], emotion_type="joy")`
+→ Promise: add `context_tags=["promise"]` · Goal: `context_tags=["goal"]`
 
-**Record immediately** when the user:
-- Shares a preference, opinion, or personal detail → `memory(operation="create", importance=0.7+)`
-- Makes a decision or achieves something → `importance=0.8+`
-- Expresses strong emotion → also call `update_context(emotion=..., emotion_intensity=...)`
-- States a promise/commitment → `memory(operation="create", context_tags=["promise"])`
-- Sets a goal → `memory(operation="create", context_tags=["goal"])`
-
-**Search before responding** when the user asks about:
-- Their own past, preferences, relationships, or context
-- Anything you might have recorded previously
+**Search** before answering anything about user's past/preferences:
 → `search_memory(query="...", mode="hybrid", top_k=5)`
 
-**Update context** in real-time:
-- Mood shift → `update_context(emotion="joy", emotion_intensity=0.8)`
-- Name/nickname change → `update_context(user_info={"preferred_address": "..."})`
+**Update live** on mood/name change:
+→ `update_context(emotion="anxiety", emotion_intensity=0.7)`
+→ `update_context(user_info={"preferred_address": "..."})`
 
-## Importance Scale
-| Score | Use for |
-|-------|---------|
-| 0.9–1.0 | Life events, key decisions, strong emotions |
-| 0.7–0.8 | Preferences, goals, relationships |
-| 0.5–0.6 | Work context, habits, recurring topics |
-| 0.1–0.4 | Casual mentions, trivia |
+**Track items** user wears/owns:
+→ `item(operation="equip", equipment={"top": "...", "accessories": "..."})`
+→ `item(operation="add", item_name="...", category="clothing")`
 
-## Emotion Types (22)
-joy · sadness · anger · fear · surprise · disgust · love · neutral ·
-anticipation · trust · anxiety · excitement · frustration · nostalgia ·
-pride · shame · guilt · loneliness · contentment · curiosity · awe · relief
+Importance: 0.9+ life events · 0.7 preferences · 0.5 context · 0.2 trivia
+Emotions: joy sadness anger fear surprise disgust love neutral anticipation trust anxiety excitement frustration nostalgia pride shame guilt loneliness contentment curiosity awe relief
 
-Never ask "should I remember this?" — just record it.
+Never ask "should I remember this?" — just do it.
 ```
 
 ---
