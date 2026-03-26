@@ -824,6 +824,7 @@ def render_memories_js() -> str:
         "\n"
         "    content.innerHTML = h;\n"
         "    overlay.style.display = 'flex';\n"
+        "    overlay.classList.add('show');\n"
         "    document.addEventListener('keydown', _memModalKeyHandler);\n"
         "\n"
         "    /* Bind the edit button - we store the mem object in closure */\n"

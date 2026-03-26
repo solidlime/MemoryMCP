@@ -90,7 +90,7 @@ def base_url():
 @pytest.fixture(scope="session")
 def dashboard_url():
     """テストペルソナのダッシュボードURL。"""
-    return f"{DASHBOARD_URL}/dashboard/{TEST_PERSONA}"
+    return f"{DASHBOARD_URL}"
 
 
 @pytest.fixture(scope="session")

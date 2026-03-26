@@ -679,6 +679,11 @@ function showSkeleton(tabId) {
             + '<div class="skeleton skeleton-card glass"></div>'.repeat(3) + '</div>',
         admin: '<div class="skeleton glass" style="height:300px"></div>'
     };
+    /* graph / import-export / personas manage their own loading state via
+       inner elements (#graph-loading, #persona-grid, #export-preview).
+       Replacing their innerHTML would destroy those elements and cause
+       silent failures in the corresponding load functions. */
+    if (tabId === 'graph' || tabId === 'import-export' || tabId === 'personas') return;
     const content = container.querySelector('[id$="-content"]') || container;
     content.innerHTML = skeletons[tabId] || '<div class="skeleton skeleton-card glass"></div>';
 }
