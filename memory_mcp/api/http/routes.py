@@ -118,6 +118,50 @@ def register_http_routes(mcp) -> None:  # noqa: C901, PLR0915
     # Dashboard routes (8 endpoints)
     # ------------------------------------------------------------------
 
+    @mcp.custom_route("/api/blocks/{persona}", methods=["GET"])
+    async def list_blocks_http(request: Request) -> JSONResponse:
+        persona = _resolve_persona_from_request(request)
+        ctx = _safe_get_context(persona)
+        if not ctx:
+            return JSONResponse({"blocks": []})
+        result = ctx.memory_service.list_blocks()
+        blocks = result.value if result.is_ok else []
+        return JSONResponse({"persona": persona, "blocks": blocks})
+
+    @mcp.custom_route("/api/blocks/{persona}", methods=["POST"])
+    async def create_block_http(request: Request) -> JSONResponse:
+        persona = _resolve_persona_from_request(request)
+        ctx = _safe_get_context(persona)
+        if not ctx:
+            return JSONResponse({"error": "Persona not found"}, status_code=404)
+        body = await request.json()
+        block_name = body.get("block_name", "").strip()
+        content = body.get("content", "").strip()
+        if not block_name or not content:
+            return JSONResponse({"error": "block_name and content required"}, status_code=400)
+        result = ctx.memory_service.write_block(
+            block_name,
+            content,
+            block_type=body.get("block_type", "custom"),
+            max_tokens=body.get("max_tokens"),
+            priority=body.get("priority", 0),
+        )
+        if result.is_ok:
+            return JSONResponse({"ok": True, "block_name": block_name})
+        return JSONResponse({"error": str(result.error)}, status_code=500)
+
+    @mcp.custom_route("/api/blocks/{persona}/{block_name:path}", methods=["DELETE"])
+    async def delete_block_http(request: Request) -> JSONResponse:
+        persona = _resolve_persona_from_request(request)
+        ctx = _safe_get_context(persona)
+        if not ctx:
+            return JSONResponse({"error": "Persona not found"}, status_code=404)
+        block_name = request.path_params.get("block_name", "")
+        result = ctx.memory_service.delete_block(block_name)
+        if result.is_ok:
+            return JSONResponse({"ok": True})
+        return JSONResponse({"error": str(result.error)}, status_code=500)
+
     @mcp.custom_route("/", methods=["GET"])
     async def dashboard_page(request: Request) -> HTMLResponse:
         """Serve the dashboard HTML page (no persona pre-selected)."""
@@ -964,53 +1008,3 @@ def register_http_routes(mcp) -> None:  # noqa: C901, PLR0915
             return JSONResponse({"status": "ok", "updated": updated})
         except Exception as exc:
             return JSONResponse({"error": str(exc)}, status_code=500)
-
-    @mcp.custom_route("/api/blocks/{persona}", methods=["GET"])
-    async def list_blocks(request: Request) -> JSONResponse:
-        """List all memory blocks for a persona."""
-        persona = _resolve_persona_from_request(request)
-        ctx = _safe_get_context(persona)
-        if not ctx:
-            return JSONResponse({"blocks": []})
-        result = ctx.memory_service.list_blocks()
-        blocks = result.value if result.is_ok else []
-        return JSONResponse({"persona": persona, "blocks": blocks})
-
-    @mcp.custom_route("/api/blocks/{persona}", methods=["POST"])
-    async def create_block(request: Request) -> JSONResponse:
-        """Create or update a memory block."""
-        persona = _resolve_persona_from_request(request)
-        ctx = _safe_get_context(persona)
-        if not ctx:
-            return JSONResponse({"error": "Persona not found"}, status_code=404)
-        try:
-            body = await request.json()
-        except Exception:
-            return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
-        block_name = body.get("block_name", "").strip()
-        content = body.get("content", "").strip()
-        if not block_name or not content:
-            return JSONResponse({"error": "block_name and content required"}, status_code=400)
-        result = ctx.memory_service.write_block(
-            block_name,
-            content,
-            block_type=body.get("block_type", "custom"),
-            max_tokens=body.get("max_tokens"),
-            priority=body.get("priority", 0),
-        )
-        if result.is_ok:
-            return JSONResponse({"ok": True, "block_name": block_name})
-        return JSONResponse({"error": str(result.error)}, status_code=500)
-
-    @mcp.custom_route("/api/blocks/{persona}/{block_name}", methods=["DELETE"])
-    async def delete_block_endpoint(request: Request) -> JSONResponse:
-        """Delete a memory block."""
-        persona = _resolve_persona_from_request(request)
-        ctx = _safe_get_context(persona)
-        if not ctx:
-            return JSONResponse({"error": "Persona not found"}, status_code=404)
-        block_name = request.path_params.get("block_name", "")
-        result = ctx.memory_service.delete_block(block_name)
-        if result.is_ok:
-            return JSONResponse({"ok": True})
-        return JSONResponse({"error": str(result.error)}, status_code=500)

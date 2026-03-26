@@ -58,6 +58,7 @@ def render_analytics_js() -> str:
         const strong = values.filter(v => v > 0.7).length;
 
         // --- Render Charts ---
+        const strengthEmpty = (total === 0 || (histogram.length && histogram.every(h => h.count === 0)));
         destroyChart('chart-emotions');
         destroyChart('chart-strength');
 
@@ -82,7 +83,7 @@ def render_analytics_js() -> str:
                 <div><span style="color:var(--text-muted)">Weak (&lt;0.3):</span> <span style="color:var(--accent-red);font-weight:600">${weak}</span></div>
                 <div><span style="color:var(--text-muted)">Strong (&gt;0.7):</span> <span style="color:var(--accent-green);font-weight:600">${strong}</span></div>
             </div>
-            <div style="height:250px;position:relative"><canvas id="chart-strength"></canvas></div>
+            <div style="height:250px;position:relative">${strengthEmpty ? '<div style="display:flex;align-items:center;justify-content:center;height:200px;color:var(--text-muted)">No memory strength data yet \u2014 memories need to be recalled first</div>' : '<canvas id="chart-strength"></canvas>'}</div>
         </div>`;
 
         // Emotion days buttons
@@ -102,9 +103,7 @@ def render_analytics_js() -> str:
         }
 
         const strCtx = document.getElementById('chart-strength');
-        if (strCtx && (total === 0 || (histogram.length && histogram.every(h => h.count === 0)))) {
-            strCtx.parentElement.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted)">No memory strength data yet \u2014 memories need to be recalled or decayed first</div>';
-        } else if (strCtx && histogram.length) {
+        if (strCtx && histogram.length) {
             S.charts['chart-strength'] = new Chart(strCtx, {
                 type: 'bar',
                 data: {
@@ -124,9 +123,8 @@ def render_analytics_js() -> str:
                 },
                 options: chartOpts({ plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true }, x: {} } })
             });
-        } else if (strCtx) {
-            strCtx.parentElement.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted)">No strength data available</div>';
         }
+
         updateLastTime();
     } catch (e) {
         el.innerHTML = errorCard('Failed to load analytics: ' + e.message);

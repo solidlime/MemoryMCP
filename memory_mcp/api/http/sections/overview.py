@@ -2,7 +2,7 @@
 
 
 def render_overview_tab() -> str:
-    """Return the overview tab HTML section with skeleton loaders."""
+    """Return the overview tab HTML section with skeleton loaders and block modal."""
     return """        <!-- ========== OVERVIEW TAB ========== -->
         <section id="tab-overview" class="tab-panel active" role="tabpanel">
             <div id="overview-content">

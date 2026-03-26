@@ -185,7 +185,6 @@ let graphNodeLimit = 100;
 function _graphFontColor() {
     return document.documentElement.classList.contains('light') ? '#1e1b4b' : '#f1f5f9';
 }
-
 function _graphEdgeColor(isRelated) {
     var isLight = document.documentElement.classList.contains('light');
     if (isRelated) {

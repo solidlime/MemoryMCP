@@ -7,7 +7,7 @@
 ### get_context 出力調整（2026-03-23）
 - `memory_preview_length` デフォルトは `src/utils/config_utils.py` の `DEFAULT_CONFIG` で管理（100→200に変更済み）
 - 記憶タイムスタンプはUTC保存 → `format_datetime_for_display()` でJST変換が必要（修正済み）
-- Memory Blocks（block_write/block_read/block_list/block_delete）は**廃止されていない・現役**。MCPツール経由で利用可能、DBテーブル `memory_blocks` も稼働中。HTTP APIは2025年追加予定
+- Memory Blocks（block_write/block_read/block_list/block_delete）は**廃止されていない・現役**。MCPツール経由で利用可能、DBテーブル `memory_blocks` も稼働中。HTTP API: `GET/POST /api/blocks/{persona}`、`DELETE /api/blocks/{persona}/{block_name}` を追加済み（routes.py末尾）。WebUI Overview タブにCRUD UI付き
 - Promises & Goals は `context_tags=['promise'/'goal']` のタグベース実装
 - get_context のメイン実装は `memory_mcp/api/mcp/tools.py` （unified_tools.py 経由で各 handler を呼ぶ）
 

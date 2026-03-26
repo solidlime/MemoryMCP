@@ -447,7 +447,7 @@ def render_head() -> str:
             from { opacity: 0; transform: translateY(16px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        .animate-in { animation: fadeInUp 0.4s ease forwards; }
+        .animate-in { animation: fadeInUp 0.4s ease; }
         .glass:hover { transform: translateY(-2px); }
         .mem-modal-overlay { opacity: 0; transition: opacity 0.2s ease; }
         .mem-modal-overlay.show { opacity: 1; }
