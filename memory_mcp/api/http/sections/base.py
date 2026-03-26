@@ -542,10 +542,13 @@ const S = {
 
 const CHART_COLORS = ['#a78bfa','#f472b6','#60a5fa','#34d399','#fbbf24','#fb923c','#f87171','#2dd4bf','#a3e635','#e879f9'];
 const EMOTION_COLORS = {
-    joy:'#fbbf24', happiness:'#fbbf24', sadness:'#60a5fa', anger:'#f87171',
-    fear:'#a78bfa', surprise:'#fb923c', disgust:'#34d399', calm:'#2dd4bf',
-    excitement:'#f472b6', love:'#ec4899', anxiety:'#e879f9', trust:'#34d399',
-    anticipation:'#fbbf24', neutral:'#94a3b8'
+    joy:'#fbbf24', sadness:'#60a5fa', anger:'#f87171', fear:'#a78bfa',
+    surprise:'#fb923c', disgust:'#6ee7b7', love:'#ec4899', neutral:'#94a3b8',
+    anticipation:'#F59E0B', trust:'#10B981', anxiety:'#8B5CF6', excitement:'#EC4899',
+    frustration:'#DC2626', nostalgia:'#92400E', pride:'#F97316', shame:'#BE185D',
+    guilt:'#78350F', loneliness:'#1E3A5F', contentment:'#065F46', curiosity:'#0891B2',
+    awe:'#5B21B6', relief:'#34D399',
+    happiness:'#fbbf24', calm:'#2dd4bf'
 };
 
 /* =================================================================

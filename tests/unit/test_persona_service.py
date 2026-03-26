@@ -150,9 +150,10 @@ class TestUpdateEmotion:
         service.update_emotion(PERSONA, "anger", 1.5)
         assert repo._state[PERSONA]["emotion_intensity"] == "1.0"
 
-    def test_empty_emotion_fails(self, service: PersonaService):
+    def test_empty_emotion_normalizes_to_neutral(self, service: PersonaService, repo: InMemoryPersonaRepository):
         result = service.update_emotion(PERSONA, "", 0.5)
-        assert not result.is_ok
+        assert result.is_ok
+        assert repo._state[PERSONA]["emotion"] == "neutral"
 
 
 class TestUpdatePhysicalState:

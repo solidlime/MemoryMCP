@@ -10,6 +10,7 @@ from memory_mcp.domain.shared.errors import (
 )
 from memory_mcp.domain.shared.result import Failure, Result, Success
 from memory_mcp.domain.shared.time_utils import generate_memory_key, get_now
+from memory_mcp.domain.value_objects import normalize_emotion
 
 if TYPE_CHECKING:
     from memory_mcp.domain.memory.repository import MemoryRepository
@@ -41,6 +42,7 @@ class MemoryService:
         if not content or not content.strip():
             return Failure(MemoryValidationError("Content must not be empty"))
 
+        emotion = normalize_emotion(emotion)
         now = get_now()
         key = generate_memory_key()
         memory = Memory(
@@ -111,6 +113,8 @@ class MemoryService:
         }
 
         updates["updated_at"] = get_now()
+        if "emotion" in updates:
+            updates["emotion"] = normalize_emotion(str(updates["emotion"]))
         result = self._repo.update(key, **updates)
         if not result.is_ok:
             return Failure(result.error)

@@ -6,6 +6,7 @@ from memory_mcp.domain.persona.entities import EmotionRecord, PersonaState
 from memory_mcp.domain.shared.errors import DomainError, PersonaValidationError
 from memory_mcp.domain.shared.result import Failure, Result, Success
 from memory_mcp.domain.shared.time_utils import get_now
+from memory_mcp.domain.value_objects import normalize_emotion
 
 if TYPE_CHECKING:
     from memory_mcp.domain.persona.repository import PersonaRepository
@@ -30,8 +31,7 @@ class PersonaService:
         context: str | None = None,
     ) -> Result[None, DomainError]:
         """Update persona emotion and record in history."""
-        if not emotion or not emotion.strip():
-            return Failure(PersonaValidationError("Emotion must not be empty"))
+        emotion = normalize_emotion(emotion)
         intensity = max(0.0, min(1.0, intensity))
 
         state_result = self._repo.update_state(persona, "emotion", emotion)

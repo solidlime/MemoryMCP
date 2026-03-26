@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from memory_mcp.domain.shared.errors import SearchError
 from memory_mcp.domain.shared.result import Failure, Result, Success
+from memory_mcp.domain.value_objects import normalize_emotion
 
 if TYPE_CHECKING:
     from memory_mcp.domain.memory.entities import Memory
@@ -55,13 +56,28 @@ class SearchEngine:
     def search(self, query: SearchQuery) -> Result[list[SearchResult], SearchError]:
         """Execute search based on query mode."""
         if query.mode == "keyword":
-            return self._keyword_search(query)
+            result = self._keyword_search(query)
         elif query.mode == "semantic":
-            return self._semantic_search(query)
+            result = self._semantic_search(query)
         elif query.mode in ("hybrid", "smart"):
-            return self._hybrid_search(query)
+            result = self._hybrid_search(query)
         else:
             return Failure(SearchError(f"Unknown search mode: {query.mode}"))
+
+        if not result.is_ok:
+            return result
+        return Success(self._filter_by_emotion(result.value, query.emotion))
+
+    @staticmethod
+    def _filter_by_emotion(
+        results: list[SearchResult],
+        emotion: str | None,
+    ) -> list[SearchResult]:
+        """Post-filter results by emotion using normalized comparison."""
+        if emotion is None:
+            return results
+        target = normalize_emotion(emotion)
+        return [r for r in results if normalize_emotion(r.memory.emotion) == target]
 
     @staticmethod
     def _to_search_results(

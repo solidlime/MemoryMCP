@@ -227,9 +227,22 @@ def render_memories_tab() -> str:
                             <option value="fear">&#128552; Fear</option>
                             <option value="surprise">&#128562; Surprise</option>
                             <option value="disgust">&#129326; Disgust</option>
-                            <option value="trust">&#129309; Trust</option>
-                            <option value="anticipation">&#129300; Anticipation</option>
+                            <option value="love">&#10084; Love</option>
                             <option value="neutral">&#128528; Neutral</option>
+                            <option value="anticipation">&#129300; Anticipation</option>
+                            <option value="trust">&#129309; Trust</option>
+                            <option value="anxiety">&#128560; Anxiety</option>
+                            <option value="excitement">&#127881; Excitement</option>
+                            <option value="frustration">&#128548; Frustration</option>
+                            <option value="nostalgia">&#127749; Nostalgia</option>
+                            <option value="pride">&#129412; Pride</option>
+                            <option value="shame">&#128563; Shame</option>
+                            <option value="guilt">&#128542; Guilt</option>
+                            <option value="loneliness">&#128148; Loneliness</option>
+                            <option value="contentment">&#128524; Contentment</option>
+                            <option value="curiosity">&#128270; Curiosity</option>
+                            <option value="awe">&#128558; Awe</option>
+                            <option value="relief">&#128517; Relief</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -433,7 +446,7 @@ def render_memories_js() -> str:
         "    html += '<span class=\"adv-search-label\">Emotion</span>';\n"
         '    html += \'<select id="adv-emotion" class="glass-input" style="font-size:0.8rem">\';\n'
         "    html += '<option value=\"\">Any</option>';\n"
-        "    var emos = ['joy','sadness','anger','fear','surprise','disgust','trust','anticipation','calm','excitement','love','anxiety','neutral'];\n"
+        "    var emos = ['joy','sadness','anger','fear','surprise','disgust','love','neutral','anticipation','trust','anxiety','excitement','frustration','nostalgia','pride','shame','guilt','loneliness','contentment','curiosity','awe','relief'];\n"
         "    for (var ei = 0; ei < emos.length; ei++) {\n"
         "        html += '<option value=\"' + emos[ei] + '\"' + (S.mem.emotion === emos[ei] ? ' selected' : '') + '>' + emos[ei] + '</option>';\n"
         "    }\n"
