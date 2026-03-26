@@ -19,3 +19,8 @@
 - `middleware.py` の `get_current_persona()` が全レイヤー共通のペルソナ解決エントリポイント
 - routes.py のHTTPルートでは `_resolve_persona_from_request()` がpath param > header > env のフォールバックを提供
 
+### WebUI E2E バグ修正（2026-03-26）
+- **showSkeleton バグ**: `base.py` の `showSkeleton()` が `[id$="-content"]` の innerHTML をスケルトンで置換 → graph/import-export/personas タブの静的 HTML（#graph-container, #persona-grid, #export-preview）が消滅し、load 関数がサイレント失敗していた。修正: これら3タブは `showSkeleton` をスキップ（自前のローディング状態を持つため）
+- **Memory モーダル非表示バグ**: `memories.py` の `openMemModal` override が `overlay.classList.add('show')` を呼んでいなかった → CSS transition で opacity:0 のまま（display:flex でも見えない）。base.py のオリジナルには `classList.add('show')` がある
+- **conftest.py URL バグ**: `dashboard_url` fixture が `/dashboard/{persona}` を返していた → 404。正しくはルート `/`。ダッシュボードは SPA でペルソナは `#persona-select` ドロップダウンで選択する
+- **`#chart-emotions` 未表示は正常**: emotion データなし時は canvas を "No emotion data" div に置換 → テストでの false positive に注意
