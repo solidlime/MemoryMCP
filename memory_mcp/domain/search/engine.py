@@ -54,15 +54,12 @@ class SearchEngine:
         self._ranker = ranker
 
     def search(self, query: SearchQuery) -> Result[list[SearchResult], SearchError]:
-        """Execute search based on query mode."""
-        if query.mode == "keyword":
-            result = self._keyword_search(query)
-        elif query.mode == "semantic":
-            result = self._semantic_search(query)
-        elif query.mode in ("hybrid", "smart"):
-            result = self._hybrid_search(query)
-        else:
-            return Failure(SearchError(f"Unknown search mode: {query.mode}"))
+        """Execute search using hybrid retrieval (keyword + semantic + RRF).
+
+        Note: The ``mode`` field on *query* is accepted for backwards compatibility
+        but is otherwise ignored — all searches now use hybrid mode.
+        """
+        result = self._hybrid_search(query)
 
         if not result.is_ok:
             return result

@@ -134,7 +134,7 @@ def register_tools(mcp: FastMCP) -> None:
           delete   - memory_key or query (required)
           check_contradictions - content or memory_key (required)
           history  - memory_key(required)
-          stats    - (no params)
+          stats    - top_n (default 20): max entries in tag/emotion distributions
           block_write  - block_name(required), content(required), block_type,
                          max_tokens, priority
           block_read   - block_name(required)
@@ -174,6 +174,10 @@ def register_tools(mcp: FastMCP) -> None:
             if importance is not None and not (0.0 <= importance <= 1.0):
                 return "Error: importance must be between 0.0 and 1.0"
             importance = max(0.0, min(1.0, importance)) if importance is not None else 0.5
+            # Warn if emotion_type is not a recognized value
+            warning = ""
+            if emotion_type and emotion_type not in _VALID_EMOTIONS:
+                warning = f"[Warning: emotion_type '{emotion_type}' is not a valid emotion, defaulted to 'neutral']\n"
             result = ctx.memory_service.create_memory(
                 content=content,
                 importance=importance,
@@ -186,7 +190,7 @@ def register_tools(mcp: FastMCP) -> None:
             if result.is_ok:
                 if not defer_vector and ctx.vector_store:
                     ctx.vector_store.upsert(persona, result.value.key, content)
-                return f"Memory created: {result.value.key}"
+                return f"{warning}Memory created: {result.value.key}"
             return f"Error: {result.error}"
 
         elif operation == "read":
@@ -216,7 +220,10 @@ def register_tools(mcp: FastMCP) -> None:
                 if not (0.0 <= importance <= 1.0):
                     return "Error: importance must be between 0.0 and 1.0"
                 updates["importance"] = max(0.0, min(1.0, importance))
+            update_warning = ""
             if emotion_type is not None:
+                if emotion_type not in _VALID_EMOTIONS:
+                    update_warning = f"[Warning: emotion_type '{emotion_type}' is not a valid emotion, defaulted to 'neutral']\n"
                 updates["emotion"] = emotion_type
             if emotion_intensity is not None:
                 updates["emotion_intensity"] = emotion_intensity
@@ -228,18 +235,23 @@ def register_tools(mcp: FastMCP) -> None:
             if result.is_ok:
                 if ctx.vector_store and "content" in updates:
                     ctx.vector_store.upsert(persona, memory_key, updates["content"])
-                return f"Memory updated: {memory_key}"
+                return f"{update_warning}Memory updated: {memory_key}"
             return f"Error: {result.error}"
 
         elif operation == "delete":
             if not memory_key and not query:
                 return "Error: memory_key or query required"
             key = memory_key or query
+            # Fetch content before deletion for confirmation snippet
+            snippet = ""
+            pre_fetch = ctx.memory_service.get_memory(key)
+            if pre_fetch.is_ok:
+                snippet = f"\nContent: 「{pre_fetch.value.content[:80]}{'...' if len(pre_fetch.value.content) > 80 else ''}」"
             result = ctx.memory_service.delete_memory(key)
             if result.is_ok:
                 if ctx.vector_store:
                     ctx.vector_store.delete(persona, key)
-                return f"Memory deleted: {key}"
+                return f"Memory deleted: {key}{snippet}"
             return f"Error: {result.error}"
 
         elif operation == "check_contradictions":
@@ -271,7 +283,12 @@ def register_tools(mcp: FastMCP) -> None:
                 return "No contradictions found."
             lines = [f"Found {len(report.candidates)} potential contradiction(s) (threshold={report.threshold}):"]
             for c in report.candidates:
-                lines.append(f"  - {c.memory_key} (similarity={c.similarity:.3f})")
+                snippet = ""
+                mem_result = ctx.memory_service.get_memory(c.memory_key)
+                if mem_result.is_ok:
+                    text = mem_result.value.content
+                    snippet = f"\n    「{text[:80]}{'...' if len(text) > 80 else ''}」"
+                lines.append(f"  - {c.memory_key} (similarity={c.similarity:.3f}){snippet}")
             return "\n".join(lines)
 
         elif operation == "history":
@@ -289,7 +306,7 @@ def register_tools(mcp: FastMCP) -> None:
             return "\n".join(lines)
 
         elif operation == "stats":
-            result = ctx.memory_service.get_stats()
+            result = ctx.memory_service.get_stats(top_n=20)
             if result.is_ok:
                 return str(result.value)
             return f"Error: {result.error}"
@@ -393,11 +410,8 @@ def register_tools(mcp: FastMCP) -> None:
 
         Args:
             query - str, required. Search text.
-            mode - str, default "hybrid". Search strategy:
-                "hybrid": Combines keyword + semantic results via RRF ranking.
-                "semantic": Vector similarity search only (Qdrant).
-                "keyword": SQLite FTS keyword matching only.
-                "smart": Same as hybrid with query expansion.
+            mode - str, default "hybrid". Deprecated — accepted for backwards compatibility
+                but always uses hybrid (keyword + semantic + RRF) internally.
             top_k - int, default 5. Maximum number of results.
             tags - list[str] | None. Filter by tags.
             date_range - str | None. Time filter, e.g. "7d", "30d",
@@ -410,7 +424,7 @@ def register_tools(mcp: FastMCP) -> None:
                 (applied in RRF ranking: score += weight * 1/(1+age_days)).
 
         Examples:
-            search_memory(query="favorite food", mode="hybrid", top_k=10)
+            search_memory(query="favorite food", top_k=10)
             search_memory(query="promise", tags=["promise"], date_range="30d")
         """
         persona = _resolve_persona()

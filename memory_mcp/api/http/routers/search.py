@@ -21,8 +21,7 @@ def register_search_routes(mcp) -> None:
         except ValueError:
             return JSONResponse({"error": "limit must be an integer"}, status_code=400)
         mode = request.query_params.get("mode", "hybrid")
-        if mode not in ("semantic", "keyword", "hybrid", "smart"):
-            mode = "hybrid"
+        # mode parameter accepted for backwards compatibility; always uses hybrid internally
         if not q:
             return JSONResponse({"error": "Query parameter 'q' is required"}, status_code=400)
         ctx = _safe_get_context(persona)

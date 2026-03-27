@@ -42,6 +42,14 @@ class MemoryService:
         if not content or not content.strip():
             return Failure(MemoryValidationError("Content must not be empty"))
 
+        # Validate tags
+        if tags:
+            if len(tags) > 20:
+                return Failure(MemoryValidationError(f"Too many tags: {len(tags)} (max 20)"))
+            for tag in tags:
+                if len(tag) > 50:
+                    return Failure(MemoryValidationError(f"Tag too long: '{tag[:20]}...' (max 50 chars)"))
+
         emotion = normalize_emotion(emotion)
         now = get_now()
         key = generate_memory_key()
@@ -115,6 +123,13 @@ class MemoryService:
         updates["updated_at"] = get_now()
         if "emotion" in updates:
             updates["emotion"] = normalize_emotion(str(updates["emotion"]))
+        if "tags" in updates and updates["tags"]:
+            tag_list = updates["tags"]
+            if len(tag_list) > 20:
+                return Failure(MemoryValidationError(f"Too many tags: {len(tag_list)} (max 20)"))
+            for tag in tag_list:
+                if len(str(tag)) > 50:
+                    return Failure(MemoryValidationError(f"Tag too long: '{str(tag)[:20]}...' (max 50 chars)"))
         result = self._repo.update(key, **updates)
         if not result.is_ok:
             return Failure(result.error)
@@ -166,8 +181,12 @@ class MemoryService:
         """Get most recent memories."""
         return self._repo.find_recent(limit)
 
-    def get_stats(self) -> Result[dict, DomainError]:
-        """Get memory statistics."""
+    def get_stats(self, top_n: int = 20) -> Result[dict, DomainError]:
+        """Get memory statistics.
+
+        Args:
+            top_n: Maximum number of entries to return in tag/emotion distributions (default 20).
+        """
         count_result = self._repo.count()
         if not count_result.is_ok:
             return Failure(count_result.error)
@@ -187,14 +206,23 @@ class MemoryService:
         total_count = count_result.value
         tagged_count = sum(1 for m in memories if m.tags)
 
-        return Success(
-            {
-                "total_count": total_count,
-                "tag_distribution": tag_dist,
-                "emotion_distribution": emotion_dist,
-                "tagged_ratio": tagged_count / total_count if total_count > 0 else None,
-            }
-        )
+        # Sort by count descending and truncate to top_n
+        sorted_tags = sorted(tag_dist.items(), key=lambda x: -x[1])
+        sorted_emotions = sorted(emotion_dist.items(), key=lambda x: -x[1])
+        hidden_tags = max(0, len(sorted_tags) - top_n)
+        hidden_emotions = max(0, len(sorted_emotions) - top_n)
+
+        result: dict = {
+            "total_count": total_count,
+            "tag_distribution": dict(sorted_tags[:top_n]),
+            "emotion_distribution": dict(sorted_emotions[:top_n]),
+            "tagged_ratio": tagged_count / total_count if total_count > 0 else None,
+        }
+        if hidden_tags:
+            result["tag_distribution_note"] = f"+ {hidden_tags} more tags (use top_n to see more)"
+        if hidden_emotions:
+            result["emotion_distribution_note"] = f"+ {hidden_emotions} more emotion types"
+        return Success(result)
 
     def boost_recall(self, key: str) -> Result[MemoryStrength, DomainError]:
         """Boost memory strength on recall."""
