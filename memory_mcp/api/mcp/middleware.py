@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 # Per-request persona resolved from HTTP headers.
 _persona_var: contextvars.ContextVar[str] = contextvars.ContextVar("_persona_var", default="")
 
-_PERSONA_PATTERN = re.compile(r'^[a-zA-Z0-9_-]{1,64}$')
+_PERSONA_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
 
 
 def _env_persona() -> str:

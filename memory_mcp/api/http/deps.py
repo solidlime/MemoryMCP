@@ -1,15 +1,21 @@
 from __future__ import annotations
+
 import os
 import re
 from dataclasses import asdict
+from typing import TYPE_CHECKING
+
 from pydantic import BaseModel
-from starlette.requests import Request
+
 from memory_mcp.application.use_cases import AppContextRegistry
 from memory_mcp.infrastructure.logging.structured import get_logger
 
+if TYPE_CHECKING:
+    from starlette.requests import Request
+
 logger = get_logger(__name__)
 
-_PERSONA_PATTERN = re.compile(r'^[a-zA-Z0-9_-]{1,64}$')
+_PERSONA_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
 
 
 class CreateMemoryRequest(BaseModel):

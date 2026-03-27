@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING, Any
 
-from memory_mcp.domain.memory.entities import Memory, MemoryStrength
+from memory_mcp.domain.memory.entities import Memory
 from memory_mcp.domain.shared.errors import RepositoryError
 from memory_mcp.domain.shared.result import Failure, Result, Success
 from memory_mcp.domain.shared.time_utils import format_iso, get_now

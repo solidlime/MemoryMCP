@@ -107,10 +107,7 @@ class PersonaService:
             return Success(None)
         for key, value in persona_info.items():
             # JSON シリアライズ（リストや辞書を正しく保存）
-            if isinstance(value, (list, dict)):
-                serialized = json.dumps(value, ensure_ascii=False)
-            else:
-                serialized = str(value)
+            serialized = json.dumps(value, ensure_ascii=False) if isinstance(value, (list, dict)) else str(value)
             result = self._repo.set_persona_info(persona, str(key), serialized)
             if not result.is_ok:
                 return Failure(result.error)

@@ -26,9 +26,7 @@ class SimpleEntityExtractor:
     ENGLISH_PROPER = re.compile(r"\b([A-Z][a-z]{1,}(?:\s+[A-Z][a-z]{1,})*)\b")
 
     # Japanese names with honorifics (漢字2-4文字 + 敬称)
-    JAPANESE_NAME = re.compile(
-        r"[一-龯]{2,4}(?:さん|くん|ちゃん|氏|様|先生)"
-    )
+    JAPANESE_NAME = re.compile(r"[一-龯]{2,4}(?:さん|くん|ちゃん|氏|様|先生)")
     # Suffix pattern for stripping honorifics
     _HONORIFIC_SUFFIX = re.compile(r"(?:さん|くん|ちゃん|氏|様|先生)$")
 
@@ -61,11 +59,48 @@ class SimpleEntityExtractor:
     # English words that look like proper nouns but are common words / pronouns
     _ENGLISH_STOPWORDS: frozenset[str] = frozenset(
         {
-            "The", "A", "An", "Is", "Are", "Was", "Were", "Be", "Been",
-            "I", "My", "We", "You", "It", "In", "On", "At", "To", "For",
-            "With", "From", "By", "Of", "And", "Or", "But", "So", "As",
-            "He", "She", "They", "His", "Her", "Their", "This", "That",
-            "When", "Where", "How", "What", "Who", "Which",
+            "The",
+            "A",
+            "An",
+            "Is",
+            "Are",
+            "Was",
+            "Were",
+            "Be",
+            "Been",
+            "I",
+            "My",
+            "We",
+            "You",
+            "It",
+            "In",
+            "On",
+            "At",
+            "To",
+            "For",
+            "With",
+            "From",
+            "By",
+            "Of",
+            "And",
+            "Or",
+            "But",
+            "So",
+            "As",
+            "He",
+            "She",
+            "They",
+            "His",
+            "Her",
+            "Their",
+            "This",
+            "That",
+            "When",
+            "Where",
+            "How",
+            "What",
+            "Who",
+            "Which",
         }
     )
 

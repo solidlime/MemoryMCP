@@ -42,7 +42,7 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Install test tools
-        run: pip install pytest pytest-asyncio playwright pytest-playwright
+        run: pip install pytest pytest-asyncio playwright pytest-playwright pytest-timeout
 
       - name: Install Playwright browsers
         run: playwright install --with-deps chromium

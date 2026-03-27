@@ -88,6 +88,7 @@ class Settings(BaseSettings):
     @classmethod
     def validate_timezone(cls, v: str) -> str:
         from zoneinfo import available_timezones
+
         if v not in available_timezones():
             raise ValueError(f"Invalid timezone: '{v}'. Use a valid IANA timezone (e.g., 'Asia/Tokyo').")
         return v
