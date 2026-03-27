@@ -2,6 +2,8 @@ from __future__ import annotations
 from dataclasses import asdict
 from starlette.requests import Request
 from starlette.responses import JSONResponse
+from memory_mcp.infrastructure.logging.structured import get_logger
+logger = get_logger(__name__)
 from memory_mcp.api.http.deps import (
     _safe_get_context,
     _resolve_persona_from_request,
@@ -29,7 +31,8 @@ def register_item_routes(mcp) -> None:
                 return JSONResponse({"error": str(result.error)}, status_code=500)
             return JSONResponse({"persona": persona, "items": [_item_to_dict(it) for it in result.value]})
         except Exception as exc:
-            return JSONResponse({"error": str(exc)}, status_code=500)
+            logger.exception("Unexpected error: %s", exc)
+            return JSONResponse({"error": "Internal server error"}, status_code=500)
 
     @mcp.custom_route("/api/items/{persona}", methods=["POST"])
     async def add_item(request: Request) -> JSONResponse:
@@ -56,7 +59,8 @@ def register_item_routes(mcp) -> None:
                 return JSONResponse({"error": str(result.error)}, status_code=500)
             return JSONResponse({"status": "ok", "item_name": item_name}, status_code=201)
         except Exception as exc:
-            return JSONResponse({"error": str(exc)}, status_code=500)
+            logger.exception("Unexpected error: %s", exc)
+            return JSONResponse({"error": "Internal server error"}, status_code=500)
 
     @mcp.custom_route("/api/items/{persona}/equip", methods=["POST"])
     async def equip_items(request: Request) -> JSONResponse:
@@ -79,7 +83,8 @@ def register_item_routes(mcp) -> None:
                 return JSONResponse({"error": str(result.error)}, status_code=500)
             return JSONResponse({"status": "ok", "equipped": body})
         except Exception as exc:
-            return JSONResponse({"error": str(exc)}, status_code=500)
+            logger.exception("Unexpected error: %s", exc)
+            return JSONResponse({"error": "Internal server error"}, status_code=500)
 
     @mcp.custom_route("/api/items/{persona}/unequip", methods=["POST"])
     async def unequip_items(request: Request) -> JSONResponse:
@@ -102,7 +107,8 @@ def register_item_routes(mcp) -> None:
                 return JSONResponse({"error": str(result.error)}, status_code=500)
             return JSONResponse({"status": "ok", "unequipped": slots})
         except Exception as exc:
-            return JSONResponse({"error": str(exc)}, status_code=500)
+            logger.exception("Unexpected error: %s", exc)
+            return JSONResponse({"error": "Internal server error"}, status_code=500)
 
     @mcp.custom_route("/api/items/{persona}/{item_name}", methods=["PUT"])
     async def update_item(request: Request) -> JSONResponse:
@@ -127,7 +133,8 @@ def register_item_routes(mcp) -> None:
                 return JSONResponse({"error": str(result.error)}, status_code=500)
             return JSONResponse({"status": "ok", "item_name": item_name})
         except Exception as exc:
-            return JSONResponse({"error": str(exc)}, status_code=500)
+            logger.exception("Unexpected error: %s", exc)
+            return JSONResponse({"error": "Internal server error"}, status_code=500)
 
     @mcp.custom_route("/api/items/{persona}/{item_name}", methods=["DELETE"])
     async def delete_item(request: Request) -> JSONResponse:
@@ -144,4 +151,5 @@ def register_item_routes(mcp) -> None:
                 return JSONResponse({"error": str(result.error)}, status_code=500)
             return JSONResponse({"status": "ok", "deleted": item_name})
         except Exception as exc:
-            return JSONResponse({"error": str(exc)}, status_code=500)
+            logger.exception("Unexpected error: %s", exc)
+            return JSONResponse({"error": "Internal server error"}, status_code=500)

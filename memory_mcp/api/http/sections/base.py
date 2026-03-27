@@ -558,7 +558,7 @@ function esc(s) {
     if (!s) return '';
     const d = document.createElement('div');
     d.textContent = String(s);
-    return d.innerHTML;
+    return d.innerHTML.replace(/"/g, '&quot;');
 }
 function truncate(s, n) { return s && s.length > n ? s.slice(0, n) + '...' : (s || ''); }
 function relativeTime(iso) {

@@ -12,6 +12,12 @@ from memory_mcp.migration.versions.v005_search_log import upgrade as v005_upgrad
 from memory_mcp.migration.versions.v006_normalize_emotions import (
     upgrade as v006_upgrade,
 )
+from memory_mcp.migration.versions.v007_add_performance_indexes import (
+    upgrade as v007_upgrade,
+)
+from memory_mcp.migration.versions.v008_add_persona_to_goals_promises import (
+    upgrade as v008_upgrade,
+)
 
 ALL_MIGRATIONS: list[tuple[str, str, object]] = [
     ("001", "Initial schema", v001_upgrade),
@@ -20,4 +26,6 @@ ALL_MIGRATIONS: list[tuple[str, str, object]] = [
     ("004", "Add entity graph tables", v004_upgrade),
     ("005", "Add search_log table", v005_upgrade),
     ("006", "Normalize emotion_type values in memories table", v006_upgrade),
+    ("007", "Add performance indexes", v007_upgrade),
+    ("008", "Add persona column to goals and promises tables", v008_upgrade),
 ]

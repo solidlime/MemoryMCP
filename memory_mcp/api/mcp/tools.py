@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING
 
 from mcp.server.fastmcp import FastMCP  # noqa: TC002
@@ -490,6 +491,8 @@ def register_tools(mcp: FastMCP) -> None:
         persona_info: dict | None = None,
         nickname: str | None = None,
         relationship_type: str | None = None,
+        append_goals: list[str] | None = None,
+        append_promises: list[str] | None = None,
     ) -> str:
         """Update persona context state. All parameters optional; only provided values are updated.
 
@@ -521,6 +524,10 @@ def register_tools(mcp: FastMCP) -> None:
             Example: update_context(persona_info={"promises": ["Promise A", "Promise B"]})
                      update_context(persona_info={"goals": []})  # clear all goals
 
+        Append (non-destructive):
+            append_goals: list[str] | None - 既存 goals リストに追記（重複は無視）
+            append_promises: list[str] | None - 既存 promises リストに追記（重複は無視）
+
         Body sensations:
             fatigue - float (0.0-1.0). Fatigue level.
             warmth - float (0.0-1.0). Warmth level.
@@ -539,6 +546,8 @@ def register_tools(mcp: FastMCP) -> None:
             update_context(user_info={"nickname": "太郎"}, physical_state="tired")
             update_context(speech_style="甘えた口調、少し息切れ")
             update_context(persona_info={"promises": ["Send report by Friday"], "goals": ["Finish the course"]})
+            update_context(append_goals=["New goal"])
+            update_context(append_promises=["New promise"])
         """
         persona = _resolve_persona()
         ctx = AppContextRegistry.get(persona)
@@ -599,6 +608,36 @@ def register_tools(mcp: FastMCP) -> None:
             result = ctx.persona_service.update_persona_info(persona, {"nickname": nickname})
             if result.is_ok:
                 updated.append(f"nickname={nickname}")
+
+        if not updated and append_goals is None and append_promises is None:
+            return "No changes made (all parameters were None)"
+
+        if append_goals is not None or append_promises is not None:
+            current_context = ctx.persona_service.get_context(persona)
+            pi = current_context.value.persona_info if current_context.is_ok and current_context.value.persona_info else {}
+
+            merged: dict[str, list[str]] = {}
+
+            if append_goals is not None:
+                existing_raw = pi.get("goals", "[]")
+                try:
+                    existing = json.loads(existing_raw) if isinstance(existing_raw, str) else (existing_raw if isinstance(existing_raw, list) else [])
+                except Exception:
+                    existing = []
+                merged["goals"] = existing + [g for g in append_goals if g and g not in existing]
+
+            if append_promises is not None:
+                existing_raw = pi.get("promises", "[]")
+                try:
+                    existing = json.loads(existing_raw) if isinstance(existing_raw, str) else (existing_raw if isinstance(existing_raw, list) else [])
+                except Exception:
+                    existing = []
+                merged["promises"] = existing + [p for p in append_promises if p and p not in existing]
+
+            if merged:
+                result = ctx.persona_service.update_persona_info(persona, merged)
+                if result.is_ok:
+                    updated.append(f"appended {'+'.join(merged.keys())}")
 
         if not updated:
             return "No changes made (all parameters were None)"

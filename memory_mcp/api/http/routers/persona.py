@@ -4,6 +4,8 @@ from dataclasses import asdict
 from pathlib import Path
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse
+from memory_mcp.infrastructure.logging.structured import get_logger
+logger = get_logger(__name__)
 from memory_mcp.application.use_cases import AppContextRegistry
 from memory_mcp.config.settings import Settings
 from memory_mcp.api.http.deps import (
@@ -103,10 +105,12 @@ def register_persona_routes(mcp) -> None:
             }
 
             goals_result = ctx.memory_repo.get_goals()
-            goals = goals_result.value if goals_result.is_ok else []
+            _goals_raw = goals_result.value if goals_result.is_ok else []
+            goals = [g["description"] for g in _goals_raw if g.get("status") == "active" and g.get("description")]
 
             promises_result = ctx.memory_repo.get_promises()
-            promises = promises_result.value if promises_result.is_ok else []
+            _promises_raw = promises_result.value if promises_result.is_ok else []
+            promises = [p["description"] for p in _promises_raw if p.get("status") == "active" and p.get("description")]
 
             try:
                 total_count = stats.get("total_count", 0)
@@ -134,7 +138,8 @@ def register_persona_routes(mcp) -> None:
                 }
             )
         except Exception as exc:
-            return JSONResponse({"error": str(exc)}, status_code=500)
+            logger.exception("Unexpected error: %s", exc)
+            return JSONResponse({"error": "Internal server error"}, status_code=500)
 
     @mcp.custom_route("/api/personas", methods=["POST"])
     async def create_persona(request: Request) -> JSONResponse:
@@ -163,7 +168,8 @@ def register_persona_routes(mcp) -> None:
                 status_code=201,
             )
         except Exception as exc:
-            return JSONResponse({"error": str(exc)}, status_code=500)
+            logger.exception("Unexpected error: %s", exc)
+            return JSONResponse({"error": "Internal server error"}, status_code=500)
 
     @mcp.custom_route("/api/personas/{persona}", methods=["DELETE"])
     async def delete_persona(request: Request) -> JSONResponse:
@@ -181,7 +187,8 @@ def register_persona_routes(mcp) -> None:
             shutil.rmtree(persona_dir)
             return JSONResponse({"status": "ok", "deleted": persona})
         except Exception as exc:
-            return JSONResponse({"error": str(exc)}, status_code=500)
+            logger.exception("Unexpected error: %s", exc)
+            return JSONResponse({"error": "Internal server error"}, status_code=500)
 
     @mcp.custom_route("/api/personas/{persona}/profile", methods=["PUT"])
     async def update_persona_profile(request: Request) -> JSONResponse:
@@ -211,4 +218,5 @@ def register_persona_routes(mcp) -> None:
                 return JSONResponse({"error": "No valid fields to update"}, status_code=400)
             return JSONResponse({"status": "ok", "updated": updated})
         except Exception as exc:
-            return JSONResponse({"error": str(exc)}, status_code=500)
+            logger.exception("Unexpected error: %s", exc)
+            return JSONResponse({"error": "Internal server error"}, status_code=500)

@@ -2,6 +2,8 @@ from __future__ import annotations
 from collections import defaultdict
 from starlette.requests import Request
 from starlette.responses import JSONResponse
+from memory_mcp.infrastructure.logging.structured import get_logger
+logger = get_logger(__name__)
 from memory_mcp.api.http.deps import (
     _safe_get_context,
     _memory_to_dict,
@@ -52,7 +54,8 @@ def register_search_routes(mcp) -> None:
                 }
             )
         except Exception as exc:
-            return JSONResponse({"error": str(exc)}, status_code=500)
+            logger.exception("Unexpected error: %s", exc)
+            return JSONResponse({"error": "Internal server error"}, status_code=500)
 
     @mcp.custom_route("/api/emotions/{persona}", methods=["GET"])
     async def emotion_history(request: Request) -> JSONResponse:
@@ -90,7 +93,8 @@ def register_search_routes(mcp) -> None:
                 }
             )
         except Exception as exc:
-            return JSONResponse({"error": str(exc)}, status_code=500)
+            logger.exception("Unexpected error: %s", exc)
+            return JSONResponse({"error": "Internal server error"}, status_code=500)
 
     @mcp.custom_route("/api/graph/{persona}", methods=["GET"])
     async def graph_data(request: Request) -> JSONResponse:
@@ -161,4 +165,5 @@ def register_search_routes(mcp) -> None:
                 }
             )
         except Exception as exc:
-            return JSONResponse({"error": str(exc)}, status_code=500)
+            logger.exception("Unexpected error: %s", exc)
+            return JSONResponse({"error": "Internal server error"}, status_code=500)

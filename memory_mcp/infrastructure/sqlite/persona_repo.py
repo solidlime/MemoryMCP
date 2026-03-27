@@ -296,10 +296,10 @@ class SQLitePersonaRepository:
                 gid = hashlib.md5(f"{persona}:{text}".encode()).hexdigest()[:12]
                 db.execute(
                     """
-                    INSERT OR REPLACE INTO goals (id, description, status, priority, created_at, updated_at)
-                    VALUES (?, ?, 'active', 0, COALESCE((SELECT created_at FROM goals WHERE id=?), ?), ?)
+                    INSERT OR REPLACE INTO goals (id, description, status, priority, persona, created_at, updated_at)
+                    VALUES (?, ?, 'active', 0, ?, COALESCE((SELECT created_at FROM goals WHERE id=?), ?), ?)
                     """,
-                    (gid, str(text), gid, now, now),
+                    (gid, str(text), persona, gid, now, now),
                 )
             db.commit()
             logger.info("Goals synced for persona '%s': %d entries", persona, len(goals))
@@ -332,10 +332,10 @@ class SQLitePersonaRepository:
                 pid = hashlib.md5(f"{persona}:{text}".encode()).hexdigest()[:12]
                 db.execute(
                     """
-                    INSERT OR REPLACE INTO promises (id, description, status, priority, created_at, updated_at)
-                    VALUES (?, ?, 'active', 0, COALESCE((SELECT created_at FROM promises WHERE id=?), ?), ?)
+                    INSERT OR REPLACE INTO promises (id, description, status, priority, persona, created_at, updated_at)
+                    VALUES (?, ?, 'active', 0, ?, COALESCE((SELECT created_at FROM promises WHERE id=?), ?), ?)
                     """,
-                    (pid, str(text), pid, now, now),
+                    (pid, str(text), persona, pid, now, now),
                 )
             db.commit()
             logger.info("Promises synced for persona '%s': %d entries", persona, len(promises))

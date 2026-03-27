@@ -3,6 +3,8 @@ import contextlib
 from dataclasses import asdict
 from starlette.requests import Request
 from starlette.responses import JSONResponse
+from memory_mcp.infrastructure.logging.structured import get_logger
+logger = get_logger(__name__)
 from memory_mcp.api.http.deps import (
     _safe_get_context,
     _memory_to_dict,
@@ -81,7 +83,8 @@ def register_memory_routes(mcp) -> None:
                 }
             )
         except Exception as exc:
-            return JSONResponse({"error": str(exc)}, status_code=500)
+            logger.exception("Unexpected error: %s", exc)
+            return JSONResponse({"error": "Internal server error"}, status_code=500)
 
     @mcp.custom_route("/api/observations/{persona}", methods=["GET"])
     async def observations(request: Request) -> JSONResponse:
@@ -127,7 +130,8 @@ def register_memory_routes(mcp) -> None:
                 }
             )
         except Exception as exc:
-            return JSONResponse({"error": str(exc)}, status_code=500)
+            logger.exception("Unexpected error: %s", exc)
+            return JSONResponse({"error": "Internal server error"}, status_code=500)
 
     @mcp.custom_route("/api/strengths/{persona}", methods=["GET"])
     async def memory_strengths(request: Request) -> JSONResponse:
@@ -154,7 +158,8 @@ def register_memory_routes(mcp) -> None:
                 }
             )
         except Exception as exc:
-            return JSONResponse({"error": str(exc)}, status_code=500)
+            logger.exception("Unexpected error: %s", exc)
+            return JSONResponse({"error": "Internal server error"}, status_code=500)
 
     @mcp.custom_route("/api/memories/{persona}", methods=["POST"])
     async def create_memory(request: Request) -> JSONResponse:
@@ -169,7 +174,7 @@ def register_memory_routes(mcp) -> None:
         try:
             body = CreateMemoryRequest(**raw)
         except Exception as exc:
-            return JSONResponse({"error": f"Validation error: {exc}"}, status_code=422)
+            return JSONResponse({"error": "Validation error"}, status_code=422)
         try:
             result = ctx.memory_service.create_memory(
                 content=body.content,
@@ -191,7 +196,8 @@ def register_memory_routes(mcp) -> None:
                 status_code=201,
             )
         except Exception as exc:
-            return JSONResponse({"error": str(exc)}, status_code=500)
+            logger.exception("Unexpected error: %s", exc)
+            return JSONResponse({"error": "Internal server error"}, status_code=500)
 
     @mcp.custom_route("/api/memories/{persona}/{key}", methods=["PUT"])
     async def update_memory(request: Request) -> JSONResponse:
@@ -209,7 +215,7 @@ def register_memory_routes(mcp) -> None:
         try:
             body = UpdateMemoryRequest(**raw)
         except Exception as exc:
-            return JSONResponse({"error": f"Validation error: {exc}"}, status_code=422)
+            return JSONResponse({"error": "Validation error"}, status_code=422)
         try:
             updates = body.model_dump(exclude_none=True)
             if not updates:
@@ -225,7 +231,8 @@ def register_memory_routes(mcp) -> None:
                     ctx.vector_store.upsert(persona, mem.key, mem.content)
             return JSONResponse({"status": "ok", "memory": _memory_to_dict(mem)})
         except Exception as exc:
-            return JSONResponse({"error": str(exc)}, status_code=500)
+            logger.exception("Unexpected error: %s", exc)
+            return JSONResponse({"error": "Internal server error"}, status_code=500)
 
     @mcp.custom_route("/api/memories/{persona}/{key}", methods=["DELETE"])
     async def delete_memory(request: Request) -> JSONResponse:
@@ -245,4 +252,5 @@ def register_memory_routes(mcp) -> None:
                     ctx.vector_store.delete(persona, key)
             return JSONResponse({"status": "ok", "deleted": key})
         except Exception as exc:
-            return JSONResponse({"error": str(exc)}, status_code=500)
+            logger.exception("Unexpected error: %s", exc)
+            return JSONResponse({"error": "Internal server error"}, status_code=500)

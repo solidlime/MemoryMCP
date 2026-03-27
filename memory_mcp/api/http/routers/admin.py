@@ -5,6 +5,8 @@ import zipfile
 from pathlib import Path
 from starlette.requests import Request
 from starlette.responses import JSONResponse, StreamingResponse
+from memory_mcp.infrastructure.logging.structured import get_logger
+logger = get_logger(__name__)
 from memory_mcp.config.settings import Settings
 from memory_mcp.api.http.deps import (
     _safe_get_context,
@@ -20,7 +22,8 @@ def register_admin_routes(mcp) -> None:
             config = RuntimeConfigManager()
             return JSONResponse(config.get_all())
         except Exception as exc:
-            return JSONResponse({"error": str(exc)}, status_code=500)
+            logger.exception("Unexpected error: %s", exc)
+            return JSONResponse({"error": "Internal server error"}, status_code=500)
 
     @mcp.custom_route("/api/settings", methods=["PUT"])
     async def update_settings(request: Request) -> JSONResponse:
@@ -43,7 +46,8 @@ def register_admin_routes(mcp) -> None:
             status_code = 200 if result.get("success") else 400
             return JSONResponse(result, status_code=status_code)
         except Exception as exc:
-            return JSONResponse({"error": str(exc)}, status_code=500)
+            logger.exception("Unexpected error: %s", exc)
+            return JSONResponse({"error": "Internal server error"}, status_code=500)
 
     @mcp.custom_route("/api/settings/status", methods=["GET"])
     async def settings_status(request: Request) -> JSONResponse:
@@ -56,7 +60,8 @@ def register_admin_routes(mcp) -> None:
                 }
             )
         except Exception as exc:
-            return JSONResponse({"error": str(exc)}, status_code=500)
+            logger.exception("Unexpected error: %s", exc)
+            return JSONResponse({"error": "Internal server error"}, status_code=500)
 
     @mcp.custom_route("/api/admin/rebuild/{persona}", methods=["POST"])
     async def rebuild_vectors(request: Request) -> JSONResponse:
@@ -74,7 +79,8 @@ def register_admin_routes(mcp) -> None:
                 status_code=202,
             )
         except Exception as exc:
-            return JSONResponse({"error": str(exc)}, status_code=500)
+            logger.exception("Unexpected error: %s", exc)
+            return JSONResponse({"error": "Internal server error"}, status_code=500)
 
     @mcp.custom_route("/api/import/{persona}", methods=["POST"])
     async def import_data(request: Request) -> JSONResponse:
@@ -114,7 +120,8 @@ def register_admin_routes(mcp) -> None:
                 if zip_path.exists():
                     zip_path.unlink()
         except Exception as exc:
-            return JSONResponse({"error": str(exc)}, status_code=500)
+            logger.exception("Unexpected error: %s", exc)
+            return JSONResponse({"error": "Internal server error"}, status_code=500)
 
     @mcp.custom_route("/api/export/{persona}", methods=["GET"])
     async def export_data(request: Request) -> StreamingResponse:
@@ -137,4 +144,5 @@ def register_admin_routes(mcp) -> None:
                 headers={"Content-Disposition": f'attachment; filename="{persona}_export.zip"'},
             )
         except Exception as exc:
-            return JSONResponse({"error": str(exc)}, status_code=500)
+            logger.exception("Unexpected error: %s", exc)
+            return JSONResponse({"error": "Internal server error"}, status_code=500)
