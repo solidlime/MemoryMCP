@@ -37,7 +37,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
       - name: Install test tools
-        run: pip install pytest pytest-asyncio pytest-cov
+        run: pip install pytest pytest-asyncio pytest-cov pytest-timeout
       - name: Run unit tests
         run: python -m pytest tests/unit/ -v --tb=short -m "not e2e and not slow" --timeout=60
 
@@ -68,7 +68,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
       - name: Install test tools
-        run: pip install pytest pytest-asyncio pytest-cov httpx
+        run: pip install pytest pytest-asyncio pytest-cov httpx pytest-timeout
       - name: Wait for Qdrant
         run: |
           for i in {1..30}; do

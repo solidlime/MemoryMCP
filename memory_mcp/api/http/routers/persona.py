@@ -1,17 +1,23 @@
 from __future__ import annotations
+
 import shutil
 from dataclasses import asdict
 from pathlib import Path
-from starlette.requests import Request
+from typing import TYPE_CHECKING
+
 from starlette.responses import HTMLResponse, JSONResponse
-from memory_mcp.application.use_cases import AppContextRegistry
-from memory_mcp.config.settings import Settings
+
 from memory_mcp.api.http.deps import (
-    _safe_get_context,
+    _PERSONA_PATTERN,
     _memory_to_dict,
     _resolve_persona_from_request,
-    _PERSONA_PATTERN,
+    _safe_get_context,
 )
+from memory_mcp.application.use_cases import AppContextRegistry
+from memory_mcp.config.settings import Settings
+
+if TYPE_CHECKING:
+    from starlette.requests import Request
 
 
 def register_persona_routes(mcp) -> None:
@@ -50,11 +56,13 @@ def register_persona_routes(mcp) -> None:
     @mcp.custom_route("/", methods=["GET"])
     async def dashboard_page(request: Request) -> HTMLResponse:
         from memory_mcp.api.http.dashboard import render_dashboard
+
         return HTMLResponse(render_dashboard())
 
     @mcp.custom_route("/dashboard/{persona}", methods=["GET"])
     async def dashboard_page_persona(request: Request) -> HTMLResponse:
         from memory_mcp.api.http.dashboard import render_dashboard
+
         persona = _resolve_persona_from_request(request)
         return HTMLResponse(render_dashboard(persona))
 

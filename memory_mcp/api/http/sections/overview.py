@@ -347,7 +347,7 @@ async function loadOverview() {
                 </div>
                 <div>
                     <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:6px;font-weight:600">Persona Info</div>
-                    ${(() => { const _GOALS_KEYS = new Set(['goals','promises','active_promises','current_goals']); const filtered = Object.entries(personaInfo).filter(([k]) => !_GOALS_KEYS.has(k)); return filtered.length ? filtered.map(([k,v]) => `<div style="display:flex;gap:8px;padding:4px 0;font-size:0.85rem"><span style="color:var(--text-muted);min-width:120px">${esc(k.replace(/_/g,' '))}</span><span style="color:var(--accent-purple)">${esc(String(v))}</span></div>`).join('') : '<span style="color:var(--text-muted)">No persona info</span>'; })()} 
+                    ${(() => { const _GOALS_KEYS = new Set(['goals','promises','active_promises','current_goals']); const filtered = Object.entries(personaInfo).filter(([k]) => !_GOALS_KEYS.has(k)); return filtered.length ? filtered.map(([k,v]) => `<div style="display:flex;gap:8px;padding:4px 0;font-size:0.85rem"><span style="color:var(--text-muted);min-width:120px">${esc(k.replace(/_/g,' '))}</span><span style="color:var(--accent-purple)">${esc(String(v))}</span></div>`).join('') : '<span style="color:var(--text-muted)">No persona info</span>'; })()}
                 </div>
             </div>
         </div>

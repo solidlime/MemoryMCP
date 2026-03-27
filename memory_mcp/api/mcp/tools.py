@@ -7,18 +7,37 @@ from mcp.server.fastmcp import FastMCP  # noqa: TC002
 from memory_mcp.api.mcp.middleware import get_current_persona
 from memory_mcp.application.use_cases import AppContextRegistry
 from memory_mcp.domain.search.engine import SearchQuery
+from memory_mcp.domain.shared.time_utils import relative_time_str
 
-_VALID_EMOTIONS = frozenset({
-    "joy", "sadness", "anger", "fear", "surprise", "disgust",
-    "love", "neutral", "anticipation", "trust", "anxiety",
-    "excitement", "frustration", "nostalgia", "pride", "shame",
-    "guilt", "loneliness", "contentment", "curiosity", "awe",
-    "relief",
-})
+_VALID_EMOTIONS = frozenset(
+    {
+        "joy",
+        "sadness",
+        "anger",
+        "fear",
+        "surprise",
+        "disgust",
+        "love",
+        "neutral",
+        "anticipation",
+        "trust",
+        "anxiety",
+        "excitement",
+        "frustration",
+        "nostalgia",
+        "pride",
+        "shame",
+        "guilt",
+        "loneliness",
+        "contentment",
+        "curiosity",
+        "awe",
+        "relief",
+    }
+)
 
 if TYPE_CHECKING:
     from memory_mcp.domain.persona.entities import PersonaState
-from memory_mcp.domain.shared.time_utils import relative_time_str
 
 
 def register_tools(mcp: FastMCP) -> None:
@@ -223,7 +242,9 @@ def register_tools(mcp: FastMCP) -> None:
             update_warning = ""
             if emotion_type is not None:
                 if emotion_type not in _VALID_EMOTIONS:
-                    update_warning = f"[Warning: emotion_type '{emotion_type}' is not a valid emotion, defaulted to 'neutral']\n"
+                    update_warning = (
+                        f"[Warning: emotion_type '{emotion_type}' is not a valid emotion, defaulted to 'neutral']\n"
+                    )
                 updates["emotion"] = emotion_type
             if emotion_intensity is not None:
                 updates["emotion_intensity"] = emotion_intensity
@@ -246,7 +267,9 @@ def register_tools(mcp: FastMCP) -> None:
             snippet = ""
             pre_fetch = ctx.memory_service.get_memory(key)
             if pre_fetch.is_ok:
-                snippet = f"\nContent: 「{pre_fetch.value.content[:80]}{'...' if len(pre_fetch.value.content) > 80 else ''}」"
+                snippet = (
+                    f"\nContent: 「{pre_fetch.value.content[:80]}{'...' if len(pre_fetch.value.content) > 80 else ''}」"
+                )
             result = ctx.memory_service.delete_memory(key)
             if result.is_ok:
                 if ctx.vector_store:
@@ -809,9 +832,9 @@ def _format_context_response(
             lines.append(f"{k}: {v}")
 
     # Persona Info (existing) — goals/promises は ACTIVE COMMITMENTS で表示済みのため除外
-    HIDDEN_PERSONA_INFO_KEYS = {"goals", "promises", "active_promises", "current_goals"}
+    hidden_persona_info_keys = {"goals", "promises", "active_promises", "current_goals"}
     if state.persona_info:
-        filtered_info = {k: v for k, v in state.persona_info.items() if k not in HIDDEN_PERSONA_INFO_KEYS}
+        filtered_info = {k: v for k, v in state.persona_info.items() if k not in hidden_persona_info_keys}
         if filtered_info:
             lines.append("\n--- Persona Info ---")
             for k, v in filtered_info.items():

@@ -1,15 +1,21 @@
 from __future__ import annotations
+
 import asyncio
 import io
 import zipfile
 from pathlib import Path
-from starlette.requests import Request
+from typing import TYPE_CHECKING
+
 from starlette.responses import JSONResponse, StreamingResponse
-from memory_mcp.config.settings import Settings
+
 from memory_mcp.api.http.deps import (
-    _safe_get_context,
     _resolve_persona_from_request,
+    _safe_get_context,
 )
+from memory_mcp.config.settings import Settings
+
+if TYPE_CHECKING:
+    from starlette.requests import Request
 
 
 def register_admin_routes(mcp) -> None:
@@ -17,6 +23,7 @@ def register_admin_routes(mcp) -> None:
     async def get_settings(request: Request) -> JSONResponse:
         try:
             from memory_mcp.config.runtime_config import RuntimeConfigManager
+
             config = RuntimeConfigManager()
             return JSONResponse(config.get_all())
         except Exception as exc:
@@ -38,6 +45,7 @@ def register_admin_routes(mcp) -> None:
             )
         try:
             from memory_mcp.config.runtime_config import RuntimeConfigManager
+
             config = RuntimeConfigManager()
             result = config.update(category, key, value)
             status_code = 200 if result.get("success") else 400
@@ -49,6 +57,7 @@ def register_admin_routes(mcp) -> None:
     async def settings_status(request: Request) -> JSONResponse:
         try:
             from memory_mcp.config.runtime_config import RuntimeConfigManager
+
             config = RuntimeConfigManager()
             return JSONResponse(
                 {
@@ -99,6 +108,7 @@ def register_admin_routes(mcp) -> None:
 
             try:
                 from memory_mcp.migration.importers.legacy_importer import LegacyImporter
+
                 importer = LegacyImporter(ctx.connection, persona)
                 result = importer.import_from_zip(str(zip_path))
                 if not result.is_ok:

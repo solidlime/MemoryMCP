@@ -92,7 +92,9 @@ class LegacyImporter:
             with zipfile.ZipFile(zip_file, "r") as zf:
                 for member in zf.namelist():
                     member_path = (Path(tmp_dir) / member).resolve()
-                    if not str(member_path).startswith(str(Path(tmp_dir).resolve()) + os.sep) and str(member_path) != str(Path(tmp_dir).resolve()):
+                    if not str(member_path).startswith(str(Path(tmp_dir).resolve()) + os.sep) and str(
+                        member_path
+                    ) != str(Path(tmp_dir).resolve()):
                         return Failure(MigrationError(f"Zip Slip detected: {member}"))
                     zf.extract(member, tmp_dir)
 

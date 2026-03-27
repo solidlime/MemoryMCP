@@ -1,11 +1,17 @@
 from __future__ import annotations
+
 from dataclasses import asdict
-from starlette.requests import Request
+from typing import TYPE_CHECKING
+
 from starlette.responses import JSONResponse
+
 from memory_mcp.api.http.deps import (
-    _safe_get_context,
     _resolve_persona_from_request,
+    _safe_get_context,
 )
+
+if TYPE_CHECKING:
+    from starlette.requests import Request
 
 
 def _item_to_dict(it) -> dict:
