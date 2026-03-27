@@ -14,46 +14,6 @@ concurrency:
 jobs:
   e2e:
     name: E2E Tests
-
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-  workflow_dispatch:
-
-jobs:
-  e2e:
-    runs-on: ubuntu-latest
-    services:
-      qdrant:
-        image: qdrant/qdrant:latest
-        ports:
-          - 6333:6333
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          cache: pip
-      - run: pip install torch --index-url https://download.pytorch.org/whl/cpu
-      - run: pip install -r requirements.txt pytest pytest-asyncio
-      - run: pip install playwright && playwright install --with-deps chromium
-      - name: Wait for Qdrant
-        run: for i in $(seq 1 30); do curl -sf http://localhost:6333/healthz && break || sleep 2; done
-      - name: Start server
-        run: python -m memory_mcp.main &
-        env:
-          MEMORY_MCP_QDRANT_URL: http://localhost:6333
-          MEMORY_MCP_DATA_ROOT: /tmp/e2e_data
-      - name: Wait for server
-        run: for i in $(seq 1 30); do curl -sf http://localhost:26262/health && break || sleep 2; done
-      - run: python -m pytest tests/e2e/ -v --tb=short --timeout=120
-        env:
-          MEMORY_MCP_BASE_URL: http://localhost:26262
-          MEMORY_MCP_DATA_ROOT: /tmp/e2e_data
-          MEMORY_MCP_QDRANT_URL: http://localhost:6333
-
     runs-on: ubuntu-latest
     timeout-minutes: 30
     services:

@@ -195,11 +195,20 @@ class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
     # ------------------------------------------------------------------
 
     def search_keyword(self, query: str, limit: int = 10) -> Result[list[tuple[Memory, float]], RepositoryError]:
-        """Search memories by keyword with relevance scoring."""
+        """Search memories by keyword with relevance scoring.
+
+        Multi-word queries use AND logic: all terms must appear in the content.
+        """
         try:
+            terms = [t for t in query.split() if t]
+            if not terms:
+                return Success([])
+            # Each term must match independently (AND logic)
+            conditions = " AND ".join("content LIKE ?" for _ in terms)
+            params = tuple(f"%{t}%" for t in terms)
             rows = self._db.execute(
-                "SELECT * FROM memories WHERE content LIKE ? ORDER BY updated_at DESC",
-                (f"%{query}%",),
+                f"SELECT * FROM memories WHERE {conditions} ORDER BY updated_at DESC",  # noqa: S608
+                params,
             ).fetchall()
             scored: list[tuple[Memory, float]] = []
             for row in rows:
