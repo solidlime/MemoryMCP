@@ -28,7 +28,6 @@ from memory_mcp.application.use_cases import AppContextRegistry
 from memory_mcp.config.runtime_config import RuntimeConfigManager
 from memory_mcp.main import create_app
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -340,9 +339,7 @@ class TestSearchModes:
         for mode in ["keyword", "hybrid", "semantic", "smart"]:
             resp = await client.get(f"/api/search/{PERSONA}?q=ラーメン&mode={mode}")
             assert resp.status_code == 200
-            results_by_mode[mode] = sorted(
-                r["memory"]["key"] for r in resp.json()["results"]
-            )
+            results_by_mode[mode] = sorted(r["memory"]["key"] for r in resp.json()["results"])
         # 全モードが同一の memory key セットを返す
         assert results_by_mode["keyword"] == results_by_mode["hybrid"]
         assert results_by_mode["keyword"] == results_by_mode["semantic"]

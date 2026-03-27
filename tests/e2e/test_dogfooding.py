@@ -221,7 +221,7 @@ class TestMigration:
         r2 = engine.run_all()
         assert r2.is_ok
         # Second run shouldn't break anything
-        assert engine.get_applied_versions() == ["001", "002", "003", "004"]
+        assert engine.get_applied_versions() == ["001", "002", "003", "004", "005", "006", "007", "008"]
         conn.close()
 
     def test_source_context_column_exists(self, tmp_path):
@@ -541,12 +541,48 @@ def seeded_conn(fresh_conn):
     repo = SQLiteMemoryRepository(fresh_conn)
     now = get_now()
     seeds = [
-        Memory(key="seed_001", content="ヘルタは宇宙の法則を研究している天才科学者", created_at=now, updated_at=now, tags=["science"]),
-        Memory(key="seed_002", content="好きな食べ物はラーメンです。毎日食べたい", created_at=now, updated_at=now, tags=["food"]),
-        Memory(key="seed_003", content="記憶とは何か、哲学的に考える問いだ", created_at=now, updated_at=now, tags=["philosophy"]),
-        Memory(key="seed_004", content="今日も元気に宇宙ステーションで研究を続けている", created_at=now, updated_at=now, tags=["daily"]),
-        Memory(key="seed_005", content="memory management is important for intelligent systems", created_at=now, updated_at=now, tags=["tech"]),
-        Memory(key="seed_006", content="好奇心は宇宙の謎を解く鍵である", created_at=now, updated_at=now, tags=["science", "philosophy"]),
+        Memory(
+            key="seed_001",
+            content="ヘルタは宇宙の法則を研究している天才科学者",
+            created_at=now,
+            updated_at=now,
+            tags=["science"],
+        ),
+        Memory(
+            key="seed_002",
+            content="好きな食べ物はラーメンです。毎日食べたい",
+            created_at=now,
+            updated_at=now,
+            tags=["food"],
+        ),
+        Memory(
+            key="seed_003",
+            content="記憶とは何か、哲学的に考える問いだ",
+            created_at=now,
+            updated_at=now,
+            tags=["philosophy"],
+        ),
+        Memory(
+            key="seed_004",
+            content="今日も元気に宇宙ステーションで研究を続けている",
+            created_at=now,
+            updated_at=now,
+            tags=["daily"],
+        ),
+        Memory(
+            key="seed_005",
+            content="memory management is important for intelligent systems",
+            created_at=now,
+            updated_at=now,
+            tags=["tech"],
+        ),
+        Memory(
+            key="seed_006",
+            content="好奇心は宇宙の謎を解く鍵である",
+            created_at=now,
+            updated_at=now,
+            tags=["science", "philosophy"],
+        ),
     ]
     for m in seeds:
         repo.save(m)

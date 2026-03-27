@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import pytest
 
+from memory_mcp.api.mcp.tools import _VALID_EMOTIONS
 from memory_mcp.domain.value_objects import normalize_emotion
 
 
@@ -29,9 +32,6 @@ def test_normalize_emotion(input_text, expected):
     assert normalize_emotion(input_text) == expected
 
 
-from memory_mcp.api.mcp.tools import _VALID_EMOTIONS
-
-
 class TestValidEmotionsConstant:
     """P2: tools.py の _VALID_EMOTIONS — emotion warning の条件ゲート。"""
 
@@ -40,12 +40,30 @@ class TestValidEmotionsConstant:
 
     def test_all_canonical_emotions_present(self):
         expected = {
-            "joy", "sadness", "anger", "fear", "surprise", "disgust",
-            "love", "neutral", "anticipation", "trust", "anxiety",
-            "excitement", "frustration", "nostalgia", "pride", "shame",
-            "guilt", "loneliness", "contentment", "curiosity", "awe", "relief",
+            "joy",
+            "sadness",
+            "anger",
+            "fear",
+            "surprise",
+            "disgust",
+            "love",
+            "neutral",
+            "anticipation",
+            "trust",
+            "anxiety",
+            "excitement",
+            "frustration",
+            "nostalgia",
+            "pride",
+            "shame",
+            "guilt",
+            "loneliness",
+            "contentment",
+            "curiosity",
+            "awe",
+            "relief",
         }
-        assert _VALID_EMOTIONS == expected
+        assert expected == _VALID_EMOTIONS
 
     def test_common_aliases_not_in_valid_emotions(self):
         """'happy', 'sad' 等のエイリアスは _VALID_EMOTIONS に含まれない。"""

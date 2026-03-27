@@ -97,8 +97,7 @@ class TestPromisesJsonPersistence:
 
         promises = state.persona_info.get("promises")
         assert promises == ["P1", "P2"], (
-            f"Expected ['P1', 'P2'], got {promises!r}. "
-            "The SQLitePersonaRepository should parse JSON back to list."
+            f"Expected ['P1', 'P2'], got {promises!r}. The SQLitePersonaRepository should parse JSON back to list."
         )
 
     def test_goals_roundtrip_as_list(self, persona_service: PersonaService):
@@ -277,12 +276,8 @@ class TestMemoryStrengthInit:
         ).fetchone()
 
         assert row is not None, "memory_strength record should exist immediately after save()"
-        assert row["strength"] == pytest.approx(1.0), (
-            f"Expected strength=1.0 after first save, got {row['strength']}"
-        )
-        assert row["recall_count"] == 0, (
-            f"Expected recall_count=0 on fresh record, got {row['recall_count']}"
-        )
+        assert row["strength"] == pytest.approx(1.0), f"Expected strength=1.0 after first save, got {row['strength']}"
+        assert row["recall_count"] == 0, f"Expected recall_count=0 on fresh record, got {row['recall_count']}"
 
     def test_resave_does_not_overwrite_existing_strength(
         self,
@@ -309,9 +304,7 @@ class TestMemoryStrengthInit:
             (m.key,),
         ).fetchone()
         assert row is not None
-        assert row["strength"] == pytest.approx(0.42), (
-            "INSERT OR IGNORE must not replace existing strength"
-        )
+        assert row["strength"] == pytest.approx(0.42), "INSERT OR IGNORE must not replace existing strength"
         assert row["recall_count"] == 5, "INSERT OR IGNORE must not reset recall_count"
 
     def test_multiple_memories_each_get_strength_record(
@@ -354,8 +347,7 @@ class TestEntityAutoExtract:
         results = extractor.extract(self._CONTENT)
         names = {name for name, _ in results}
         assert "Alice" in names or "Bob" in names, (
-            f"SimpleEntityExtractor did not find 'Alice' or 'Bob' in {names!r}. "
-            f"Input: '{self._CONTENT}'"
+            f"SimpleEntityExtractor did not find 'Alice' or 'Bob' in {names!r}. Input: '{self._CONTENT}'"
         )
 
     def test_extract_and_link_returns_ok(self, entity_service: EntityService):

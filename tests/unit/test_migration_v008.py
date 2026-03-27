@@ -1,4 +1,5 @@
 """Tests for migration v008: persona column in goals/promises."""
+
 import sqlite3
 
 from memory_mcp.migration.versions.v008_add_persona_to_goals_promises import upgrade

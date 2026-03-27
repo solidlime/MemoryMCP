@@ -1,4 +1,5 @@
 """Tests for error responses: no exception detail leakage."""
+
 import inspect
 
 
@@ -19,9 +20,7 @@ def test_error_response_does_not_leak_exception_details():
 
     for module in (admin, item, memory, persona, search):
         source = inspect.getsource(module)
-        assert '"error": str(exc)' not in source, (
-            f"{module.__name__} leaks exception detail via str(exc)"
-        )
+        assert '"error": str(exc)' not in source, f"{module.__name__} leaks exception detail via str(exc)"
 
 
 def test_internal_server_error_string_present_in_routers():
@@ -30,6 +29,4 @@ def test_internal_server_error_string_present_in_routers():
 
     for module in (admin, item, memory, persona, search):
         source = inspect.getsource(module)
-        assert "Internal server error" in source, (
-            f"{module.__name__} missing 'Internal server error' error response"
-        )
+        assert "Internal server error" in source, f"{module.__name__} missing 'Internal server error' error response"

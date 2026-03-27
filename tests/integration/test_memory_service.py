@@ -11,13 +11,10 @@ import tempfile
 
 import pytest
 
-from memory_mcp.domain.memory.entities import Memory
 from memory_mcp.domain.memory.service import MemoryService
 from memory_mcp.domain.search.engine import SearchEngine, SearchQuery
-from memory_mcp.domain.shared.time_utils import get_now
 from memory_mcp.infrastructure.sqlite.connection import SQLiteConnection
 from memory_mcp.infrastructure.sqlite.memory_repo import SQLiteMemoryRepository
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

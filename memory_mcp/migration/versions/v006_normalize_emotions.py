@@ -18,14 +18,14 @@ def upgrade(db) -> None:
     Fetches all non-NULL emotion_type values, applies normalize_emotion(),
     and updates only rows where the value changed.
     """
-    rows = db.execute("SELECT memory_key, emotion_type FROM memories WHERE emotion_type IS NOT NULL").fetchall()
+    rows = db.execute("SELECT key, emotion FROM memories WHERE emotion IS NOT NULL").fetchall()
 
     updated = 0
     for memory_key, emotion_type in rows:
         normalized = normalize_emotion(emotion_type)
         if normalized != emotion_type:
             db.execute(
-                "UPDATE memories SET emotion_type = ? WHERE memory_key = ?",
+                "UPDATE memories SET emotion = ? WHERE key = ?",
                 (normalized, memory_key),
             )
             updated += 1

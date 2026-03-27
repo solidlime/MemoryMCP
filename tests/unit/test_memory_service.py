@@ -389,10 +389,28 @@ class TestGetStatsTopN:
     def test_top_n_truncates_emotion_distribution(self, service):
         # 22種の感情でメモリを作成（各1個）
         emotions = [
-            "joy", "sadness", "anger", "fear", "surprise", "disgust",
-            "love", "neutral", "anticipation", "trust", "anxiety",
-            "excitement", "frustration", "nostalgia", "pride", "shame",
-            "guilt", "loneliness", "contentment", "curiosity", "awe", "relief",
+            "joy",
+            "sadness",
+            "anger",
+            "fear",
+            "surprise",
+            "disgust",
+            "love",
+            "neutral",
+            "anticipation",
+            "trust",
+            "anxiety",
+            "excitement",
+            "frustration",
+            "nostalgia",
+            "pride",
+            "shame",
+            "guilt",
+            "loneliness",
+            "contentment",
+            "curiosity",
+            "awe",
+            "relief",
         ]
         for i, em in enumerate(emotions):
             service.create_memory(content=f"mem_{i}", emotion=em)

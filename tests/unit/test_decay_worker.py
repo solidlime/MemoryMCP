@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
 from memory_mcp.application.workers.decay_worker import DecayWorker
@@ -13,7 +13,7 @@ def _make_strength(key: str, strength: float = 0.8, use_old_decay: bool = False)
     s.strength = strength
     # Old date → elapsed ≈ years → compute_recall ≈ 0 (below min_strength)
     # Recent date → elapsed ≈ 0 → compute_recall ≈ 1.0 (above min_strength)
-    s.last_decay = datetime(2020, 1, 1, tzinfo=timezone.utc) if use_old_decay else get_now()
+    s.last_decay = datetime(2020, 1, 1, tzinfo=UTC) if use_old_decay else get_now()
     return s
 
 
