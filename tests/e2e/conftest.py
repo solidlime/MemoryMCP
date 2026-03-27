@@ -46,7 +46,7 @@ def server():
         return
 
     env = os.environ.copy()
-    env["MEMORY_MCP_SERVER_PORT"] = str(TEST_PORT)
+    env["MEMORY_MCP_SERVER__PORT"] = str(TEST_PORT)
     env["MEMORY_MCP_DATA_ROOT"] = E2E_DATA_ROOT
 
     proc = subprocess.Popen(
