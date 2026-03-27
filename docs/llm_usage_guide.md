@@ -362,7 +362,7 @@ You have persistent memory via MCP tools. Use them autonomously — never wait t
 → `update_context(emotion="anxiety", emotion_intensity=0.7)`
 → `update_context(user_info={"preferred_address": "..."})`
 
-**Track persona items** (the assistant's own equipment — not the user's belongings):
+**Track persona items** (the assistant's own equipment):
 → `item(operation="equip", equipment={"top": "...", "accessories": "..."})`
 → `item(operation="add", item_name="...", category="clothing")`
 
@@ -392,7 +392,7 @@ Never ask "should I remember this?" — just do it.
 → `update_context(emotion="anxiety", emotion_intensity=0.7)`
 → `update_context(user_info={"preferred_address": "..."})`
 
-**所持品・装備を記録** — ペルソナ（自分自身）の持ち物・着ているものが変わったとき（ユーザーの持ち物ではない）:
+**所持品・装備を記録** — 自分自身の持ち物・着ているものが変わったとき:
 → `item(operation="equip", equipment={"top": "...", "accessories": "..."})`
 → `item(operation="add", item_name="...", category="clothing")`
 
