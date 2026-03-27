@@ -516,6 +516,8 @@ def register_tools(mcp: FastMCP) -> None:
         relationship_type: str | None = None,
         append_goals: list[str] | None = None,
         append_promises: list[str] | None = None,
+        remove_goals: list[str] | None = None,
+        remove_promises: list[str] | None = None,
     ) -> str:
         """Update persona context state. All parameters optional; only provided values are updated.
 
@@ -550,6 +552,11 @@ def register_tools(mcp: FastMCP) -> None:
         Append (non-destructive):
             append_goals: list[str] | None - 既存 goals リストに追記（重複は無視）
             append_promises: list[str] | None - 既存 promises リストに追記（重複は無視）
+
+        Remove (non-destructive delete from list):
+            remove_goals: list[str] | None - 既存 goals リストから指定アイテムを削除（存在しない場合は無視）
+            remove_promises: list[str] | None - 既存 promises リストから指定アイテムを削除（存在しない場合は無視）
+            Note: persona_info に goals/promises が直接指定された場合、remove_goals/remove_promises は無視される。
 
         Body sensations:
             fatigue - float (0.0-1.0). Fatigue level.
@@ -632,19 +639,33 @@ def register_tools(mcp: FastMCP) -> None:
             if result.is_ok:
                 updated.append(f"nickname={nickname}")
 
-        if not updated and append_goals is None and append_promises is None:
+        if (
+            not updated
+            and append_goals is None
+            and append_promises is None
+            and remove_goals is None
+            and remove_promises is None
+        ):
             return "No changes made (all parameters were None)"
 
         if append_goals is not None or append_promises is not None:
             current_context = ctx.persona_service.get_context(persona)
-            pi = current_context.value.persona_info if current_context.is_ok and current_context.value.persona_info else {}
+            pi = (
+                current_context.value.persona_info
+                if current_context.is_ok and current_context.value.persona_info
+                else {}
+            )
 
             merged: dict[str, list[str]] = {}
 
             if append_goals is not None:
                 existing_raw = pi.get("goals", "[]")
                 try:
-                    existing = json.loads(existing_raw) if isinstance(existing_raw, str) else (existing_raw if isinstance(existing_raw, list) else [])
+                    existing = (
+                        json.loads(existing_raw)
+                        if isinstance(existing_raw, str)
+                        else (existing_raw if isinstance(existing_raw, list) else [])
+                    )
                 except Exception:
                     existing = []
                 merged["goals"] = existing + [g for g in append_goals if g and g not in existing]
@@ -652,7 +673,11 @@ def register_tools(mcp: FastMCP) -> None:
             if append_promises is not None:
                 existing_raw = pi.get("promises", "[]")
                 try:
-                    existing = json.loads(existing_raw) if isinstance(existing_raw, str) else (existing_raw if isinstance(existing_raw, list) else [])
+                    existing = (
+                        json.loads(existing_raw)
+                        if isinstance(existing_raw, str)
+                        else (existing_raw if isinstance(existing_raw, list) else [])
+                    )
                 except Exception:
                     existing = []
                 merged["promises"] = existing + [p for p in append_promises if p and p not in existing]
@@ -661,6 +686,51 @@ def register_tools(mcp: FastMCP) -> None:
                 result = ctx.persona_service.update_persona_info(persona, merged)
                 if result.is_ok:
                     updated.append(f"appended {'+'.join(merged.keys())}")
+
+        if remove_goals is not None or remove_promises is not None:
+            skip_remove_goals = persona_info is not None and "goals" in persona_info
+            skip_remove_promises = persona_info is not None and "promises" in persona_info
+
+            if (remove_goals is not None and not skip_remove_goals) or (
+                remove_promises is not None and not skip_remove_promises
+            ):
+                current_context = ctx.persona_service.get_context(persona)
+                pi = (
+                    current_context.value.persona_info
+                    if current_context.is_ok and current_context.value.persona_info
+                    else {}
+                )
+
+                remove_merged: dict[str, list[str]] = {}
+
+                if remove_goals is not None and not skip_remove_goals:
+                    existing_raw = pi.get("goals", "[]")
+                    try:
+                        existing = (
+                            json.loads(existing_raw)
+                            if isinstance(existing_raw, str)
+                            else (existing_raw if isinstance(existing_raw, list) else [])
+                        )
+                    except Exception:
+                        existing = []
+                    remove_merged["goals"] = [g for g in existing if g not in remove_goals]
+
+                if remove_promises is not None and not skip_remove_promises:
+                    existing_raw = pi.get("promises", "[]")
+                    try:
+                        existing = (
+                            json.loads(existing_raw)
+                            if isinstance(existing_raw, str)
+                            else (existing_raw if isinstance(existing_raw, list) else [])
+                        )
+                    except Exception:
+                        existing = []
+                    remove_merged["promises"] = [p for p in existing if p not in remove_promises]
+
+                if remove_merged:
+                    result = ctx.persona_service.update_persona_info(persona, remove_merged)
+                    if result.is_ok:
+                        updated.append(f"removed from {'+'.join(remove_merged.keys())}")
 
         if not updated:
             return "No changes made (all parameters were None)"
