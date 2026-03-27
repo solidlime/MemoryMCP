@@ -138,7 +138,13 @@ class AppContextRegistry:
                 from memory_mcp.config.settings import Settings
 
                 cls._settings = Settings()
-            cls._contexts[persona] = AppContext(cls._settings, persona)
+            ctx = AppContext(cls._settings, persona)
+        cls._contexts[persona] = ctx
+        if cls._settings.forgetting.enabled:
+            from memory_mcp.application.workers.decay_worker import DecayWorker
+
+            decay_worker = DecayWorker(ctx, cls._settings.forgetting.decay_interval_seconds)
+            decay_worker.start()
         return cls._contexts[persona]
 
     @classmethod

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import TYPE_CHECKING
 
 from mcp.server.fastmcp import FastMCP  # noqa: TC002
@@ -9,6 +10,8 @@ from memory_mcp.api.mcp.middleware import get_current_persona
 from memory_mcp.application.use_cases import AppContextRegistry
 from memory_mcp.domain.search.engine import SearchQuery
 from memory_mcp.domain.shared.time_utils import relative_time_str
+
+logger = logging.getLogger(__name__)
 
 _VALID_EMOTIONS = frozenset(
     {
@@ -217,6 +220,10 @@ def register_tools(mcp: FastMCP) -> None:
             if memory_key:
                 result = ctx.memory_service.get_memory(memory_key)
                 if result.is_ok:
+                    try:
+                        ctx.memory_service.boost_recall(memory_key)
+                    except Exception as e:
+                        logger.warning(f"boost_recall failed: {e}")
                     m = result.value
                     return (
                         f"Key: {m.key}\nContent: {m.content}\n"
