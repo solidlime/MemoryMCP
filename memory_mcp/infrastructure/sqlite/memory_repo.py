@@ -8,6 +8,8 @@ from memory_mcp.domain.shared.errors import RepositoryError
 from memory_mcp.domain.shared.result import Failure, Result, Success
 from memory_mcp.domain.shared.time_utils import format_iso, get_now
 from memory_mcp.infrastructure.logging.structured import get_logger
+from memory_mcp.infrastructure.sqlite.block_repo import SQLiteBlockMixin
+from memory_mcp.infrastructure.sqlite.strength_repo import SQLiteStrengthMixin
 
 if TYPE_CHECKING:
     from memory_mcp.infrastructure.sqlite.connection import SQLiteConnection
@@ -15,7 +17,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class SQLiteMemoryRepository:
+class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
     """SQLite-backed implementation of the MemoryRepository protocol."""
 
     def __init__(self, connection: SQLiteConnection) -> None:
@@ -80,6 +82,7 @@ class SQLiteMemoryRepository:
             logger.info("Memory saved: %s", memory.key)
             return Success(memory.key)
         except Exception as e:
+            self._db.rollback()
             logger.error("Failed to save memory %s: %s", memory.key, e)
             return Failure(RepositoryError(str(e)))
 
@@ -152,6 +155,7 @@ class SQLiteMemoryRepository:
             logger.info("Memory updated: %s", key)
             return Success(self._row_to_memory(updated_row))
         except Exception as e:
+            self._db.rollback()
             logger.error("Failed to update memory %s: %s", key, e)
             return Failure(RepositoryError(str(e)))
 
@@ -164,6 +168,7 @@ class SQLiteMemoryRepository:
             logger.info("Memory deleted: %s", key)
             return Success(None)
         except Exception as e:
+            self._db.rollback()
             logger.error("Failed to delete memory %s: %s", key, e)
             return Failure(RepositoryError(str(e)))
 
@@ -204,122 +209,6 @@ class SQLiteMemoryRepository:
             return Success(scored[:limit])
         except Exception as e:
             logger.error("Failed to search memories for '%s': %s", query, e)
-            return Failure(RepositoryError(str(e)))
-
-    # ------------------------------------------------------------------
-    # Memory strength
-    # ------------------------------------------------------------------
-
-    def get_strength(self, key: str) -> Result[MemoryStrength | None, RepositoryError]:
-        """Get the strength record for a memory."""
-        try:
-            row = self._db.execute("SELECT * FROM memory_strength WHERE memory_key = ?", (key,)).fetchone()
-            if row is None:
-                return Success(None)
-            return Success(self._row_to_strength(row))
-        except Exception as e:
-            logger.error("Failed to get strength for %s: %s", key, e)
-            return Failure(RepositoryError(str(e)))
-
-    def save_strength(self, strength: MemoryStrength) -> Result[None, RepositoryError]:
-        """Save or update a memory strength record."""
-        try:
-            self._db.execute(
-                """
-                INSERT OR REPLACE INTO memory_strength
-                    (memory_key, strength, stability, last_decay, recall_count, last_recall)
-                VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    strength.memory_key,
-                    strength.strength,
-                    strength.stability,
-                    format_iso(strength.last_decay) if strength.last_decay else None,
-                    strength.recall_count,
-                    format_iso(strength.last_recall) if strength.last_recall else None,
-                ),
-            )
-            self._db.commit()
-            return Success(None)
-        except Exception as e:
-            logger.error("Failed to save strength for %s: %s", strength.memory_key, e)
-            return Failure(RepositoryError(str(e)))
-
-    def get_all_strengths(self) -> Result[list[MemoryStrength], RepositoryError]:
-        """Get all memory strength records."""
-        try:
-            rows = self._db.execute("SELECT * FROM memory_strength").fetchall()
-            return Success([self._row_to_strength(r) for r in rows])
-        except Exception as e:
-            logger.error("Failed to get all strengths: %s", e)
-            return Failure(RepositoryError(str(e)))
-
-    # ------------------------------------------------------------------
-    # Memory blocks
-    # ------------------------------------------------------------------
-
-    def get_block(self, block_name: str) -> Result[dict | None, RepositoryError]:
-        """Get a named memory block."""
-        try:
-            row = self._db.execute("SELECT * FROM memory_blocks WHERE block_name = ?", (block_name,)).fetchone()
-            if row is None:
-                return Success(None)
-            return Success(dict(row))
-        except Exception as e:
-            logger.error("Failed to get block %s: %s", block_name, e)
-            return Failure(RepositoryError(str(e)))
-
-    def save_block(
-        self,
-        block_name: str,
-        content: str,
-        block_type: str = "custom",
-        max_tokens: int = 500,
-        priority: int = 0,
-        metadata: str = "{}",
-    ) -> Result[None, RepositoryError]:
-        """Save or update a named memory block."""
-        try:
-            now = format_iso(get_now())
-            self._db.execute(
-                """
-                INSERT INTO memory_blocks
-                    (block_name, content, block_type, max_tokens, priority,
-                     created_at, updated_at, metadata)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(block_name) DO UPDATE SET
-                    content = excluded.content,
-                    block_type = excluded.block_type,
-                    max_tokens = excluded.max_tokens,
-                    priority = excluded.priority,
-                    updated_at = excluded.updated_at,
-                    metadata = excluded.metadata
-                """,
-                (block_name, content, block_type, max_tokens, priority, now, now, metadata),
-            )
-            self._db.commit()
-            return Success(None)
-        except Exception as e:
-            logger.error("Failed to save block %s: %s", block_name, e)
-            return Failure(RepositoryError(str(e)))
-
-    def list_blocks(self) -> Result[list[dict], RepositoryError]:
-        """List all memory blocks."""
-        try:
-            rows = self._db.execute("SELECT * FROM memory_blocks ORDER BY priority DESC").fetchall()
-            return Success([dict(r) for r in rows])
-        except Exception as e:
-            logger.error("Failed to list blocks: %s", e)
-            return Failure(RepositoryError(str(e)))
-
-    def delete_block(self, block_name: str) -> Result[None, RepositoryError]:
-        """Delete a named memory block."""
-        try:
-            self._db.execute("DELETE FROM memory_blocks WHERE block_name = ?", (block_name,))
-            self._db.commit()
-            return Success(None)
-        except Exception as e:
-            logger.error("Failed to delete block %s: %s", block_name, e)
             return Failure(RepositoryError(str(e)))
 
     # ------------------------------------------------------------------
@@ -364,6 +253,7 @@ class SQLiteMemoryRepository:
             )
             return Success(None)
         except Exception as e:
+            self._db.rollback()
             logger.error("Failed to save version for %s: %s", memory_key, e)
             return Failure(RepositoryError(str(e)))
 
@@ -529,6 +419,7 @@ class SQLiteMemoryRepository:
             self._db.commit()
             return Success(None)
         except Exception as e:
+            self._db.rollback()
             logger.error("Failed to log search: %s", e)
             return Failure(RepositoryError(str(e)))
 
@@ -699,17 +590,6 @@ class SQLiteMemoryRepository:
             equipped_items=row["equipped_items"],
             access_count=row["access_count"] or 0,
             last_accessed=self._parse_iso_or_none(row["last_accessed"]),
-        )
-
-    def _row_to_strength(self, row) -> MemoryStrength:
-        """Convert a database row to a MemoryStrength entity."""
-        return MemoryStrength(
-            memory_key=row["memory_key"],
-            strength=row["strength"] or 1.0,
-            stability=row["stability"] or 1.0,
-            last_decay=self._parse_iso_or_none(row["last_decay"]),
-            recall_count=row["recall_count"] or 0,
-            last_recall=self._parse_iso_or_none(row["last_recall"]),
         )
 
     @staticmethod
