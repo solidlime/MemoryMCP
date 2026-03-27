@@ -66,6 +66,14 @@ memory_mcp/
 
 `search_memory()` の検索モード: `semantic`（Qdrant）/ `keyword`（SQLite LIKE + RapidFuzz）/ `hybrid`（RRF統合、デフォルト）/ `smart`（クエリ自動拡張）
 
+### Goals & Promises の管理
+
+Goals と Promises は `update_context(persona_info={"goals": [...], "promises": [...]})` で管理する。
+
+- **上書き型**: 追加時は `get_context()` で現在値を読んでからマージすること
+- **確認方法**: `get_context()` の ACTIVE COMMITMENTS セクションに表示される
+- **非推奨**: `context_tags=["promise"]` / `context_tags=["goal"]` は使わない
+
 ### 永続化
 
 - **SQLite**: 記憶エントリ・ユーザー状態・装備・Personaコンテキスト（`{data_root}/memory/<persona>/`配下）

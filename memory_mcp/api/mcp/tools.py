@@ -26,7 +26,7 @@ def register_tools(mcp: FastMCP) -> None:
         - Equipment (slots: top, bottom, shoes, outer, accessories, head)
         - Memory stats (total count, tag/emotion distribution)
         - Recent memories (latest entries as preview)
-        - Active promises and goals (via context_tags)
+        - Active promises and goals (via persona_info["promises"] and persona_info["goals"])
         - Time elapsed since last conversation
         """
         persona = _resolve_persona()
@@ -145,13 +145,11 @@ def register_tools(mcp: FastMCP) -> None:
           importance - float (0.0-1.0). Memory importance score.
           emotion_type - str. Emotion label (e.g. "joy", "sadness").
           tags - list[str]. Categorization tags.
-          context_tags - list[str]. Special tags: "promise", "goal", etc.
           defer_vector - bool (default: False). Skip immediate vector indexing.
 
         Notes:
-            Promises & goals: Use context_tags with create operation.
-                memory(operation="create", content="Promise: ...", context_tags=["promise"])
-                memory(operation="create", content="Goal: ...", context_tags=["goal"])
+            Promises & goals: Use update_context(persona_info={"promises": [...], "goals": [...]}).
+            Do NOT use context_tags for promises/goals — it has no effect.
 
         Examples:
             memory(operation="create", content="User loves coffee", importance=0.7)
@@ -480,8 +478,15 @@ def register_tools(mcp: FastMCP) -> None:
 
         Persona info:
             persona_info - dict. Keys: nickname, preferred_address,
-                active_promises, current_goals, favorite_items, preferences.
+                promises, goals, favorite_items, preferences.
             nickname - str. Shortcut for persona_info["nickname"].
+
+        Goals & Promises (stored in persona_info, shown in get_context ACTIVE COMMITMENTS):
+            promises: list[str] - current promises (overwrites previous list)
+            goals:    list[str] - current goals (overwrites previous list)
+            To append: first call get_context() to read current values, then pass the updated list.
+            Example: update_context(persona_info={"promises": ["Promise A", "Promise B"]})
+                     update_context(persona_info={"goals": []})  # clear all goals
 
         Body sensations:
             fatigue - float (0.0-1.0). Fatigue level.
@@ -500,6 +505,7 @@ def register_tools(mcp: FastMCP) -> None:
             update_context(emotion="joy", emotion_intensity=0.8)
             update_context(user_info={"nickname": "太郎"}, physical_state="tired")
             update_context(speech_style="甘えた口調、少し息切れ")
+            update_context(persona_info={"promises": ["Send report by Friday"], "goals": ["Finish the course"]})
         """
         persona = _resolve_persona()
         ctx = AppContextRegistry.get(persona)
@@ -694,19 +700,47 @@ def _format_context_response(
     if time_since:
         lines.append(f"Last conversation: {time_since}")
 
-    # Active Commitments (before everything else)
-    active_goals = [g for g in goals if g.get("status") == "active"]
-    active_promises = [p for p in promises if p.get("status") == "active"]
-    if active_goals or active_promises:
+    # Active Commitments — persona_info 優先、テーブルデータを fallback
+    import json as _json
+
+    pi_goals = state.persona_info.get("goals") if state.persona_info else None
+    pi_promises = state.persona_info.get("promises") if state.persona_info else None
+
+    # persona_info がリストでない場合（古い文字列形式）は parse を試みる
+    if isinstance(pi_goals, str):
+        try:
+            pi_goals = _json.loads(pi_goals)
+        except Exception:
+            pi_goals = [pi_goals] if pi_goals else []
+    if isinstance(pi_promises, str):
+        try:
+            pi_promises = _json.loads(pi_promises)
+        except Exception:
+            pi_promises = [pi_promises] if pi_promises else []
+
+    # persona_info に値がある場合はそちらを使用
+    if pi_goals is not None:
+        display_goals = [{"description": g, "status": "active"} for g in (pi_goals or [])]
+    else:
+        # fallback: テーブルデータ
+        display_goals = [g for g in goals if g.get("status") == "active"]
+
+    if pi_promises is not None:
+        display_promises = [{"description": p, "status": "active"} for p in (pi_promises or [])]
+    else:
+        # fallback: テーブルデータ
+        display_promises = [p for p in promises if p.get("status") == "active"]
+
+    if display_goals or display_promises:
         lines.append("\n⚠️ ACTIVE COMMITMENTS:")
-        if active_goals:
+        if display_goals:
             lines.append("🎯 Goals:")
-            for g in active_goals:
-                lines.append(f"  - [{g.get('id', '?')}] {g.get('description', '')} (priority: {g.get('priority', 0)})")
-        if active_promises:
+            for g in display_goals:
+                lines.append(f"  - {g.get('description', '')}")
+        if display_promises:
             lines.append("🤝 Promises:")
-            for p in active_promises:
-                lines.append(f"  - [{p.get('id', '?')}] {p.get('description', '')}")
+            for p in display_promises:
+                lines.append(f"  - {p.get('description', '')}")
 
     # Memory gap alert
     if time_since and decayed_count > 0:
@@ -741,11 +775,14 @@ def _format_context_response(
         for k, v in state.user_info.items():
             lines.append(f"{k}: {v}")
 
-    # Persona Info (existing)
+    # Persona Info (existing) — goals/promises は ACTIVE COMMITMENTS で表示済みのため除外
+    HIDDEN_PERSONA_INFO_KEYS = {"goals", "promises", "active_promises", "current_goals"}
     if state.persona_info:
-        lines.append("\n--- Persona Info ---")
-        for k, v in state.persona_info.items():
-            lines.append(f"{k}: {v}")
+        filtered_info = {k: v for k, v in state.persona_info.items() if k not in HIDDEN_PERSONA_INFO_KEYS}
+        if filtered_info:
+            lines.append("\n--- Persona Info ---")
+            for k, v in filtered_info.items():
+                lines.append(f"{k}: {v}")
 
     # Memory Blocks (existing)
     if blocks:

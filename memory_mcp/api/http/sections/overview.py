@@ -212,20 +212,41 @@ async function loadOverview() {
         }
 
         // --- Goals & Promises ---
+        function parsePersonaInfoList(val) {
+            if (!val) return null;
+            if (Array.isArray(val)) return val;
+            if (typeof val === 'string') {
+                try { const p = JSON.parse(val); return Array.isArray(p) ? p : null; }
+                catch (e) { return null; }
+            }
+            return null;
+        }
+
         function renderGoalItems(goalItems, label) {
             if (!goalItems || goalItems.length === 0) return '<span style="color:var(--text-muted)">No ' + label + '</span>';
             let html = '';
             goalItems.forEach(item => {
-                const status = (item.status || '').toLowerCase();
+                // 文字列の場合は dict に変換
+                const normalizedItem = typeof item === 'string'
+                    ? { description: item, status: 'active' }
+                    : item;
+                const status = (normalizedItem.status || 'active').toLowerCase();
                 const icon = status === 'done' || status === 'completed' ? '✅' : status === 'active' || status === 'in_progress' ? '🔄' : '⏳';
                 html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 0">';
                 html += '<span>' + icon + '</span>';
-                html += '<span style="flex:1;font-size:0.85rem;color:var(--text-secondary)">' + esc(item.description || item.content || item.title || JSON.stringify(item)) + '</span>';
-                if (item.created_at || item.date) html += '<span style="font-size:0.72rem;color:var(--text-muted)">' + relativeTime(item.created_at || item.date) + '</span>';
+                html += '<span style="flex:1;font-size:0.85rem;color:var(--text-secondary)">' + esc(normalizedItem.description || normalizedItem.content || normalizedItem.title || JSON.stringify(normalizedItem)) + '</span>';
+                if (normalizedItem.created_at || normalizedItem.date) html += '<span style="font-size:0.72rem;color:var(--text-muted)">' + relativeTime(normalizedItem.created_at || normalizedItem.date) + '</span>';
                 html += '</div>';
             });
             return html;
         }
+
+        // persona_info から goals/promises を取得（優先）、なければテーブルデータ fallback
+        const _personaInfoForGoals = ctx.persona_info || {};
+        const piGoals = parsePersonaInfoList(_personaInfoForGoals.goals);
+        const piPromises = parsePersonaInfoList(_personaInfoForGoals.promises);
+        const effectiveGoals = piGoals !== null ? piGoals : (data.goals || []);
+        const effectivePromises = piPromises !== null ? piPromises : (data.promises || []);
 
         // --- Profile: user_info / persona_info / relationship ---
         const userInfo = ctx.user_info || {};
@@ -279,11 +300,11 @@ async function loadOverview() {
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     <div style="font-size:0.8rem;font-weight:600;color:var(--accent-green);margin-bottom:8px">Goals</div>
-                    ${renderGoalItems(data.goals, 'goals')}
+                    ${renderGoalItems(effectiveGoals, 'goals')}
                 </div>
                 <div>
                     <div style="font-size:0.8rem;font-weight:600;color:var(--accent-pink);margin-bottom:8px">Promises</div>
-                    ${renderGoalItems(data.promises, 'promises')}
+                    ${renderGoalItems(effectivePromises, 'promises')}
                 </div>
             </div>
         </div>
@@ -297,7 +318,7 @@ async function loadOverview() {
                     <div style="display:flex;flex-direction:column;gap:6px">
                         <div><span style="font-size:0.78rem;color:var(--text-muted)">Physical: </span><span style="font-size:0.85rem">${esc(ctx.physical_state || '--')}</span></div>
                         <div><span style="font-size:0.78rem;color:var(--text-muted)">Mental: </span><span style="font-size:0.85rem">${esc(ctx.mental_state || '--')}</span></div>
-                        <div><span style="font-size:0.78rem;color:var(--text-muted)">Environment: </span><span style="font-size:0.85rem">${esc(ctx.environment || '--')}</span></div>
+                        ${ctx.environment ? `<div><span style="font-size:0.78rem;color:var(--text-muted)">🌍 Environment: </span><span style="font-size:0.85rem">${esc(ctx.environment)}</span></div>` : ''}
                     </div>
                 </div>
                 <div>

@@ -92,6 +92,12 @@ class InMemoryPersonaRepository:
     def get_persona_info(self, persona: str) -> Result[dict, RepositoryError]:
         return Success(self._persona_info.get(persona, {}))
 
+    def sync_goals(self, persona: str, goals: list) -> Result[None, RepositoryError]:
+        return Success(None)
+
+    def sync_promises(self, persona: str, promises: list) -> Result[None, RepositoryError]:
+        return Success(None)
+
 
 # ---------------------------------------------------------------------------
 # Fixtures

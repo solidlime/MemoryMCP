@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING
 
 from memory_mcp.domain.persona.entities import EmotionRecord, PersonaState
@@ -105,10 +106,28 @@ class PersonaService:
         if not persona_info:
             return Success(None)
         for key, value in persona_info.items():
-            result = self._repo.set_persona_info(persona, str(key), str(value))
+            # JSON シリアライズ（リストや辞書を正しく保存）
+            if isinstance(value, (list, dict)):
+                serialized = json.dumps(value, ensure_ascii=False)
+            else:
+                serialized = str(value)
+            result = self._repo.set_persona_info(persona, str(key), serialized)
             if not result.is_ok:
                 return Failure(result.error)
+
+        # goals/promises テーブルへの同期
+        self._sync_goals_promises(persona, persona_info)
         return Success(None)
+
+    def _sync_goals_promises(self, persona: str, persona_info: dict) -> None:
+        """goals/promises テーブルに persona_info の内容を同期する（best-effort）。"""
+        import contextlib
+
+        with contextlib.suppress(Exception):
+            if "goals" in persona_info:
+                self._repo.sync_goals(persona, persona_info["goals"])
+            if "promises" in persona_info:
+                self._repo.sync_promises(persona, persona_info["promises"])
 
     def record_conversation_time(self, persona: str) -> Result[None, DomainError]:
         """Record current time as last conversation time."""

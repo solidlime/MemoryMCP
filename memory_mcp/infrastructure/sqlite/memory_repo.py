@@ -66,6 +66,16 @@ class SQLiteMemoryRepository:
                     memory.privacy_level,
                 ),
             )
+            # T4-A: Insert initial memory_strength record so WebUI shows a
+            # strength value immediately (before Ebbinghaus decay worker runs).
+            # INSERT OR IGNORE preserves any existing record on re-save.
+            self._db.execute(
+                """
+                INSERT OR IGNORE INTO memory_strength (memory_key, strength, stability, recall_count)
+                VALUES (?, 1.0, 1.0, 0)
+                """,
+                (memory.key,),
+            )
             self._db.commit()
             logger.info("Memory saved: %s", memory.key)
             return Success(memory.key)
