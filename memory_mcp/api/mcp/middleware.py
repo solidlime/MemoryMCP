@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextvars
 import os
+import re
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -9,6 +10,8 @@ if TYPE_CHECKING:
 
 # Per-request persona resolved from HTTP headers.
 _persona_var: contextvars.ContextVar[str] = contextvars.ContextVar("_persona_var", default="")
+
+_PERSONA_PATTERN = re.compile(r'^[a-zA-Z0-9_-]{1,64}$')
 
 
 def _env_persona() -> str:
@@ -26,11 +29,11 @@ def resolve_persona_from_headers(
     """
     if authorization and authorization.startswith("Bearer "):
         token = authorization[7:].strip()
-        if token:
+        if token and _PERSONA_PATTERN.match(token):
             return token
     if x_persona:
         stripped = x_persona.strip()
-        if stripped:
+        if stripped and _PERSONA_PATTERN.match(stripped):
             return stripped
     return _env_persona()
 

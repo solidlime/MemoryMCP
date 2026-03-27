@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 import tempfile
 import zipfile
@@ -89,7 +90,11 @@ class LegacyImporter:
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             with zipfile.ZipFile(zip_file, "r") as zf:
-                zf.extractall(tmp_dir)
+                for member in zf.namelist():
+                    member_path = (Path(tmp_dir) / member).resolve()
+                    if not str(member_path).startswith(str(Path(tmp_dir).resolve()) + os.sep) and str(member_path) != str(Path(tmp_dir).resolve()):
+                        return Failure(MigrationError(f"Zip Slip detected: {member}"))
+                    zf.extract(member, tmp_dir)
 
             extracted = Path(tmp_dir)
             source_dir = self._find_source_dir(extracted)

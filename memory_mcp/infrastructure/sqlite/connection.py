@@ -160,6 +160,10 @@ CREATE TABLE IF NOT EXISTS search_log (
     searched_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_search_log_time ON search_log(searched_at DESC);
+CREATE INDEX IF NOT EXISTS idx_memories_updated_at ON memories(updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_memories_created_at ON memories(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_memory_strength_strength ON memory_strength(strength);
+CREATE INDEX IF NOT EXISTS idx_emotion_history_persona ON emotion_history(timestamp DESC);
 """
 
 _INVENTORY_SCHEMA = """\

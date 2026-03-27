@@ -1,0 +1,248 @@
+from __future__ import annotations
+import contextlib
+from dataclasses import asdict
+from starlette.requests import Request
+from starlette.responses import JSONResponse
+from memory_mcp.api.http.deps import (
+    _safe_get_context,
+    _memory_to_dict,
+    _strength_to_dict,
+    _resolve_persona_from_request,
+    CreateMemoryRequest,
+    UpdateMemoryRequest,
+)
+
+
+def register_memory_routes(mcp) -> None:
+    @mcp.custom_route("/api/blocks/{persona}", methods=["GET"])
+    async def list_blocks_http(request: Request) -> JSONResponse:
+        persona = _resolve_persona_from_request(request)
+        ctx = _safe_get_context(persona)
+        if not ctx:
+            return JSONResponse({"blocks": []})
+        result = ctx.memory_service.list_blocks()
+        blocks = result.value if result.is_ok else []
+        return JSONResponse({"persona": persona, "blocks": blocks})
+
+    @mcp.custom_route("/api/blocks/{persona}", methods=["POST"])
+    async def create_block_http(request: Request) -> JSONResponse:
+        persona = _resolve_persona_from_request(request)
+        ctx = _safe_get_context(persona)
+        if not ctx:
+            return JSONResponse({"error": "Persona not found"}, status_code=404)
+        body = await request.json()
+        block_name = body.get("block_name", "").strip()
+        content = body.get("content", "").strip()
+        if not block_name or not content:
+            return JSONResponse({"error": "block_name and content required"}, status_code=400)
+        result = ctx.memory_service.write_block(
+            block_name,
+            content,
+            block_type=body.get("block_type", "custom"),
+            max_tokens=body.get("max_tokens"),
+            priority=body.get("priority", 0),
+        )
+        if result.is_ok:
+            return JSONResponse({"ok": True, "block_name": block_name})
+        return JSONResponse({"error": str(result.error)}, status_code=500)
+
+    @mcp.custom_route("/api/blocks/{persona}/{block_name:path}", methods=["DELETE"])
+    async def delete_block_http(request: Request) -> JSONResponse:
+        persona = _resolve_persona_from_request(request)
+        ctx = _safe_get_context(persona)
+        if not ctx:
+            return JSONResponse({"error": "Persona not found"}, status_code=404)
+        block_name = request.path_params.get("block_name", "")
+        result = ctx.memory_service.delete_block(block_name)
+        if result.is_ok:
+            return JSONResponse({"ok": True})
+        return JSONResponse({"error": str(result.error)}, status_code=500)
+
+    @mcp.custom_route("/api/recent/{persona}", methods=["GET"])
+    async def recent_memories(request: Request) -> JSONResponse:
+        persona = _resolve_persona_from_request(request)
+        try:
+            limit = int(request.query_params.get("limit", "10"))
+            if limit < 1 or limit > 1000:
+                return JSONResponse({"error": "limit must be between 1 and 1000"}, status_code=400)
+        except ValueError:
+            return JSONResponse({"error": "limit must be an integer"}, status_code=400)
+        ctx = _safe_get_context(persona)
+        if ctx is None:
+            return JSONResponse({"error": f"Persona '{persona}' not found"}, status_code=404)
+        try:
+            result = ctx.memory_service.get_recent(limit=limit)
+            if not result.is_ok:
+                return JSONResponse({"error": str(result.error)}, status_code=500)
+            return JSONResponse(
+                {
+                    "persona": persona,
+                    "memories": [_memory_to_dict(m) for m in result.value],
+                }
+            )
+        except Exception as exc:
+            return JSONResponse({"error": str(exc)}, status_code=500)
+
+    @mcp.custom_route("/api/observations/{persona}", methods=["GET"])
+    async def observations(request: Request) -> JSONResponse:
+        persona = _resolve_persona_from_request(request)
+        try:
+            page = int(request.query_params.get("page", "1"))
+            if page < 1 or page > 10000:
+                return JSONResponse({"error": "page must be between 1 and 10000"}, status_code=400)
+        except ValueError:
+            return JSONResponse({"error": "page must be an integer"}, status_code=400)
+        try:
+            per_page = int(request.query_params.get("per_page", "20"))
+            if per_page < 1 or per_page > 1000:
+                return JSONResponse({"error": "per_page must be between 1 and 1000"}, status_code=400)
+        except ValueError:
+            return JSONResponse({"error": "per_page must be an integer"}, status_code=400)
+        tag = request.query_params.get("tag") or None
+        q = request.query_params.get("q") or None
+        sort_order = request.query_params.get("sort", "desc")
+        ctx = _safe_get_context(persona)
+        if ctx is None:
+            return JSONResponse({"error": f"Persona '{persona}' not found"}, status_code=404)
+        try:
+            result = ctx.memory_repo.find_with_pagination(
+                page=page,
+                per_page=per_page,
+                tag=tag,
+                query=q,
+                sort_order=sort_order,
+            )
+            if not result.is_ok:
+                return JSONResponse({"error": str(result.error)}, status_code=500)
+            memories, total_count = result.value
+            total_pages = (total_count + per_page - 1) // per_page
+            return JSONResponse(
+                {
+                    "persona": persona,
+                    "page": page,
+                    "per_page": per_page,
+                    "total_count": total_count,
+                    "total_pages": total_pages,
+                    "memories": [_memory_to_dict(m) for m in memories],
+                }
+            )
+        except Exception as exc:
+            return JSONResponse({"error": str(exc)}, status_code=500)
+
+    @mcp.custom_route("/api/strengths/{persona}", methods=["GET"])
+    async def memory_strengths(request: Request) -> JSONResponse:
+        persona = _resolve_persona_from_request(request)
+        ctx = _safe_get_context(persona)
+        if ctx is None:
+            return JSONResponse({"error": f"Persona '{persona}' not found"}, status_code=404)
+        try:
+            result = ctx.memory_repo.get_all_strengths()
+            if not result.is_ok:
+                return JSONResponse({"error": str(result.error)}, status_code=500)
+            strengths = result.value
+            buckets = [0] * 10
+            for s in strengths:
+                idx = min(int(s.strength * 10), 9)
+                buckets[idx] += 1
+            histogram = [{"range": f"{i / 10:.1f}-{(i + 1) / 10:.1f}", "count": buckets[i]} for i in range(10)]
+            return JSONResponse(
+                {
+                    "persona": persona,
+                    "total": len(strengths),
+                    "strengths": [_strength_to_dict(s) for s in strengths],
+                    "histogram": histogram,
+                }
+            )
+        except Exception as exc:
+            return JSONResponse({"error": str(exc)}, status_code=500)
+
+    @mcp.custom_route("/api/memories/{persona}", methods=["POST"])
+    async def create_memory(request: Request) -> JSONResponse:
+        persona = _resolve_persona_from_request(request)
+        ctx = _safe_get_context(persona)
+        if ctx is None:
+            return JSONResponse({"error": f"Persona '{persona}' not found"}, status_code=404)
+        try:
+            raw = await request.json()
+        except Exception:
+            return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
+        try:
+            body = CreateMemoryRequest(**raw)
+        except Exception as exc:
+            return JSONResponse({"error": f"Validation error: {exc}"}, status_code=422)
+        try:
+            result = ctx.memory_service.create_memory(
+                content=body.content,
+                importance=body.importance,
+                emotion=body.emotion_type,
+                emotion_intensity=body.emotion_intensity,
+                tags=body.tags,
+                privacy_level=body.privacy_level,
+                source_context=body.source_context,
+            )
+            if not result.is_ok:
+                return JSONResponse({"error": str(result.error)}, status_code=500)
+            mem = result.value
+            if ctx.vector_store is not None:
+                with contextlib.suppress(Exception):
+                    ctx.vector_store.upsert(persona, mem.key, mem.content)
+            return JSONResponse(
+                {"status": "ok", "memory": _memory_to_dict(mem)},
+                status_code=201,
+            )
+        except Exception as exc:
+            return JSONResponse({"error": str(exc)}, status_code=500)
+
+    @mcp.custom_route("/api/memories/{persona}/{key}", methods=["PUT"])
+    async def update_memory(request: Request) -> JSONResponse:
+        persona = _resolve_persona_from_request(request)
+        key = request.path_params.get("key", "")
+        if not key:
+            return JSONResponse({"error": "Memory key is required"}, status_code=400)
+        ctx = _safe_get_context(persona)
+        if ctx is None:
+            return JSONResponse({"error": f"Persona '{persona}' not found"}, status_code=404)
+        try:
+            raw = await request.json()
+        except Exception:
+            return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
+        try:
+            body = UpdateMemoryRequest(**raw)
+        except Exception as exc:
+            return JSONResponse({"error": f"Validation error: {exc}"}, status_code=422)
+        try:
+            updates = body.model_dump(exclude_none=True)
+            if not updates:
+                return JSONResponse({"error": "No valid fields to update"}, status_code=400)
+            if "emotion_type" in updates:
+                updates["emotion"] = updates.pop("emotion_type")
+            result = ctx.memory_service.update_memory(key, **updates)
+            if not result.is_ok:
+                return JSONResponse({"error": str(result.error)}, status_code=404)
+            mem = result.value
+            if "content" in updates and ctx.vector_store is not None:
+                with contextlib.suppress(Exception):
+                    ctx.vector_store.upsert(persona, mem.key, mem.content)
+            return JSONResponse({"status": "ok", "memory": _memory_to_dict(mem)})
+        except Exception as exc:
+            return JSONResponse({"error": str(exc)}, status_code=500)
+
+    @mcp.custom_route("/api/memories/{persona}/{key}", methods=["DELETE"])
+    async def delete_memory(request: Request) -> JSONResponse:
+        persona = _resolve_persona_from_request(request)
+        key = request.path_params.get("key", "")
+        if not key:
+            return JSONResponse({"error": "Memory key is required"}, status_code=400)
+        ctx = _safe_get_context(persona)
+        if ctx is None:
+            return JSONResponse({"error": f"Persona '{persona}' not found"}, status_code=404)
+        try:
+            result = ctx.memory_service.delete_memory(key)
+            if not result.is_ok:
+                return JSONResponse({"error": str(result.error)}, status_code=404)
+            if ctx.vector_store is not None:
+                with contextlib.suppress(Exception):
+                    ctx.vector_store.delete(persona, key)
+            return JSONResponse({"status": "ok", "deleted": key})
+        except Exception as exc:
+            return JSONResponse({"error": str(exc)}, status_code=500)

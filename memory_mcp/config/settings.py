@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pydantic import BaseModel, computed_field
+from pydantic import BaseModel, computed_field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -32,7 +32,7 @@ class QdrantConfig(BaseModel):
 class ServerConfig(BaseModel):
     """HTTP/MCP server configuration."""
 
-    host: str = "0.0.0.0"
+    host: str = "0.0.0.0"  # Use "127.0.0.1" for localhost-only
     port: int = 26262
 
 
@@ -83,6 +83,30 @@ class Settings(BaseSettings):
     default_persona: str = "default"
     contradiction_threshold: float = 0.85
     duplicate_threshold: float = 0.90
+
+    @field_validator("timezone")
+    @classmethod
+    def validate_timezone(cls, v: str) -> str:
+        from zoneinfo import available_timezones
+        if v not in available_timezones():
+            raise ValueError(f"Invalid timezone: '{v}'. Use a valid IANA timezone (e.g., 'Asia/Tokyo').")
+        return v
+
+    @field_validator("contradiction_threshold", "duplicate_threshold")
+    @classmethod
+    def validate_threshold(cls, v: float) -> float:
+        if not (0.0 <= v <= 1.0):
+            raise ValueError(f"Threshold must be between 0.0 and 1.0, got {v}")
+        return v
+
+    @field_validator("log_level")
+    @classmethod
+    def validate_log_level(cls, v: str) -> str:
+        valid_levels = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+        upper = v.upper()
+        if upper not in valid_levels:
+            raise ValueError(f"log_level must be one of {valid_levels}")
+        return upper
 
     @computed_field
     @property

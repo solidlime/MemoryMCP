@@ -8,6 +8,14 @@ from memory_mcp.api.mcp.middleware import get_current_persona
 from memory_mcp.application.use_cases import AppContextRegistry
 from memory_mcp.domain.search.engine import SearchQuery
 
+_VALID_EMOTIONS = frozenset({
+    "joy", "sadness", "anger", "fear", "surprise", "disgust",
+    "love", "neutral", "anticipation", "trust", "anxiety",
+    "excitement", "frustration", "nostalgia", "pride", "shame",
+    "guilt", "loneliness", "contentment", "curiosity", "awe",
+    "relief",
+})
+
 if TYPE_CHECKING:
     from memory_mcp.domain.persona.entities import PersonaState
 from memory_mcp.domain.shared.time_utils import relative_time_str
@@ -162,9 +170,13 @@ def register_tools(mcp: FastMCP) -> None:
         if operation == "create":
             if not content:
                 return "Error: content is required for create"
+            # Validate importance
+            if importance is not None and not (0.0 <= importance <= 1.0):
+                return "Error: importance must be between 0.0 and 1.0"
+            importance = max(0.0, min(1.0, importance)) if importance is not None else 0.5
             result = ctx.memory_service.create_memory(
                 content=content,
-                importance=importance or 0.5,
+                importance=importance,
                 emotion=emotion_type or "neutral",
                 emotion_intensity=emotion_intensity or 0.0,
                 tags=tags,
@@ -201,7 +213,9 @@ def register_tools(mcp: FastMCP) -> None:
             if content is not None:
                 updates["content"] = content
             if importance is not None:
-                updates["importance"] = importance
+                if not (0.0 <= importance <= 1.0):
+                    return "Error: importance must be between 0.0 and 1.0"
+                updates["importance"] = max(0.0, min(1.0, importance))
             if emotion_type is not None:
                 updates["emotion"] = emotion_type
             if emotion_intensity is not None:
@@ -401,6 +415,11 @@ def register_tools(mcp: FastMCP) -> None:
         """
         persona = _resolve_persona()
         ctx = AppContextRegistry.get(persona)
+
+        # Validate top_k
+        if top_k is not None and (top_k < 1 or top_k > 200):
+            return "Error: top_k must be between 1 and 200"
+        top_k = min(top_k or 5, 200)
 
         search_query = SearchQuery(
             text=query,
