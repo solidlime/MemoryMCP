@@ -73,6 +73,7 @@ jobs:
       - name: Run dogfooding tests (no Playwright, no zip)
         run: python -m pytest tests/e2e/test_dogfooding.py -v --tb=short -m "e2e" --timeout=120
         env:
+          MEMORY_MCP_URL: http://localhost:26262
           MEMORY_MCP_QDRANT_URL: http://localhost:6333
           MEMORY_MCP_DATA_ROOT: /tmp/e2e_data
 
