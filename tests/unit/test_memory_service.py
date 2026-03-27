@@ -350,3 +350,91 @@ class TestMemoryBlocks:
     def test_write_empty_content_fails(self, service: MemoryService):
         result = service.write_block("name", "")
         assert not result.is_ok
+
+
+class TestGetStatsTopN:
+    def test_top_n_truncates_tag_distribution(self, service):
+        # 25個のユニークタグを持つメモリを作成
+        for i in range(25):
+            service.create_memory(content=f"mem {i}", tags=[f"tag_{i:02d}"])
+
+        result = service.get_stats(top_n=20)
+        assert result.is_ok
+        stats = result.unwrap()
+        assert len(stats["tag_distribution"]) == 20
+        assert "tag_distribution_note" in stats
+        assert "5" in stats["tag_distribution_note"]
+
+    def test_top_n_custom_value(self, service):
+        for i in range(5):
+            service.create_memory(content=f"mem {i}", tags=[f"tag_{i}"])
+
+        result = service.get_stats(top_n=3)
+        assert result.is_ok
+        stats = result.unwrap()
+        assert len(stats["tag_distribution"]) == 3
+        assert "tag_distribution_note" in stats
+        assert "2" in stats["tag_distribution_note"]
+
+    def test_top_n_no_note_when_within_limit(self, service):
+        for i in range(3):
+            service.create_memory(content=f"mem {i}", tags=[f"tag_{i}"])
+
+        result = service.get_stats(top_n=10)
+        assert result.is_ok
+        stats = result.unwrap()
+        assert len(stats["tag_distribution"]) == 3
+        assert "tag_distribution_note" not in stats
+
+    def test_top_n_truncates_emotion_distribution(self, service):
+        # 22種の感情でメモリを作成（各1個）
+        emotions = [
+            "joy", "sadness", "anger", "fear", "surprise", "disgust",
+            "love", "neutral", "anticipation", "trust", "anxiety",
+            "excitement", "frustration", "nostalgia", "pride", "shame",
+            "guilt", "loneliness", "contentment", "curiosity", "awe", "relief",
+        ]
+        for i, em in enumerate(emotions):
+            service.create_memory(content=f"mem_{i}", emotion=em)
+
+        result = service.get_stats(top_n=10)
+        assert result.is_ok
+        stats = result.unwrap()
+        assert len(stats["emotion_distribution"]) == 10
+        assert "emotion_distribution_note" in stats
+        assert "12" in stats["emotion_distribution_note"]
+
+
+class TestTagValidation:
+    def test_create_too_many_tags_fails(self, service):
+        tags = [f"tag{i}" for i in range(21)]
+        result = service.create_memory(content="too many tags", tags=tags)
+        assert not result.is_ok
+
+    def test_create_exactly_20_tags_ok(self, service):
+        tags = [f"tag{i}" for i in range(20)]
+        result = service.create_memory(content="max tags", tags=tags)
+        assert result.is_ok
+        assert len(result.unwrap().tags) == 20
+
+    def test_create_tag_too_long_fails(self, service):
+        long_tag = "a" * 51
+        result = service.create_memory(content="long tag", tags=[long_tag])
+        assert not result.is_ok
+
+    def test_create_tag_exactly_50_chars_ok(self, service):
+        tag_50 = "a" * 50
+        result = service.create_memory(content="exact tag length", tags=[tag_50])
+        assert result.is_ok
+
+    def test_update_too_many_tags_fails(self, service):
+        created = service.create_memory(content="base memory").unwrap()
+        tags = [f"tag{i}" for i in range(21)]
+        result = service.update_memory(created.key, tags=tags)
+        assert not result.is_ok
+
+    def test_update_tag_too_long_fails(self, service):
+        created = service.create_memory(content="base memory").unwrap()
+        long_tag = "b" * 51
+        result = service.update_memory(created.key, tags=[long_tag])
+        assert not result.is_ok

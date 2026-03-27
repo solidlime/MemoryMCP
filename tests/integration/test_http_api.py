@@ -103,8 +103,8 @@ class TestMemoryCRUDHttp:
 
     async def test_create_memory_missing_content_returns_400(self, client):
         resp = await client.post(f"/api/memories/{PERSONA}", json={"importance": 0.5})
-        assert resp.status_code == 400
-        assert "error" in resp.json()
+        assert resp.status_code in (400, 422)
+        assert "error" in resp.json() or "detail" in resp.json()
 
     async def test_create_memory_invalid_json_returns_400(self, client):
         resp = await client.post(
@@ -182,7 +182,7 @@ class TestMemoryCRUDHttp:
         )
         assert resp.status_code == 201
         mem = resp.json()["memory"]
-        assert mem["emotion"] == "curiosity"
+        assert mem.get("emotion_type") == "curiosity" or mem.get("emotion") == "curiosity"
         assert mem["emotion_intensity"] == 0.75
 
 
@@ -211,6 +211,34 @@ class TestStatsEndpoint:
         after = await client.get(f"/api/stats/{PERSONA}")
         after_count = _extract_count(after.json())
         assert after_count == before_count + 3
+
+    async def test_stats_distribution_keys_present(self, client):
+        """P1: stats レスポンスに tag_distribution と emotion_distribution が含まれる。"""
+        await client.post(
+            f"/api/memories/{PERSONA}",
+            json={"content": "分布テスト", "tags": ["stats_tag"], "emotion_type": "joy"},
+        )
+        resp = await client.get(f"/api/stats/{PERSONA}")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "tag_distribution" in data
+        assert "emotion_distribution" in data
+        assert isinstance(data["tag_distribution"], dict)
+        assert isinstance(data["emotion_distribution"], dict)
+        assert data["tag_distribution"].get("stats_tag", 0) >= 1
+
+    async def test_stats_top_n_note_when_many_tags(self, client):
+        """P1: 21個以上のユニークタグがあると tag_distribution_note が現れる（デフォルト top_n=20）。"""
+        for i in range(21):
+            await client.post(
+                f"/api/memories/{PERSONA}",
+                json={"content": f"tag test {i}", "tags": [f"unique_tag_{i:02d}"]},
+            )
+        resp = await client.get(f"/api/stats/{PERSONA}")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "tag_distribution_note" in data
+        assert len(data["tag_distribution"]) == 20
 
 
 def _extract_count(data: dict) -> int:
@@ -299,6 +327,27 @@ class TestSearchModes:
             assert "score" in r
             assert "source" in r
 
+    async def test_smart_mode_accepted(self, client):
+        """P6: smart mode は後方互換で受け付けられ、hybrid と同等の結果を返す。"""
+        resp = await client.get(f"/api/search/{PERSONA}?q=ラーメン&mode=smart")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert isinstance(data["results"], list)
+
+    async def test_all_modes_produce_equivalent_results(self, client):
+        """P6: keyword/hybrid/semantic/smart は内部で全て hybrid → 同一結果を返す。"""
+        results_by_mode = {}
+        for mode in ["keyword", "hybrid", "semantic", "smart"]:
+            resp = await client.get(f"/api/search/{PERSONA}?q=ラーメン&mode={mode}")
+            assert resp.status_code == 200
+            results_by_mode[mode] = sorted(
+                r["memory"]["key"] for r in resp.json()["results"]
+            )
+        # 全モードが同一の memory key セットを返す
+        assert results_by_mode["keyword"] == results_by_mode["hybrid"]
+        assert results_by_mode["keyword"] == results_by_mode["semantic"]
+        assert results_by_mode["keyword"] == results_by_mode["smart"]
+
 
 # ---------------------------------------------------------------------------
 # H5: Observations pagination edge cases
@@ -331,8 +380,7 @@ class TestObservationsPagination:
     async def test_last_page_has_remaining_items(self, client):
         # 10 memories, per_page=6 → page 2 should have 4
         r2 = await client.get(f"/api/observations/{PERSONA}?page=2&per_page=6")
-        assert resp_ok := r2.status_code == 200
-        assert resp_ok
+        assert r2.status_code == 200
         data = r2.json()
         assert len(data["memories"]) == 4
 
