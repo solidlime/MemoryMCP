@@ -72,15 +72,16 @@ class AppContext:
         self.equipment_repo = SQLiteEquipmentRepository(self.connection)
         self.entity_repo = SQLiteEntityRepository(self.connection)
 
-        # Services
-        self.memory_service = MemoryService(self.memory_repo)
-        self.persona_service = PersonaService(self.persona_repo)
-        self.equipment_service = EquipmentService(self.equipment_repo)
-
         # Entity graph (optional — never blocks core memory operations)
+        # Must be initialized before MemoryService so it can be injected
         from memory_mcp.domain.memory.graph import EntityService
 
         self.entity_service = EntityService(self.entity_repo)
+
+        # Services
+        self.memory_service = MemoryService(self.memory_repo, entity_service=self.entity_service)
+        self.persona_service = PersonaService(self.persona_repo)
+        self.equipment_service = EquipmentService(self.equipment_repo)
 
         # Vector store (lazy)
         self._vector_store: QdrantVectorStore | None = None

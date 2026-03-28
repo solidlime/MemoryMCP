@@ -26,3 +26,13 @@
 - **`#chart-emotions` 未表示は正常**: emotion データなし時は canvas を "No emotion data" div に置換 → テストでの false positive に注意
 - **Persona emoji `\\U0001fXXXX` は JS 非対応**: Python の 8桁 Unicode エスケープ(`\\U`) は JavaScript で解釈されない。`\\uXXXX`(4桁) か実際のUnicode文字を使うこと
 - **vis-network tooltip は DOM 要素を渡す**: `title` に HTML文字列を渡すと plain text で描画される。`document.createElement('div')` に innerHTML をセットして返す必要がある
+
+### Goals/Promises タグ管理移行（2026-03-28）
+- v009マイグレーション: goals/promises テーブルを memories テーブルに移行・DROP
+- タグ規約: `["goal","active"]`/`["goal","achieved"]`/`["goal","cancelled"]`, `["promise","active"]`/`["promise","fulfilled"]`/`["promise","cancelled"]`
+- `LegacyImporter._import_persona_context()` が `current_goals`/`active_promises` を memories に INSERT OR IGNORE
+- `_import_goals`/`_import_promises` は goals/promises テーブルが存在しないため silent 0 を返す（Exception catch）
+- `import_from_dir()` で全インポート後に実際のDB件数を再クエリして `counts["memories"]` を更新（165→167 for herta.zip）
+- E2Eテストの `PERSONA_EXPECTED_COUNTS["herta"]` = 167（マイグレーション後のDB件数）
+- `test_auto_import.py` の `result["herta"]["memories"]` も 167 に更新
+

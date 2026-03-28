@@ -1,6 +1,55 @@
 # HANDOFF
 
-## 最終作業: コードレビュー全14タスク完了 (2026-03-27)
+## 最終作業: Goals/Promises タグ管理移行完了・CI全グリーン (2026-03-28)
+
+### 背景
+goals/promises を専用テーブルから memory+tag 方式に完全移行。v009マイグレーション追加・全ドキュメント更新・CI修正を完遂。
+
+### 完了タスク
+
+| コミット | 内容 |
+|---------|------|
+| `65aa3c8` | feat: migrate goals/promises to memory tag-based management |
+| `0a6d8ae` | docs: goals/promises管理をmemoryタグ方式に全面更新 |
+| `24fe2f9` | fix(lint): remove unused json import |
+| `54c1b76` | fix(tests): integration tests for memory tag goals/promises |
+| `304c729` | fix(tests): e2e counts for v009 |
+| `491e0cc` | fix(importer): refresh memory count after persona_context import |
+| `54637f8` | fix(tests): update herta memory counts to 167 after persona_context migration |
+
+### 現状
+- ✅ **CI #59: success** (Lint + Unit + Integration + E2E dogfood + Playwright)
+- Unit: 371 tests passed
+- Integration: 80 tests passed
+- E2E dogfood: 75 tests passed (herta.zip: 167 memories)
+
+### Goals/Promises 新設計
+| type | status | 意味 |
+|------|--------|------|
+| goal | active | 進行中 |
+| goal | achieved | 達成 |
+| goal | cancelled | 中止 |
+| promise | active | 有効 |
+| promise | fulfilled | 達成 |
+| promise | cancelled | 中止 |
+
+MCPツールAPI:
+- `update_context(append_goals=["..."])` → `memory(create, tags=["goal","active"])`
+- `update_context(remove_goals=["..."])` → tags を `cancelled` に更新
+- `get_context()` の ACTIVE COMMITMENTS → `get_by_tags(["goal","active"])` で取得
+
+### 重要な実装詳細
+- `LegacyImporter._import_persona_context()` が context.json の goals/promises を memories に INSERT OR IGNORE
+- `import_from_dir()` 末尾で `SELECT COUNT(*) FROM memories` を再クエリして `counts["memories"]` を更新
+- herta.zip: 165 (memories) + 2 (from context.json goals/promises) = **167**
+- `test_auto_import.py` 全カウントを 167 に更新済み
+
+### 次セッションでの注意点
+- goals/promises テーブルは v009 で DROP済み。新規追加は memories + tags のみ
+- `_import_goals`/`_import_promises` は silent 0 を返す（tables not found → exception catch）
+- WebUI `/api/personas/{persona}/goals` は `get_by_tags(["goal"])` 全ステータス返却
+- status icons: active=🔄, achieved/fulfilled=✅, cancelled=❌
+
 
 ### 背景
 徹底的なコードレビューの依頼を受け、セキュリティ・品質・保守性の問題を14タスクに整理して全修正。
