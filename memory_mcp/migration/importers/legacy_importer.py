@@ -80,6 +80,16 @@ class LegacyImporter:
         if context_path.exists():
             counts["persona_context"] = self._import_persona_context(context_path)
 
+        # Refresh memory count after persona_context import
+        # (_import_persona_context may add goals/promises directly to memories table)
+        try:
+            target_db = self.target.get_memory_db()
+            counts["memories"] = target_db.execute(
+                "SELECT COUNT(*) as c FROM memories"
+            ).fetchone()["c"]
+        except Exception:  # noqa: BLE001
+            pass
+
         return Success(counts)
 
     def import_from_zip(self, zip_path: str) -> Result[dict, MigrationError]:
