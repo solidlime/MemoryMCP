@@ -133,19 +133,24 @@ class AppContextRegistry:
 
     @classmethod
     def get(cls, persona: str) -> AppContext:
-        if persona not in cls._contexts:
-            if cls._settings is None:
-                from memory_mcp.config.settings import Settings
+        if persona in cls._contexts:
+            return cls._contexts[persona]
 
-                cls._settings = Settings()
-            ctx = AppContext(cls._settings, persona)
-            cls._contexts[persona] = ctx
-            if cls._settings.forgetting.enabled:
-                from memory_mcp.application.workers.decay_worker import DecayWorker
+        if cls._settings is None:
+            from memory_mcp.config.settings import Settings
 
-                decay_worker = DecayWorker(ctx, cls._settings.forgetting.decay_interval_seconds)
-                decay_worker.start()
-        return cls._contexts[persona]
+            cls._settings = Settings()
+
+        ctx = AppContext(cls._settings, persona)
+        cls._contexts[persona] = ctx
+
+        if cls._settings.forgetting.enabled:
+            from memory_mcp.application.workers.decay_worker import DecayWorker
+
+            decay_worker = DecayWorker(ctx, cls._settings.forgetting.decay_interval_seconds)
+            decay_worker.start()
+
+        return ctx
 
     @classmethod
     def close_all(cls) -> None:
