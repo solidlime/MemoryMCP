@@ -90,14 +90,14 @@ def test_empty_directory_returns_empty(import_settings):
 
 @pytest.mark.skipif(not _zip_available("herta"), reason="herta.zip not found")
 def test_imports_single_zip(import_settings):
-    """単一zipインポート: herta.zip → memories=165, done/に移動。"""
+    """単一zipインポート: herta.zip → memories=167, done/に移動。"""
     import_dir = Path(import_settings.import_dir)
     shutil.copy2(DATA_DIR / "herta.zip", import_dir / "herta.zip")
 
     result = run_auto_import(import_settings)
 
     assert "herta" in result
-    assert result["herta"]["memories"] == 165
+    assert result["herta"]["memories"] == 167
     assert (import_dir / "done" / "herta.zip").exists()
     assert not (import_dir / "herta.zip").exists()
 
@@ -109,7 +109,7 @@ def test_imports_single_zip(import_settings):
 def test_imports_multiple_zips(import_settings):
     """複数zipインポート: 3ペルソナ全てが正しくインポートされる。"""
     import_dir = Path(import_settings.import_dir)
-    expected = {"herta": 165, "nilou": 1210, "citlali": 411}
+    expected = {"herta": 167, "nilou": 1210, "citlali": 411}
 
     for name in expected:
         shutil.copy2(DATA_DIR / f"{name}.zip", import_dir / f"{name}.zip")
@@ -130,7 +130,7 @@ def test_overwrites_existing_data(import_settings):
     # 1st import
     shutil.copy2(DATA_DIR / "herta.zip", import_dir / "herta.zip")
     result1 = run_auto_import(import_settings)
-    assert result1["herta"]["memories"] == 165
+    assert result1["herta"]["memories"] == 167
 
     # Move zip back from done/ for 2nd import
     shutil.move(
@@ -138,7 +138,7 @@ def test_overwrites_existing_data(import_settings):
         str(import_dir / "herta.zip"),
     )
     result2 = run_auto_import(import_settings)
-    assert result2["herta"]["memories"] == 165
+    assert result2["herta"]["memories"] == 167
 
     # Verify actual row count in DB — no duplicates
     from memory_mcp.infrastructure.sqlite.connection import SQLiteConnection
@@ -174,7 +174,7 @@ def test_vector_sync_skipped_when_qdrant_unavailable(import_settings, caplog):
         result = run_auto_import(import_settings)
 
     assert "herta" in result
-    assert result["herta"]["memories"] == 165
+    assert result["herta"]["memories"] == 167
     assert any("Qdrant unavailable" in msg for msg in caplog.messages)
 
 
@@ -194,7 +194,7 @@ def test_invalid_zip_skipped(import_settings):
 
     assert "broken" not in result
     assert "herta" in result
-    assert result["herta"]["memories"] == 165
+    assert result["herta"]["memories"] == 167
 
 
 @pytest.mark.skipif(not _zip_available("herta"), reason="herta.zip not found")
