@@ -109,14 +109,23 @@ class TestRemoveGoalsViaPersonaService:
 
     def _add_goal(self, memory_repo, text: str) -> None:
         now = get_now()
-        mem = Memory(key=f"goal_{hash(text) % 100000}", content=text, created_at=now, updated_at=now, tags=["goal", "active"], importance=0.8)
+        mem = Memory(
+            key=f"goal_{hash(text) % 100000}",
+            content=text,
+            created_at=now,
+            updated_at=now,
+            tags=["goal", "active"],
+            importance=0.8,
+        )
         memory_repo.save(mem)
 
     def _cancel_goal(self, memory_repo, text: str) -> None:
         result = memory_repo.get_by_tags(["goal", "active"])
-        for goal in (result.value or []):
+        for goal in result.value or []:
             if goal.content == text:
-                new_tags = [t for t in (goal.tags or []) if t not in ("active", "achieved", "cancelled")] + ["cancelled"]
+                new_tags = [t for t in (goal.tags or []) if t not in ("active", "achieved", "cancelled")] + [
+                    "cancelled"
+                ]
                 memory_repo.update(goal.key, tags=new_tags)
 
     def test_remove_goal_from_existing_list(self, memory_repo):
@@ -147,14 +156,23 @@ class TestRemoveGoalsViaPersonaService:
 
     def _add_promise(self, memory_repo, text: str) -> None:
         now = get_now()
-        mem = Memory(key=f"promise_{hash(text) % 100000}", content=text, created_at=now, updated_at=now, tags=["promise", "active"], importance=0.8)
+        mem = Memory(
+            key=f"promise_{hash(text) % 100000}",
+            content=text,
+            created_at=now,
+            updated_at=now,
+            tags=["promise", "active"],
+            importance=0.8,
+        )
         memory_repo.save(mem)
 
     def _cancel_promise(self, memory_repo, text: str) -> None:
         result = memory_repo.get_by_tags(["promise", "active"])
-        for promise in (result.value or []):
+        for promise in result.value or []:
             if promise.content == text:
-                new_tags = [t for t in (promise.tags or []) if t not in ("active", "fulfilled", "cancelled")] + ["cancelled"]
+                new_tags = [t for t in (promise.tags or []) if t not in ("active", "fulfilled", "cancelled")] + [
+                    "cancelled"
+                ]
                 memory_repo.update(promise.key, tags=new_tags)
 
     def test_remove_promise_from_existing_list(self, memory_repo):

@@ -153,16 +153,44 @@ def _seed_emotions(persona: str = "testpersona", n: int = 4) -> None:
 
 
 def _seed_goals_and_promises(persona: str = "testpersona") -> None:
-    """Insert goals and promises via raw SQL."""
+    """Insert goals and promises as memory entries with type tags."""
+    import json
+
     db = _get_db(persona)
     now_str = format_iso(get_now())
     db.execute(
-        "INSERT OR REPLACE INTO goals (id, description, status, priority, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-        ("goal_001", "宇宙の謎を解明する", "active", 1, now_str, now_str),
+        """INSERT OR REPLACE INTO memories
+           (key, content, created_at, updated_at, tags, importance,
+            emotion, emotion_intensity, privacy_level)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (
+            "goal_001",
+            "宇宙の謎を解明する",
+            now_str,
+            now_str,
+            json.dumps(["goal", "active"], ensure_ascii=False),
+            0.8,
+            "anticipation",
+            0.7,
+            "internal",
+        ),
     )
     db.execute(
-        "INSERT OR REPLACE INTO promises (id, description, status, priority, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-        ("promise_001", "毎日研究を続ける", "active", 1, now_str, now_str),
+        """INSERT OR REPLACE INTO memories
+           (key, content, created_at, updated_at, tags, importance,
+            emotion, emotion_intensity, privacy_level)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (
+            "promise_001",
+            "毎日研究を続ける",
+            now_str,
+            now_str,
+            json.dumps(["promise", "active"], ensure_ascii=False),
+            0.8,
+            "trust",
+            0.7,
+            "internal",
+        ),
     )
     db.commit()
 
@@ -328,8 +356,8 @@ async def test_observations_pagination(seeded_client):
     assert data["persona"] == "testpersona"
     assert data["page"] == 1
     assert data["per_page"] == 3
-    assert data["total_count"] == 6
-    assert data["total_pages"] == 2
+    assert data["total_count"] == 8  # 6 regular memories + 1 goal + 1 promise
+    assert data["total_pages"] == 3  # 8 memories / 3 per_page = ceil(8/3)=3
     assert len(data["memories"]) == 3
 
     # Fetch page 2

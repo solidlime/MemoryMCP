@@ -145,7 +145,9 @@ class TestActiveCommitmentsDisplay:
     @staticmethod
     def _make_promise(content: str, status: str = "active") -> Memory:
         now = get_now()
-        return Memory(key=f"promise_{content[:8]}", content=content, created_at=now, updated_at=now, tags=["promise", status])
+        return Memory(
+            key=f"promise_{content[:8]}", content=content, created_at=now, updated_at=now, tags=["promise", status]
+        )
 
     @staticmethod
     def _fmt(goals: list, promises: list) -> str:
@@ -236,7 +238,14 @@ class TestPromisesClear:
     def test_memory_repo_get_by_tags_finds_goals(self, memory_repo: SQLiteMemoryRepository):
         """memory_repo.get_by_tags(['goal','active']) で goal memories が取得できる。"""
         now = get_now()
-        mem = Memory(key="goal_test_001", content="Test goal", created_at=now, updated_at=now, tags=["goal", "active"], importance=0.8)
+        mem = Memory(
+            key="goal_test_001",
+            content="Test goal",
+            created_at=now,
+            updated_at=now,
+            tags=["goal", "active"],
+            importance=0.8,
+        )
         memory_repo.save(mem)
 
         result = memory_repo.get_by_tags(["goal", "active"])
@@ -247,7 +256,14 @@ class TestPromisesClear:
     def test_memory_repo_get_by_tags_finds_promises(self, memory_repo: SQLiteMemoryRepository):
         """memory_repo.get_by_tags(['promise','active']) で promise memories が取得できる。"""
         now = get_now()
-        mem = Memory(key="promise_test_001", content="Test promise", created_at=now, updated_at=now, tags=["promise", "active"], importance=0.8)
+        mem = Memory(
+            key="promise_test_001",
+            content="Test promise",
+            created_at=now,
+            updated_at=now,
+            tags=["promise", "active"],
+            importance=0.8,
+        )
         memory_repo.save(mem)
 
         result = memory_repo.get_by_tags(["promise", "active"])
