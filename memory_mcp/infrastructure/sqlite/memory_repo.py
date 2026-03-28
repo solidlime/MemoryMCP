@@ -370,26 +370,21 @@ class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
             logger.error("Failed to get all tags: %s", e)
             return Failure(RepositoryError(str(e)))
 
-    # ------------------------------------------------------------------
-    # Goals / Promises
-    # ------------------------------------------------------------------
-
-    def get_goals(self) -> Result[list[dict], RepositoryError]:
-        """Get all goals."""
+    def get_by_tags(self, tags: list[str]) -> Result[list[Memory], RepositoryError]:
+        """Get memories that contain ALL specified tags."""
         try:
-            rows = self._db.execute("SELECT * FROM goals ORDER BY priority DESC, created_at DESC").fetchall()
-            return Success([dict(r) for r in rows])
+            if not tags:
+                return Success([])
+            conditions = ["tags LIKE ?" for _ in tags]
+            params = [f'%"{t}"%' for t in tags]
+            where = " AND ".join(conditions)
+            rows = self._db.execute(
+                f"SELECT * FROM memories WHERE {where} ORDER BY updated_at DESC",
+                params,
+            ).fetchall()
+            return Success([self._row_to_memory(r) for r in rows])
         except Exception as e:
-            logger.error("Failed to get goals: %s", e)
-            return Failure(RepositoryError(str(e)))
-
-    def get_promises(self) -> Result[list[dict], RepositoryError]:
-        """Get all promises."""
-        try:
-            rows = self._db.execute("SELECT * FROM promises ORDER BY priority DESC, created_at DESC").fetchall()
-            return Success([dict(r) for r in rows])
-        except Exception as e:
-            logger.error("Failed to get promises: %s", e)
+            logger.error("Failed to get memories by tags %s: %s", tags, e)
             return Failure(RepositoryError(str(e)))
 
     # ------------------------------------------------------------------

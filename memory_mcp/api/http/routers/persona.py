@@ -113,13 +113,28 @@ def register_persona_routes(mcp) -> None:
                 "max": round(max(strength_values), 3) if strength_values else None,
             }
 
-            goals_result = ctx.memory_repo.get_goals()
+            goals_result = ctx.memory_repo.get_by_tags(["goal"])
             _goals_raw = goals_result.value if goals_result.is_ok else []
-            goals = [g["description"] for g in _goals_raw if g.get("status") == "active" and g.get("description")]
-
-            promises_result = ctx.memory_repo.get_promises()
+            goals = [
+                {
+                    "content": m.content,
+                    "status": next((t for t in (m.tags or []) if t in ("active", "achieved", "cancelled")), "active"),
+                    "created_at": m.created_at.isoformat() if m.created_at else None,
+                    "key": m.key,
+                }
+                for m in _goals_raw
+            ]
+            promises_result = ctx.memory_repo.get_by_tags(["promise"])
             _promises_raw = promises_result.value if promises_result.is_ok else []
-            promises = [p["description"] for p in _promises_raw if p.get("status") == "active" and p.get("description")]
+            promises = [
+                {
+                    "content": m.content,
+                    "status": next((t for t in (m.tags or []) if t in ("active", "fulfilled", "cancelled")), "active"),
+                    "created_at": m.created_at.isoformat() if m.created_at else None,
+                    "key": m.key,
+                }
+                for m in _promises_raw
+            ]
 
             try:
                 total_count = stats.get("total_count", 0)

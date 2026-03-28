@@ -146,7 +146,8 @@ def test_overwrites_existing_data(import_settings):
     conn = SQLiteConnection(import_settings.data_dir, "herta")
     try:
         row = conn.get_memory_db().execute("SELECT COUNT(*) FROM memories").fetchone()
-        assert row[0] == 165
+        # 165 from memory.sqlite + 2 goals/promises from persona_context.json (now stored as memories)
+        assert row[0] == 167
     finally:
         conn.close()
 

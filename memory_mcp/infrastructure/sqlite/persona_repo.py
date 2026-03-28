@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import json
 from typing import TYPE_CHECKING
 
@@ -270,78 +269,6 @@ class SQLitePersonaRepository:
             return Success({row["key"]: row["value"] for row in rows})
         except Exception as e:
             logger.error("Failed to get persona_info for '%s': %s", persona, e)
-            return Failure(RepositoryError(str(e)))
-
-    def sync_goals(self, persona: str, goals: list | str) -> Result[None, RepositoryError]:
-        """persona_info の goals リストを goals テーブルに同期（全件置換）。"""
-        try:
-            if isinstance(goals, str):
-                try:
-                    goals = json.loads(goals)
-                except Exception:
-                    goals = [goals] if goals else []
-            if not isinstance(goals, list):
-                goals = []
-
-            now = format_iso(get_now())
-            db = self._db
-
-            # 既存の active な goals を全件 inactive に
-            db.execute("UPDATE goals SET status='inactive', updated_at=?", (now,))
-
-            # 新しい goals を INSERT OR REPLACE
-            for text in goals:
-                if not text:
-                    continue
-                gid = hashlib.md5(f"{persona}:{text}".encode()).hexdigest()[:12]
-                db.execute(
-                    """
-                    INSERT OR REPLACE INTO goals (id, description, status, priority, persona, created_at, updated_at)
-                    VALUES (?, ?, 'active', 0, ?, COALESCE((SELECT created_at FROM goals WHERE id=?), ?), ?)
-                    """,
-                    (gid, str(text), persona, gid, now, now),
-                )
-            db.commit()
-            logger.info("Goals synced for persona '%s': %d entries", persona, len(goals))
-            return Success(None)
-        except Exception as e:
-            logger.error("Failed to sync goals for '%s': %s", persona, e)
-            return Failure(RepositoryError(str(e)))
-
-    def sync_promises(self, persona: str, promises: list | str) -> Result[None, RepositoryError]:
-        """persona_info の promises リストを promises テーブルに同期（全件置換）。"""
-        try:
-            if isinstance(promises, str):
-                try:
-                    promises = json.loads(promises)
-                except Exception:
-                    promises = [promises] if promises else []
-            if not isinstance(promises, list):
-                promises = []
-
-            now = format_iso(get_now())
-            db = self._db
-
-            # 既存の active な promises を全件 inactive に
-            db.execute("UPDATE promises SET status='inactive', updated_at=?", (now,))
-
-            # 新しい promises を INSERT OR REPLACE
-            for text in promises:
-                if not text:
-                    continue
-                pid = hashlib.md5(f"{persona}:{text}".encode()).hexdigest()[:12]
-                db.execute(
-                    """
-                    INSERT OR REPLACE INTO promises (id, description, status, priority, persona, created_at, updated_at)
-                    VALUES (?, ?, 'active', 0, ?, COALESCE((SELECT created_at FROM promises WHERE id=?), ?), ?)
-                    """,
-                    (pid, str(text), persona, pid, now, now),
-                )
-            db.commit()
-            logger.info("Promises synced for persona '%s': %d entries", persona, len(promises))
-            return Success(None)
-        except Exception as e:
-            logger.error("Failed to sync promises for '%s': %s", persona, e)
             return Failure(RepositoryError(str(e)))
 
     # ------------------------------------------------------------------

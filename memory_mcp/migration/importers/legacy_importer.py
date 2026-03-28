@@ -661,37 +661,39 @@ class LegacyImporter:
                 )
                 count += 1
 
-        # current_goals → goals table
+        # current_goals → memories table (tags=["goal","active"])
         goals_raw = data.get("current_goals", [])
         if isinstance(goals_raw, str):
             goals_raw = [goals_raw] if goals_raw.strip() else []
         for i, goal in enumerate(goals_raw):
             goal_text = goal if isinstance(goal, str) else json.dumps(goal, ensure_ascii=False)
-            goal_id = f"legacy_goal_{i}"
+            goal_key = f"legacy_goal_{i}"
             target_db.execute(
                 """
-                INSERT OR REPLACE INTO goals
-                (id, description, status, priority, created_at, updated_at, metadata)
-                VALUES (?,?,?,?,?,?,?)
+                INSERT OR IGNORE INTO memories
+                (key, content, created_at, updated_at, tags, importance, emotion,
+                 emotion_intensity, privacy_level, access_count)
+                VALUES (?, ?, ?, ?, ?, 0.8, 'anticipation', 0.5, 'internal', 0)
                 """,
-                (goal_id, goal_text, "active", 0, now, now, "{}"),
+                (goal_key, goal_text, now, now, '["goal","active"]'),
             )
             count += 1
 
-        # active_promises → promises table
+        # active_promises → memories table (tags=["promise","active"])
         promises_raw = data.get("active_promises", [])
         if isinstance(promises_raw, str):
             promises_raw = [promises_raw] if promises_raw.strip() else []
         for i, promise in enumerate(promises_raw):
             promise_text = promise if isinstance(promise, str) else json.dumps(promise, ensure_ascii=False)
-            promise_id = f"legacy_promise_{i}"
+            promise_key = f"legacy_promise_{i}"
             target_db.execute(
                 """
-                INSERT OR REPLACE INTO promises
-                (id, description, status, priority, created_at, updated_at, metadata)
-                VALUES (?,?,?,?,?,?,?)
+                INSERT OR IGNORE INTO memories
+                (key, content, created_at, updated_at, tags, importance, emotion,
+                 emotion_intensity, privacy_level, access_count)
+                VALUES (?, ?, ?, ?, ?, 0.8, 'trust', 0.5, 'internal', 0)
                 """,
-                (promise_id, promise_text, "active", 0, now, now, "{}"),
+                (promise_key, promise_text, now, now, '["promise","active"]'),
             )
             count += 1
 

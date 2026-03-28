@@ -10,8 +10,11 @@ import json
 
 import pytest
 
+from memory_mcp.domain.memory.entities import Memory
 from memory_mcp.domain.persona.service import PersonaService
+from memory_mcp.domain.shared.time_utils import get_now
 from memory_mcp.infrastructure.sqlite.connection import SQLiteConnection
+from memory_mcp.infrastructure.sqlite.memory_repo import SQLiteMemoryRepository
 from memory_mcp.infrastructure.sqlite.persona_repo import SQLitePersonaRepository
 
 PERSONA = "test_remove_persona"
@@ -98,76 +101,84 @@ class TestRemoveLogicPure:
 
 
 class TestRemoveGoalsViaPersonaService:
-    """remove_goals behaviour via the real service layer."""
+    """remove_goals behaviour via memory_repo (tag-based)."""
 
-    def test_remove_goal_from_existing_list(self, persona_service: PersonaService):
-        persona_service.update_persona_info(PERSONA, {"goals": ["G1", "G2", "G3"]})
+    @pytest.fixture()
+    def memory_repo(self, sqlite_conn):
+        return SQLiteMemoryRepository(sqlite_conn)
 
-        ctx = persona_service.get_context(PERSONA).unwrap()
-        existing = ctx.persona_info.get("goals", [])
-        if isinstance(existing, str):
-            existing = json.loads(existing)
-        new_goals = [g for g in existing if g not in ["G2"]]
-        persona_service.update_persona_info(PERSONA, {"goals": new_goals})
+    def _add_goal(self, memory_repo, text: str) -> None:
+        now = get_now()
+        mem = Memory(key=f"goal_{hash(text) % 100000}", content=text, created_at=now, updated_at=now, tags=["goal", "active"], importance=0.8)
+        memory_repo.save(mem)
 
-        state = persona_service.get_context(PERSONA).unwrap()
-        goals = state.persona_info.get("goals")
-        if isinstance(goals, str):
-            goals = json.loads(goals)
-        assert "G2" not in goals
-        assert "G1" in goals
-        assert "G3" in goals
+    def _cancel_goal(self, memory_repo, text: str) -> None:
+        result = memory_repo.get_by_tags(["goal", "active"])
+        for goal in (result.value or []):
+            if goal.content == text:
+                new_tags = [t for t in (goal.tags or []) if t not in ("active", "achieved", "cancelled")] + ["cancelled"]
+                memory_repo.update(goal.key, tags=new_tags)
 
-    def test_remove_nonexistent_goal_is_noop(self, persona_service: PersonaService):
-        persona_service.update_persona_info(PERSONA, {"goals": ["G1", "G2"]})
+    def test_remove_goal_from_existing_list(self, memory_repo):
+        self._add_goal(memory_repo, "G1")
+        self._add_goal(memory_repo, "G2")
+        self._add_goal(memory_repo, "G3")
 
-        ctx = persona_service.get_context(PERSONA).unwrap()
-        existing = ctx.persona_info.get("goals", [])
-        if isinstance(existing, str):
-            existing = json.loads(existing)
-        new_goals = [g for g in existing if g not in ["G_NONEXISTENT"]]
-        persona_service.update_persona_info(PERSONA, {"goals": new_goals})
+        self._cancel_goal(memory_repo, "G2")
 
-        state = persona_service.get_context(PERSONA).unwrap()
-        goals = state.persona_info.get("goals")
-        if isinstance(goals, str):
-            goals = json.loads(goals)
-        assert "G1" in goals
-        assert "G2" in goals
+        result = memory_repo.get_by_tags(["goal", "active"])
+        assert result.is_ok
+        active_contents = [m.content for m in result.value]
+        assert "G2" not in active_contents
+        assert "G1" in active_contents
+        assert "G3" in active_contents
 
-    def test_remove_promise_from_existing_list(self, persona_service: PersonaService):
-        persona_service.update_persona_info(PERSONA, {"promises": ["P1", "P2", "P3"]})
+    def test_remove_nonexistent_goal_is_noop(self, memory_repo):
+        self._add_goal(memory_repo, "G1")
+        self._add_goal(memory_repo, "G2")
 
-        ctx = persona_service.get_context(PERSONA).unwrap()
-        existing = ctx.persona_info.get("promises", [])
-        if isinstance(existing, str):
-            existing = json.loads(existing)
-        new_promises = [p for p in existing if p not in ["P1"]]
-        persona_service.update_persona_info(PERSONA, {"promises": new_promises})
+        self._cancel_goal(memory_repo, "G_NONEXISTENT")
 
-        state = persona_service.get_context(PERSONA).unwrap()
-        promises = state.persona_info.get("promises")
-        if isinstance(promises, str):
-            promises = json.loads(promises)
-        assert "P1" not in promises
-        assert "P2" in promises
-        assert "P3" in promises
+        result = memory_repo.get_by_tags(["goal", "active"])
+        assert result.is_ok
+        active_contents = [m.content for m in result.value]
+        assert "G1" in active_contents
+        assert "G2" in active_contents
 
-    def test_remove_nonexistent_promise_is_noop(self, persona_service: PersonaService):
-        persona_service.update_persona_info(PERSONA, {"promises": ["P1"]})
+    def _add_promise(self, memory_repo, text: str) -> None:
+        now = get_now()
+        mem = Memory(key=f"promise_{hash(text) % 100000}", content=text, created_at=now, updated_at=now, tags=["promise", "active"], importance=0.8)
+        memory_repo.save(mem)
 
-        ctx = persona_service.get_context(PERSONA).unwrap()
-        existing = ctx.persona_info.get("promises", [])
-        if isinstance(existing, str):
-            existing = json.loads(existing)
-        new_promises = [p for p in existing if p not in ["P_NONEXISTENT"]]
-        persona_service.update_persona_info(PERSONA, {"promises": new_promises})
+    def _cancel_promise(self, memory_repo, text: str) -> None:
+        result = memory_repo.get_by_tags(["promise", "active"])
+        for promise in (result.value or []):
+            if promise.content == text:
+                new_tags = [t for t in (promise.tags or []) if t not in ("active", "fulfilled", "cancelled")] + ["cancelled"]
+                memory_repo.update(promise.key, tags=new_tags)
 
-        state = persona_service.get_context(PERSONA).unwrap()
-        promises = state.persona_info.get("promises")
-        if isinstance(promises, str):
-            promises = json.loads(promises)
-        assert "P1" in promises
+    def test_remove_promise_from_existing_list(self, memory_repo):
+        self._add_promise(memory_repo, "P1")
+        self._add_promise(memory_repo, "P2")
+        self._add_promise(memory_repo, "P3")
+
+        self._cancel_promise(memory_repo, "P1")
+
+        result = memory_repo.get_by_tags(["promise", "active"])
+        assert result.is_ok
+        active_contents = [m.content for m in result.value]
+        assert "P1" not in active_contents
+        assert "P2" in active_contents
+        assert "P3" in active_contents
+
+    def test_remove_nonexistent_promise_is_noop(self, memory_repo):
+        self._add_promise(memory_repo, "P1")
+        self._cancel_promise(memory_repo, "P_NONEXISTENT")
+
+        result = memory_repo.get_by_tags(["promise", "active"])
+        assert result.is_ok
+        active_contents = [m.content for m in result.value]
+        assert "P1" in active_contents
 
 
 # ---------------------------------------------------------------------------
@@ -176,25 +187,17 @@ class TestRemoveGoalsViaPersonaService:
 
 
 class TestPersonaInfoOverridesRemove:
-    """persona_info に goals が直接指定されたら remove_goals は無視される（ロジックテスト）。"""
+    """persona_info に goals が指定されても persona_info には保存されない（タグ管理のため）。"""
 
-    def test_direct_persona_info_goals_takes_precedence(self, persona_service: PersonaService):
-        """persona_info={"goals": [...]} で直接指定した場合、remove_goals は適用されない。
+    @pytest.fixture()
+    def memory_repo(self, sqlite_conn):
+        return SQLiteMemoryRepository(sqlite_conn)
 
-        tools.py の実装では:
-          skip_remove_goals = persona_info is not None and "goals" in persona_info
-        なので、persona_info に goals が含まれていれば remove_goals は無視される。
-        このテストはその前提条件を service 層で確認する。
-        """
-        persona_service.update_persona_info(PERSONA, {"goals": ["G1", "G2"]})
-
-        # persona_info で直接 goals を上書きすれば remove は不要（上書き優先）
+    def test_direct_persona_info_goals_not_stored(self, persona_service: PersonaService):
+        """persona_info={"goals": [...]} は persona_info には保存されない（タグ管理）。"""
         persona_service.update_persona_info(PERSONA, {"goals": ["G1", "G2"]})
 
         state = persona_service.get_context(PERSONA).unwrap()
         goals = state.persona_info.get("goals")
-        if isinstance(goals, str):
-            goals = json.loads(goals)
-        # remove_goals=["G2"] は適用されていない（persona_info 直接指定が優先されるため）
-        assert "G1" in goals
-        assert "G2" in goals
+        # goals は persona_info に保存されないため None
+        assert goals is None, f"goals should not be in persona_info, got {goals!r}"

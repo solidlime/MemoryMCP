@@ -94,6 +94,8 @@ class MemoryRepository(Protocol):
 
     def get_promises(self) -> Result[list[dict], RepositoryError]: ...
 
+    def get_by_tags(self, tags: list[str]) -> Result[list[Memory], RepositoryError]: ...
+
     def find_with_pagination(
         self,
         page: int = 1,

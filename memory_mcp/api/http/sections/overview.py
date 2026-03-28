@@ -212,41 +212,32 @@ async function loadOverview() {
         }
 
         // --- Goals & Promises ---
-        function parsePersonaInfoList(val) {
-            if (!val) return null;
-            if (Array.isArray(val)) return val;
-            if (typeof val === 'string') {
-                try { const p = JSON.parse(val); return Array.isArray(p) ? p : null; }
-                catch (e) { return null; }
-            }
-            return null;
+        function getStatusIcon(status) {
+            if (status === 'active') return '🔄';
+            if (status === 'achieved' || status === 'fulfilled') return '✅';
+            if (status === 'cancelled') return '❌';
+            return '🔄';
         }
 
         function renderGoalItems(goalItems, label) {
             if (!goalItems || goalItems.length === 0) return '<span style="color:var(--text-muted)">No ' + label + '</span>';
             let html = '';
             goalItems.forEach(item => {
-                // 文字列の場合は dict に変換
-                const normalizedItem = typeof item === 'string'
-                    ? { description: item, status: 'active' }
-                    : item;
-                const status = (normalizedItem.status || 'active').toLowerCase();
-                const icon = status === 'done' || status === 'completed' ? '✅' : status === 'active' || status === 'in_progress' ? '🔄' : '⏳';
+                const content = typeof item === 'string' ? item : (item.content || item.description || item.title || JSON.stringify(item));
+                const status = typeof item === 'object' ? (item.status || 'active').toLowerCase() : 'active';
+                const icon = getStatusIcon(status);
                 html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 0">';
                 html += '<span>' + icon + '</span>';
-                html += '<span style="flex:1;font-size:0.85rem;color:var(--text-secondary)">' + esc(normalizedItem.description || normalizedItem.content || normalizedItem.title || JSON.stringify(normalizedItem)) + '</span>';
-                if (normalizedItem.created_at || normalizedItem.date) html += '<span style="font-size:0.72rem;color:var(--text-muted)">' + relativeTime(normalizedItem.created_at || normalizedItem.date) + '</span>';
+                html += '<span style="flex:1;font-size:0.85rem;color:var(--text-secondary)">' + esc(content) + '</span>';
+                const ts = typeof item === 'object' && (item.created_at || item.date);
+                if (ts) html += '<span style="font-size:0.72rem;color:var(--text-muted)">' + relativeTime(ts) + '</span>';
                 html += '</div>';
             });
             return html;
         }
 
-        // persona_info から goals/promises を取得（優先）、なければテーブルデータ fallback
-        const _personaInfoForGoals = ctx.persona_info || {};
-        const piGoals = parsePersonaInfoList(_personaInfoForGoals.goals);
-        const piPromises = parsePersonaInfoList(_personaInfoForGoals.promises);
-        const effectiveGoals = piGoals !== null ? piGoals : (data.goals || []);
-        const effectivePromises = piPromises !== null ? piPromises : (data.promises || []);
+        const effectiveGoals = data.goals || [];
+        const effectivePromises = data.promises || [];
 
         // --- Profile: user_info / persona_info / relationship ---
         const userInfo = ctx.user_info || {};

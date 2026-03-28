@@ -280,13 +280,9 @@ class MemoryService:
         """Delete a named memory block."""
         return self._repo.delete_block(block_name)
 
-    def get_goals(self) -> Result[list[dict], DomainError]:
-        """Get all goals."""
-        return self._repo.get_goals()
-
-    def get_promises(self) -> Result[list[dict], DomainError]:
-        """Get all promises."""
-        return self._repo.get_promises()
+    def get_by_tags(self, tags: list[str]) -> Result[list[Memory], DomainError]:
+        """Get memories that contain ALL specified tags."""
+        return self._repo.get_by_tags(tags)
 
     # --- Smart Recent + Search Log + Gap Alert ---
 

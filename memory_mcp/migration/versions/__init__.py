@@ -18,6 +18,9 @@ from memory_mcp.migration.versions.v007_add_performance_indexes import (
 from memory_mcp.migration.versions.v008_add_persona_to_goals_promises import (
     upgrade as v008_upgrade,
 )
+from memory_mcp.migration.versions.v009_goals_promises_to_memories import (
+    upgrade as v009_upgrade,
+)
 
 ALL_MIGRATIONS: list[tuple[str, str, object]] = [
     ("001", "Initial schema", v001_upgrade),
@@ -28,4 +31,5 @@ ALL_MIGRATIONS: list[tuple[str, str, object]] = [
     ("006", "Normalize emotion_type values in memories table", v006_upgrade),
     ("007", "Add performance indexes", v007_upgrade),
     ("008", "Add persona column to goals and promises tables", v008_upgrade),
+    ("009", "Migrate goals/promises tables to memory tags", v009_upgrade),
 ]

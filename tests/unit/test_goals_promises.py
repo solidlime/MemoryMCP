@@ -84,49 +84,40 @@ def entity_service(entity_repo: SQLiteEntityRepository):
 
 
 class TestPromisesJsonPersistence:
-    """promises / goals が JSON として保存され、get_context で list として読み戻される。"""
+    """goals/promises は persona_info に保存されず、memory タグで管理される。"""
 
-    def test_promises_roundtrip_as_list(self, persona_service: PersonaService):
-        """update_persona_info(promises=[...]) → get_context で Python list が返る。"""
-        result = persona_service.update_persona_info(PERSONA, {"promises": ["P1", "P2"]})
+    def test_goals_skipped_in_persona_info(self, persona_service: PersonaService):
+        """update_persona_info(goals=[...]) → persona_info には保存されない。"""
+        result = persona_service.update_persona_info(PERSONA, {"goals": ["Goal A", "Goal B"]})
         assert result.is_ok, f"update_persona_info failed: {result}"
 
         ctx = persona_service.get_context(PERSONA)
         assert ctx.is_ok
         state = ctx.unwrap()
+        # goals は persona_info には保存されない
+        goals = state.persona_info.get("goals")
+        assert goals is None, f"Expected None (goals not stored in persona_info), got {goals!r}"
 
-        promises = state.persona_info.get("promises")
-        assert promises == ["P1", "P2"], (
-            f"Expected ['P1', 'P2'], got {promises!r}. The SQLitePersonaRepository should parse JSON back to list."
-        )
-
-    def test_goals_roundtrip_as_list(self, persona_service: PersonaService):
-        """update_persona_info(goals=[...]) → get_context で Python list が返る。"""
-        result = persona_service.update_persona_info(PERSONA, {"goals": ["Goal A", "Goal B"]})
+    def test_promises_skipped_in_persona_info(self, persona_service: PersonaService):
+        """update_persona_info(promises=[...]) → persona_info には保存されない。"""
+        result = persona_service.update_persona_info(PERSONA, {"promises": ["P1", "P2"]})
         assert result.is_ok
 
         ctx = persona_service.get_context(PERSONA)
         assert ctx.is_ok
-        goals = ctx.unwrap().persona_info.get("goals")
-        assert goals == ["Goal A", "Goal B"], f"Expected ['Goal A', 'Goal B'], got {goals!r}"
+        promises = ctx.unwrap().persona_info.get("promises")
+        assert promises is None, f"Expected None (promises not stored in persona_info), got {promises!r}"
 
-    def test_persona_info_table_stores_json_string(
-        self,
-        persona_service: PersonaService,
-        persona_repo: SQLitePersonaRepository,
-    ):
-        """persona_info テーブルの生の value は JSON 文字列であること。"""
-        persona_service.update_persona_info(PERSONA, {"promises": ["P1", "P2"]})
+    def test_other_persona_info_keys_still_stored(self, persona_service: PersonaService):
+        """goals/promises 以外のキーは persona_info に正常に保存される。"""
+        result = persona_service.update_persona_info(PERSONA, {"nickname": "TestBot", "goals": ["should be skipped"]})
+        assert result.is_ok
 
-        raw_result = persona_repo.get_persona_info(PERSONA)
-        assert raw_result.is_ok
-        raw = raw_result.unwrap()
-
-        assert "promises" in raw
-        raw_value = raw["promises"]
-        # The raw DB getter does NOT parse JSON, so the value is a string.
-        parsed = json.loads(raw_value) if isinstance(raw_value, str) else raw_value
-        assert parsed == ["P1", "P2"]
+        ctx = persona_service.get_context(PERSONA)
+        assert ctx.is_ok
+        state = ctx.unwrap()
+        assert state.persona_info.get("nickname") == "TestBot"
+        assert state.persona_info.get("goals") is None
 
 
 # ===========================================================================
@@ -135,65 +126,84 @@ class TestPromisesJsonPersistence:
 
 
 class TestActiveCommitmentsDisplay:
-    """_format_context_response() が ACTIVE COMMITMENTS セクションに promises/goals を表示する。"""
+    """_format_context_response() が memory タグベースの ACTIVE COMMITMENTS を表示する。"""
 
     @staticmethod
-    def _state(persona_info: dict) -> PersonaState:
+    def _state() -> PersonaState:
         return PersonaState(
             persona=PERSONA,
             emotion="neutral",
             emotion_intensity=0.0,
             user_info={},
-            persona_info=persona_info,
+            persona_info={},
         )
 
     @staticmethod
-    def _fmt(state: PersonaState) -> str:
+    def _make_goal(content: str, status: str = "active") -> Memory:
+        now = get_now()
+        return Memory(key=f"goal_{content[:8]}", content=content, created_at=now, updated_at=now, tags=["goal", status])
+
+    @staticmethod
+    def _make_promise(content: str, status: str = "active") -> Memory:
+        now = get_now()
+        return Memory(key=f"promise_{content[:8]}", content=content, created_at=now, updated_at=now, tags=["promise", status])
+
+    @staticmethod
+    def _fmt(goals: list, promises: list) -> str:
         return _format_context_response(
-            state=state,
+            state=TestActiveCommitmentsDisplay._state(),
             stats={},
             recent=[],
             equipment={},
             blocks=[],
             time_since="",
-            goals=[],
-            promises=[],
+            goals=goals,
+            promises=promises,
         )
 
     def test_promises_appear_in_output(self):
-        """persona_info に promises をセットすると P1 / P2 が出力に含まれる。"""
-        output = self._fmt(self._state({"promises": ["P1", "P2"]}))
+        """active promise が ACTIVE COMMITMENTS に表示される。"""
+        output = self._fmt([], [self._make_promise("P1"), self._make_promise("P2")])
         assert "P1" in output, f"'P1' not found in output:\n{output}"
         assert "P2" in output, f"'P2' not found in output:\n{output}"
         assert "ACTIVE COMMITMENTS" in output
 
     def test_goals_appear_in_output(self):
-        """persona_info に goals をセットすると ACTIVE COMMITMENTS に表示される。"""
-        output = self._fmt(self._state({"goals": ["Goal A", "Goal B"]}))
+        """active goal が ACTIVE COMMITMENTS に表示される。"""
+        output = self._fmt([self._make_goal("Goal A"), self._make_goal("Goal B")], [])
         assert "Goal A" in output
         assert "Goal B" in output
         assert "ACTIVE COMMITMENTS" in output
 
     def test_both_promises_and_goals_appear(self):
         """promises と goals が共存して表示される。"""
-        output = self._fmt(self._state({"promises": ["P1"], "goals": ["G1"]}))
+        output = self._fmt([self._make_goal("G1")], [self._make_promise("P1")])
         assert "P1" in output
         assert "G1" in output
         assert "ACTIVE COMMITMENTS" in output
 
-    def test_empty_persona_info_shows_no_commitments_section(self):
-        """persona_info が空のとき ACTIVE COMMITMENTS セクションは現れない。"""
-        output = self._fmt(self._state({}))
+    def test_empty_goals_and_promises_show_no_commitments_section(self):
+        """goals/promises が空のとき ACTIVE COMMITMENTS セクションは現れない。"""
+        output = self._fmt([], [])
         assert "ACTIVE COMMITMENTS" not in output
 
-    def test_empty_promises_list_shows_no_commitments_section(self):
-        """promises = [] のとき ACTIVE COMMITMENTS セクションは現れない。"""
-        output = self._fmt(self._state({"promises": []}))
+    def test_non_active_goal_not_in_active_commitments(self):
+        """achieved goal は ACTIVE COMMITMENTS に表示されず Past Commitments に表示される。"""
+        output = self._fmt([self._make_goal("Done Goal", "achieved")], [])
         assert "ACTIVE COMMITMENTS" not in output
+        assert "Past Commitments" in output
+        assert "Done Goal" in output
+
+    def test_non_active_promise_shows_in_past_commitments(self):
+        """fulfilled promise は Past Commitments に表示される。"""
+        output = self._fmt([], [self._make_promise("Old Promise", "fulfilled")])
+        assert "ACTIVE COMMITMENTS" not in output
+        assert "Past Commitments" in output
+        assert "Old Promise" in output
 
     def test_json_string_promises_are_parsed_and_displayed(self):
-        """persona_info の promises が JSON 文字列でも正しく表示される（旧形式互換）。"""
-        output = self._fmt(self._state({"promises": '["P1", "P2"]'}))
+        """(互換テスト) Memory オブジェクトの active promise は正常に表示される。"""
+        output = self._fmt([], [self._make_promise("P1"), self._make_promise("P2")])
         assert "P1" in output
         assert "P2" in output
 
@@ -204,51 +214,47 @@ class TestActiveCommitmentsDisplay:
 
 
 class TestPromisesClear:
-    """promises / goals を [] で上書きすると内容が空になる。"""
+    """goals/promises の memory タグベース管理を確認。"""
 
-    def test_clear_promises_with_empty_list(self, persona_service: PersonaService):
-        """["P1"] → [] にすると persona_info["promises"] が空/消える。"""
-        persona_service.update_persona_info(PERSONA, {"promises": ["P1"]})
-        persona_service.update_persona_info(PERSONA, {"promises": []})
-
-        state = persona_service.get_context(PERSONA).unwrap()
-        promises = state.persona_info.get("promises")
-        assert promises in (None, []), f"Expected empty or None, got {promises!r}"
-
-    def test_clear_goals_with_empty_list(self, persona_service: PersonaService):
-        """goals を [] でクリアすると空になる。"""
+    def test_goals_not_stored_in_persona_info_after_update(self, persona_service: PersonaService):
+        """goals を persona_info で渡しても persona_info には保存されない。"""
         persona_service.update_persona_info(PERSONA, {"goals": ["G1", "G2"]})
         persona_service.update_persona_info(PERSONA, {"goals": []})
 
         state = persona_service.get_context(PERSONA).unwrap()
         goals = state.persona_info.get("goals")
-        assert goals in (None, []), f"Expected empty or None, got {goals!r}"
+        assert goals is None, f"goals should not be in persona_info, got {goals!r}"
 
-    def test_clear_syncs_to_promises_table(
-        self,
-        persona_service: PersonaService,
-        sqlite_conn: SQLiteConnection,
-    ):
-        """[] クリア後、promises テーブルに active なレコードが残らない。"""
+    def test_promises_not_stored_in_persona_info_after_update(self, persona_service: PersonaService):
+        """promises を persona_info で渡しても persona_info には保存されない。"""
         persona_service.update_persona_info(PERSONA, {"promises": ["P1"]})
         persona_service.update_persona_info(PERSONA, {"promises": []})
 
-        db = sqlite_conn.get_memory_db()
-        rows = db.execute("SELECT * FROM promises WHERE status = 'active'").fetchall()
-        assert len(rows) == 0, f"Expected 0 active promises, got {len(rows)}: {list(rows)}"
+        state = persona_service.get_context(PERSONA).unwrap()
+        promises = state.persona_info.get("promises")
+        assert promises is None, f"promises should not be in persona_info, got {promises!r}"
 
-    def test_clear_syncs_to_goals_table(
-        self,
-        persona_service: PersonaService,
-        sqlite_conn: SQLiteConnection,
-    ):
-        """[] クリア後、goals テーブルに active なレコードが残らない。"""
-        persona_service.update_persona_info(PERSONA, {"goals": ["G1"]})
-        persona_service.update_persona_info(PERSONA, {"goals": []})
+    def test_memory_repo_get_by_tags_finds_goals(self, memory_repo: SQLiteMemoryRepository):
+        """memory_repo.get_by_tags(['goal','active']) で goal memories が取得できる。"""
+        now = get_now()
+        mem = Memory(key="goal_test_001", content="Test goal", created_at=now, updated_at=now, tags=["goal", "active"], importance=0.8)
+        memory_repo.save(mem)
 
-        db = sqlite_conn.get_memory_db()
-        rows = db.execute("SELECT * FROM goals WHERE status = 'active'").fetchall()
-        assert len(rows) == 0, f"Expected 0 active goals, got {len(rows)}: {list(rows)}"
+        result = memory_repo.get_by_tags(["goal", "active"])
+        assert result.is_ok
+        contents = [m.content for m in result.value]
+        assert "Test goal" in contents
+
+    def test_memory_repo_get_by_tags_finds_promises(self, memory_repo: SQLiteMemoryRepository):
+        """memory_repo.get_by_tags(['promise','active']) で promise memories が取得できる。"""
+        now = get_now()
+        mem = Memory(key="promise_test_001", content="Test promise", created_at=now, updated_at=now, tags=["promise", "active"], importance=0.8)
+        memory_repo.save(mem)
+
+        result = memory_repo.get_by_tags(["promise", "active"])
+        assert result.is_ok
+        contents = [m.content for m in result.value]
+        assert "Test promise" in contents
 
 
 # ===========================================================================
