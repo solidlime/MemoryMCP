@@ -207,8 +207,9 @@ update_context(user_info={"name": "Taro", "preferred_address": "Taro-san"})
 Goals and Promises are stored as **regular memories with type+status tags** — not as persona state.
 They appear in the **ACTIVE COMMITMENTS** section of `get_context()` output.
 
-> **⚠️ Deprecated**: `update_context(persona_info={"promises": [...], "goals": [...]})` is no longer supported.
-> Do **not** use `context_tags=["promise"]` / `context_tags=["goal"]` — these have no effect.
+> **⚠️ Removed**: `update_context(append_goals/append_promises/remove_goals/remove_promises)` is no longer supported.
+> Use `memory(operation="create/update", tags=[...])` directly. See lifecycle example below.
+> Also do **not** use `context_tags=["promise"]` / `context_tags=["goal"]` — these have no effect.
 
 ### Tag Convention / タグ規約
 
@@ -224,15 +225,11 @@ They appear in the **ACTIVE COMMITMENTS** section of `get_context()` output.
 ### Full lifecycle example
 
 ```python
-# Register a goal (two equivalent ways)
-update_context(append_goals=["Complete the project by March"])
-# or directly:
+# Register a goal
 memory(operation="create", content="Complete the project by March",
        tags=["goal", "active"], importance=0.8)
 
 # Register a promise
-update_context(append_promises=["Send report by Friday"])
-# or directly:
 memory(operation="create", content="Send report by Friday",
        tags=["promise", "active"], importance=0.8)
 
@@ -243,8 +240,6 @@ memory(operation="update", memory_key="<key>", tags=["goal", "achieved"])
 memory(operation="update", memory_key="<key>", tags=["promise", "fulfilled"])
 
 # Cancel a goal
-update_context(remove_goals=["Complete the project by March"])
-# or directly:
 memory(operation="update", memory_key="<key>", tags=["goal", "cancelled"])
 
 # Search active goals
@@ -372,10 +367,10 @@ You have persistent memory via MCP tools. Use them autonomously — never wait t
 
 **Record** when user shares preferences/decisions/emotions/achievements:
 → `memory(operation="create", content="...", importance=0.7, tags=[...], emotion_type="joy")`
-→ Goal: `update_context(append_goals=["..."])` or `memory(operation="create", content="...", tags=["goal","active"], importance=0.8)`
-→ Promise: `update_context(append_promises=["..."])` or `memory(operation="create", content="...", tags=["promise","active"], importance=0.8)`
+→ Goal: `memory(operation="create", content="...", tags=["goal","active"], importance=0.8)`
+→ Promise: `memory(operation="create", content="...", tags=["promise","active"], importance=0.8)`
 → Mark done: `memory(operation="update", memory_key="...", tags=["goal","achieved"])` / `tags=["promise","fulfilled"]`
-→ Cancel: `update_context(remove_goals=["..."])` or `memory(operation="update", memory_key="...", tags=["goal","cancelled"])`
+→ Cancel: `memory(operation="update", memory_key="...", tags=["goal","cancelled"])`
 
 **Search** before answering anything about past/preferences:
 → `search_memory(query="...", mode="hybrid", top_k=5)`
@@ -404,10 +399,10 @@ Never ask "should I remember this?" — just do it.
 **記録する** — ユーザーが以下を伝えたとき:
 → 好み・意見・個人情報 → `memory(operation="create", content="...", importance=0.7, tags=[...])`
 → 決断・達成・感情的な出来事 → `importance=0.8+`、感情は `emotion_type="joy"` で指定
-→ 目標 → `update_context(append_goals=["..."])` または `memory(operation="create", content="...", tags=["goal","active"], importance=0.8)`
-→ 約束 → `update_context(append_promises=["..."])` または `memory(operation="create", content="...", tags=["promise","active"], importance=0.8)`
+→ 目標 → `memory(operation="create", content="...", tags=["goal","active"], importance=0.8)`
+→ 約束 → `memory(operation="create", content="...", tags=["promise","active"], importance=0.8)`
 → 達成 → `memory(operation="update", memory_key="...", tags=["goal","achieved"])` / `tags=["promise","fulfilled"]`
-→ 中止 → `update_context(remove_goals=["..."])` または `memory(operation="update", memory_key="...", tags=["goal","cancelled"])`
+→ 中止 → `memory(operation="update", memory_key="...", tags=["goal","cancelled"])`
 
 **検索する** — 過去・好み・文脈に関する質問に答える前に:
 → `search_memory(query="...", mode="hybrid", top_k=5)`
@@ -446,12 +441,11 @@ update_context(emotion="joy", emotion_intensity=0.8)
 update_context(user_info={"name": "...", "preferred_address": "..."})
 
 # Goal / Promise  ← stored as memory with tags, NOT persona_info
-update_context(append_goals=["..."])                          # create goal memory with tags=["goal","active"]
-update_context(append_promises=["..."])                       # create promise memory with tags=["promise","active"]
-memory(operation="create", content="...", tags=["goal","active"], importance=0.8)  # direct
-memory(operation="update", memory_key="...", tags=["goal","achieved"])             # mark done
-memory(operation="update", memory_key="...", tags=["promise","fulfilled"])         # fulfill
-update_context(remove_goals=["..."])                          # cancel goal
+memory(operation="create", content="...", tags=["goal","active"], importance=0.8)    # register goal
+memory(operation="create", content="...", tags=["promise","active"], importance=0.8) # register promise
+memory(operation="update", memory_key="...", tags=["goal","achieved"])               # mark done
+memory(operation="update", memory_key="...", tags=["promise","fulfilled"])           # fulfill
+memory(operation="update", memory_key="...", tags=["goal","cancelled"])              # cancel goal
 search_memory(query="goals", tags=["goal","active"])          # search active goals
 # → appears in get_context() ACTIVE COMMITMENTS section
 
