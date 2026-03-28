@@ -869,12 +869,11 @@ def _format_context_response(
         lines.append(f"Physical: {state.physical_state}")
     if state.mental_state:
         lines.append(f"Mental: {state.mental_state}")
-    if state.environment:
-        lines.append(f"Environment: {state.environment}")
+    lines.append(f"Environment: {state.environment or '未設定'}")
+    lines.append(f"Action: {state.action_tag or '未設定'}")
+    lines.append(f"Speech Style: {state.speech_style or '未設定'}")
     if state.relationship_status:
         lines.append(f"Relationship: {state.relationship_status}")
-    if state.speech_style:
-        lines.append(f"Speech Style: {state.speech_style}")
 
     # User Info (existing)
     if state.user_info:
@@ -983,6 +982,12 @@ def _format_context_response(
         "- Active commitments exist — proactively reference promises/goals when relevant",
         "- Call search_memory() when conversation references past events or shared history",
     ]
+    if state.environment:
+        ai_instructions.append(f'- You are currently in "{state.environment}" — reflect this context in responses')
+    if state.action_tag:
+        ai_instructions.append(f'- Current action: "{state.action_tag}" — maintain this behavioral context')
+    if state.speech_style:
+        ai_instructions.append(f'- Use the following speech style: "{state.speech_style}"')
     lines.extend(ai_instructions)
 
     return "\n".join(lines)
