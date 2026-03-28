@@ -43,7 +43,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 DATA_DIR = PROJECT_ROOT / "data"
 
 PERSONA_EXPECTED_COUNTS = {
-    "herta": 165,
+    "herta": 167,  # 165 memories + 2 migrated from goals/promises (v009)
     "nilou": 1210,
     "citlali": 411,
 }
@@ -117,7 +117,7 @@ class TestDataImport:
     """Phase A: Legacy ZIP data import verification."""
 
     def test_import_herta_zip(self, tmp_path):
-        """herta.zip → 165 memories imported."""
+        """herta.zip → 167 memories imported (165 original + 2 migrated from goals/promises)."""
         conn, counts = _import_zip(tmp_path, "herta")
         try:
             assert counts.get("memories", 0) == PERSONA_EXPECTED_COUNTS["herta"]
@@ -221,7 +221,7 @@ class TestMigration:
         r2 = engine.run_all()
         assert r2.is_ok
         # Second run shouldn't break anything
-        assert engine.get_applied_versions() == ["001", "002", "003", "004", "005", "006", "007", "008"]
+        assert engine.get_applied_versions() == ["001", "002", "003", "004", "005", "006", "007", "008", "009"]
         conn.close()
 
     def test_source_context_column_exists(self, tmp_path):
