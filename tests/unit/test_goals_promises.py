@@ -10,7 +10,6 @@ T7 test cases:
 
 from __future__ import annotations
 
-import json
 import warnings
 
 import pytest
