@@ -798,8 +798,16 @@ async function init() {
             opt.value = p; opt.textContent = p;
             sel.appendChild(opt);
         });
-        const _initP = (typeof window.__INITIAL_PERSONA__ !== 'undefined') ? window.__INITIAL_PERSONA__ : null;
-        const _target = (_initP && personas.includes(_initP)) ? _initP : personas[0];
+        // 優先度: __INITIAL_PERSONA__ > localStorage > personas[0]
+        const savedPersona = localStorage.getItem('mmcp-persona');
+        let _target = null;
+        if (window.__INITIAL_PERSONA__) {
+            _target = window.__INITIAL_PERSONA__;
+        } else if (savedPersona && personas.some(p => (p.id || p) === savedPersona)) {
+            _target = savedPersona;
+        } else {
+            _target = personas[0]?.id || personas[0];
+        }
         S.persona = _target;
         sel.value = _target;
         loadTab(S.tab);

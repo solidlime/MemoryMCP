@@ -84,6 +84,9 @@ def register_persona_routes(mcp) -> None:
             if "last_conversation_time" in context and context["last_conversation_time"] is not None:
                 context["last_conversation_time"] = context["last_conversation_time"].isoformat()
 
+            for _f in ("environment", "action_tag", "speech_style", "fatigue", "warmth", "arousal"):
+                stats[_f] = context.get(_f)
+
             recent_result = ctx.memory_service.get_recent(limit=5)
             recent = [_memory_to_dict(m) for m in recent_result.value] if recent_result.is_ok else []
 

@@ -309,12 +309,46 @@ async function loadOverview() {
                     <div style="display:flex;flex-direction:column;gap:6px">
                         <div><span style="font-size:0.78rem;color:var(--text-muted)">Physical: </span><span style="font-size:0.85rem">${esc(ctx.physical_state || '--')}</span></div>
                         <div><span style="font-size:0.78rem;color:var(--text-muted)">Mental: </span><span style="font-size:0.85rem">${esc(ctx.mental_state || '--')}</span></div>
-                        ${ctx.environment ? `<div><span style="font-size:0.78rem;color:var(--text-muted)">🌍 Environment: </span><span style="font-size:0.85rem">${esc(ctx.environment)}</span></div>` : ''}
+                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-size:0.78rem;color:var(--text-muted);min-width:78px">🌍 Env:</span>${stats.environment ? '<span class="badge badge-blue">' + esc(stats.environment) + '</span>' : '<span style="color:var(--text-muted);font-size:0.82rem">--</span>'}</div>
+                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-size:0.78rem;color:var(--text-muted);min-width:78px">🎬 Action:</span>${stats.action_tag ? '<span class="badge badge-green">' + esc(stats.action_tag) + '</span>' : '<span style="color:var(--text-muted);font-size:0.82rem">--</span>'}</div>
+                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-size:0.78rem;color:var(--text-muted);min-width:78px">💬 Speech:</span>${stats.speech_style ? '<span class="badge badge-purple">' + esc(stats.speech_style) + '</span>' : '<span style="color:var(--text-muted);font-size:0.82rem">--</span>'}</div>
                     </div>
                 </div>
                 <div>
                     <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:8px;font-weight:600">Equipment</div>
                     ${equipHtml}
+                </div>
+            </div>
+            <div style="margin-top:16px;border-top:1px solid rgba(255,255,255,0.06);padding-top:14px">
+                <div style="font-size:0.78rem;color:var(--text-muted);font-weight:600;margin-bottom:10px">Body Sensations</div>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">
+                    <div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+                            <span style="font-size:0.78rem;color:var(--text-muted)">🔥 Fatigue</span>
+                            <span style="font-size:0.78rem;color:var(--text-secondary);font-weight:600">${stats.fatigue != null ? (stats.fatigue * 100).toFixed(0) + '%' : '--'}</span>
+                        </div>
+                        <div style="height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden">
+                            <div style="height:100%;width:${stats.fatigue != null ? (stats.fatigue * 100).toFixed(1) : 0}%;background:linear-gradient(90deg,#f87171,#fca5a5);border-radius:3px;transition:width 0.4s ease"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+                            <span style="font-size:0.78rem;color:var(--text-muted)">🌸 Warmth</span>
+                            <span style="font-size:0.78rem;color:var(--text-secondary);font-weight:600">${stats.warmth != null ? (stats.warmth * 100).toFixed(0) + '%' : '--'}</span>
+                        </div>
+                        <div style="height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden">
+                            <div style="height:100%;width:${stats.warmth != null ? (stats.warmth * 100).toFixed(1) : 0}%;background:linear-gradient(90deg,#f9a8d4,#fda4af);border-radius:3px;transition:width 0.4s ease"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+                            <span style="font-size:0.78rem;color:var(--text-muted)">⚡ Arousal</span>
+                            <span style="font-size:0.78rem;color:var(--text-secondary);font-weight:600">${stats.arousal != null ? (stats.arousal * 100).toFixed(0) + '%' : '--'}</span>
+                        </div>
+                        <div style="height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden">
+                            <div style="height:100%;width:${stats.arousal != null ? (stats.arousal * 100).toFixed(1) : 0}%;background:linear-gradient(90deg,#a78bfa,#c4b5fd);border-radius:3px;transition:width 0.4s ease"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
