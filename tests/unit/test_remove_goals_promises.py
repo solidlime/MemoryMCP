@@ -1,12 +1,9 @@
 """Unit tests for remove_goals / remove_promises logic in update_context.
 
 Tests verify the removal logic directly, without requiring a running MCP server.
-The underlying mechanism mirrors the append logic already tested in test_update_context_append.py.
 """
 
 from __future__ import annotations
-
-import json
 
 import pytest
 
@@ -18,25 +15,6 @@ from memory_mcp.infrastructure.sqlite.memory_repo import SQLiteMemoryRepository
 from memory_mcp.infrastructure.sqlite.persona_repo import SQLitePersonaRepository
 
 PERSONA = "test_remove_persona"
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def _remove(existing_json: str | list, remove: list[str]) -> list[str]:
-    """Replicate the remove logic from tools.py update_context."""
-    if isinstance(existing_json, str):
-        try:
-            existing = json.loads(existing_json)
-        except Exception:
-            existing = []
-    elif isinstance(existing_json, list):
-        existing = existing_json
-    else:
-        existing = []
-    return [g for g in existing if g not in remove]
 
 
 # ---------------------------------------------------------------------------
@@ -56,43 +34,6 @@ def sqlite_conn(tmp_path):
 def persona_service(sqlite_conn: SQLiteConnection):
     repo = SQLitePersonaRepository(sqlite_conn)
     return PersonaService(repo)
-
-
-# ---------------------------------------------------------------------------
-# Unit tests for the pure removal helper (no DB needed)
-# ---------------------------------------------------------------------------
-
-
-class TestRemoveLogicPure:
-    """Pure logic tests — mirrors test_update_context_append.py style."""
-
-    def test_remove_single_item(self):
-        result = _remove('["goal1", "goal2"]', ["goal1"])
-        assert result == ["goal2"]
-
-    def test_remove_nonexistent_item_is_noop(self):
-        result = _remove('["goal1", "goal2"]', ["goal3"])
-        assert result == ["goal1", "goal2"]
-
-    def test_remove_all_items(self):
-        result = _remove('["goal1", "goal2"]', ["goal1", "goal2"])
-        assert result == []
-
-    def test_remove_from_empty_list(self):
-        result = _remove("[]", ["goal1"])
-        assert result == []
-
-    def test_remove_from_list_type(self):
-        result = _remove(["A", "B", "C"], ["B"])
-        assert result == ["A", "C"]
-
-    def test_remove_invalid_json_treated_as_empty(self):
-        result = _remove("not-valid-json", ["goal1"])
-        assert result == []
-
-    def test_remove_multiple_items(self):
-        result = _remove(["P1", "P2", "P3"], ["P1", "P3"])
-        assert result == ["P2"]
 
 
 # ---------------------------------------------------------------------------

@@ -525,10 +525,6 @@ def register_tools(mcp: FastMCP) -> None:
         persona_info: dict | None = None,
         nickname: str | None = None,
         relationship_type: str | None = None,
-        append_goals: list[str] | None = None,
-        append_promises: list[str] | None = None,
-        remove_goals: list[str] | None = None,
-        remove_promises: list[str] | None = None,
     ) -> str:
         """Update persona context state. All parameters optional; only provided values are updated.
 
@@ -553,28 +549,13 @@ def register_tools(mcp: FastMCP) -> None:
                 promises, goals, favorite_items, preferences.
             nickname - str. Shortcut for persona_info["nickname"].
 
-        Goals & Promises (managed via memory tags):
-            Lifecycle: create → active → achieved/fulfilled or cancelled
-            Tag format: ["goal","active"] / ["goal","achieved"] / ["goal","cancelled"]
-                       ["promise","active"] / ["promise","fulfilled"] / ["promise","cancelled"]
-
-            append_goals: list[str] | None - 新しい goal を memory として登録（tags=["goal","active"]）
-            append_promises: list[str] | None - 新しい promise を memory として登録（tags=["promise","active"]）
-            remove_goals: list[str] | None - 指定 goal を cancelled に（tags 更新）
-            remove_promises: list[str] | None - 指定 promise を cancelled に（tags 更新）
-
-            ステータス変更は memory() tool で直接行う:
-                memory(operation="update", memory_key="...", tags=["goal","achieved"])
-
+        Goals & Promises:
+            goals/promises は通常の memory として管理します。
+            登録: memory(operation="create", content="...", tags=["goal","active"], importance=0.8)
+            達成: memory(operation="update", memory_key="...", tags=["goal","achieved"])
+            中止: memory(operation="update", memory_key="...", tags=["goal","cancelled"])
             検索: search_memory(query="goals", tags=["goal","active"])
-
-        Append (non-destructive):
-            append_goals: list[str] | None - 新しい goal を追加（重複は無視）
-            append_promises: list[str] | None - 新しい promise を追加（重複は無視）
-
-        Cancel (non-destructive):
-            remove_goals: list[str] | None - goal を cancelled に変更（存在しない場合は無視）
-            remove_promises: list[str] | None - promise を cancelled に変更（存在しない場合は無視）
+            同様に promise は tags=["promise","active/fulfilled/cancelled"] で管理。
 
         Body sensations:
             fatigue - float (0.0-1.0). Fatigue level.
@@ -593,10 +574,6 @@ def register_tools(mcp: FastMCP) -> None:
             update_context(emotion="joy", emotion_intensity=0.8)
             update_context(user_info={"nickname": "太郎"}, physical_state="tired")
             update_context(speech_style="甘えた口調、少し息切れ")
-            update_context(append_goals=["New goal"])          # tags=["goal","active"] で memory 作成
-            update_context(append_promises=["New promise"])    # tags=["promise","active"] で memory 作成
-            update_context(remove_goals=["Done goal"])         # tags を ["goal","cancelled"] に更新
-            # ステータス変更（achieve）: memory(operation="update", memory_key="...", tags=["goal","achieved"])
         """
         persona = _resolve_persona()
         ctx = AppContextRegistry.get(persona)
@@ -711,77 +688,6 @@ def register_tools(mcp: FastMCP) -> None:
             result = ctx.persona_service.update_persona_info(persona, {"nickname": nickname})
             if result.is_ok:
                 updated.append(f"nickname={nickname}")
-
-        if (
-            not updated
-            and append_goals is None
-            and append_promises is None
-            and remove_goals is None
-            and remove_promises is None
-        ):
-            return "No changes made (all parameters were None)"
-
-        if append_goals is not None:
-            for goal_text in append_goals:
-                if not goal_text:
-                    continue
-                existing = ctx.memory_service.get_by_tags(["goal", "active"])
-                existing_contents = [m.content for m in (existing.value or [])]
-                if goal_text not in existing_contents:
-                    from memory_mcp.domain.memory.entities import Memory as _Memory
-                    from memory_mcp.domain.shared.time_utils import generate_memory_key, get_now
-
-                    mem = _Memory(
-                        key=generate_memory_key(),
-                        content=goal_text,
-                        created_at=get_now(),
-                        tags=["goal", "active"],
-                        importance=0.8,
-                        emotion="anticipation",
-                    )
-                    ctx.memory_service._repo.save(mem)
-            updated.append(f"goals appended: {len([g for g in append_goals if g])}")
-
-        if append_promises is not None:
-            for promise_text in append_promises:
-                if not promise_text:
-                    continue
-                existing = ctx.memory_service.get_by_tags(["promise", "active"])
-                existing_contents = [m.content for m in (existing.value or [])]
-                if promise_text not in existing_contents:
-                    from memory_mcp.domain.memory.entities import Memory as _Memory
-                    from memory_mcp.domain.shared.time_utils import generate_memory_key, get_now
-
-                    mem = _Memory(
-                        key=generate_memory_key(),
-                        content=promise_text,
-                        created_at=get_now(),
-                        tags=["promise", "active"],
-                        importance=0.8,
-                        emotion="trust",
-                    )
-                    ctx.memory_service._repo.save(mem)
-            updated.append(f"promises appended: {len([p for p in append_promises if p])}")
-
-        if remove_goals is not None:
-            all_goals = ctx.memory_service.get_by_tags(["goal", "active"])
-            for goal in all_goals.value or []:
-                if goal.content in remove_goals:
-                    new_tags = [t for t in (goal.tags or []) if t not in ("active", "achieved", "cancelled")] + [
-                        "cancelled"
-                    ]
-                    ctx.memory_service._repo.update(goal.key, tags=new_tags)
-            updated.append(f"goals cancelled: {remove_goals}")
-
-        if remove_promises is not None:
-            all_promises = ctx.memory_service.get_by_tags(["promise", "active"])
-            for promise in all_promises.value or []:
-                if promise.content in remove_promises:
-                    new_tags = [t for t in (promise.tags or []) if t not in ("active", "fulfilled", "cancelled")] + [
-                        "cancelled"
-                    ]
-                    ctx.memory_service._repo.update(promise.key, tags=new_tags)
-            updated.append(f"promises cancelled: {remove_promises}")
 
         if not updated:
             return "No changes made (all parameters were None)"
