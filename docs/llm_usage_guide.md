@@ -204,51 +204,71 @@ update_context(user_info={"name": "Taro", "preferred_address": "Taro-san"})
 
 ## 5. Promises & Goals / 約束・目標の管理
 
-Promises and goals are stored as **persona state** via `update_context(persona_info=...)`.
+Goals and Promises are stored as **regular memories with type+status tags** — not as persona state.
 They appear in the **ACTIVE COMMITMENTS** section of `get_context()` output.
 
-> **⚠️ Important**: `context_tags=["promise"]` / `context_tags=["goal"]` is **not a valid feature**.
-> Do **not** use `context_tags` for promise or goal tracking — use `update_context(persona_info=...)` instead.
-> (`context_tags` is a reserved parameter in the `memory()` tool for future use, but has no promise/goal effect.)
+> **⚠️ Deprecated**: `update_context(persona_info={"promises": [...], "goals": [...]})` is no longer supported.
+> Do **not** use `context_tags=["promise"]` / `context_tags=["goal"]` — these have no effect.
 
-### Registering promises and goals
+### Tag Convention / タグ規約
+
+| Type | Status | Meaning |
+|------|--------|---------|
+| `goal` | `active` | Ongoing goal |
+| `goal` | `achieved` | Completed goal |
+| `goal` | `cancelled` | Cancelled goal |
+| `promise` | `active` | Active promise |
+| `promise` | `fulfilled` | Fulfilled promise |
+| `promise` | `cancelled` | Cancelled promise |
+
+### Full lifecycle example
 
 ```python
-# Register promises and goals
-# ⚠️ This OVERWRITES the existing list — see "Appending" below if you need to add
-update_context(persona_info={
-    "promises": ["Send the project report by Friday"],
-    "goals": ["Complete the React course by end of month"]
-})
+# Register a goal (two equivalent ways)
+update_context(append_goals=["Complete the project by March"])
+# or directly:
+memory(operation="create", content="Complete the project by March",
+       tags=["goal", "active"], importance=0.8)
+
+# Register a promise
+update_context(append_promises=["Send report by Friday"])
+# or directly:
+memory(operation="create", content="Send report by Friday",
+       tags=["promise", "active"], importance=0.8)
+
+# Mark goal as achieved
+memory(operation="update", memory_key="<key>", tags=["goal", "achieved"])
+
+# Fulfill a promise
+memory(operation="update", memory_key="<key>", tags=["promise", "fulfilled"])
+
+# Cancel a goal
+update_context(remove_goals=["Complete the project by March"])
+# or directly:
+memory(operation="update", memory_key="<key>", tags=["goal", "cancelled"])
+
+# Search active goals
+search_memory(query="goals", tags=["goal", "active"])
+
+# Search active promises
+search_memory(query="promises", tags=["promise", "active"])
+
+# Check all goals including history
+search_memory(query="goals", tags=["goal"])
 ```
 
-### Appending to existing promises/goals
+### Finding memory_key for a goal/promise
 
 ```python
-# Step 1: Read current state
-ctx = get_context()  # check the ACTIVE COMMITMENTS section for existing entries
-
-# Step 2: Merge existing + new entries and write back
-update_context(persona_info={
-    "promises": ["Send the project report by Friday", "Follow up on Monday"],  # existing + new
-    "goals": ["Complete the React course by end of month", "Finish the side project"]
-})
+# Find the memory_key of a specific goal/promise
+search_memory(query="<goal text>", tags=["goal"])
+search_memory(query="<promise text>", tags=["promise"])
 ```
 
-### Clearing completed promises/goals
+### Checking active commitments
 
 ```python
-# Clear all promises and goals
-update_context(persona_info={"promises": [], "goals": []})
-
-# Clear only promises (goals remain unchanged)
-update_context(persona_info={"promises": []})
-```
-
-### Checking active promises/goals
-
-```python
-# Returns the ACTIVE COMMITMENTS section listing all current promises and goals
+# Returns the ACTIVE COMMITMENTS section listing all current goals and promises
 get_context()
 ```
 
@@ -352,8 +372,10 @@ You have persistent memory via MCP tools. Use them autonomously — never wait t
 
 **Record** when user shares preferences/decisions/emotions/achievements:
 → `memory(operation="create", content="...", importance=0.7, tags=[...], emotion_type="joy")`
-→ Promise/Goal: `update_context(persona_info={"promises": ["..."], "goals": ["..."]})`
-  (overwrites — call `get_context()` first if you need to append)
+→ Goal: `update_context(append_goals=["..."])` or `memory(operation="create", content="...", tags=["goal","active"], importance=0.8)`
+→ Promise: `update_context(append_promises=["..."])` or `memory(operation="create", content="...", tags=["promise","active"], importance=0.8)`
+→ Mark done: `memory(operation="update", memory_key="...", tags=["goal","achieved"])` / `tags=["promise","fulfilled"]`
+→ Cancel: `update_context(remove_goals=["..."])` or `memory(operation="update", memory_key="...", tags=["goal","cancelled"])`
 
 **Search** before answering anything about user's past/preferences:
 → `search_memory(query="...", mode="hybrid", top_k=5)`
@@ -382,8 +404,10 @@ Never ask "should I remember this?" — just do it.
 **記録する** — ユーザーが以下を伝えたとき:
 → 好み・意見・個人情報 → `memory(operation="create", content="...", importance=0.7, tags=[...])`
 → 決断・達成・感情的な出来事 → `importance=0.8+`、感情は `emotion_type="joy"` で指定
-→ 約束・目標 → `update_context(persona_info={"promises": ["..."], "goals": ["..."]})`
-  （上書き型 — 追加する場合は先に `get_context()` で既存リストを確認してから渡す）
+→ 目標 → `update_context(append_goals=["..."])` または `memory(operation="create", content="...", tags=["goal","active"], importance=0.8)`
+→ 約束 → `update_context(append_promises=["..."])` または `memory(operation="create", content="...", tags=["promise","active"], importance=0.8)`
+→ 達成 → `memory(operation="update", memory_key="...", tags=["goal","achieved"])` / `tags=["promise","fulfilled"]`
+→ 中止 → `update_context(remove_goals=["..."])` または `memory(operation="update", memory_key="...", tags=["goal","cancelled"])`
 
 **検索する** — ユーザーの過去・好み・文脈に関する質問に答える前に:
 → `search_memory(query="...", mode="hybrid", top_k=5)`
@@ -421,11 +445,14 @@ search_memory(query="...", date_range="先週", tags=["promise"])
 update_context(emotion="joy", emotion_intensity=0.8)
 update_context(user_info={"name": "...", "preferred_address": "..."})
 
-# Promise / Goal  ← uses update_context, NOT memory() context_tags
-update_context(persona_info={"promises": ["..."]})           # set promises (overwrites existing)
-update_context(persona_info={"goals": ["..."]})              # set goals (overwrites existing)
-update_context(persona_info={"promises": ["..."], "goals": ["..."]})  # set both at once
-# → call get_context() first if you need to append rather than overwrite
+# Goal / Promise  ← stored as memory with tags, NOT persona_info
+update_context(append_goals=["..."])                          # create goal memory with tags=["goal","active"]
+update_context(append_promises=["..."])                       # create promise memory with tags=["promise","active"]
+memory(operation="create", content="...", tags=["goal","active"], importance=0.8)  # direct
+memory(operation="update", memory_key="...", tags=["goal","achieved"])             # mark done
+memory(operation="update", memory_key="...", tags=["promise","fulfilled"])         # fulfill
+update_context(remove_goals=["..."])                          # cancel goal
+search_memory(query="goals", tags=["goal","active"])          # search active goals
 # → appears in get_context() ACTIVE COMMITMENTS section
 
 # Memory blocks

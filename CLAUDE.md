@@ -61,18 +61,41 @@ memory_mcp/
 | `get_context()` | なし（状態サマリー返却） |
 | `memory(operation, ...)` | `create / read / update / delete / check_contradictions / history / stats / block_write / block_read / block_list / block_delete / entity_search / entity_graph / entity_add_relation` |
 | `search_memory(query, ...)` | `mode="semantic/keyword/hybrid/smart"`, `top_k`, `tags`, `date_range`, `min_importance`, `emotion`, `importance_weight`, `recency_weight` |
-| `update_context(...)` | `emotion`, `emotion_intensity`, `physical_state`, `mental_state`, `environment`, `fatigue`, `warmth`, `arousal`, `user_info`, `persona_info` |
+| `update_context(...)` | `emotion`, `emotion_intensity`, `physical_state`, `mental_state`, `environment`, `fatigue`, `warmth`, `arousal`, `user_info`, `persona_info`, `append_goals`, `append_promises`, `remove_goals`, `remove_promises` |
 | `item(operation, ...)` | `add / remove / equip / unequip / update / search / history` |
 
 `search_memory()` の検索モード: `semantic`（Qdrant）/ `keyword`（SQLite LIKE + RapidFuzz）/ `hybrid`（RRF統合、デフォルト）/ `smart`（クエリ自動拡張）
 
 ### Goals & Promises の管理
 
-Goals と Promises は `update_context(persona_info={"goals": [...], "promises": [...]})` で管理する。
+Goals と Promises は **memory タグ**で管理する。専用テーブルは廃止済み。
 
-- **上書き型**: 追加時は `get_context()` で現在値を読んでからマージすること
+#### Tag規約
+
+- goal:    `tags=["goal","active"]` / `["goal","achieved"]` / `["goal","cancelled"]`
+- promise: `tags=["promise","active"]` / `["promise","fulfilled"]` / `["promise","cancelled"]`
+
+#### ライフサイクル
+
+```python
+# 登録（2通り）
+update_context(append_goals=["Goal text"])
+memory(operation="create", content="Goal text", tags=["goal","active"], importance=0.8)
+
+# 達成
+memory(operation="update", memory_key="...", tags=["goal","achieved"])
+
+# 中止
+update_context(remove_goals=["Goal text"])  # または memory(operation="update", tags=["goal","cancelled"])
+
+# 検索
+search_memory(query="active goals", tags=["goal","active"])
+search_memory(query="promises", tags=["promise","active"])
+search_memory(query="goals", tags=["goal"])  # 全ステータス
+```
+
 - **確認方法**: `get_context()` の ACTIVE COMMITMENTS セクションに表示される
-- **非推奨**: `context_tags=["promise"]` / `context_tags=["goal"]` は使わない
+- **非推奨**: `update_context(persona_info={"goals":...})` / `context_tags=["promise"]` / `context_tags=["goal"]` は使わない
 
 ### 永続化
 

@@ -64,9 +64,11 @@ MCP (Model Context Protocol) 準拠の永続メモリサーバー。RAG検索と
 - `hybrid`: ハイブリッド検索（RRF統合、デフォルト）
 - `smart`: スマート検索（曖昧なクエリを自動拡張）
 
-**タグ（`context_tags` で使用）:**
-- `promise`: 約束（`persona_info={"status":"active"}` と組み合わせ）
-- `goal`: 目標
+**タグ（Goals & Promises 管理）:**
+
+Goals と Promises は memory タグで管理する（専用テーブルは廃止済み）:
+- `goal` + `active` / `achieved` / `cancelled`: 目標のライフサイクル
+- `promise` + `active` / `fulfilled` / `cancelled`: 約束のライフサイクル
 - `milestone`: 達成・重要イベント
 - `anniversary`: 記念日（`get_context` で30日以内を自動表示）
 - `daily_routine`: 日常パターン
@@ -77,14 +79,25 @@ MCP (Model Context Protocol) 準拠の永続メモリサーバー。RAG検索と
 memory(operation="create", content="ユーザーは苺が好き",
        emotion_type="joy", importance=0.8)
 
-# 約束（タグベース推奨）
-memory(operation="create", content="週末にダンスを披露する",
-       context_tags=["promise"],
-       persona_info={"status": "active", "due_date": "2025-03-28"})
+# 目標の登録
+update_context(append_goals=["月末までにReactコースを完了する"])
+# または直接
+memory(operation="create", content="月末までにReactコースを完了する",
+       tags=["goal", "active"], importance=0.8)
 
-# 約束を完了に更新（キーは get_context で確認）
-memory(operation="update", query="memory_20250217_143022",
-       persona_info={"status": "completed"})
+# 約束の登録
+update_context(append_promises=["週末にダンスを披露する"])
+
+# 目標を達成に更新（memory_keyは search_memory で確認）
+memory(operation="update", memory_key="memory_20250217_143022",
+       tags=["goal", "achieved"])
+
+# 約束を履行済みに更新
+memory(operation="update", memory_key="memory_20250217_143022",
+       tags=["promise", "fulfilled"])
+
+# アクティブな目標を検索
+search_memory(query="goals", tags=["goal", "active"])
 
 # セマンティック検索
 search_memory(query="好きな食べ物", mode="semantic", top_k=5)
@@ -457,8 +470,8 @@ export MEMORY_MCP_SERVER_PORT=26262
 |----------|-----|------|-----|
 | `current_equipment` | dict | 現在の装備 | `{"clothing": "casual shirt", "accessory": "watch"}` |
 | `favorite_items` | list | お気に入りアイテム | `["notebook", "pen"]` |
-| `active_promises` | list | 進行中の約束 | `[{"content": "Meeting at 10am", "date": "2025-11-15"}]` |
-| `current_goals` | list | 現在の目標 | `["Learn Python", "Build project"]` |
+| ~~`active_promises`~~ | ~~list~~ | ~~進行中の約束~~ | 廃止済み。`tags=["promise","active"]` の memory を使用 |
+| ~~`current_goals`~~ | ~~list~~ | ~~現在の目標~~ | 廃止済み。`tags=["goal","active"]` の memory を使用 |
 | `preferences` | dict | 好み | `{"loves": ["coding", "coffee"], "dislikes": ["bugs"]}` |
 
 これらのフィールドは`get_context()`で自動的に表示されます。
