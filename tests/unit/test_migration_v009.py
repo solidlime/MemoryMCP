@@ -1,4 +1,5 @@
 """Unit tests for migration v009: goals/promises → memories."""
+
 from __future__ import annotations
 
 import json
@@ -69,6 +70,7 @@ def _make_db():
 
 def _run_upgrade(conn):
     from memory_mcp.migration.versions.v009_goals_promises_to_memories import upgrade
+
     upgrade(conn)
 
 
@@ -191,9 +193,7 @@ class TestV009Migration:
         _run_upgrade(db)
 
         # goals table should no longer exist
-        result = db.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='goals'"
-        ).fetchone()
+        result = db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='goals'").fetchone()
         assert result is None
 
     def test_promises_table_dropped_after_migration(self):
@@ -207,9 +207,7 @@ class TestV009Migration:
 
         _run_upgrade(db)
 
-        result = db.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='promises'"
-        ).fetchone()
+        result = db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='promises'").fetchone()
         assert result is None
 
     def test_empty_goals_and_promises(self):
@@ -268,9 +266,7 @@ class TestV009Migration:
 
         _run_upgrade(db)
 
-        rows = db.execute(
-            "SELECT * FROM persona_info WHERE key IN ('goals', 'promises')"
-        ).fetchall()
+        rows = db.execute("SELECT * FROM persona_info WHERE key IN ('goals', 'promises')").fetchall()
         assert len(rows) == 0
 
     def test_migration_without_goals_table(self):
@@ -326,6 +322,7 @@ class TestV009Migration:
     def test_goal_skip_when_key_already_exists(self):
         """Goal migration skips inserting if memory key already exists."""
         import hashlib
+
         db = _make_db()
         now = "2025-01-01T00:00:00"
         description = "Pre-existing goal"
@@ -351,6 +348,7 @@ class TestV009Migration:
     def test_promise_skip_when_key_already_exists(self):
         """Promise migration skips inserting if memory key already exists."""
         import hashlib
+
         db = _make_db()
         now = "2025-01-01T00:00:00"
         description = "Pre-existing promise"

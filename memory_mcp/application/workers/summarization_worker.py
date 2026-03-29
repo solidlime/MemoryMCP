@@ -93,9 +93,7 @@ class SummarizationWorker:
                 try:
                     self._extractive_summarize_persona(persona)
                 except Exception:
-                    logger.exception(
-                        "SummarizationWorker: error in extractive summarization for persona=%s", persona
-                    )
+                    logger.exception("SummarizationWorker: error in extractive summarization for persona=%s", persona)
 
     def _summarize_persona(self, persona: str) -> None:
         """Summarize memories for a single persona if new memories exist."""
@@ -215,9 +213,7 @@ class SummarizationWorker:
         candidates = [
             m
             for m in all_result.value
-            if not m.tags
-            and m.importance < cfg.min_importance
-            and _aware(m.created_at) < cutoff
+            if not m.tags and m.importance < cfg.min_importance and _aware(m.created_at) < cutoff
         ]
 
         if not candidates:

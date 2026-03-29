@@ -1,4 +1,5 @@
 """Unit tests for JSONLExporter."""
+
 from __future__ import annotations
 
 import json
@@ -100,9 +101,7 @@ class TestJSONLExporter:
             import_result = importer.import_file(str(export_path), conn2, "test2")
             assert import_result.is_ok
 
-            row = conn2.get_memory_db().execute(
-                "SELECT * FROM memories WHERE key = ?", ("mem_original",)
-            ).fetchone()
+            row = conn2.get_memory_db().execute("SELECT * FROM memories WHERE key = ?", ("mem_original",)).fetchone()
             assert row is not None
             assert row["content"] == "Round trip content"
         finally:

@@ -1,4 +1,5 @@
 """Unit tests for application workers: RebuildWorker and CleanupWorker."""
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock
@@ -31,6 +32,7 @@ def _make_context(memories=None, vs=None, find_all_fails=False):
 # ---------------------------------------------------------------------------
 # RebuildWorker
 # ---------------------------------------------------------------------------
+
 
 class TestRebuildWorker:
     def test_rebuild_fails_when_find_all_fails(self):
@@ -93,7 +95,7 @@ class TestRebuildWorker:
         RebuildWorker(ctx).rebuild()
 
         call_args = vs.upsert.call_args
-        assert call_args[0][0] == "test"   # persona
+        assert call_args[0][0] == "test"  # persona
         assert call_args[0][1] == "mem_001"  # key
         assert call_args[0][2] == "hello world"  # content
         metadata = call_args[0][3]
@@ -105,6 +107,7 @@ class TestRebuildWorker:
 # ---------------------------------------------------------------------------
 # CleanupWorker
 # ---------------------------------------------------------------------------
+
 
 class TestCleanupWorker:
     def test_start_and_stop(self):
@@ -157,6 +160,7 @@ class TestCleanupWorker:
 
     def test_cleanup_cycle_skips_already_seen_keys(self):
         vs = MagicMock()
+
         # mem_001 returns mem_002 as duplicate; then mem_002 is in seen_keys
         def fake_search(persona, content, limit):
             if "first" in content:

@@ -263,7 +263,10 @@ class TestParseDateRange:
         assert start is not None
         assert start.hour == 18
 
-    @patch("memory_mcp.domain.shared.time_utils.get_now", return_value=datetime(2025, 2, 15, 10, 0, 0, tzinfo=ZoneInfo("Asia/Tokyo")))
+    @patch(
+        "memory_mcp.domain.shared.time_utils.get_now",
+        return_value=datetime(2025, 2, 15, 10, 0, 0, tzinfo=ZoneInfo("Asia/Tokyo")),
+    )
     def test_n_months_ago_crosses_year_boundary(self, _mock):
         """3ヶ月前 from February → November of previous year."""
         start, end = parse_date_range("3ヶ月前")
@@ -271,7 +274,10 @@ class TestParseDateRange:
         assert start.month == 11
         assert start.year == 2024
 
-    @patch("memory_mcp.domain.shared.time_utils.get_now", return_value=datetime(2025, 1, 15, 10, 0, 0, tzinfo=ZoneInfo("Asia/Tokyo")))
+    @patch(
+        "memory_mcp.domain.shared.time_utils.get_now",
+        return_value=datetime(2025, 1, 15, 10, 0, 0, tzinfo=ZoneInfo("Asia/Tokyo")),
+    )
     def test_n_months_ago_resulting_in_december(self, _mock):
         """1ヶ月前 from January → December of previous year (month 12 branch)."""
         start, end = parse_date_range("1ヶ月前")
@@ -289,6 +295,7 @@ class TestParseDateRange:
     def test_relative_time_str_no_now_arg(self):
         """relative_time_str without now arg uses get_now() internally."""
         from datetime import timedelta
+
         # Just call without 'now' to cover the `if now is None: now = get_now()` line
         dt = get_now() - timedelta(minutes=2)
         result = relative_time_str(dt)

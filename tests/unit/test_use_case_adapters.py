@@ -1,4 +1,5 @@
 """Tests for application use case adapters."""
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock

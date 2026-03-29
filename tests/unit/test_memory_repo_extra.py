@@ -1,4 +1,5 @@
 """Additional unit tests for SQLiteMemoryRepository — targeting uncovered paths."""
+
 from __future__ import annotations
 
 import pytest
@@ -279,9 +280,7 @@ class TestCountDecayedImportant:
         m = _make_memory(importance=0.9)
         repo.save(m)
         # Manually set strength to a decayed value
-        sqlite_conn.get_memory_db().execute(
-            "UPDATE memory_strength SET strength = 0.1 WHERE memory_key = ?", (m.key,)
-        )
+        sqlite_conn.get_memory_db().execute("UPDATE memory_strength SET strength = 0.1 WHERE memory_key = ?", (m.key,))
         sqlite_conn.get_memory_db().commit()
 
         result = repo.count_decayed_important(min_importance=0.7, max_strength=0.3)

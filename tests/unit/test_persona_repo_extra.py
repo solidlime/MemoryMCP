@@ -1,4 +1,5 @@
 """Additional tests for SQLitePersonaRepository — covering uncovered paths."""
+
 from __future__ import annotations
 
 import pytest
@@ -75,6 +76,7 @@ class TestGetEmotionHistoryByDays:
 
     def test_ascending_order(self, persona_repo):
         from datetime import timedelta
+
         t1 = get_now() - timedelta(hours=5)
         t2 = get_now() - timedelta(hours=1)
         persona_repo.add_emotion_record(PERSONA, EmotionRecord(emotion_type="sadness", intensity=0.5, timestamp=t2))

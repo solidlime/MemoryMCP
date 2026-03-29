@@ -589,4 +589,3 @@ class TestExtractiveSummarizePersona:
             registry.get.side_effect = KeyError("herta")
             # 例外が伝播しないことを確認
             worker._extractive_summarize_persona("herta")
-

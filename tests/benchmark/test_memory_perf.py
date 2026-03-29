@@ -1,4 +1,5 @@
 """Performance benchmarks for SQLite memory operations."""
+
 import sqlite3
 
 

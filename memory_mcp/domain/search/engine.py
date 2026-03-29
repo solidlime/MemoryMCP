@@ -202,7 +202,7 @@ def _expand_query(text: str) -> list[str]:
     """
     # Split on spaces, Japanese commas/periods, brackets, and common separators
     # \\s = regex whitespace; \uXXXX = actual Unicode chars resolved by Python
-    segments = re.split('[\\s\u3000\u3001\u3002\uff0c\uff0e\u300c\u300d\u3010\u3011()\uff08\uff09\uff3b\uff3d]+', text)
+    segments = re.split("[\\s\u3000\u3001\u3002\uff0c\uff0e\u300c\u300d\u3010\u3011()\uff08\uff09\uff3b\uff3d]+", text)
     expanded = [text]  # always include original
     for seg in segments:
         seg = seg.strip()

@@ -61,6 +61,7 @@ def registered_tools(mock_app_context):
         def decorator(func):
             tools[func.__name__] = func
             return func
+
         return decorator
 
     mock_mcp = MagicMock()
@@ -73,6 +74,7 @@ def registered_tools(mock_app_context):
         mock_registry_cls.get.return_value = mock_app_context
 
         from memory_mcp.api.mcp.tools import register_tools
+
         register_tools(mock_mcp)
 
         # Yield both the tools dict and the patched context so tests can
@@ -475,6 +477,7 @@ class TestSearchMemory:
     async def test_search_engine_failure(self, registered_tools):
         tools, ctx, _ = registered_tools
         from memory_mcp.domain.shared.errors import SearchError
+
         ctx.search_engine.search.return_value = Failure(SearchError("vector store down"))
         ctx.search_engine._semantic = None
         search_memory = tools["search_memory"]
@@ -659,9 +662,7 @@ class TestGetContext:
         ctx.memory_service.get_smart_recent.return_value = Success([])
         ctx.equipment_service.get_equipment.return_value = Success({})
         ctx.memory_service.list_blocks.return_value = Success([])
-        ctx.memory_service.get_by_tags.side_effect = lambda tags: (
-            Success([goal_mem]) if "goal" in tags else Success([])
-        )
+        ctx.memory_service.get_by_tags.side_effect = lambda tags: Success([goal_mem]) if "goal" in tags else Success([])
         ctx.memory_service.get_recent_searches.return_value = Success([])
         ctx.memory_service.count_decayed_important.return_value = Success(0)
         ctx.memory_service.get_memory_index.return_value = Success(None)
