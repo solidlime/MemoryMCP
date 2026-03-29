@@ -23,6 +23,7 @@ markers = [
     "integration: Integration tests (requires DB)",
     "e2e: End-to-end dogfooding tests",
     "slow: Slow tests (embedding model loading etc)",
+    "benchmark: Performance benchmark tests",
 ]
 
 [tool.coverage.run]
@@ -32,3 +33,13 @@ omit = ["tests/*", "*/migrations/*"]
 [tool.coverage.report]
 fail_under = 35
 show_missing = true
+
+[tool.mypy]
+python_version = "3.12"
+warn_unused_configs = true
+warn_return_any = true
+warn_unused_ignores = true
+no_implicit_optional = true
+strict_optional = true
+ignore_missing_imports = true
+exclude = ["tests/", "migrations/"]
