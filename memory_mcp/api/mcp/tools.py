@@ -859,11 +859,9 @@ def _format_context_response(
             lines.append(f"- {decayed_count} important memories have decayed (strength < 0.3)")
             lines.append('- Consider: search_memory("important") to refresh context')
 
-    # Emotion (existing)
     lines.append("\n--- Emotion ---")
     lines.append(f"Current: {state.emotion} (intensity: {state.emotion_intensity})")
 
-    # State (existing)
     lines.append("\n--- State ---")
     if state.physical_state:
         lines.append(f"Physical: {state.physical_state}")
@@ -875,13 +873,12 @@ def _format_context_response(
     if state.relationship_status:
         lines.append(f"Relationship: {state.relationship_status}")
 
-    # User Info (existing)
     if state.user_info:
         lines.append("\n--- User Info ---")
         for k, v in state.user_info.items():
             lines.append(f"{k}: {v}")
 
-    # Persona Info (existing) — goals/promises は ACTIVE COMMITMENTS で表示済みのため除外
+    # goals/promises は ACTIVE COMMITMENTS で表示済みのため除外
     hidden_persona_info_keys = {"goals", "promises", "active_promises", "current_goals"}
     if state.persona_info:
         filtered_info = {k: v for k, v in state.persona_info.items() if k not in hidden_persona_info_keys}
@@ -890,20 +887,17 @@ def _format_context_response(
             for k, v in filtered_info.items():
                 lines.append(f"{k}: {v}")
 
-    # Memory Blocks (existing)
     if blocks:
         lines.append("\n--- Memory Blocks (Core Memory) ---")
         for b in blocks:
             lines.append(f"[{b.get('block_name', '?')}] {b.get('content', '')[:200]}")
 
-    # Equipment (existing)
     equipped = {k: v for k, v in equipment.items() if v}
     if equipped:
         lines.append("\n--- Equipment ---")
         for slot, item_name in equipped.items():
             lines.append(f"{slot}: {item_name}")
 
-    # Memory Stats (existing)
     if stats:
         lines.append("\n--- Memory Stats ---")
         lines.append(f"Total memories: {stats.get('total_count', 0)}")
@@ -937,7 +931,6 @@ def _format_context_response(
             tag_str = ", ".join((m.tags or [])[:3])
             lines.append(f"- {m.content[:80]}... ({tag_str})")
 
-    # Recent Memories (existing)
     if recent:
         lines.append("\n--- Recent Memories ---")
         for m in recent[:5]:

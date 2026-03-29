@@ -112,7 +112,7 @@ class EmbeddingModel:
                 }
             except Exception as e:
                 logger.error("Failed to reload embedding model: %s", e)
-                # フォールバック: 旧モデルに戻す
+                # フォールバック: 旧モデルに戻す  # noqa: ERA001
                 self._model = old_model
                 self._dimension = old_dimension
                 self.model_name = old_name
