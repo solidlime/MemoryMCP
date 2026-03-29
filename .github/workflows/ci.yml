@@ -12,6 +12,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  # Opt into Node.js 24 for JavaScript actions to remove Node.js 20 deprecation warnings.
+  # Verified upstream action.yml files indicate node24 is supported for the actions used here.
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
