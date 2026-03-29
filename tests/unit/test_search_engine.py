@@ -228,11 +228,13 @@ class TestSearchEngineSearch:
         assert len(result.value) == 1
         assert result.value[0].source == "semantic"
 
-    def test_semantic_mode_without_vector_store_returns_failure(self):
-        kw = _make_keyword_strategy()
+    def test_semantic_mode_without_vector_store_falls_back_to_keyword(self):
+        kw = _make_keyword_strategy([(_mem("kw1"), 0.8)])
         engine = SearchEngine(keyword_search=kw, semantic_search=None)
         result = engine.search(SearchQuery(text="hello", mode="semantic"))
-        assert not result.is_ok
+        assert result.is_ok
+        assert len(result.value) == 1
+        assert result.value[0].memory.key == "kw1"
 
     def test_hybrid_mode_combines_results(self):
         mem_kw = _mem("kw_key")

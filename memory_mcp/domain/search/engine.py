@@ -4,7 +4,6 @@ import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from memory_mcp.domain.shared.errors import SearchError
 from memory_mcp.domain.shared.result import Failure, Result, Success
 from memory_mcp.domain.value_objects import normalize_emotion
 
@@ -15,6 +14,7 @@ if TYPE_CHECKING:
         KeywordSearchStrategy,
         SemanticSearchStrategy,
     )
+    from memory_mcp.domain.shared.errors import SearchError
 
 
 @dataclass
@@ -106,12 +106,12 @@ class SearchEngine:
         return Success(self._to_search_results(result.value, "keyword"))
 
     def _semantic_search(self, query: SearchQuery) -> Result[list[SearchResult], SearchError]:
-        """Execute semantic-only search."""
+        """Execute semantic-only search, falling back to keyword on unavailability or error."""
         if self._semantic is None:
-            return Failure(SearchError("Semantic search unavailable: no vector store configured"))
+            return self._keyword_search(query)
         result = self._semantic.search(query.text, limit=query.top_k)
         if not result.is_ok:
-            return Failure(result.error)
+            return self._keyword_search(query)
         return Success(self._to_search_results(result.value, "semantic"))
 
     def _hybrid_search(self, query: SearchQuery) -> Result[list[SearchResult], SearchError]:
