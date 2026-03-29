@@ -33,7 +33,7 @@ class QdrantConfig(BaseModel):
 class ServerConfig(BaseModel):
     """HTTP/MCP server configuration."""
 
-    host: str = "0.0.0.0"  # Use "127.0.0.1" for localhost-only
+    host: str = "0.0.0.0"  # nosec B104 - intentional for Docker deployment; use 127.0.0.1 for localhost-only
     port: int = 26262
 
 

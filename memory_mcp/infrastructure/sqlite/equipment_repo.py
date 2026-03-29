@@ -129,7 +129,7 @@ class SQLiteEquipmentRepository:
             set_clause = ", ".join(f"{k} = ?" for k in fields)
             values = list(fields.values()) + [name]
             self._db.execute(
-                f"UPDATE items SET {set_clause} WHERE name = ?",  # noqa: S608
+                f"UPDATE items SET {set_clause} WHERE name = ?",  # noqa: S608  # nosec B608
                 values,
             )
             self._db.commit()

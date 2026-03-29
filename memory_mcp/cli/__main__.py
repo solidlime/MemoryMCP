@@ -204,7 +204,7 @@ def _handle_auto_import(args: argparse.Namespace, settings: Settings) -> None:
 
 def _print_count(db, table: str, label: str) -> None:
     try:
-        count = db.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]  # noqa: S608
+        count = db.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]  # noqa: S608  # nosec B608
         print(f"  {label}: {count}")
     except Exception:  # noqa: BLE001
         print(f"  {label}: (table not found)")

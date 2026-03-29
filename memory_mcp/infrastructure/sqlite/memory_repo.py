@@ -146,7 +146,7 @@ class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
             set_clause = ", ".join(f"{k} = ?" for k in updates)
             values = list(updates.values()) + [key]
             self._db.execute(
-                f"UPDATE memories SET {set_clause} WHERE key = ?",  # noqa: S608
+                f"UPDATE memories SET {set_clause} WHERE key = ?",  # noqa: S608  # nosec B608
                 values,
             )
             self._db.commit()
@@ -207,7 +207,7 @@ class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
             conditions = " AND ".join("content LIKE ?" for _ in terms)
             params = tuple(f"%{t}%" for t in terms)
             rows = self._db.execute(
-                f"SELECT * FROM memories WHERE {conditions} ORDER BY updated_at DESC",  # noqa: S608
+                f"SELECT * FROM memories WHERE {conditions} ORDER BY updated_at DESC",  # noqa: S608  # nosec B608
                 params,
             ).fetchall()
             scored: list[tuple[Memory, float]] = []
@@ -342,14 +342,14 @@ class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
             order = "ASC" if sort_order.lower() == "asc" else "DESC"
 
             count_row = self._db.execute(
-                f"SELECT COUNT(*) as cnt FROM memories{where_clause}",  # noqa: S608
+                f"SELECT COUNT(*) as cnt FROM memories{where_clause}",  # noqa: S608  # nosec B608
                 params,
             ).fetchone()
             total_count: int = count_row["cnt"]
 
             offset = (page - 1) * per_page
             rows = self._db.execute(
-                f"SELECT * FROM memories{where_clause} ORDER BY updated_at {order} LIMIT ? OFFSET ?",  # noqa: S608
+                f"SELECT * FROM memories{where_clause} ORDER BY updated_at {order} LIMIT ? OFFSET ?",  # noqa: S608  # nosec B608
                 [*params, per_page, offset],
             ).fetchall()
 
@@ -379,7 +379,7 @@ class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
             params = [f'%"{t}"%' for t in tags]
             where = " AND ".join(conditions)
             rows = self._db.execute(
-                f"SELECT * FROM memories WHERE {where} ORDER BY updated_at DESC",
+                f"SELECT * FROM memories WHERE {where} ORDER BY updated_at DESC",  # nosec B608
                 params,
             ).fetchall()
             return Success([self._row_to_memory(r) for r in rows])
