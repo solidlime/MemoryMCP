@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import os
-import re
 from dataclasses import asdict
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
 
+from memory_mcp.api.mcp.middleware import _PERSONA_PATTERN, resolve_persona_from_headers
 from memory_mcp.application.use_cases import AppContextRegistry
 from memory_mcp.infrastructure.logging.structured import get_logger
 
@@ -14,8 +13,6 @@ if TYPE_CHECKING:
     from starlette.requests import Request
 
 logger = get_logger(__name__)
-
-_PERSONA_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
 
 
 class CreateMemoryRequest(BaseModel):
@@ -91,18 +88,8 @@ def _resolve_persona_from_request(request: Request, *, default: str | None = Non
     if persona:
         return persona
 
-    authorization = request.headers.get("authorization")
-    if authorization and authorization.startswith("Bearer "):
-        token = authorization[7:].strip()
-        if token and _PERSONA_PATTERN.match(token):
-            return token
-
-    x_persona = request.headers.get("x-persona")
-    if x_persona:
-        stripped = x_persona.strip()
-        if stripped:
-            return stripped
-
-    if default is not None:
-        return default
-    return os.environ.get("PERSONA", os.environ.get("MEMORY_MCP_DEFAULT_PERSONA", "default"))
+    return resolve_persona_from_headers(
+        authorization=request.headers.get("authorization"),
+        x_persona=request.headers.get("x-persona"),
+        default=default,
+    )

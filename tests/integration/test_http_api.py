@@ -47,12 +47,12 @@ def _reset_singletons():
     RuntimeConfigManager.reset()
     import memory_mcp.config.settings as _s
 
-    _s._settings_instance = None
+    _s.get_settings.cache_clear()
     yield
     AppContextRegistry.close_all()
     AppContextRegistry._settings = None
     RuntimeConfigManager.reset()
-    _s._settings_instance = None
+    _s.get_settings.cache_clear()
 
 
 @pytest.fixture()

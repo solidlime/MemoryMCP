@@ -251,3 +251,83 @@ class TestParseDateRange:
     def test_unknown_returns_none(self):
         start, end = parse_date_range("なにこれ")
         assert start is None and end is None
+
+    def test_today_evening(self):
+        """今晩/今夜 -> evening range."""
+        start, end = parse_date_range("今晩")
+        assert start is not None
+        assert start.hour == 18
+
+    def test_today_evening_koyoru(self):
+        start, end = parse_date_range("今夜")
+        assert start is not None
+        assert start.hour == 18
+
+    @patch("memory_mcp.domain.shared.time_utils.get_now", return_value=datetime(2025, 2, 15, 10, 0, 0, tzinfo=ZoneInfo("Asia/Tokyo")))
+    def test_n_months_ago_crosses_year_boundary(self, _mock):
+        """3ヶ月前 from February → November of previous year."""
+        start, end = parse_date_range("3ヶ月前")
+        assert start is not None
+        assert start.month == 11
+        assert start.year == 2024
+
+    @patch("memory_mcp.domain.shared.time_utils.get_now", return_value=datetime(2025, 1, 15, 10, 0, 0, tzinfo=ZoneInfo("Asia/Tokyo")))
+    def test_n_months_ago_resulting_in_december(self, _mock):
+        """1ヶ月前 from January → December of previous year (month 12 branch)."""
+        start, end = parse_date_range("1ヶ月前")
+        assert start is not None
+        assert start.month == 12
+        assert start.year == 2024
+        assert end is not None
+        assert end.month == 12
+
+    def test_absolute_range_invalid_returns_none(self):
+        """Invalid absolute range should return None."""
+        start, end = parse_date_range("not-a-date~also-not-a-date")
+        assert start is None and end is None
+
+    def test_relative_time_str_no_now_arg(self):
+        """relative_time_str without now arg uses get_now() internally."""
+        from datetime import timedelta
+        # Just call without 'now' to cover the `if now is None: now = get_now()` line
+        dt = get_now() - timedelta(minutes=2)
+        result = relative_time_str(dt)
+        assert "分前" in result
+
+    @patch("memory_mcp.domain.shared.time_utils.get_now", return_value=_fixed_now())
+    def test_n_days_ago_with_juu(self, _mock):
+        """十日前 (10 days ago) uses 十 kanji."""
+        start, end = parse_date_range("十日前")
+        assert start is not None
+        assert start.day == 5  # 2025-06-15 - 10 = 2025-06-05
+
+    @patch("memory_mcp.domain.shared.time_utils.get_now", return_value=_fixed_now())
+    def test_n_days_ago_with_sanju(self, _mock):
+        """三十日前 (30 days ago) uses 三十 kanji combination."""
+        start, end = parse_date_range("三十日前")
+        assert start is not None
+        # 2025-06-15 - 30 days = 2025-05-16
+        assert start.month == 5
+        assert start.day == 16
+
+    @patch("memory_mcp.domain.shared.time_utils.get_now", return_value=_fixed_now())
+    def test_n_weeks_with_kanji_juu(self, _mock):
+        """十週間前 uses 十 kanji."""
+        start, end = parse_date_range("十週間前")
+        assert start is not None
+
+    @patch("memory_mcp.domain.shared.time_utils.get_now", return_value=_fixed_now())
+    def test_n_days_ago_with_hyaku(self, _mock):
+        """百日前 (100 days ago) uses 百 kanji."""
+        start, end = parse_date_range("百日前")
+        assert start is not None
+        # 2025-06-15 - 100 days = 2025-03-07
+        assert start.month == 3
+
+    def test_relative_time_str_with_naive_now(self):
+        """relative_time_str handles naive 'now' argument (line 42)."""
+        from zoneinfo import ZoneInfo
+        dt = datetime(2025, 6, 15, 10, 0, 0)  # naive
+        now_naive = datetime(2025, 6, 15, 12, 0, 0)  # naive — no tzinfo
+        result = relative_time_str(dt, now_naive)
+        assert "時間前" in result

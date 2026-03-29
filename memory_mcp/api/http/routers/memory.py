@@ -47,7 +47,7 @@ def register_memory_routes(mcp) -> None:
             block_name,
             content,
             block_type=body.get("block_type", "custom"),
-            max_tokens=body.get("max_tokens"),
+            max_tokens=body.get("max_tokens") or 500,
             priority=body.get("priority", 0),
         )
         if result.is_ok:

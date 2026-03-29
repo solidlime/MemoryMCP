@@ -6,7 +6,7 @@ from memory_mcp.domain.equipment.service import EquipmentService
 from memory_mcp.domain.memory.service import MemoryService
 from memory_mcp.domain.persona.service import PersonaService
 from memory_mcp.domain.search.engine import SearchEngine
-from memory_mcp.domain.search.ranker import RRFRanker
+from memory_mcp.domain.search.ranker import ChainedRanker, ForgettingCurveRanker, RRFRanker
 from memory_mcp.domain.shared.errors import SearchError
 from memory_mcp.domain.shared.result import Failure, Success
 from memory_mcp.infrastructure.embedding.model import EmbeddingModel
@@ -114,7 +114,14 @@ class AppContext:
         if self._search_engine is None:
             keyword = SQLiteKeywordSearch(self.memory_repo)
             semantic = QdrantSemanticSearch(self.vector_store, self.memory_repo) if self.vector_store else None
-            ranker = RRFRanker()
+
+            def _strength_lookup(key: str) -> float:
+                result = self.memory_repo.get_strength(key)
+                if result.is_ok and result.value is not None:
+                    return result.value.strength
+                return 1.0
+
+            ranker = ChainedRanker(RRFRanker(), ForgettingCurveRanker(_strength_lookup))
             self._search_engine = SearchEngine(keyword, semantic, ranker)
         return self._search_engine
 

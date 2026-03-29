@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 from pathlib import Path
 
 from pydantic import BaseModel, computed_field, field_validator
@@ -51,6 +52,8 @@ class SummarizationConfig(BaseModel):
     interval_hours: float = 24.0
     min_new_memories: int = 1
     max_memories_per_summary: int = 20
+    # LLM不要な抽出型要約（デフォルト有効）
+    extractive_enabled: bool = True
 
 
 class ForgettingConfig(BaseModel):
@@ -149,12 +152,7 @@ class Settings(BaseSettings):
             Path(d).mkdir(parents=True, exist_ok=True)
 
 
-_settings_instance: Settings | None = None
-
-
+@functools.lru_cache(maxsize=1)
 def get_settings() -> Settings:
-    """Return a cached Settings singleton."""
-    global _settings_instance
-    if _settings_instance is None:
-        _settings_instance = Settings()
-    return _settings_instance
+    """Return a cached Settings singleton (thread-safe via lru_cache)."""
+    return Settings()

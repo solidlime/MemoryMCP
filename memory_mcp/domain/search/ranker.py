@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC
-from typing import Protocol, runtime_checkable
+from typing import Callable, Protocol, runtime_checkable
 
 from memory_mcp.domain.search.engine import SearchQuery, SearchResult
 
@@ -79,18 +79,27 @@ class ForgettingCurveRanker:
 
     def __init__(
         self,
-        strength_lookup: dict[str, float] | None = None,
+        strength_lookup: dict[str, float] | Callable[[str], float] | None = None,
     ) -> None:
-        self._strengths = strength_lookup or {}
+        if strength_lookup is None:
+            self._lookup_fn: Callable[[str], float] | None = None
+        elif callable(strength_lookup):
+            self._lookup_fn = strength_lookup
+        else:
+            # dict — wrap in a lambda that returns 1.0 as default
+            _d = strength_lookup
+            self._lookup_fn = lambda key: _d.get(key, 1.0)
 
     def rank(self, results: list[SearchResult], query: SearchQuery) -> list[SearchResult]:
-        """Multiply scores by recall probability if strength data exists."""
-        if not self._strengths:
+        """Multiply scores by recall probability if a strength lookup is configured."""
+        if self._lookup_fn is None:
             return results
 
         adjusted: list[SearchResult] = []
         for r in results:
-            recall = self._strengths.get(r.memory.key, 1.0)
+            recall = self._lookup_fn(r.memory.key)
+            if not recall or recall <= 0:
+                recall = 1.0
             adjusted.append(
                 SearchResult(
                     memory=r.memory,
@@ -100,3 +109,15 @@ class ForgettingCurveRanker:
             )
         adjusted.sort(key=lambda x: x.score, reverse=True)
         return adjusted
+
+
+class ChainedRanker:
+    """Applies multiple rankers in sequence."""
+
+    def __init__(self, *rankers: ResultRanker) -> None:
+        self._rankers = rankers
+
+    def rank(self, results: list[SearchResult], query: SearchQuery) -> list[SearchResult]:
+        for ranker in self._rankers:
+            results = ranker.rank(results, query)
+        return results

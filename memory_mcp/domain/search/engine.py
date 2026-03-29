@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -54,12 +55,25 @@ class SearchEngine:
         self._ranker = ranker
 
     def search(self, query: SearchQuery) -> Result[list[SearchResult], SearchError]:
-        """Execute search using hybrid retrieval (keyword + semantic + RRF).
+        """Execute search using the specified mode.
 
-        Note: The ``mode`` field on *query* is accepted for backwards compatibility
-        but is otherwise ignored — all searches now use hybrid mode.
+        Modes:
+            - ``hybrid`` (default): Keyword + semantic RRF fusion. Falls back to keyword-only
+              if no vector store is configured.
+            - ``keyword``: SQLite keyword search only (fast, exact matches).
+            - ``semantic``: Qdrant vector search only (semantic similarity).
+            - ``smart``: Query expansion + multi-pass hybrid search merged with RRF.
+            - Any other value: falls back to hybrid.
         """
-        result = self._hybrid_search(query)
+        mode = query.mode or "hybrid"
+        if mode == "keyword":
+            result = self._keyword_search(query)
+        elif mode == "semantic":
+            result = self._semantic_search(query)
+        elif mode == "smart":
+            result = self._smart_search(query)
+        else:
+            result = self._hybrid_search(query)
 
         if not result.is_ok:
             return result
@@ -129,3 +143,69 @@ class SearchEngine:
         deduped = sorted(seen.values(), key=lambda x: x.score, reverse=True)
 
         return Success(deduped[: query.top_k])
+
+    def _smart_search(self, query: SearchQuery) -> Result[list[SearchResult], SearchError]:
+        """Smart search: hybrid search with simple query expansion.
+
+        Runs the original query plus extracted sub-queries, then merges
+        results using RRF to surface the most relevant memories.
+        """
+        all_results: list[SearchResult] = []
+
+        # 1. Run the original hybrid search
+        original = self._hybrid_search(query)
+        if original.is_ok:
+            all_results.extend(original.value)
+
+        # 2. Generate expanded sub-queries and run additional searches
+        sub_queries = _expand_query(query.text)
+        for sub_q in sub_queries:
+            if sub_q == query.text:
+                continue
+            sub = SearchQuery(
+                text=sub_q,
+                top_k=query.top_k,
+                mode="hybrid",
+                tags=query.tags,
+                date_range=query.date_range,
+                min_importance=query.min_importance,
+                importance_weight=query.importance_weight,
+                recency_weight=query.recency_weight,
+            )
+            result = self._hybrid_search(sub)
+            if result.is_ok:
+                all_results.extend(result.value)
+
+        if not all_results:
+            return Success([])
+
+        # 3. Re-rank merged results with RRF
+        if self._ranker is not None:
+            all_results = self._ranker.rank(all_results, query)
+        else:
+            all_results.sort(key=lambda x: x.score, reverse=True)
+
+        # Deduplicate by memory key, keeping highest score
+        seen: dict[str, SearchResult] = {}
+        for r in all_results:
+            if r.memory.key not in seen or r.score > seen[r.memory.key].score:
+                seen[r.memory.key] = r
+        deduped = sorted(seen.values(), key=lambda x: x.score, reverse=True)
+        return Success(deduped[: query.top_k])
+
+
+def _expand_query(text: str) -> list[str]:
+    """Extract sub-queries from text for smart search expansion.
+
+    Splits on Japanese punctuation and whitespace, keeping segments longer
+    than 2 characters as additional search queries alongside the original.
+    """
+    # Split on spaces, Japanese commas/periods, brackets, and common separators
+    # \\s = regex whitespace; \uXXXX = actual Unicode chars resolved by Python
+    segments = re.split('[\\s\u3000\u3001\u3002\uff0c\uff0e\u300c\u300d\u3010\u3011()\uff08\uff09\uff3b\uff3d]+', text)
+    expanded = [text]  # always include original
+    for seg in segments:
+        seg = seg.strip()
+        if len(seg) >= 2 and seg != text:
+            expanded.append(seg)
+    return expanded[:4]  # limit to 4 queries max

@@ -22,10 +22,12 @@ def _env_persona() -> str:
 def resolve_persona_from_headers(
     authorization: str | None = None,
     x_persona: str | None = None,
+    *,
+    default: str | None = None,
 ) -> str:
     """Resolve persona from HTTP headers with environment fallback.
 
-    Priority: Bearer token > X-Persona header > environment variable.
+    Priority: Bearer token > X-Persona header > *default* > environment variable.
     """
     if authorization and authorization.startswith("Bearer "):
         token = authorization[7:].strip()
@@ -35,6 +37,8 @@ def resolve_persona_from_headers(
         stripped = x_persona.strip()
         if stripped and _PERSONA_PATTERN.match(stripped):
             return stripped
+    if default is not None:
+        return default
     return _env_persona()
 
 
