@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
 
-from memory_mcp.api.mcp.middleware import resolve_persona_from_headers
+from memory_mcp.api.mcp.middleware import _PERSONA_PATTERN, resolve_persona_from_headers  # noqa: F401
 from memory_mcp.application.use_cases import AppContextRegistry
 from memory_mcp.infrastructure.logging.structured import get_logger
 
