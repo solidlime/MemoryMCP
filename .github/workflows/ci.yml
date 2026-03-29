@@ -108,7 +108,7 @@ jobs:
 
       - name: Upload coverage
         if: always() && env.CODECOV_TOKEN != ''
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v6
         with:
           token: ${{ env.CODECOV_TOKEN }}
           file: ./coverage.xml
