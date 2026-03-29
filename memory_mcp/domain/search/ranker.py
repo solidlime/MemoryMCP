@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from datetime import UTC
-from typing import Callable, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 from memory_mcp.domain.search.engine import SearchQuery, SearchResult
 
