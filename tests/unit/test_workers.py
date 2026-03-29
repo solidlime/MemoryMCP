@@ -1,10 +1,7 @@
 """Unit tests for application workers: RebuildWorker and CleanupWorker."""
 from __future__ import annotations
 
-import time
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import MagicMock
 
 from memory_mcp.application.workers.cleanup_worker import CleanupWorker
 from memory_mcp.application.workers.rebuild_worker import RebuildWorker

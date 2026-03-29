@@ -1,8 +1,6 @@
 """Additional unit tests for SQLiteMemoryRepository — targeting uncovered paths."""
 from __future__ import annotations
 
-import json
-
 import pytest
 
 from memory_mcp.domain.memory.entities import Memory

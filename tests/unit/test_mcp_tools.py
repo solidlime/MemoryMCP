@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC, datetime
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -13,7 +13,7 @@ from memory_mcp.domain.search.engine import SearchResult
 from memory_mcp.domain.shared.errors import DomainError, RepositoryError
 from memory_mcp.domain.shared.result import Failure, Success
 
-UTC = timezone.utc
+UTC = UTC
 
 
 # ---------------------------------------------------------------------------
@@ -67,17 +67,17 @@ def registered_tools(mock_app_context):
     mock_mcp.tool = mock_tool_decorator
 
     with (
-        patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockRegistry,
+        patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_registry_cls,
         patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
     ):
-        MockRegistry.get.return_value = mock_app_context
+        mock_registry_cls.get.return_value = mock_app_context
 
         from memory_mcp.api.mcp.tools import register_tools
         register_tools(mock_mcp)
 
         # Yield both the tools dict and the patched context so tests can
         # configure return values.
-        yield tools, mock_app_context, MockRegistry
+        yield tools, mock_app_context, mock_registry_cls
 
 
 # ---------------------------------------------------------------------------
@@ -93,10 +93,10 @@ class TestMemoryCreate:
 
         memory = tools["memory"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockReg,
+            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
-            MockReg.get.return_value = ctx
+            mock_reg_cls.get.return_value = ctx
             result = await memory(operation="create", content="hello world")
 
         assert "mem_new" in result
@@ -107,10 +107,10 @@ class TestMemoryCreate:
         tools, ctx, _ = registered_tools
         memory = tools["memory"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockReg,
+            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
-            MockReg.get.return_value = ctx
+            mock_reg_cls.get.return_value = ctx
             result = await memory(operation="create")
         assert "Error" in result
         assert "content" in result
@@ -120,10 +120,10 @@ class TestMemoryCreate:
         tools, ctx, _ = registered_tools
         memory = tools["memory"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockReg,
+            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
-            MockReg.get.return_value = ctx
+            mock_reg_cls.get.return_value = ctx
             result = await memory(operation="create", content="hi", importance=1.5)
         assert "Error" in result
         assert "importance" in result
@@ -134,10 +134,10 @@ class TestMemoryCreate:
         ctx.memory_service.create_memory.return_value = Success(_mem("mem_x"))
         memory = tools["memory"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockReg,
+            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
-            MockReg.get.return_value = ctx
+            mock_reg_cls.get.return_value = ctx
             result = await memory(operation="create", content="hi", emotion_type="rainbow")
         assert "Warning" in result
 
@@ -147,10 +147,10 @@ class TestMemoryCreate:
         ctx.memory_service.create_memory.return_value = Failure(RepositoryError("db error"))
         memory = tools["memory"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockReg,
+            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
-            MockReg.get.return_value = ctx
+            mock_reg_cls.get.return_value = ctx
             result = await memory(operation="create", content="hi")
         assert "Error" in result
 
@@ -169,10 +169,10 @@ class TestMemoryRead:
         ctx.memory_service.boost_recall.return_value = Success(None)
         memory = tools["memory"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockReg,
+            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
-            MockReg.get.return_value = ctx
+            mock_reg_cls.get.return_value = ctx
             result = await memory(operation="read", memory_key="mem_001")
         assert "stored content" in result
         assert "mem_001" in result
@@ -183,10 +183,10 @@ class TestMemoryRead:
         ctx.memory_service.get_recent.return_value = Success([_mem("k1"), _mem("k2")])
         memory = tools["memory"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockReg,
+            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
-            MockReg.get.return_value = ctx
+            mock_reg_cls.get.return_value = ctx
             result = await memory(operation="read")
         assert "k1" in result
         assert "k2" in result
@@ -197,10 +197,10 @@ class TestMemoryRead:
         ctx.memory_service.get_memory.return_value = Failure(RepositoryError("not found"))
         memory = tools["memory"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockReg,
+            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
-            MockReg.get.return_value = ctx
+            mock_reg_cls.get.return_value = ctx
             result = await memory(operation="read", memory_key="missing")
         assert "Error" in result
 
@@ -219,10 +219,10 @@ class TestMemoryDelete:
         ctx.memory_service.delete_memory.return_value = Success(None)
         memory = tools["memory"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockReg,
+            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
-            MockReg.get.return_value = ctx
+            mock_reg_cls.get.return_value = ctx
             result = await memory(operation="delete", memory_key="mem_del")
         assert "deleted" in result.lower()
 
@@ -231,10 +231,10 @@ class TestMemoryDelete:
         tools, ctx, _ = registered_tools
         memory = tools["memory"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockReg,
+            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
-            MockReg.get.return_value = ctx
+            mock_reg_cls.get.return_value = ctx
             result = await memory(operation="delete")
         assert "Error" in result
 
@@ -245,10 +245,10 @@ class TestMemoryDelete:
         ctx.memory_service.delete_memory.return_value = Failure(RepositoryError("not found"))
         memory = tools["memory"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockReg,
+            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
-            MockReg.get.return_value = ctx
+            mock_reg_cls.get.return_value = ctx
             result = await memory(operation="delete", memory_key="missing")
         assert "Error" in result
 
@@ -265,10 +265,10 @@ class TestMemoryStats:
         ctx.memory_service.get_stats.return_value = Success({"total": 42, "by_emotion": {}})
         memory = tools["memory"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockReg,
+            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
-            MockReg.get.return_value = ctx
+            mock_reg_cls.get.return_value = ctx
             result = await memory(operation="stats")
         assert "42" in result
 
@@ -278,10 +278,10 @@ class TestMemoryStats:
         ctx.memory_service.get_stats.return_value = Failure(RepositoryError("db error"))
         memory = tools["memory"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockReg,
+            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
-            MockReg.get.return_value = ctx
+            mock_reg_cls.get.return_value = ctx
             result = await memory(operation="stats")
         assert "Error" in result
 
@@ -298,10 +298,10 @@ class TestMemoryUpdate:
         ctx.memory_service.update_memory.return_value = Success(_mem("mem_001"))
         memory = tools["memory"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockReg,
+            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
-            MockReg.get.return_value = ctx
+            mock_reg_cls.get.return_value = ctx
             result = await memory(operation="update", memory_key="mem_001", content="new content")
         assert "updated" in result.lower()
 
@@ -310,10 +310,10 @@ class TestMemoryUpdate:
         tools, ctx, _ = registered_tools
         memory = tools["memory"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockReg,
+            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
-            MockReg.get.return_value = ctx
+            mock_reg_cls.get.return_value = ctx
             result = await memory(operation="update")
         assert "Error" in result
         assert "memory_key" in result
@@ -323,10 +323,10 @@ class TestMemoryUpdate:
         tools, ctx, _ = registered_tools
         memory = tools["memory"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockReg,
+            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
-            MockReg.get.return_value = ctx
+            mock_reg_cls.get.return_value = ctx
             result = await memory(operation="update", memory_key="k1", importance=-0.1)
         assert "Error" in result
 
@@ -343,10 +343,10 @@ class TestMemoryBlocks:
         ctx.memory_service.write_block.return_value = Success(None)
         memory = tools["memory"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockReg,
+            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
-            MockReg.get.return_value = ctx
+            mock_reg_cls.get.return_value = ctx
             result = await memory(operation="block_write", block_name="myblock", content="block content")
         assert "written" in result.lower()
 
@@ -355,10 +355,10 @@ class TestMemoryBlocks:
         tools, ctx, _ = registered_tools
         memory = tools["memory"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockReg,
+            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
-            MockReg.get.return_value = ctx
+            mock_reg_cls.get.return_value = ctx
             result = await memory(operation="block_write", block_name="b")
         assert "Error" in result
 
@@ -368,10 +368,10 @@ class TestMemoryBlocks:
         ctx.memory_service.read_block.return_value = Success("block data here")
         memory = tools["memory"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockReg,
+            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
-            MockReg.get.return_value = ctx
+            mock_reg_cls.get.return_value = ctx
             result = await memory(operation="block_read", block_name="myblock")
         assert "block data here" in result
 
@@ -381,10 +381,10 @@ class TestMemoryBlocks:
         ctx.memory_service.list_blocks.return_value = Success([{"block_name": "b1", "content": "data"}])
         memory = tools["memory"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockReg,
+            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
-            MockReg.get.return_value = ctx
+            mock_reg_cls.get.return_value = ctx
             result = await memory(operation="block_list")
         assert result  # should return something
 
@@ -394,10 +394,10 @@ class TestMemoryBlocks:
         ctx.memory_service.delete_block.return_value = Success(None)
         memory = tools["memory"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockReg,
+            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
-            MockReg.get.return_value = ctx
+            mock_reg_cls.get.return_value = ctx
             result = await memory(operation="block_delete", block_name="myblock")
         assert "deleted" in result.lower()
 
@@ -413,10 +413,10 @@ class TestMemoryUnknownOperation:
         tools, ctx, _ = registered_tools
         memory = tools["memory"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockReg,
+            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
-            MockReg.get.return_value = ctx
+            mock_reg_cls.get.return_value = ctx
             result = await memory(operation="fly_to_moon")
         assert "Unknown operation" in result
 
@@ -437,10 +437,10 @@ class TestSearchMemory:
         ctx.search_engine._semantic = None
         search_memory = tools["search_memory"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockReg,
+            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
-            MockReg.get.return_value = ctx
+            mock_reg_cls.get.return_value = ctx
             result = await search_memory(query="test query")
         assert "mem_abc" in result
         assert "0.750" in result
@@ -452,10 +452,10 @@ class TestSearchMemory:
         ctx.search_engine._semantic = None
         search_memory = tools["search_memory"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockReg,
+            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
-            MockReg.get.return_value = ctx
+            mock_reg_cls.get.return_value = ctx
             result = await search_memory(query="nothing")
         assert "No results" in result
 
@@ -464,10 +464,10 @@ class TestSearchMemory:
         tools, ctx, _ = registered_tools
         search_memory = tools["search_memory"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockReg,
+            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
-            MockReg.get.return_value = ctx
+            mock_reg_cls.get.return_value = ctx
             result = await search_memory(query="test", top_k=0)
         assert "Error" in result
 
@@ -479,10 +479,10 @@ class TestSearchMemory:
         ctx.search_engine._semantic = None
         search_memory = tools["search_memory"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockReg,
+            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
-            MockReg.get.return_value = ctx
+            mock_reg_cls.get.return_value = ctx
             result = await search_memory(query="test")
         assert "Error" in result
 
@@ -494,10 +494,10 @@ class TestSearchMemory:
         ctx.memory_service.log_search.return_value = Success(None)
         search_memory = tools["search_memory"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockReg,
+            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
-            MockReg.get.return_value = ctx
+            mock_reg_cls.get.return_value = ctx
             await search_memory(
                 query="test",
                 mode="keyword",
@@ -530,10 +530,10 @@ class TestUpdateContext:
         ctx.persona_service.update_emotion.return_value = Success(None)
         update_context = tools["update_context"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockReg,
+            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
-            MockReg.get.return_value = ctx
+            mock_reg_cls.get.return_value = ctx
             result = await update_context(emotion="joy", emotion_intensity=0.9)
         assert "emotion=joy" in result
         ctx.persona_service.update_emotion.assert_called_once_with("test_persona", "joy", 0.9)
@@ -544,10 +544,10 @@ class TestUpdateContext:
         ctx.persona_service.update_physical_state.return_value = Success(None)
         update_context = tools["update_context"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockReg,
+            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
-            MockReg.get.return_value = ctx
+            mock_reg_cls.get.return_value = ctx
             result = await update_context(physical_state="tired", mental_state="focused")
         assert "physical_state" in result
         assert "mental_state" in result
@@ -557,10 +557,10 @@ class TestUpdateContext:
         tools, ctx, _ = registered_tools
         update_context = tools["update_context"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockReg,
+            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
-            MockReg.get.return_value = ctx
+            mock_reg_cls.get.return_value = ctx
             result = await update_context()
         assert "No changes" in result
 
@@ -570,10 +570,10 @@ class TestUpdateContext:
         ctx.persona_service.update_relationship.return_value = Success(None)
         update_context = tools["update_context"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockReg,
+            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
-            MockReg.get.return_value = ctx
+            mock_reg_cls.get.return_value = ctx
             result = await update_context(relationship_status="friends")
         assert "relationship=friends" in result
 
@@ -583,10 +583,10 @@ class TestUpdateContext:
         ctx.persona_service.update_persona_info.return_value = Success(None)
         update_context = tools["update_context"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockReg,
+            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
-            MockReg.get.return_value = ctx
+            mock_reg_cls.get.return_value = ctx
             result = await update_context(nickname="Taro")
         assert "nickname=Taro" in result
 
@@ -596,10 +596,10 @@ class TestUpdateContext:
         ctx.persona_service.update_user_info.return_value = Success(None)
         update_context = tools["update_context"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockReg,
+            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
-            MockReg.get.return_value = ctx
+            mock_reg_cls.get.return_value = ctx
             result = await update_context(user_info={"name": "Alice", "nickname": "Ali"})
         assert "user_info updated" in result
 
@@ -627,10 +627,10 @@ class TestGetContext:
         ctx.persona_service.record_conversation_time.return_value = Success(None)
         get_context = tools["get_context"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockReg,
+            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
-            MockReg.get.return_value = ctx
+            mock_reg_cls.get.return_value = ctx
             result = await get_context()
         assert "test_persona" in result
         assert "joy" in result
@@ -638,14 +638,13 @@ class TestGetContext:
     @pytest.mark.asyncio
     async def test_get_context_persona_service_failure(self, registered_tools):
         tools, ctx, _ = registered_tools
-        from memory_mcp.domain.shared.errors import DomainError
         ctx.persona_service.get_context.return_value = Failure(DomainError("persona error"))
         get_context = tools["get_context"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockReg,
+            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
-            MockReg.get.return_value = ctx
+            mock_reg_cls.get.return_value = ctx
             result = await get_context()
         assert "Error" in result
 
@@ -670,10 +669,10 @@ class TestGetContext:
         ctx.persona_service.record_conversation_time.return_value = Success(None)
         get_context = tools["get_context"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockReg,
+            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
-            MockReg.get.return_value = ctx
+            mock_reg_cls.get.return_value = ctx
             result = await get_context()
         assert "Finish project" in result
 
@@ -690,10 +689,10 @@ class TestItemTool:
         ctx.equipment_service.equip.return_value = Success(None)
         item = tools["item"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockReg,
+            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
-            MockReg.get.return_value = ctx
+            mock_reg_cls.get.return_value = ctx
             result = await item(operation="equip", equipment={"top": "white dress"})
         assert "Equipped" in result
         ctx.equipment_service.equip.assert_called_once_with({"top": "white dress"}, True)
@@ -703,10 +702,10 @@ class TestItemTool:
         tools, ctx, _ = registered_tools
         item = tools["item"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockReg,
+            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
-            MockReg.get.return_value = ctx
+            mock_reg_cls.get.return_value = ctx
             result = await item(operation="equip")
         assert "Error" in result
 
@@ -716,10 +715,10 @@ class TestItemTool:
         ctx.equipment_service.add_item.return_value = Success(None)
         item = tools["item"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockReg,
+            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
-            MockReg.get.return_value = ctx
+            mock_reg_cls.get.return_value = ctx
             result = await item(operation="add", item_name="blue hat", category="accessories")
         assert "added" in result.lower()
 
@@ -729,10 +728,10 @@ class TestItemTool:
         ctx.equipment_service.remove_item.return_value = Success(None)
         item = tools["item"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockReg,
+            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
-            MockReg.get.return_value = ctx
+            mock_reg_cls.get.return_value = ctx
             result = await item(operation="remove", item_name="blue hat")
         assert "removed" in result.lower()
 
@@ -742,10 +741,10 @@ class TestItemTool:
         ctx.equipment_service.unequip.return_value = Success(None)
         item = tools["item"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockReg,
+            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
-            MockReg.get.return_value = ctx
+            mock_reg_cls.get.return_value = ctx
             result = await item(operation="unequip", slots=["top", "head"])
         assert "Unequipped" in result
 
@@ -759,10 +758,10 @@ class TestItemTool:
         ctx.equipment_service.search_items.return_value = Success([item_obj])
         item = tools["item"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockReg,
+            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
-            MockReg.get.return_value = ctx
+            mock_reg_cls.get.return_value = ctx
             result = await item(operation="search", query="hat")
         assert "blue hat" in result
 
@@ -771,9 +770,9 @@ class TestItemTool:
         tools, ctx, _ = registered_tools
         item = tools["item"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as MockReg,
+            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
-            MockReg.get.return_value = ctx
+            mock_reg_cls.get.return_value = ctx
             result = await item(operation="fly")
         assert "Unknown operation" in result

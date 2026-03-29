@@ -326,7 +326,6 @@ class TestParseDateRange:
 
     def test_relative_time_str_with_naive_now(self):
         """relative_time_str handles naive 'now' argument (line 42)."""
-        from zoneinfo import ZoneInfo
         dt = datetime(2025, 6, 15, 10, 0, 0)  # naive
         now_naive = datetime(2025, 6, 15, 12, 0, 0)  # naive — no tzinfo
         result = relative_time_str(dt, now_naive)

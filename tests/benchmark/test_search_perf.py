@@ -1,9 +1,9 @@
 """Performance benchmarks for search operations."""
-import pytest
-from datetime import datetime, UTC
+from datetime import UTC, datetime
+
 from memory_mcp.domain.memory.entities import Memory, MemoryStrength
-from memory_mcp.domain.search.engine import SearchResult, SearchQuery
-from memory_mcp.domain.search.ranker import RRFRanker, ForgettingCurveRanker
+from memory_mcp.domain.search.engine import SearchQuery, SearchResult
+from memory_mcp.domain.search.ranker import ForgettingCurveRanker, RRFRanker
 
 
 def make_memories(n: int) -> list[Memory]:

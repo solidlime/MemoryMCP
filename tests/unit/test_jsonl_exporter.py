@@ -50,8 +50,8 @@ class TestJSONLExporter:
         assert result.is_ok
         assert result.unwrap() >= 1
 
-        lines = [l for l in output_path.read_text(encoding="utf-8").split("\n") if l.strip()]
-        records = [json.loads(l) for l in lines]
+        lines = [ln for ln in output_path.read_text(encoding="utf-8").split("\n") if ln.strip()]
+        records = [json.loads(ln) for ln in lines]
         memory_records = [r for r in records if r["type"] == "memory"]
         assert len(memory_records) == 1
         assert memory_records[0]["content"] == "Test content"
@@ -78,8 +78,8 @@ class TestJSONLExporter:
         output_path = tmp_path / "export.jsonl"
         exporter.export_persona(sqlite_conn, "test", str(output_path))
 
-        lines = [l for l in output_path.read_text(encoding="utf-8").split("\n") if l.strip()]
-        records = [json.loads(l) for l in lines]
+        lines = [ln for ln in output_path.read_text(encoding="utf-8").split("\n") if ln.strip()]
+        records = [json.loads(ln) for ln in lines]
         memory_records = [r for r in records if r["type"] == "memory"]
         assert len(memory_records) == 3
 
@@ -128,8 +128,8 @@ class TestJSONLExporter:
         result = exporter.export_persona(sqlite_conn, "test", str(output_path))
         assert result.is_ok
 
-        lines = [l for l in output_path.read_text(encoding="utf-8").split("\n") if l.strip()]
-        records = [json.loads(l) for l in lines]
+        lines = [ln for ln in output_path.read_text(encoding="utf-8").split("\n") if ln.strip()]
+        records = [json.loads(ln) for ln in lines]
         state_records = [r for r in records if r["type"] == "state"]
         assert len(state_records) == 1
         assert state_records[0]["value"] == "joy"

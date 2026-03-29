@@ -4,8 +4,6 @@ from __future__ import annotations
 import json
 import sqlite3
 
-import pytest
-
 
 def _make_db():
     """Create an in-memory SQLite DB with the minimal schema for v009."""

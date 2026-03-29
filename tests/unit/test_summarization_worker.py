@@ -351,9 +351,11 @@ class TestSummarizeAll:
         fake_contexts = {"alice": MagicMock()}
         with patch("memory_mcp.application.use_cases.AppContextRegistry") as registry:
             registry._contexts = fake_contexts
-            with patch.object(worker, "_summarize_persona") as mock_stat:
-                with patch.object(worker, "_extractive_summarize_persona"):
-                    worker._summarize_all()
+            with (
+                patch.object(worker, "_summarize_persona") as mock_stat,
+                patch.object(worker, "_extractive_summarize_persona"),
+            ):
+                worker._summarize_all()
 
         mock_stat.assert_not_called()
 

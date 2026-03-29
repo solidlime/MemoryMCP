@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
 
 import pytest
@@ -12,7 +12,7 @@ from memory_mcp.domain.search.engine import SearchEngine, SearchQuery, SearchRes
 from memory_mcp.domain.search.ranker import ForgettingCurveRanker, RRFRanker
 from memory_mcp.domain.shared.result import Failure, Success
 
-UTC = timezone.utc
+UTC = UTC
 
 
 # ---------------------------------------------------------------------------
