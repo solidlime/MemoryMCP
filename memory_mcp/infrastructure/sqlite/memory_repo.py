@@ -547,6 +547,18 @@ class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
             logger.error("Failed to find relationship highlights: %s", e)
             return Failure(RepositoryError(str(e)))
 
+    def find_top_by_importance(self, limit: int = 15) -> Result[list[Memory], RepositoryError]:
+        """Find memories ranked purely by importance descending."""
+        try:
+            rows = self._db.execute(
+                "SELECT * FROM memories ORDER BY importance DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+            return Success([self._row_to_memory(r) for r in rows])
+        except Exception as e:
+            logger.error("Failed to find top by importance: %s", e)
+            return Failure(RepositoryError(str(e)))
+
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------

@@ -48,8 +48,12 @@ def register_tools(mcp: FastMCP) -> None:
     """Register all 5 MCP tools on the FastMCP server."""
 
     @mcp.tool()
-    async def get_context() -> str:
+    async def get_context(mode: str = "standard") -> str:
         """Get current persona state and memory overview. Call FIRST at every session start.
+
+        Args:
+            mode: "standard" (default, full output) or "wake_up" (lightweight,
+                  ~300-500 tokens — identity + essential story only).
 
         Returns a comprehensive snapshot including:
         - User info (name, nickname, preferred address) and persona info
@@ -67,6 +71,21 @@ def register_tools(mcp: FastMCP) -> None:
         if not state_result.is_ok:
             return f"Error: {state_result.error}"
         state = state_result.value
+
+        # Essential Story — always fetched for both modes
+        top_result = ctx.memory_service.get_top_by_importance(15)
+        top_memories = top_result.value if top_result.is_ok else []
+
+        if mode == "wake_up":
+            # Lightweight: persona + essential story only
+            goals_result = ctx.memory_service.get_by_tags(["goal"])
+            goals = goals_result.value if goals_result.is_ok else []
+            promises_result = ctx.memory_service.get_by_tags(["promise"])
+            promises = promises_result.value if promises_result.is_ok else []
+
+            ctx.persona_service.record_conversation_time(persona)
+
+            return _format_wakeup_response(state, top_memories, goals, promises)
 
         stats_result = ctx.memory_service.get_stats()
         stats = stats_result.value if stats_result.is_ok else {}
@@ -117,6 +136,7 @@ def register_tools(mcp: FastMCP) -> None:
             decayed_count,
             memory_index,
             relationship_highlights,
+            top_memories,
         )
 
     @mcp.tool()
@@ -813,6 +833,7 @@ def _format_context_response(
     decayed_count: int = 0,
     memory_index: dict | None = None,
     relationship_highlights: list | None = None,
+    top_memories: list | None = None,
 ) -> str:
     """Format get_context response as structured text."""
     lines: list[str] = []
@@ -848,6 +869,27 @@ def _format_context_response(
         for p in non_active_promises:
             status = "fulfilled" if "fulfilled" in (p.tags or []) else "cancelled"
             lines.append(f"  Promise [{status}]: {p.content}")
+
+    # Essential Story — importance top 15, hard cap 3200 chars
+    if top_memories:
+        lines.append("\n## ESSENTIAL STORY (top memories by importance)")
+        char_budget = 3200
+        used = 0
+        shown = 0
+        for m in top_memories:
+            tag_str = ", ".join((m.tags or [])[:3])
+            tag_part = f" [{tag_str}]" if tag_str else ""
+            imp_part = f"imp={m.importance:.2f}"
+            snippet = m.content.replace("\n", " ")
+            if len(snippet) > 150:
+                snippet = snippet[:147] + "..."
+            line = f"- {snippet}{tag_part} ({imp_part})"
+            if used + len(line) > char_budget:
+                lines.append(f"  ... ({len(top_memories) - shown} more — use search_memory)")
+                break
+            lines.append(line)
+            used += len(line)
+            shown += 1
 
     # Memory gap alert
     if time_since and decayed_count > 0:
@@ -983,4 +1025,61 @@ def _format_context_response(
         ai_instructions.append(f'- Use the following speech style: "{state.speech_style}"')
     lines.extend(ai_instructions)
 
+    return "\n".join(lines)
+
+
+def _format_wakeup_response(
+    state: PersonaState,
+    top_memories: list,
+    goals: list,
+    promises: list,
+) -> str:
+    """Lightweight wake_up context (~300-500 tokens): identity + essential story."""
+    lines: list[str] = []
+
+    lines.append(f"=== Persona: {state.persona} (wake_up mode) ===")
+    lines.append(f"Emotion: {state.emotion} (intensity: {state.emotion_intensity})")
+    if state.speech_style:
+        lines.append(f"Speech Style: {state.speech_style}")
+
+    if state.user_info:
+        name = (
+            state.user_info.get("preferred_address")
+            or state.user_info.get("nickname")
+            or state.user_info.get("name", "")
+        )
+        if name:
+            lines.append(f"User: {name}")
+
+    # Active Commitments (compact)
+    active_goals = [g for g in goals if "active" in (g.tags or [])]
+    active_promises = [p for p in promises if "active" in (p.tags or [])]
+    if active_goals or active_promises:
+        lines.append("\n⚠️ ACTIVE COMMITMENTS:")
+        for g in active_goals:
+            lines.append(f"  🎯 {g.content[:100]}")
+        for p in active_promises:
+            lines.append(f"  🤝 {p.content[:100]}")
+
+    # Essential Story
+    if top_memories:
+        lines.append("\n## ESSENTIAL STORY")
+        char_budget = 2000
+        used = 0
+        shown = 0
+        for m in top_memories:
+            tag_str = ", ".join((m.tags or [])[:2])
+            tag_part = f" [{tag_str}]" if tag_str else ""
+            snippet = m.content.replace("\n", " ")
+            if len(snippet) > 120:
+                snippet = snippet[:117] + "..."
+            line = f"- {snippet}{tag_part}"
+            if used + len(line) > char_budget:
+                lines.append(f"  ... ({len(top_memories) - shown} more)")
+                break
+            lines.append(line)
+            used += len(line)
+            shown += 1
+
+    lines.append("\n💡 Use get_context() for full details, search_memory() for specific topics.")
     return "\n".join(lines)

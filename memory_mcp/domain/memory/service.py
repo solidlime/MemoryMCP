@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from memory_mcp.domain.memory.entities import Memory, MemoryStrength
+from memory_mcp.domain.memory.type_classifier import auto_tags
 from memory_mcp.domain.shared.errors import (
     DomainError,
     MemoryNotFoundError,
@@ -41,6 +42,11 @@ class MemoryService:
         """Create and persist a new memory entry."""
         if not content or not content.strip():
             return Failure(MemoryValidationError("Content must not be empty"))
+
+        # Auto-classify content and add type tag if not already present
+        type_hints = auto_tags(content.strip(), tags)
+        if type_hints:
+            tags = list(tags or []) + type_hints
 
         # Validate tags
         if tags:
@@ -307,6 +313,10 @@ class MemoryService:
     def get_memory_index(self) -> Result[dict, DomainError]:
         """Get compressed memory index."""
         return self._repo.get_memory_index()
+
+    def get_top_by_importance(self, limit: int = 15) -> Result[list[Memory], DomainError]:
+        """Get memories ranked by importance descending."""
+        return self._repo.find_top_by_importance(limit)
 
     def get_relationship_highlights(self, limit: int = 5) -> Result[list, DomainError]:
         """Get important relationship memories."""
