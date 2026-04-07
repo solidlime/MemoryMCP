@@ -912,8 +912,7 @@ def _format_context_response(
         lines.append("\n## ESSENTIAL STORY (top memories by importance)")
         char_budget = 3200
         used = 0
-        shown = 0
-        for m in top_memories:
+        for shown, m in enumerate(top_memories):
             tag_str = ", ".join((m.tags or [])[:3])
             tag_part = f" [{tag_str}]" if tag_str else ""
             imp_part = f"imp={m.importance:.2f}"
@@ -926,7 +925,6 @@ def _format_context_response(
                 break
             lines.append(line)
             used += len(line)
-            shown += 1
 
     # Memory gap alert
     if time_since and decayed_count > 0:
@@ -1103,8 +1101,7 @@ def _format_wakeup_response(
         lines.append("\n## ESSENTIAL STORY")
         char_budget = 2000
         used = 0
-        shown = 0
-        for m in top_memories:
+        for shown, m in enumerate(top_memories):
             tag_str = ", ".join((m.tags or [])[:2])
             tag_part = f" [{tag_str}]" if tag_str else ""
             snippet = m.content.replace("\n", " ")
@@ -1116,7 +1113,6 @@ def _format_wakeup_response(
                 break
             lines.append(line)
             used += len(line)
-            shown += 1
 
     lines.append("\n💡 Use get_context() for full details, search_memory() for specific topics.")
     return "\n".join(lines)

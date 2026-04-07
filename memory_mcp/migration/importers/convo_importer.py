@@ -192,9 +192,7 @@ def _is_trivial(text: str) -> bool:
     if re.match(r"^https?://\S+$", stripped):
         return True
     # Just "ok", "yes", "no", "thanks", etc.
-    if re.match(r"^(ok|yes|no|yeah|sure|thanks|thank you|got it|understood)[.!?]*$", stripped, re.IGNORECASE):
-        return True
-    return False
+    return bool(re.match(r"^(ok|yes|no|yeah|sure|thanks|thank you|got it|understood)[.!?]*$", stripped, re.IGNORECASE))
 
 
 def parse_conversation_file(file_path: str) -> list[ConvoMessage]:

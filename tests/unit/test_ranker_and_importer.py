@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import json
-import textwrap
 from datetime import UTC, datetime
-from pathlib import Path
-from unittest.mock import MagicMock
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -15,10 +13,14 @@ from memory_mcp.domain.search.engine import SearchQuery, SearchResult
 from memory_mcp.domain.search.ranker import TopicAffinityRanker
 from memory_mcp.migration.importers.convo_importer import parse_conversation_file
 
+if TYPE_CHECKING:
+    from pathlib import Path
+
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_result(key: str, tags: list[str], score: float = 0.5) -> SearchResult:
     now = datetime.now(UTC)
@@ -100,9 +102,18 @@ class TestTopicAffinityRanker:
 class TestParseClaudeCodeJSONL:
     def test_extracts_user_messages(self, tmp_path: Path):
         data = [
-            {"type": "user", "message": {"role": "user", "content": "I always prefer pytest over unittest for testing"}},
-            {"type": "assistant", "message": {"role": "assistant", "content": [{"type": "text", "text": "Sure, noted."}]}},
-            {"type": "user", "message": {"role": "user", "content": "There is a bug in the search engine that needs to be fixed"}},
+            {
+                "type": "user",
+                "message": {"role": "user", "content": "I always prefer pytest over unittest for testing"},
+            },
+            {
+                "type": "assistant",
+                "message": {"role": "assistant", "content": [{"type": "text", "text": "Sure, noted."}]},
+            },
+            {
+                "type": "user",
+                "message": {"role": "user", "content": "There is a bug in the search engine that needs to be fixed"},
+            },
         ]
         p = tmp_path / "conv.jsonl"
         p.write_text("\n".join(json.dumps(d) for d in data), encoding="utf-8")
@@ -117,7 +128,13 @@ class TestParseClaudeCodeJSONL:
         data = [
             {"type": "user", "message": {"role": "user", "content": "ok"}},
             {"type": "user", "message": {"role": "user", "content": "yes"}},
-            {"type": "user", "message": {"role": "user", "content": "I decided to use Redis as the caching backend for this project"}},
+            {
+                "type": "user",
+                "message": {
+                    "role": "user",
+                    "content": "I decided to use Redis as the caching backend for this project",
+                },
+            },
         ]
         p = tmp_path / "conv.jsonl"
         p.write_text("\n".join(json.dumps(d) for d in data), encoding="utf-8")
@@ -155,7 +172,11 @@ class TestParseClaudeAiJSON:
     def test_multi_conversation_format(self, tmp_path: Path):
         data = {
             "conversations": [
-                {"messages": [{"role": "human", "content": "We decided to switch to TypeScript for better type safety"}]},
+                {
+                    "messages": [
+                        {"role": "human", "content": "We decided to switch to TypeScript for better type safety"}
+                    ]
+                },
                 {"messages": [{"role": "human", "content": "The CI pipeline keeps failing due to a flaky test"}]},
             ]
         }

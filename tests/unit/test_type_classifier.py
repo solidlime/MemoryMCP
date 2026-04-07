@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-import pytest
-
 from memory_mcp.domain.memory.type_classifier import TYPE_TAGS, auto_tags, classify
-
 
 # ---------------------------------------------------------------------------
 # classify() — English
@@ -128,7 +125,7 @@ class TestEdgeCases:
         assert classify("The sky is blue today and the weather is nice") is None
 
     def test_type_tags_constant(self):
-        assert TYPE_TAGS == frozenset({"decision", "preference", "milestone", "problem", "emotional"})
+        assert frozenset({"decision", "preference", "milestone", "problem", "emotional"}) == TYPE_TAGS
 
 
 # ---------------------------------------------------------------------------

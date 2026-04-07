@@ -204,8 +204,7 @@ _TYPE_MARKERS: dict[str, list[str]] = {
 
 # Pre-compiled marker patterns for performance
 _COMPILED_MARKERS: dict[str, list[re.Pattern[str]]] = {
-    t: [re.compile(p, re.IGNORECASE) for p in markers]
-    for t, markers in _TYPE_MARKERS.items()
+    t: [re.compile(p, re.IGNORECASE) for p in markers] for t, markers in _TYPE_MARKERS.items()
 }
 
 # Type tags — used to skip auto-classification when already present
@@ -220,24 +219,65 @@ _MIN_CONFIDENCE: float = 0.3
 
 _POSITIVE_WORDS: frozenset[str] = frozenset(
     {
-        "works", "working", "solved", "fixed", "nailed", "success", "breakthrough",
-        "excited", "thrilled", "proud", "happy", "love", "great", "perfect",
-        "動いた", "解決", "完成", "成功", "嬉しい", "すごい",
+        "works",
+        "working",
+        "solved",
+        "fixed",
+        "nailed",
+        "success",
+        "breakthrough",
+        "excited",
+        "thrilled",
+        "proud",
+        "happy",
+        "love",
+        "great",
+        "perfect",
+        "動いた",
+        "解決",
+        "完成",
+        "成功",
+        "嬉しい",
+        "すごい",
     }
 )
 _NEGATIVE_WORDS: frozenset[str] = frozenset(
     {
-        "bug", "error", "crash", "fail", "failed", "failing", "broken", "broke",
-        "issue", "problem", "wrong", "stuck", "blocked", "impossible",
-        "バグ", "エラー", "壊れた", "失敗", "問題",
+        "bug",
+        "error",
+        "crash",
+        "fail",
+        "failed",
+        "failing",
+        "broken",
+        "broke",
+        "issue",
+        "problem",
+        "wrong",
+        "stuck",
+        "blocked",
+        "impossible",
+        "バグ",
+        "エラー",
+        "壊れた",
+        "失敗",
+        "問題",
     }
 )
 _RESOLUTION_PATTERNS: list[re.Pattern[str]] = [
     re.compile(p, re.IGNORECASE)
     for p in [
-        r"\bfixed\b", r"\bsolved\b", r"\bresolved\b", r"\bgot it working\b",
-        r"\bit works\b", r"\bnailed it\b", r"\bfigured (it )?out\b",
-        r"解決した", r"動いた", r"直した", r"できた",
+        r"\bfixed\b",
+        r"\bsolved\b",
+        r"\bresolved\b",
+        r"\bgot it working\b",
+        r"\bit works\b",
+        r"\bnailed it\b",
+        r"\bfigured (it )?out\b",
+        r"解決した",
+        r"動いた",
+        r"直した",
+        r"できた",
     ]
 ]
 
@@ -336,10 +376,7 @@ def classify(content: str, min_confidence: float = _MIN_CONFIDENCE) -> str | Non
     if best_type == "problem":
         if _has_resolution(prose):
             sentiment = _get_sentiment(prose)
-            if scores.get("emotional", 0) > 0 and sentiment == "positive":
-                best_type = "emotional"
-            else:
-                best_type = "milestone"
+            best_type = "emotional" if scores.get("emotional", 0) > 0 and sentiment == "positive" else "milestone"
         elif _get_sentiment(prose) == "positive":
             if scores.get("milestone", 0) > 0:
                 best_type = "milestone"
