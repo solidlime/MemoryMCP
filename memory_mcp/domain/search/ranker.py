@@ -124,3 +124,37 @@ class ChainedRanker:
         for ranker in self._rankers:
             results = ranker.rank(results, query)
         return results
+
+
+class TopicAffinityRanker:
+    """Boosts results whose memory type tag matches the inferred query topic.
+
+    Uses ``type_classifier.classify()`` to detect the query type (decision /
+    preference / milestone / problem / emotional) and adds a small bonus to
+    memories already tagged with that type.  The bonus is intentionally small
+    so it nudges ordering without overpowering RRF or importance signals.
+    """
+
+    def __init__(self, bonus: float = 0.025, min_confidence: float = 0.2) -> None:
+        self._bonus = bonus
+        self._min_confidence = min_confidence
+
+    def rank(self, results: list[SearchResult], query: SearchQuery) -> list[SearchResult]:
+        from memory_mcp.domain.memory.type_classifier import classify  # lazy import
+
+        query_type = classify(query.text, min_confidence=self._min_confidence)
+        if query_type is None:
+            return results
+
+        adjusted: list[SearchResult] = []
+        for r in results:
+            bonus = self._bonus if query_type in (r.memory.tags or []) else 0.0
+            adjusted.append(
+                SearchResult(
+                    memory=r.memory,
+                    score=r.score + bonus,
+                    source=r.source,
+                )
+            )
+        adjusted.sort(key=lambda x: x.score, reverse=True)
+        return adjusted

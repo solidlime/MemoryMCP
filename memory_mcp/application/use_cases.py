@@ -6,7 +6,7 @@ from memory_mcp.domain.equipment.service import EquipmentService
 from memory_mcp.domain.memory.service import MemoryService
 from memory_mcp.domain.persona.service import PersonaService
 from memory_mcp.domain.search.engine import SearchEngine
-from memory_mcp.domain.search.ranker import ChainedRanker, ForgettingCurveRanker, RRFRanker
+from memory_mcp.domain.search.ranker import ChainedRanker, ForgettingCurveRanker, RRFRanker, TopicAffinityRanker
 from memory_mcp.domain.shared.errors import SearchError
 from memory_mcp.domain.shared.result import Failure, Success
 from memory_mcp.infrastructure.embedding.model import EmbeddingModel
@@ -121,7 +121,7 @@ class AppContext:
                     return result.value.strength
                 return 1.0
 
-            ranker = ChainedRanker(RRFRanker(), ForgettingCurveRanker(_strength_lookup))
+            ranker = ChainedRanker(RRFRanker(), ForgettingCurveRanker(_strength_lookup), TopicAffinityRanker())
             self._search_engine = SearchEngine(keyword, semantic, ranker)
         return self._search_engine
 

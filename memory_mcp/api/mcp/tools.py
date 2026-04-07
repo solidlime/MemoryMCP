@@ -187,6 +187,9 @@ def register_tools(mcp: FastMCP) -> None:
           entity_graph      - entity_id(required), depth(default=1)
           entity_add_relation - source_entity(required), target_entity(required),
                                 relation_type(required), memory_key(optional)
+          import_conversation - content=file_path(required). Import user messages from
+                                conversation exports as memories. Supports Claude Code JSONL,
+                                Claude.ai JSON, ChatGPT JSON. Uses content param as file path.
 
         Common parameters:
           operation - str, required. One of the operations listed above.
@@ -445,6 +448,40 @@ def register_tools(mcp: FastMCP) -> None:
                 if result.is_ok
                 else f"Error: {result.error}"
             )
+
+        elif operation == "import_conversation":
+            if not content:
+                return "Error: content (file path) is required for import_conversation"
+            from memory_mcp.migration.importers.convo_importer import parse_conversation_file
+
+            try:
+                messages = parse_conversation_file(content)
+            except (FileNotFoundError, ValueError) as exc:
+                return f"Error: {exc}"
+
+            if not messages:
+                return "No importable messages found in the conversation file."
+
+            imported = 0
+            skipped = 0
+            for msg in messages:
+                res = ctx.memory_service.create_memory(
+                    content=msg.content,
+                    importance=importance or 0.4,
+                    emotion="neutral",
+                    emotion_intensity=0.0,
+                    tags=list(tags or []),
+                    privacy_level=privacy_level or "internal",
+                    source_context="convo_import",
+                )
+                if res.is_ok:
+                    if ctx.vector_store:
+                        ctx.vector_store.upsert(persona, res.value.key, msg.content)
+                    imported += 1
+                else:
+                    skipped += 1
+
+            return f"Conversation imported: {imported} messages stored, {skipped} skipped."
 
         else:
             return f"Unknown operation: {operation}"
