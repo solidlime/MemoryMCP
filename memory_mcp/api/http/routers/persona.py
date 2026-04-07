@@ -168,6 +168,52 @@ def register_persona_routes(mcp) -> None:
             logger.exception("Unexpected error: %s", exc)
             return JSONResponse({"error": "Internal server error"}, status_code=500)
 
+    @mcp.custom_route("/api/import-conversation/{persona}", methods=["POST"])
+    async def import_conversation(request: Request) -> JSONResponse:
+        persona = _resolve_persona_from_request(request)
+        ctx = _safe_get_context(persona)
+        if ctx is None:
+            return JSONResponse({"error": f"Persona '{persona}' not found"}, status_code=404)
+        try:
+            body = await request.json()
+        except Exception:
+            return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
+        file_path = body.get("file_path", "").strip()
+        if not file_path:
+            return JSONResponse({"error": "Field 'file_path' is required"}, status_code=400)
+        try:
+            from memory_mcp.migration.importers.convo_importer import parse_conversation_file
+
+            messages = parse_conversation_file(file_path)
+        except FileNotFoundError:
+            return JSONResponse({"error": f"File not found: {file_path}"}, status_code=404)
+        except ValueError:
+            return JSONResponse({"error": "Unsupported or invalid conversation file format"}, status_code=422)
+        except Exception as exc:
+            logger.exception("Conversation parse error: %s", exc)
+            return JSONResponse({"error": "Failed to parse conversation file"}, status_code=500)
+        if not messages:
+            return JSONResponse({"imported": 0, "skipped": 0, "message": "No importable messages found"})
+        imported = 0
+        skipped = 0
+        for msg in messages:
+            res = ctx.memory_service.create_memory(
+                content=msg.content,
+                importance=0.4,
+                emotion="neutral",
+                emotion_intensity=0.0,
+                tags=[],
+                privacy_level="internal",
+                source_context="convo_import",
+            )
+            if res.is_ok:
+                if ctx.vector_store:
+                    ctx.vector_store.upsert(persona, res.value.key, msg.content)
+                imported += 1
+            else:
+                skipped += 1
+        return JSONResponse({"imported": imported, "skipped": skipped, "message": f"Imported {imported} messages"})
+
     @mcp.custom_route("/api/personas", methods=["POST"])
     async def create_persona(request: Request) -> JSONResponse:
         try:

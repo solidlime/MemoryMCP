@@ -164,6 +164,20 @@ async function loadOverview() {
         const topTags = Object.entries(tagDist).sort((a,b) => b[1]-a[1]).slice(0,5);
         const topEmo = Object.entries(emoDist).sort((a,b) => b[1]-a[1]).slice(0,5);
 
+        // --- Memory Type Distribution (decision/milestone/preference/problem/emotional) ---
+        const MEMORY_TYPES = {
+            'decision':  {color: 'badge-blue',   icon: '🧭'},
+            'milestone': {color: 'badge-green',  icon: '🏆'},
+            'preference':{color: 'badge-purple', icon: '💜'},
+            'problem':   {color: 'badge-red',    icon: '⚠️'},
+            'emotional': {color: 'badge-pink',   icon: '💖'},
+        };
+        const memTypeCounts = {};
+        Object.entries(MEMORY_TYPES).forEach(([k]) => {
+            if (tagDist[k]) memTypeCounts[k] = tagDist[k];
+        });
+        const hasMemTypes = Object.keys(memTypeCounts).length > 0;
+
         // --- Equipment display ---
         const EQUIP_SLOTS = ['top','bottom','shoes','outer','accessories','head'];
         let equipHtml = '<div style="display:grid;gap:6px;margin-top:8px">';
@@ -367,6 +381,7 @@ async function loadOverview() {
                 <div>
                     <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:8px;font-weight:600">Relationship</div>
                     <div style="font-size:0.9rem;color:var(--accent-pink);font-weight:600;margin-bottom:12px">${esc(relStatus)}</div>
+                    ${ctx.last_conversation_time ? `<div style="margin-bottom:12px;display:flex;align-items:center;gap:8px"><span style="font-size:0.78rem;color:var(--text-muted)">🕐 Last session:</span><span class="badge badge-blue">${relativeTime(ctx.last_conversation_time)}</span></div>` : ''}
                     <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:6px;font-weight:600">User Info</div>
                     ${Object.entries(userInfo).length ? Object.entries(userInfo).map(([k,v]) => `<div style="display:flex;gap:8px;padding:4px 0;font-size:0.85rem"><span style="color:var(--text-muted);min-width:120px">${esc(k.replace(/_/g,' '))}</span><span style="color:var(--text-secondary)">${esc(String(v))}</span></div>`).join('') : '<span style="color:var(--text-muted)">No user info</span>'}
                 </div>
@@ -389,6 +404,10 @@ async function loadOverview() {
                 <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:6px">Top Tags</div>
                 <div style="display:flex;flex-wrap:wrap;gap:6px">${topTags.length ? topTags.map(([t,c]) => '<span class="badge badge-purple">' + esc(t) + ' <span style="opacity:0.7">(' + c + ')</span></span>').join('') : '<span style="color:var(--text-muted)">--</span>'}</div>
             </div>
+            ${hasMemTypes ? `<div style="margin-bottom:10px">
+                <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:6px">Memory Types</div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px">${Object.entries(memTypeCounts).map(([t,c]) => '<span class="badge ' + MEMORY_TYPES[t].color + '">' + MEMORY_TYPES[t].icon + ' ' + esc(t) + ' <span style="opacity:0.7">(' + c + ')</span></span>').join('')}</div>
+            </div>` : ''}
             <div>
                 <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:6px">Top Emotions</div>
                 <div style="display:flex;flex-wrap:wrap;gap:6px">${topEmo.length ? topEmo.map(([e,c]) => '<span class="badge badge-pink">' + esc(e) + ' <span style="opacity:0.7">(' + c + ')</span></span>').join('') : '<span style="color:var(--text-muted)">--</span>'}</div>

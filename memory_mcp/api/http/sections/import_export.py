@@ -12,6 +12,17 @@ def render_import_export_tab() -> str:
         <section id="tab-import-export" class="tab-panel" role="tabpanel">
           <div id="import-export-content">
 
+            <!-- Conversation File Import Section -->
+            <div class="glass p-6" style="margin-bottom:24px">
+              <h3 style="font-size:1.2rem;font-weight:600;color:var(--text-primary);margin-bottom:8px">💬 Conversation Import</h3>
+              <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:16px">Import user messages from a conversation export file on the server. Supports Claude Code JSONL, Claude.ai JSON, ChatGPT JSON.</p>
+              <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+                <input id="conv-import-path" type="text" class="glass-input" placeholder="/path/to/conversation.json" style="flex:1;min-width:280px;padding:8px 14px;font-size:0.88rem">
+                <button onclick="importConversation()" class="glass-btn" style="padding:8px 24px;white-space:nowrap">📥 Import</button>
+              </div>
+              <div id="conv-import-result" style="display:none;margin-top:8px;font-size:0.85rem;padding:10px 14px;border-radius:8px;background:rgba(255,255,255,0.04)"></div>
+            </div>
+
             <!-- Import Section -->
             <div class="glass p-6" style="margin-bottom:24px">
               <h3 style="font-size:1.2rem;font-weight:600;color:var(--text-primary);margin-bottom:16px">📥 Import Data</h3>
@@ -68,6 +79,29 @@ def render_import_export_js() -> str:
 
 async function loadImportExport() {
     loadExportPreview();
+}
+
+// --- Conversation File Import ---
+async function importConversation() {
+    var filePath = (document.getElementById('conv-import-path').value || '').trim();
+    var resultEl = document.getElementById('conv-import-result');
+    if (!filePath) { toast('File path is required', 'error'); return; }
+    resultEl.style.display = 'block';
+    resultEl.style.color = 'var(--text-muted)';
+    resultEl.textContent = 'Importing...';
+    try {
+        var resp = await api('/api/import-conversation/' + encodeURIComponent(S.persona), {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({file_path: filePath})
+        });
+        resultEl.style.color = 'var(--accent-green)';
+        resultEl.textContent = '✅ Imported ' + (resp.imported || 0) + ' messages' + (resp.skipped ? ' (' + resp.skipped + ' skipped)' : '') + '.';
+        toast('Conversation imported successfully', 'success');
+    } catch (e) {
+        resultEl.style.color = 'var(--accent-red)';
+        resultEl.textContent = '❌ ' + (e.message || 'Import failed');
+    }
 }
 
 // --- Drag & Drop ---

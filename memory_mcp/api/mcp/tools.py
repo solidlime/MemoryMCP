@@ -83,9 +83,13 @@ def register_tools(mcp: FastMCP) -> None:
             promises_result = ctx.memory_service.get_by_tags(["promise"])
             promises = promises_result.value if promises_result.is_ok else []
 
+            wakeup_time_since = ""
+            if state.last_conversation_time:
+                wakeup_time_since = relative_time_str(state.last_conversation_time)
+
             ctx.persona_service.record_conversation_time(persona)
 
-            return _format_wakeup_response(state, top_memories, goals, promises)
+            return _format_wakeup_response(state, top_memories, goals, promises, wakeup_time_since)
 
         stats_result = ctx.memory_service.get_stats()
         stats = stats_result.value if stats_result.is_ok else {}
@@ -857,6 +861,36 @@ def _resolve_persona() -> str:
     return get_current_persona()
 
 
+def _parse_days_from_relative(time_since: str) -> int:
+    """Parse approximate days from Japanese relative time string like '4日前'."""
+    import re as _re
+
+    if not time_since:
+        return 0
+    m = _re.search(r"(\d+)日", time_since)
+    if m:
+        return int(m.group(1))
+    m = _re.search(r"(\d+)ヶ月", time_since)
+    if m:
+        return int(m.group(1)) * 30
+    m = _re.search(r"(\d+)年", time_since)
+    if m:
+        return int(m.group(1)) * 365
+    return 0
+
+
+def _build_time_comment(time_since: str, relationship_status: str | None) -> str | None:
+    """Build a time gap prompt based on elapsed time and relationship status."""
+    days = _parse_days_from_relative(time_since)
+    if days <= 0:
+        return None
+    if relationship_status and days >= 1:
+        return f"⏳ TIME GAP ({time_since}): Relationship: {relationship_status} — acknowledge the time gap."
+    if days >= 3:
+        return f"⏰ TIME GAP ({time_since}): Time has passed since last conversation."
+    return None
+
+
 def _format_context_response(
     state: PersonaState,
     stats: dict,
@@ -879,6 +913,9 @@ def _format_context_response(
     lines.append(f"=== Persona: {state.persona} ===")
     if time_since:
         lines.append(f"Last conversation: {time_since}")
+        time_comment = _build_time_comment(time_since, state.relationship_status)
+        if time_comment:
+            lines.append(time_comment)
 
     # Active Commitments (memory tag ベース)
     active_goals = [g for g in goals if "active" in (g.tags or [])]
@@ -928,9 +965,7 @@ def _format_context_response(
 
     # Memory gap alert
     if time_since and decayed_count > 0:
-        show_alert = False
-        if "d" in time_since or "w" in time_since or "mo" in time_since or "y" in time_since:
-            show_alert = True
+        show_alert = "日" in time_since or "ヶ月" in time_since or "年" in time_since
         if show_alert:
             lines.append(f"\n⏰ TIME ALERT: {time_since} since last conversation")
             lines.append(f"- {decayed_count} important memories have decayed (strength < 0.3)")
@@ -1068,11 +1103,17 @@ def _format_wakeup_response(
     top_memories: list,
     goals: list,
     promises: list,
+    time_since: str = "",
 ) -> str:
     """Lightweight wake_up context (~300-500 tokens): identity + essential story."""
     lines: list[str] = []
 
     lines.append(f"=== Persona: {state.persona} (wake_up mode) ===")
+    if time_since:
+        lines.append(f"Last conversation: {time_since}")
+        time_comment = _build_time_comment(time_since, state.relationship_status)
+        if time_comment:
+            lines.append(time_comment)
     lines.append(f"Emotion: {state.emotion} (intensity: {state.emotion_intensity})")
     if state.speech_style:
         lines.append(f"Speech Style: {state.speech_style}")
