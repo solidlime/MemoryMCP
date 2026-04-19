@@ -34,3 +34,7 @@ mypy>=1.9
 
 # Benchmarking
 pytest-benchmark>=4.0
+
+# LLM Providers (Chat feature)
+anthropic>=0.40.0
+openai>=1.50.0

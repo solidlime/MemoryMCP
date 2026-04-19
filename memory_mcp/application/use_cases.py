@@ -66,6 +66,10 @@ class AppContext:
         self.connection = SQLiteConnection(settings.data_dir, persona)
         self.connection.initialize_schema()
 
+        # Run pending schema migrations
+        from memory_mcp.migration.engine import MigrationEngine
+        MigrationEngine(self.connection).run_all()
+
         # Repositories
         self.memory_repo = SQLiteMemoryRepository(self.connection)
         self.persona_repo = SQLitePersonaRepository(self.connection)

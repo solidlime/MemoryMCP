@@ -1,0 +1,120 @@
+from __future__ import annotations
+
+import json
+from collections.abc import AsyncIterator
+
+from .base import ChatEvent, DoneEvent, ErrorEvent, LLMMessage, LLMProvider, TextDeltaEvent, ToolCallEvent, ToolDefinition
+
+
+class AnthropicProvider(LLMProvider):
+    def __init__(self, api_key: str, model: str = "claude-opus-4-5") -> None:
+        try:
+            import anthropic
+            self._anthropic = anthropic
+            self._client = anthropic.AsyncAnthropic(api_key=api_key)
+        except ImportError as e:
+            raise ImportError("anthropic package required: pip install anthropic") from e
+        self.model = model
+
+    def _to_api_messages(self, messages: list[LLMMessage]) -> list[dict]:
+        result = []
+        for msg in messages:
+            content = msg.content
+            if msg.time_label:
+                content = f"[{msg.time_label}] {content}"
+
+            if msg.role == "assistant" and msg.tool_calls:
+                content_blocks: list[dict] = []
+                if content.strip():
+                    content_blocks.append({"type": "text", "text": content})
+                for tc in msg.tool_calls:
+                    content_blocks.append({
+                        "type": "tool_use",
+                        "id": tc["id"],
+                        "name": tc["name"],
+                        "input": tc["input"],
+                    })
+                result.append({"role": "assistant", "content": content_blocks})
+            elif msg.role == "tool":
+                result.append({
+                    "role": "user",
+                    "content": [{
+                        "type": "tool_result",
+                        "tool_use_id": msg.tool_call_id,
+                        "content": content,
+                    }],
+                })
+            else:
+                result.append({"role": msg.role, "content": content})
+        return result
+
+    async def stream(
+        self,
+        messages: list[LLMMessage],
+        system: str,
+        tools: list[ToolDefinition] | None = None,
+        temperature: float = 0.7,
+        max_tokens: int = 2048,
+    ) -> AsyncIterator[ChatEvent]:
+        anthropic_tools = []
+        if tools:
+            for t in tools:
+                anthropic_tools.append({
+                    "name": t.name,
+                    "description": t.description,
+                    "input_schema": t.input_schema,
+                })
+
+        api_messages = self._to_api_messages(messages)
+
+        try:
+            kwargs: dict = {
+                "model": self.model,
+                "max_tokens": max_tokens,
+                "system": system,
+                "messages": api_messages,
+                "temperature": temperature,
+            }
+            if anthropic_tools:
+                kwargs["tools"] = anthropic_tools
+
+            full_text = ""
+            tool_calls_collected: list[ToolCallEvent] = []
+            current_tool: dict | None = None
+
+            async with self._client.messages.stream(**kwargs) as stream:
+                async for event in stream:
+                    event_type = getattr(event, "type", None)
+
+                    if event_type == "content_block_start":
+                        block = event.content_block
+                        if block.type == "tool_use":
+                            current_tool = {"id": block.id, "name": block.name, "input_json": ""}
+
+                    elif event_type == "content_block_delta":
+                        delta = event.delta
+                        if delta.type == "text_delta":
+                            full_text += delta.text
+                            yield TextDeltaEvent(content=delta.text)
+                        elif delta.type == "input_json_delta" and current_tool:
+                            current_tool["input_json"] += delta.partial_json
+
+                    elif event_type == "content_block_stop":
+                        if current_tool:
+                            try:
+                                input_data = json.loads(current_tool["input_json"]) if current_tool["input_json"] else {}
+                            except json.JSONDecodeError:
+                                input_data = {}
+                            tc = ToolCallEvent(
+                                tool_name=current_tool["name"],
+                                tool_input=input_data,
+                                tool_use_id=current_tool["id"],
+                            )
+                            tool_calls_collected.append(tc)
+                            yield tc
+                            current_tool = None
+
+            yield DoneEvent(full_content=full_text, tool_calls=tool_calls_collected)
+
+        except Exception as e:
+            yield ErrorEvent(message=str(e))

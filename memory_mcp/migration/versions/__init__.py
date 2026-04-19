@@ -21,6 +21,7 @@ from memory_mcp.migration.versions.v008_add_persona_to_goals_promises import (
 from memory_mcp.migration.versions.v009_goals_promises_to_memories import (
     upgrade as v009_upgrade,
 )
+from memory_mcp.migration.versions.v010_chat_settings import upgrade as v010_upgrade
 
 ALL_MIGRATIONS: list[tuple[str, str, object]] = [
     ("001", "Initial schema", v001_upgrade),
@@ -32,4 +33,5 @@ ALL_MIGRATIONS: list[tuple[str, str, object]] = [
     ("007", "Add performance indexes", v007_upgrade),
     ("008", "Add persona column to goals and promises tables", v008_upgrade),
     ("009", "Migrate goals/promises tables to memory tags", v009_upgrade),
+    ("010", "Add chat_settings table", v010_upgrade),
 ]

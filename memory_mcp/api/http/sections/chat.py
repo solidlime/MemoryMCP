@@ -1,0 +1,517 @@
+"""Chat tab section for the MemoryMCP Dashboard.
+
+Renders a fully-functional chat interface with SSE streaming,
+tool call visualization, and an inline settings panel.
+"""
+
+
+def render_chat_tab() -> str:
+    """Return the HTML for the Chat tab."""
+    return """
+        <style>
+        /* ── Chat tab styles ── */
+        #chat-layout { display: flex; gap: 16px; height: calc(100vh - 200px); min-height: 500px; }
+        #chat-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+        #chat-messages {
+            flex: 1; overflow-y: auto; padding: 16px; display: flex;
+            flex-direction: column; gap: 12px;
+        }
+        #chat-input-area {
+            padding: 12px 16px; border-top: 1px solid var(--glass-border);
+            display: flex; gap: 10px; align-items: flex-end;
+        }
+        #chat-input {
+            flex: 1; background: rgba(255,255,255,0.06); border: 1px solid var(--glass-border);
+            border-radius: 12px; padding: 12px 14px; color: var(--text-primary);
+            font-size: 0.9rem; resize: none; min-height: 44px; max-height: 160px;
+            font-family: inherit; outline: none; line-height: 1.5;
+            transition: border-color 0.2s;
+        }
+        #chat-input:focus { border-color: var(--accent-purple); }
+        #chat-input::placeholder { color: var(--text-muted); }
+        #chat-send-btn {
+            padding: 10px 20px; border-radius: 12px;
+            background: linear-gradient(135deg, var(--accent-purple), #7c3aed);
+            border: none; color: white; font-size: 0.9rem; cursor: pointer;
+            font-weight: 600; transition: all 0.2s; white-space: nowrap;
+            align-self: flex-end;
+        }
+        #chat-send-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(167,139,250,0.4); }
+        #chat-send-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .chat-msg { display: flex; flex-direction: column; gap: 4px; max-width: 85%; animation: fadeInUp 0.25s ease; }
+        .chat-msg.user { align-self: flex-end; align-items: flex-end; }
+        .chat-msg.assistant { align-self: flex-start; align-items: flex-start; }
+        .chat-bubble {
+            padding: 10px 14px; border-radius: 14px; font-size: 0.9rem; line-height: 1.6;
+            white-space: pre-wrap; word-break: break-word;
+        }
+        .chat-msg.user .chat-bubble {
+            background: linear-gradient(135deg, rgba(167,139,250,0.25), rgba(124,58,237,0.2));
+            border: 1px solid rgba(167,139,250,0.3); color: var(--text-primary);
+            border-bottom-right-radius: 4px;
+        }
+        .chat-msg.assistant .chat-bubble {
+            background: var(--glass-bg); border: 1px solid var(--glass-border);
+            color: var(--text-secondary); border-bottom-left-radius: 4px;
+        }
+        .chat-time { font-size: 0.72rem; color: var(--text-muted); padding: 0 4px; }
+        .chat-tool-call {
+            font-size: 0.78rem; padding: 6px 10px; border-radius: 8px;
+            background: rgba(96,165,250,0.1); border: 1px solid rgba(96,165,250,0.2);
+            color: var(--accent-blue); margin: 4px 0;
+        }
+        .chat-tool-result {
+            font-size: 0.78rem; padding: 6px 10px; border-radius: 8px;
+            background: rgba(52,211,153,0.08); border: 1px solid rgba(52,211,153,0.2);
+            color: var(--accent-green); margin: 4px 0;
+        }
+        .chat-typing { display: flex; gap: 4px; align-items: center; padding: 10px 14px; }
+        .chat-typing span {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: var(--accent-purple); animation: typingDot 1.2s ease-in-out infinite;
+        }
+        .chat-typing span:nth-child(2) { animation-delay: 0.2s; }
+        .chat-typing span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typingDot { 0%,80%,100%{transform:scale(0.7);opacity:0.4} 40%{transform:scale(1);opacity:1} }
+        /* Settings sidebar */
+        #chat-sidebar {
+            width: 280px; flex-shrink: 0; display: flex; flex-direction: column; gap: 12px;
+            overflow-y: auto;
+        }
+        #chat-sidebar.collapsed { width: 0; overflow: hidden; }
+        .chat-sidebar-toggle {
+            position: absolute; right: 16px; top: 8px;
+            background: none; border: 1px solid var(--glass-border);
+            border-radius: 8px; color: var(--text-muted); padding: 4px 10px;
+            cursor: pointer; font-size: 0.78rem; transition: all 0.2s;
+        }
+        .chat-sidebar-toggle:hover { color: var(--text-primary); background: var(--glass-bg); }
+        .chat-field-label { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 4px; }
+        .chat-field-input {
+            width: 100%; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border);
+            border-radius: 8px; padding: 8px 10px; color: var(--text-primary);
+            font-size: 0.85rem; font-family: inherit; outline: none; transition: border-color 0.2s;
+        }
+        .chat-field-input:focus { border-color: var(--accent-purple); }
+        .chat-field-input option { background: #1a0533; }
+        .chat-save-btn {
+            width: 100%; padding: 8px; border-radius: 8px;
+            background: rgba(167,139,250,0.15); border: 1px solid rgba(167,139,250,0.3);
+            color: var(--accent-purple); cursor: pointer; font-size: 0.85rem; font-weight: 600;
+            transition: all 0.2s;
+        }
+        .chat-save-btn:hover { background: rgba(167,139,250,0.25); }
+        .chat-clear-btn {
+            width: 100%; padding: 7px; border-radius: 8px;
+            background: rgba(248,113,113,0.08); border: 1px solid rgba(248,113,113,0.2);
+            color: var(--accent-red); cursor: pointer; font-size: 0.82rem;
+            transition: all 0.2s;
+        }
+        .chat-clear-btn:hover { background: rgba(248,113,113,0.15); }
+        #chat-status { font-size: 0.75rem; color: var(--text-muted); padding: 4px 16px; min-height: 20px; }
+        .chat-welcome {
+            flex: 1; display: flex; flex-direction: column; align-items: center;
+            justify-content: center; gap: 12px; color: var(--text-muted); text-align: center;
+            padding: 40px;
+        }
+        .chat-welcome-icon { font-size: 3rem; opacity: 0.5; }
+        .chat-welcome p { font-size: 0.9rem; max-width: 300px; }
+        @media (max-width: 768px) {
+            #chat-layout { flex-direction: column; height: auto; }
+            #chat-messages { min-height: 350px; max-height: 50vh; }
+            #chat-sidebar { width: 100% !important; }
+        }
+        </style>
+        <!-- ========== CHAT TAB ========== -->
+        <section id="tab-chat" class="tab-panel" role="tabpanel">
+            <div style="position:relative; margin-bottom:12px; display:flex; align-items:center; justify-content:space-between;">
+                <h2 style="font-size:1.1rem; font-weight:600; color:var(--text-primary);">💬 Chat</h2>
+                <button class="chat-sidebar-toggle" onclick="toggleChatSidebar()" id="chat-sidebar-toggle-btn" title="設定パネルを開閉">⚙️ 設定</button>
+            </div>
+            <div id="chat-layout" class="glass" style="padding:0; overflow:hidden;">
+                <!-- Chat area -->
+                <div id="chat-main">
+                    <div id="chat-messages">
+                        <div class="chat-welcome" id="chat-welcome">
+                            <div class="chat-welcome-icon">💬</div>
+                            <p>チャットを開始するには下のテキストボックスにメッセージを入力してください。</p>
+                            <p style="font-size:0.78rem; opacity:0.7;">右の設定パネルでAPIキーとプロバイダーを設定してください。</p>
+                        </div>
+                    </div>
+                    <div id="chat-status"></div>
+                    <div id="chat-input-area">
+                        <textarea id="chat-input" placeholder="メッセージを入力... (Shift+Enter で改行、Enter で送信)" rows="1"></textarea>
+                        <button id="chat-send-btn" onclick="chatSend()">送信 ↑</button>
+                    </div>
+                </div>
+                <!-- Settings sidebar -->
+                <div id="chat-sidebar" class="glass" style="margin:0; border-radius:0; border-left:1px solid var(--glass-border); padding:16px; gap:12px; display:flex; flex-direction:column;">
+                    <div style="font-size:0.85rem; font-weight:600; color:var(--text-primary); margin-bottom:4px;">⚙️ チャット設定</div>
+                    <!-- Provider -->
+                    <div>
+                        <div class="chat-field-label">プロバイダー</div>
+                        <select id="chat-provider" class="chat-field-input" onchange="onChatProviderChange()">
+                            <option value="anthropic">Anthropic (Claude)</option>
+                            <option value="openai">OpenAI</option>
+                            <option value="openrouter">OpenRouter</option>
+                        </select>
+                    </div>
+                    <!-- Model -->
+                    <div>
+                        <div class="chat-field-label">モデル <span style="color:var(--accent-blue);font-size:0.7rem;">（空白でデフォルト）</span></div>
+                        <input type="text" id="chat-model" class="chat-field-input" placeholder="例: claude-opus-4-5" />
+                    </div>
+                    <!-- API Key -->
+                    <div>
+                        <div class="chat-field-label">APIキー</div>
+                        <input type="password" id="chat-api-key" class="chat-field-input" placeholder="sk-..." autocomplete="off" />
+                    </div>
+                    <!-- Base URL (OpenRouter / Custom) -->
+                    <div id="chat-base-url-row">
+                        <div class="chat-field-label">Base URL <span style="color:var(--text-muted);font-size:0.7rem;">（任意）</span></div>
+                        <input type="text" id="chat-base-url" class="chat-field-input" placeholder="https://openrouter.ai/api/v1" />
+                    </div>
+                    <!-- Temperature -->
+                    <div>
+                        <div class="chat-field-label" style="display:flex;justify-content:space-between;">
+                            <span>Temperature</span>
+                            <span id="chat-temp-val" style="color:var(--accent-purple);">0.7</span>
+                        </div>
+                        <input type="range" id="chat-temperature" min="0" max="2" step="0.05" value="0.7"
+                            oninput="document.getElementById('chat-temp-val').textContent=parseFloat(this.value).toFixed(2)"
+                            style="width:100%;accent-color:var(--accent-purple);" />
+                    </div>
+                    <!-- Max tokens -->
+                    <div>
+                        <div class="chat-field-label">Max Tokens</div>
+                        <input type="number" id="chat-max-tokens" class="chat-field-input" min="1" max="32768" value="2048" />
+                    </div>
+                    <!-- Context window turns -->
+                    <div>
+                        <div class="chat-field-label">コンテキスト履歴 (turns)</div>
+                        <input type="number" id="chat-window-turns" class="chat-field-input" min="1" max="50" value="3" />
+                    </div>
+                    <!-- System prompt -->
+                    <div style="flex:1; display:flex; flex-direction:column; min-height:80px;">
+                        <div class="chat-field-label">システムプロンプト</div>
+                        <textarea id="chat-system-prompt" class="chat-field-input" rows="4"
+                            placeholder="（空白でデフォルト: ペルソナ名のアシスタント）"
+                            style="flex:1;resize:vertical;min-height:70px;"></textarea>
+                    </div>
+                    <!-- Buttons -->
+                    <button class="chat-save-btn" onclick="saveChatConfig()">💾 設定を保存</button>
+                    <button class="chat-clear-btn" onclick="clearChatHistory()">🗑️ 会話をリセット</button>
+                    <!-- Config status -->
+                    <div id="chat-config-status" style="font-size:0.75rem; text-align:center; min-height:16px;"></div>
+                </div>
+            </div>
+        </section>"""
+
+
+def render_chat_js() -> str:
+    """Return the JavaScript for the chat tab."""
+    return r"""
+/* =================================================================
+   CHAT TAB
+   ================================================================= */
+const CHAT = {
+    streaming: false,
+    sidebarOpen: true,
+    messages: [],  // { role, content, time }
+};
+
+function loadChat() {
+    if (!S.persona) return;
+    loadChatConfig();
+}
+
+async function loadChatConfig() {
+    try {
+        const cfg = await api('/api/chat/' + encodeURIComponent(S.persona) + '/config');
+        applyChatConfig(cfg);
+    } catch (e) {
+        document.getElementById('chat-config-status').textContent = '設定読込失敗: ' + e.message;
+    }
+}
+
+function applyChatConfig(cfg) {
+    if (!cfg) return;
+    const set = (id, v) => { const el = document.getElementById(id); if (el && v !== undefined && v !== null) el.value = v; };
+    set('chat-provider', cfg.provider);
+    set('chat-model', cfg.model || '');
+    set('chat-api-key', cfg.api_key || '');
+    set('chat-base-url', cfg.base_url || '');
+    set('chat-temperature', cfg.temperature != null ? cfg.temperature : 0.7);
+    set('chat-max-tokens', cfg.max_tokens || 2048);
+    set('chat-window-turns', cfg.max_window_turns || 3);
+    set('chat-system-prompt', cfg.system_prompt || '');
+    const tempEl = document.getElementById('chat-temp-val');
+    if (tempEl) tempEl.textContent = parseFloat(cfg.temperature || 0.7).toFixed(2);
+    onChatProviderChange();
+    const statusEl = document.getElementById('chat-config-status');
+    if (statusEl) {
+        if (cfg.is_configured) {
+            statusEl.innerHTML = '<span style="color:var(--accent-green)">✓ APIキー設定済み</span>';
+        } else {
+            statusEl.innerHTML = '<span style="color:var(--accent-yellow)">⚠ APIキー未設定</span>';
+        }
+    }
+}
+
+function onChatProviderChange() {
+    const provider = document.getElementById('chat-provider').value;
+    const baseUrlRow = document.getElementById('chat-base-url-row');
+    if (baseUrlRow) {
+        baseUrlRow.style.display = (provider === 'openrouter' || provider === 'openai') ? '' : 'none';
+    }
+}
+
+async function saveChatConfig() {
+    if (!S.persona) { toast('ペルソナを選択してください', 'error'); return; }
+    const apiKeyEl = document.getElementById('chat-api-key');
+    const apiKeyVal = apiKeyEl ? apiKeyEl.value.trim() : '';
+    const payload = {
+        provider: document.getElementById('chat-provider').value,
+        model: document.getElementById('chat-model').value.trim(),
+        api_key: apiKeyVal,
+        base_url: document.getElementById('chat-base-url').value.trim(),
+        temperature: parseFloat(document.getElementById('chat-temperature').value),
+        max_tokens: parseInt(document.getElementById('chat-max-tokens').value),
+        max_window_turns: parseInt(document.getElementById('chat-window-turns').value),
+        system_prompt: document.getElementById('chat-system-prompt').value.trim(),
+    };
+    try {
+        const cfg = await api('/api/chat/' + encodeURIComponent(S.persona) + '/config', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        });
+        applyChatConfig(cfg);
+        toast('チャット設定を保存しました', 'success');
+    } catch (e) {
+        toast('保存失敗: ' + e.message, 'error');
+    }
+}
+
+function toggleChatSidebar() {
+    const sidebar = document.getElementById('chat-sidebar');
+    const btn = document.getElementById('chat-sidebar-toggle-btn');
+    CHAT.sidebarOpen = !CHAT.sidebarOpen;
+    if (CHAT.sidebarOpen) {
+        sidebar.style.width = '280px';
+        sidebar.style.overflow = 'auto';
+        sidebar.style.display = 'flex';
+        if (btn) btn.textContent = '⚙️ 設定';
+    } else {
+        sidebar.style.width = '0';
+        sidebar.style.overflow = 'hidden';
+        sidebar.style.padding = '0';
+        if (btn) btn.textContent = '⚙️';
+    }
+}
+
+function clearChatHistory() {
+    CHAT.messages = [];
+    const container = document.getElementById('chat-messages');
+    container.innerHTML = `
+        <div class="chat-welcome" id="chat-welcome">
+            <div class="chat-welcome-icon">💬</div>
+            <p>チャットを開始するには下のテキストボックスにメッセージを入力してください。</p>
+        </div>`;
+    // Generate a new session ID
+    const newSession = 'sess_' + Date.now();
+    localStorage.setItem('chat_session_id', newSession);
+    document.getElementById('chat-status').textContent = '会話をリセットしました';
+    setTimeout(() => { document.getElementById('chat-status').textContent = ''; }, 2000);
+}
+
+function getChatSessionId() {
+    let sid = localStorage.getItem('chat_session_id');
+    if (!sid) {
+        sid = 'sess_' + Date.now();
+        localStorage.setItem('chat_session_id', sid);
+    }
+    return sid;
+}
+
+function appendChatMessage(role, content, timeStr) {
+    const container = document.getElementById('chat-messages');
+    // Remove welcome message if present
+    const welcome = container.querySelector('.chat-welcome');
+    if (welcome) welcome.remove();
+
+    const div = document.createElement('div');
+    div.className = 'chat-msg ' + role;
+    div.innerHTML =
+        '<div class="chat-bubble">' + esc(content) + '</div>' +
+        '<div class="chat-time">' + (timeStr || new Date().toLocaleTimeString('ja-JP', {hour:'2-digit',minute:'2-digit'})) + '</div>';
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+    return div;
+}
+
+function appendToolEvent(eventType, data) {
+    const container = document.getElementById('chat-messages');
+    const div = document.createElement('div');
+    if (eventType === 'tool_call') {
+        div.className = 'chat-tool-call';
+        div.innerHTML = '🔧 <strong>' + esc(data.name) + '</strong>: ' + esc(JSON.stringify(data.input).slice(0, 120));
+    } else if (eventType === 'tool_result') {
+        div.className = 'chat-tool-result';
+        const resultStr = typeof data.result === 'object' ? JSON.stringify(data.result) : String(data.result);
+        div.innerHTML = '✓ <strong>' + esc(data.name) + '</strong>: ' + esc(resultStr.slice(0, 120));
+    }
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+    return div;
+}
+
+function showTypingIndicator() {
+    const container = document.getElementById('chat-messages');
+    const typing = document.createElement('div');
+    typing.id = 'chat-typing';
+    typing.className = 'chat-msg assistant';
+    typing.innerHTML = '<div class="chat-bubble chat-typing"><span></span><span></span><span></span></div>';
+    container.appendChild(typing);
+    container.scrollTop = container.scrollHeight;
+}
+
+function removeTypingIndicator() {
+    const el = document.getElementById('chat-typing');
+    if (el) el.remove();
+}
+
+async function chatSend() {
+    if (!S.persona) { toast('ペルソナを選択してください', 'error'); return; }
+    if (CHAT.streaming) return;
+
+    const inputEl = document.getElementById('chat-input');
+    const message = inputEl.value.trim();
+    if (!message) return;
+
+    inputEl.value = '';
+    inputEl.style.height = 'auto';
+
+    const sendBtn = document.getElementById('chat-send-btn');
+    const statusEl = document.getElementById('chat-status');
+
+    // Show user message
+    const timeStr = new Date().toLocaleTimeString('ja-JP', {hour:'2-digit',minute:'2-digit'});
+    appendChatMessage('user', message, timeStr);
+    showTypingIndicator();
+
+    CHAT.streaming = true;
+    sendBtn.disabled = true;
+    statusEl.textContent = '応答中...';
+
+    const sessionId = getChatSessionId();
+
+    try {
+        const response = await fetch('/api/chat/' + encodeURIComponent(S.persona), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message, session_id: sessionId }),
+        });
+
+        if (!response.ok) {
+            throw new Error('HTTP ' + response.status);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let assistantText = '';
+        let assistantBubble = null;
+        let assistantDiv = null;
+
+        removeTypingIndicator();
+
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+
+            const lines = buffer.split('\n');
+            buffer = lines.pop();  // keep incomplete line
+
+            for (const line of lines) {
+                if (!line.startsWith('data: ')) continue;
+                let evt;
+                try { evt = JSON.parse(line.slice(6)); } catch { continue; }
+
+                if (evt.type === 'text_delta') {
+                    if (!assistantDiv) {
+                        const container = document.getElementById('chat-messages');
+                        assistantDiv = document.createElement('div');
+                        assistantDiv.className = 'chat-msg assistant';
+                        assistantBubble = document.createElement('div');
+                        assistantBubble.className = 'chat-bubble';
+                        const timeDiv = document.createElement('div');
+                        timeDiv.className = 'chat-time';
+                        timeDiv.textContent = new Date().toLocaleTimeString('ja-JP', {hour:'2-digit',minute:'2-digit'});
+                        assistantDiv.appendChild(assistantBubble);
+                        assistantDiv.appendChild(timeDiv);
+                        container.appendChild(assistantDiv);
+                    }
+                    assistantText += evt.content;
+                    assistantBubble.textContent = assistantText;
+                    document.getElementById('chat-messages').scrollTop = document.getElementById('chat-messages').scrollHeight;
+
+                } else if (evt.type === 'tool_call') {
+                    appendToolEvent('tool_call', evt);
+                    statusEl.textContent = '🔧 ' + evt.name + ' を実行中...';
+
+                } else if (evt.type === 'tool_result') {
+                    appendToolEvent('tool_result', evt);
+                    statusEl.textContent = '応答中...';
+
+                } else if (evt.type === 'error') {
+                    removeTypingIndicator();
+                    toast('エラー: ' + evt.message, 'error');
+                    statusEl.textContent = '';
+
+                } else if (evt.type === 'done') {
+                    statusEl.textContent = '';
+                }
+            }
+        }
+
+    } catch (e) {
+        removeTypingIndicator();
+        toast('送信失敗: ' + e.message, 'error');
+        statusEl.textContent = '';
+    } finally {
+        CHAT.streaming = false;
+        sendBtn.disabled = false;
+        inputEl.focus();
+    }
+}
+
+// Chat input auto-resize and keyboard handler
+document.addEventListener('DOMContentLoaded', () => {
+    const input = document.getElementById('chat-input');
+    if (!input) return;
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            chatSend();
+        }
+    });
+    input.addEventListener('input', () => {
+        input.style.height = 'auto';
+        input.style.height = Math.min(input.scrollHeight, 160) + 'px';
+    });
+});
+
+// Reload chat config when persona changes
+const _origPersonaChange = document.getElementById('persona-select') ? document.getElementById('persona-select').onchange : null;
+window.__chatPersonaWatcher = setInterval(() => {
+    const sel = document.getElementById('persona-select');
+    if (!sel) return;
+    if (!sel._chatBound) {
+        sel._chatBound = true;
+        sel.addEventListener('change', () => {
+            if (S.tab === 'chat') loadChatConfig();
+        });
+    }
+}, 500);
+"""
