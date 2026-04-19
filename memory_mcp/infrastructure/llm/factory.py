@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from .anthropic import AnthropicProvider
-from .base import LLMProvider
 from .openai_compat import OpenAICompatProvider
+
+if TYPE_CHECKING:
+    from .base import LLMProvider
 
 
 def get_provider(provider: str, api_key: str, model: str, base_url: str = "") -> LLMProvider:

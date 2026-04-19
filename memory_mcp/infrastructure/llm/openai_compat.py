@@ -1,9 +1,21 @@
 from __future__ import annotations
 
 import json
-from collections.abc import AsyncIterator
+from typing import TYPE_CHECKING
 
-from .base import ChatEvent, DoneEvent, ErrorEvent, LLMMessage, LLMProvider, TextDeltaEvent, ToolCallEvent, ToolDefinition
+from .base import (
+    ChatEvent,
+    DoneEvent,
+    ErrorEvent,
+    LLMMessage,
+    LLMProvider,
+    TextDeltaEvent,
+    ToolCallEvent,
+    ToolDefinition,
+)
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
 
 _OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 _OPENAI_BASE_URL = "https://api.openai.com/v1"
@@ -15,6 +27,7 @@ class OpenAICompatProvider(LLMProvider):
     def __init__(self, api_key: str, model: str = "gpt-4o", base_url: str | None = None) -> None:
         try:
             from openai import AsyncOpenAI
+
             self._client = AsyncOpenAI(
                 api_key=api_key,
                 base_url=base_url or _OPENAI_BASE_URL,
@@ -33,25 +46,31 @@ class OpenAICompatProvider(LLMProvider):
             if msg.role == "assistant" and msg.tool_calls:
                 tool_calls_data = []
                 for tc in msg.tool_calls:
-                    tool_calls_data.append({
-                        "id": tc["id"],
-                        "type": "function",
-                        "function": {
-                            "name": tc["name"],
-                            "arguments": json.dumps(tc["input"], ensure_ascii=False),
-                        },
-                    })
-                result.append({
-                    "role": "assistant",
-                    "content": content or None,
-                    "tool_calls": tool_calls_data,
-                })
+                    tool_calls_data.append(
+                        {
+                            "id": tc["id"],
+                            "type": "function",
+                            "function": {
+                                "name": tc["name"],
+                                "arguments": json.dumps(tc["input"], ensure_ascii=False),
+                            },
+                        }
+                    )
+                result.append(
+                    {
+                        "role": "assistant",
+                        "content": content or None,
+                        "tool_calls": tool_calls_data,
+                    }
+                )
             elif msg.role == "tool":
-                result.append({
-                    "role": "tool",
-                    "tool_call_id": msg.tool_call_id,
-                    "content": content,
-                })
+                result.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": msg.tool_call_id,
+                        "content": content,
+                    }
+                )
             else:
                 result.append({"role": msg.role, "content": content})
         return result
@@ -67,14 +86,16 @@ class OpenAICompatProvider(LLMProvider):
         openai_tools = []
         if tools:
             for t in tools:
-                openai_tools.append({
-                    "type": "function",
-                    "function": {
-                        "name": t.name,
-                        "description": t.description,
-                        "parameters": t.input_schema,
-                    },
-                })
+                openai_tools.append(
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": t.name,
+                            "description": t.description,
+                            "parameters": t.input_schema,
+                        },
+                    }
+                )
 
         api_messages = [{"role": "system", "content": system}] + self._to_api_messages(messages)
 

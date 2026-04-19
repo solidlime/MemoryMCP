@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+    from datetime import datetime
 
 
 @dataclass
@@ -63,5 +65,4 @@ class LLMProvider(ABC):
         tools: list[ToolDefinition] | None = None,
         temperature: float = 0.7,
         max_tokens: int = 2048,
-    ) -> AsyncIterator[ChatEvent]:
-        ...
+    ) -> AsyncIterator[ChatEvent]: ...

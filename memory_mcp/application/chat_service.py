@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import json
 from collections import OrderedDict, deque
-from collections.abc import AsyncIterator
-from datetime import datetime
 from typing import TYPE_CHECKING
 
 from memory_mcp.domain.shared.time_utils import get_now, relative_time_str
@@ -12,6 +10,9 @@ from memory_mcp.infrastructure.llm.factory import get_provider
 from memory_mcp.infrastructure.logging.structured import get_logger
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+    from datetime import datetime
+
     from memory_mcp.application.use_cases import AppContext
     from memory_mcp.domain.chat_config import ChatConfig
 
@@ -27,7 +28,11 @@ MEMORY_TOOLS = [
                 "content": {"type": "string", "description": "記憶の内容"},
                 "importance": {"type": "number", "description": "重要度 0.0〜1.0", "default": 0.6},
                 "tags": {"type": "array", "items": {"type": "string"}, "description": "タグリスト"},
-                "emotion_type": {"type": "string", "description": "感情タイプ（joy/sadness/anger/fear/neutral等）", "default": "neutral"},
+                "emotion_type": {
+                    "type": "string",
+                    "description": "感情タイプ（joy/sadness/anger/fear/neutral等）",
+                    "default": "neutral",
+                },
             },
             "required": ["content"],
         },
@@ -73,14 +78,16 @@ class SessionWindow:
         if now is None:
             now = get_now()
         result = []
-        for msg, ts in zip(self._messages, self._timestamps):
+        for msg, ts in zip(self._messages, self._timestamps, strict=False):
             label = relative_time_str(ts, now)
-            result.append(LLMMessage(
-                role=msg["role"],
-                content=msg["content"],
-                timestamp=ts,
-                time_label=label,
-            ))
+            result.append(
+                LLMMessage(
+                    role=msg["role"],
+                    content=msg["content"],
+                    timestamp=ts,
+                    time_label=label,
+                )
+            )
         return result
 
     def __len__(self) -> int:
@@ -113,8 +120,8 @@ _session_manager = SessionManager()
 class ChatService:
     async def chat(
         self,
-        ctx: "AppContext",
-        config: "ChatConfig",
+        ctx: AppContext,
+        config: ChatConfig,
         session_id: str,
         user_message: str,
     ) -> AsyncIterator[str]:
@@ -208,24 +215,28 @@ class ChatService:
             if not pending_tool_calls:
                 break
 
-            messages.append(LLMMessage(
-                role="assistant",
-                content=current_text,
-                tool_calls=[
-                    {"id": tc.tool_use_id, "name": tc.tool_name, "input": tc.tool_input}
-                    for tc in pending_tool_calls
-                ],
-            ))
+            messages.append(
+                LLMMessage(
+                    role="assistant",
+                    content=current_text,
+                    tool_calls=[
+                        {"id": tc.tool_use_id, "name": tc.tool_name, "input": tc.tool_input}
+                        for tc in pending_tool_calls
+                    ],
+                )
+            )
 
             for tc in pending_tool_calls:
                 yield _sse("tool_call", {"name": tc.tool_name, "input": tc.tool_input, "id": tc.tool_use_id})
                 tool_result = await _execute_tool(ctx, tc.tool_name, tc.tool_input)
                 yield _sse("tool_result", {"name": tc.tool_name, "result": tool_result, "id": tc.tool_use_id})
-                messages.append(LLMMessage(
-                    role="tool",
-                    content=json.dumps(tool_result, ensure_ascii=False),
-                    tool_call_id=tc.tool_use_id,
-                ))
+                messages.append(
+                    LLMMessage(
+                        role="tool",
+                        content=json.dumps(tool_result, ensure_ascii=False),
+                        tool_call_id=tc.tool_use_id,
+                    )
+                )
 
             tool_call_count += 1
 
@@ -250,7 +261,7 @@ def _format_state_summary(state) -> str:
     return "\n".join(parts)
 
 
-async def _execute_tool(ctx: "AppContext", tool_name: str, tool_input: dict) -> dict:
+async def _execute_tool(ctx: AppContext, tool_name: str, tool_input: dict) -> dict:
     try:
         if tool_name == "memory_create":
             result = ctx.memory_service.create_memory(
@@ -271,11 +282,13 @@ async def _execute_tool(ctx: "AppContext", tool_name: str, tool_input: dict) -> 
                 items = []
                 for item in result.value:
                     mem = item[0] if isinstance(item, tuple) else item
-                    items.append({
-                        "content": getattr(mem, "content", str(mem)),
-                        "importance": getattr(mem, "importance", 0.5),
-                        "tags": getattr(mem, "tags", []),
-                    })
+                    items.append(
+                        {
+                            "content": getattr(mem, "content", str(mem)),
+                            "importance": getattr(mem, "importance", 0.5),
+                            "tags": getattr(mem, "tags", []),
+                        }
+                    )
                 return {"status": "ok", "memories": items}
             return {"status": "error", "message": str(result.error)}
 
@@ -295,9 +308,7 @@ async def _execute_tool(ctx: "AppContext", tool_name: str, tool_input: dict) -> 
                         update_kwargs.get("emotion_intensity", 0.5),
                     )
                 if "mental_state" in update_kwargs:
-                    ctx.persona_service.update_physical_state(
-                        ctx.persona, mental_state=update_kwargs["mental_state"]
-                    )
+                    ctx.persona_service.update_physical_state(ctx.persona, mental_state=update_kwargs["mental_state"])
             return {"status": "ok"}
 
         else:

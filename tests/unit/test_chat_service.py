@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -9,10 +9,10 @@ from memory_mcp.application.chat_service import SessionManager, SessionWindow, _
 from memory_mcp.domain.chat_config import ChatConfig, ChatConfigRepository
 from memory_mcp.infrastructure.llm.base import DoneEvent, TextDeltaEvent, ToolCallEvent
 
-
 # ─────────────────────────────────────────────────────────────
 # SessionWindow tests
 # ─────────────────────────────────────────────────────────────
+
 
 class TestSessionWindow:
     def test_initial_empty(self):
@@ -53,6 +53,7 @@ class TestSessionWindow:
 # ─────────────────────────────────────────────────────────────
 # SessionManager tests
 # ─────────────────────────────────────────────────────────────
+
 
 class TestSessionManager:
     def test_creates_new_session(self):
@@ -95,6 +96,7 @@ class TestSessionManager:
 # ─────────────────────────────────────────────────────────────
 # ChatConfig tests
 # ─────────────────────────────────────────────────────────────
+
 
 class TestChatConfig:
     def test_defaults(self):
@@ -172,9 +174,11 @@ class TestChatConfig:
 # ChatConfigRepository tests
 # ─────────────────────────────────────────────────────────────
 
+
 class TestChatConfigRepository:
     def _make_db(self):
         import sqlite3
+
         db = sqlite3.connect(":memory:")
         db.execute("""
             CREATE TABLE chat_settings (
@@ -243,6 +247,7 @@ class TestChatConfigRepository:
 # _sse helper tests
 # ─────────────────────────────────────────────────────────────
 
+
 class TestSseHelper:
     def test_format(self):
         result = _sse("text_delta", {"content": "hello"})
@@ -251,6 +256,7 @@ class TestSseHelper:
 
     def test_json_content(self):
         import json
+
         result = _sse("done", {"message": "completed"})
         payload = json.loads(result[6:].strip())
         assert payload["type"] == "done"
@@ -264,6 +270,7 @@ class TestSseHelper:
 # ─────────────────────────────────────────────────────────────
 # ChatService basic tests (with mocked LLM provider)
 # ─────────────────────────────────────────────────────────────
+
 
 class TestChatService:
     def _make_ctx(self):
@@ -302,6 +309,7 @@ class TestChatService:
     @pytest.mark.asyncio
     async def test_no_api_key_yields_error(self):
         from memory_mcp.application.chat_service import ChatService
+
         ctx = self._make_ctx()
         cfg = self._make_config(api_key="")
         service = ChatService()
@@ -309,6 +317,7 @@ class TestChatService:
         async for chunk in service.chat(ctx, cfg, "sess1", "hello"):
             chunks.append(chunk)
         import json
+
         assert any("error" in chunk for chunk in chunks)
         payload = json.loads(chunks[0][6:].strip())
         assert payload["type"] == "error"
@@ -336,6 +345,7 @@ class TestChatService:
                 chunks.append(chunk)
 
         import json
+
         types = [json.loads(c[6:].strip())["type"] for c in chunks]
         assert "text_delta" in types
         assert "done" in types
@@ -385,6 +395,7 @@ class TestChatService:
                 chunks.append(chunk)
 
         import json
+
         types = [json.loads(c[6:].strip())["type"] for c in chunks]
         assert "tool_call" in types
         assert "tool_result" in types

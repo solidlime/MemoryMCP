@@ -1,15 +1,28 @@
 from __future__ import annotations
 
 import json
-from collections.abc import AsyncIterator
+from typing import TYPE_CHECKING
 
-from .base import ChatEvent, DoneEvent, ErrorEvent, LLMMessage, LLMProvider, TextDeltaEvent, ToolCallEvent, ToolDefinition
+from .base import (
+    ChatEvent,
+    DoneEvent,
+    ErrorEvent,
+    LLMMessage,
+    LLMProvider,
+    TextDeltaEvent,
+    ToolCallEvent,
+    ToolDefinition,
+)
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
 
 
 class AnthropicProvider(LLMProvider):
     def __init__(self, api_key: str, model: str = "claude-opus-4-5") -> None:
         try:
             import anthropic
+
             self._anthropic = anthropic
             self._client = anthropic.AsyncAnthropic(api_key=api_key)
         except ImportError as e:
@@ -28,22 +41,28 @@ class AnthropicProvider(LLMProvider):
                 if content.strip():
                     content_blocks.append({"type": "text", "text": content})
                 for tc in msg.tool_calls:
-                    content_blocks.append({
-                        "type": "tool_use",
-                        "id": tc["id"],
-                        "name": tc["name"],
-                        "input": tc["input"],
-                    })
+                    content_blocks.append(
+                        {
+                            "type": "tool_use",
+                            "id": tc["id"],
+                            "name": tc["name"],
+                            "input": tc["input"],
+                        }
+                    )
                 result.append({"role": "assistant", "content": content_blocks})
             elif msg.role == "tool":
-                result.append({
-                    "role": "user",
-                    "content": [{
-                        "type": "tool_result",
-                        "tool_use_id": msg.tool_call_id,
-                        "content": content,
-                    }],
-                })
+                result.append(
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": msg.tool_call_id,
+                                "content": content,
+                            }
+                        ],
+                    }
+                )
             else:
                 result.append({"role": msg.role, "content": content})
         return result
@@ -59,11 +78,13 @@ class AnthropicProvider(LLMProvider):
         anthropic_tools = []
         if tools:
             for t in tools:
-                anthropic_tools.append({
-                    "name": t.name,
-                    "description": t.description,
-                    "input_schema": t.input_schema,
-                })
+                anthropic_tools.append(
+                    {
+                        "name": t.name,
+                        "description": t.description,
+                        "input_schema": t.input_schema,
+                    }
+                )
 
         api_messages = self._to_api_messages(messages)
 
@@ -102,7 +123,9 @@ class AnthropicProvider(LLMProvider):
                     elif event_type == "content_block_stop":
                         if current_tool:
                             try:
-                                input_data = json.loads(current_tool["input_json"]) if current_tool["input_json"] else {}
+                                input_data = (
+                                    json.loads(current_tool["input_json"]) if current_tool["input_json"] else {}
+                                )
                             except json.JSONDecodeError:
                                 input_data = {}
                             tc = ToolCallEvent(

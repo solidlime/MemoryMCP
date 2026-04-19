@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import os
-import sqlite3
-from datetime import datetime
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, field_validator
 
 from memory_mcp.domain.shared.time_utils import format_iso, get_now
+
+if TYPE_CHECKING:
+    import sqlite3
 
 # Environment variable names for API keys per provider
 _ENV_API_KEYS: dict[str, str] = {
