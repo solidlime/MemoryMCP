@@ -460,15 +460,28 @@ class ChatService:
         if pending_payload and config.auto_extract:
             memory_llm_task = asyncio.create_task(_run_memory_llm(ctx, config, pending_payload))
 
+        state_raw: dict = {}
         try:
             state_result = ctx.persona_service.get_context(persona)
             if state_result.is_ok:
                 context_section = await _build_chat_context_section(ctx, state_result.value)
+                # raw state for debug
+                state_obj = state_result.value
+                state_raw = (
+                    {
+                        k: str(v) if not isinstance(v, (str, int, float, bool, list, dict, type(None))) else v
+                        for k, v in vars(state_obj).items()
+                    }
+                    if hasattr(state_obj, "__dict__")
+                    else {}
+                )
         except Exception as e:
             logger.warning("get_context failed: %s", e)
 
+        memories_raw: list[dict] = []
         try:
             related_memories, memory_debug = await _search_memories(ctx, user_message, last_assistant, top_k=8)
+            memories_raw = memory_debug.get("results", [])
         except Exception as e:
             logger.warning("_search_memories failed: %s", e)
 
@@ -487,6 +500,7 @@ class ChatService:
             system_parts.append(f"\n--- ペルソナ状態・コンテキスト ---\n{context_section}")
         if related_memories:
             system_parts.append(f"\n--- 関連記憶 ---\n{related_memories}")
+        skills_raw: list[dict] = []
         if config.enabled_skills:
             from memory_mcp.config.settings import get_settings
             from memory_mcp.domain.skill import SkillRepository
@@ -495,17 +509,23 @@ class ChatService:
             skill_repo = SkillRepository(get_global_skills_db(get_settings().data_root))
             skills = [skill_repo.get(n) for n in config.enabled_skills]
             skill_lines = [f"- {s.name}: {s.description}" for s in skills if s]
+            skills_raw = [s.model_dump() for s in skills if s]
             if skill_lines:
                 system_parts.append("\n--- 利用可能なSkill ---\n" + "\n".join(skill_lines))
         system = "\n".join(system_parts)
 
-        # T26: デバッグデータ収集
+        # T26/T41: デバッグデータ収集（全コンポーネントを生データで保持）
         debug_data: dict = {
             "system_prompt": system,
-            "memory_queries": memory_debug.get("queries", []),
-            "memory_results": memory_debug.get("results", []),
+            "context_state": state_raw,
             "context_summary": context_section,
+            "memories_raw": memories_raw,
+            "memory_queries": memory_debug.get("queries", []),
+            "skills_raw": skills_raw,
+            "tools_injected": [],
+            "messages_sent": [],
             "tool_calls": [],
+            "assistant_response": "",
         }
 
         # 4. ウィンドウメッセージ
@@ -538,6 +558,14 @@ class ChatService:
         async with MCPClientPool(config.mcp_servers) as mcp_pool:
             extra_tools = mcp_pool.list_all_tools()
             all_tools = MEMORY_TOOLS + extra_tools
+
+            # T41: ツール定義をデバッグデータに記録
+            debug_data["tools_injected"] = [{"name": t.name, "description": t.description} for t in all_tools]
+            # T41: 送信メッセージ（初期ウィンドウ）をデバッグデータに記録
+            debug_data["messages_sent"] = [
+                {"role": m.role, "content": m.content[:500] + "..." if len(m.content or "") > 500 else m.content}
+                for m in messages
+            ]
 
             while tool_call_count <= config.max_tool_calls:
                 pending_tool_calls: list[ToolCallEvent] = []
@@ -589,6 +617,7 @@ class ChatService:
                             "name": tc.tool_name,
                             "input": tc.tool_input,
                             "result": truncated_result,
+                            "result_raw": tool_result,  # T41: 切り詰め前の生結果
                         }
                     )
                     messages.append(
@@ -603,6 +632,9 @@ class ChatService:
 
         session.add("user", user_message, now)
         session.add("assistant", full_response, get_now())
+
+        # T41: 最終レスポンスを debug_data に追加
+        debug_data["assistant_response"] = full_response
 
         # T35: ターン終了時にペイロードを保存（次ターン冒頭でMemoryLLM実行）
         if config.auto_extract and full_response:
@@ -764,7 +796,13 @@ async def _execute_tool(ctx: AppContext, config: ChatConfig, tool_name: str, too
 
 
 def _sse(event_type: str, data: dict) -> str:
-    payload = json.dumps({"type": event_type, **data}, ensure_ascii=False)
+    def _default(obj):
+        try:
+            return str(obj)
+        except Exception:
+            return "<not serializable>"
+
+    payload = json.dumps({"type": event_type, **data}, ensure_ascii=False, default=_default)
     return f"data: {payload}\n\n"
 
 
