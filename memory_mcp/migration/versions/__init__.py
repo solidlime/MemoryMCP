@@ -24,6 +24,7 @@ from memory_mcp.migration.versions.v009_goals_promises_to_memories import (
 from memory_mcp.migration.versions.v010_chat_settings import upgrade as v010_upgrade
 from memory_mcp.migration.versions.v011_chat_extract_settings import upgrade as v011_upgrade
 from memory_mcp.migration.versions.v012_chat_mcp_servers import upgrade as v012_upgrade
+from memory_mcp.migration.versions.v013_chat_skills import upgrade as v013_upgrade
 
 ALL_MIGRATIONS: list[tuple[str, str, object]] = [
     ("001", "Initial schema", v001_upgrade),
@@ -38,4 +39,5 @@ ALL_MIGRATIONS: list[tuple[str, str, object]] = [
     ("010", "Add chat_settings table", v010_upgrade),
     ("011", "Add auto extract settings to chat_settings", v011_upgrade),
     ("012", "Add MCP servers and tool_result_max_chars to chat_settings", v012_upgrade),
+    ("013", "Add skills table and enabled_skills to chat_settings", v013_upgrade),
 ]

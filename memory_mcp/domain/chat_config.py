@@ -49,6 +49,7 @@ class ChatConfig(BaseModel):
     extract_max_tokens: int = 512
     tool_result_max_chars: int = 4000
     mcp_servers: list[dict] = []
+    enabled_skills: list[str] = []
     updated_at: str | None = None
 
     @field_validator("temperature")
@@ -129,7 +130,7 @@ class ChatConfigRepository:
             "SELECT persona, provider, model, api_key, base_url, system_prompt, "
             "temperature, max_tokens, max_window_turns, max_tool_calls, updated_at, "
             "auto_extract, extract_model, extract_max_tokens, "
-            "tool_result_max_chars, mcp_servers "
+            "tool_result_max_chars, mcp_servers, enabled_skills "
             "FROM chat_settings WHERE persona = ?",
             (persona,),
         ).fetchone()
@@ -152,6 +153,7 @@ class ChatConfigRepository:
             extract_max_tokens=int(row[13]) if row[13] is not None else 512,
             tool_result_max_chars=int(row[14]) if row[14] is not None else 4000,
             mcp_servers=json.loads(row[15] or "[]"),
+            enabled_skills=json.loads(row[16] or "[]"),
         )
 
     def save(self, config: ChatConfig) -> None:
@@ -163,8 +165,8 @@ class ChatConfigRepository:
                 (persona, provider, model, api_key, base_url, system_prompt,
                  temperature, max_tokens, max_window_turns, max_tool_calls,
                  auto_extract, extract_model, extract_max_tokens,
-                 tool_result_max_chars, mcp_servers, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 tool_result_max_chars, mcp_servers, enabled_skills, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(persona) DO UPDATE SET
                 provider=excluded.provider,
                 model=excluded.model,
@@ -180,6 +182,7 @@ class ChatConfigRepository:
                 extract_max_tokens=excluded.extract_max_tokens,
                 tool_result_max_chars=excluded.tool_result_max_chars,
                 mcp_servers=excluded.mcp_servers,
+                enabled_skills=excluded.enabled_skills,
                 updated_at=excluded.updated_at
             """,
             (
@@ -198,6 +201,7 @@ class ChatConfigRepository:
                 config.extract_max_tokens,
                 config.tool_result_max_chars,
                 json.dumps(config.mcp_servers, ensure_ascii=False),
+                json.dumps(config.enabled_skills, ensure_ascii=False),
                 now,
             ),
         )

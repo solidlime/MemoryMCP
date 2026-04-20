@@ -9,6 +9,7 @@ from memory_mcp.domain.shared.time_utils import get_now, relative_time_str
 from memory_mcp.infrastructure.llm.base import LLMMessage, ToolDefinition
 from memory_mcp.infrastructure.llm.factory import get_provider
 from memory_mcp.infrastructure.logging.structured import get_logger
+from memory_mcp.infrastructure.mcp_client import MCPClientPool
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -60,6 +61,18 @@ MEMORY_TOOLS = [
                 "emotion_intensity": {"type": "number", "description": "感情強度 0.0〜1.0"},
                 "mental_state": {"type": "string", "description": "精神状態の説明"},
             },
+        },
+    ),
+    ToolDefinition(
+        name="invoke_skill",
+        description="特定のスキルを専用コンテキストで実行する。複雑な専門タスクをメインの会話から切り離して処理する",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "スキル名"},
+                "task": {"type": "string", "description": "スキルへの具体的な指示"},
+            },
+            "required": ["name", "task"],
         },
     ),
 ]
@@ -318,6 +331,13 @@ class ChatService:
             system_parts.append(f"\n--- ペルソナ状態・コンテキスト ---\n{context_section}")
         if related_memories:
             system_parts.append(f"\n--- 関連記憶 ---\n{related_memories}")
+        if config.enabled_skills:
+            from memory_mcp.domain.skill import SkillRepository
+            skill_repo = SkillRepository(ctx.connection.get_memory_db())
+            skills = [skill_repo.get(n) for n in config.enabled_skills]
+            skill_lines = [f"- {s.name}: {s.description}" for s in skills if s]
+            if skill_lines:
+                system_parts.append("\n--- 利用可能なSkill ---\n" + "\n".join(skill_lines))
         system = "\n".join(system_parts)
 
         # T26: デバッグデータ収集
@@ -356,62 +376,69 @@ class ChatService:
         full_response = ""
         tool_call_count = 0
 
-        while tool_call_count <= config.max_tool_calls:
-            pending_tool_calls: list[ToolCallEvent] = []
-            current_text = ""
+        async with MCPClientPool(config.mcp_servers) as mcp_pool:
+            extra_tools = mcp_pool.list_all_tools()
+            all_tools = MEMORY_TOOLS + extra_tools
 
-            async for event in provider.stream(
-                messages=messages,
-                system=system,
-                tools=MEMORY_TOOLS,
-                temperature=config.temperature,
-                max_tokens=config.max_tokens,
-            ):
-                if isinstance(event, TextDeltaEvent):
-                    current_text += event.content
-                    full_response += event.content
-                    yield _sse("text_delta", {"content": event.content})
-                elif isinstance(event, ToolCallEvent):
-                    pending_tool_calls.append(event)
-                elif isinstance(event, DoneEvent):
-                    pass
-                elif isinstance(event, ErrorEvent):
-                    yield _sse("error", {"message": event.message})
-                    return
+            while tool_call_count <= config.max_tool_calls:
+                pending_tool_calls: list[ToolCallEvent] = []
+                current_text = ""
 
-            if not pending_tool_calls:
-                break
+                async for event in provider.stream(
+                    messages=messages,
+                    system=system,
+                    tools=all_tools,
+                    temperature=config.temperature,
+                    max_tokens=config.max_tokens,
+                ):
+                    if isinstance(event, TextDeltaEvent):
+                        current_text += event.content
+                        full_response += event.content
+                        yield _sse("text_delta", {"content": event.content})
+                    elif isinstance(event, ToolCallEvent):
+                        pending_tool_calls.append(event)
+                    elif isinstance(event, DoneEvent):
+                        pass
+                    elif isinstance(event, ErrorEvent):
+                        yield _sse("error", {"message": event.message})
+                        return
 
-            messages.append(
-                LLMMessage(
-                    role="assistant",
-                    content=current_text,
-                    tool_calls=[
-                        {"id": tc.tool_use_id, "name": tc.tool_name, "input": tc.tool_input}
-                        for tc in pending_tool_calls
-                    ],
-                )
-            )
+                if not pending_tool_calls:
+                    break
 
-            for tc in pending_tool_calls:
-                yield _sse("tool_call", {"name": tc.tool_name, "input": tc.tool_input, "id": tc.tool_use_id})
-                tool_result = await _execute_tool(ctx, tc.tool_name, tc.tool_input)
-                truncated_result = _truncate_tool_result(tool_result, config.tool_result_max_chars)
-                yield _sse("tool_result", {"name": tc.tool_name, "result": truncated_result, "id": tc.tool_use_id})
-                debug_data["tool_calls"].append({
-                    "name": tc.tool_name,
-                    "input": tc.tool_input,
-                    "result": truncated_result,
-                })
                 messages.append(
                     LLMMessage(
-                        role="tool",
-                        content=json.dumps(truncated_result, ensure_ascii=False),
-                        tool_call_id=tc.tool_use_id,
+                        role="assistant",
+                        content=current_text,
+                        tool_calls=[
+                            {"id": tc.tool_use_id, "name": tc.tool_name, "input": tc.tool_input}
+                            for tc in pending_tool_calls
+                        ],
                     )
                 )
 
-            tool_call_count += 1
+                for tc in pending_tool_calls:
+                    yield _sse("tool_call", {"name": tc.tool_name, "input": tc.tool_input, "id": tc.tool_use_id})
+                    if "__" in tc.tool_name:
+                        tool_result = await mcp_pool.call_tool(tc.tool_name, tc.tool_input)
+                    else:
+                        tool_result = await _execute_tool(ctx, config, tc.tool_name, tc.tool_input)
+                    truncated_result = _truncate_tool_result(tool_result, config.tool_result_max_chars)
+                    yield _sse("tool_result", {"name": tc.tool_name, "result": truncated_result, "id": tc.tool_use_id})
+                    debug_data["tool_calls"].append({
+                        "name": tc.tool_name,
+                        "input": tc.tool_input,
+                        "result": truncated_result,
+                    })
+                    messages.append(
+                        LLMMessage(
+                            role="tool",
+                            content=json.dumps(truncated_result, ensure_ascii=False),
+                            tool_call_id=tc.tool_use_id,
+                        )
+                    )
+
+                tool_call_count += 1
 
         session.add("user", user_message, now)
         session.add("assistant", full_response, get_now())
@@ -439,7 +466,7 @@ def _format_state_summary(state) -> str:
     return "\n".join(parts)
 
 
-async def _execute_tool(ctx: AppContext, tool_name: str, tool_input: dict) -> dict:
+async def _execute_tool(ctx: AppContext, config: ChatConfig, tool_name: str, tool_input: dict) -> dict:
     try:
         if tool_name == "memory_create":
             result = ctx.memory_service.create_memory(
@@ -489,6 +516,11 @@ async def _execute_tool(ctx: AppContext, tool_name: str, tool_input: dict) -> di
                     ctx.persona_service.update_physical_state(ctx.persona, mental_state=update_kwargs["mental_state"])
             return {"status": "ok"}
 
+        elif tool_name == "invoke_skill":
+            skill_name = tool_input.get("name", "")
+            task = tool_input.get("task", "")
+            return await _invoke_skill(ctx, config, skill_name, task)
+
         else:
             return {"status": "error", "message": f"Unknown tool: {tool_name}"}
 
@@ -500,6 +532,50 @@ async def _execute_tool(ctx: AppContext, tool_name: str, tool_input: dict) -> di
 def _sse(event_type: str, data: dict) -> str:
     payload = json.dumps({"type": event_type, **data}, ensure_ascii=False)
     return f"data: {payload}\n\n"
+
+
+async def _invoke_skill(ctx: AppContext, config: ChatConfig, skill_name: str, task: str) -> dict:
+    from memory_mcp.domain.skill import SkillRepository
+    from memory_mcp.infrastructure.llm.base import DoneEvent, TextDeltaEvent
+
+    skill_repo = SkillRepository(ctx.connection.get_memory_db())
+    skill = skill_repo.get(skill_name)
+    if not skill:
+        return {"error": f"Skill '{skill_name}' not found"}
+
+    api_key = config.get_effective_api_key()
+    if not api_key:
+        return {"error": "APIキーが設定されていません"}
+
+    try:
+        provider = get_provider(
+            config.provider,
+            api_key,
+            config.get_effective_model(),
+            config.get_effective_base_url(),
+        )
+    except Exception as e:
+        return {"error": f"Provider init failed: {e}"}
+
+    text = ""
+    try:
+        async for event in provider.stream(
+            messages=[LLMMessage(role="user", content=task)],
+            system=skill.content,
+            tools=[],
+            temperature=config.temperature,
+            max_tokens=config.max_tokens,
+        ):
+            if isinstance(event, TextDeltaEvent):
+                text += event.content
+            elif isinstance(event, DoneEvent):
+                break
+    except Exception as e:
+        return {"error": f"Skill execution failed: {e}"}
+
+    return {"result": text or "(no response)"}
+
+
 
 
 def _truncate_tool_result(result: dict, max_chars: int) -> dict:

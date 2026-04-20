@@ -243,6 +243,28 @@ def render_chat_tab() -> str:
                                 placeholder="例: claude-haiku-4-5, gpt-4o-mini" />
                         </div>
                     </div>
+                    <!-- MCP Servers -->
+                    <div style="border-top:1px solid var(--glass-border);padding-top:10px;" id="chat-mcp-section">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                            <div style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">🔌 MCPサーバー</div>
+                            <button onclick="addMcpServer()" style="background:none;border:1px solid rgba(96,165,250,0.3);border-radius:6px;color:var(--accent-blue);padding:2px 8px;font-size:0.72rem;cursor:pointer;">+ 追加</button>
+                        </div>
+                        <div id="chat-mcp-list" style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px;"></div>
+                        <div>
+                            <div class="chat-field-label" style="display:flex;justify-content:space-between;">
+                                <span>ツール結果最大文字数</span>
+                                <span id="chat-tool-max-val" style="color:var(--accent-purple);">4000</span>
+                            </div>
+                            <input type="range" id="chat-tool-result-max" min="500" max="20000" step="500" value="4000"
+                                oninput="document.getElementById('chat-tool-max-val').textContent=this.value"
+                                style="width:100%;accent-color:var(--accent-purple);" />
+                        </div>
+                    </div>
+                    <!-- Skills -->
+                    <div style="border-top:1px solid var(--glass-border);padding-top:10px;" id="chat-skills-section">
+                        <div style="font-size:0.8rem; font-weight:600; color:var(--text-secondary); margin-bottom:8px;">🎯 Skills</div>
+                        <div id="chat-skills-list" style="display:flex;flex-direction:column;gap:4px;"></div>
+                    </div>
                     <!-- Buttons -->
                     <button class="chat-save-btn" onclick="saveChatConfig()">💾 設定を保存</button>
                     <button class="chat-clear-btn" onclick="clearChatHistory()">🗑️ 会話をリセット</button>
@@ -264,14 +286,26 @@ const CHAT = {
     sidebarOpen: true,
     debugMode: localStorage.getItem('chat_debug_mode') === 'true',
     messages: [],  // { role, content, time }
+    mcpServers: [],
+    enabledSkills: [],
 };
 
 function loadChat() {
     if (!S.persona) return;
     loadChatConfig();
+    loadSkillsForChat();
     // Restore debug button state
     const btn = document.getElementById('chat-debug-btn');
     if (btn && CHAT.debugMode) btn.classList.add('active');
+}
+
+async function loadSkillsForChat() {
+    try {
+        const skills = await api('/api/skills');
+        renderSkillsList(skills, CHAT.enabledSkills);
+    } catch (_e) {
+        // skills API not available yet, ignore
+    }
 }
 
 async function loadChatConfig() {
@@ -300,6 +334,15 @@ function applyChatConfig(cfg) {
     const tempEl = document.getElementById('chat-temp-val');
     if (tempEl) tempEl.textContent = parseFloat(cfg.temperature || 0.7).toFixed(2);
     onChatProviderChange();
+    CHAT.mcpServers = cfg.mcp_servers || [];
+    renderMcpList(CHAT.mcpServers);
+    const toolMax = document.getElementById('chat-tool-result-max');
+    const toolMaxVal = document.getElementById('chat-tool-max-val');
+    if (toolMax && cfg.tool_result_max_chars) {
+        toolMax.value = cfg.tool_result_max_chars;
+        if (toolMaxVal) toolMaxVal.textContent = cfg.tool_result_max_chars;
+    }
+    CHAT.enabledSkills = cfg.enabled_skills || [];
     const statusEl = document.getElementById('chat-config-status');
     if (statusEl) {
         if (cfg.is_configured) {
@@ -333,6 +376,9 @@ async function saveChatConfig() {
         system_prompt: document.getElementById('chat-system-prompt').value.trim(),
         auto_extract: document.getElementById('chat-auto-extract')?.checked ?? true,
         extract_model: document.getElementById('chat-extract-model')?.value.trim() || '',
+        mcp_servers: CHAT.mcpServers,
+        tool_result_max_chars: parseInt(document.getElementById('chat-tool-result-max')?.value || '4000'),
+        enabled_skills: CHAT.enabledSkills,
     };
     try {
         const cfg = await api('/api/chat/' + encodeURIComponent(S.persona) + '/config', {
@@ -344,6 +390,77 @@ async function saveChatConfig() {
     } catch (e) {
         toast('保存失敗: ' + e.message, 'error');
     }
+}
+
+function renderMcpList(servers) {
+    const list = document.getElementById('chat-mcp-list');
+    if (!list) return;
+    list.innerHTML = '';
+    (servers || []).forEach((srv, idx) => {
+        const item = document.createElement('div');
+        item.style.cssText = 'display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,0.04);border-radius:6px;padding:4px 8px;font-size:0.75rem;';
+        item.innerHTML = `<span style="color:var(--text-secondary);">${esc(srv.name)} <span style="color:var(--text-muted);">(${esc(srv.transport)})</span></span><button onclick="removeMcpServer(${idx})" style="background:none;border:none;color:var(--accent-red);cursor:pointer;font-size:0.8rem;padding:0 4px;">✕</button>`;
+        list.appendChild(item);
+    });
+}
+
+function addMcpServer() {
+    const name = prompt('サーバー名 (例: filesystem)');
+    if (!name) return;
+    const transport = prompt('トランスポート (http または stdio)', 'http');
+    if (!transport) return;
+    let url = '';
+    let command = '';
+    let argsStr = '';
+    if (transport === 'http') {
+        url = prompt('URL (例: http://localhost:3000/mcp)', '') || '';
+    } else {
+        command = prompt('コマンド (例: npx)', '') || '';
+        argsStr = prompt('引数 (カンマ区切り, 例: -y,@modelcontextprotocol/server-filesystem,/tmp)', '') || '';
+    }
+    const args = argsStr ? argsStr.split(',').map(s => s.trim()).filter(Boolean) : [];
+    CHAT.mcpServers.push({ name, transport, url, command, args, headers: {}, enabled: true });
+    renderMcpList(CHAT.mcpServers);
+}
+
+function removeMcpServer(index) {
+    CHAT.mcpServers.splice(index, 1);
+    renderMcpList(CHAT.mcpServers);
+}
+
+function renderSkillsList(allSkills, enabledSkills) {
+    const list = document.getElementById('chat-skills-list');
+    if (!list) return;
+    list.innerHTML = '';
+    if (!allSkills || allSkills.length === 0) {
+        list.innerHTML = '<div style="font-size:0.75rem;color:var(--text-muted);">スキルがありません</div>';
+        return;
+    }
+    allSkills.forEach(skill => {
+        const enabled = (enabledSkills || []).includes(skill.name);
+        const item = document.createElement('div');
+        item.style.cssText = 'display:flex;align-items:center;gap:8px;';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = enabled;
+        cb.id = 'skill-cb-' + skill.name;
+        cb.style.cssText = 'width:14px;height:14px;accent-color:var(--accent-purple);cursor:pointer;';
+        cb.addEventListener('change', () => {
+            if (cb.checked) {
+                if (!CHAT.enabledSkills.includes(skill.name)) CHAT.enabledSkills.push(skill.name);
+            } else {
+                CHAT.enabledSkills = CHAT.enabledSkills.filter(n => n !== skill.name);
+            }
+        });
+        const label = document.createElement('label');
+        label.htmlFor = cb.id;
+        label.style.cssText = 'font-size:0.78rem;color:var(--text-secondary);cursor:pointer;';
+        label.title = skill.description || '';
+        label.textContent = skill.name;
+        item.appendChild(cb);
+        item.appendChild(label);
+        list.appendChild(item);
+    });
 }
 
 function toggleChatSidebar() {

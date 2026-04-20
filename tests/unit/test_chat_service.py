@@ -197,7 +197,18 @@ class TestChatConfigRepository:
                 extract_model TEXT DEFAULT '',
                 extract_max_tokens INTEGER DEFAULT 512,
                 tool_result_max_chars INTEGER DEFAULT 4000,
-                mcp_servers TEXT DEFAULT '[]'
+                mcp_servers TEXT DEFAULT '[]',
+                enabled_skills TEXT DEFAULT '[]'
+            )
+        """)
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS skills (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                name        TEXT UNIQUE NOT NULL,
+                description TEXT DEFAULT '',
+                content     TEXT NOT NULL DEFAULT '',
+                created_at  TEXT,
+                updated_at  TEXT
             )
         """)
         db.commit()
