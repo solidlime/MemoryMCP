@@ -136,6 +136,12 @@ class Settings(BaseSettings):
         """設定ファイルディレクトリ: {data_root}/config"""
         return f"{self.data_root}/config"
 
+    @computed_field
+    @property
+    def skills_dir(self) -> str:
+        """Skillsファイルディレクトリ: {data_root}/skills"""
+        return f"{self.data_root}/skills"
+
     def ensure_directories(self) -> None:
         """起動時に必要なディレクトリを全て作成する。"""
         dirs = [
@@ -147,6 +153,7 @@ class Settings(BaseSettings):
             Path(self.cache_dir) / "sentence_transformers",
             Path(self.cache_dir) / "torch",
             self.config_dir,
+            self.skills_dir,
         ]
         for d in dirs:
             Path(d).mkdir(parents=True, exist_ok=True)

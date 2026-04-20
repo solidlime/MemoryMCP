@@ -245,11 +245,14 @@ def render_chat_tab() -> str:
                     </div>
                     <!-- MCP Servers -->
                     <div style="border-top:1px solid var(--glass-border);padding-top:10px;" id="chat-mcp-section">
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                            <div style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">🔌 MCPサーバー</div>
-                            <button onclick="addMcpServer()" style="background:none;border:1px solid rgba(96,165,250,0.3);border-radius:6px;color:var(--accent-blue);padding:2px 8px;font-size:0.72rem;cursor:pointer;">+ 追加</button>
+                        <div style="margin-bottom:6px;">
+                            <div style="font-size:0.8rem; font-weight:600; color:var(--text-secondary); margin-bottom:4px;">🔌 MCPサーバー</div>
+                            <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:6px;">Claude の mcp.json 形式で貼り付け・編集できます</div>
+                            <textarea id="chat-mcp-json" class="chat-field-input" rows="6"
+                                style="resize:vertical;min-height:100px;font-family:monospace;font-size:0.73rem;line-height:1.45;"
+                                placeholder='{&#10;  "mcpServers": {&#10;    "my-server": {&#10;      "command": "npx",&#10;      "args": ["-y", "@modelcontextprotocol/server-filesystem"]&#10;    }&#10;  }&#10;}'></textarea>
+                            <div id="chat-mcp-json-error" style="font-size:0.72rem;color:var(--accent-red);margin-top:3px;display:none;"></div>
                         </div>
-                        <div id="chat-mcp-list" style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px;"></div>
                         <div>
                             <div class="chat-field-label" style="display:flex;justify-content:space-between;">
                                 <span>ツール結果最大文字数</span>
@@ -335,7 +338,7 @@ function applyChatConfig(cfg) {
     if (tempEl) tempEl.textContent = parseFloat(cfg.temperature || 0.7).toFixed(2);
     onChatProviderChange();
     CHAT.mcpServers = cfg.mcp_servers || [];
-    renderMcpList(CHAT.mcpServers);
+    renderMcpJson(CHAT.mcpServers);
     const toolMax = document.getElementById('chat-tool-result-max');
     const toolMaxVal = document.getElementById('chat-tool-max-val');
     if (toolMax && cfg.tool_result_max_chars) {
@@ -376,7 +379,7 @@ async function saveChatConfig() {
         system_prompt: document.getElementById('chat-system-prompt').value.trim(),
         auto_extract: document.getElementById('chat-auto-extract')?.checked ?? true,
         extract_model: document.getElementById('chat-extract-model')?.value.trim() || '',
-        mcp_servers: CHAT.mcpServers,
+        mcp_servers: parseMcpJson(),
         tool_result_max_chars: parseInt(document.getElementById('chat-tool-result-max')?.value || '4000'),
         enabled_skills: CHAT.enabledSkills,
     };
@@ -392,40 +395,52 @@ async function saveChatConfig() {
     }
 }
 
-function renderMcpList(servers) {
-    const list = document.getElementById('chat-mcp-list');
-    if (!list) return;
-    list.innerHTML = '';
-    (servers || []).forEach((srv, idx) => {
-        const item = document.createElement('div');
-        item.style.cssText = 'display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,0.04);border-radius:6px;padding:4px 8px;font-size:0.75rem;';
-        item.innerHTML = `<span style="color:var(--text-secondary);">${esc(srv.name)} <span style="color:var(--text-muted);">(${esc(srv.transport)})</span></span><button onclick="removeMcpServer(${idx})" style="background:none;border:none;color:var(--accent-red);cursor:pointer;font-size:0.8rem;padding:0 4px;">✕</button>`;
-        list.appendChild(item);
-    });
-}
-
-function addMcpServer() {
-    const name = prompt('サーバー名 (例: filesystem)');
-    if (!name) return;
-    const transport = prompt('トランスポート (http または stdio)', 'http');
-    if (!transport) return;
-    let url = '';
-    let command = '';
-    let argsStr = '';
-    if (transport === 'http') {
-        url = prompt('URL (例: http://localhost:3000/mcp)', '') || '';
-    } else {
-        command = prompt('コマンド (例: npx)', '') || '';
-        argsStr = prompt('引数 (カンマ区切り, 例: -y,@modelcontextprotocol/server-filesystem,/tmp)', '') || '';
+function renderMcpJson(servers) {
+    const ta = document.getElementById('chat-mcp-json');
+    if (!ta) return;
+    if (!servers || servers.length === 0) {
+        ta.value = '{\n  "mcpServers": {}\n}';
+        return;
     }
-    const args = argsStr ? argsStr.split(',').map(s => s.trim()).filter(Boolean) : [];
-    CHAT.mcpServers.push({ name, transport, url, command, args, headers: {}, enabled: true });
-    renderMcpList(CHAT.mcpServers);
+    const mcpServers = {};
+    (servers || []).forEach(srv => {
+        const entry = {};
+        if (srv.transport === 'http') {
+            entry.url = srv.url || '';
+            if (srv.headers && Object.keys(srv.headers).length) entry.headers = srv.headers;
+        } else {
+            entry.command = srv.command || '';
+            if (srv.args && srv.args.length) entry.args = srv.args;
+            if (srv.headers && Object.keys(srv.headers).length) entry.env = srv.headers;
+        }
+        mcpServers[srv.name] = entry;
+    });
+    ta.value = JSON.stringify({ mcpServers }, null, 2);
 }
 
-function removeMcpServer(index) {
-    CHAT.mcpServers.splice(index, 1);
-    renderMcpList(CHAT.mcpServers);
+function parseMcpJson() {
+    const ta = document.getElementById('chat-mcp-json');
+    const errEl = document.getElementById('chat-mcp-json-error');
+    if (!ta) return CHAT.mcpServers;
+    if (errEl) errEl.style.display = 'none';
+    const raw = ta.value.trim();
+    if (!raw || raw === '{\n  "mcpServers": {}\n}') return [];
+    try {
+        const parsed = JSON.parse(raw);
+        const dict = parsed.mcpServers || {};
+        return Object.entries(dict).map(([name, cfg]) => ({
+            name,
+            transport: cfg.url ? 'http' : 'stdio',
+            url: cfg.url || '',
+            command: cfg.command || '',
+            args: cfg.args || [],
+            headers: cfg.headers || cfg.env || {},
+            enabled: true,
+        }));
+    } catch (e) {
+        if (errEl) { errEl.textContent = 'JSON形式エラー: ' + e.message; errEl.style.display = ''; }
+        return CHAT.mcpServers;
+    }
 }
 
 function renderSkillsList(allSkills, enabledSkills) {

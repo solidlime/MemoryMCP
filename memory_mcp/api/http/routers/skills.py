@@ -94,3 +94,16 @@ def register_skills_routes(mcp) -> None:
             return JSONResponse({"error": "Skill not found"}, status_code=404)
         repo.delete(name)
         return JSONResponse({"status": "deleted"})
+
+    @mcp.custom_route("/api/skills/sync", methods=["POST"])
+    async def sync_skills(request: Request) -> JSONResponse:
+        """ファイルシステムの data/skills/<name>/SKILL.md をDBに同期する。"""
+        db = _get_db()
+        if db is None:
+            return JSONResponse({"error": "Context not available"}, status_code=503)
+        from memory_mcp.config.settings import get_settings
+        from memory_mcp.domain.skill import SkillRepository
+
+        repo = SkillRepository(db)
+        synced = repo.load_from_dir(get_settings().skills_dir)
+        return JSONResponse({"synced": len(synced), "skills": [s.name for s in synced]})

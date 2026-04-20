@@ -76,3 +76,50 @@ class SkillRepository:
     def delete(self, name: str) -> None:
         self._db.execute("DELETE FROM skills WHERE name = ?", (name,))
         self._db.commit()
+
+    def load_from_dir(self, skills_dir: str | None = None) -> list[Skill]:
+        """Scan <skills_dir>/<name>/SKILL.md files and upsert them into the DB.
+
+        Frontmatter (---block---) may contain `name` and `description` fields.
+        The rest of the file becomes the system-prompt `content`.
+        If no frontmatter is present the directory name is used as the skill name.
+        """
+        from pathlib import Path
+
+        if skills_dir is None:
+            from memory_mcp.config.settings import get_settings
+            skills_dir = get_settings().skills_dir
+
+        base = Path(skills_dir)
+        if not base.exists():
+            return []
+
+        upserted: list[Skill] = []
+        for entry in sorted(base.iterdir()):
+            if not entry.is_dir():
+                continue
+            skill_file = entry / "SKILL.md"
+            if not skill_file.exists():
+                continue
+            raw = skill_file.read_text(encoding="utf-8")
+            name, description, content = _parse_skill_md(entry.name, raw)
+            upserted.append(self.upsert(Skill(name=name, description=description, content=content)))
+        return upserted
+
+
+def _parse_skill_md(dir_name: str, raw: str) -> tuple[str, str, str]:
+    """Extract name/description from YAML frontmatter, body as content."""
+    name = dir_name
+    description = ""
+    body = raw
+    if raw.startswith("---"):
+        end = raw.find("---", 3)
+        if end != -1:
+            fm = raw[3:end].strip()
+            body = raw[end + 3:].strip()
+            for line in fm.splitlines():
+                if line.startswith("name:"):
+                    name = line[5:].strip()
+                elif line.startswith("description:"):
+                    description = line[12:].strip()
+    return name, description, body

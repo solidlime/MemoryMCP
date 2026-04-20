@@ -314,7 +314,7 @@ class ChatService:
         try:
             state_result = ctx.persona_service.get_context(persona)
             if state_result.is_ok:
-                context_section = _format_state_summary(state_result.value)
+                context_section = await _build_chat_context_section(ctx, state_result.value)
         except Exception as e:
             logger.warning("get_context failed: %s", e)
 
@@ -452,7 +452,7 @@ class ChatService:
 
 
 def _format_state_summary(state) -> str:
-    """PersonaState から簡潔なサマリーを生成する。"""
+    """PersonaState から簡潔なサマリーを生成する。(後方互換のため残す)"""
     parts = []
     if hasattr(state, "emotion") and state.emotion:
         intensity = getattr(state, "emotion_intensity", 0.5)
@@ -463,6 +463,60 @@ def _format_state_summary(state) -> str:
         parts.append(f"身体状態: {state.physical_state}")
     if hasattr(state, "environment") and state.environment:
         parts.append(f"環境: {state.environment}")
+    return "\n".join(parts)
+
+
+async def _build_chat_context_section(ctx: AppContext, state) -> str:
+    """get_context() 同等の充実したコンテキストサマリーを構築する (T30)。"""
+    parts: list[str] = []
+
+    # --- emotion + body state ---
+    if getattr(state, "emotion", None):
+        intensity = getattr(state, "emotion_intensity", 0.5)
+        parts.append(f"感情: {state.emotion} (強度: {intensity:.1f})")
+    if getattr(state, "mental_state", None):
+        parts.append(f"精神状態: {state.mental_state}")
+    if getattr(state, "physical_state", None):
+        parts.append(f"身体状態: {state.physical_state}")
+    if getattr(state, "environment", None):
+        parts.append(f"環境: {state.environment}")
+    if getattr(state, "relationship_status", None):
+        parts.append(f"関係性: {state.relationship_status}")
+
+    # --- user_info ---
+    user_info = getattr(state, "user_info", None) or {}
+    if user_info:
+        ui_lines = "\n".join(f"  {k}: {v}" for k, v in user_info.items())
+        parts.append(f"ユーザー情報:\n{ui_lines}")
+
+    # --- persona_info (goals/promises keys excluded — handled separately) ---
+    _hidden = {"goals", "promises", "active_promises", "current_goals"}
+    persona_info = getattr(state, "persona_info", None) or {}
+    filtered_pi = {k: v for k, v in persona_info.items() if k not in _hidden}
+    if filtered_pi:
+        pi_lines = "\n".join(f"  {k}: {v}" for k, v in filtered_pi.items())
+        parts.append(f"ペルソナ情報:\n{pi_lines}")
+
+    # --- active goals / promises from memory tags ---
+    try:
+        goals_result = ctx.memory_service.get_by_tags(["goal"])
+        goals = goals_result.value if goals_result.is_ok else []
+        active_goals = [g for g in goals if "active" in (g.tags or [])]
+
+        promises_result = ctx.memory_service.get_by_tags(["promise"])
+        promises = promises_result.value if promises_result.is_ok else []
+        active_promises = [p for p in promises if "active" in (p.tags or [])]
+
+        if active_goals or active_promises:
+            commit_lines: list[str] = []
+            for g in active_goals:
+                commit_lines.append(f"  🎯 [Goal] {g.content}")
+            for p in active_promises:
+                commit_lines.append(f"  🤝 [Promise] {p.content}")
+            parts.append("アクティブなコミットメント:\n" + "\n".join(commit_lines))
+    except Exception as e:
+        logger.debug("Failed to fetch goals/promises: %s", e)
+
     return "\n".join(parts)
 
 

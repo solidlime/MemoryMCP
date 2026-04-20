@@ -7,7 +7,10 @@ def render_skills_tab() -> str:
         <section id="tab-skills" class="tab-panel" role="tabpanel">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
                 <h2 style="font-size:1.1rem;font-weight:600;color:var(--text-primary);">🎯 Skills</h2>
-                <button onclick="showSkillForm()" style="padding:6px 16px;border-radius:8px;background:linear-gradient(135deg,var(--accent-purple),#7c3aed);border:none;color:white;font-size:0.85rem;cursor:pointer;font-weight:600;">+ 新規スキル</button>
+                <div style="display:flex;gap:8px;">
+                    <button onclick="syncSkillsFromFiles()" title="data/skills/<name>/SKILL.md をDBに同期" style="padding:6px 14px;border-radius:8px;background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.25);color:var(--accent-green);font-size:0.82rem;cursor:pointer;font-weight:600;">📂 ファイルから同期</button>
+                    <button onclick="showSkillForm()" style="padding:6px 16px;border-radius:8px;background:linear-gradient(135deg,var(--accent-purple),#7c3aed);border:none;color:white;font-size:0.85rem;cursor:pointer;font-weight:600;">+ 新規スキル</button>
+                </div>
             </div>
             <div id="skill-form-area" style="display:none;margin-bottom:16px;" class="glass" style="padding:16px;">
                 <div style="padding:16px;display:flex;flex-direction:column;gap:10px;">
@@ -144,6 +147,16 @@ async function deleteSkill(name) {
         toast('削除しました', 'success');
     } catch (e) {
         toast('削除失敗: ' + e.message, 'error');
+    }
+}
+
+async function syncSkillsFromFiles() {
+    try {
+        const result = await api('/api/skills/sync', { method: 'POST' });
+        loadSkillsList();
+        toast(`${result.synced}件のスキルを同期しました`, 'success');
+    } catch (e) {
+        toast('同期失敗: ' + e.message, 'error');
     }
 }
 """
