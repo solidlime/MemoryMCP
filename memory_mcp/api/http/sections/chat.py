@@ -509,30 +509,7 @@ function renderDebugPanel(anchorEl, data) {
     const panel = document.createElement('div');
     panel.className = 'chat-debug-panel';
     panel.style.display = CHAT.debugMode ? 'block' : 'none';
-    let html = '';
-    if (data.system_prompt) {
-        html += `<details><summary>📋 System Prompt</summary><pre>${esc(data.system_prompt)}</pre></details>`;
-    }
-    const queries = data.memory_queries || [];
-    const results = data.memory_results || [];
-    if (queries.length > 0 || results.length > 0) {
-        const qStr = queries.join(' / ') || '(none)';
-        const rStr = results.length > 0
-            ? results.map(r => `[${(r.importance||0).toFixed(1)}] (${(r.score||0).toFixed(3)}) ${r.content}`).join('\n')
-            : '(no results)';
-        html += `<details><summary>🔍 Memory Search — ${queries.length} quer${queries.length===1?'y':'ies'}, ${results.length} result${results.length!==1?'s':''}</summary><pre>Queries: ${esc(qStr)}\n\nResults:\n${esc(rStr)}</pre></details>`;
-    }
-    if (data.context_summary) {
-        html += `<details><summary>🧠 Context Summary</summary><pre>${esc(data.context_summary)}</pre></details>`;
-    }
-    const toolCalls = data.tool_calls || [];
-    if (toolCalls.length > 0) {
-        const tStr = toolCalls.map(t =>
-            `▶ ${t.name}(${JSON.stringify(t.input)})\n← ${JSON.stringify(t.result)}`
-        ).join('\n\n');
-        html += `<details><summary>🔧 Tool Calls (${toolCalls.length})</summary><pre>${esc(tStr)}</pre></details>`;
-    }
-    panel.innerHTML = html || '<div style="padding:6px 10px;color:var(--text-muted);">No debug data</div>';
+    panel.innerHTML = `<pre style="margin:0;white-space:pre-wrap;word-break:break-all;">${esc(JSON.stringify(data, null, 2))}</pre>`;
     if (anchorEl) {
         anchorEl.insertAdjacentElement('afterend', panel);
     } else {
