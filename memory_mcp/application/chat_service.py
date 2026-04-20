@@ -488,9 +488,11 @@ class ChatService:
         if related_memories:
             system_parts.append(f"\n--- 関連記憶 ---\n{related_memories}")
         if config.enabled_skills:
+            from memory_mcp.config.settings import get_settings
             from memory_mcp.domain.skill import SkillRepository
+            from memory_mcp.infrastructure.sqlite.connection import get_global_skills_db
 
-            skill_repo = SkillRepository(ctx.connection.get_memory_db())
+            skill_repo = SkillRepository(get_global_skills_db(get_settings().data_root))
             skills = [skill_repo.get(n) for n in config.enabled_skills]
             skill_lines = [f"- {s.name}: {s.description}" for s in skills if s]
             if skill_lines:
@@ -626,8 +628,14 @@ def _format_state_summary(state) -> str:
 
 
 async def _build_chat_context_section(ctx: AppContext, state) -> str:
-    """get_context() 同等の充実したコンテキストサマリーを構築する (T30)。"""
+    """get_context() 同等の充実したコンテキストサマリーを構築する (T30/T40)。"""
     parts: list[str] = []
+
+    # --- last conversation time (T40) ---
+    last_conv = getattr(state, "last_conversation_time", None)
+    if last_conv:
+        time_since = relative_time_str(last_conv)
+        parts.append(f"前回の会話: {time_since}")
 
     # --- emotion + body state ---
     if getattr(state, "emotion", None):
@@ -639,6 +647,8 @@ async def _build_chat_context_section(ctx: AppContext, state) -> str:
         parts.append(f"身体状態: {state.physical_state}")
     if getattr(state, "environment", None):
         parts.append(f"環境: {state.environment}")
+    if getattr(state, "speech_style", None):
+        parts.append(f"話し方: {state.speech_style}")
     if getattr(state, "relationship_status", None):
         parts.append(f"関係性: {state.relationship_status}")
 
@@ -675,6 +685,17 @@ async def _build_chat_context_section(ctx: AppContext, state) -> str:
             parts.append("アクティブなコミットメント:\n" + "\n".join(commit_lines))
     except Exception as e:
         logger.debug("Failed to fetch goals/promises: %s", e)
+
+    # --- equipment (T40) ---
+    try:
+        equip_result = ctx.equipment_service.get_equipment()
+        if equip_result.is_ok:
+            equipped = {k: v for k, v in equip_result.value.items() if v}
+            if equipped:
+                equip_lines = "\n".join(f"  {slot}: {item}" for slot, item in equipped.items())
+                parts.append(f"装備:\n{equip_lines}")
+    except Exception as e:
+        logger.debug("Failed to fetch equipment: %s", e)
 
     return "\n".join(parts)
 
@@ -748,10 +769,12 @@ def _sse(event_type: str, data: dict) -> str:
 
 
 async def _invoke_skill(ctx: AppContext, config: ChatConfig, skill_name: str, task: str) -> dict:
+    from memory_mcp.config.settings import get_settings
     from memory_mcp.domain.skill import SkillRepository
     from memory_mcp.infrastructure.llm.base import DoneEvent, TextDeltaEvent
+    from memory_mcp.infrastructure.sqlite.connection import get_global_skills_db
 
-    skill_repo = SkillRepository(ctx.connection.get_memory_db())
+    skill_repo = SkillRepository(get_global_skills_db(get_settings().data_root))
     skill = skill_repo.get(skill_name)
     if not skill:
         return {"error": f"Skill '{skill_name}' not found"}

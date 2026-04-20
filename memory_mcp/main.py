@@ -67,6 +67,19 @@ def create_app() -> MemoryFastMCP:
     register_tools(mcp)
     register_http_routes(mcp)
 
+    # Auto-sync skills from filesystem at startup
+    try:
+        from memory_mcp.domain.skill import SkillRepository
+        from memory_mcp.infrastructure.sqlite.connection import get_global_skills_db
+
+        skills_db = get_global_skills_db(settings.data_root)
+        skill_repo = SkillRepository(skills_db)
+        synced = skill_repo.load_from_dir(settings.skills_dir)
+        if synced:
+            logger.info("Auto-synced %d skills from %s", len(synced), settings.skills_dir)
+    except Exception:
+        logger.exception("Skills auto-sync failed")
+
     # Start background workers
     if settings.summarization.enabled:
         from memory_mcp.application.workers import SummarizationWorker

@@ -195,6 +195,37 @@ CREATE TABLE IF NOT EXISTS equipment_history (
 """
 
 
+_SKILLS_SCHEMA = """\
+CREATE TABLE IF NOT EXISTS skills (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    name        TEXT UNIQUE NOT NULL,
+    description TEXT DEFAULT '',
+    content     TEXT NOT NULL DEFAULT '',
+    created_at  TEXT,
+    updated_at  TEXT
+);
+"""
+
+_global_skills_conn: sqlite3.Connection | None = None
+
+
+def get_global_skills_db(data_dir: str) -> sqlite3.Connection:
+    """Return the singleton global skills.sqlite connection."""
+    global _global_skills_conn
+    if _global_skills_conn is None:
+        db_path = Path(data_dir) / "skills.sqlite"
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        conn = sqlite3.connect(str(db_path))
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA foreign_keys=ON")
+        conn.row_factory = sqlite3.Row
+        conn.executescript(_SKILLS_SCHEMA)
+        conn.commit()
+        _global_skills_conn = conn
+        logger.info("Global skills DB opened: %s", db_path)
+    return _global_skills_conn
+
+
 class SQLiteConnection:
     """SQLite connection manager with WAL mode and per-persona DB isolation."""
 

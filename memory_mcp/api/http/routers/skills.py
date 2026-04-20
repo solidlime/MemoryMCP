@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING
 
 from starlette.responses import JSONResponse
 
-from memory_mcp.api.http.deps import _safe_get_context
 from memory_mcp.infrastructure.logging.structured import get_logger
 
 if TYPE_CHECKING:
@@ -12,21 +11,12 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
-_DEFAULT_PERSONA = "default"
-
 
 def _get_db():
-    from memory_mcp.application.use_cases import AppContextRegistry
+    from memory_mcp.config.settings import get_settings
+    from memory_mcp.infrastructure.sqlite.connection import get_global_skills_db
 
-    # 登録済みペルソナから最初のものを使う（実際の使用ペルソナ）
-    if AppContextRegistry._contexts:
-        first_persona = next(iter(AppContextRegistry._contexts))
-        ctx = _safe_get_context(first_persona)
-        if ctx:
-            return ctx.connection.get_memory_db()
-    # フォールバック: "default"
-    ctx = _safe_get_context(_DEFAULT_PERSONA)
-    return ctx.connection.get_memory_db() if ctx else None
+    return get_global_skills_db(get_settings().data_root)
 
 
 def register_skills_routes(mcp) -> None:
