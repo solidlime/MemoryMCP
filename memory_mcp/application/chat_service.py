@@ -98,6 +98,9 @@ MEMORY_TOOLS = [
 ]
 
 _MEMORY_LLM_PROMPT = """\
+あなたは {persona_name} です。
+{persona_identity}
+
 以下の会話から、記憶・状態・所持品の更新情報を抽出してください。
 
 【現在のコンテキスト】
@@ -105,7 +108,7 @@ _MEMORY_LLM_PROMPT = """\
 
 【会話】
 [user]: {user_message}
-[assistant]: {assistant_response}
+[assistant（私={persona_name}）]: {assistant_response}
 
 【出力形式】
 JSONのみ。コメント不要。不要なフィールドは省略可。
@@ -128,7 +131,8 @@ JSONのみ。コメント不要。不要なフィールドは省略可。
 
 【注意】
 - facts: ユーザーの好み・個人情報・約束・重要な出来事のみ。一時的な発言は不要。
-- context_update: 会話から読み取れる感情・状態変化のみ。変化がなければ省略。
+- facts は私（{persona_name}）の一人称視点で記録する（「私は〜」「ユーザーは〜」など主語を明確に）。
+- context_update: 私（{persona_name}）自身の感情・状態変化のみ。変化がなければ省略。
 - inventory_update: 服や持ち物について具体的な言及があった場合のみ。
 - 何も抽出すべきものがなければ {{"facts": [], "context_update": {{}}, "inventory_update": {{}}}} を出力。
 """
@@ -345,6 +349,8 @@ class MemoryLLM:
         assistant_response: str,
         *,
         context: str = "",
+        persona_name: str = "assistant",
+        persona_identity: str = "",
     ) -> dict:
         extract_model = config.extract_model.strip() or config.get_effective_model()
         api_key = config.get_effective_api_key()
@@ -363,6 +369,8 @@ class MemoryLLM:
             return {}
 
         prompt = _MEMORY_LLM_PROMPT.format(
+            persona_name=persona_name,
+            persona_identity=persona_identity.strip() or f"あなたは {persona_name} として振る舞います。",
             context=context.strip() or "(情報なし)",
             user_message=user_message[:500],
             assistant_response=assistant_response[:500],
@@ -468,7 +476,16 @@ async def _run_memory_llm(ctx: AppContext, config: ChatConfig, payload: dict) ->
         return {}
     try:
         context_str = await _build_memory_llm_context(ctx)
-        result = await MemoryLLM().process(config, user_message, assistant_response, context=context_str)
+        persona_name = ctx.persona or "assistant"
+        persona_identity = (config.system_prompt or "").strip()
+        result = await MemoryLLM().process(
+            config,
+            user_message,
+            assistant_response,
+            context=context_str,
+            persona_name=persona_name,
+            persona_identity=persona_identity,
+        )
         if not result:
             return {}
 
