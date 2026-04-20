@@ -57,6 +57,8 @@ def register_chat_routes(mcp) -> None:
             "auto_extract",
             "extract_model",
             "extract_max_tokens",
+            "tool_result_max_chars",
+            "mcp_servers",
         ):
             if field_name in body:
                 update_data[field_name] = body[field_name]

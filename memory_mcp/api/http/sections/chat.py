@@ -121,12 +121,43 @@ def render_chat_tab() -> str:
             #chat-messages { min-height: 350px; max-height: 50vh; }
             #chat-sidebar { width: 100% !important; }
         }
+        /* Debug panel */
+        .chat-debug-panel {
+            margin-top: 4px; max-width: 85%;
+            background: rgba(0,0,0,0.25); border: 1px solid rgba(139,92,246,0.2);
+            border-radius: 8px; font-size: 0.72rem; overflow: hidden;
+        }
+        .chat-debug-panel details {
+            padding: 5px 10px; border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+        .chat-debug-panel details:last-child { border-bottom: none; }
+        .chat-debug-panel summary {
+            cursor: pointer; color: var(--text-muted); user-select: none; outline: none;
+            padding: 2px 0;
+        }
+        .chat-debug-panel summary:hover { color: var(--text-secondary); }
+        .chat-debug-panel pre {
+            margin: 6px 0 2px; white-space: pre-wrap; word-break: break-all;
+            color: rgba(200,200,255,0.7); max-height: 180px; overflow-y: auto;
+            font-size: 0.7rem; line-height: 1.4;
+        }
+        .chat-debug-btn {
+            background: none; border: 1px solid var(--glass-border);
+            border-radius: 8px; color: var(--text-muted); padding: 4px 8px;
+            cursor: pointer; font-size: 0.78rem; transition: all 0.2s;
+            opacity: 0.4;
+        }
+        .chat-debug-btn.active { opacity: 1; border-color: rgba(139,92,246,0.5); color: var(--accent-purple); }
+        .chat-debug-btn:hover { opacity: 0.8; }
         </style>
         <!-- ========== CHAT TAB ========== -->
         <section id="tab-chat" class="tab-panel" role="tabpanel">
             <div style="position:relative; margin-bottom:12px; display:flex; align-items:center; justify-content:space-between;">
                 <h2 style="font-size:1.1rem; font-weight:600; color:var(--text-primary);">💬 Chat</h2>
-                <button class="chat-sidebar-toggle" onclick="toggleChatSidebar()" id="chat-sidebar-toggle-btn" title="設定パネルを開閉">⚙️ 設定</button>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <button class="chat-debug-btn" id="chat-debug-btn" onclick="toggleDebugMode()" title="デバッグ情報の表示切替">🐛 Debug</button>
+                    <button class="chat-sidebar-toggle" onclick="toggleChatSidebar()" id="chat-sidebar-toggle-btn" title="設定パネルを開閉">⚙️ 設定</button>
+                </div>
             </div>
             <div id="chat-layout" class="glass" style="padding:0; overflow:hidden;">
                 <!-- Chat area -->
@@ -231,12 +262,16 @@ def render_chat_js() -> str:
 const CHAT = {
     streaming: false,
     sidebarOpen: true,
+    debugMode: localStorage.getItem('chat_debug_mode') === 'true',
     messages: [],  // { role, content, time }
 };
 
 function loadChat() {
     if (!S.persona) return;
     loadChatConfig();
+    // Restore debug button state
+    const btn = document.getElementById('chat-debug-btn');
+    if (btn && CHAT.debugMode) btn.classList.add('active');
 }
 
 async function loadChatConfig() {
@@ -325,6 +360,51 @@ function toggleChatSidebar() {
         sidebar.style.overflow = 'hidden';
         sidebar.style.padding = '0';
         if (btn) btn.textContent = '⚙️';
+    }
+}
+
+function toggleDebugMode() {
+    CHAT.debugMode = !CHAT.debugMode;
+    localStorage.setItem('chat_debug_mode', CHAT.debugMode);
+    const btn = document.getElementById('chat-debug-btn');
+    if (btn) btn.classList.toggle('active', CHAT.debugMode);
+    document.querySelectorAll('.chat-debug-panel').forEach(el => {
+        el.style.display = CHAT.debugMode ? 'block' : 'none';
+    });
+}
+
+function renderDebugPanel(anchorEl, data) {
+    const panel = document.createElement('div');
+    panel.className = 'chat-debug-panel';
+    panel.style.display = CHAT.debugMode ? 'block' : 'none';
+    let html = '';
+    if (data.system_prompt) {
+        html += `<details><summary>📋 System Prompt</summary><pre>${esc(data.system_prompt)}</pre></details>`;
+    }
+    const queries = data.memory_queries || [];
+    const results = data.memory_results || [];
+    if (queries.length > 0 || results.length > 0) {
+        const qStr = queries.join(' / ') || '(none)';
+        const rStr = results.length > 0
+            ? results.map(r => `[${(r.importance||0).toFixed(1)}] (${(r.score||0).toFixed(3)}) ${r.content}`).join('\n')
+            : '(no results)';
+        html += `<details><summary>🔍 Memory Search — ${queries.length} quer${queries.length===1?'y':'ies'}, ${results.length} result${results.length!==1?'s':''}</summary><pre>Queries: ${esc(qStr)}\n\nResults:\n${esc(rStr)}</pre></details>`;
+    }
+    if (data.context_summary) {
+        html += `<details><summary>🧠 Context Summary</summary><pre>${esc(data.context_summary)}</pre></details>`;
+    }
+    const toolCalls = data.tool_calls || [];
+    if (toolCalls.length > 0) {
+        const tStr = toolCalls.map(t =>
+            `▶ ${t.name}(${JSON.stringify(t.input)})\n← ${JSON.stringify(t.result)}`
+        ).join('\n\n');
+        html += `<details><summary>🔧 Tool Calls (${toolCalls.length})</summary><pre>${esc(tStr)}</pre></details>`;
+    }
+    panel.innerHTML = html || '<div style="padding:6px 10px;color:var(--text-muted);">No debug data</div>';
+    if (anchorEl) {
+        anchorEl.insertAdjacentElement('afterend', panel);
+    } else {
+        document.getElementById('chat-messages').appendChild(panel);
     }
 }
 
@@ -487,6 +567,9 @@ async function chatSend() {
                     removeTypingIndicator();
                     toast('エラー: ' + evt.message, 'error');
                     statusEl.textContent = '';
+
+                } else if (evt.type === 'debug_info') {
+                    renderDebugPanel(assistantDiv, evt);
 
                 } else if (evt.type === 'done') {
                     statusEl.textContent = '';

@@ -144,8 +144,10 @@ class SessionManager:
 _session_manager = SessionManager()
 
 
-async def _search_memories(ctx: AppContext, user_message: str, last_assistant: str | None, top_k: int = 8) -> str:
-    """T08: 2クエリ並行検索 + RRF風マージ。"""
+async def _search_memories(
+    ctx: AppContext, user_message: str, last_assistant: str | None, top_k: int = 8
+) -> tuple[str, dict]:
+    """T08: 2クエリ並行検索 + RRF風マージ。Returns (formatted_str, debug_info)。"""
     queries = [user_message]
     if last_assistant:
         queries.append(last_assistant[:200])
@@ -180,12 +182,20 @@ async def _search_memories(ctx: AppContext, user_message: str, last_assistant: s
     top = merged[:top_k]
 
     if not top:
-        return ""
+        return "", {"queries": queries, "results": []}
     lines = [
         f"- [{getattr(m, 'importance', 0.5):.1f}] {getattr(m, 'content', str(m))}"
         for m, _ in top
     ]
-    return "\n".join(lines)
+    debug_results = [
+        {
+            "content": getattr(m, "content", str(m)),
+            "importance": round(float(getattr(m, "importance", 0.5)), 2),
+            "score": round(rank_scores.get(getattr(m, "content", str(m)), 0.0), 4),
+        }
+        for m, _ in top
+    ]
+    return "\n".join(lines), {"queries": queries, "results": debug_results}
 
 
 class FactExtractor:
@@ -287,6 +297,7 @@ class ChatService:
         # 2. コンテキスト取得 + 記憶検索（T08: 並行実行）
         context_section = ""
         related_memories = ""
+        memory_debug: dict = {"queries": [], "results": []}
         try:
             state_result = ctx.persona_service.get_context(persona)
             if state_result.is_ok:
@@ -295,7 +306,7 @@ class ChatService:
             logger.warning("get_context failed: %s", e)
 
         try:
-            related_memories = await _search_memories(ctx, user_message, last_assistant, top_k=8)
+            related_memories, memory_debug = await _search_memories(ctx, user_message, last_assistant, top_k=8)
         except Exception as e:
             logger.warning("_search_memories failed: %s", e)
 
@@ -308,6 +319,15 @@ class ChatService:
         if related_memories:
             system_parts.append(f"\n--- 関連記憶 ---\n{related_memories}")
         system = "\n".join(system_parts)
+
+        # T26: デバッグデータ収集
+        debug_data: dict = {
+            "system_prompt": system,
+            "memory_queries": memory_debug.get("queries", []),
+            "memory_results": memory_debug.get("results", []),
+            "context_summary": context_section,
+            "tool_calls": [],
+        }
 
         # 4. ウィンドウメッセージ
         window_messages = session.get_labeled_messages(now)
@@ -376,11 +396,17 @@ class ChatService:
             for tc in pending_tool_calls:
                 yield _sse("tool_call", {"name": tc.tool_name, "input": tc.tool_input, "id": tc.tool_use_id})
                 tool_result = await _execute_tool(ctx, tc.tool_name, tc.tool_input)
-                yield _sse("tool_result", {"name": tc.tool_name, "result": tool_result, "id": tc.tool_use_id})
+                truncated_result = _truncate_tool_result(tool_result, config.tool_result_max_chars)
+                yield _sse("tool_result", {"name": tc.tool_name, "result": truncated_result, "id": tc.tool_use_id})
+                debug_data["tool_calls"].append({
+                    "name": tc.tool_name,
+                    "input": tc.tool_input,
+                    "result": truncated_result,
+                })
                 messages.append(
                     LLMMessage(
                         role="tool",
-                        content=json.dumps(tool_result, ensure_ascii=False),
+                        content=json.dumps(truncated_result, ensure_ascii=False),
                         tool_call_id=tc.tool_use_id,
                     )
                 )
@@ -394,6 +420,7 @@ class ChatService:
         if config.auto_extract and full_response:
             asyncio.create_task(_run_auto_extract(ctx, config, user_message, full_response))
 
+        yield _sse("debug_info", debug_data)
         yield _sse("done", {"message": "completed"})
 
 
@@ -473,3 +500,15 @@ async def _execute_tool(ctx: AppContext, tool_name: str, tool_input: dict) -> di
 def _sse(event_type: str, data: dict) -> str:
     payload = json.dumps({"type": event_type, **data}, ensure_ascii=False)
     return f"data: {payload}\n\n"
+
+
+def _truncate_tool_result(result: dict, max_chars: int) -> dict:
+    """Truncate tool result string to avoid context overflow."""
+    result_str = json.dumps(result, ensure_ascii=False)
+    if len(result_str) <= max_chars:
+        return result
+    remaining = len(result_str) - max_chars
+    return {
+        "truncated": True,
+        "content": result_str[:max_chars] + f"... [truncated: {remaining} chars remaining]",
+    }

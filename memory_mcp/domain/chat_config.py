@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from typing import TYPE_CHECKING
 
@@ -46,6 +47,8 @@ class ChatConfig(BaseModel):
     auto_extract: bool = True
     extract_model: str = ""
     extract_max_tokens: int = 512
+    tool_result_max_chars: int = 4000
+    mcp_servers: list[dict] = []
     updated_at: str | None = None
 
     @field_validator("temperature")
@@ -72,6 +75,11 @@ class ChatConfig(BaseModel):
     @classmethod
     def _clamp_extract_max_tokens(cls, v: int) -> int:
         return max(64, min(2048, v))
+
+    @field_validator("tool_result_max_chars")
+    @classmethod
+    def _clamp_tool_result_max_chars(cls, v: int) -> int:
+        return max(500, min(100000, v))
 
     def get_effective_api_key(self) -> str:
         """Return stored API key or fall back to environment variable."""
@@ -120,7 +128,8 @@ class ChatConfigRepository:
         row = self._db.execute(
             "SELECT persona, provider, model, api_key, base_url, system_prompt, "
             "temperature, max_tokens, max_window_turns, max_tool_calls, updated_at, "
-            "auto_extract, extract_model, extract_max_tokens "
+            "auto_extract, extract_model, extract_max_tokens, "
+            "tool_result_max_chars, mcp_servers "
             "FROM chat_settings WHERE persona = ?",
             (persona,),
         ).fetchone()
@@ -141,6 +150,8 @@ class ChatConfigRepository:
             auto_extract=bool(row[11]) if row[11] is not None else True,
             extract_model=row[12] or "",
             extract_max_tokens=int(row[13]) if row[13] is not None else 512,
+            tool_result_max_chars=int(row[14]) if row[14] is not None else 4000,
+            mcp_servers=json.loads(row[15] or "[]"),
         )
 
     def save(self, config: ChatConfig) -> None:
@@ -151,8 +162,9 @@ class ChatConfigRepository:
             INSERT INTO chat_settings
                 (persona, provider, model, api_key, base_url, system_prompt,
                  temperature, max_tokens, max_window_turns, max_tool_calls,
-                 auto_extract, extract_model, extract_max_tokens, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 auto_extract, extract_model, extract_max_tokens,
+                 tool_result_max_chars, mcp_servers, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(persona) DO UPDATE SET
                 provider=excluded.provider,
                 model=excluded.model,
@@ -166,6 +178,8 @@ class ChatConfigRepository:
                 auto_extract=excluded.auto_extract,
                 extract_model=excluded.extract_model,
                 extract_max_tokens=excluded.extract_max_tokens,
+                tool_result_max_chars=excluded.tool_result_max_chars,
+                mcp_servers=excluded.mcp_servers,
                 updated_at=excluded.updated_at
             """,
             (
@@ -182,6 +196,8 @@ class ChatConfigRepository:
                 int(config.auto_extract),
                 config.extract_model,
                 config.extract_max_tokens,
+                config.tool_result_max_chars,
+                json.dumps(config.mcp_servers, ensure_ascii=False),
                 now,
             ),
         )
