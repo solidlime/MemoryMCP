@@ -198,6 +198,20 @@ def render_chat_tab() -> str:
                             placeholder="（空白でデフォルト: ペルソナ名のアシスタント）"
                             style="flex:1;resize:vertical;min-height:70px;"></textarea>
                     </div>
+                    <!-- Auto extract -->
+                    <div style="border-top:1px solid var(--glass-border);padding-top:10px;">
+                        <div style="font-size:0.8rem; font-weight:600; color:var(--text-secondary); margin-bottom:8px;">🧠 自動ファクト抽出 (Mem0方式)</div>
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                            <input type="checkbox" id="chat-auto-extract" checked
+                                style="width:15px;height:15px;accent-color:var(--accent-purple);cursor:pointer;" />
+                            <label for="chat-auto-extract" class="chat-field-label" style="margin:0;cursor:pointer;">ターン毎に記憶を自動抽出</label>
+                        </div>
+                        <div>
+                            <div class="chat-field-label">抽出モデル <span style="color:var(--text-muted);font-size:0.7rem;">（空白でチャットと同モデル）</span></div>
+                            <input type="text" id="chat-extract-model" class="chat-field-input"
+                                placeholder="例: claude-haiku-4-5, gpt-4o-mini" />
+                        </div>
+                    </div>
                     <!-- Buttons -->
                     <button class="chat-save-btn" onclick="saveChatConfig()">💾 設定を保存</button>
                     <button class="chat-clear-btn" onclick="clearChatHistory()">🗑️ 会話をリセット</button>
@@ -245,6 +259,9 @@ function applyChatConfig(cfg) {
     set('chat-max-tokens', cfg.max_tokens || 2048);
     set('chat-window-turns', cfg.max_window_turns || 3);
     set('chat-system-prompt', cfg.system_prompt || '');
+    const autoExtract = document.getElementById('chat-auto-extract');
+    if (autoExtract) autoExtract.checked = cfg.auto_extract !== false;
+    set('chat-extract-model', cfg.extract_model || '');
     const tempEl = document.getElementById('chat-temp-val');
     if (tempEl) tempEl.textContent = parseFloat(cfg.temperature || 0.7).toFixed(2);
     onChatProviderChange();
@@ -279,6 +296,8 @@ async function saveChatConfig() {
         max_tokens: parseInt(document.getElementById('chat-max-tokens').value),
         max_window_turns: parseInt(document.getElementById('chat-window-turns').value),
         system_prompt: document.getElementById('chat-system-prompt').value.trim(),
+        auto_extract: document.getElementById('chat-auto-extract')?.checked ?? true,
+        extract_model: document.getElementById('chat-extract-model')?.value.trim() || '',
     };
     try {
         const cfg = await api('/api/chat/' + encodeURIComponent(S.persona) + '/config', {

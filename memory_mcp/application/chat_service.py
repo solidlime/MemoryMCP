@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from collections import OrderedDict, deque
 from typing import TYPE_CHECKING
@@ -63,6 +64,25 @@ MEMORY_TOOLS = [
     ),
 ]
 
+_EXTRACT_PROMPT = """\
+以下の会話から、長期記憶として保存すべき重要情報を抽出してください。
+
+【抽出対象】
+- ユーザーの好み・嗜好・習慣
+- 重要な個人情報（名前・職業・家族など）
+- 明示的な記憶要求（「覚えておいて」「忘れないで」等）
+- 約束・予定・目標
+- 感情的に重要な出来事
+
+【出力形式】
+JSON配列のみ。重要な情報がない場合は空配列 []。コメント不要。
+[{{"content": "...", "importance": 0.7, "tags": ["preference"]}}]
+
+会話:
+[user]: {user_message}
+[assistant]: {assistant_response}
+"""
+
 
 class SessionWindow:
     def __init__(self, max_turns: int = 3) -> None:
@@ -89,6 +109,13 @@ class SessionWindow:
                 )
             )
         return result
+
+    def get_last_assistant_content(self) -> str | None:
+        """ウィンドウ内の直近アシスタント発言を返す（なければNone）。"""
+        for msg in reversed(self._messages):
+            if msg["role"] == "assistant":
+                return msg["content"]
+        return None
 
     def __len__(self) -> int:
         return len(self._messages)
@@ -117,6 +144,131 @@ class SessionManager:
 _session_manager = SessionManager()
 
 
+async def _search_memories(ctx: AppContext, user_message: str, last_assistant: str | None, top_k: int = 8) -> str:
+    """T08: 2クエリ並行検索 + RRF風マージ。"""
+    queries = [user_message]
+    if last_assistant:
+        queries.append(last_assistant[:200])
+
+    async def _run(q: str) -> list:
+        try:
+            result = ctx.search_engine.search(q, top_k=top_k)
+            return result.value if result.is_ok else []
+        except Exception as e:
+            logger.warning("search_memory failed (query=%s): %s", q[:40], e)
+            return []
+
+    results = await asyncio.gather(*[_run(q) for q in queries])
+
+    # RRF マージ（重複排除: content文字列で判定）
+    seen: set[str] = set()
+    merged: list = []
+    rank_scores: dict[str, float] = {}
+    for _rank_idx, result_list in enumerate(results):
+        for pos, item in enumerate(result_list):
+            mem = item[0] if isinstance(item, tuple) else item
+            content = getattr(mem, "content", str(mem))
+            score = 1.0 / (60 + pos + 1)  # RRF k=60
+            if content in seen:
+                rank_scores[content] = rank_scores.get(content, 0.0) + score
+            else:
+                seen.add(content)
+                merged.append((mem, score))
+                rank_scores[content] = rank_scores.get(content, 0.0) + score
+
+    merged.sort(key=lambda x: rank_scores.get(getattr(x[0], "content", str(x[0])), 0.0), reverse=True)
+    top = merged[:top_k]
+
+    if not top:
+        return ""
+    lines = [
+        f"- [{getattr(m, 'importance', 0.5):.1f}] {getattr(m, 'content', str(m))}"
+        for m, _ in top
+    ]
+    return "\n".join(lines)
+
+
+class FactExtractor:
+    """T10: ターン終了後にLLMで重要ファクトを抽出する。"""
+
+    async def extract(self, config: ChatConfig, user_message: str, assistant_response: str) -> list[dict]:
+        extract_model = config.extract_model.strip() or config.get_effective_model()
+        api_key = config.get_effective_api_key()
+        if not api_key or not extract_model:
+            return []
+
+        try:
+            provider = get_provider(
+                config.provider,
+                api_key,
+                extract_model,
+                config.get_effective_base_url(),
+            )
+        except Exception as e:
+            logger.warning("FactExtractor: provider init failed: %s", e)
+            return []
+
+        prompt = _EXTRACT_PROMPT.format(
+            user_message=user_message[:500],
+            assistant_response=assistant_response[:500],
+        )
+
+        from memory_mcp.infrastructure.llm.base import DoneEvent, ErrorEvent, TextDeltaEvent
+
+        text = ""
+        try:
+            async for event in provider.stream(
+                messages=[LLMMessage(role="user", content=prompt)],
+                system="",
+                tools=[],
+                temperature=0.0,
+                max_tokens=config.extract_max_tokens,
+            ):
+                if isinstance(event, TextDeltaEvent):
+                    text += event.content
+                elif isinstance(event, (DoneEvent, ErrorEvent)):
+                    break
+        except Exception as e:
+            logger.warning("FactExtractor: LLM call failed: %s", e)
+            return []
+
+        return _parse_facts(text)
+
+
+def _parse_facts(text: str) -> list[dict]:
+    """LLM出力からJSON配列をパースする。"""
+    text = text.strip()
+    # マークダウンコードブロックを除去
+    if text.startswith("```"):
+        lines = text.splitlines()
+        text = "\n".join(lines[1:-1] if lines[-1].startswith("```") else lines[1:])
+    try:
+        facts = json.loads(text)
+        if isinstance(facts, list):
+            return [f for f in facts if isinstance(f, dict) and "content" in f]
+    except Exception:
+        pass
+    return []
+
+
+async def _run_auto_extract(ctx: AppContext, config: ChatConfig, user_message: str, assistant_response: str) -> None:
+    """T11: fire-and-forget 自動ファクト抽出。"""
+    try:
+        extractor = FactExtractor()
+        facts = await extractor.extract(config, user_message, assistant_response)
+        for fact in facts:
+            ctx.memory_service.create_memory(
+                content=fact["content"],
+                importance=float(fact.get("importance", 0.6)),
+                tags=fact.get("tags", ["auto_extract"]),
+                emotion=fact.get("emotion_type", "neutral"),
+            )
+        if facts:
+            logger.info("Auto-extracted %d facts for persona=%s", len(facts), ctx.persona)
+    except Exception as e:
+        logger.warning("Auto-extract failed: %s", e)
+
+
 class ChatService:
     async def chat(
         self,
@@ -128,28 +280,24 @@ class ChatService:
         now = get_now()
         persona = ctx.persona
 
-        # 1. コンテキスト取得
+        # 1. セッションウィンドウ（先に取得して検索クエリ拡張に使う）
+        session = _session_manager.get_or_create(persona, session_id, config.max_window_turns)
+        last_assistant = session.get_last_assistant_content()
+
+        # 2. コンテキスト取得 + 記憶検索（T08: 並行実行）
         context_section = ""
+        related_memories = ""
         try:
             state_result = ctx.persona_service.get_context(persona)
             if state_result.is_ok:
-                state = state_result.value
-                context_section = _format_state_summary(state)
+                context_section = _format_state_summary(state_result.value)
         except Exception as e:
             logger.warning("get_context failed: %s", e)
 
-        # 2. 記憶検索
-        related_memories = ""
         try:
-            search_result = ctx.search_engine.search(user_message, top_k=5)
-            if search_result.is_ok and search_result.value:
-                lines = []
-                for item in search_result.value:
-                    mem = item[0] if isinstance(item, tuple) else item
-                    lines.append(f"- [{getattr(mem, 'importance', 0.5):.1f}] {getattr(mem, 'content', str(mem))}")
-                related_memories = "\n".join(lines)
+            related_memories = await _search_memories(ctx, user_message, last_assistant, top_k=8)
         except Exception as e:
-            logger.warning("search_memory failed: %s", e)
+            logger.warning("_search_memories failed: %s", e)
 
         # 3. system prompt構築
         base_system = config.system_prompt or f"あなたは{persona}という名前のアシスタントです。"
@@ -161,8 +309,7 @@ class ChatService:
             system_parts.append(f"\n--- 関連記憶 ---\n{related_memories}")
         system = "\n".join(system_parts)
 
-        # 4. セッションウィンドウ
-        session = _session_manager.get_or_create(persona, session_id, config.max_window_turns)
+        # 4. ウィンドウメッセージ
         window_messages = session.get_labeled_messages(now)
 
         # 5. プロバイダー初期化
@@ -242,6 +389,10 @@ class ChatService:
 
         session.add("user", user_message, now)
         session.add("assistant", full_response, get_now())
+
+        # T11: バックグラウンド自動ファクト抽出（SSEをブロックしない）
+        if config.auto_extract and full_response:
+            asyncio.create_task(_run_auto_extract(ctx, config, user_message, full_response))
 
         yield _sse("done", {"message": "completed"})
 

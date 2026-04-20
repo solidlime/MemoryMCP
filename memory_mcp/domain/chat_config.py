@@ -43,6 +43,9 @@ class ChatConfig(BaseModel):
     max_tokens: int = 2048
     max_window_turns: int = 3
     max_tool_calls: int = 5
+    auto_extract: bool = True
+    extract_model: str = ""
+    extract_max_tokens: int = 512
     updated_at: str | None = None
 
     @field_validator("temperature")
@@ -64,6 +67,11 @@ class ChatConfig(BaseModel):
     @classmethod
     def _clamp_tool_calls(cls, v: int) -> int:
         return max(0, min(20, v))
+
+    @field_validator("extract_max_tokens")
+    @classmethod
+    def _clamp_extract_max_tokens(cls, v: int) -> int:
+        return max(64, min(2048, v))
 
     def get_effective_api_key(self) -> str:
         """Return stored API key or fall back to environment variable."""
@@ -111,7 +119,8 @@ class ChatConfigRepository:
         """Load config for persona, returning defaults if not found."""
         row = self._db.execute(
             "SELECT persona, provider, model, api_key, base_url, system_prompt, "
-            "temperature, max_tokens, max_window_turns, max_tool_calls, updated_at "
+            "temperature, max_tokens, max_window_turns, max_tool_calls, updated_at, "
+            "auto_extract, extract_model, extract_max_tokens "
             "FROM chat_settings WHERE persona = ?",
             (persona,),
         ).fetchone()
@@ -129,6 +138,9 @@ class ChatConfigRepository:
             max_window_turns=int(row[8]) if row[8] is not None else 3,
             max_tool_calls=int(row[9]) if row[9] is not None else 5,
             updated_at=row[10],
+            auto_extract=bool(row[11]) if row[11] is not None else True,
+            extract_model=row[12] or "",
+            extract_max_tokens=int(row[13]) if row[13] is not None else 512,
         )
 
     def save(self, config: ChatConfig) -> None:
@@ -138,8 +150,9 @@ class ChatConfigRepository:
             """
             INSERT INTO chat_settings
                 (persona, provider, model, api_key, base_url, system_prompt,
-                 temperature, max_tokens, max_window_turns, max_tool_calls, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 temperature, max_tokens, max_window_turns, max_tool_calls,
+                 auto_extract, extract_model, extract_max_tokens, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(persona) DO UPDATE SET
                 provider=excluded.provider,
                 model=excluded.model,
@@ -150,6 +163,9 @@ class ChatConfigRepository:
                 max_tokens=excluded.max_tokens,
                 max_window_turns=excluded.max_window_turns,
                 max_tool_calls=excluded.max_tool_calls,
+                auto_extract=excluded.auto_extract,
+                extract_model=excluded.extract_model,
+                extract_max_tokens=excluded.extract_max_tokens,
                 updated_at=excluded.updated_at
             """,
             (
@@ -163,6 +179,9 @@ class ChatConfigRepository:
                 config.max_tokens,
                 config.max_window_turns,
                 config.max_tool_calls,
+                int(config.auto_extract),
+                config.extract_model,
+                config.extract_max_tokens,
                 now,
             ),
         )

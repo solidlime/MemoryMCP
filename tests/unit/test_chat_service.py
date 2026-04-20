@@ -192,7 +192,10 @@ class TestChatConfigRepository:
                 max_tokens INTEGER DEFAULT 2048,
                 max_window_turns INTEGER DEFAULT 3,
                 max_tool_calls INTEGER DEFAULT 5,
-                updated_at TEXT
+                updated_at TEXT,
+                auto_extract INTEGER DEFAULT 1,
+                extract_model TEXT DEFAULT '',
+                extract_max_tokens INTEGER DEFAULT 512
             )
         """)
         db.commit()
