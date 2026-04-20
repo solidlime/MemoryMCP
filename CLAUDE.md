@@ -49,6 +49,12 @@ memory_mcp/
 ├── domain/              # ドメイン層（ビジネスロジック）
 ├── infrastructure/      # インフラ層（SQLite / Qdrant / Embedding）
 ├── application/         # アプリケーション層（UseCases）
+│   ├── chat/            # チャットサブパッケージ
+│   │   ├── service.py        # ChatService / SSEストリーミング
+│   │   ├── session_store.py  # SessionWindow / SessionManager（SQLite永続化）
+│   │   ├── memory_llm.py     # MemoryLLM / run_memory_llm（自動記憶抽出）
+│   │   └── tools.py          # MEMORY_TOOLS / execute_tool / invoke_skill
+│   └── chat_service.py  # 後方互換 re-export のみ
 ├── api/mcp/             # MCP API層（ツール5本）
 ├── migration/           # スキーママイグレーション + インポーター
 └── cli/                 # CLIツール

@@ -4,12 +4,27 @@ All notable changes to Memory-MCP will be documented in this file.
 
 ## [Unreleased]
 
-### Fixed
-- **タイムスタンプ上書きバグ**: `generate_memory_key()` にマイクロ秒+ランダムsuffixを追加し、同秒内のキー衝突を解消
-- **X-Personaヘッダー未反映**: ASGIミドルウェア+ContextVarでBearer/X-Personaヘッダーからペルソナ解決可能に（優先順位: Bearer > X-Persona > 環境変数 > "default"）
-- **ペルソナセレクタ**: memory.sqliteが存在するディレクトリのみをリストするよう修正
+### Added
+- **チャットシステム**: LLMプロバイダー（Anthropic/OpenAI/Gemini等）を使ったリアルタイムSSEストリーミングチャット
+  - WebUI チャットページ（`/chat/{persona}`）
+  - SSE形式: `text_delta` / `tool_call` / `tool_result` / `debug_info` / `done` イベント
+  - セッションウィンドウ管理（`max_window_turns` で制御）
+  - MemoryLLM: ターン終了後に facts・状態・装備を自動抽出（`auto_extract`フラグ）
+- **チャットログ永続化** (T42): SQLite `chat_sessions` テーブルによる会話履歴保存（再起動後も継続可）
+- **デバッグ情報強化** (T45): `session_id`/`provider`/`model`/`auto_extract`/`window_messages_count`/`memory_llm_result` を debug_info に追加
+- **MCP extra ツール重複フィルタ** (T44): `ChatConfig.enable_memory_tools` フラグ + MCPサーバー由来の memory 系ツールを自動除外
+- **MemoryLLM ペルソナ自己認識** (T48): MemoryLLMにペルソナ情報を渡し、一人称視点での記憶生成を実現
+- **Settingsツールチップ**: 各設定項目にℹ️アイコン付き説明文とホットリロード可否を表示
+- **PersonaMiddleware**: ASGIミドルウェアによるリクエスト単位のペルソナ識別
+- `ensure_directories()` auto-creates all required directories on startup
+- `HF_HOME`, `SENTENCE_TRANSFORMERS_HOME`, `TORCH_HOME` auto-configured from `{data_root}/cache/`
 
 ### Changed
+- **chat_service.py → chat/ パッケージ** (T46): 970行の単一ファイルを4モジュールに分割（後方互換 re-export 維持）
+  - `session_store.py`: SessionWindow / SessionManager
+  - `memory_llm.py`: MemoryLLM / run_memory_llm
+  - `tools.py`: MEMORY_TOOLS / execute_tool / invoke_skill
+  - `service.py`: ChatService / SSEストリーミング
 - **ディレクトリ構造**: ペルソナデータを `/data/memory/{persona}/` に、インポートを `/data/import/` に分離
 - **get_context出力**: v1スタイルのリッチ出力に刷新（15セクション、物理感覚/記念日/promise/goal等を復活）
 - **デフォルトテーマ**: ダッシュボードのデフォルトをlightモードに変更
@@ -17,11 +32,13 @@ All notable changes to Memory-MCP will be documented in this file.
 - **BREAKING**: `MEMORY_MCP_DATA_DIR` and `MEMORY_MCP_IMPORT_DIR` env vars replaced by single `MEMORY_MCP_DATA_ROOT`
 - All sub-paths (`memory/`, `import/`, `cache/`, `config/`) automatically derived from `data_root`
 
-### Added
-- **Settingsツールチップ**: 各設定項目にℹ️アイコン付き説明文とホットリロード可否を表示
-- **PersonaMiddleware**: ASGIミドルウェアによるリクエスト単位のペルソナ識別
-- `ensure_directories()` auto-creates all required directories on startup
-- `HF_HOME`, `SENTENCE_TRANSFORMERS_HOME`, `TORCH_HOME` auto-configured from `{data_root}/cache/`
+### Removed
+- **Skillsタブ** (T43): WebUIのSkillsタブを廃止（チャット設定の Skills セクションは維持）
+
+### Fixed
+- **タイムスタンプ上書きバグ**: `generate_memory_key()` にマイクロ秒+ランダムsuffixを追加し、同秒内のキー衝突を解消
+- **X-Personaヘッダー未反映**: ASGIミドルウェア+ContextVarでBearer/X-Personaヘッダーからペルソナ解決可能に（優先順位: Bearer > X-Persona > 環境変数 > "default"）
+- **ペルソナセレクタ**: memory.sqliteが存在するディレクトリのみをリストするよう修正
 
 ## [2.0.0] - 2025-03-23
 

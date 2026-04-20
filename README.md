@@ -225,6 +225,12 @@ memory_mcp/
 ├── domain/              # ビジネスロジック
 ├── infrastructure/      # SQLite / Qdrant / Embedding
 ├── application/         # UseCases
+│   ├── chat/            # チャットサブパッケージ
+│   │   ├── service.py        # ChatService（SSEストリーミング）
+│   │   ├── session_store.py  # セッション管理（SQLite永続化）
+│   │   ├── memory_llm.py     # MemoryLLM（自動記憶抽出）
+│   │   └── tools.py          # 組み込みツール定義・実行
+│   └── chat_service.py  # 後方互換 re-export
 ├── api/mcp/             # MCP ツール 5 本
 ├── api/http/            # Web ダッシュボード + REST API
 └── migration/           # スキーママイグレーション
@@ -240,6 +246,59 @@ $MEMORY_MCP_DATA_ROOT/     # デフォルト: ./data（Docker: /data）
 ├── cache/                 # モデルキャッシュ（HF_HOME 等を自動設定）
 └── config/                # 設定ファイル
 ```
+
+## チャット機能
+
+WebUI（`http://localhost:26262/chat/{persona}`）またはREST APIで、ペルソナとリアルタイムチャットができる。
+
+### SSE API
+
+```
+POST /api/chat/{persona}
+Content-Type: application/json
+
+{"message": "こんにちは", "session_id": "my-session"}
+```
+
+レスポンスは SSE ストリーム。以下のイベントが流れる：
+
+| イベント | 説明 |
+|---|---|
+| `text_delta` | LLM テキストの増分 |
+| `tool_call` | ツール呼び出し |
+| `tool_result` | ツール実行結果 |
+| `debug_info` | セッション・記憶・MemoryLLM結果などのデバッグ情報 |
+| `done` | 完了 |
+
+### チャット設定
+
+`GET/POST /api/chat/{persona}/config` でチャット設定を取得・更新する。
+
+| フィールド | デフォルト | 説明 |
+|---|---|---|
+| `provider` | `anthropic` | LLMプロバイダー（`anthropic` / `openai` / `gemini`） |
+| `model` | `claude-opus-4-5` | 使用モデル |
+| `api_key` | *(なし)* | APIキー（保存後はマスク表示） |
+| `system_prompt` | *(なし)* | ペルソナのシステムプロンプト |
+| `auto_extract` | `true` | MemoryLLMによる自動記憶抽出 |
+| `extract_model` | *(model と同じ)* | MemoryLLM専用モデル |
+| `max_window_turns` | `3` | 会話ウィンドウのターン数 |
+| `max_tool_calls` | `5` | 1ターンの最大ツール呼び出し数 |
+| `enable_memory_tools` | `true` | 組み込み memory ツールを注入するか |
+| `mcp_servers` | `[]` | 追加 MCP サーバーの設定リスト |
+| `enabled_skills` | `[]` | 有効化するスキル名のリスト |
+
+### チャットログ永続化
+
+会話履歴は SQLite (`chat_sessions` テーブル) に自動保存される。サーバーを再起動しても `session_id` が同じであれば会話を継続できる。TTL（デフォルト7日）を超えたセッションは自動削除される。
+
+### MemoryLLM（自動記憶抽出）
+
+`auto_extract: true` の場合、各ターン終了後に MemoryLLM が非同期で起動し、会話から以下を自動抽出する：
+
+- **facts**: ユーザーの好み・個人情報・約束・重要な出来事
+- **context_update**: ペルソナの感情・状態変化
+- **inventory_update**: 服・持ち物の変化
 
 ## テスト
 
