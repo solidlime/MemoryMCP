@@ -50,6 +50,7 @@ class ChatConfig(BaseModel):
     tool_result_max_chars: int = 4000
     mcp_servers: list[dict] = []
     enabled_skills: list[str] = []
+    enable_memory_tools: bool = True
     updated_at: str | None = None
 
     @field_validator("temperature")

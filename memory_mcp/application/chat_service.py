@@ -678,7 +678,25 @@ class ChatService:
 
         async with MCPClientPool(config.mcp_servers) as mcp_pool:
             extra_tools = mcp_pool.list_all_tools()
-            all_tools = MEMORY_TOOLS + extra_tools
+
+            # T44: enable_memory_tools フラグでローカル MEMORY_TOOLS を制御
+            base_tools = list(MEMORY_TOOLS) if config.enable_memory_tools else []
+
+            # T44: MCPサーバーから来る memory 系ツールの重複フィルタ
+            # （同一ツール名または MemoryMCP 由来の MCP ツールは MEMORY_TOOLS と役割が重複）
+            _memory_mcp_tool_names = {
+                "memory",
+                "search_memory",
+                "get_context",
+                "update_context",
+                "item",
+                "memory_create",
+                "memory_search",
+                "context_update",
+            }
+            filtered_extra = [t for t in extra_tools if t.name.split("__")[-1] not in _memory_mcp_tool_names]
+
+            all_tools = base_tools + filtered_extra
 
             # T41: ツール定義をデバッグデータに記録
             debug_data["tools_injected"] = [{"name": t.name, "description": t.description} for t in all_tools]
