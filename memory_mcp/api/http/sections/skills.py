@@ -24,10 +24,6 @@ def render_skills_tab() -> str:
                         <div class="chat-field-label">説明</div>
                         <input type="text" id="skill-description" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid var(--glass-border);border-radius:8px;padding:8px 10px;color:var(--text-primary);font-size:0.85rem;outline:none;" placeholder="スキルの簡潔な説明" />
                     </div>
-                    <div>
-                        <div class="chat-field-label">システムプロンプト (content)</div>
-                        <textarea id="skill-content" rows="6" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid var(--glass-border);border-radius:8px;padding:8px 10px;color:var(--text-primary);font-size:0.85rem;outline:none;resize:vertical;font-family:inherit;line-height:1.5;" placeholder="このスキルのサブLLMに渡すシステムプロンプト"></textarea>
-                    </div>
                     <div style="display:flex;gap:8px;">
                         <button onclick="saveSkill()" style="padding:7px 20px;border-radius:8px;background:linear-gradient(135deg,var(--accent-purple),#7c3aed);border:none;color:white;font-size:0.85rem;cursor:pointer;font-weight:600;">保存</button>
                         <button onclick="hideSkillForm()" style="padding:7px 16px;border-radius:8px;background:rgba(255,255,255,0.06);border:1px solid var(--glass-border);color:var(--text-secondary);font-size:0.85rem;cursor:pointer;">キャンセル</button>
@@ -99,7 +95,6 @@ function showSkillForm() {
     document.getElementById('skill-edit-id').value = '';
     document.getElementById('skill-name').value = '';
     document.getElementById('skill-description').value = '';
-    document.getElementById('skill-content').value = '';
     document.getElementById('skill-name').disabled = false;
     document.getElementById('skill-form-area').style.display = 'block';
 }
@@ -115,7 +110,6 @@ function editSkill(skillJson) {
     document.getElementById('skill-name').value = skill.name;
     document.getElementById('skill-name').disabled = true;
     document.getElementById('skill-description').value = skill.description || '';
-    document.getElementById('skill-content').value = skill.content || '';
     document.getElementById('skill-form-area').style.display = 'block';
 }
 
@@ -123,13 +117,12 @@ async function saveSkill() {
     const editId = document.getElementById('skill-edit-id').value;
     const name = document.getElementById('skill-name').value.trim();
     const description = document.getElementById('skill-description').value.trim();
-    const content = document.getElementById('skill-content').value.trim();
     if (!name) { toast('スキル名を入力してください', 'error'); return; }
     try {
         if (editId) {
-            await api('/api/skills/' + encodeURIComponent(editId), { method: 'PUT', body: JSON.stringify({ description, content }) });
+            await api('/api/skills/' + encodeURIComponent(editId), { method: 'PUT', body: JSON.stringify({ description }) });
         } else {
-            await api('/api/skills', { method: 'POST', body: JSON.stringify({ name, description, content }) });
+            await api('/api/skills', { method: 'POST', body: JSON.stringify({ name, description }) });
         }
         hideSkillForm();
         loadSkillsList();

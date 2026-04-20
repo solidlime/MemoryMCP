@@ -5,6 +5,7 @@ import json
 from collections import OrderedDict, deque
 from typing import TYPE_CHECKING
 
+from memory_mcp.domain.search.engine import SearchQuery
 from memory_mcp.domain.shared.time_utils import get_now, relative_time_str
 from memory_mcp.infrastructure.llm.base import LLMMessage, ToolDefinition
 from memory_mcp.infrastructure.llm.factory import get_provider
@@ -77,23 +78,37 @@ MEMORY_TOOLS = [
     ),
 ]
 
-_EXTRACT_PROMPT = """\
-以下の会話から、長期記憶として保存すべき重要情報を抽出してください。
+_MEMORY_LLM_PROMPT = """\
+以下の会話から、記憶・状態・所持品の更新情報を抽出してください。
 
-【抽出対象】
-- ユーザーの好み・嗜好・習慣
-- 重要な個人情報（名前・職業・家族など）
-- 明示的な記憶要求（「覚えておいて」「忘れないで」等）
-- 約束・予定・目標
-- 感情的に重要な出来事
-
-【出力形式】
-JSON配列のみ。重要な情報がない場合は空配列 []。コメント不要。
-[{{"content": "...", "importance": 0.7, "tags": ["preference"]}}]
-
-会話:
+【会話】
 [user]: {user_message}
 [assistant]: {assistant_response}
+
+【出力形式】
+JSONのみ。コメント不要。不要なフィールドは省略可。
+{{
+  "facts": [
+    {{"content": "記憶すべき事実", "importance": 0.7, "tags": ["preference"], "emotion_type": "neutral"}}
+  ],
+  "context_update": {{
+    "emotion": "joy",
+    "emotion_intensity": 0.8,
+    "mental_state": "リラックスしている",
+    "physical_state": "疲れている",
+    "environment": "自宅"
+  }},
+  "inventory_update": {{
+    "equip": {{"top": "白いシャツ"}},
+    "unequip": ["bottom"]
+  }}
+}}
+
+【注意】
+- facts: ユーザーの好み・個人情報・約束・重要な出来事のみ。一時的な発言は不要。
+- context_update: 会話から読み取れる感情・状態変化のみ。変化がなければ省略。
+- inventory_update: 服や持ち物について具体的な言及があった場合のみ。
+- 何も抽出すべきものがなければ {{"facts": [], "context_update": {{}}, "inventory_update": {{}}}} を出力。
 """
 
 
@@ -133,6 +148,16 @@ class SessionWindow:
     def __len__(self) -> int:
         return len(self._messages)
 
+    def set_pending(self, payload: dict) -> None:
+        """ターン終了時に遅延MemoryLLM処理用のペイロードを保存する。"""
+        self._pending_payload: dict | None = payload
+
+    def pop_pending(self) -> dict | None:
+        """保存済みのペイロードを取り出してクリアする。"""
+        payload = getattr(self, "_pending_payload", None)
+        self._pending_payload = None
+        return payload
+
 
 class SessionManager:
     def __init__(self, max_sessions: int = 100) -> None:
@@ -167,7 +192,7 @@ async def _search_memories(
 
     async def _run(q: str) -> list:
         try:
-            result = ctx.search_engine.search(q, top_k=top_k)
+            result = ctx.search_engine.search(SearchQuery(text=q, top_k=top_k))
             return result.value if result.is_ok else []
         except Exception as e:
             logger.warning("search_memory failed (query=%s): %s", q[:40], e)
@@ -181,7 +206,13 @@ async def _search_memories(
     rank_scores: dict[str, float] = {}
     for _rank_idx, result_list in enumerate(results):
         for pos, item in enumerate(result_list):
-            mem = item[0] if isinstance(item, tuple) else item
+            # SearchResult dataclass or (Memory, score) tuple
+            if isinstance(item, tuple):
+                mem = item[0]
+            elif hasattr(item, "memory"):
+                mem = item.memory
+            else:
+                mem = item
             content = getattr(mem, "content", str(mem))
             score = 1.0 / (60 + pos + 1)  # RRF k=60
             if content in seen:
@@ -211,14 +242,14 @@ async def _search_memories(
     return "\n".join(lines), {"queries": queries, "results": debug_results}
 
 
-class FactExtractor:
-    """T10: ターン終了後にLLMで重要ファクトを抽出する。"""
+class MemoryLLM:
+    """T35: ターン終了後に facts・context_update・inventory_update を一括抽出する。"""
 
-    async def extract(self, config: ChatConfig, user_message: str, assistant_response: str) -> list[dict]:
+    async def process(self, config: ChatConfig, user_message: str, assistant_response: str) -> dict:
         extract_model = config.extract_model.strip() or config.get_effective_model()
         api_key = config.get_effective_api_key()
         if not api_key or not extract_model:
-            return []
+            return {}
 
         try:
             provider = get_provider(
@@ -228,10 +259,10 @@ class FactExtractor:
                 config.get_effective_base_url(),
             )
         except Exception as e:
-            logger.warning("FactExtractor: provider init failed: %s", e)
-            return []
+            logger.warning("MemoryLLM: provider init failed: %s", e)
+            return {}
 
-        prompt = _EXTRACT_PROMPT.format(
+        prompt = _MEMORY_LLM_PROMPT.format(
             user_message=user_message[:500],
             assistant_response=assistant_response[:500],
         )
@@ -252,44 +283,102 @@ class FactExtractor:
                 elif isinstance(event, (DoneEvent, ErrorEvent)):
                     break
         except Exception as e:
-            logger.warning("FactExtractor: LLM call failed: %s", e)
-            return []
+            logger.warning("MemoryLLM: LLM call failed: %s", e)
+            return {}
 
-        return _parse_facts(text)
+        return _parse_memory_llm_result(text)
 
 
-def _parse_facts(text: str) -> list[dict]:
-    """LLM出力からJSON配列をパースする。"""
+def _parse_memory_llm_result(text: str) -> dict:
+    """MemoryLLM出力のJSONをパースする。"""
     text = text.strip()
-    # マークダウンコードブロックを除去
     if text.startswith("```"):
         lines = text.splitlines()
         text = "\n".join(lines[1:-1] if lines[-1].startswith("```") else lines[1:])
     try:
-        facts = json.loads(text)
-        if isinstance(facts, list):
-            return [f for f in facts if isinstance(f, dict) and "content" in f]
+        result = json.loads(text)
+        if isinstance(result, dict):
+            if "facts" not in result:
+                result["facts"] = []
+            result["facts"] = [f for f in result["facts"] if isinstance(f, dict) and "content" in f]
+            if "context_update" not in result:
+                result["context_update"] = {}
+            if "inventory_update" not in result:
+                result["inventory_update"] = {}
+            return result
+        # 後方互換: 古いファクト配列形式
+        if isinstance(result, list):
+            return {"facts": [f for f in result if isinstance(f, dict) and "content" in f], "context_update": {}, "inventory_update": {}}
     except Exception:
         pass
-    return []
+    return {}
 
 
-async def _run_auto_extract(ctx: AppContext, config: ChatConfig, user_message: str, assistant_response: str) -> None:
-    """T11: fire-and-forget 自動ファクト抽出。"""
+async def _run_memory_llm(ctx: AppContext, config: ChatConfig, payload: dict) -> None:
+    """T35: 遅延MemoryLLM処理。facts保存 + context/inventory更新を行う。"""
+    user_message = payload.get("user", "")
+    assistant_response = payload.get("assistant", "")
+    if not user_message and not assistant_response:
+        return
     try:
-        extractor = FactExtractor()
-        facts = await extractor.extract(config, user_message, assistant_response)
+        result = await MemoryLLM().process(config, user_message, assistant_response)
+        if not result:
+            return
+
+        persona = ctx.persona
+
+        # facts: スマートアップサート（類似度 > 0.85 ならスキップ）
+        facts = result.get("facts", [])
         for fact in facts:
+            content = fact.get("content", "")
+            if not content:
+                continue
+            # 類似検索で重複確認
+            dup_check = ctx.search_engine.search(
+                SearchQuery(text=content, top_k=3, mode="semantic")
+            )
+            if dup_check.is_ok and dup_check.value:
+                top_hit = dup_check.value[0]
+                hit_score = top_hit.score if hasattr(top_hit, "score") else 0.0
+                if hit_score > 0.85:
+                    logger.debug("MemoryLLM: skipping duplicate fact (score=%.2f): %s", hit_score, content[:60])
+                    continue
             ctx.memory_service.create_memory(
-                content=fact["content"],
+                content=content,
                 importance=float(fact.get("importance", 0.6)),
                 tags=fact.get("tags", ["auto_extract"]),
                 emotion=fact.get("emotion_type", "neutral"),
             )
         if facts:
-            logger.info("Auto-extracted %d facts for persona=%s", len(facts), ctx.persona)
+            logger.info("MemoryLLM: processed %d facts for persona=%s", len(facts), persona)
+
+        # context_update: 感情・状態を更新
+        ctx_update = result.get("context_update", {})
+        if ctx_update:
+            emotion = ctx_update.get("emotion")
+            intensity = ctx_update.get("emotion_intensity")
+            if emotion:
+                ctx.persona_service.update_emotion(persona, emotion, float(intensity or 0.5))
+            state_fields = {
+                k: v for k, v in ctx_update.items()
+                if k in {"mental_state", "physical_state", "environment", "fatigue", "warmth", "arousal"}
+                and v is not None
+            }
+            if state_fields:
+                ctx.persona_service.update_physical_state(persona, **state_fields)
+
+        # inventory_update: 装備変更
+        inv_update = result.get("inventory_update", {})
+        equip_map = inv_update.get("equip", {})
+        unequip_list = inv_update.get("unequip", [])
+        if equip_map and isinstance(equip_map, dict):
+            ctx.equipment_service.equip(equip_map)
+        if unequip_list and isinstance(unequip_list, list):
+            for slot in unequip_list:
+                ctx.equipment_service.unequip([slot])
+
     except Exception as e:
-        logger.warning("Auto-extract failed: %s", e)
+        logger.warning("_run_memory_llm failed: %s", e)
 
 
 class ChatService:
@@ -308,9 +397,16 @@ class ChatService:
         last_assistant = session.get_last_assistant_content()
 
         # 2. コンテキスト取得 + 記憶検索（T08: 並行実行）
+        #    前ターンの MemoryLLM 遅延処理があれば記憶検索と並行して実行
         context_section = ""
         related_memories = ""
         memory_debug: dict = {"queries": [], "results": []}
+
+        pending_payload = session.pop_pending()
+        memory_llm_task = None
+        if pending_payload and config.auto_extract:
+            memory_llm_task = asyncio.create_task(_run_memory_llm(ctx, config, pending_payload))
+
         try:
             state_result = ctx.persona_service.get_context(persona)
             if state_result.is_ok:
@@ -322,6 +418,13 @@ class ChatService:
             related_memories, memory_debug = await _search_memories(ctx, user_message, last_assistant, top_k=8)
         except Exception as e:
             logger.warning("_search_memories failed: %s", e)
+
+        # MemoryLLM 処理完了を待つ（context_section が最新になるよう）
+        if memory_llm_task is not None:
+            try:
+                await memory_llm_task
+            except Exception as e:
+                logger.warning("MemoryLLM task error: %s", e)
 
         # 3. system prompt構築
         base_system = config.system_prompt or f"あなたは{persona}という名前のアシスタントです。"
@@ -443,9 +546,9 @@ class ChatService:
         session.add("user", user_message, now)
         session.add("assistant", full_response, get_now())
 
-        # T11: バックグラウンド自動ファクト抽出（SSEをブロックしない）
+        # T35: ターン終了時にペイロードを保存（次ターン冒頭でMemoryLLM実行）
         if config.auto_extract and full_response:
-            asyncio.create_task(_run_auto_extract(ctx, config, user_message, full_response))
+            session.set_pending({"user": user_message, "assistant": full_response})
 
         yield _sse("debug_info", debug_data)
         yield _sse("done", {"message": "completed"})
@@ -536,7 +639,7 @@ async def _execute_tool(ctx: AppContext, config: ChatConfig, tool_name: str, too
         elif tool_name == "memory_search":
             query = tool_input.get("query", "")
             top_k = int(tool_input.get("top_k", 5))
-            result = ctx.search_engine.search(query, top_k=min(top_k, 10))
+            result = ctx.search_engine.search(SearchQuery(text=query, top_k=min(top_k, 10)))
             if result.is_ok:
                 items = []
                 for item in result.value:
