@@ -506,14 +506,27 @@ function toggleDebugMode() {
 }
 
 function renderDebugPanel(anchorEl, data) {
-    const panel = document.createElement('div');
-    panel.className = 'chat-debug-panel';
-    panel.style.display = CHAT.debugMode ? 'block' : 'none';
-    panel.innerHTML = `<pre style="margin:0;white-space:pre-wrap;word-break:break-all;">${esc(JSON.stringify(data, null, 2))}</pre>`;
-    if (anchorEl) {
-        anchorEl.insertAdjacentElement('afterend', panel);
-    } else {
-        document.getElementById('chat-messages').appendChild(panel);
+    try {
+        const panel = document.createElement('div');
+        panel.className = 'chat-debug-panel';
+        panel.style.display = CHAT.debugMode ? 'block' : 'none';
+        let jsonStr;
+        try {
+            jsonStr = JSON.stringify(data, null, 2);
+        } catch (e) {
+            jsonStr = '{"error": "JSON.stringify failed: ' + String(e) + '"}';
+        }
+        panel.innerHTML = `<pre style="margin:0;white-space:pre-wrap;word-break:break-all;">${esc(jsonStr)}</pre>`;
+        const container = document.getElementById('chat-messages');
+        if (anchorEl && anchorEl.parentNode === container) {
+            anchorEl.insertAdjacentElement('afterend', panel);
+        } else {
+            container.appendChild(panel);
+        }
+        // scroll to show the panel
+        container.scrollTop = container.scrollHeight;
+    } catch (e) {
+        console.error('[debug panel render error]', e);
     }
 }
 
@@ -678,6 +691,7 @@ async function chatSend() {
                     statusEl.textContent = '';
 
                 } else if (evt.type === 'debug_info') {
+                    console.log('[debug_info received]', Object.keys(evt));
                     renderDebugPanel(assistantDiv, evt);
 
                 } else if (evt.type === 'done') {

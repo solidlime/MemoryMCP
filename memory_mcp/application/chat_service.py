@@ -640,7 +640,11 @@ class ChatService:
         if config.auto_extract and full_response:
             session.set_pending({"user": user_message, "assistant": full_response})
 
-        yield _sse("debug_info", debug_data)
+        try:
+            yield _sse("debug_info", debug_data)
+        except Exception as e:
+            logger.warning("debug_info SSE emit failed: %s", e)
+            yield _sse("debug_info", {"error": str(e), "system_prompt": debug_data.get("system_prompt", "")[:500]})
         yield _sse("done", {"message": "completed"})
 
 
