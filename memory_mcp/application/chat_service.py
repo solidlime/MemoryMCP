@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 from collections import OrderedDict, deque
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
 from memory_mcp.domain.search.engine import SearchQuery
@@ -13,13 +14,31 @@ from memory_mcp.infrastructure.logging.structured import get_logger
 from memory_mcp.infrastructure.mcp_client import MCPClientPool
 
 if TYPE_CHECKING:
+    import sqlite3
     from collections.abc import AsyncIterator
-    from datetime import datetime
 
     from memory_mcp.application.use_cases import AppContext
     from memory_mcp.domain.chat_config import ChatConfig
 
 logger = get_logger(__name__)
+
+_CHAT_SESSIONS_SCHEMA = (
+    "CREATE TABLE IF NOT EXISTS chat_sessions ("
+    "persona TEXT NOT NULL, session_id TEXT NOT NULL, "
+    "messages TEXT NOT NULL DEFAULT '[]', timestamps TEXT NOT NULL DEFAULT '[]', "
+    "updated_at TEXT NOT NULL, PRIMARY KEY (persona, session_id))"
+)
+
+
+def _cleanup_expired_sessions(db: sqlite3.Connection, persona: str, ttl_days: int = 7) -> None:
+    """TTLを超えた古いチャットセッションをSQLiteから削除する。"""
+    try:
+        cutoff = (datetime.now().astimezone() - timedelta(days=ttl_days)).isoformat()
+        db.execute("DELETE FROM chat_sessions WHERE persona=? AND updated_at < ?", (persona, cutoff))
+        db.commit()
+    except Exception as e:
+        logger.warning("_cleanup_expired_sessions failed: %s", e)
+
 
 MEMORY_TOOLS = [
     ToolDefinition(
@@ -120,10 +139,61 @@ class SessionWindow:
         max_messages = max_turns * 2
         self._messages: deque[dict] = deque(maxlen=max_messages)
         self._timestamps: deque[datetime] = deque(maxlen=max_messages)
+        self._db: sqlite3.Connection | None = None
+        self._persona: str = ""
+        self._session_id: str = ""
+
+    def attach_db(self, db: sqlite3.Connection, persona: str, session_id: str) -> None:
+        """SQLite接続とセッション識別子を紐付ける。"""
+        self._db = db
+        self._persona = persona
+        self._session_id = session_id
 
     def add(self, role: str, content: str, ts: datetime | None = None) -> None:
         self._messages.append({"role": role, "content": content})
         self._timestamps.append(ts or get_now())
+        self._persist()
+
+    def _persist(self) -> None:
+        """現在のウィンドウ状態をSQLiteにupsertする。"""
+        if self._db is None or not self._persona or not self._session_id:
+            return
+        try:
+            messages_json = json.dumps(list(self._messages), ensure_ascii=False)
+            timestamps_json = json.dumps([t.isoformat() for t in self._timestamps], ensure_ascii=False)
+            now_str = get_now().isoformat()
+            self._db.execute(
+                "INSERT OR REPLACE INTO chat_sessions"
+                " (persona, session_id, messages, timestamps, updated_at)"
+                " VALUES (?, ?, ?, ?, ?)",
+                (self._persona, self._session_id, messages_json, timestamps_json, now_str),
+            )
+            self._db.commit()
+        except Exception as e:
+            logger.warning("SessionWindow._persist failed: %s", e)
+
+    @classmethod
+    def from_db(cls, db: sqlite3.Connection, persona: str, session_id: str, max_turns: int = 3) -> SessionWindow | None:
+        """SQLiteから既存セッションをロードする。存在しなければNoneを返す。"""
+        try:
+            row = db.execute(
+                "SELECT messages, timestamps FROM chat_sessions WHERE persona=? AND session_id=?",
+                (persona, session_id),
+            ).fetchone()
+            if row is None:
+                return None
+            window = cls(max_turns=max_turns)
+            window.attach_db(db, persona, session_id)
+            messages: list[dict] = json.loads(row["messages"] if hasattr(row, "keys") else row[0])
+            timestamps_raw: list[str] = json.loads(row["timestamps"] if hasattr(row, "keys") else row[1])
+            for msg, ts_str in zip(messages, timestamps_raw, strict=False):
+                window._messages.append(msg)
+                window._timestamps.append(datetime.fromisoformat(ts_str))
+            logger.debug("SessionWindow: loaded %d messages from SQLite (persona=%s)", len(messages), persona)
+            return window
+        except Exception as e:
+            logger.warning("SessionWindow.from_db failed: %s", e)
+            return None
 
     def get_labeled_messages(self, now: datetime | None = None) -> list[LLMMessage]:
         if now is None:
@@ -167,14 +237,37 @@ class SessionManager:
         self._max = max_sessions
         self._sessions: OrderedDict[tuple[str, str], SessionWindow] = OrderedDict()
 
-    def get_or_create(self, persona: str, session_id: str, max_turns: int = 3) -> SessionWindow:
+    def get_or_create(
+        self,
+        persona: str,
+        session_id: str,
+        max_turns: int = 3,
+        db: sqlite3.Connection | None = None,
+    ) -> SessionWindow:
         key = (persona, session_id)
         if key in self._sessions:
             self._sessions.move_to_end(key)
             return self._sessions[key]
         if len(self._sessions) >= self._max:
             self._sessions.popitem(last=False)
-        window = SessionWindow(max_turns=max_turns)
+
+        # DBがあれば既存セッションのロードを試みる
+        window: SessionWindow | None = None
+        if db is not None:
+            try:
+                db.execute(_CHAT_SESSIONS_SCHEMA)
+                db.commit()
+            except Exception:
+                pass
+            window = SessionWindow.from_db(db, persona, session_id, max_turns)
+            if window is None:
+                # 新規セッション作成 + TTLクリーンアップ
+                window = SessionWindow(max_turns=max_turns)
+                window.attach_db(db, persona, session_id)
+                _cleanup_expired_sessions(db, persona)
+        else:
+            window = SessionWindow(max_turns=max_turns)
+
         self._sessions[key] = window
         return window
 
@@ -367,17 +460,17 @@ async def _build_memory_llm_context(ctx: AppContext) -> str:
     return "\n".join(lines)
 
 
-async def _run_memory_llm(ctx: AppContext, config: ChatConfig, payload: dict) -> None:
-    """T35: 遅延MemoryLLM処理。facts保存 + context/inventory更新を行う。"""
+async def _run_memory_llm(ctx: AppContext, config: ChatConfig, payload: dict) -> dict:
+    """T35: 遅延MemoryLLM処理。facts保存 + context/inventory更新を行う。結果dictを返す。"""
     user_message = payload.get("user", "")
     assistant_response = payload.get("assistant", "")
     if not user_message and not assistant_response:
-        return
+        return {}
     try:
         context_str = await _build_memory_llm_context(ctx)
         result = await MemoryLLM().process(config, user_message, assistant_response, context=context_str)
         if not result:
-            return
+            return {}
 
         persona = ctx.persona
 
@@ -430,8 +523,11 @@ async def _run_memory_llm(ctx: AppContext, config: ChatConfig, payload: dict) ->
             for slot in unequip_list:
                 ctx.equipment_service.unequip([slot])
 
+        return result
+
     except Exception as e:
         logger.warning("_run_memory_llm failed: %s", e)
+        return {}
 
 
 class ChatService:
@@ -446,7 +542,8 @@ class ChatService:
         persona = ctx.persona
 
         # 1. セッションウィンドウ（先に取得して検索クエリ拡張に使う）
-        session = _session_manager.get_or_create(persona, session_id, config.max_window_turns)
+        db = ctx.connection.get_memory_db()
+        session = _session_manager.get_or_create(persona, session_id, config.max_window_turns, db=db)
         last_assistant = session.get_last_assistant_content()
 
         # 2. コンテキスト取得 + 記憶検索（T08: 並行実行）
@@ -486,9 +583,10 @@ class ChatService:
             logger.warning("_search_memories failed: %s", e)
 
         # MemoryLLM 処理完了を待つ（context_section が最新になるよう）
+        memory_llm_result: dict | None = None
         if memory_llm_task is not None:
             try:
-                await memory_llm_task
+                memory_llm_result = await memory_llm_task
             except Exception as e:
                 logger.warning("MemoryLLM task error: %s", e)
 
@@ -514,8 +612,13 @@ class ChatService:
                 system_parts.append("\n--- 利用可能なSkill ---\n" + "\n".join(skill_lines))
         system = "\n".join(system_parts)
 
-        # T26/T41: デバッグデータ収集（全コンポーネントを生データで保持）
+        # T26/T41/T45: デバッグデータ収集（全コンポーネントを生データで保持）
         debug_data: dict = {
+            "session_id": session_id,
+            "provider": config.provider,
+            "model": config.get_effective_model(),
+            "auto_extract": config.auto_extract,
+            "window_messages_count": len(session),
             "system_prompt": system,
             "context_state": state_raw,
             "context_summary": context_section,
@@ -526,6 +629,7 @@ class ChatService:
             "messages_sent": [],
             "tool_calls": [],
             "assistant_response": "",
+            "memory_llm_result": memory_llm_result,
         }
 
         # 4. ウィンドウメッセージ

@@ -705,7 +705,7 @@ function switchTab(tab) {
     loadTab(tab);
 }
 function loadTab(tab) {
-    if (!S.persona && tab !== 'settings' && tab !== 'personas' && tab !== 'skills') return;
+    if (!S.persona && tab !== 'settings' && tab !== 'personas') return;
     switch(tab) {
         case 'overview': loadOverview(); break;
         case 'analytics': loadAnalytics(); break;
@@ -715,7 +715,6 @@ function loadTab(tab) {
         case 'personas': loadPersonas(); break;
         case 'settings': loadSettings(); break;
         case 'chat': loadChat(); break;
-        case 'skills': loadSkills(); break;
         case 'admin': loadAdmin(); break;
     }
 }

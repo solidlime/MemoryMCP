@@ -195,6 +195,17 @@ CREATE TABLE IF NOT EXISTS equipment_history (
 """
 
 
+_CHAT_SESSIONS_SCHEMA = """\
+CREATE TABLE IF NOT EXISTS chat_sessions (
+    persona     TEXT NOT NULL,
+    session_id  TEXT NOT NULL,
+    messages    TEXT NOT NULL DEFAULT '[]',
+    timestamps  TEXT NOT NULL DEFAULT '[]',
+    updated_at  TEXT NOT NULL,
+    PRIMARY KEY (persona, session_id)
+);
+"""
+
 _SKILLS_SCHEMA = """\
 CREATE TABLE IF NOT EXISTS skills (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -257,7 +268,7 @@ class SQLiteConnection:
     def initialize_schema(self) -> None:
         """Create all tables if they don't exist."""
         memory_conn = self.get_memory_db()
-        memory_conn.executescript(_MEMORY_SCHEMA)
+        memory_conn.executescript(_MEMORY_SCHEMA + _CHAT_SESSIONS_SCHEMA)
         memory_conn.commit()
         logger.info("Memory schema initialized for persona '%s'", self.persona)
 
