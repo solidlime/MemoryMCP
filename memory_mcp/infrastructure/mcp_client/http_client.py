@@ -13,7 +13,10 @@ async def list_tools(config: MCPServerConfig) -> list[MCPTool]:
     from mcp.client.streamable_http import streamablehttp_client
 
     async def _inner() -> list[MCPTool]:
-        async with streamablehttp_client(config.url, headers=config.headers) as (read, write, _), ClientSession(read, write) as session:
+        async with (
+            streamablehttp_client(config.url, headers=config.headers) as (read, write, _),
+            ClientSession(read, write) as session,
+        ):
             await session.initialize()
             result = await session.list_tools()
             tools = []
@@ -42,7 +45,10 @@ async def call_tool(config: MCPServerConfig, tool_name: str, args: dict) -> dict
     from mcp.client.streamable_http import streamablehttp_client
 
     async def _inner() -> dict:
-        async with streamablehttp_client(config.url, headers=config.headers) as (read, write, _), ClientSession(read, write) as session:
+        async with (
+            streamablehttp_client(config.url, headers=config.headers) as (read, write, _),
+            ClientSession(read, write) as session,
+        ):
             await session.initialize()
             result = await session.call_tool(tool_name, args)
             content_parts = []

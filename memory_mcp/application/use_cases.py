@@ -68,6 +68,7 @@ class AppContext:
 
         # Run pending schema migrations
         from memory_mcp.migration.engine import MigrationEngine
+
         MigrationEngine(self.connection).run_all()
 
         # Repositories

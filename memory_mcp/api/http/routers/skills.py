@@ -16,10 +16,17 @@ _DEFAULT_PERSONA = "default"
 
 
 def _get_db():
+    from memory_mcp.application.use_cases import AppContextRegistry
+
+    # 登録済みペルソナから最初のものを使う（実際の使用ペルソナ）
+    if AppContextRegistry._contexts:
+        first_persona = next(iter(AppContextRegistry._contexts))
+        ctx = _safe_get_context(first_persona)
+        if ctx:
+            return ctx.connection.get_memory_db()
+    # フォールバック: "default"
     ctx = _safe_get_context(_DEFAULT_PERSONA)
-    if not ctx:
-        return None
-    return ctx.connection.get_memory_db()
+    return ctx.connection.get_memory_db() if ctx else None
 
 
 def register_skills_routes(mcp) -> None:

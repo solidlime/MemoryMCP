@@ -81,6 +81,9 @@ MEMORY_TOOLS = [
 _MEMORY_LLM_PROMPT = """\
 以下の会話から、記憶・状態・所持品の更新情報を抽出してください。
 
+【現在のコンテキスト】
+{context}
+
 【会話】
 [user]: {user_message}
 [assistant]: {assistant_response}
@@ -227,10 +230,7 @@ async def _search_memories(
 
     if not top:
         return "", {"queries": queries, "results": []}
-    lines = [
-        f"- [{getattr(m, 'importance', 0.5):.1f}] {getattr(m, 'content', str(m))}"
-        for m, _ in top
-    ]
+    lines = [f"- [{getattr(m, 'importance', 0.5):.1f}] {getattr(m, 'content', str(m))}" for m, _ in top]
     debug_results = [
         {
             "content": getattr(m, "content", str(m)),
@@ -245,7 +245,14 @@ async def _search_memories(
 class MemoryLLM:
     """T35: ターン終了後に facts・context_update・inventory_update を一括抽出する。"""
 
-    async def process(self, config: ChatConfig, user_message: str, assistant_response: str) -> dict:
+    async def process(
+        self,
+        config: ChatConfig,
+        user_message: str,
+        assistant_response: str,
+        *,
+        context: str = "",
+    ) -> dict:
         extract_model = config.extract_model.strip() or config.get_effective_model()
         api_key = config.get_effective_api_key()
         if not api_key or not extract_model:
@@ -263,6 +270,7 @@ class MemoryLLM:
             return {}
 
         prompt = _MEMORY_LLM_PROMPT.format(
+            context=context.strip() or "(情報なし)",
             user_message=user_message[:500],
             assistant_response=assistant_response[:500],
         )
@@ -308,10 +316,55 @@ def _parse_memory_llm_result(text: str) -> dict:
             return result
         # 後方互換: 古いファクト配列形式
         if isinstance(result, list):
-            return {"facts": [f for f in result if isinstance(f, dict) and "content" in f], "context_update": {}, "inventory_update": {}}
+            return {
+                "facts": [f for f in result if isinstance(f, dict) and "content" in f],
+                "context_update": {},
+                "inventory_update": {},
+            }
     except Exception:
         pass
     return {}
+
+
+async def _build_memory_llm_context(ctx: AppContext) -> str:
+    """MemoryLLM に渡すコンテキスト文字列を構築する。"""
+    lines: list[str] = []
+    persona = ctx.persona
+
+    state_result = ctx.persona_service.get_context(persona)
+    if state_result.is_ok:
+        state = state_result.value
+        user_info = getattr(state, "user_info", {}) or {}
+        user_name = user_info.get("name") or user_info.get("nickname") or ""
+        if user_name:
+            lines.append(f"ユーザー名: {user_name}")
+        emotion = getattr(state, "emotion", "")
+        if emotion:
+            intensity = getattr(state, "emotion_intensity", None)
+            lines.append(f"感情: {emotion}" + (f" (強度={intensity:.1f})" if intensity else ""))
+        for field in ("mental_state", "physical_state", "environment"):
+            val = getattr(state, field, "")
+            if val:
+                lines.append(f"{field}: {val}")
+
+    # アクティブな goal / promise
+    for tag_pair, label in [(["goal", "active"], "アクティブなgoal"), (["promise", "active"], "アクティブなpromise")]:
+        mem_result = ctx.memory_service.get_by_tags(tag_pair)
+        if mem_result.is_ok and mem_result.value:
+            items = mem_result.value[:3]
+            lines.append(f"{label}:")
+            for m in items:
+                lines.append(f"  - {m.content[:80]}")
+
+    # 装備品
+    equip_result = ctx.equipment_service.get_equipment()
+    if equip_result.is_ok and equip_result.value:
+        equipped = {k: v for k, v in equip_result.value.items() if v}
+        if equipped:
+            equip_str = ", ".join(f"{k}={v}" for k, v in equipped.items())
+            lines.append(f"装備: {equip_str}")
+
+    return "\n".join(lines)
 
 
 async def _run_memory_llm(ctx: AppContext, config: ChatConfig, payload: dict) -> None:
@@ -321,7 +374,8 @@ async def _run_memory_llm(ctx: AppContext, config: ChatConfig, payload: dict) ->
     if not user_message and not assistant_response:
         return
     try:
-        result = await MemoryLLM().process(config, user_message, assistant_response)
+        context_str = await _build_memory_llm_context(ctx)
+        result = await MemoryLLM().process(config, user_message, assistant_response, context=context_str)
         if not result:
             return
 
@@ -334,9 +388,7 @@ async def _run_memory_llm(ctx: AppContext, config: ChatConfig, payload: dict) ->
             if not content:
                 continue
             # 類似検索で重複確認
-            dup_check = ctx.search_engine.search(
-                SearchQuery(text=content, top_k=3, mode="semantic")
-            )
+            dup_check = ctx.search_engine.search(SearchQuery(text=content, top_k=3, mode="semantic"))
             if dup_check.is_ok and dup_check.value:
                 top_hit = dup_check.value[0]
                 hit_score = top_hit.score if hasattr(top_hit, "score") else 0.0
@@ -360,7 +412,8 @@ async def _run_memory_llm(ctx: AppContext, config: ChatConfig, payload: dict) ->
             if emotion:
                 ctx.persona_service.update_emotion(persona, emotion, float(intensity or 0.5))
             state_fields = {
-                k: v for k, v in ctx_update.items()
+                k: v
+                for k, v in ctx_update.items()
                 if k in {"mental_state", "physical_state", "environment", "fatigue", "warmth", "arousal"}
                 and v is not None
             }
@@ -436,6 +489,7 @@ class ChatService:
             system_parts.append(f"\n--- 関連記憶 ---\n{related_memories}")
         if config.enabled_skills:
             from memory_mcp.domain.skill import SkillRepository
+
             skill_repo = SkillRepository(ctx.connection.get_memory_db())
             skills = [skill_repo.get(n) for n in config.enabled_skills]
             skill_lines = [f"- {s.name}: {s.description}" for s in skills if s]
@@ -528,11 +582,13 @@ class ChatService:
                         tool_result = await _execute_tool(ctx, config, tc.tool_name, tc.tool_input)
                     truncated_result = _truncate_tool_result(tool_result, config.tool_result_max_chars)
                     yield _sse("tool_result", {"name": tc.tool_name, "result": truncated_result, "id": tc.tool_use_id})
-                    debug_data["tool_calls"].append({
-                        "name": tc.tool_name,
-                        "input": tc.tool_input,
-                        "result": truncated_result,
-                    })
+                    debug_data["tool_calls"].append(
+                        {
+                            "name": tc.tool_name,
+                            "input": tc.tool_input,
+                            "result": truncated_result,
+                        }
+                    )
                     messages.append(
                         LLMMessage(
                             role="tool",
@@ -731,8 +787,6 @@ async def _invoke_skill(ctx: AppContext, config: ChatConfig, skill_name: str, ta
         return {"error": f"Skill execution failed: {e}"}
 
     return {"result": text or "(no response)"}
-
-
 
 
 def _truncate_tool_result(result: dict, max_chars: int) -> dict:

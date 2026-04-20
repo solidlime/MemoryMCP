@@ -1,4 +1,5 @@
 """Skills management tab for the MemoryMCP Dashboard."""
+
 from __future__ import annotations
 
 

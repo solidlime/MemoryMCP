@@ -86,10 +86,18 @@ class TestMCPClientPool:
         cfg = {"name": "myserver", "transport": "http", "url": "http://localhost:9999", "enabled": True}
 
         mock_tools = [
-            MCPTool(name="myserver__do_thing", description="Does thing", input_schema={"type": "object"}, server_name="myserver", original_name="do_thing")
+            MCPTool(
+                name="myserver__do_thing",
+                description="Does thing",
+                input_schema={"type": "object"},
+                server_name="myserver",
+                original_name="do_thing",
+            )
         ]
 
-        with patch("memory_mcp.infrastructure.mcp_client.pool.MCPClientPool._fetch_tools", new_callable=AsyncMock) as mock_fetch:
+        with patch(
+            "memory_mcp.infrastructure.mcp_client.pool.MCPClientPool._fetch_tools", new_callable=AsyncMock
+        ) as mock_fetch:
             mock_fetch.return_value = mock_tools
             async with MCPClientPool([cfg]) as pool:
                 tools = pool.list_all_tools()
