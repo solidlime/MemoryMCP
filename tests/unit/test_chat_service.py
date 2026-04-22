@@ -5,7 +5,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from memory_mcp.application.chat_service import SessionManager, SessionWindow, _sse
+from memory_mcp.application.chat_service import SessionManager, SessionWindow
+from memory_mcp.application.chat.events import _sse_encode as _sse
 from memory_mcp.domain.chat_config import ChatConfig, ChatConfigRepository
 from memory_mcp.infrastructure.llm.base import DoneEvent, TextDeltaEvent, ToolCallEvent
 
@@ -355,7 +356,7 @@ class TestChatService:
         cfg = self._make_config(api_key="sk-valid-key")
         service = ChatService()
 
-        with patch("memory_mcp.application.chat_service.get_provider", return_value=mock_provider):
+        with patch("memory_mcp.application.chat.pipeline.inference.get_provider", return_value=mock_provider):
             chunks = []
             async for chunk in service.chat(ctx, cfg, "sess1", "hello"):
                 chunks.append(chunk)
@@ -405,7 +406,7 @@ class TestChatService:
         cfg = self._make_config(api_key="sk-valid-key")
         service = ChatService()
 
-        with patch("memory_mcp.application.chat_service.get_provider", return_value=mock_provider):
+        with patch("memory_mcp.application.chat.pipeline.inference.get_provider", return_value=mock_provider):
             chunks = []
             async for chunk in service.chat(ctx, cfg, "sess2", "search memories"):
                 chunks.append(chunk)

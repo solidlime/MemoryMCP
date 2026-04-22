@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from collections import OrderedDict, deque
 from datetime import datetime, timedelta
@@ -42,6 +43,7 @@ class SessionWindow:
         self._db: sqlite3.Connection | None = None
         self._persona: str = ""
         self._session_id: str = ""
+        self.pending_memory_task: asyncio.Task | None = None
 
     def attach_db(self, db: sqlite3.Connection, persona: str, session_id: str) -> None:
         """SQLite接続とセッション識別子を紐付ける。"""
@@ -122,16 +124,6 @@ class SessionWindow:
 
     def __len__(self) -> int:
         return len(self._messages)
-
-    def set_pending(self, payload: dict) -> None:
-        """ターン終了時に遅延MemoryLLM処理用のペイロードを保存する。"""
-        self._pending_payload: dict | None = payload
-
-    def pop_pending(self) -> dict | None:
-        """保存済みのペイロードを取り出してクリアする。"""
-        payload = getattr(self, "_pending_payload", None)
-        self._pending_payload = None
-        return payload
 
 
 class SessionManager:

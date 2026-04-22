@@ -72,6 +72,17 @@ def register_tools(mcp: FastMCP) -> None:
             return f"Error: {state_result.error}"
         state = state_result.value
 
+        # 感情減衰: 時間経過による感情の自然な変化を適用
+        try:
+            from memory_mcp.domain.persona.emotion_decay import apply_emotion_decay_if_needed
+            changed = await apply_emotion_decay_if_needed(ctx.persona_service, persona, state)
+            if changed:
+                refreshed = ctx.persona_service.get_context(persona)
+                if refreshed.is_ok:
+                    state = refreshed.value
+        except Exception as _e:
+            logger.debug("get_context: emotion_decay failed (swallowed): %s", _e)
+
         # Essential Story — always fetched for both modes
         top_result = ctx.memory_service.get_top_by_importance(15)
         top_memories = top_result.value if top_result.is_ok else []
