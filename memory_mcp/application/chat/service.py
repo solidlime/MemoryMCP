@@ -32,6 +32,7 @@ class ChatService:
         config: ChatConfig,
         session_id: str,
         user_message: str,
+        debug: bool = False,
     ) -> AsyncIterator[str]:
         persona = ctx.persona
         db = ctx.connection.get_memory_db()
@@ -54,7 +55,7 @@ class ChatService:
             async for event in InferenceStep().run(ctx, config, session_messages, turn_ctx, registry):
                 yield event.to_sse()
 
-        async for post_event in PostProcessStep().run(ctx, config, session, turn_ctx):
+        async for post_event in PostProcessStep().run(ctx, config, session, turn_ctx, debug=debug):
             yield post_event.to_sse()
 
 

@@ -56,14 +56,34 @@ def render_chat_tab() -> str:
         }
         .chat-time { font-size: 0.72rem; color: var(--text-muted); padding: 0 4px; }
         .chat-tool-call {
-            font-size: 0.78rem; padding: 6px 10px; border-radius: 8px;
+            font-size: 0.78rem; padding: 2px 8px; border-radius: 8px;
             background: rgba(96,165,250,0.1); border: 1px solid rgba(96,165,250,0.2);
             color: var(--accent-blue); margin: 4px 0;
         }
+        .chat-tool-call.done {
+            border-color: rgba(52,211,153,0.3); background: rgba(52,211,153,0.06);
+        }
         .chat-tool-result {
-            font-size: 0.78rem; padding: 6px 10px; border-radius: 8px;
+            font-size: 0.78rem; padding: 2px 8px; border-radius: 8px;
             background: rgba(52,211,153,0.08); border: 1px solid rgba(52,211,153,0.2);
             color: var(--accent-green); margin: 4px 0;
+        }
+        .chat-tool-call details, .chat-tool-result details { padding: 0; }
+        .chat-tool-call summary, .chat-tool-result summary {
+            cursor: pointer; user-select: none; padding: 4px 6px;
+            outline: none; list-style: none;
+        }
+        .chat-tool-call summary::-webkit-details-marker,
+        .chat-tool-result summary::-webkit-details-marker { display: none; }
+        .chat-tool-status { opacity: 0.7; font-size: 0.72rem; margin-left: 6px; }
+        .chat-tool-detail {
+            margin: 4px 0 4px 10px; white-space: pre-wrap; word-break: break-all;
+            color: rgba(200,220,255,0.75); max-height: 200px; overflow-y: auto;
+            font-size: 0.7rem; line-height: 1.4;
+            border-left: 2px solid rgba(96,165,250,0.3); padding-left: 8px;
+        }
+        .chat-tool-result-content {
+            border-left-color: rgba(52,211,153,0.4); color: rgba(180,240,200,0.75);
         }
         .chat-typing { display: flex; gap: 4px; align-items: center; padding: 10px 14px; }
         .chat-typing span {
@@ -485,6 +505,7 @@ function toggleChatSidebar() {
     if (CHAT.sidebarOpen) {
         sidebar.style.width = '280px';
         sidebar.style.overflow = 'auto';
+        sidebar.style.padding = '16px';
         sidebar.style.display = 'flex';
         if (btn) btn.textContent = '⚙️ 設定';
     } else {
@@ -510,20 +531,54 @@ function renderDebugPanel(anchorEl, data) {
         const panel = document.createElement('div');
         panel.className = 'chat-debug-panel';
         panel.style.display = CHAT.debugMode ? 'block' : 'none';
-        let jsonStr;
-        try {
-            jsonStr = JSON.stringify(data, null, 2);
-        } catch (e) {
-            jsonStr = '{"error": "JSON.stringify failed: ' + String(e) + '"}';
+
+        const SECTIONS = [
+            { key: 'system_prompt',    label: '📝 System Prompt' },
+            { key: 'context_summary',  label: '🧠 Context' },
+            { key: 'memories_raw',     label: '💡 Memories',     isArray: true },
+            { key: 'tool_calls',       label: '🔧 Tool Calls',   isArray: true },
+            { key: 'messages_sent',    label: '💬 Messages Sent', isArray: true },
+            { key: 'context_state',    label: '📊 Context State' },
+            { key: 'skills_raw',       label: '🎯 Skills',       isArray: true },
+        ];
+        const knownKeys = new Set(['type', ...SECTIONS.map(s => s.key)]);
+
+        let html = '';
+        for (const sec of SECTIONS) {
+            const val = data[sec.key];
+            if (val === undefined || val === null) continue;
+            let displayVal;
+            try { displayVal = typeof val === 'string' ? val : JSON.stringify(val, null, 2); }
+            catch (e) { displayVal = String(val); }
+            const count = sec.isArray && Array.isArray(val) ? ' (' + val.length + ')' : '';
+            html += '<details class="chat-debug-section"><summary>' + sec.label + count + '</summary>' +
+                    '<pre class="chat-tool-detail">' + esc(displayVal) + '</pre></details>';
         }
-        panel.innerHTML = `<pre style="margin:0;white-space:pre-wrap;word-break:break-all;">${esc(jsonStr)}</pre>`;
+        // Extra keys not in known sections
+        const extra = {};
+        for (const [k, v] of Object.entries(data)) {
+            if (!knownKeys.has(k)) extra[k] = v;
+        }
+        if (Object.keys(extra).length) {
+            let extraStr;
+            try { extraStr = JSON.stringify(extra, null, 2); } catch (e) { extraStr = String(extra); }
+            html += '<details class="chat-debug-section"><summary>📎 その他</summary>' +
+                    '<pre class="chat-tool-detail">' + esc(extraStr) + '</pre></details>';
+        }
+        panel.innerHTML = html;
+
         const container = document.getElementById('chat-messages');
-        if (anchorEl && anchorEl.parentNode === container) {
-            anchorEl.insertAdjacentElement('afterend', panel);
+        // T5: anchorEl が null や container 外の場合、最後の非デバッグ要素にフォールバック
+        let anchor = (anchorEl && anchorEl.parentNode === container) ? anchorEl : null;
+        if (!anchor) {
+            const children = [...container.children].filter(el => !el.classList.contains('chat-debug-panel'));
+            anchor = children.length ? children[children.length - 1] : null;
+        }
+        if (anchor) {
+            anchor.insertAdjacentElement('afterend', panel);
         } else {
             container.appendChild(panel);
         }
-        // scroll to show the panel
         container.scrollTop = container.scrollHeight;
     } catch (e) {
         console.error('[debug panel render error]', e);
@@ -538,18 +593,20 @@ function clearChatHistory() {
             <div class="chat-welcome-icon">💬</div>
             <p>チャットを開始するには下のテキストボックスにメッセージを入力してください。</p>
         </div>`;
-    // Generate a new session ID
+    // Generate a new session ID (persona-scoped key)
     const newSession = 'sess_' + Date.now();
-    localStorage.setItem('chat_session_id', newSession);
+    const storageKey = 'chat_session_id_' + (S.persona || 'default');
+    localStorage.setItem(storageKey, newSession);
     document.getElementById('chat-status').textContent = '会話をリセットしました';
     setTimeout(() => { document.getElementById('chat-status').textContent = ''; }, 2000);
 }
 
 function getChatSessionId() {
-    let sid = localStorage.getItem('chat_session_id');
+    const storageKey = 'chat_session_id_' + (S.persona || 'default');
+    let sid = localStorage.getItem(storageKey);
     if (!sid) {
         sid = 'sess_' + Date.now();
-        localStorage.setItem('chat_session_id', sid);
+        localStorage.setItem(storageKey, sid);
     }
     return sid;
 }
@@ -572,18 +629,51 @@ function appendChatMessage(role, content, timeStr) {
 
 function appendToolEvent(eventType, data) {
     const container = document.getElementById('chat-messages');
-    const div = document.createElement('div');
+
     if (eventType === 'tool_call') {
+        const div = document.createElement('div');
         div.className = 'chat-tool-call';
-        div.innerHTML = '🔧 <strong>' + esc(data.name) + '</strong>: ' + esc(JSON.stringify(data.input).slice(0, 120));
+        div.dataset.toolId = data.id || '';
+        let inputStr;
+        try { inputStr = JSON.stringify(data.input, null, 2); } catch (e) { inputStr = String(data.input); }
+        div.innerHTML =
+            '<details><summary>🔧 <strong>' + esc(data.name) + '</strong>' +
+            '<span class="chat-tool-status">実行中...</span></summary>' +
+            '<pre class="chat-tool-detail">' + esc(inputStr) + '</pre></details>';
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+        return div;
+
     } else if (eventType === 'tool_result') {
-        div.className = 'chat-tool-result';
-        const resultStr = typeof data.result === 'object' ? JSON.stringify(data.result) : String(data.result);
-        div.innerHTML = '✓ <strong>' + esc(data.name) + '</strong>: ' + esc(resultStr.slice(0, 120));
+        let resultStr;
+        try {
+            resultStr = typeof data.result === 'object' ? JSON.stringify(data.result, null, 2) : String(data.result);
+        } catch (e) { resultStr = String(data.result); }
+
+        // Find matching tool_call div by id and update it
+        const callDiv = data.id ? container.querySelector('[data-tool-id="' + CSS.escape(data.id) + '"]') : null;
+        if (callDiv) {
+            const statusEl = callDiv.querySelector('.chat-tool-status');
+            if (statusEl) statusEl.textContent = ' ✓ 完了';
+            const details = callDiv.querySelector('details');
+            if (details) {
+                const resultPre = document.createElement('pre');
+                resultPre.className = 'chat-tool-detail chat-tool-result-content';
+                resultPre.textContent = resultStr;
+                details.appendChild(resultPre);
+            }
+            callDiv.classList.add('done');
+        } else {
+            const div = document.createElement('div');
+            div.className = 'chat-tool-result';
+            div.innerHTML =
+                '<details><summary>✓ <strong>' + esc(data.name) + '</strong></summary>' +
+                '<pre class="chat-tool-detail chat-tool-result-content">' + esc(resultStr) + '</pre></details>';
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+            return div;
+        }
     }
-    container.appendChild(div);
-    container.scrollTop = container.scrollHeight;
-    return div;
 }
 
 function showTypingIndicator() {
@@ -630,7 +720,7 @@ async function chatSend() {
         const response = await fetch('/api/chat/' + encodeURIComponent(S.persona), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message, session_id: sessionId }),
+            body: JSON.stringify({ message, session_id: sessionId, debug: CHAT.debugMode }),
         });
 
         if (!response.ok) {
@@ -689,6 +779,7 @@ async function chatSend() {
                     removeTypingIndicator();
                     toast('エラー: ' + evt.message, 'error');
                     statusEl.textContent = '';
+                    break;
 
                 } else if (evt.type === 'debug_info') {
                     console.log('[debug_info received]', Object.keys(evt));
@@ -728,15 +819,16 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Reload chat config when persona changes
-const _origPersonaChange = document.getElementById('persona-select') ? document.getElementById('persona-select').onchange : null;
 window.__chatPersonaWatcher = setInterval(() => {
     const sel = document.getElementById('persona-select');
     if (!sel) return;
     if (!sel._chatBound) {
         sel._chatBound = true;
         sel.addEventListener('change', () => {
+            clearChatHistory();
             if (S.tab === 'chat') loadChatConfig();
         });
+        clearInterval(window.__chatPersonaWatcher);
     }
 }, 500);
 """

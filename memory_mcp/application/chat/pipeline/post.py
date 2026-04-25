@@ -29,6 +29,7 @@ class PostProcessStep:
         config: ChatConfig,
         session: SessionWindow,
         turn_ctx: ChatTurnContext,
+        debug: bool = False,
     ) -> AsyncIterator[DebugInfoSSE | DoneSSE]:
         # セッションにターンを追加
         now = get_now()
@@ -47,30 +48,31 @@ class PostProcessStep:
             task = asyncio.create_task(run_memory_llm(ctx, config, payload))
             session.pending_memory_task = task
 
-        # debug_info SSE
-        debug_data = {
-            "session_id": turn_ctx.session_id,
-            "provider": config.provider,
-            "model": config.get_effective_model(),
-            "auto_extract": config.auto_extract,
-            "system_prompt": turn_ctx.system_prompt,
-            "context_state": turn_ctx.state_raw,
-            "context_summary": turn_ctx.context_section,
-            "memories_raw": turn_ctx.memories_raw,
-            "memory_queries": turn_ctx.memory_debug.get("queries", []),
-            "skills_raw": turn_ctx.skills_raw,
-            "tools_injected": [],
-            "messages_sent": [
-                {"role": m.role, "content": m.content[:500] + "..." if len(m.content or "") > 500 else m.content}
-                for m in turn_ctx.messages
-            ],
-            "tool_calls": turn_ctx.tool_calls_log,
-            "assistant_response": turn_ctx.full_response,
-        }
-        try:
-            yield DebugInfoSSE(data=debug_data)
-        except Exception as e:
-            logger.warning("PostProcessStep: debug_info SSE failed: %s", e)
-            yield DebugInfoSSE(data={"error": str(e), "system_prompt": turn_ctx.system_prompt[:500]})
+        # debug_info SSE — only when debug flag is enabled
+        if debug:
+            debug_data = {
+                "session_id": turn_ctx.session_id,
+                "provider": config.provider,
+                "model": config.get_effective_model(),
+                "auto_extract": config.auto_extract,
+                "system_prompt": turn_ctx.system_prompt,
+                "context_state": turn_ctx.state_raw,
+                "context_summary": turn_ctx.context_section,
+                "memories_raw": turn_ctx.memories_raw,
+                "memory_queries": turn_ctx.memory_debug.get("queries", []),
+                "skills_raw": turn_ctx.skills_raw,
+                "tools_injected": [],
+                "messages_sent": [
+                    {"role": m.role, "content": m.content[:500] + "..." if len(m.content or "") > 500 else m.content}
+                    for m in turn_ctx.messages
+                ],
+                "tool_calls": turn_ctx.tool_calls_log,
+                "assistant_response": turn_ctx.full_response,
+            }
+            try:
+                yield DebugInfoSSE(data=debug_data)
+            except Exception as e:
+                logger.warning("PostProcessStep: debug_info SSE failed: %s", e)
+                yield DebugInfoSSE(data={"error": str(e), "system_prompt": turn_ctx.system_prompt[:500]})
 
         yield DoneSSE()
