@@ -121,3 +121,39 @@ def register_chat_routes(mcp) -> None:
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
+
+    @mcp.custom_route("/api/chat/{persona}/sessions/{session_id}", methods=["GET"])
+    async def get_chat_session(request: Request) -> JSONResponse:
+        """F2: 会話履歴復元 — セッションのメッセージ一覧を返す。"""
+        persona = _resolve_persona_from_request(request)
+        ctx = _safe_get_context(persona)
+        if not ctx:
+            return JSONResponse({"error": "Persona not found"}, status_code=404)
+        session_id = request.path_params.get("session_id", "")
+        if not session_id:
+            return JSONResponse({"error": "session_id required"}, status_code=400)
+
+        from memory_mcp.application.chat.session_store import SessionManager
+
+        db = ctx.connection.get_memory_db()
+        messages = SessionManager.get_messages(db, persona, session_id)
+        return JSONResponse({"session_id": session_id, "messages": messages})
+
+    @mcp.custom_route("/api/chat/{persona}/sessions/{session_id}", methods=["DELETE"])
+    async def delete_chat_session(request: Request) -> JSONResponse:
+        """F3: 会話削除 — セッションを SQLite から削除する。"""
+        persona = _resolve_persona_from_request(request)
+        ctx = _safe_get_context(persona)
+        if not ctx:
+            return JSONResponse({"error": "Persona not found"}, status_code=404)
+        session_id = request.path_params.get("session_id", "")
+        if not session_id:
+            return JSONResponse({"error": "session_id required"}, status_code=400)
+
+        from memory_mcp.application.chat.service import _session_manager
+        from memory_mcp.application.chat.session_store import SessionManager
+
+        db = ctx.connection.get_memory_db()
+        SessionManager.delete_session(db, persona, session_id)
+        _session_manager.clear(persona, session_id)
+        return JSONResponse({"deleted": True, "session_id": session_id})

@@ -169,6 +169,27 @@ def render_chat_tab() -> str:
         }
         .chat-debug-btn.active { opacity: 1; border-color: rgba(139,92,246,0.5); color: var(--accent-purple); }
         .chat-debug-btn:hover { opacity: 0.8; }
+        #chat-cancel-btn {
+            background: rgba(248,113,113,0.12); border: 1px solid rgba(248,113,113,0.3);
+            border-radius: 8px; color: var(--accent-red); padding: 8px 14px;
+            cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: all 0.2s;
+        }
+        #chat-cancel-btn:hover { background: rgba(248,113,113,0.22); }
+        /* Chat bubble markdown styles */
+        .chat-bubble h1,.chat-bubble h2,.chat-bubble h3,.chat-bubble h4 {
+            font-weight:700; margin:0.5em 0 0.25em; line-height:1.3;
+        }
+        .chat-bubble h1 { font-size:1.1em; }
+        .chat-bubble h2 { font-size:1.0em; }
+        .chat-bubble h3,.chat-bubble h4 { font-size:0.95em; }
+        .chat-bubble p { margin:0.3em 0; }
+        .chat-bubble ul,.chat-bubble ol { margin:0.3em 0; padding-left:1.4em; }
+        .chat-bubble li { margin:0.1em 0; }
+        .chat-bubble code { background:rgba(0,0,0,0.3); border-radius:3px; padding:0.1em 0.3em; font-size:0.85em; font-family:monospace; }
+        .chat-bubble pre { background:rgba(0,0,0,0.3); border-radius:6px; padding:8px 10px; overflow-x:auto; margin:0.4em 0; }
+        .chat-bubble pre code { background:none; padding:0; }
+        .chat-bubble blockquote { border-left:3px solid var(--accent-purple); padding-left:8px; margin:0.3em 0; opacity:0.8; }
+        .chat-bubble a { color:var(--accent-blue); text-decoration:underline; }
         </style>
         <!-- ========== CHAT TAB ========== -->
         <section id="tab-chat" class="tab-panel" role="tabpanel">
@@ -192,6 +213,7 @@ def render_chat_tab() -> str:
                     <div id="chat-status"></div>
                     <div id="chat-input-area">
                         <textarea id="chat-input" placeholder="メッセージを入力... (Shift+Enter で改行、Enter で送信)" rows="1"></textarea>
+                        <button id="chat-cancel-btn" onclick="chatCancel()" style="display:none;">⏹ 中止</button>
                         <button id="chat-send-btn" onclick="chatSend()">送信 ↑</button>
                     </div>
                 </div>
@@ -311,12 +333,14 @@ const CHAT = {
     messages: [],  // { role, content, time }
     mcpServers: [],
     enabledSkills: [],
+    abortController: null,  // F4: AbortController for streaming cancel
 };
 
 function loadChat() {
     if (!S.persona) return;
     loadChatConfig();
     loadSkillsForChat();
+    restoreChatHistory();
     // Restore debug button state
     const btn = document.getElementById('chat-debug-btn');
     if (btn && CHAT.debugMode) btn.classList.add('active');
@@ -593,6 +617,12 @@ function clearChatHistory() {
             <div class="chat-welcome-icon">💬</div>
             <p>チャットを開始するには下のテキストボックスにメッセージを入力してください。</p>
         </div>`;
+    // Delete server-side session (F3)
+    const oldSid = getChatSessionId();
+    if (S.persona && oldSid) {
+        fetch('/api/chat/' + encodeURIComponent(S.persona) + '/sessions/' + encodeURIComponent(oldSid), { method: 'DELETE' })
+            .catch(() => {/* ignore */});
+    }
     // Generate a new session ID (persona-scoped key)
     const newSession = 'sess_' + Date.now();
     const storageKey = 'chat_session_id_' + (S.persona || 'default');
@@ -611,7 +641,7 @@ function getChatSessionId() {
     return sid;
 }
 
-function appendChatMessage(role, content, timeStr) {
+function appendChatMessage(role, content, timeStr, isMarkdown) {
     const container = document.getElementById('chat-messages');
     // Remove welcome message if present
     const welcome = container.querySelector('.chat-welcome');
@@ -619,12 +649,63 @@ function appendChatMessage(role, content, timeStr) {
 
     const div = document.createElement('div');
     div.className = 'chat-msg ' + role;
-    div.innerHTML =
-        '<div class="chat-bubble">' + esc(content) + '</div>' +
-        '<div class="chat-time">' + (timeStr || new Date().toLocaleTimeString('ja-JP', {hour:'2-digit',minute:'2-digit'})) + '</div>';
+    const bubble = document.createElement('div');
+    bubble.className = 'chat-bubble';
+    if (isMarkdown && role === 'assistant') {
+        bubble.innerHTML = safeMarkdown(content);
+    } else {
+        bubble.textContent = content;
+    }
+    const timeDiv = document.createElement('div');
+    timeDiv.className = 'chat-time';
+    timeDiv.textContent = timeStr || new Date().toLocaleTimeString('ja-JP', {hour:'2-digit',minute:'2-digit'});
+    div.appendChild(bubble);
+    div.appendChild(timeDiv);
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
     return div;
+}
+
+// F1: Safe Markdown renderer using marked.js + DOMPurify
+function safeMarkdown(text) {
+    if (!text) return '';
+    try {
+        if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
+            const html = marked.parse(text, { breaks: true, gfm: true });
+            return DOMPurify.sanitize(html, {
+                ALLOWED_TAGS: ['p','strong','em','b','i','u','s','code','pre','ul','ol','li',
+                               'h1','h2','h3','h4','blockquote','a','br','hr','table','thead',
+                               'tbody','tr','th','td','span'],
+                ALLOWED_ATTR: ['href','title','class'],
+            });
+        }
+    } catch (e) { /* fallback to escaped text */ }
+    return esc(text).replace(/\n/g, '<br>');
+}
+
+// F2: Restore chat history from server on page load
+async function restoreChatHistory() {
+    if (!S.persona) return;
+    const sid = getChatSessionId();
+    try {
+        const data = await api('/api/chat/' + encodeURIComponent(S.persona) + '/sessions/' + encodeURIComponent(sid));
+        if (!data || !data.messages || data.messages.length === 0) return;
+        const container = document.getElementById('chat-messages');
+        container.innerHTML = '';
+        for (const msg of data.messages) {
+            appendChatMessage(msg.role, msg.content, msg.time, msg.role === 'assistant');
+        }
+    } catch (_e) {
+        // Session not found or API unavailable — start fresh
+    }
+}
+
+// F4: Cancel streaming
+function chatCancel() {
+    if (CHAT.abortController) {
+        CHAT.abortController.abort();
+        CHAT.abortController = null;
+    }
 }
 
 function appendToolEvent(eventType, data) {
@@ -703,6 +784,7 @@ async function chatSend() {
     inputEl.style.height = 'auto';
 
     const sendBtn = document.getElementById('chat-send-btn');
+    const cancelBtn = document.getElementById('chat-cancel-btn');
     const statusEl = document.getElementById('chat-status');
 
     // Show user message
@@ -711,7 +793,9 @@ async function chatSend() {
     showTypingIndicator();
 
     CHAT.streaming = true;
-    sendBtn.disabled = true;
+    CHAT.abortController = new AbortController();
+    sendBtn.style.display = 'none';
+    if (cancelBtn) cancelBtn.style.display = '';
     statusEl.textContent = '応答中...';
 
     const sessionId = getChatSessionId();
@@ -721,6 +805,7 @@ async function chatSend() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ message, session_id: sessionId, debug: CHAT.debugMode }),
+            signal: CHAT.abortController.signal,
         });
 
         if (!response.ok) {
@@ -764,6 +849,7 @@ async function chatSend() {
                         container.appendChild(assistantDiv);
                     }
                     assistantText += evt.content;
+                    // F1: stream as plain text for performance; render markdown on done
                     assistantBubble.textContent = assistantText;
                     document.getElementById('chat-messages').scrollTop = document.getElementById('chat-messages').scrollHeight;
 
@@ -786,6 +872,10 @@ async function chatSend() {
                     renderDebugPanel(assistantDiv, evt);
 
                 } else if (evt.type === 'done') {
+                    // F1: final Markdown render
+                    if (assistantBubble && assistantText) {
+                        assistantBubble.innerHTML = safeMarkdown(assistantText);
+                    }
                     statusEl.textContent = '';
                 }
             }
@@ -793,11 +883,15 @@ async function chatSend() {
 
     } catch (e) {
         removeTypingIndicator();
-        toast('送信失敗: ' + e.message, 'error');
+        if (e.name !== 'AbortError') {
+            toast('送信失敗: ' + e.message, 'error');
+        }
         statusEl.textContent = '';
     } finally {
         CHAT.streaming = false;
-        sendBtn.disabled = false;
+        CHAT.abortController = null;
+        sendBtn.style.display = '';
+        if (cancelBtn) cancelBtn.style.display = 'none';
         inputEl.focus();
     }
 }

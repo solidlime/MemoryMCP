@@ -165,3 +165,47 @@ class SessionManager:
 
     def clear(self, persona: str, session_id: str) -> None:
         self._sessions.pop((persona, session_id), None)
+
+    @staticmethod
+    def get_messages(
+        db: sqlite3.Connection, persona: str, session_id: str
+    ) -> list[dict]:
+        """SQLite からセッションメッセージを返す（F2: 会話履歴復元用）。"""
+        try:
+            db.execute(_CHAT_SESSIONS_SCHEMA)
+            row = db.execute(
+                "SELECT messages, timestamps FROM chat_sessions WHERE persona=? AND session_id=?",
+                (persona, session_id),
+            ).fetchone()
+            if row is None:
+                return []
+            messages: list[dict] = json.loads(row[0] if not hasattr(row, "keys") else row["messages"])
+            timestamps_raw: list[str] = json.loads(row[1] if not hasattr(row, "keys") else row["timestamps"])
+            result = []
+            for msg, ts_str in zip(messages, timestamps_raw, strict=False):
+                try:
+                    dt = datetime.fromisoformat(ts_str)
+                    time_label = dt.strftime("%H:%M")
+                except ValueError:
+                    time_label = ""
+                result.append({"role": msg["role"], "content": msg["content"], "time": time_label})
+            return result
+        except Exception as e:
+            logger.warning("SessionManager.get_messages failed: %s", e)
+            return []
+
+    @staticmethod
+    def delete_session(
+        db: sqlite3.Connection, persona: str, session_id: str
+    ) -> bool:
+        """SQLite からセッションを削除する（F3: 会話削除）。"""
+        try:
+            db.execute(
+                "DELETE FROM chat_sessions WHERE persona=? AND session_id=?",
+                (persona, session_id),
+            )
+            db.commit()
+            return True
+        except Exception as e:
+            logger.warning("SessionManager.delete_session failed: %s", e)
+            return False
