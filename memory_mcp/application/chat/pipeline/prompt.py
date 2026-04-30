@@ -52,5 +52,16 @@ class PromptBuildStep:
             except Exception as e:
                 logger.warning("PromptBuildStep: skills load failed: %s", e)
 
+        if config.enable_memory_tools:
+            parts.append(
+                "\n--- 記憶ツール使用ガイド ---\n"
+                "目標や約束に関するツール:\n"
+                "- goal_create: ユーザーが目標・計画を表明したら使う\n"
+                "- goal_achieve / goal_cancel: 目標の完了・中止を記録\n"
+                "- promise_create: 約束・コミットメントを記録\n"
+                "- promise_fulfill: 約束の履行を記録\n"
+                "- context_recall: tags=['goal','active'] で現在の目標一覧を確認"
+            )
+
         turn_ctx.system_prompt = "\n".join(parts)
         turn_ctx.skills_raw = skills_raw

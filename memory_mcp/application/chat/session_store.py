@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import json
-from collections import OrderedDict, deque
+from collections import OrderedDict
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 from memory_mcp.domain.shared.time_utils import get_now, relative_time_str
 from memory_mcp.infrastructure.llm.base import LLMMessage
@@ -37,13 +37,14 @@ def _cleanup_expired_sessions(db: sqlite3.Connection, persona: str, ttl_days: in
 
 class SessionWindow:
     def __init__(self, max_turns: int = 3) -> None:
-        max_messages = max_turns * 2
-        self._messages: deque[dict] = deque(maxlen=max_messages)
-        self._timestamps: deque[datetime] = deque(maxlen=max_messages)
+        self._max_messages: int = max_turns * 2
+        self._messages: list[dict] = []
+        self._timestamps: list[datetime] = []
         self._db: sqlite3.Connection | None = None
         self._persona: str = ""
         self._session_id: str = ""
         self.pending_memory_task: asyncio.Task | None = None
+        self.evict_callback: Callable[[list[dict]], None] | None = None
 
     def attach_db(self, db: sqlite3.Connection, persona: str, session_id: str) -> None:
         """SQLite接続とセッション識別子を紐付ける。"""
@@ -52,6 +53,17 @@ class SessionWindow:
         self._session_id = session_id
 
     def add(self, role: str, content: str, ts: datetime | None = None) -> None:
+        if len(self._messages) >= self._max_messages:
+            # 溢れるメッセージを evict_callback に通知してから削除
+            overflow = len(self._messages) - self._max_messages + 1
+            evicted = self._messages[:overflow]
+            if self.evict_callback is not None and evicted:
+                try:
+                    self.evict_callback(evicted)
+                except Exception:
+                    pass
+            self._messages = self._messages[overflow:]
+            self._timestamps = self._timestamps[overflow:]
         self._messages.append({"role": role, "content": content})
         self._timestamps.append(ts or get_now())
         self._persist()

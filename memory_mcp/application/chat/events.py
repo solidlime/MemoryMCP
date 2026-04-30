@@ -53,3 +53,32 @@ class DoneSSE:
 class ErrorSSE:
     message: str
     def to_sse(self) -> str: return _sse_encode("error", {"message": self.message})
+
+
+@dataclass
+class MemoryActivitySSE:
+    """Memory retrieval and save activity for this turn."""
+    retrieved: list  # list of {"content": str, "score": float, "importance": float}
+    saved: list      # list of {"content": str, "tags": list}
+    def to_sse(self) -> str:
+        return _sse_encode("memory_activity", {"retrieved": self.retrieved, "saved": self.saved})
+
+
+@dataclass
+class ReflectionStartSSE:
+    def to_sse(self) -> str:
+        return _sse_encode("reflection_start", {})
+
+
+@dataclass
+class ReflectionDoneSSE:
+    insights: list  # list of insight strings
+    def to_sse(self) -> str:
+        return _sse_encode("reflection_done", {"insights": self.insights})
+
+
+@dataclass
+class SessionSummarizedSSE:
+    summary: str
+    def to_sse(self) -> str:
+        return _sse_encode("session_summarized", {"summary": self.summary})

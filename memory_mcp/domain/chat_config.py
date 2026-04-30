@@ -51,6 +51,16 @@ class ChatConfig(BaseModel):
     mcp_servers: list[dict] = []
     enabled_skills: list[str] = []
     enable_memory_tools: bool = True
+    # Generative Agents-style reflection
+    reflection_enabled: bool = True
+    reflection_threshold: float = 3.0  # sum of importance scores to trigger reflection
+    reflection_min_interval_hours: float = 1.0
+    # Session summarization
+    session_summarize: bool = True
+    # Retrieval composite scoring weights
+    retrieval_recency_weight: float = 0.3
+    retrieval_importance_weight: float = 0.3
+    retrieval_relevance_weight: float = 0.4
     updated_at: str | None = None
 
     @field_validator("temperature")
@@ -82,6 +92,21 @@ class ChatConfig(BaseModel):
     @classmethod
     def _clamp_tool_result_max_chars(cls, v: int) -> int:
         return max(500, min(100000, v))
+
+    @field_validator("reflection_threshold")
+    @classmethod
+    def _clamp_reflection_threshold(cls, v: float) -> float:
+        return max(0.1, min(100.0, v))
+
+    @field_validator("reflection_min_interval_hours")
+    @classmethod
+    def _clamp_reflection_interval(cls, v: float) -> float:
+        return max(0.0, min(168.0, v))
+
+    @field_validator("retrieval_recency_weight", "retrieval_importance_weight", "retrieval_relevance_weight")
+    @classmethod
+    def _clamp_retrieval_weights(cls, v: float) -> float:
+        return max(0.0, min(1.0, v))
 
     def get_effective_api_key(self) -> str:
         """Return stored API key or fall back to environment variable."""
@@ -131,7 +156,10 @@ class ChatConfigRepository:
             "SELECT persona, provider, model, api_key, base_url, system_prompt, "
             "temperature, max_tokens, max_window_turns, max_tool_calls, updated_at, "
             "auto_extract, extract_model, extract_max_tokens, "
-            "tool_result_max_chars, mcp_servers, enabled_skills "
+            "tool_result_max_chars, mcp_servers, enabled_skills, "
+            "reflection_enabled, reflection_threshold, reflection_min_interval_hours, "
+            "session_summarize, "
+            "retrieval_recency_weight, retrieval_importance_weight, retrieval_relevance_weight "
             "FROM chat_settings WHERE persona = ?",
             (persona,),
         ).fetchone()
@@ -155,6 +183,13 @@ class ChatConfigRepository:
             tool_result_max_chars=int(row[14]) if row[14] is not None else 4000,
             mcp_servers=json.loads(row[15] or "[]"),
             enabled_skills=json.loads(row[16] or "[]"),
+            reflection_enabled=bool(row[17]) if row[17] is not None else True,
+            reflection_threshold=float(row[18]) if row[18] is not None else 3.0,
+            reflection_min_interval_hours=float(row[19]) if row[19] is not None else 1.0,
+            session_summarize=bool(row[20]) if row[20] is not None else True,
+            retrieval_recency_weight=float(row[21]) if row[21] is not None else 0.3,
+            retrieval_importance_weight=float(row[22]) if row[22] is not None else 0.3,
+            retrieval_relevance_weight=float(row[23]) if row[23] is not None else 0.4,
         )
 
     def save(self, config: ChatConfig) -> None:
@@ -166,8 +201,12 @@ class ChatConfigRepository:
                 (persona, provider, model, api_key, base_url, system_prompt,
                  temperature, max_tokens, max_window_turns, max_tool_calls,
                  auto_extract, extract_model, extract_max_tokens,
-                 tool_result_max_chars, mcp_servers, enabled_skills, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 tool_result_max_chars, mcp_servers, enabled_skills,
+                 reflection_enabled, reflection_threshold, reflection_min_interval_hours,
+                 session_summarize,
+                 retrieval_recency_weight, retrieval_importance_weight, retrieval_relevance_weight,
+                 updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(persona) DO UPDATE SET
                 provider=excluded.provider,
                 model=excluded.model,
@@ -184,6 +223,13 @@ class ChatConfigRepository:
                 tool_result_max_chars=excluded.tool_result_max_chars,
                 mcp_servers=excluded.mcp_servers,
                 enabled_skills=excluded.enabled_skills,
+                reflection_enabled=excluded.reflection_enabled,
+                reflection_threshold=excluded.reflection_threshold,
+                reflection_min_interval_hours=excluded.reflection_min_interval_hours,
+                session_summarize=excluded.session_summarize,
+                retrieval_recency_weight=excluded.retrieval_recency_weight,
+                retrieval_importance_weight=excluded.retrieval_importance_weight,
+                retrieval_relevance_weight=excluded.retrieval_relevance_weight,
                 updated_at=excluded.updated_at
             """,
             (
@@ -203,6 +249,13 @@ class ChatConfigRepository:
                 config.tool_result_max_chars,
                 json.dumps(config.mcp_servers, ensure_ascii=False),
                 json.dumps(config.enabled_skills, ensure_ascii=False),
+                int(config.reflection_enabled),
+                config.reflection_threshold,
+                config.reflection_min_interval_hours,
+                int(config.session_summarize),
+                config.retrieval_recency_weight,
+                config.retrieval_importance_weight,
+                config.retrieval_relevance_weight,
                 now,
             ),
         )

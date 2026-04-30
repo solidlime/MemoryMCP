@@ -35,6 +35,12 @@ JSONのみ。コメント不要。不要なフィールドは省略可。
   "facts": [
     {{"content": "記憶すべき事実", "importance": 0.7, "tags": ["preference"], "emotion_type": "neutral"}}
   ],
+  "goals": [
+    {{"content": "目標の内容", "status": "active"}}
+  ],
+  "promises": [
+    {{"content": "約束の内容", "status": "active"}}
+  ],
   "context_update": {{
     "emotion": "joy",
     "emotion_intensity": 0.8,
@@ -49,11 +55,14 @@ JSONのみ。コメント不要。不要なフィールドは省略可。
 }}
 
 【注意】
-- facts: ユーザーの好み・個人情報・約束・重要な出来事のみ。一時的な発言は不要。
+- facts: ユーザーの好み・個人情報・重要な出来事のみ。一時的な発言は不要。
 - facts は私（{persona_name}）の一人称視点で記録する（「私は〜」「ユーザーは〜」など主語を明確に）。
+- goals: ユーザーが「〜したい」「〜を目指す」と表明した目標のみ。status は "active" のみ指定（達成/キャンセルはツールで行う）。
+- promises: ユーザーまたは私が約束・コミットメントした内容のみ。
+- goals・promises: 何もなければ空配列。
 - context_update: 私（{persona_name}）自身の感情・状態変化のみ。変化がなければ省略。
 - inventory_update: 服や持ち物について具体的な言及があった場合のみ。
-- 何も抽出すべきものがなければ {{"facts": [], "context_update": {{}}, "inventory_update": {{}}}} を出力。
+- 何も抽出すべきものがなければ {{"facts": [], "goals": [], "promises": [], "context_update": {{}}, "inventory_update": {{}}}} を出力。
 """
 
 
@@ -128,6 +137,12 @@ def _parse_memory_llm_result(text: str) -> dict:
             if "facts" not in result:
                 result["facts"] = []
             result["facts"] = [f for f in result["facts"] if isinstance(f, dict) and "content" in f]
+            if "goals" not in result:
+                result["goals"] = []
+            result["goals"] = [g for g in result["goals"] if isinstance(g, dict) and "content" in g]
+            if "promises" not in result:
+                result["promises"] = []
+            result["promises"] = [p for p in result["promises"] if isinstance(p, dict) and "content" in p]
             if "context_update" not in result:
                 result["context_update"] = {}
             if "inventory_update" not in result:
@@ -137,6 +152,8 @@ def _parse_memory_llm_result(text: str) -> dict:
         if isinstance(result, list):
             return {
                 "facts": [f for f in result if isinstance(f, dict) and "content" in f],
+                "goals": [],
+                "promises": [],
                 "context_update": {},
                 "inventory_update": {},
             }
@@ -230,6 +247,50 @@ async def run_memory_llm(ctx: AppContext, config: ChatConfig, payload: dict) -> 
             )
         if facts:
             logger.info("MemoryLLM: processed %d facts for persona=%s", len(facts), persona)
+
+        # goals: アクティブな目標（重複チェック付き）
+        goals = result.get("goals", [])
+        for goal in goals:
+            content = goal.get("content", "")
+            if not content:
+                continue
+            dup_check = ctx.search_engine.search(SearchQuery(text=content, top_k=3, mode="semantic"))
+            if dup_check.is_ok and dup_check.value:
+                top_hit = dup_check.value[0]
+                hit_score = top_hit.score if hasattr(top_hit, "score") else 0.0
+                if hit_score > 0.85:
+                    logger.debug("MemoryLLM: skipping duplicate goal (score=%.2f): %s", hit_score, content[:60])
+                    continue
+            ctx.memory_service.create_memory(
+                content=content,
+                importance=0.75,
+                tags=["goal", "active"],
+                emotion="neutral",
+            )
+        if goals:
+            logger.info("MemoryLLM: processed %d goals for persona=%s", len(goals), persona)
+
+        # promises: 約束（重複チェック付き）
+        promises = result.get("promises", [])
+        for promise in promises:
+            content = promise.get("content", "")
+            if not content:
+                continue
+            dup_check = ctx.search_engine.search(SearchQuery(text=content, top_k=3, mode="semantic"))
+            if dup_check.is_ok and dup_check.value:
+                top_hit = dup_check.value[0]
+                hit_score = top_hit.score if hasattr(top_hit, "score") else 0.0
+                if hit_score > 0.85:
+                    logger.debug("MemoryLLM: skipping duplicate promise (score=%.2f): %s", hit_score, content[:60])
+                    continue
+            ctx.memory_service.create_memory(
+                content=content,
+                importance=0.8,
+                tags=["promise", "active"],
+                emotion="neutral",
+            )
+        if promises:
+            logger.info("MemoryLLM: processed %d promises for persona=%s", len(promises), persona)
 
         # context_update: 感情・状態を更新
         ctx_update = result.get("context_update", {})

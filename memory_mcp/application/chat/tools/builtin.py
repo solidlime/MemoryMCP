@@ -88,6 +88,105 @@ async def execute_tool(ctx: AppContext, config: ChatConfig, tool_name: str, tool
             task = tool_input.get("task", "")
             return await invoke_skill(ctx, config, skill_name, task)
 
+        elif tool_name == "goal_create":
+            result = ctx.memory_service.create_memory(
+                content=tool_input.get("content", ""),
+                importance=float(tool_input.get("importance", 0.75)),
+                tags=["goal", "active"],
+                emotion="neutral",
+            )
+            if result.is_ok:
+                return {"status": "ok", "key": result.value.key}
+            return {"status": "error", "message": str(result.error)}
+
+        elif tool_name in ("goal_achieve", "goal_cancel"):
+            target_content = tool_input.get("content", "").lower()
+            new_status = "achieved" if tool_name == "goal_achieve" else "cancelled"
+            tag_result = ctx.memory_service.get_by_tags(["goal", "active"])
+            if not tag_result.is_ok:
+                return {"status": "error", "message": str(tag_result.error)}
+            candidates = tag_result.value or []
+            match = next(
+                (m for m in candidates if target_content in m.content.lower()),
+                None,
+            )
+            if match is None:
+                return {"status": "not_found", "query": tool_input.get("content", "")}
+            update_result = ctx.memory_service.update_memory(match.key, tags=["goal", new_status])
+            if update_result.is_ok:
+                return {"status": "ok", "updated": match.content[:80]}
+            return {"status": "error", "message": str(update_result.error)}
+
+        elif tool_name == "promise_create":
+            result = ctx.memory_service.create_memory(
+                content=tool_input.get("content", ""),
+                importance=float(tool_input.get("importance", 0.8)),
+                tags=["promise", "active"],
+                emotion="neutral",
+            )
+            if result.is_ok:
+                return {"status": "ok", "key": result.value.key}
+            return {"status": "error", "message": str(result.error)}
+
+        elif tool_name == "promise_fulfill":
+            target_content = tool_input.get("content", "").lower()
+            tag_result = ctx.memory_service.get_by_tags(["promise", "active"])
+            if not tag_result.is_ok:
+                return {"status": "error", "message": str(tag_result.error)}
+            candidates = tag_result.value or []
+            match = next(
+                (m for m in candidates if target_content in m.content.lower()),
+                None,
+            )
+            if match is None:
+                return {"status": "not_found", "query": tool_input.get("content", "")}
+            update_result = ctx.memory_service.update_memory(match.key, tags=["promise", "fulfilled"])
+            if update_result.is_ok:
+                return {"status": "ok", "updated": match.content[:80]}
+            return {"status": "error", "message": str(update_result.error)}
+
+        elif tool_name == "memory_update":
+            query = tool_input.get("query", "")
+            new_content = tool_input.get("new_content", "")
+            if not query or not new_content:
+                return {"status": "error", "message": "query and new_content are required"}
+            search_result = ctx.search_engine.search(SearchQuery(text=query, top_k=1))
+            if not search_result.is_ok or not search_result.value:
+                return {"status": "not_found", "query": query}
+            item = search_result.value[0]
+            mem = item[0] if isinstance(item, tuple) else item
+            mem_key = getattr(mem, "key", None)
+            if not mem_key:
+                return {"status": "error", "message": "memory key not found"}
+            update_kwargs: dict = {"content": new_content}
+            if "importance" in tool_input:
+                update_kwargs["importance"] = float(tool_input["importance"])
+            update_result = ctx.memory_service.update_memory(mem_key, **update_kwargs)
+            if update_result.is_ok:
+                return {"status": "ok", "key": mem_key}
+            return {"status": "error", "message": str(update_result.error)}
+
+        elif tool_name == "context_recall":
+            tags: list[str] = tool_input.get("tags", [])
+            top_k: int = int(tool_input.get("top_k", 10))
+            if tags:
+                tag_result = ctx.memory_service.get_by_tags(tags)
+                if not tag_result.is_ok:
+                    return {"status": "error", "message": str(tag_result.error)}
+                memories = tag_result.value or []
+            else:
+                recent_result = ctx.memory_service.get_recent(limit=top_k)
+                memories = recent_result.value if recent_result.is_ok else []
+            items = [
+                {
+                    "content": m.content,
+                    "importance": m.importance,
+                    "tags": m.tags,
+                }
+                for m in memories[:top_k]
+            ]
+            return {"status": "ok", "memories": items, "count": len(items)}
+
         else:
             return {"status": "error", "message": f"Unknown tool: {tool_name}"}
 
