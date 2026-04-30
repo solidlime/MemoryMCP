@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import asyncio
+import math
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 from memory_mcp.domain.persona.emotion_decay import apply_emotion_decay_if_needed
@@ -13,14 +15,41 @@ if TYPE_CHECKING:
     from memory_mcp.application.chat.pipeline.context import ChatTurnContext
     from memory_mcp.application.chat.session_store import SessionWindow
     from memory_mcp.application.use_cases import AppContext
+    from memory_mcp.domain.chat_config import ChatConfig
 
 logger = get_logger(__name__)
 
+_RECENCY_LAMBDA = 0.5  # half-life ≈ 1.4 days
+
+
+def _compute_recency_decay(created_at: datetime | None) -> float:
+    """Compute recency decay: exp(-λ * days_elapsed) with λ=0.5."""
+    if created_at is None:
+        return 0.5
+    now = datetime.now(tz=timezone.utc)
+    # Ensure tz-aware comparison
+    if created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=timezone.utc)
+    days_elapsed = max(0.0, (now - created_at).total_seconds() / 86400.0)
+    return math.exp(-_RECENCY_LAMBDA * days_elapsed)
+
 
 async def _search_memories(
-    ctx: AppContext, user_message: str, last_assistant: str | None, top_k: int = 8
-) -> tuple[str, dict]:
-    """2クエリ並行検索 + RRF風マージ。Returns (formatted_str, debug_info)。"""
+    ctx: AppContext,
+    user_message: str,
+    last_assistant: str | None,
+    config: ChatConfig,
+    top_k: int = 8,
+) -> tuple[str, dict, list]:
+    """2クエリ並行検索 + 複合スコアリングマージ。
+
+    Returns:
+        (formatted_str, debug_info, memories_list)
+    """
+    recency_w: float = getattr(config, "retrieval_recency_weight", 0.3)
+    importance_w: float = getattr(config, "retrieval_importance_weight", 0.3)
+    relevance_w: float = getattr(config, "retrieval_relevance_weight", 0.4)
+
     queries = [user_message]
     if last_assistant:
         queries.append(last_assistant[:200])
@@ -35,9 +64,11 @@ async def _search_memories(
 
     results = await asyncio.gather(*[_run(q) for q in queries])
 
+    # Collect all candidates with RRF position scores per content
     seen: set[str] = set()
-    merged: list = []
-    rank_scores: dict[str, float] = {}
+    mem_by_content: dict[str, object] = {}
+    rrf_scores: dict[str, float] = {}
+
     for _rank_idx, result_list in enumerate(results):
         for pos, item in enumerate(result_list):
             if isinstance(item, tuple):
@@ -47,29 +78,44 @@ async def _search_memories(
             else:
                 mem = item
             content = getattr(mem, "content", str(mem))
-            score = 1.0 / (60 + pos + 1)
+            rrf_score = 1.0 / (60 + pos + 1)
             if content in seen:
-                rank_scores[content] = rank_scores.get(content, 0.0) + score
+                rrf_scores[content] = rrf_scores.get(content, 0.0) + rrf_score
             else:
                 seen.add(content)
-                merged.append((mem, score))
-                rank_scores[content] = rank_scores.get(content, 0.0) + score
+                mem_by_content[content] = mem
+                rrf_scores[content] = rrf_score
 
-    merged.sort(key=lambda x: rank_scores.get(getattr(x[0], "content", str(x[0])), 0.0), reverse=True)
-    top = merged[:top_k]
+    # Compute composite score for each unique memory
+    scored: list[tuple[float, object]] = []
+    for content, mem in mem_by_content.items():
+        importance = float(getattr(mem, "importance", 0.5))
+        created_at = getattr(mem, "created_at", None)
+        recency = _compute_recency_decay(created_at)
+        relevance = rrf_scores.get(content, 0.0)
+        composite = recency_w * recency + importance_w * importance + relevance_w * relevance
+        scored.append((composite, mem))
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+    top = scored[:top_k]
 
     if not top:
-        return "", {"queries": queries, "results": []}
-    lines = [f"- [{getattr(m, 'importance', 0.5):.1f}] {getattr(m, 'content', str(m))}" for m, _ in top]
+        return "", {"queries": queries, "results": []}, []
+
+    lines = [
+        f"- [{getattr(m, 'importance', 0.5):.1f}] {getattr(m, 'content', str(m))}"
+        for _, m in top
+    ]
+    memories_list: list[object] = [m for _, m in top]
     debug_results = [
         {
             "content": getattr(m, "content", str(m)),
             "importance": round(float(getattr(m, "importance", 0.5)), 2),
-            "score": round(rank_scores.get(getattr(m, "content", str(m)), 0.0), 4),
+            "score": round(score, 4),
         }
-        for m, _ in top
+        for score, m in top
     ]
-    return "\n".join(lines), {"queries": queries, "results": debug_results}
+    return "\n".join(lines), {"queries": queries, "results": debug_results}, memories_list
 
 
 async def _build_context_section(ctx: AppContext, state) -> str:
@@ -145,6 +191,7 @@ class PrepareStep:
         ctx: AppContext,
         session: SessionWindow,
         turn_ctx: ChatTurnContext,
+        config: ChatConfig | None = None,
     ) -> None:
         """
         1. 前ターンのMemoryLLMを待機
@@ -152,6 +199,10 @@ class PrepareStep:
         3. get_context() + 記憶検索を並行実行
         4. ChatTurnContextに結果を格納
         """
+        from memory_mcp.domain.chat_config import ChatConfig as _ChatConfig
+        if config is None:
+            config = _ChatConfig()
+
         # 1. 前ターンのMemoryLLMタスクを待つ
         if session.pending_memory_task is not None:
             try:
@@ -186,22 +237,24 @@ class PrepareStep:
             last_assistant = session.get_last_assistant_content()
             context_task = asyncio.create_task(_build_context_section(ctx, state))
             memory_task = asyncio.create_task(
-                _search_memories(ctx, turn_ctx.user_message, last_assistant, top_k=8)
+                _search_memories(ctx, turn_ctx.user_message, last_assistant, config, top_k=8)
             )
-            turn_ctx.context_section, (turn_ctx.related_memories, debug) = await asyncio.gather(
-                context_task, memory_task
+            turn_ctx.context_section, (turn_ctx.related_memories, debug, memories_list) = (
+                await asyncio.gather(context_task, memory_task)
             )
             turn_ctx.memory_debug = debug
             turn_ctx.memories_raw = debug.get("results", [])
+            turn_ctx.memories_objects = memories_list
         else:
             logger.warning("PrepareStep: get_context failed: %s", state_result.error)
             # contextなしで継続
             last_assistant = session.get_last_assistant_content()
             try:
-                turn_ctx.related_memories, debug = await _search_memories(
-                    ctx, turn_ctx.user_message, last_assistant, top_k=8
+                turn_ctx.related_memories, debug, memories_list = await _search_memories(
+                    ctx, turn_ctx.user_message, last_assistant, config, top_k=8
                 )
                 turn_ctx.memory_debug = debug
                 turn_ctx.memories_raw = debug.get("results", [])
+                turn_ctx.memories_objects = memories_list
             except Exception as e:
                 logger.warning("PrepareStep: memory search failed: %s", e)

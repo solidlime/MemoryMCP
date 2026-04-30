@@ -17,6 +17,7 @@ class ChatTurnContext:
     related_memories: str = ""
     state_raw: dict = field(default_factory=dict)
     memories_raw: list[dict] = field(default_factory=list)
+    memories_objects: list = field(default_factory=list)
     memory_debug: dict = field(default_factory=dict)
     # PromptBuildStep が埋める
     system_prompt: str = ""

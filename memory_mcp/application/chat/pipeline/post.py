@@ -4,8 +4,14 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING
 
-from memory_mcp.application.chat.events import DebugInfoSSE, DoneSSE
+from memory_mcp.application.chat.events import (
+    DebugInfoSSE,
+    DoneSSE,
+    MemoryActivitySSE,
+)
 from memory_mcp.application.chat.memory_llm import run_memory_llm
+from memory_mcp.application.chat.reflection import maybe_run_reflection
+from memory_mcp.application.chat.summarizer import summarize_and_store
 from memory_mcp.domain.shared.time_utils import get_now
 from memory_mcp.infrastructure.logging.structured import get_logger
 
@@ -20,6 +26,26 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
+async def _do_summarize(ctx: AppContext, config: ChatConfig, turns: list[dict]) -> None:
+    """Fire-and-forget summarization helper."""
+    try:
+        summary = await summarize_and_store(ctx, config, turns)
+        if summary:
+            logger.info("Session summarized: %s...", summary[:50])
+    except Exception as e:
+        logger.warning("_do_summarize error: %s", e)
+
+
+async def _do_reflection(ctx: AppContext, config: ChatConfig, importance_sum: float) -> None:
+    """Fire-and-forget reflection helper."""
+    try:
+        insights = await maybe_run_reflection(ctx, config, importance_sum)
+        if insights:
+            logger.info("Reflection generated %d insights", len(insights))
+    except Exception as e:
+        logger.warning("_do_reflection error: %s", e)
+
+
 class PostProcessStep:
     """MemoryLLM fire-and-forget + セッション更新 + debug_info/done SSEの送出。"""
 
@@ -30,8 +56,13 @@ class PostProcessStep:
         session: SessionWindow,
         turn_ctx: ChatTurnContext,
         debug: bool = False,
-    ) -> AsyncIterator[DebugInfoSSE | DoneSSE]:
-        # セッションにターンを追加
+    ) -> AsyncIterator[DebugInfoSSE | DoneSSE | MemoryActivitySSE]:
+        # evict_callback を設定してからセッションにターンを追加
+        if getattr(config, "session_summarize", True) and getattr(config, "extract_model", ""):
+            def _evict_cb(evicted: list[dict]) -> None:
+                asyncio.create_task(_do_summarize(ctx, config, evicted))
+            session.evict_callback = _evict_cb
+
         now = get_now()
         session.add("user", turn_ctx.user_message, now)
         session.add("assistant", turn_ctx.full_response, get_now())
@@ -47,6 +78,10 @@ class PostProcessStep:
             payload = {"user": turn_ctx.user_message, "assistant": turn_ctx.full_response}
             task = asyncio.create_task(run_memory_llm(ctx, config, payload))
             session.pending_memory_task = task
+
+        # MemoryActivitySSE: 取得された記憶を通知
+        retrieved_for_sse = turn_ctx.memories_raw[:5]
+        yield MemoryActivitySSE(retrieved=retrieved_for_sse, saved=[])
 
         # debug_info SSE — only when debug flag is enabled
         if debug:
@@ -76,3 +111,8 @@ class PostProcessStep:
                 yield DebugInfoSSE(data={"error": str(e), "system_prompt": turn_ctx.system_prompt[:500]})
 
         yield DoneSSE()
+
+        # Reflection: fire-and-forget after DoneSSE
+        if getattr(config, "reflection_enabled", True):
+            estimated_importance_sum = len(turn_ctx.tool_calls_log) * 0.7 + 0.5
+            asyncio.create_task(_do_reflection(ctx, config, estimated_importance_sum))

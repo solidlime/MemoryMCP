@@ -41,7 +41,7 @@ class ChatService:
         turn_ctx = ChatTurnContext(session_id=session_id, user_message=user_message)
 
         # PrepareStep: pending_memory_task 待機 + EmotionDecay + コンテキスト取得
-        await PrepareStep().run(ctx, session, turn_ctx)
+        await PrepareStep().run(ctx, session, turn_ctx, config=config)
 
         # PromptBuildStep: system プロンプト組み立て
         PromptBuildStep().run(ctx, config, turn_ctx)

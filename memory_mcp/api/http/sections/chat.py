@@ -111,6 +111,7 @@ def render_chat_tab() -> str:
             width: 100%; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border);
             border-radius: 8px; padding: 8px 10px; color: var(--text-primary);
             font-size: 0.85rem; font-family: inherit; outline: none; transition: border-color 0.2s;
+            box-sizing: border-box;
         }
         .chat-field-input:focus { border-color: var(--accent-purple); }
         .chat-field-input option { background: #1a0533; }
@@ -136,10 +137,51 @@ def render_chat_tab() -> str:
         }
         .chat-welcome-icon { font-size: 3rem; opacity: 0.5; }
         .chat-welcome p { font-size: 0.9rem; max-width: 300px; }
+        /* Memory activity panel */
+        #memory-panel {
+            width: 260px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px;
+            overflow-y: auto; padding: 14px;
+            background: rgba(255,255,255,0.03); border-right: 1px solid var(--glass-border);
+        }
+        .memory-panel-title {
+            font-size: 0.82rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px;
+        }
+        .memory-section-header {
+            font-size: 0.75rem; font-weight: 600; color: var(--text-muted);
+            text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px;
+            padding-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        .memory-item-card {
+            background: rgba(255,255,255,0.04); border: 1px solid var(--glass-border);
+            border-radius: 8px; padding: 7px 9px; font-size: 0.74rem;
+            color: var(--text-secondary); line-height: 1.4; margin-bottom: 5px;
+            word-break: break-word;
+        }
+        .memory-item-card .mem-score {
+            font-size: 0.68rem; color: var(--accent-purple); margin-bottom: 3px;
+            font-weight: 600;
+        }
+        .memory-empty { font-size: 0.74rem; color: var(--text-muted); font-style: italic; padding: 4px 0; }
+        .reflection-insight {
+            background: rgba(167,139,250,0.08); border: 1px solid rgba(167,139,250,0.2);
+            border-radius: 8px; padding: 7px 9px; font-size: 0.74rem;
+            color: var(--text-secondary); line-height: 1.4; margin-bottom: 5px;
+        }
+        .memory-panel-section { margin-bottom: 12px; }
+        .mem-panel-toggle {
+            background: none; border: 1px solid var(--glass-border); border-radius: 6px;
+            color: var(--text-muted); padding: 2px 7px; font-size: 0.7rem;
+            cursor: pointer; transition: all 0.2s; margin-left: 6px;
+        }
+        .mem-panel-toggle:hover { color: var(--text-primary); background: var(--glass-bg); }
+        @media (max-width: 900px) {
+            #memory-panel { display: none; }
+        }
         @media (max-width: 768px) {
             #chat-layout { flex-direction: column; height: auto; }
             #chat-messages { min-height: 350px; max-height: 50vh; }
             #chat-sidebar { width: 100% !important; }
+            #memory-panel { display: none; }
         }
         /* Debug panel */
         .chat-debug-panel {
@@ -196,11 +238,57 @@ def render_chat_tab() -> str:
             <div style="position:relative; margin-bottom:12px; display:flex; align-items:center; justify-content:space-between;">
                 <h2 style="font-size:1.1rem; font-weight:600; color:var(--text-primary);">💬 Chat</h2>
                 <div style="display:flex;gap:8px;align-items:center;">
+                    <button class="mem-panel-toggle" id="memory-panel-toggle-btn" onclick="toggleMemoryPanel()" title="記憶パネルを開閉">🧠</button>
                     <button class="chat-debug-btn" id="chat-debug-btn" onclick="toggleDebugMode()" title="デバッグ情報の表示切替">🐛 Debug</button>
                     <button class="chat-sidebar-toggle" onclick="toggleChatSidebar()" id="chat-sidebar-toggle-btn" title="設定パネルを開閉">⚙️ 設定</button>
                 </div>
             </div>
             <div id="chat-layout" class="glass" style="padding:0; overflow:hidden;">
+                <!-- Memory activity panel (left) -->
+                <div id="memory-panel">
+                    <div class="memory-panel-title">🧠 記憶活動</div>
+
+                    <!-- Retrieved memories -->
+                    <div class="memory-panel-section">
+                        <div class="memory-section-header">📥 取得された記憶</div>
+                        <div id="memory-retrieved-list">
+                            <div class="memory-empty">チャット中に自動更新されます</div>
+                        </div>
+                    </div>
+
+                    <!-- Saved memories -->
+                    <div class="memory-panel-section">
+                        <div class="memory-section-header">💾 保存された記憶</div>
+                        <div id="memory-saved-list">
+                            <div class="memory-empty">チャット中に自動更新されます</div>
+                        </div>
+                    </div>
+
+                    <!-- Reflection -->
+                    <div class="memory-panel-section">
+                        <div class="memory-section-header" id="reflection-header">✨ リフレクション</div>
+                        <div id="memory-reflection-list">
+                            <div class="memory-empty">リフレクション洞察がここに表示されます</div>
+                        </div>
+                    </div>
+
+                    <!-- Active goals -->
+                    <div class="memory-panel-section">
+                        <div class="memory-section-header">🎯 アクティブな目標</div>
+                        <div id="memory-goals-list">
+                            <div class="memory-empty">チャット中に自動更新されます</div>
+                        </div>
+                    </div>
+
+                    <!-- Active promises -->
+                    <div class="memory-panel-section">
+                        <div class="memory-section-header">🤝 アクティブな約束</div>
+                        <div id="memory-promises-list">
+                            <div class="memory-empty">チャット中に自動更新されます</div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Chat area -->
                 <div id="chat-main">
                     <div id="chat-messages">
@@ -264,6 +352,11 @@ def render_chat_tab() -> str:
                         <div class="chat-field-label">コンテキスト履歴 (turns)</div>
                         <input type="number" id="chat-window-turns" class="chat-field-input" min="1" max="50" value="3" />
                     </div>
+                    <!-- Max tool calls -->
+                    <div>
+                        <div class="chat-field-label">最大ツール呼び出し回数</div>
+                        <input type="number" id="chat-max-tool-calls" class="chat-field-input" min="0" max="20" value="5" />
+                    </div>
                     <!-- System prompt -->
                     <div style="flex:1; display:flex; flex-direction:column; min-height:80px;">
                         <div class="chat-field-label">システムプロンプト</div>
@@ -310,6 +403,63 @@ def render_chat_tab() -> str:
                         <div style="font-size:0.8rem; font-weight:600; color:var(--text-secondary); margin-bottom:8px;">🎯 Skills</div>
                         <div id="chat-skills-list" style="display:flex;flex-direction:column;gap:4px;"></div>
                     </div>
+                    <!-- Reflection & Retrieval settings -->
+                    <div style="border-top:1px solid var(--glass-border);padding-top:10px;">
+                        <div style="font-size:0.8rem; font-weight:600; color:var(--text-secondary); margin-bottom:8px;">🔮 リフレクション設定</div>
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                            <input type="checkbox" id="chat-reflection-enabled" checked
+                                style="width:15px;height:15px;accent-color:var(--accent-purple);cursor:pointer;" />
+                            <label for="chat-reflection-enabled" class="chat-field-label" style="margin:0;cursor:pointer;">リフレクション有効</label>
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+                            <div>
+                                <div class="chat-field-label">閾値</div>
+                                <input type="number" id="chat-reflection-threshold" class="chat-field-input"
+                                    min="0.1" max="100" step="0.1" value="3.0" />
+                            </div>
+                            <div>
+                                <div class="chat-field-label">最小間隔 (時間)</div>
+                                <input type="number" id="chat-reflection-interval" class="chat-field-input"
+                                    min="0" max="168" step="0.5" value="1.0" />
+                            </div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <input type="checkbox" id="chat-session-summarize" checked
+                                style="width:15px;height:15px;accent-color:var(--accent-purple);cursor:pointer;" />
+                            <label for="chat-session-summarize" class="chat-field-label" style="margin:0;cursor:pointer;">セッション要約</label>
+                        </div>
+                    </div>
+                    <!-- Retrieval weights -->
+                    <div style="border-top:1px solid var(--glass-border);padding-top:10px;">
+                        <div style="font-size:0.8rem; font-weight:600; color:var(--text-secondary); margin-bottom:8px;">⚖️ 検索重み</div>
+                        <div style="margin-bottom:8px;">
+                            <div class="chat-field-label" style="display:flex;justify-content:space-between;">
+                                <span>鮮度</span>
+                                <span id="chat-recency-weight-val" style="color:var(--accent-purple);">0.30</span>
+                            </div>
+                            <input type="range" id="chat-recency-weight" min="0" max="1" step="0.05" value="0.3"
+                                oninput="document.getElementById('chat-recency-weight-val').textContent=parseFloat(this.value).toFixed(2)"
+                                style="width:100%;accent-color:var(--accent-purple);" />
+                        </div>
+                        <div style="margin-bottom:8px;">
+                            <div class="chat-field-label" style="display:flex;justify-content:space-between;">
+                                <span>重要度</span>
+                                <span id="chat-importance-weight-val" style="color:var(--accent-purple);">0.30</span>
+                            </div>
+                            <input type="range" id="chat-importance-weight" min="0" max="1" step="0.05" value="0.3"
+                                oninput="document.getElementById('chat-importance-weight-val').textContent=parseFloat(this.value).toFixed(2)"
+                                style="width:100%;accent-color:var(--accent-purple);" />
+                        </div>
+                        <div>
+                            <div class="chat-field-label" style="display:flex;justify-content:space-between;">
+                                <span>関連性</span>
+                                <span id="chat-relevance-weight-val" style="color:var(--accent-purple);">0.40</span>
+                            </div>
+                            <input type="range" id="chat-relevance-weight" min="0" max="1" step="0.05" value="0.4"
+                                oninput="document.getElementById('chat-relevance-weight-val').textContent=parseFloat(this.value).toFixed(2)"
+                                style="width:100%;accent-color:var(--accent-purple);" />
+                        </div>
+                    </div>
                     <!-- Buttons -->
                     <button class="chat-save-btn" onclick="saveChatConfig()">💾 設定を保存</button>
                     <button class="chat-clear-btn" onclick="clearChatHistory()">🗑️ 会話をリセット</button>
@@ -329,6 +479,7 @@ def render_chat_js() -> str:
 const CHAT = {
     streaming: false,
     sidebarOpen: true,
+    memoryPanelOpen: true,
     debugMode: localStorage.getItem('chat_debug_mode') === 'true',
     messages: [],  // { role, content, time }
     mcpServers: [],
@@ -374,6 +525,7 @@ function applyChatConfig(cfg) {
     set('chat-temperature', cfg.temperature != null ? cfg.temperature : 0.7);
     set('chat-max-tokens', cfg.max_tokens || 2048);
     set('chat-window-turns', cfg.max_window_turns || 3);
+    set('chat-max-tool-calls', cfg.max_tool_calls || 5);
     set('chat-system-prompt', cfg.system_prompt || '');
     const autoExtract = document.getElementById('chat-auto-extract');
     if (autoExtract) autoExtract.checked = cfg.auto_extract !== false;
@@ -390,6 +542,22 @@ function applyChatConfig(cfg) {
         if (toolMaxVal) toolMaxVal.textContent = cfg.tool_result_max_chars;
     }
     CHAT.enabledSkills = cfg.enabled_skills || [];
+    // Reflection settings
+    const reflEnabled = document.getElementById('chat-reflection-enabled');
+    if (reflEnabled) reflEnabled.checked = cfg.reflection_enabled !== false;
+    set('chat-reflection-threshold', cfg.reflection_threshold != null ? cfg.reflection_threshold : 3.0);
+    set('chat-reflection-interval', cfg.reflection_min_interval_hours != null ? cfg.reflection_min_interval_hours : 1.0);
+    const sessSum = document.getElementById('chat-session-summarize');
+    if (sessSum) sessSum.checked = cfg.session_summarize !== false;
+    // Retrieval weights
+    const setSlider = (id, valId, v) => {
+        const el = document.getElementById(id);
+        const vel = document.getElementById(valId);
+        if (el && v != null) { el.value = v; if (vel) vel.textContent = parseFloat(v).toFixed(2); }
+    };
+    setSlider('chat-recency-weight', 'chat-recency-weight-val', cfg.retrieval_recency_weight != null ? cfg.retrieval_recency_weight : 0.3);
+    setSlider('chat-importance-weight', 'chat-importance-weight-val', cfg.retrieval_importance_weight != null ? cfg.retrieval_importance_weight : 0.3);
+    setSlider('chat-relevance-weight', 'chat-relevance-weight-val', cfg.retrieval_relevance_weight != null ? cfg.retrieval_relevance_weight : 0.4);
     const statusEl = document.getElementById('chat-config-status');
     if (statusEl) {
         if (cfg.is_configured) {
@@ -420,12 +588,20 @@ async function saveChatConfig() {
         temperature: parseFloat(document.getElementById('chat-temperature').value),
         max_tokens: parseInt(document.getElementById('chat-max-tokens').value),
         max_window_turns: parseInt(document.getElementById('chat-window-turns').value),
+        max_tool_calls: parseInt(document.getElementById('chat-max-tool-calls')?.value || '5'),
         system_prompt: document.getElementById('chat-system-prompt').value.trim(),
         auto_extract: document.getElementById('chat-auto-extract')?.checked ?? true,
         extract_model: document.getElementById('chat-extract-model')?.value.trim() || '',
         mcp_servers: parseMcpJson(),
         tool_result_max_chars: parseInt(document.getElementById('chat-tool-result-max')?.value || '4000'),
         enabled_skills: CHAT.enabledSkills,
+        reflection_enabled: document.getElementById('chat-reflection-enabled')?.checked ?? true,
+        reflection_threshold: parseFloat(document.getElementById('chat-reflection-threshold')?.value || '3.0'),
+        reflection_min_interval_hours: parseFloat(document.getElementById('chat-reflection-interval')?.value || '1.0'),
+        session_summarize: document.getElementById('chat-session-summarize')?.checked ?? true,
+        retrieval_recency_weight: parseFloat(document.getElementById('chat-recency-weight')?.value || '0.3'),
+        retrieval_importance_weight: parseFloat(document.getElementById('chat-importance-weight')?.value || '0.3'),
+        retrieval_relevance_weight: parseFloat(document.getElementById('chat-relevance-weight')?.value || '0.4'),
     };
     try {
         const cfg = await api('/api/chat/' + encodeURIComponent(S.persona) + '/config', {
@@ -540,6 +716,20 @@ function toggleChatSidebar() {
     }
 }
 
+function toggleMemoryPanel() {
+    const panel = document.getElementById('memory-panel');
+    const btn = document.getElementById('memory-panel-toggle-btn');
+    CHAT.memoryPanelOpen = !CHAT.memoryPanelOpen;
+    if (!panel) return;
+    if (CHAT.memoryPanelOpen) {
+        panel.style.display = 'flex';
+        if (btn) btn.style.opacity = '1';
+    } else {
+        panel.style.display = 'none';
+        if (btn) btn.style.opacity = '0.4';
+    }
+}
+
 function toggleDebugMode() {
     CHAT.debugMode = !CHAT.debugMode;
     localStorage.setItem('chat_debug_mode', CHAT.debugMode);
@@ -606,6 +796,68 @@ function renderDebugPanel(anchorEl, data) {
         container.scrollTop = container.scrollHeight;
     } catch (e) {
         console.error('[debug panel render error]', e);
+    }
+}
+
+/* ── Memory Panel helpers ── */
+function updateMemoryPanel(retrieved, saved) {
+    const retrievedList = document.getElementById('memory-retrieved-list');
+    const savedList = document.getElementById('memory-saved-list');
+    if (retrievedList) {
+        if (!retrieved || retrieved.length === 0) {
+            retrievedList.innerHTML = '<div class="memory-empty">なし</div>';
+        } else {
+            retrievedList.innerHTML = retrieved.map(m => {
+                const score = m.score != null ? parseFloat(m.score).toFixed(3) : '';
+                const imp = m.importance != null ? parseFloat(m.importance).toFixed(2) : '';
+                const content = esc((m.content || '').substring(0, 80));
+                const meta = [score ? 'score:' + score : '', imp ? 'imp:' + imp : ''].filter(Boolean).join(' ');
+                return '<div class="memory-item-card">' +
+                    (meta ? '<div class="mem-score">' + esc(meta) + '</div>' : '') +
+                    content + '</div>';
+            }).join('');
+        }
+    }
+    if (savedList) {
+        if (!saved || saved.length === 0) {
+            savedList.innerHTML = '<div class="memory-empty">なし</div>';
+        } else {
+            savedList.innerHTML = saved.map(m => {
+                const content = esc((m.content || '').substring(0, 80));
+                const tags = m.tags ? m.tags.join(', ') : '';
+                return '<div class="memory-item-card">' + content +
+                    (tags ? '<div class="mem-score">' + esc(tags) + '</div>' : '') + '</div>';
+            }).join('');
+        }
+    }
+}
+
+function showReflectionStart() {
+    const header = document.getElementById('reflection-header');
+    if (header) header.textContent = '✨ リフレクション (実行中...)';
+    const list = document.getElementById('memory-reflection-list');
+    if (list) list.innerHTML = '<div class="memory-empty" style="color:var(--accent-purple);">分析中...</div>';
+}
+
+function updateReflectionPanel(insights) {
+    const header = document.getElementById('reflection-header');
+    if (header) header.textContent = '✨ リフレクション';
+    const list = document.getElementById('memory-reflection-list');
+    if (!list) return;
+    if (!insights || insights.length === 0) {
+        list.innerHTML = '<div class="memory-empty">洞察なし</div>';
+        return;
+    }
+    list.innerHTML = insights.map(s =>
+        '<div class="reflection-insight">' + esc(s) + '</div>'
+    ).join('');
+}
+
+function showSessionSummarized(summary) {
+    const statusEl = document.getElementById('chat-status');
+    if (statusEl) {
+        statusEl.textContent = '📝 セッションを要約しました';
+        setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 3000);
     }
 }
 
@@ -867,6 +1119,18 @@ async function chatSend() {
                 } else if (evt.type === 'tool_result') {
                     appendToolEvent('tool_result', evt);
                     statusEl.textContent = '応答中...';
+
+                } else if (evt.type === 'memory_activity') {
+                    updateMemoryPanel(evt.retrieved, evt.saved);
+
+                } else if (evt.type === 'reflection_start') {
+                    showReflectionStart();
+
+                } else if (evt.type === 'reflection_done') {
+                    updateReflectionPanel(evt.insights);
+
+                } else if (evt.type === 'session_summarized') {
+                    showSessionSummarized(evt.summary);
 
                 } else if (evt.type === 'error') {
                     removeTypingIndicator();
