@@ -122,6 +122,46 @@ def register_chat_routes(mcp) -> None:
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
 
+    @mcp.custom_route("/api/chat/{persona}/commitments", methods=["GET"])
+    async def get_chat_commitments(request: Request) -> JSONResponse:
+        """アクティブなgoals・promises・最新リフレクション洞察を返す。"""
+        persona = _resolve_persona_from_request(request)
+        ctx = _safe_get_context(persona)
+        if not ctx:
+            return JSONResponse({"error": "Persona not found"}, status_code=404)
+
+        goals: list[dict] = []
+        promises: list[dict] = []
+        insights: list[str] = []
+
+        try:
+            goal_result = ctx.memory_service.get_by_tags(["goal", "active"])
+            if goal_result.is_ok and goal_result.value:
+                goals = [{"content": m.content, "key": m.key} for m in goal_result.value]
+        except Exception as e:
+            logger.warning("get_chat_commitments: goals failed: %s", e)
+
+        try:
+            promise_result = ctx.memory_service.get_by_tags(["promise", "active"])
+            if promise_result.is_ok and promise_result.value:
+                promises = [{"content": m.content, "key": m.key} for m in promise_result.value]
+        except Exception as e:
+            logger.warning("get_chat_commitments: promises failed: %s", e)
+
+        try:
+            reflection_result = ctx.memory_service.get_by_tags(["reflection"])
+            if reflection_result.is_ok and reflection_result.value:
+                sorted_refs = sorted(
+                    reflection_result.value,
+                    key=lambda m: getattr(m, "created_at", None) or "",
+                    reverse=True,
+                )
+                insights = [m.content for m in sorted_refs[:5]]
+        except Exception as e:
+            logger.warning("get_chat_commitments: insights failed: %s", e)
+
+        return JSONResponse({"goals": goals, "promises": promises, "insights": insights})
+
     @mcp.custom_route("/api/chat/{persona}/sessions/{session_id}", methods=["GET"])
     async def get_chat_session(request: Request) -> JSONResponse:
         """F2: 会話履歴復元 — セッションのメッセージ一覧を返す。"""
@@ -141,7 +181,6 @@ def register_chat_routes(mcp) -> None:
 
     @mcp.custom_route("/api/chat/{persona}/sessions/{session_id}", methods=["DELETE"])
     async def delete_chat_session(request: Request) -> JSONResponse:
-        """F3: 会話削除 — セッションを SQLite から削除する。"""
         persona = _resolve_persona_from_request(request)
         ctx = _safe_get_context(persona)
         if not ctx:

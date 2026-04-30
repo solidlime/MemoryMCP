@@ -53,7 +53,7 @@ class ChatConfig(BaseModel):
     enable_memory_tools: bool = True
     # Generative Agents-style reflection
     reflection_enabled: bool = True
-    reflection_threshold: float = 3.0  # sum of importance scores to trigger reflection
+    reflection_threshold: float = 1.0  # sum of importance scores to trigger reflection
     reflection_min_interval_hours: float = 1.0
     # Session summarization
     session_summarize: bool = True
@@ -184,7 +184,7 @@ class ChatConfigRepository:
             mcp_servers=json.loads(row[15] or "[]"),
             enabled_skills=json.loads(row[16] or "[]"),
             reflection_enabled=bool(row[17]) if row[17] is not None else True,
-            reflection_threshold=float(row[18]) if row[18] is not None else 3.0,
+            reflection_threshold=float(row[18]) if row[18] is not None else 1.0,
             reflection_min_interval_hours=float(row[19]) if row[19] is not None else 1.0,
             session_summarize=bool(row[20]) if row[20] is not None else True,
             retrieval_recency_weight=float(row[21]) if row[21] is not None else 0.3,

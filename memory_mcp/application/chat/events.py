@@ -60,8 +60,15 @@ class MemoryActivitySSE:
     """Memory retrieval and save activity for this turn."""
     retrieved: list  # list of {"content": str, "score": float, "importance": float}
     saved: list      # list of {"content": str, "tags": list}
+    goals: list = None      # list of {"content": str} newly saved goals
+    promises: list = None   # list of {"content": str} newly saved promises
     def to_sse(self) -> str:
-        return _sse_encode("memory_activity", {"retrieved": self.retrieved, "saved": self.saved})
+        return _sse_encode("memory_activity", {
+            "retrieved": self.retrieved,
+            "saved": self.saved,
+            "goals": self.goals or [],
+            "promises": self.promises or [],
+        })
 
 
 @dataclass

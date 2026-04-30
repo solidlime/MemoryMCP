@@ -78,13 +78,17 @@ def render_chat_tab() -> str:
         .chat-tool-status { opacity: 0.7; font-size: 0.72rem; margin-left: 6px; }
         .chat-tool-detail {
             margin: 4px 0 4px 10px; white-space: pre-wrap; word-break: break-all;
-            color: rgba(200,220,255,0.75); max-height: 200px; overflow-y: auto;
+            color: rgba(220,235,255,0.92); max-height: 200px; overflow-y: auto;
             font-size: 0.7rem; line-height: 1.4;
             border-left: 2px solid rgba(96,165,250,0.3); padding-left: 8px;
         }
         .chat-tool-result-content {
-            border-left-color: rgba(52,211,153,0.4); color: rgba(180,240,200,0.75);
+            border-left-color: rgba(52,211,153,0.4); color: rgba(160,255,200,0.92);
         }
+        html.light .chat-tool-call { color: rgba(30,80,200,0.9); }
+        html.light .chat-tool-result { color: rgba(0,120,60,0.9); }
+        html.light .chat-tool-detail { color: rgba(30,50,120,0.9); }
+        html.light .chat-tool-result-content { color: rgba(0,100,40,0.9); }
         .chat-typing { display: flex; gap: 4px; align-items: center; padding: 10px 14px; }
         .chat-typing span {
             width: 6px; height: 6px; border-radius: 50%;
@@ -492,9 +496,25 @@ function loadChat() {
     loadChatConfig();
     loadSkillsForChat();
     restoreChatHistory();
+    loadChatCommitments();
     // Restore debug button state
     const btn = document.getElementById('chat-debug-btn');
     if (btn && CHAT.debugMode) btn.classList.add('active');
+}
+
+async function loadChatCommitments() {
+    if (!S.persona) return;
+    try {
+        const data = await api('/api/chat/' + encodeURIComponent(S.persona) + '/commitments');
+        if (Array.isArray(data.goals) || Array.isArray(data.promises)) {
+            updateMemoryPanel(undefined, undefined, data.goals || [], data.promises || []);
+        }
+        if (data.insights && data.insights.length > 0) {
+            updateReflectionPanel(data.insights);
+        }
+    } catch (_e) {
+        // commitments API unavailable — ignore silently
+    }
 }
 
 async function loadSkillsForChat() {
@@ -800,34 +820,62 @@ function renderDebugPanel(anchorEl, data) {
 }
 
 /* ── Memory Panel helpers ── */
-function updateMemoryPanel(retrieved, saved) {
-    const retrievedList = document.getElementById('memory-retrieved-list');
-    const savedList = document.getElementById('memory-saved-list');
-    if (retrievedList) {
-        if (!retrieved || retrieved.length === 0) {
-            retrievedList.innerHTML = '<div class="memory-empty">なし</div>';
-        } else {
-            retrievedList.innerHTML = retrieved.map(m => {
-                const score = m.score != null ? parseFloat(m.score).toFixed(3) : '';
-                const imp = m.importance != null ? parseFloat(m.importance).toFixed(2) : '';
-                const content = esc((m.content || '').substring(0, 80));
-                const meta = [score ? 'score:' + score : '', imp ? 'imp:' + imp : ''].filter(Boolean).join(' ');
-                return '<div class="memory-item-card">' +
-                    (meta ? '<div class="mem-score">' + esc(meta) + '</div>' : '') +
-                    content + '</div>';
-            }).join('');
+function updateMemoryPanel(retrieved, saved, goals, promises) {
+    if (retrieved !== undefined) {
+        const retrievedList = document.getElementById('memory-retrieved-list');
+        if (retrievedList) {
+            if (!retrieved || retrieved.length === 0) {
+                retrievedList.innerHTML = '<div class="memory-empty">なし</div>';
+            } else {
+                retrievedList.innerHTML = retrieved.map(m => {
+                    const score = m.score != null ? parseFloat(m.score).toFixed(3) : '';
+                    const imp = m.importance != null ? parseFloat(m.importance).toFixed(2) : '';
+                    const content = esc((m.content || '').substring(0, 80));
+                    const meta = [score ? 'score:' + score : '', imp ? 'imp:' + imp : ''].filter(Boolean).join(' ');
+                    return '<div class="memory-item-card">' +
+                        (meta ? '<div class="mem-score">' + esc(meta) + '</div>' : '') +
+                        content + '</div>';
+                }).join('');
+            }
         }
     }
-    if (savedList) {
-        if (!saved || saved.length === 0) {
-            savedList.innerHTML = '<div class="memory-empty">なし</div>';
-        } else {
-            savedList.innerHTML = saved.map(m => {
-                const content = esc((m.content || '').substring(0, 80));
-                const tags = m.tags ? m.tags.join(', ') : '';
-                return '<div class="memory-item-card">' + content +
-                    (tags ? '<div class="mem-score">' + esc(tags) + '</div>' : '') + '</div>';
-            }).join('');
+    if (saved !== undefined) {
+        const savedList = document.getElementById('memory-saved-list');
+        if (savedList) {
+            if (!saved || saved.length === 0) {
+                savedList.innerHTML = '<div class="memory-empty">なし</div>';
+            } else {
+                savedList.innerHTML = saved.map(m => {
+                    const content = esc((m.content || '').substring(0, 80));
+                    const tags = m.tags ? m.tags.join(', ') : '';
+                    return '<div class="memory-item-card">' + content +
+                        (tags ? '<div class="mem-score">' + esc(tags) + '</div>' : '') + '</div>';
+                }).join('');
+            }
+        }
+    }
+    if (goals !== undefined) {
+        const goalsList = document.getElementById('memory-goals-list');
+        if (goalsList) {
+            if (!goals || goals.length === 0) {
+                goalsList.innerHTML = '<div class="memory-empty">なし</div>';
+            } else {
+                goalsList.innerHTML = goals.map(g =>
+                    '<div class="memory-item-card">🎯 ' + esc((g.content || '').substring(0, 80)) + '</div>'
+                ).join('');
+            }
+        }
+    }
+    if (promises !== undefined) {
+        const promisesList = document.getElementById('memory-promises-list');
+        if (promisesList) {
+            if (!promises || promises.length === 0) {
+                promisesList.innerHTML = '<div class="memory-empty">なし</div>';
+            } else {
+                promisesList.innerHTML = promises.map(p =>
+                    '<div class="memory-item-card">🤝 ' + esc((p.content || '').substring(0, 80)) + '</div>'
+                ).join('');
+            }
         }
     }
 }
@@ -1121,7 +1169,7 @@ async function chatSend() {
                     statusEl.textContent = '応答中...';
 
                 } else if (evt.type === 'memory_activity') {
-                    updateMemoryPanel(evt.retrieved, evt.saved);
+                    updateMemoryPanel(evt.retrieved, evt.saved, evt.goals, evt.promises);
 
                 } else if (evt.type === 'reflection_start') {
                     showReflectionStart();
@@ -1192,7 +1240,10 @@ window.__chatPersonaWatcher = setInterval(() => {
         sel.addEventListener('change', () => {
             // DOM reset + history restore is handled by base.py's loadTab() → loadChat() → restoreChatHistory()
             // Do NOT call clearChatHistory() here — it would destroy the session ID and break history
-            if (S.tab === 'chat') loadChatConfig();
+            if (S.tab === 'chat') {
+                loadChatConfig();
+                loadChatCommitments();
+            }
         });
         clearInterval(window.__chatPersonaWatcher);
     }

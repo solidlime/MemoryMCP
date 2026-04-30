@@ -199,7 +199,14 @@ class TestChatConfigRepository:
                 extract_max_tokens INTEGER DEFAULT 512,
                 tool_result_max_chars INTEGER DEFAULT 4000,
                 mcp_servers TEXT DEFAULT '[]',
-                enabled_skills TEXT DEFAULT '[]'
+                enabled_skills TEXT DEFAULT '[]',
+                reflection_enabled INTEGER DEFAULT 1,
+                reflection_threshold REAL DEFAULT 1.0,
+                reflection_min_interval_hours REAL DEFAULT 1.0,
+                session_summarize INTEGER DEFAULT 1,
+                retrieval_recency_weight REAL DEFAULT 0.3,
+                retrieval_importance_weight REAL DEFAULT 0.3,
+                retrieval_relevance_weight REAL DEFAULT 0.4
             )
         """)
         db.execute("""
@@ -398,6 +405,7 @@ class TestChatService:
         mem.content = "test memory"
         mem.importance = 0.8
         mem.tags = []
+        mem.created_at = datetime(2025, 1, 1, 12, 0, 0)
         search_result = MagicMock()
         search_result.is_ok = True
         search_result.value = [(mem, 0.9)]
