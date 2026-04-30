@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from memory_mcp.infrastructure.logging.structured import get_logger
@@ -68,7 +68,7 @@ class MemoryContextSnapshot:
             top_tags=top_tags,
             emotion_dist=emotion_dist,
             memory_count=total_count,
-            built_at=datetime.utcnow().isoformat(),
+            built_at=datetime.now(UTC).isoformat(),
         )
 
     def to_text(self) -> str:
