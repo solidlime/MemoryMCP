@@ -683,14 +683,21 @@ function safeMarkdown(text) {
     return esc(text).replace(/\n/g, '<br>');
 }
 
-// F2: Restore chat history from server on page load
+// F2: Restore chat history from server on page load / persona switch
 async function restoreChatHistory() {
     if (!S.persona) return;
     const sid = getChatSessionId();
+    const container = document.getElementById('chat-messages');
+    // Always reset DOM first to prevent previous persona's messages from lingering
+    CHAT.messages = [];
+    container.innerHTML = `
+        <div class="chat-welcome" id="chat-welcome">
+            <div class="chat-welcome-icon">💬</div>
+            <p>チャットを開始するには下のテキストボックスにメッセージを入力してください。</p>
+        </div>`;
     try {
         const data = await api('/api/chat/' + encodeURIComponent(S.persona) + '/sessions/' + encodeURIComponent(sid));
         if (!data || !data.messages || data.messages.length === 0) return;
-        const container = document.getElementById('chat-messages');
         container.innerHTML = '';
         for (const msg of data.messages) {
             appendChatMessage(msg.role, msg.content, msg.time, msg.role === 'assistant');
@@ -919,7 +926,8 @@ window.__chatPersonaWatcher = setInterval(() => {
     if (!sel._chatBound) {
         sel._chatBound = true;
         sel.addEventListener('change', () => {
-            clearChatHistory();
+            // DOM reset + history restore is handled by base.py's loadTab() → loadChat() → restoreChatHistory()
+            // Do NOT call clearChatHistory() here — it would destroy the session ID and break history
             if (S.tab === 'chat') loadChatConfig();
         });
         clearInterval(window.__chatPersonaWatcher);

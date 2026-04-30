@@ -56,6 +56,25 @@ class SummarizationConfig(BaseModel):
     extractive_enabled: bool = True
 
 
+class MemoRAGConfig(BaseModel):
+    """MemoRAG-inspired memory context snapshot and clue generation configuration."""
+
+    enabled: bool = True
+    """Enable MemoryContextSnapshot building (LLM-free, always safe to enable)."""
+
+    clue_generation_enabled: bool = False
+    """Enable LLM-based clue generation for memorag search mode (requires ChatConfig LLM)."""
+
+    rebuild_threshold: int = 20
+    """Rebuild snapshot when memory count increases by this many since last build."""
+
+    snapshot_top_memories: int = 20
+    """Number of top-importance memories to include in the snapshot."""
+
+    snapshot_interval_hours: float = 1.0
+    """Minimum hours between automatic snapshot rebuilds."""
+
+
 class ForgettingConfig(BaseModel):
     """Ebbinghaus forgetting curve configuration."""
 
@@ -80,6 +99,7 @@ class Settings(BaseSettings):
     qdrant: QdrantConfig = QdrantConfig()
     summarization: SummarizationConfig = SummarizationConfig()
     forgetting: ForgettingConfig = ForgettingConfig()
+    memorag: MemoRAGConfig = MemoRAGConfig()
     timezone: str = "Asia/Tokyo"
     data_root: str = "./data"
     log_level: str = "INFO"

@@ -17,6 +17,11 @@ if TYPE_CHECKING:
     from memory_mcp.domain.shared.errors import SearchError
 
 
+from memory_mcp.infrastructure.logging.structured import get_logger
+
+logger = get_logger(__name__)
+
+
 @dataclass
 class SearchQuery:
     """Search query parameters."""
@@ -49,10 +54,16 @@ class SearchEngine:
         keyword_search: KeywordSearchStrategy,
         semantic_search: SemanticSearchStrategy | None = None,
         ranker: ResultRanker | None = None,
+        memory_repo=None,
+        memorag_config=None,
+        chat_config=None,
     ) -> None:
         self._keyword = keyword_search
         self._semantic = semantic_search
         self._ranker = ranker
+        self._memory_repo = memory_repo
+        self._memorag_config = memorag_config
+        self._chat_config = chat_config
 
     def search(self, query: SearchQuery) -> Result[list[SearchResult], SearchError]:
         """Execute search using the specified mode.
@@ -72,6 +83,8 @@ class SearchEngine:
             result = self._semantic_search(query)
         elif mode == "smart":
             result = self._smart_search(query)
+        elif mode == "memorag":
+            result = self._memorag_search(query)
         else:
             result = self._hybrid_search(query)
 
@@ -144,6 +157,15 @@ class SearchEngine:
 
         return Success(deduped[: query.top_k])
 
+    def best_search_mode(self) -> str:
+        """Return the best available search mode based on current configuration."""
+        cfg = self._memorag_config
+        if cfg and cfg.enabled:
+            if cfg.clue_generation_enabled and self._chat_config and self._chat_config.is_configured():
+                return "memorag"
+            return "smart"
+        return "hybrid"
+
     def _smart_search(self, query: SearchQuery) -> Result[list[SearchResult], SearchError]:
         """Smart search: hybrid search with simple query expansion.
 
@@ -186,6 +208,93 @@ class SearchEngine:
             all_results.sort(key=lambda x: x.score, reverse=True)
 
         # Deduplicate by memory key, keeping highest score
+        seen: dict[str, SearchResult] = {}
+        for r in all_results:
+            if r.memory.key not in seen or r.score > seen[r.memory.key].score:
+                seen[r.memory.key] = r
+        deduped = sorted(seen.values(), key=lambda x: x.score, reverse=True)
+        return Success(deduped[: query.top_k])
+
+    def _memorag_search(self, query: SearchQuery) -> Result[list[SearchResult], SearchError]:
+        """MemoRAG search: Global Context → Clue generation → multi-query hybrid search.
+
+        Falls back to smart search if LLM unavailable or clue generation fails.
+        """
+        import asyncio
+
+        from memory_mcp.domain.search.context_snapshot import MemoryContextSnapshot
+
+        cfg = self._memorag_config
+        if self._memory_repo is None or cfg is None or not cfg.enabled:
+            return self._smart_search(query)
+
+        # 1. Load or build ContextSnapshot
+        snapshot = MemoryContextSnapshot.load(self._memory_repo)
+        if snapshot is None:
+            try:
+                snapshot = MemoryContextSnapshot.build(self._memory_repo, top_n=cfg.snapshot_top_memories)
+                snapshot.save(self._memory_repo)
+            except Exception as e:
+                logger.warning("MemoRAG: snapshot build failed: %s", e)
+                return self._smart_search(query)
+
+        # 2. Generate clues (if LLM available)
+        clues: list[str] = []
+        if cfg.clue_generation_enabled and self._chat_config and self._chat_config.is_configured():
+            try:
+                from memory_mcp.domain.search.clue_generator import ClueGenerator
+                generator = ClueGenerator()
+                try:
+                    asyncio.get_running_loop()
+                    import concurrent.futures
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        clues = executor.submit(
+                            asyncio.run,
+                            generator.generate(snapshot.to_text(), query.text, self._chat_config)
+                        ).result(timeout=12.0)
+                except RuntimeError:
+                    clues = asyncio.run(
+                        generator.generate(snapshot.to_text(), query.text, self._chat_config)
+                    )
+            except Exception as e:
+                logger.debug("MemoRAG: clue generation failed: %s", e)
+
+        if not clues:
+            return self._smart_search(query)
+
+        # 3. Run hybrid search for original query + each clue
+        all_results: list[SearchResult] = []
+
+        original = self._hybrid_search(query)
+        if original.is_ok:
+            all_results.extend(original.value)
+
+        for clue in clues:
+            if not clue or clue == query.text:
+                continue
+            sub = SearchQuery(
+                text=clue,
+                top_k=query.top_k,
+                mode="hybrid",
+                tags=query.tags,
+                date_range=query.date_range,
+                min_importance=query.min_importance,
+                importance_weight=query.importance_weight,
+                recency_weight=query.recency_weight,
+            )
+            result = self._hybrid_search(sub)
+            if result.is_ok:
+                all_results.extend(result.value)
+
+        if not all_results:
+            return Success([])
+
+        # 4. Re-rank with RRF
+        if self._ranker is not None:
+            all_results = self._ranker.rank(all_results, query)
+        else:
+            all_results.sort(key=lambda x: x.score, reverse=True)
+
         seen: dict[str, SearchResult] = {}
         for r in all_results:
             if r.memory.key not in seen or r.score > seen[r.memory.key].score:

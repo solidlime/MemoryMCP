@@ -87,6 +87,13 @@ def create_app() -> MemoryFastMCP:
         summarization_worker = SummarizationWorker(settings)
         summarization_worker.start()
 
+    # Start MemoRAG context snapshot worker
+    if settings.memorag.enabled:
+        from memory_mcp.application.workers.context_snapshot_worker import ContextSnapshotWorker
+
+        snapshot_worker = ContextSnapshotWorker(settings)
+        snapshot_worker.start()
+
     return mcp
 
 

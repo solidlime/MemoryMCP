@@ -198,6 +198,7 @@ def register_tools(mcp: FastMCP) -> None:
           block_read   - block_name(required)
           block_list   - (no params)
           block_delete - block_name(required)
+          refresh_context_snapshot - (no params) Rebuild the global context snapshot
           entity_search     - query or entity_id, entity_type(optional)
           entity_graph      - entity_id(required), depth(default=1)
           entity_add_relation - source_entity(required), target_entity(required),
@@ -411,6 +412,12 @@ def register_tools(mcp: FastMCP) -> None:
                 return "Error: block_name required"
             result = ctx.memory_service.delete_block(block_name)
             return "Block deleted" if result.is_ok else f"Error: {result.error}"
+
+        elif operation == "refresh_context_snapshot":
+            from memory_mcp.domain.search.context_snapshot import MemoryContextSnapshot
+            snapshot = MemoryContextSnapshot.build(ctx.memory_repo, top_n=ctx.settings.memorag.snapshot_top_memories)
+            snapshot.save(ctx.memory_repo)
+            return f"Context snapshot rebuilt.\n{snapshot.to_text()[:500]}"
 
         # -- Entity graph operations -----------------------------------------
 

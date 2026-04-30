@@ -127,7 +127,13 @@ class AppContext:
                 return 1.0
 
             ranker = ChainedRanker(RRFRanker(), ForgettingCurveRanker(_strength_lookup), TopicAffinityRanker())
-            self._search_engine = SearchEngine(keyword, semantic, ranker)
+            self._search_engine = SearchEngine(
+                keyword,
+                semantic,
+                ranker,
+                memory_repo=self.memory_repo,
+                memorag_config=self.settings.memorag,
+            )
         return self._search_engine
 
     def close(self) -> None:
