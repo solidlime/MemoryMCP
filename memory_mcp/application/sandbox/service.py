@@ -111,11 +111,14 @@ class SandboxSession:
                 kernel_type="ipython",
                 container_configs=container_configs,
             )
-            self._session.__enter__()
-            # Create sub-directories inside the mounted workspace
-            self._session.run(
+            # __enter__ starts the container and waits for the IPython kernel —
+            # run in a thread to avoid blocking the async event loop (can take 30s+)
+            await asyncio.to_thread(self._session.__enter__)
+            # Create workspace sub-directories — also blocking
+            await asyncio.to_thread(
+                self._session.run,
                 f"import os; os.makedirs('{UPLOADS_DIR}', exist_ok=True); "
-                f"os.makedirs('{OUTPUT_DIR}', exist_ok=True); print('workspace ready')"
+                f"os.makedirs('{OUTPUT_DIR}', exist_ok=True); print('workspace ready')",
             )
             logger.info("Sandbox session started for persona=%s", self.persona)
         except Exception as e:
