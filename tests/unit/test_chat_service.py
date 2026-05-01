@@ -208,7 +208,8 @@ class TestChatConfigRepository:
                 retrieval_importance_weight REAL DEFAULT 0.3,
                 retrieval_relevance_weight REAL DEFAULT 0.4,
                 display_history_turns INTEGER DEFAULT 20,
-                housekeeping_threshold INTEGER DEFAULT 10
+                housekeeping_threshold INTEGER DEFAULT 10,
+                sandbox_enabled INTEGER DEFAULT 0
             )
         """)
         db.execute("""

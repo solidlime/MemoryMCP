@@ -236,6 +236,100 @@ def render_chat_tab() -> str:
         .chat-bubble pre code { background:none; padding:0; }
         .chat-bubble blockquote { border-left:3px solid var(--accent-purple); padding-left:8px; margin:0.3em 0; opacity:0.8; }
         .chat-bubble a { color:var(--accent-blue); text-decoration:underline; }
+        /* Sandbox panel */
+        #sandbox-panel {
+            position: fixed; bottom: 20px; right: 20px; width: 480px;
+            background: #1a1a2e; border: 1px solid rgba(96,165,250,0.3);
+            border-radius: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            z-index: 1000; display: none; flex-direction: column;
+            max-height: 480px; overflow: hidden;
+            font-family: 'Fira Code', 'Cascadia Code', monospace;
+        }
+        #sandbox-panel.visible { display: flex; }
+        .sandbox-panel-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 14px; background: rgba(96,165,250,0.1);
+            border-bottom: 1px solid rgba(96,165,250,0.2); flex-shrink: 0;
+        }
+        .sandbox-panel-title { font-size: 0.82rem; font-weight: 600; color: rgba(96,165,250,0.9); }
+        .sandbox-panel-actions { display: flex; gap: 6px; }
+        .sandbox-panel-btn {
+            background: none; border: 1px solid rgba(96,165,250,0.3);
+            border-radius: 6px; color: rgba(96,165,250,0.7);
+            padding: 2px 8px; font-size: 0.72rem; cursor: pointer; transition: all 0.2s;
+        }
+        .sandbox-panel-btn:hover { background: rgba(96,165,250,0.1); color: rgba(96,165,250,1); }
+        #sandbox-tabs {
+            display: flex; border-bottom: 1px solid rgba(96,165,250,0.15); flex-shrink: 0;
+        }
+        .sandbox-tab {
+            padding: 6px 14px; font-size: 0.75rem; cursor: pointer;
+            color: var(--text-muted); border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        .sandbox-tab.active { color: rgba(96,165,250,0.9); border-bottom-color: rgba(96,165,250,0.7); }
+        .sandbox-tab-content { display: none; flex: 1; overflow: hidden; }
+        .sandbox-tab-content.active { display: flex; flex-direction: column; }
+        /* Terminal */
+        #sandbox-terminal {
+            flex: 1; padding: 10px; overflow-y: auto; font-size: 0.75rem;
+            line-height: 1.5; color: #d4d4d4; background: #1e1e1e;
+            white-space: pre-wrap; word-break: break-all; min-height: 150px;
+        }
+        .sandbox-output-line { margin: 0; }
+        .sandbox-output-line.stderr { color: #f97583; }
+        .sandbox-output-line.system { color: rgba(96,165,250,0.6); font-style: italic; }
+        .sandbox-output-line.success { color: #85e89d; }
+        /* File browser */
+        #sandbox-filebrowser {
+            flex: 1; overflow-y: auto; padding: 8px;
+        }
+        .sb-file-item {
+            display: flex; align-items: center; gap: 8px;
+            padding: 4px 8px; border-radius: 6px; cursor: pointer;
+            font-size: 0.78rem; color: var(--text-secondary);
+            transition: background 0.15s;
+        }
+        .sb-file-item:hover { background: rgba(96,165,250,0.08); }
+        .sb-file-item .sb-file-icon { font-size: 0.9rem; flex-shrink: 0; }
+        .sb-file-item .sb-file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .sb-file-item .sb-file-size { font-size: 0.68rem; color: var(--text-muted); flex-shrink: 0; }
+        .sb-file-actions { display: flex; gap: 4px; }
+        .sb-file-action-btn {
+            background: none; border: none; color: var(--text-muted);
+            padding: 2px 4px; border-radius: 4px; cursor: pointer; font-size: 0.72rem;
+            transition: all 0.15s;
+        }
+        .sb-file-action-btn:hover { color: var(--text-secondary); background: rgba(255,255,255,0.08); }
+        .sb-breadcrumb {
+            padding: 4px 8px; font-size: 0.72rem; color: var(--text-muted);
+            border-bottom: 1px solid rgba(255,255,255,0.06); flex-shrink: 0;
+            display: flex; align-items: center; gap: 4px;
+        }
+        .sb-breadcrumb-btn {
+            background: none; border: none; color: rgba(96,165,250,0.7);
+            cursor: pointer; padding: 0 2px; font-size: 0.72rem;
+        }
+        .sb-breadcrumb-btn:hover { text-decoration: underline; }
+        /* Sandbox toggle button */
+        #sandbox-toggle-btn {
+            background: rgba(96,165,250,0.1); border: 1px solid rgba(96,165,250,0.3);
+            border-radius: 8px; color: rgba(96,165,250,0.8);
+            padding: 4px 10px; font-size: 0.75rem; cursor: pointer; transition: all 0.2s;
+        }
+        #sandbox-toggle-btn:hover { background: rgba(96,165,250,0.2); }
+        #sandbox-toggle-btn.active { background: rgba(96,165,250,0.2); color: rgba(96,165,250,1); }
+        /* File upload area */
+        #sandbox-upload-zone {
+            border: 2px dashed rgba(96,165,250,0.3); border-radius: 8px;
+            padding: 10px; text-align: center; margin: 8px;
+            font-size: 0.75rem; color: var(--text-muted); cursor: pointer;
+            transition: all 0.2s; flex-shrink: 0;
+        }
+        #sandbox-upload-zone:hover, #sandbox-upload-zone.dragover {
+            border-color: rgba(96,165,250,0.7); background: rgba(96,165,250,0.05);
+            color: var(--text-secondary);
+        }
         </style>
         <!-- ========== CHAT TAB ========== -->
         <section id="tab-chat" class="tab-panel" role="tabpanel">
@@ -243,6 +337,7 @@ def render_chat_tab() -> str:
                 <h2 style="font-size:1.1rem; font-weight:600; color:var(--text-primary);">💬 Chat</h2>
                 <div style="display:flex;gap:8px;align-items:center;">
                     <button class="mem-panel-toggle" id="memory-panel-toggle-btn" onclick="toggleMemoryPanel()" title="記憶パネルを開閉">🧠</button>
+                    <button id="sandbox-toggle-btn" onclick="toggleSandboxPanel()" title="サンドボックスパネルを開閉" style="display:none;">🔬 Sandbox</button>
                     <button class="chat-debug-btn" id="chat-debug-btn" onclick="toggleDebugMode()" title="デバッグ情報の表示切替">🐛 Debug</button>
                     <button class="chat-sidebar-toggle" onclick="toggleChatSidebar()" id="chat-sidebar-toggle-btn" title="設定パネルを開閉">⚙️ 設定</button>
                 </div>
@@ -479,11 +574,56 @@ def render_chat_tab() -> str:
                         <button class="chat-clear-btn" style="margin-top:8px;" onclick="runHousekeeping()">🧹 今すぐ整理</button>
                         <div id="chat-housekeeping-status" style="font-size:0.75rem; text-align:center; min-height:16px;"></div>
                     </div>
+                    <!-- Sandbox settings -->
+                    <div style="border-top:1px solid var(--glass-border);padding-top:10px;" id="chat-sandbox-section">
+                        <div style="font-size:0.8rem; font-weight:600; color:var(--text-secondary); margin-bottom:8px;">🔬 コード実行サンドボックス</div>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <input type="checkbox" id="chat-sandbox-enabled"
+                                style="width:15px;height:15px;accent-color:var(--accent-blue);cursor:pointer;"
+                                onchange="onSandboxEnabledChange()" />
+                            <label for="chat-sandbox-enabled" class="chat-field-label" style="margin:0;cursor:pointer;">コード実行を許可 (Docker必要)</label>
+                        </div>
+                        <div style="font-size:0.7rem;color:var(--text-muted);margin-top:4px;">Docker が起動中の場合のみ使用可能です</div>
+                    </div>
                     <!-- Buttons -->
                     <button class="chat-save-btn" onclick="saveChatConfig()">💾 設定を保存</button>
                     <button class="chat-clear-btn" onclick="clearChatHistory()">🗑️ 会話をリセット</button>
                     <!-- Config status -->
                     <div id="chat-config-status" style="font-size:0.75rem; text-align:center; min-height:16px;"></div>
+                </div>
+            </div>
+            <!-- Sandbox floating panel -->
+            <div id="sandbox-panel">
+                <div class="sandbox-panel-header">
+                    <span class="sandbox-panel-title">🔬 Sandbox</span>
+                    <div class="sandbox-panel-actions">
+                        <button class="sandbox-panel-btn" onclick="refreshSandboxFiles()" title="ファイル一覧更新">🔄</button>
+                        <button class="sandbox-panel-btn" onclick="clearSandboxTerminal()" title="ターミナルクリア">🗑</button>
+                        <button class="sandbox-panel-btn" onclick="toggleSandboxPanel()" title="閉じる">✕</button>
+                    </div>
+                </div>
+                <div id="sandbox-tabs">
+                    <div class="sandbox-tab active" onclick="switchSandboxTab('terminal')">💻 ターミナル</div>
+                    <div class="sandbox-tab" onclick="switchSandboxTab('files')">📁 ファイル</div>
+                </div>
+                <!-- Terminal tab -->
+                <div id="sandbox-tab-terminal" class="sandbox-tab-content active">
+                    <div id="sandbox-terminal"><span class="sandbox-output-line system">サンドボックスが起動すると出力がここに表示されます...</span></div>
+                </div>
+                <!-- Files tab -->
+                <div id="sandbox-tab-files" class="sandbox-tab-content" style="flex-direction:column;">
+                    <div class="sb-breadcrumb">
+                        <span>📂</span>
+                        <button class="sb-breadcrumb-btn" onclick="browseSandboxPath('/workspace')">/workspace</button>
+                    </div>
+                    <div id="sandbox-upload-zone" onclick="document.getElementById('sandbox-file-input').click()"
+                         ondragover="sandboxDragOver(event)" ondrop="sandboxDrop(event)">
+                        📎 ファイルをドロップまたはクリックしてアップロード
+                        <input type="file" id="sandbox-file-input" style="display:none;" onchange="sandboxFileSelected(event)" />
+                    </div>
+                    <div id="sandbox-filebrowser">
+                        <div style="font-size:0.75rem;color:var(--text-muted);padding:8px;">ファイルがありません</div>
+                    </div>
                 </div>
             </div>
         </section>"""
@@ -596,6 +736,12 @@ function applyChatConfig(cfg) {
     // Housekeeping settings
     set('chat-display-history-turns', cfg.display_history_turns != null ? cfg.display_history_turns : 20);
     set('chat-housekeeping-threshold', cfg.housekeeping_threshold != null ? cfg.housekeeping_threshold : 10);
+    // Sandbox settings
+    const sandboxEnabled = document.getElementById('chat-sandbox-enabled');
+    if (sandboxEnabled) {
+        sandboxEnabled.checked = cfg.sandbox_enabled === true;
+        onSandboxEnabledChange();
+    }
     const statusEl = document.getElementById('chat-config-status');
     if (statusEl) {
         if (cfg.is_configured) {
@@ -642,6 +788,7 @@ async function saveChatConfig() {
         retrieval_relevance_weight: parseFloat(document.getElementById('chat-relevance-weight')?.value || '0.4'),
         display_history_turns: parseInt(document.getElementById('chat-display-history-turns')?.value || '20'),
         housekeeping_threshold: parseInt(document.getElementById('chat-housekeeping-threshold')?.value || '10'),
+        sandbox_enabled: document.getElementById('chat-sandbox-enabled')?.checked ?? false,
     };
     try {
         const cfg = await api('/api/chat/' + encodeURIComponent(S.persona) + '/config', {
@@ -1209,10 +1356,12 @@ async function chatSend() {
                 } else if (evt.type === 'tool_call') {
                     appendToolEvent('tool_call', evt);
                     statusEl.textContent = '🔧 ' + evt.name + ' を実行中...';
+                    sandboxHandleToolEvent(evt);
 
                 } else if (evt.type === 'tool_result') {
                     appendToolEvent('tool_result', evt);
                     statusEl.textContent = '応答中...';
+                    sandboxHandleToolEvent(evt);
 
                 } else if (evt.type === 'memory_activity') {
                     updateMemoryPanel(evt.retrieved, evt.saved, undefined, undefined);
@@ -1301,4 +1450,228 @@ window.__chatPersonaWatcher = setInterval(() => {
         clearInterval(window.__chatPersonaWatcher);
     }
 }, 500);
+
+/* ── Sandbox Panel ── */
+const SANDBOX = {
+    visible: false,
+    activeTab: 'terminal',
+    currentPath: '/workspace',
+};
+
+function onSandboxEnabledChange() {
+    const enabled = document.getElementById('chat-sandbox-enabled')?.checked;
+    const btn = document.getElementById('sandbox-toggle-btn');
+    if (btn) btn.style.display = enabled ? '' : 'none';
+    if (!enabled && SANDBOX.visible) toggleSandboxPanel();
+}
+
+function toggleSandboxPanel() {
+    const panel = document.getElementById('sandbox-panel');
+    const btn = document.getElementById('sandbox-toggle-btn');
+    SANDBOX.visible = !SANDBOX.visible;
+    if (panel) panel.classList.toggle('visible', SANDBOX.visible);
+    if (btn) btn.classList.toggle('active', SANDBOX.visible);
+    if (SANDBOX.visible) {
+        refreshSandboxFiles();
+    }
+}
+
+function switchSandboxTab(tab) {
+    SANDBOX.activeTab = tab;
+    document.querySelectorAll('.sandbox-tab').forEach((el, i) => {
+        const tabs = ['terminal', 'files'];
+        el.classList.toggle('active', tabs[i] === tab);
+    });
+    document.querySelectorAll('.sandbox-tab-content').forEach(el => el.classList.remove('active'));
+    const tabEl = document.getElementById('sandbox-tab-' + tab);
+    if (tabEl) tabEl.classList.add('active');
+    if (tab === 'files') refreshSandboxFiles();
+}
+
+function clearSandboxTerminal() {
+    const term = document.getElementById('sandbox-terminal');
+    if (term) term.innerHTML = '<span class="sandbox-output-line system">ターミナルをクリアしました</span>';
+}
+
+function sandboxLog(text, type = '') {
+    const term = document.getElementById('sandbox-terminal');
+    if (!term) return;
+    const line = document.createElement('span');
+    line.className = 'sandbox-output-line' + (type ? ' ' + type : '');
+    line.textContent = text;
+    term.appendChild(line);
+    term.appendChild(document.createElement('br'));
+    term.scrollTop = term.scrollHeight;
+}
+
+// Listen for tool_call/tool_result events to populate terminal
+function sandboxHandleToolEvent(evt) {
+    if (evt.name !== 'sandbox') return;
+    if (evt.type === 'tool_call') {
+        sandboxLog('\u25b6 ' + (evt.input?.code || '').split('\n')[0].substring(0, 80) + '...', 'system');
+    } else if (evt.type === 'tool_result') {
+        const out = typeof evt.result === 'string' ? evt.result : JSON.stringify(evt.result);
+        const lines = out.split('\n');
+        lines.forEach(l => {
+            if (l.startsWith('[stderr]')) sandboxLog(l, 'stderr');
+            else if (l.startsWith('[exit code:')) sandboxLog(l, 'stderr');
+            else sandboxLog(l, 'success');
+        });
+    }
+}
+
+async function refreshSandboxFiles() {
+    if (!S.persona) return;
+    const enabled = document.getElementById('chat-sandbox-enabled')?.checked;
+    if (!enabled) return;
+    try {
+        const data = await api('/api/chat/' + encodeURIComponent(S.persona) + '/sandbox/files?path=' + encodeURIComponent(SANDBOX.currentPath));
+        renderSandboxFiles(data.files || [], data.path || SANDBOX.currentPath);
+    } catch (e) {
+        // sandbox not started yet — silently ignore
+    }
+}
+
+function renderSandboxFiles(files, path) {
+    SANDBOX.currentPath = path;
+    const browser = document.getElementById('sandbox-filebrowser');
+    const breadcrumb = document.querySelector('.sb-breadcrumb');
+    if (!browser) return;
+
+    // Update breadcrumb
+    if (breadcrumb) {
+        const parts = path.split('/').filter(Boolean);
+        let html = '<span>\ud83d\udcc2</span>';
+        let cumPath = '';
+        parts.forEach((part, i) => {
+            cumPath += '/' + part;
+            const p = cumPath;
+            html += '<span style="color:var(--text-muted);">/</span>';
+            html += '<button class="sb-breadcrumb-btn" onclick="browseSandboxPath(\'' + p + '\')">' + esc(part) + '</button>';
+        });
+        breadcrumb.innerHTML = html;
+    }
+
+    if (!files || files.length === 0) {
+        browser.innerHTML = '<div style="font-size:0.75rem;color:var(--text-muted);padding:8px;">\u30d5\u30a1\u30a4\u30eb\u304c\u3042\u308a\u307e\u305b\u3093</div>';
+        return;
+    }
+    const sorted = [...files].sort((a, b) => {
+        if (a.is_dir !== b.is_dir) return a.is_dir ? -1 : 1;
+        return a.name.localeCompare(b.name);
+    });
+    browser.innerHTML = sorted.map(f => {
+        const icon = f.is_dir ? '\ud83d\udcc1' : getFileIcon(f.name);
+        const size = f.is_dir ? '' : formatBytes(f.size);
+        const actionBtns = f.is_dir ? '' :
+            '<div class="sb-file-actions">' +
+                '<button class="sb-file-action-btn" onclick="downloadSandboxFile(\'' + esc(f.path) + '\')" title="\u30c0\u30a6\u30f3\u30ed\u30fc\u30c9">\ud83d\udce5</button>' +
+                '<button class="sb-file-action-btn" onclick="deleteSandboxFile(\'' + esc(f.path) + '\')" title="\u524a\u9664">\ud83d\uddd1</button>' +
+            '</div>';
+        const onclick = f.is_dir
+            ? 'browseSandboxPath(\'' + esc(f.path) + '\')'
+            : 'previewSandboxFile(\'' + esc(f.path) + '\', \'' + esc(f.name) + '\')';
+        return '<div class="sb-file-item" onclick="' + onclick + '">' +
+            '<span class="sb-file-icon">' + icon + '</span>' +
+            '<span class="sb-file-name">' + esc(f.name) + '</span>' +
+            '<span class="sb-file-size">' + size + '</span>' +
+            actionBtns +
+        '</div>';
+    }).join('');
+}
+
+function getFileIcon(name) {
+    const ext = name.split('.').pop().toLowerCase();
+    const icons = { py:'\ud83d\udc0d', js:'\ud83d\udfe8', ts:'\ud83d\udd37', json:'\ud83d\udccb', csv:'\ud83d\udcca', xlsx:'\ud83d\udcca',
+                    png:'\ud83d\uddbc', jpg:'\ud83d\uddbc', jpeg:'\ud83d\uddbc', gif:'\ud83d\uddbc', svg:'\ud83d\uddbc',
+                    txt:'\ud83d\udcc4', md:'\ud83d\udcdd', html:'\ud83c\udf10', css:'\ud83c\udfa8', sh:'\u2699\ufe0f',
+                    pdf:'\ud83d\udcd5', zip:'\ud83d\uddc2', tar:'\ud83d\uddc2', gz:'\ud83d\uddc2' };
+    return icons[ext] || '\ud83d\udcc4';
+}
+
+function formatBytes(bytes) {
+    if (!bytes) return '0B';
+    if (bytes < 1024) return bytes + 'B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + 'KB';
+    return (bytes / 1024 / 1024).toFixed(1) + 'MB';
+}
+
+async function browseSandboxPath(path) {
+    if (!S.persona) return;
+    try {
+        const data = await api('/api/chat/' + encodeURIComponent(S.persona) + '/sandbox/files?path=' + encodeURIComponent(path));
+        renderSandboxFiles(data.files || [], data.path || path);
+    } catch (e) {
+        toast('\u30d5\u30a1\u30a4\u30eb\u4e00\u89a7\u53d6\u5f97\u5931\u6557: ' + e.message, 'error');
+    }
+}
+
+function downloadSandboxFile(remotePath) {
+    if (!S.persona) return;
+    const clean = remotePath.replace(/^\/workspace\//, '');
+    const url = '/api/chat/' + encodeURIComponent(S.persona) + '/sandbox/files/' + encodeURIComponent(clean);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = remotePath.split('/').pop();
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+
+async function deleteSandboxFile(remotePath) {
+    if (!S.persona) return;
+    if (!confirm('\u524a\u9664\u3057\u307e\u3059\u304b\uff1f ' + remotePath)) return;
+    const clean = remotePath.replace(/^\/workspace\//, '');
+    try {
+        await api('/api/chat/' + encodeURIComponent(S.persona) + '/sandbox/files/' + encodeURIComponent(clean), { method: 'DELETE' });
+        toast('\u524a\u9664\u3057\u307e\u3057\u305f', 'success');
+        refreshSandboxFiles();
+    } catch (e) {
+        toast('\u524a\u9664\u5931\u6557: ' + e.message, 'error');
+    }
+}
+
+function previewSandboxFile(remotePath, filename) {
+    // For now, just download — preview for text/images can be added later
+    downloadSandboxFile(remotePath);
+}
+
+async function sandboxUploadFile(file) {
+    if (!S.persona || !file) return;
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+        sandboxLog('\ud83d\udcce ' + file.name + ' \u3092\u30a2\u30c3\u30d7\u30ed\u30fc\u30c9\u4e2d...', 'system');
+        const resp = await fetch('/api/chat/' + encodeURIComponent(S.persona) + '/sandbox/upload', {
+            method: 'POST',
+            body: formData,
+        });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const data = await resp.json();
+        sandboxLog('\u2713 ' + data.filename + ' \u2192 ' + data.remote_path, 'success');
+        toast('\u30a2\u30c3\u30d7\u30ed\u30fc\u30c9\u5b8c\u4e86: ' + data.filename, 'success');
+        refreshSandboxFiles();
+    } catch (e) {
+        sandboxLog('\u2717 \u30a2\u30c3\u30d7\u30ed\u30fc\u30c9\u5931\u6557: ' + e.message, 'stderr');
+        toast('\u30a2\u30c3\u30d7\u30ed\u30fc\u30c9\u5931\u6557: ' + e.message, 'error');
+    }
+}
+
+function sandboxFileSelected(event) {
+    const files = event.target.files;
+    if (files && files[0]) sandboxUploadFile(files[0]);
+    event.target.value = '';
+}
+
+function sandboxDragOver(event) {
+    event.preventDefault();
+    event.currentTarget.classList.add('dragover');
+}
+
+function sandboxDrop(event) {
+    event.preventDefault();
+    event.currentTarget.classList.remove('dragover');
+    const files = event.dataTransfer.files;
+    if (files && files[0]) sandboxUploadFile(files[0]);
+}
 """

@@ -875,6 +875,54 @@ def register_tools(mcp: FastMCP) -> None:
         else:
             return f"Unknown operation: {operation}"
 
+    @mcp.tool()
+    async def sandbox(code: str, language: str = "python") -> str:
+        """Execute code in a secure Docker sandbox.
+
+        Use this tool for ALL coding tasks: file operations, package installs,
+        data analysis, running tests, building projects.
+        State persists across multiple calls in the same session.
+
+        Args:
+            code: Code to execute (Python by default, or bash commands).
+            language: "python" (default) or "bash".
+
+        Returns:
+            stdout/stderr output from execution.
+
+        Examples:
+            # Data analysis
+            sandbox("import pandas as pd; df = pd.read_csv('/workspace/uploads/data.csv'); print(df.head())")
+            # Package install
+            sandbox("import subprocess; subprocess.run(['pip', 'install', 'requests'], capture_output=True)")
+            # File creation
+            sandbox("open('/workspace/output/result.txt', 'w').write('hello')")
+            # Bash command
+            sandbox("ls -la /workspace/", language="bash")
+        """
+        from memory_mcp.config.settings import get_settings
+
+        settings = get_settings()
+        if not settings.sandbox.enabled:
+            return "Sandbox is not enabled. Set MEMORY_MCP_SANDBOX__ENABLED=true or enable via chat settings."
+
+        persona = _resolve_persona()
+        from memory_mcp.application.sandbox.service import get_sandbox_session
+
+        session = get_sandbox_session(persona)
+        try:
+            result = await session.execute(code, language=language)
+            parts = []
+            if result.stdout:
+                parts.append(result.stdout)
+            if result.stderr:
+                parts.append(f"[stderr] {result.stderr}")
+            if result.exit_code != 0:
+                parts.append(f"[exit code: {result.exit_code}]")
+            return "\n".join(parts) if parts else "(no output)"
+        except Exception as e:
+            return f"Sandbox error: {e}"
+
 
 def _resolve_persona() -> str:
     """Resolve persona via middleware (contextvar → env fallback)."""

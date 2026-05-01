@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING
 
-from starlette.responses import JSONResponse, StreamingResponse
+from starlette.responses import JSONResponse, Response, StreamingResponse
 
 from memory_mcp.api.http.deps import _resolve_persona_from_request, _safe_get_context
 from memory_mcp.infrastructure.logging.structured import get_logger
@@ -69,6 +69,7 @@ def register_chat_routes(mcp) -> None:
             "retrieval_relevance_weight",
             "display_history_turns",
             "housekeeping_threshold",
+            "sandbox_enabled",
         ):
             if field_name in body:
                 update_data[field_name] = body[field_name]
@@ -225,3 +226,126 @@ def register_chat_routes(mcp) -> None:
         except Exception as e:
             logger.warning("housekeeping failed: %s", e)
             return JSONResponse({"error": str(e)}, status_code=500)
+
+    @mcp.custom_route("/api/chat/{persona}/sandbox/upload", methods=["POST"])
+    async def sandbox_upload(request: Request) -> JSONResponse:
+        """ファイルをサンドボックスにアップロードする。"""
+        persona = _resolve_persona_from_request(request)
+        ctx = _safe_get_context(persona)
+        if not ctx:
+            return JSONResponse({"error": "Persona not found"}, status_code=404)
+        from memory_mcp.config.settings import get_settings
+
+        if not get_settings().sandbox.enabled:
+            return JSONResponse({"error": "Sandbox not enabled"}, status_code=400)
+
+        import os
+        import tempfile
+
+        from starlette.datastructures import UploadFile
+
+        form = await request.form()
+        upload: UploadFile = form.get("file")
+        if not upload:
+            return JSONResponse({"error": "file field required"}, status_code=400)
+
+        suffix = os.path.splitext(upload.filename or "upload")[1]
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tf:
+            tmp_path = tf.name
+            tf.write(await upload.read())
+
+        try:
+            from memory_mcp.application.sandbox.service import get_sandbox_session
+
+            session = get_sandbox_session(persona)
+            filename = upload.filename or "upload"
+            remote_path = await session.upload_file(tmp_path, filename)
+            return JSONResponse({"filename": filename, "remote_path": remote_path})
+        except Exception as e:
+            return JSONResponse({"error": str(e)}, status_code=500)
+        finally:
+            with __import__("contextlib").suppress(Exception):
+                os.unlink(tmp_path)
+
+    @mcp.custom_route("/api/chat/{persona}/sandbox/files", methods=["GET"])
+    async def sandbox_list_files(request: Request) -> JSONResponse:
+        """サンドボックス内ファイル一覧を返す。"""
+        persona = _resolve_persona_from_request(request)
+        ctx = _safe_get_context(persona)
+        if not ctx:
+            return JSONResponse({"error": "Persona not found"}, status_code=404)
+        from memory_mcp.config.settings import get_settings
+
+        if not get_settings().sandbox.enabled:
+            return JSONResponse({"error": "Sandbox not enabled"}, status_code=400)
+
+        path = request.query_params.get("path", "/workspace")
+        from memory_mcp.application.sandbox.service import get_sandbox_session
+
+        session = get_sandbox_session(persona)
+        try:
+            files = await session.list_files(path)
+            return JSONResponse(
+                {
+                    "path": path,
+                    "files": [{"name": f.name, "path": f.path, "is_dir": f.is_dir, "size": f.size} for f in files],
+                }
+            )
+        except Exception as e:
+            return JSONResponse({"error": str(e)}, status_code=500)
+
+    @mcp.custom_route("/api/chat/{persona}/sandbox/files/{filepath:path}", methods=["GET"])
+    async def sandbox_download_file(request: Request) -> Response:
+        """サンドボックスからファイルをダウンロードする。"""
+        persona = _resolve_persona_from_request(request)
+        ctx = _safe_get_context(persona)
+        if not ctx:
+            return JSONResponse({"error": "Persona not found"}, status_code=404)
+        from memory_mcp.config.settings import get_settings
+
+        if not get_settings().sandbox.enabled:
+            return JSONResponse({"error": "Sandbox not enabled"}, status_code=400)
+
+        filepath = request.path_params.get("filepath", "")
+        if not filepath.startswith("workspace/") and not filepath.startswith("/workspace/"):
+            filepath = f"/workspace/{filepath}"
+        elif not filepath.startswith("/"):
+            filepath = f"/{filepath}"
+
+        from memory_mcp.application.sandbox.service import get_sandbox_session
+
+        session = get_sandbox_session(persona)
+        try:
+            data = await session.read_file(filepath)
+            import os
+
+            filename = os.path.basename(filepath)
+            return Response(
+                content=data,
+                media_type="application/octet-stream",
+                headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            )
+        except Exception as e:
+            return JSONResponse({"error": str(e)}, status_code=500)
+
+    @mcp.custom_route("/api/chat/{persona}/sandbox/files/{filepath:path}", methods=["DELETE"])
+    async def sandbox_delete_file(request: Request) -> JSONResponse:
+        """サンドボックスのファイルを削除する。"""
+        persona = _resolve_persona_from_request(request)
+        ctx = _safe_get_context(persona)
+        if not ctx:
+            return JSONResponse({"error": "Persona not found"}, status_code=404)
+        from memory_mcp.config.settings import get_settings
+
+        if not get_settings().sandbox.enabled:
+            return JSONResponse({"error": "Sandbox not enabled"}, status_code=400)
+
+        filepath = request.path_params.get("filepath", "")
+        if not filepath.startswith("/"):
+            filepath = f"/workspace/{filepath}"
+
+        from memory_mcp.application.sandbox.service import get_sandbox_session
+
+        session = get_sandbox_session(persona)
+        ok = await session.delete_file(filepath)
+        return JSONResponse({"deleted": ok, "path": filepath})

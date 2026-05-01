@@ -65,6 +65,7 @@ class ChatConfig(BaseModel):
     display_history_turns: int = 20
     # Housekeeping auto-trigger threshold (total active goals+promises)
     housekeeping_threshold: int = 10
+    sandbox_enabled: bool = False
     updated_at: str | None = None
 
     @field_validator("temperature")
@@ -175,7 +176,7 @@ class ChatConfigRepository:
                 "reflection_enabled, reflection_threshold, reflection_min_interval_hours, "
                 "session_summarize, "
                 "retrieval_recency_weight, retrieval_importance_weight, retrieval_relevance_weight, "
-                "display_history_turns, housekeeping_threshold "
+                "display_history_turns, housekeeping_threshold, sandbox_enabled "
                 "FROM chat_settings WHERE persona = ?",
                 (persona,),
             ).fetchone()
@@ -193,7 +194,7 @@ class ChatConfigRepository:
                 (persona,),
             ).fetchone()
             if row is not None:
-                row = (*row, None, None)
+                row = (*row, None, None, None)
         if row is None:
             return ChatConfig(persona=persona)
         return ChatConfig(
@@ -223,6 +224,7 @@ class ChatConfigRepository:
             retrieval_relevance_weight=float(row[23]) if row[23] is not None else 0.4,
             display_history_turns=int(row[24]) if row[24] is not None else 20,
             housekeeping_threshold=int(row[25]) if row[25] is not None else 10,
+            sandbox_enabled=bool(row[26]) if row[26] is not None else False,
         )
 
     def save(self, config: ChatConfig) -> None:
@@ -238,9 +240,9 @@ class ChatConfigRepository:
                  reflection_enabled, reflection_threshold, reflection_min_interval_hours,
                  session_summarize,
                  retrieval_recency_weight, retrieval_importance_weight, retrieval_relevance_weight,
-                 display_history_turns, housekeeping_threshold,
+                 display_history_turns, housekeeping_threshold, sandbox_enabled,
                  updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(persona) DO UPDATE SET
                 provider=excluded.provider,
                 model=excluded.model,
@@ -266,6 +268,7 @@ class ChatConfigRepository:
                 retrieval_relevance_weight=excluded.retrieval_relevance_weight,
                 display_history_turns=excluded.display_history_turns,
                 housekeeping_threshold=excluded.housekeeping_threshold,
+                sandbox_enabled=excluded.sandbox_enabled,
                 updated_at=excluded.updated_at
             """,
             (
@@ -294,6 +297,7 @@ class ChatConfigRepository:
                 config.retrieval_relevance_weight,
                 config.display_history_turns,
                 config.housekeeping_threshold,
+                int(config.sandbox_enabled),
                 now,
             ),
         )

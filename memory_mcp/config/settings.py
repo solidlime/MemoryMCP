@@ -75,6 +75,18 @@ class MemoRAGConfig(BaseModel):
     """Minimum hours between automatic snapshot rebuilds."""
 
 
+class SandboxConfig(BaseModel):
+    """Sandbox code execution configuration."""
+
+    enabled: bool = False
+    provider: str = "llm_sandbox"  # "llm_sandbox" | "none"
+    timeout: int = 30
+    session_idle_timeout: int = 1800
+    allowed_languages: list[str] = ["python", "javascript", "bash"]
+    max_sessions: int = 10
+    workspace_dir: str = "/workspace"
+
+
 class ForgettingConfig(BaseModel):
     """Ebbinghaus forgetting curve configuration."""
 
@@ -100,6 +112,7 @@ class Settings(BaseSettings):
     summarization: SummarizationConfig = SummarizationConfig()
     forgetting: ForgettingConfig = ForgettingConfig()
     memorag: MemoRAGConfig = MemoRAGConfig()
+    sandbox: SandboxConfig = SandboxConfig()
     timezone: str = "Asia/Tokyo"
     data_root: str = "./data"
     log_level: str = "INFO"

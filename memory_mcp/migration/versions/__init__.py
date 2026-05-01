@@ -27,6 +27,7 @@ from memory_mcp.migration.versions.v012_chat_mcp_servers import upgrade as v012_
 from memory_mcp.migration.versions.v013_chat_skills import upgrade as v013_upgrade
 from memory_mcp.migration.versions.v014_chat_reflection_retrieval import upgrade as v014_upgrade
 from memory_mcp.migration.versions.v015_chat_display_housekeeping import upgrade as v015_upgrade
+from memory_mcp.migration.versions.v016_chat_sandbox import upgrade as v016_upgrade
 
 ALL_MIGRATIONS: list[tuple[str, str, object]] = [
     ("001", "Initial schema", v001_upgrade),
@@ -44,4 +45,5 @@ ALL_MIGRATIONS: list[tuple[str, str, object]] = [
     ("013", "Add skills table and enabled_skills to chat_settings", v013_upgrade),
     ("014", "Add reflection and retrieval weight settings to chat_settings", v014_upgrade),
     ("015", "Add display_history_turns and housekeeping_threshold to chat_settings", v015_upgrade),
+    ("016", "Add sandbox_enabled to chat_settings", v016_upgrade),
 ]
