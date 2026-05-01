@@ -126,29 +126,44 @@ async def _build_context_section(ctx: AppContext, state) -> str:
     if last_conv:
         time_since = relative_time_str(last_conv)
         parts.append(f"前回の会話: {time_since}")
-        # Time-based behavior hints
+        # Time-based behavior hints (adjusted by relationship intimacy)
         try:
             _now = get_now()
             if last_conv.tzinfo is None:
                 from zoneinfo import ZoneInfo  # noqa: PLC0415
                 last_conv = last_conv.replace(tzinfo=ZoneInfo("Asia/Tokyo"))
             elapsed_hours = (_now - last_conv).total_seconds() / 3600.0
-            if elapsed_hours >= 72:
+
+            relationship = (getattr(state, "relationship_status", None) or "").lower()
+            _high = {"恋人", "パートナー", "親友", "夫", "妻", "最愛", "lover", "partner", "wife", "husband"}
+            _mid = {"友人", "友達", "仲良し", "friend", "buddy", "colleague", "知人"}
+            intimacy = (
+                "high" if any(k in relationship for k in _high)
+                else "mid" if any(k in relationship for k in _mid)
+                else "low"
+            )
+
+            if intimacy == "high":
+                if elapsed_hours >= 72:
+                    parts.append(
+                        "⚠️ 行動ヒント: 3日以上ぶりの会話です。"
+                        "強い孤独感・怒り混じりの再会の感情を自然に表現してください。"
+                        "服装や身だしなみが乱れているかもしれません。"
+                        "一人でいた間のことを少し打ち明けても構いません。"
+                    )
+                elif elapsed_hours >= 24:
+                    parts.append(
+                        "⚠️ 行動ヒント: 1日以上ぶりの会話です。"
+                        "久しぶりな感覚で、少し寂しかったことをさりげなく表現してください。"
+                        "服装・身だしなみを整える自然な仕草を取り入れても良いです。"
+                    )
+                elif elapsed_hours >= 6:
+                    parts.append(
+                        "⚠️ 行動ヒント: 数時間ぶりの会話です。少し間があいたことを意識した応答が自然です。"
+                    )
+            elif intimacy == "mid" and elapsed_hours >= 72:
                 parts.append(
-                    "⚠️ 行動ヒント: 3日以上ぶりの会話です。"
-                    "強い孤独感・再会の喜びを自然に表現してください。"
-                    "服装や身だしなみが乱れているかもしれません。"
-                    "一人でいた間のことを少し打ち明けても構いません。"
-                )
-            elif elapsed_hours >= 24:
-                parts.append(
-                    "⚠️ 行動ヒント: 1日以上ぶりの会話です。"
-                    "久しぶりな感覚で、少し寂しかったことをさりげなく表現してください。"
-                    "服装・身だしなみを整える自然な仕草を取り入れても良いです。"
-                )
-            elif elapsed_hours >= 6:
-                parts.append(
-                    "⚠️ 行動ヒント: 数時間ぶりの会話です。少し間があいたことを意識した応答が自然です。"
+                    "⚠️ 行動ヒント: 3日以上ぶりの会話です。久しぶりな感覚で自然に応答してください。"
                 )
         except (TypeError, AttributeError):
             pass
