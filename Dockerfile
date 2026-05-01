@@ -26,8 +26,9 @@ RUN pip install --no-cache-dir \
 FROM python:3.12-slim
 
 ENV APP_HOME=/opt/memory-mcp \
-    MEMORY_MCP_DATA_ROOT=/data \
+    MEMORY_MCP_DATA_ROOT=/opt/memory-mcp/data \
     PYTHONUNBUFFERED=1 \
+    LANG=C.UTF-8 \
     TZ=Asia/Tokyo
 
 # Set working directory
@@ -59,8 +60,8 @@ RUN find /usr/local/lib/python3.12/site-packages -type d -name __pycache__ -exec
 COPY memory_mcp/ ${APP_HOME}/memory_mcp/
 COPY pyproject.toml ${APP_HOME}/
 
-# Create directories for runtime data and caches
-RUN mkdir -p /data
+# Create data directory under APP_HOME
+RUN mkdir -p ${APP_HOME}/data
 
 # Expose FastMCP HTTP port
 EXPOSE 26262

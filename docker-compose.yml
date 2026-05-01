@@ -11,6 +11,8 @@ services:
       # Persist Qdrant vector data on host (ensures ./storage is always pre-created)
       - ./data/qdrant:/qdrant/storage
     restart: unless-stopped
+    environment:
+      TZ: Asia/Tokyo
     healthcheck:
       test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/6333'"]
       interval: 10s
@@ -26,8 +28,8 @@ services:
     ports:
       - "26262:26262"
     volumes:
-      # Persist all data (memory, logs, cache) on host
-      - ./data:/data
+      # Persist all data (memory, logs, cache) under APP_HOME (/opt/memory-mcp)
+      - ./data:/opt/memory-mcp/data
     restart: unless-stopped
     depends_on:
       qdrant:
@@ -35,6 +37,7 @@ services:
     environment:
       # Point to the qdrant service (overrides Dockerfile default of localhost:6333)
       MEMORY_MCP_QDRANT__URL: http://qdrant:6333
+      LANG: C.UTF-8
       # --- Code Execution Sandbox (optional) ---
       # To disable sandbox, comment out MEMORY_MCP_SANDBOX__ENABLED and MEMORY_MCP_SANDBOX__DOCKER_HOST,
       # and the sandbox-docker service below.
@@ -59,8 +62,10 @@ services:
     privileged: true
     environment:
       DOCKER_TLS_CERTDIR: ""  # Disable TLS (internal network only - no port exposed)
+      TZ: Asia/Tokyo
+      LANG: C.UTF-8
     volumes:
-      - ./data:/data          # Shared with memory-mcp so workspace paths align
+      - ./data:/opt/memory-mcp/data  # Shared with memory-mcp so workspace paths align
       - dind-storage:/var/lib/docker
     restart: unless-stopped
     healthcheck:
