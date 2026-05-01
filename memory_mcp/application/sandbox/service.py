@@ -64,7 +64,10 @@ class SandboxSession:
             container_configs = {
                 "volumes": {
                     str(workspace_host): {"bind": WORKSPACE, "mode": "rw"},
-                }
+                },
+                # Security hardening: prevent container escape
+                "cap_drop": ["ALL"],
+                "security_opt": ["no-new-privileges:true"],
             }
 
             self._session = InteractiveSandboxSession(

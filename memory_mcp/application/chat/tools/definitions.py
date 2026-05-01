@@ -142,6 +142,57 @@ MEMORY_TOOLS: list[ToolDefinition] = [
     ),
 ]
 
+SANDBOX_TOOLS: list[ToolDefinition] = [
+    ToolDefinition(
+        name="execute_code",
+        description=(
+            "サンドボックスコンテナ内でコードを実行する。"
+            "Python スクリプト・計算・データ処理・ファイル生成に使う。"
+            "IPython カーネルなので `!ls /workspace` などシェルコマンドも実行可能。"
+            "実行結果（stdout/stderr）を返す。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "code": {"type": "string", "description": "実行するコード"},
+                "language": {
+                    "type": "string",
+                    "description": "言語 (python / bash)",
+                    "default": "python",
+                },
+            },
+            "required": ["code"],
+        },
+    ),
+    ToolDefinition(
+        name="sandbox_files",
+        description=(
+            "サンドボックスの /workspace 配下でファイル操作を行う。"
+            "operation: list（一覧）/ read（読み取り）/ write（書き込み）/ delete（削除）。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "operation": {
+                    "type": "string",
+                    "enum": ["list", "read", "write", "delete"],
+                    "description": "操作種別",
+                },
+                "path": {
+                    "type": "string",
+                    "description": "/workspace 配下のパス（list はディレクトリ、read/write/delete はファイル）",
+                    "default": "/workspace",
+                },
+                "content": {
+                    "type": "string",
+                    "description": "書き込む内容（write のみ必須）",
+                },
+            },
+            "required": ["operation"],
+        },
+    ),
+]
+
 # MCPサーバー由来の memory 系ツール名（MEMORY_TOOLS と重複するため除外対象）
 _MEMORY_MCP_TOOL_NAMES: frozenset[str] = frozenset(
     {

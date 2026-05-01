@@ -10,7 +10,7 @@ from memory_mcp.application.chat.pipeline.post import PostProcessStep
 from memory_mcp.application.chat.pipeline.prepare import PrepareStep
 from memory_mcp.application.chat.pipeline.prompt import PromptBuildStep
 from memory_mcp.application.chat.session_store import SessionManager
-from memory_mcp.application.chat.tools.definitions import MEMORY_TOOLS
+from memory_mcp.application.chat.tools.definitions import MEMORY_TOOLS, SANDBOX_TOOLS
 from memory_mcp.application.chat.tools.registry import ToolRegistry
 from memory_mcp.infrastructure.logging.structured import get_logger
 from memory_mcp.infrastructure.mcp_client import MCPClientPool
@@ -50,6 +50,8 @@ class ChatService:
         # InferenceStep + PostProcessStep: MCPプール共有
         async with MCPClientPool(config.mcp_servers) as mcp_pool:
             builtin = list(MEMORY_TOOLS) if config.enable_memory_tools else []
+            if getattr(config, "sandbox_enabled", False):
+                builtin = builtin + list(SANDBOX_TOOLS)
             registry = ToolRegistry(builtin, mcp_pool)
 
             session_messages = session.get_labeled_messages()

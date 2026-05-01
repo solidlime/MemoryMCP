@@ -190,6 +190,74 @@ async def execute_tool(ctx: AppContext, config: ChatConfig, tool_name: str, tool
             ]
             return {"status": "ok", "memories": items, "count": len(items)}
 
+        elif tool_name == "execute_code":
+            if not getattr(config, "sandbox_enabled", False):
+                return {"status": "error", "message": "sandbox が無効です。チャット設定で有効化してください。"}
+            from memory_mcp.application.sandbox.service import get_sandbox_session
+
+            code = tool_input.get("code", "")
+            language = tool_input.get("language", "python")
+            docker_host = getattr(config, "sandbox_docker_host", "")
+            sandbox = get_sandbox_session(ctx.persona, docker_host)
+            result = await sandbox.execute(code, language)
+            return {
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "exit_code": result.exit_code,
+            }
+
+        elif tool_name == "sandbox_files":
+            if not getattr(config, "sandbox_enabled", False):
+                return {"status": "error", "message": "sandbox が無効です。チャット設定で有効化してください。"}
+            from memory_mcp.application.sandbox.service import get_sandbox_session
+
+            operation = tool_input.get("operation", "")
+            path = tool_input.get("path") or "/workspace"
+            if not path.startswith("/workspace"):
+                return {"status": "error", "message": "パスは /workspace 配下のみ許可されています"}
+
+            docker_host = getattr(config, "sandbox_docker_host", "")
+            sandbox = get_sandbox_session(ctx.persona, docker_host)
+
+            if operation == "list":
+                files = await sandbox.list_files(path)
+                return {
+                    "status": "ok",
+                    "files": [
+                        {"name": f.name, "path": f.path, "is_dir": f.is_dir, "size": f.size}
+                        for f in files
+                    ],
+                }
+            elif operation == "read":
+                raw = await sandbox.read_file(path)
+                MAX_READ = 8192
+                truncated = len(raw) > MAX_READ
+                text = raw[:MAX_READ].decode("utf-8", errors="replace")
+                read_result: dict = {"status": "ok", "content": text}
+                if truncated:
+                    read_result["truncated"] = True
+                    read_result["total_bytes"] = len(raw)
+                return read_result
+            elif operation == "write":
+                import base64
+
+                content_str = tool_input.get("content", "")
+                b64 = base64.b64encode(content_str.encode()).decode()
+                write_code = (
+                    f"import base64, os\n"
+                    f"_d = base64.b64decode({b64!r})\n"
+                    f"os.makedirs(os.path.dirname({path!r}) or '.', exist_ok=True)\n"
+                    f"open({path!r}, 'wb').write(_d)\n"
+                    f"print('written', len(_d), 'bytes')"
+                )
+                exec_result = await sandbox.execute(write_code)
+                return {"status": "ok", "path": path, "stdout": exec_result.stdout.strip()}
+            elif operation == "delete":
+                deleted = await sandbox.delete_file(path)
+                return {"status": "ok" if deleted else "error", "path": path}
+            else:
+                return {"status": "error", "message": f"Unknown operation: {operation}"}
+
         else:
             return {"status": "error", "message": f"Unknown tool: {tool_name}"}
 
