@@ -2,14 +2,14 @@ name: Docker Build & Push
 
 on:
   push:
-    branches: ["redesign/v2", "main"]
+    branches: ["main"]
     tags: ["v*"]
   workflow_dispatch:
     inputs:
       tag:
-        description: "Image tag (default: dev)"
+        description: "Image tag (default: latest)"
         required: false
-        default: "dev"
+        default: "latest"
 
 env:
   REGISTRY: ghcr.io
@@ -45,9 +45,8 @@ jobs:
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable=${{ github.ref_type == 'tag' }}
-            type=raw,value=${{ github.event.inputs.tag || 'dev' }},enable=${{ github.event_name == 'workflow_dispatch' }}
-            type=raw,value=dev,enable=${{ github.ref_type == 'branch' }}
+            type=raw,value=latest,enable=${{ github.ref_type == 'tag' || github.ref == 'refs/heads/main' }}
+            type=raw,value=${{ github.event.inputs.tag || 'latest' }},enable=${{ github.event_name == 'workflow_dispatch' }}
 
       - name: Build and push
         uses: docker/build-push-action@v6
