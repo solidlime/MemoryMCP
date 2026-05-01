@@ -589,9 +589,10 @@ def render_chat_tab() -> str:
                                 placeholder="空=自動検出 / tcp://remote-host:2375"
                                 style="font-size:0.75rem;" />
                             <div style="font-size:0.7rem;color:var(--text-muted);margin-top:2px;">
-                                空白: 自動検出 (Windows: npipe, Linux: /var/run/docker.sock)<br>
+                                空白: 自動検出 (Linux: /var/run/docker.sock → /run/docker.sock, Windows: npipe)<br>
+                                リモート: <code style="font-size:0.65rem;">tcp://host:2375</code>　
                                 Windows ローカル: <code style="font-size:0.65rem;">npipe:////./pipe/docker_engine</code><br>
-                                TCP 接続: <code style="font-size:0.65rem;">tcp://localhost:2375</code>
+                                ソケットパス固定: env <code style="font-size:0.65rem;">MEMORY_MCP_SANDBOX__DOCKER_SOCK</code> で設定可
                             </div>
                         </div>
                         <div style="font-size:0.7rem;color:var(--text-muted);margin-top:4px;">Docker が起動中の場合のみ使用可能です</div>

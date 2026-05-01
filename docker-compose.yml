@@ -40,10 +40,13 @@ services:
       MEMORY_MCP_QDRANT__URL: http://qdrant:6333
       # --- Code Execution Sandbox (optional) ---
       # Uncomment MEMORY_MCP_SANDBOX__ENABLED to activate the sandbox.
-      # By default the sandbox uses the local Docker socket mounted above.
+      # By default the sandbox auto-detects the Docker socket (/var/run/docker.sock, /run/docker.sock).
       # To use a remote Docker host instead, set MEMORY_MCP_SANDBOX__DOCKER_HOST.
+      # If your system uses a non-standard socket path (e.g. Synology, Podman, rootless Docker),
+      # set MEMORY_MCP_SANDBOX__DOCKER_SOCK to the full socket path on the HOST.
       # MEMORY_MCP_SANDBOX__ENABLED: "true"
       # MEMORY_MCP_SANDBOX__DOCKER_HOST: "tcp://remote-docker-host:2375"
+      # MEMORY_MCP_SANDBOX__DOCKER_SOCK: "/run/docker.sock"  # e.g. Synology NAS / rootless Docker
     # Load env vars from .env file (ignored by git) so you can override Dockerfile defaults
     env_file:
       - .env

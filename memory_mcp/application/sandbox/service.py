@@ -4,6 +4,7 @@ import asyncio
 import contextlib
 import logging
 import os
+import platform
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -13,6 +14,39 @@ logger = logging.getLogger(__name__)
 WORKSPACE = "/workspace"
 UPLOADS_DIR = f"{WORKSPACE}/uploads"
 OUTPUT_DIR = f"{WORKSPACE}/output"
+
+# Common Unix socket paths in priority order per OS
+_SOCKET_CANDIDATES: dict[str, list[str]] = {
+    "Linux": ["/var/run/docker.sock", "/run/docker.sock"],
+    "Darwin": [
+        os.path.expanduser("~/.docker/run/docker.sock"),
+        "/var/run/docker.sock",
+    ],
+}
+
+
+def _resolve_docker_host(explicit_host: str, docker_sock_override: str) -> str:
+    """Return the DOCKER_HOST value to use, or empty string to keep current env."""
+    # Explicit TCP/npipe host always wins
+    if explicit_host:
+        return explicit_host
+
+    # Windows: use named pipe
+    if platform.system() == "Windows":
+        return "npipe:////./pipe/docker_engine"
+
+    # Unix: scan candidate socket paths
+    candidates: list[str] = []
+    if docker_sock_override:
+        candidates.append(docker_sock_override)
+    candidates.extend(_SOCKET_CANDIDATES.get(platform.system(), ["/var/run/docker.sock"]))
+
+    for path in candidates:
+        if os.path.exists(path):
+            return f"unix://{path}"
+
+    # Nothing found – return empty so we let docker.from_env() try (and fail with its own error)
+    return ""
 
 
 @dataclass
@@ -48,20 +82,15 @@ class SandboxSession:
             from memory_mcp.config.settings import get_settings
 
             settings = get_settings()
-            effective_docker_host = self._docker_host or settings.sandbox.docker_host
+            effective_docker_host = _resolve_docker_host(
+                self._docker_host or settings.sandbox.docker_host,
+                settings.sandbox.docker_sock,
+            )
+            logger.debug("Sandbox using DOCKER_HOST=%s", effective_docker_host or "(default env)")
 
-            if not effective_docker_host:
-                # Auto-detect Windows Docker Desktop named pipe
-                import platform
-
-                if platform.system() == "Windows":
-                    effective_docker_host = "npipe:////./pipe/docker_engine"
-
-            # Set DOCKER_HOST so the Docker Python SDK connects to the right daemon
             if effective_docker_host:
                 os.environ["DOCKER_HOST"] = effective_docker_host
             elif "DOCKER_HOST" in os.environ:
-                # Clear any leftover env var so we fall back to the local socket
                 del os.environ["DOCKER_HOST"]
 
             # Resolve persistent workspace path on the host
@@ -93,20 +122,21 @@ class SandboxSession:
             self._session = None
             error_msg = str(e)
             if "FileNotFoundError" in error_msg or "Connection aborted" in error_msg:
-                import platform
-
+                candidates = _SOCKET_CANDIDATES.get(platform.system(), ["/var/run/docker.sock"])
                 if platform.system() == "Windows":
                     hint = (
-                        "Docker Desktop が起動していることを確認し、"
-                        "設定の「Docker Host」欄に npipe:////./pipe/docker_engine を入力してください。"
-                        " TCP を有効にした場合は tcp://localhost:2375 でも接続できます。"
+                        "Docker Desktop が起動していることを確認してください。"
+                        " npipe:////./pipe/docker_engine または tcp://localhost:2375 を設定の「Docker Host」欄に入力できます。"
                     )
                 else:
+                    checked = ", ".join(candidates)
                     hint = (
-                        "Docker デーモンが起動していることを確認してください。"
-                        " DinD 環境では docker-compose.yml で /var/run/docker.sock をマウントしてください。"
+                        f"Docker ソケットが見つかりません（確認済み: {checked}）。"
+                        " docker-compose.yml に「- /var/run/docker.sock:/var/run/docker.sock」"
+                        " のマウントが設定されているか確認してください。"
+                        " ソケットパスが異なる場合は MEMORY_MCP_SANDBOX__DOCKER_SOCK 環境変数で指定できます。"
                     )
-                raise RuntimeError(f"Docker に接続できませんでした: {hint} (原因: {e})") from e
+                raise RuntimeError(f"Docker に接続できませんでした: {hint}") from e
             raise RuntimeError(f"Failed to start sandbox: {e}") from e
 
     async def execute(self, code: str, language: str = "python") -> ExecResult:
