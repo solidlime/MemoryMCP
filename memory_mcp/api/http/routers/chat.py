@@ -70,7 +70,6 @@ def register_chat_routes(mcp) -> None:
             "display_history_turns",
             "housekeeping_threshold",
             "sandbox_enabled",
-            "sandbox_docker_host",
         ):
             if field_name in body:
                 update_data[field_name] = body[field_name]
@@ -259,8 +258,7 @@ def register_chat_routes(mcp) -> None:
         try:
             from memory_mcp.application.sandbox.service import get_sandbox_session
 
-            docker_host = chat_cfg.sandbox_docker_host
-            session = get_sandbox_session(persona, docker_host=docker_host)
+            session = get_sandbox_session(persona)
             filename = upload.filename or "upload"
             remote_path = await session.upload_file(tmp_path, filename)
             return JSONResponse({"filename": filename, "remote_path": remote_path})
@@ -286,7 +284,7 @@ def register_chat_routes(mcp) -> None:
         path = request.query_params.get("path", "/workspace")
         from memory_mcp.application.sandbox.service import get_sandbox_session
 
-        session = get_sandbox_session(persona, docker_host=chat_cfg.sandbox_docker_host)
+        session = get_sandbox_session(persona)
         try:
             files = await session.list_files(path)
             return JSONResponse(
@@ -319,7 +317,7 @@ def register_chat_routes(mcp) -> None:
 
         from memory_mcp.application.sandbox.service import get_sandbox_session
 
-        session = get_sandbox_session(persona, docker_host=chat_cfg.sandbox_docker_host)
+        session = get_sandbox_session(persona)
         try:
             data = await session.read_file(filepath)
             import os
@@ -352,6 +350,6 @@ def register_chat_routes(mcp) -> None:
 
         from memory_mcp.application.sandbox.service import get_sandbox_session
 
-        session = get_sandbox_session(persona, docker_host=chat_cfg.sandbox_docker_host)
+        session = get_sandbox_session(persona)
         ok = await session.delete_file(filepath)
         return JSONResponse({"deleted": ok, "path": filepath})

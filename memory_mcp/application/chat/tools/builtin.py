@@ -197,8 +197,7 @@ async def execute_tool(ctx: AppContext, config: ChatConfig, tool_name: str, tool
 
             code = tool_input.get("code", "")
             language = tool_input.get("language", "python")
-            docker_host = getattr(config, "sandbox_docker_host", "")
-            sandbox = get_sandbox_session(ctx.persona, docker_host)
+            sandbox = get_sandbox_session(ctx.persona)
             result = await sandbox.execute(code, language)
             return {
                 "stdout": result.stdout,
@@ -216,8 +215,7 @@ async def execute_tool(ctx: AppContext, config: ChatConfig, tool_name: str, tool
             if not path.startswith("/workspace"):
                 return {"status": "error", "message": "パスは /workspace 配下のみ許可されています"}
 
-            docker_host = getattr(config, "sandbox_docker_host", "")
-            sandbox = get_sandbox_session(ctx.persona, docker_host)
+            sandbox = get_sandbox_session(ctx.persona)
 
             if operation == "list":
                 files = await sandbox.list_files(path)

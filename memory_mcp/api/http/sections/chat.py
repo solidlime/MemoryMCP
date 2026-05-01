@@ -583,18 +583,11 @@ def render_chat_tab() -> str:
                                 onchange="onSandboxEnabledChange()" />
                             <label for="chat-sandbox-enabled" class="chat-field-label" style="margin:0;cursor:pointer;">コード実行を許可 (Docker必要)</label>
                         </div>
-                        <div id="chat-sandbox-docker-host-row" style="margin-top:8px;display:none;">
-                            <label class="chat-field-label">Docker Host</label>
-                            <input type="text" id="chat-sandbox-docker-host" class="chat-input"
-                                placeholder="空=自動検出 / tcp://remote-host:2375"
-                                style="font-size:0.75rem;" />
-                            <div style="font-size:0.7rem;color:var(--text-muted);margin-top:2px;">
-                                空白: 自動検出 (Linux: /var/run/docker.sock, Windows: npipe)<br>
-                                推奨: <code style="font-size:0.65rem;">tcp://sandbox-docker:2375</code>（docker-compose の DinD サービスを使用）<br>
-                                カスタム: <code style="font-size:0.65rem;">tcp://remote-host:2375</code>
-                            </div>
+                        <div style="font-size:0.7rem;color:var(--text-muted);margin-top:4px;">
+                            Docker コンテナ内でコードを安全に実行します。<br>
+                            Docker が起動中かつ <code style="font-size:0.65rem;">llm-sandbox</code> がインストール済みの場合のみ使用可能です。<br>
+                            Docker ホストは環境変数 <code style="font-size:0.65rem;">MEMORY_MCP_SANDBOX__DOCKER_HOST</code> で設定できます。
                         </div>
-                        <div style="font-size:0.7rem;color:var(--text-muted);margin-top:4px;">Docker が起動中の場合のみ使用可能です</div>
                     </div>
                     <!-- Buttons -->
                     <button class="chat-save-btn" onclick="saveChatConfig()">💾 設定を保存</button>
@@ -751,8 +744,6 @@ function applyChatConfig(cfg) {
     const sandboxEnabled = document.getElementById('chat-sandbox-enabled');
     if (sandboxEnabled) {
         sandboxEnabled.checked = cfg.sandbox_enabled === true;
-        const dockerHostEl = document.getElementById('chat-sandbox-docker-host');
-        if (dockerHostEl) dockerHostEl.value = cfg.sandbox_docker_host || '';
         onSandboxEnabledChange();
     }
     const statusEl = document.getElementById('chat-config-status');
@@ -802,7 +793,6 @@ async function saveChatConfig() {
         display_history_turns: parseInt(document.getElementById('chat-display-history-turns')?.value || '20'),
         housekeeping_threshold: parseInt(document.getElementById('chat-housekeeping-threshold')?.value || '10'),
         sandbox_enabled: document.getElementById('chat-sandbox-enabled')?.checked ?? false,
-        sandbox_docker_host: document.getElementById('chat-sandbox-docker-host')?.value.trim() ?? '',
     };
     try {
         const cfg = await api('/api/chat/' + encodeURIComponent(S.persona) + '/config', {
@@ -1477,8 +1467,6 @@ function onSandboxEnabledChange() {
     const btn = document.getElementById('sandbox-toggle-btn');
     if (btn) btn.style.display = enabled ? '' : 'none';
     if (!enabled && SANDBOX.visible) toggleSandboxPanel();
-    const dockerHostRow = document.getElementById('chat-sandbox-docker-host-row');
-    if (dockerHostRow) dockerHostRow.style.display = enabled ? '' : 'none';
 }
 
 function toggleSandboxPanel() {
