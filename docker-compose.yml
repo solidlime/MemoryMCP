@@ -36,9 +36,10 @@ services:
       # Point to the qdrant service (overrides Dockerfile default of localhost:6333)
       MEMORY_MCP_QDRANT__URL: http://qdrant:6333
       # --- Code Execution Sandbox (optional) ---
-      # To enable sandbox, uncomment the sandbox-docker service below AND these two lines:
-      # MEMORY_MCP_SANDBOX__ENABLED: "true"
-      # MEMORY_MCP_SANDBOX__DOCKER_HOST: "tcp://sandbox-docker:2375"
+      # To disable sandbox, comment out MEMORY_MCP_SANDBOX__ENABLED and MEMORY_MCP_SANDBOX__DOCKER_HOST,
+      # and the sandbox-docker service below.
+      MEMORY_MCP_SANDBOX__ENABLED: "true"
+      MEMORY_MCP_SANDBOX__DOCKER_HOST: "tcp://sandbox-docker:2375"
     # Load env vars from .env file (ignored by git) so you can override Dockerfile defaults
     env_file:
       - .env
@@ -50,33 +51,29 @@ services:
       start_period: 120s
 
   # --- Code Execution Sandbox (DinD) ---
-  # Uncomment this service to enable the code execution sandbox.
-  # This runs a dedicated Docker daemon inside a container (Docker-in-Docker).
-  # Also uncomment: MEMORY_MCP_SANDBOX__ENABLED and MEMORY_MCP_SANDBOX__DOCKER_HOST above,
-  # and the dind-storage volume at the bottom of this file.
-  # Then run: docker-compose up -d
-  #
-  # sandbox-docker:
-  #   image: docker:dind
-  #   container_name: sandbox-docker
-  #   privileged: true
-  #   environment:
-  #     DOCKER_TLS_CERTDIR: ""  # Disable TLS (internal network only - no port exposed)
-  #   volumes:
-  #     - ./data:/data          # Shared with memory-mcp so workspace paths align
-  #     - dind-storage:/var/lib/docker
-  #   restart: unless-stopped
-  #   healthcheck:
-  #     test: ["CMD", "docker", "info"]
-  #     interval: 15s
-  #     timeout: 10s
-  #     retries: 5
-  #     start_period: 30s
+  # Runs a dedicated Docker daemon inside a container (Docker-in-Docker).
+  # To disable: comment out this service and the env vars above, and the dind-storage volume below.
+  sandbox-docker:
+    image: docker:dind
+    container_name: sandbox-docker
+    privileged: true
+    environment:
+      DOCKER_TLS_CERTDIR: ""  # Disable TLS (internal network only - no port exposed)
+    volumes:
+      - ./data:/data          # Shared with memory-mcp so workspace paths align
+      - dind-storage:/var/lib/docker
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "docker", "info"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
 networks:
   default:
     name: memory-mcp-network
 
-# Uncomment when sandbox-docker service is enabled:
-# volumes:
-#   dind-storage:  # Isolates DinD's own image/container storage from the host
+# Uncomment when sandbox-docker service is disabled:
+volumes:
+  dind-storage:  # Isolates DinD's own image/container storage from the host
