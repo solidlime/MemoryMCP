@@ -235,10 +235,11 @@ def register_chat_routes(mcp) -> None:
         ctx = _safe_get_context(persona)
         if not ctx:
             return JSONResponse({"error": "Persona not found"}, status_code=404)
-        from memory_mcp.config.settings import get_settings
+        from memory_mcp.domain.chat_config import ChatConfigRepository
 
-        if not get_settings().sandbox.enabled:
-            return JSONResponse({"error": "Sandbox not enabled"}, status_code=400)
+        chat_cfg = ChatConfigRepository(ctx.connection.get_memory_db()).get(persona)
+        if not chat_cfg.sandbox_enabled:
+            return JSONResponse({"error": "Sandbox not enabled for this persona"}, status_code=400)
 
         import os
         import tempfile
@@ -257,9 +258,8 @@ def register_chat_routes(mcp) -> None:
 
         try:
             from memory_mcp.application.sandbox.service import get_sandbox_session
-            from memory_mcp.domain.chat_config import ChatConfigRepository
 
-            docker_host = ChatConfigRepository(ctx.connection.get_memory_db()).get(persona).sandbox_docker_host
+            docker_host = chat_cfg.sandbox_docker_host
             session = get_sandbox_session(persona, docker_host=docker_host)
             filename = upload.filename or "upload"
             remote_path = await session.upload_file(tmp_path, filename)
@@ -277,17 +277,16 @@ def register_chat_routes(mcp) -> None:
         ctx = _safe_get_context(persona)
         if not ctx:
             return JSONResponse({"error": "Persona not found"}, status_code=404)
-        from memory_mcp.config.settings import get_settings
+        from memory_mcp.domain.chat_config import ChatConfigRepository
 
-        if not get_settings().sandbox.enabled:
-            return JSONResponse({"error": "Sandbox not enabled"}, status_code=400)
+        chat_cfg = ChatConfigRepository(ctx.connection.get_memory_db()).get(persona)
+        if not chat_cfg.sandbox_enabled:
+            return JSONResponse({"error": "Sandbox not enabled for this persona"}, status_code=400)
 
         path = request.query_params.get("path", "/workspace")
         from memory_mcp.application.sandbox.service import get_sandbox_session
-        from memory_mcp.domain.chat_config import ChatConfigRepository
 
-        docker_host = ChatConfigRepository(ctx.connection.get_memory_db()).get(persona).sandbox_docker_host
-        session = get_sandbox_session(persona, docker_host=docker_host)
+        session = get_sandbox_session(persona, docker_host=chat_cfg.sandbox_docker_host)
         try:
             files = await session.list_files(path)
             return JSONResponse(
@@ -306,10 +305,11 @@ def register_chat_routes(mcp) -> None:
         ctx = _safe_get_context(persona)
         if not ctx:
             return JSONResponse({"error": "Persona not found"}, status_code=404)
-        from memory_mcp.config.settings import get_settings
+        from memory_mcp.domain.chat_config import ChatConfigRepository
 
-        if not get_settings().sandbox.enabled:
-            return JSONResponse({"error": "Sandbox not enabled"}, status_code=400)
+        chat_cfg = ChatConfigRepository(ctx.connection.get_memory_db()).get(persona)
+        if not chat_cfg.sandbox_enabled:
+            return JSONResponse({"error": "Sandbox not enabled for this persona"}, status_code=400)
 
         filepath = request.path_params.get("filepath", "")
         if not filepath.startswith("workspace/") and not filepath.startswith("/workspace/"):
@@ -318,10 +318,8 @@ def register_chat_routes(mcp) -> None:
             filepath = f"/{filepath}"
 
         from memory_mcp.application.sandbox.service import get_sandbox_session
-        from memory_mcp.domain.chat_config import ChatConfigRepository
 
-        docker_host = ChatConfigRepository(ctx.connection.get_memory_db()).get(persona).sandbox_docker_host
-        session = get_sandbox_session(persona, docker_host=docker_host)
+        session = get_sandbox_session(persona, docker_host=chat_cfg.sandbox_docker_host)
         try:
             data = await session.read_file(filepath)
             import os
@@ -342,19 +340,18 @@ def register_chat_routes(mcp) -> None:
         ctx = _safe_get_context(persona)
         if not ctx:
             return JSONResponse({"error": "Persona not found"}, status_code=404)
-        from memory_mcp.config.settings import get_settings
+        from memory_mcp.domain.chat_config import ChatConfigRepository
 
-        if not get_settings().sandbox.enabled:
-            return JSONResponse({"error": "Sandbox not enabled"}, status_code=400)
+        chat_cfg = ChatConfigRepository(ctx.connection.get_memory_db()).get(persona)
+        if not chat_cfg.sandbox_enabled:
+            return JSONResponse({"error": "Sandbox not enabled for this persona"}, status_code=400)
 
         filepath = request.path_params.get("filepath", "")
         if not filepath.startswith("/"):
             filepath = f"/workspace/{filepath}"
 
         from memory_mcp.application.sandbox.service import get_sandbox_session
-        from memory_mcp.domain.chat_config import ChatConfigRepository
 
-        docker_host = ChatConfigRepository(ctx.connection.get_memory_db()).get(persona).sandbox_docker_host
-        session = get_sandbox_session(persona, docker_host=docker_host)
+        session = get_sandbox_session(persona, docker_host=chat_cfg.sandbox_docker_host)
         ok = await session.delete_file(filepath)
         return JSONResponse({"deleted": ok, "path": filepath})

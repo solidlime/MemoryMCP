@@ -586,9 +586,13 @@ def render_chat_tab() -> str:
                         <div id="chat-sandbox-docker-host-row" style="margin-top:8px;display:none;">
                             <label class="chat-field-label">Docker Host</label>
                             <input type="text" id="chat-sandbox-docker-host" class="chat-input"
-                                placeholder="空=ローカル / tcp://remote-host:2375"
+                                placeholder="空=自動検出 / tcp://remote-host:2375"
                                 style="font-size:0.75rem;" />
-                            <div style="font-size:0.7rem;color:var(--text-muted);margin-top:2px;">空白の場合はローカルDocker（docker.sock）を使用します</div>
+                            <div style="font-size:0.7rem;color:var(--text-muted);margin-top:2px;">
+                                空白: 自動検出 (Windows: npipe, Linux: /var/run/docker.sock)<br>
+                                Windows ローカル: <code style="font-size:0.65rem;">npipe:////./pipe/docker_engine</code><br>
+                                TCP 接続: <code style="font-size:0.65rem;">tcp://localhost:2375</code>
+                            </div>
                         </div>
                         <div style="font-size:0.7rem;color:var(--text-muted);margin-top:4px;">Docker が起動中の場合のみ使用可能です</div>
                     </div>

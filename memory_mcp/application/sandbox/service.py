@@ -50,6 +50,13 @@ class SandboxSession:
             settings = get_settings()
             effective_docker_host = self._docker_host or settings.sandbox.docker_host
 
+            if not effective_docker_host:
+                # Auto-detect Windows Docker Desktop named pipe
+                import platform
+
+                if platform.system() == "Windows":
+                    effective_docker_host = "npipe:////./pipe/docker_engine"
+
             # Set DOCKER_HOST so the Docker Python SDK connects to the right daemon
             if effective_docker_host:
                 os.environ["DOCKER_HOST"] = effective_docker_host
@@ -84,6 +91,22 @@ class SandboxSession:
             logger.info("Sandbox session started for persona=%s", self.persona)
         except Exception as e:
             self._session = None
+            error_msg = str(e)
+            if "FileNotFoundError" in error_msg or "Connection aborted" in error_msg:
+                import platform
+
+                if platform.system() == "Windows":
+                    hint = (
+                        "Docker Desktop が起動していることを確認し、"
+                        "設定の「Docker Host」欄に npipe:////./pipe/docker_engine を入力してください。"
+                        " TCP を有効にした場合は tcp://localhost:2375 でも接続できます。"
+                    )
+                else:
+                    hint = (
+                        "Docker デーモンが起動していることを確認してください。"
+                        " DinD 環境では docker-compose.yml で /var/run/docker.sock をマウントしてください。"
+                    )
+                raise RuntimeError(f"Docker に接続できませんでした: {hint} (原因: {e})") from e
             raise RuntimeError(f"Failed to start sandbox: {e}") from e
 
     async def execute(self, code: str, language: str = "python") -> ExecResult:
