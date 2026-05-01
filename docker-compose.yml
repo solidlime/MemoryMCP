@@ -49,37 +49,34 @@ services:
       retries: 3
       start_period: 120s
 
+  # --- Code Execution Sandbox (DinD) ---
+  # Uncomment this service to enable the code execution sandbox.
+  # This runs a dedicated Docker daemon inside a container (Docker-in-Docker).
+  # Also uncomment: MEMORY_MCP_SANDBOX__ENABLED and MEMORY_MCP_SANDBOX__DOCKER_HOST above,
+  # and the dind-storage volume at the bottom of this file.
+  # Then run: docker-compose up -d
+  #
+  # sandbox-docker:
+  #   image: docker:dind
+  #   container_name: sandbox-docker
+  #   privileged: true
+  #   environment:
+  #     DOCKER_TLS_CERTDIR: ""  # Disable TLS (internal network only - no port exposed)
+  #   volumes:
+  #     - ./data:/data          # Shared with memory-mcp so workspace paths align
+  #     - dind-storage:/var/lib/docker
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD", "docker", "info"]
+  #     interval: 15s
+  #     timeout: 10s
+  #     retries: 5
+  #     start_period: 30s
+
 networks:
   default:
     name: memory-mcp-network
 
-# --- Code Execution Sandbox (DinD) ---
-# Uncomment the service below to enable the code execution sandbox.
-# This runs a dedicated Docker daemon inside a container (Docker-in-Docker).
-# Steps:
-#   1. Uncomment the sandbox-docker service
-#   2. Uncomment MEMORY_MCP_SANDBOX__ENABLED and MEMORY_MCP_SANDBOX__DOCKER_HOST above
-#   3. Run: docker-compose up -d
-#
-# services:
-#   sandbox-docker:
-#     image: docker:dind
-#     container_name: sandbox-docker
-#     privileged: true
-#     environment:
-#       DOCKER_TLS_CERTDIR: ""  # Disable TLS (internal network only - no port exposed)
-#     volumes:
-#       - ./data:/data          # Shared with memory-mcp so workspace paths align
-#       - dind-storage:/var/lib/docker
-#     restart: unless-stopped
-#     healthcheck:
-#       test: ["CMD", "docker", "info"]
-#       interval: 15s
-#       timeout: 10s
-#       retries: 5
-#       start_period: 30s
-#     networks:
-#       - default
-
+# Uncomment when sandbox-docker service is enabled:
 # volumes:
 #   dind-storage:  # Isolates DinD's own image/container storage from the host
