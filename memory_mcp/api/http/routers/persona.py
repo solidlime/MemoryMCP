@@ -27,7 +27,11 @@ def register_persona_routes(mcp) -> None:
     @mcp.custom_route("/health", methods=["GET"])
     async def health(request: Request) -> JSONResponse:
         ctx = AppContextRegistry.get(_resolve_persona_from_request(request, default="default"))
-        qdrant_ok = ctx.vector_store is not None
+        vs = ctx.vector_store
+        if vs is not None:
+            qdrant_ok = vs.client_manager.health_check()
+        else:
+            qdrant_ok = False
         return JSONResponse(
             {
                 "status": "ok",
