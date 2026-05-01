@@ -11,12 +11,6 @@ services:
       # Persist Qdrant vector data on host (ensures ./storage is always pre-created)
       - ./data/qdrant:/qdrant/storage
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO /dev/null http://localhost:6333/healthz || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
 
   memory-mcp:
     build:
@@ -30,8 +24,7 @@ services:
       - ./data:/data
     restart: unless-stopped
     depends_on:
-      qdrant:
-        condition: service_healthy
+      - qdrant
     environment:
       # Point to the qdrant service (overrides Dockerfile default of localhost:6333)
       MEMORY_MCP_QDRANT__URL: http://qdrant:6333
