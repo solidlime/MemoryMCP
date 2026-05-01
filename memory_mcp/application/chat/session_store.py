@@ -2,18 +2,20 @@
 
 from __future__ import annotations
 
-import asyncio
+import contextlib
 import json
 from collections import OrderedDict
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 
 from memory_mcp.domain.shared.time_utils import get_now, relative_time_str
 from memory_mcp.infrastructure.llm.base import LLMMessage
 from memory_mcp.infrastructure.logging.structured import get_logger
 
 if TYPE_CHECKING:
+    import asyncio
     import sqlite3
+    from collections.abc import Callable
 
 logger = get_logger(__name__)
 
@@ -58,10 +60,8 @@ class SessionWindow:
             overflow = len(self._messages) - self._max_messages + 1
             evicted = self._messages[:overflow]
             if self.evict_callback is not None and evicted:
-                try:
+                with contextlib.suppress(Exception):
                     self.evict_callback(evicted)
-                except Exception:
-                    pass
             self._messages = self._messages[overflow:]
             self._timestamps = self._timestamps[overflow:]
         self._messages.append({"role": role, "content": content})

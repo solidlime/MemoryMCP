@@ -1,5 +1,6 @@
 """Verify all bug fixes: modal, tooltip HTML, persona emoji, skeleton tabs"""
 import asyncio
+
 from playwright.async_api import async_playwright
 
 URL = "http://nas:26262"

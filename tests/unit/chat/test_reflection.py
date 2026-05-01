@@ -3,8 +3,6 @@ from __future__ import annotations
 
 import json
 
-import pytest
-
 from memory_mcp.application.chat.reflection import _parse_insights
 
 
@@ -95,5 +93,5 @@ class TestReflectionThreshold:
 
     def test_zero_sum_below_any_positive_threshold(self):
         threshold = 0.1
-        result = [] if 0.0 < threshold else ["would_reflect"]
+        result = [] if threshold > 0.0 else ["would_reflect"]
         assert result == []

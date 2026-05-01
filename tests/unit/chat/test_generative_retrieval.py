@@ -2,8 +2,7 @@
 from __future__ import annotations
 
 import math
-from datetime import datetime, timedelta, timezone
-
+from datetime import UTC, datetime, timedelta
 
 # ---------------------------------------------------------------------------
 # Import the helpers directly (no server / embedding model needed)
@@ -19,20 +18,20 @@ class TestComputeRecencyDecay:
 
     def test_zero_days_returns_one(self):
         """A memory created just now should have recency ≈ 1.0."""
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         result = _compute_recency_decay(now)
         assert abs(result - 1.0) < 0.01
 
     def test_one_day_returns_about_0606(self):
         """After 1 day: exp(-0.5 * 1) ≈ 0.6065."""
-        one_day_ago = datetime.now(tz=timezone.utc) - timedelta(days=1)
+        one_day_ago = datetime.now(tz=UTC) - timedelta(days=1)
         result = _compute_recency_decay(one_day_ago)
         expected = math.exp(-_RECENCY_LAMBDA * 1.0)
         assert abs(result - expected) < 0.01
 
     def test_ten_days_returns_very_small(self):
         """After 10 days: exp(-0.5 * 10) ≈ 0.0067."""
-        ten_days_ago = datetime.now(tz=timezone.utc) - timedelta(days=10)
+        ten_days_ago = datetime.now(tz=UTC) - timedelta(days=10)
         result = _compute_recency_decay(ten_days_ago)
         expected = math.exp(-_RECENCY_LAMBDA * 10.0)
         assert abs(result - expected) < 0.001
@@ -52,7 +51,7 @@ class TestComputeRecencyDecay:
 
     def test_monotonic_decrease(self):
         """Recency should strictly decrease as age increases."""
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         scores = [
             _compute_recency_decay(now - timedelta(days=d))
             for d in [0, 1, 3, 7, 14]

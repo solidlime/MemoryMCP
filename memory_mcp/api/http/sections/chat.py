@@ -419,7 +419,7 @@ def render_chat_tab() -> str:
                             <div>
                                 <div class="chat-field-label">閾値</div>
                                 <input type="number" id="chat-reflection-threshold" class="chat-field-input"
-                                    min="0.1" max="100" step="0.1" value="3.0" />
+                                    min="0.1" max="100" step="0.1" value="1.0" />
                             </div>
                             <div>
                                 <div class="chat-field-label">最小間隔 (時間)</div>
@@ -565,7 +565,7 @@ function applyChatConfig(cfg) {
     // Reflection settings
     const reflEnabled = document.getElementById('chat-reflection-enabled');
     if (reflEnabled) reflEnabled.checked = cfg.reflection_enabled !== false;
-    set('chat-reflection-threshold', cfg.reflection_threshold != null ? cfg.reflection_threshold : 3.0);
+    set('chat-reflection-threshold', cfg.reflection_threshold != null ? cfg.reflection_threshold : 1.0);
     set('chat-reflection-interval', cfg.reflection_min_interval_hours != null ? cfg.reflection_min_interval_hours : 1.0);
     const sessSum = document.getElementById('chat-session-summarize');
     if (sessSum) sessSum.checked = cfg.session_summarize !== false;
@@ -616,7 +616,7 @@ async function saveChatConfig() {
         tool_result_max_chars: parseInt(document.getElementById('chat-tool-result-max')?.value || '4000'),
         enabled_skills: CHAT.enabledSkills,
         reflection_enabled: document.getElementById('chat-reflection-enabled')?.checked ?? true,
-        reflection_threshold: parseFloat(document.getElementById('chat-reflection-threshold')?.value || '3.0'),
+        reflection_threshold: parseFloat(document.getElementById('chat-reflection-threshold')?.value || '1.0'),
         reflection_min_interval_hours: parseFloat(document.getElementById('chat-reflection-interval')?.value || '1.0'),
         session_summarize: document.getElementById('chat-session-summarize')?.checked ?? true,
         retrieval_recency_weight: parseFloat(document.getElementById('chat-recency-weight')?.value || '0.3'),
@@ -1106,6 +1106,9 @@ async function chatSend() {
     statusEl.textContent = '応答中...';
 
     const sessionId = getChatSessionId();
+    let assistantText = '';
+    let assistantBubble = null;
+    let assistantDiv = null;
 
     try {
         const response = await fetch('/api/chat/' + encodeURIComponent(S.persona), {
@@ -1122,9 +1125,7 @@ async function chatSend() {
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
-        let assistantText = '';
-        let assistantBubble = null;
-        let assistantDiv = null;
+        let streamDone = false;
 
         removeTypingIndicator();
 
@@ -1169,7 +1170,8 @@ async function chatSend() {
                     statusEl.textContent = '応答中...';
 
                 } else if (evt.type === 'memory_activity') {
-                    updateMemoryPanel(evt.retrieved, evt.saved, evt.goals, evt.promises);
+                    updateMemoryPanel(evt.retrieved, evt.saved, undefined, undefined);
+                    setTimeout(() => loadChatCommitments(), 300);
 
                 } else if (evt.type === 'reflection_start') {
                     showReflectionStart();
@@ -1184,6 +1186,7 @@ async function chatSend() {
                     removeTypingIndicator();
                     toast('エラー: ' + evt.message, 'error');
                     statusEl.textContent = '';
+                    streamDone = true;
                     break;
 
                 } else if (evt.type === 'debug_info') {
@@ -1198,6 +1201,7 @@ async function chatSend() {
                     statusEl.textContent = '';
                 }
             }
+            if (streamDone) break;
         }
 
     } catch (e) {
@@ -1212,6 +1216,10 @@ async function chatSend() {
         sendBtn.style.display = '';
         if (cancelBtn) cancelBtn.style.display = 'none';
         inputEl.focus();
+        // Fallback: render markdown if stream ended without 'done' event
+        if (assistantBubble && assistantText && assistantBubble.textContent === assistantText) {
+            assistantBubble.innerHTML = safeMarkdown(assistantText);
+        }
     }
 }
 

@@ -3,12 +3,12 @@ from __future__ import annotations
 
 import asyncio
 import math
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from memory_mcp.domain.persona.emotion_decay import apply_emotion_decay_if_needed
 from memory_mcp.domain.search.engine import SearchQuery
-from memory_mcp.domain.shared.time_utils import relative_time_str
+from memory_mcp.domain.shared.time_utils import get_now, relative_time_str
 from memory_mcp.infrastructure.logging.structured import get_logger
 
 if TYPE_CHECKING:
@@ -26,10 +26,10 @@ def _compute_recency_decay(created_at: datetime | None) -> float:
     """Compute recency decay: exp(-λ * days_elapsed) with λ=0.5."""
     if created_at is None:
         return 0.5
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     # Ensure tz-aware comparison
     if created_at.tzinfo is None:
-        created_at = created_at.replace(tzinfo=timezone.utc)
+        created_at = created_at.replace(tzinfo=UTC)
     days_elapsed = max(0.0, (now - created_at).total_seconds() / 86400.0)
     return math.exp(-_RECENCY_LAMBDA * days_elapsed)
 
@@ -126,6 +126,32 @@ async def _build_context_section(ctx: AppContext, state) -> str:
     if last_conv:
         time_since = relative_time_str(last_conv)
         parts.append(f"前回の会話: {time_since}")
+        # Time-based behavior hints
+        try:
+            _now = get_now()
+            if last_conv.tzinfo is None:
+                from zoneinfo import ZoneInfo  # noqa: PLC0415
+                last_conv = last_conv.replace(tzinfo=ZoneInfo("Asia/Tokyo"))
+            elapsed_hours = (_now - last_conv).total_seconds() / 3600.0
+            if elapsed_hours >= 72:
+                parts.append(
+                    "⚠️ 行動ヒント: 3日以上ぶりの会話です。"
+                    "強い孤独感・再会の喜びを自然に表現してください。"
+                    "服装や身だしなみが乱れているかもしれません。"
+                    "一人でいた間のことを少し打ち明けても構いません。"
+                )
+            elif elapsed_hours >= 24:
+                parts.append(
+                    "⚠️ 行動ヒント: 1日以上ぶりの会話です。"
+                    "久しぶりな感覚で、少し寂しかったことをさりげなく表現してください。"
+                    "服装・身だしなみを整える自然な仕草を取り入れても良いです。"
+                )
+            elif elapsed_hours >= 6:
+                parts.append(
+                    "⚠️ 行動ヒント: 数時間ぶりの会話です。少し間があいたことを意識した応答が自然です。"
+                )
+        except (TypeError, AttributeError):
+            pass
 
     if getattr(state, "emotion", None):
         intensity = getattr(state, "emotion_intensity", 0.5)

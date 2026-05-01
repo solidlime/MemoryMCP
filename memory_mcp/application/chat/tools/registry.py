@@ -4,12 +4,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from memory_mcp.application.chat.tools.builtin import execute_tool, filter_extra_tools, truncate_tool_result
-from memory_mcp.infrastructure.llm.base import ToolDefinition
 from memory_mcp.infrastructure.logging.structured import get_logger
 
 if TYPE_CHECKING:
     from memory_mcp.application.use_cases import AppContext
     from memory_mcp.domain.chat_config import ChatConfig
+    from memory_mcp.infrastructure.llm.base import ToolDefinition
     from memory_mcp.infrastructure.mcp_client import MCPClientPool
 
 logger = get_logger(__name__)

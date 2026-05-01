@@ -1,5 +1,6 @@
 """Post-fix verification: chart-emotions + memory modal"""
 import asyncio
+
 from playwright.async_api import async_playwright
 
 URL = "http://nas:26262"
@@ -21,7 +22,7 @@ async def main():
         await pg.wait_for_timeout(3000)
         html = await pg.inner_html("#tab-analytics")
         has_emotions_canvas = await pg.query_selector("#chart-emotions")
-        emotions_div = await pg.query_selector("[id^=chart-emotions-nodata], .no-data")
+        await pg.query_selector("[id^=chart-emotions-nodata], .no-data")
         print("=== Analytics ===")
         print(f"  #chart-emotions canvas: {'FOUND' if has_emotions_canvas else 'NOT FOUND'}")
         # check for no-data placeholder
@@ -33,7 +34,7 @@ async def main():
         await pg.click("[data-tab=memories]")
         await pg.wait_for_timeout(2000)
         cards = await pg.query_selector_all("[data-memjson]")
-        print(f"\n=== Memories ===")
+        print("\n=== Memories ===")
         print(f"  Cards found: {len(cards)}")
         if cards:
             await cards[0].click()

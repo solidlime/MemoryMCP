@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-from memory_mcp.domain.search.engine import SearchEngine, SearchQuery, SearchResult
+from memory_mcp.domain.search.engine import SearchEngine, SearchQuery
 from memory_mcp.domain.shared.result import Success
 
 

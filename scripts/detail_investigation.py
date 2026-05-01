@@ -1,6 +1,7 @@
 """詳細バグ調査スクリプト。"""
-from playwright.sync_api import sync_playwright
 from pathlib import Path
+
+from playwright.sync_api import sync_playwright
 
 SCREENSHOTS = Path("tests/e2e/screenshots/investigation")
 SCREENSHOTS.mkdir(parents=True, exist_ok=True)

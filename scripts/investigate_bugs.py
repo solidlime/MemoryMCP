@@ -4,7 +4,6 @@ http://nas:26262 のルートから全タブを操作し、バグ・エラーを
 """
 
 import json
-import time
 from pathlib import Path
 
 from playwright.sync_api import sync_playwright
@@ -123,7 +122,7 @@ def run_investigation():
                 btn = page.locator(f"[data-tab='{tab}']")
                 if btn.count() == 0:
                     bugs.append({"tab": tab, "bug": "タブボタンが DOM に存在しない"})
-                    print(f"  ❌ タブボタン未検出")
+                    print("  ❌ タブボタン未検出")
                     continue
 
                 btn.click()
@@ -137,17 +136,17 @@ def run_investigation():
                     print(f"  ❌ パネル未検出: #tab-{tab}")
                 elif not panel.is_visible():
                     bugs.append({"tab": tab, "bug": f"#tab-{tab} パネルが表示されていない"})
-                    print(f"  ❌ パネル非表示")
+                    print("  ❌ パネル非表示")
                 else:
-                    print(f"  ✅ パネル表示OK")
+                    print("  ✅ パネル表示OK")
 
                 # active クラスチェック
                 active_panel = page.locator(f"#tab-{tab}.active")
                 if active_panel.count() == 0:
                     bugs.append({"tab": tab, "bug": f"#tab-{tab} に .active クラスが付いていない"})
-                    print(f"  ❌ .active クラスなし")
+                    print("  ❌ .active クラスなし")
                 else:
-                    print(f"  ✅ .active クラスあり")
+                    print("  ✅ .active クラスあり")
 
                 # active パネル数チェック（1つだけのはず）
                 active_panels = page.locator(".tab-panel.active")
@@ -174,7 +173,7 @@ def run_investigation():
                         bugs.append({"tab": tab, "bug": f"JSエラー: {err}"})
                     print(f"  ❌ JSエラー {len(new_js_errors)}件: {new_js_errors[:2]}")
                 else:
-                    print(f"  ✅ JSエラーなし")
+                    print("  ✅ JSエラーなし")
 
             except Exception as e:
                 bugs.append({"tab": tab, "bug": f"タブ操作中に例外: {e}"})
@@ -199,7 +198,7 @@ def run_investigation():
             try:
                 resp = page.goto(f"{BASE_URL}{ep}", wait_until="domcontentloaded", timeout=10000)
                 status = resp.status if resp else "?"
-                body = page.content()
+                page.content()
                 # JSONパース試行
                 try:
                     json.loads(page.evaluate("document.body.innerText"))
@@ -270,7 +269,7 @@ def _check_tab_specific(page, tab: str, bugs: list):
             txt = ac.inner_text().strip()
             if len(txt) == 0:
                 bugs.append({"tab": tab, "bug": "#analytics-content が空"})
-                print(f"    ❌ #analytics-content 空")
+                print("    ❌ #analytics-content 空")
 
     elif tab == "memories":
         # 検索フィールド
