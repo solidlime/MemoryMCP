@@ -8,52 +8,64 @@ MemoryMCP のチャットでは `llm-sandbox[docker]` を使った Python コー
 ## アーキテクチャ
 
 ```
-MemoryMCP (サーバープロセス or Docker コンテナ)
-    └── SandboxSession (llm-sandbox)
-            └── Docker Python SDK
-                    │  DOCKER_HOST = ローカルsocket or tcp://remote:2375
-                    ↓
-            Docker Daemon（ローカル or リモート）
-                └── Python/IPython コンテナ
-                        └── /workspace  ←→  data/sandbox/{persona}/workspace/  (bind mount)
+ホストOS (例: Synology NAS)
+│
+├─ [sandbox-docker]  ← docker:dind (--privileged) ← 推奨
+│   Docker デーモン (tcp://0.0.0.0:2375, TLS無効)
+│   /data → ./data  ← memory-mcp と同パスで共有
+│   /var/lib/docker → dind-storage (named volume)
+│   └─ Python/IPython コンテナ（動的生成）
+│       /workspace → /data/sandbox/{persona}/workspace/
+│       cap_drop: ALL + no-new-privileges（ハードニング済み）
+│
+└─ [memory-mcp]
+    DOCKER_HOST=tcp://sandbox-docker:2375
+    /data → ./data
+    ※ docker.sock マウントなし
 ```
 
 - **ファイル永続化**: コンテナの `/workspace` は `data/sandbox/{persona}/workspace/` にバインドマウントされます。MemoryMCP を再起動してもファイルは残ります。
 - **ペルソナ分離**: ペルソナごとに独立したワークスペースを持ちます。
+- **セキュリティ**: IPython コンテナは `cap_drop: ALL` + `no-new-privileges` で動作し、`/workspace` 以外にアクセスできません。
 
 ---
 
 ## セットアップ
 
-### 1. ローカル Docker（docker-compose を使う場合）
+### 1. Docker Compose（推奨）
 
-`docker-compose.yml` には `/var/run/docker.sock` マウントがすでに含まれています。  
-サンドボックスを有効にするには `.env` ファイルに以下を追記します。
+`docker-compose.yml` には `sandbox-docker`（DinD）サービスがデフォルトで有効になっています。
+
+```bash
+docker-compose up -d
+```
+
+起動後、WebUI のチャット設定で **コード実行を許可** をオンにするか、`.env` に以下を追記します。
 
 ```env
 MEMORY_MCP_SANDBOX__ENABLED=true
+MEMORY_MCP_SANDBOX__DOCKER_HOST=tcp://sandbox-docker:2375
 ```
 
 その後コンテナを再起動します。
 
 ```bash
-docker-compose down && docker-compose up -d
+docker-compose restart memory-mcp
 ```
-
-> **注意**: `docker.sock` のマウントはホストの Docker デーモンをコンテナから利用する方式（sibling container）です。
-> コンテナ内から新たにコンテナを起動するため、ホストに十分なリソースがある環境で使用してください。
 
 ### 2. ローカル Python（サーバーを直接起動する場合）
 
-Docker Desktop（または Docker Engine）が起動している状態で次のコマンドを実行します。
+Docker Desktop（または Docker Engine）が起動している状態で実行します。
 
 ```bash
 MEMORY_MCP_SANDBOX__ENABLED=true python -m memory_mcp.main
 ```
 
+この場合、ローカルの Docker ソケット（`/var/run/docker.sock` 等）が自動検出されます。
+
 ### 3. リモート Docker ホスト
 
-別のホストで Docker デーモンを TLS なしで公開している場合（開発・テスト用）:
+別のホストで Docker デーモンを公開している場合（開発・テスト用）:
 
 ```env
 MEMORY_MCP_SANDBOX__ENABLED=true
@@ -99,23 +111,30 @@ data/sandbox/{persona}/workspace/
 
 ## セキュリティ上の注意
 
-- **docker.sock マウント**はホストの Docker デーモンへのフルアクセスを許します。信頼できる環境のみで使用してください。
+- **DinD**（`sandbox-docker` サービス）は `--privileged` で動作しますが、memory-mcp からは TCP 経由でのみアクセスします。`docker.sock` を memory-mcp にマウントしていないため、memory-mcp コンテナがホストの Docker デーモンを直接操作することはできません。
+- **IPython コンテナ**（ユーザーコードが実行される場所）は `cap_drop: ALL` + `no-new-privileges` + `/workspace` のみのマウントで動作します。
 - **リモート Docker** を公開する場合は必ず TLS クライアント認証を設定してください。
-- サンドボックスコンテナはデフォルトで `python:3.11` ベースです。インターネットアクセスが可能な点に注意してください。
+- サンドボックスコンテナはデフォルトでインターネットアクセスが可能です。必要に応じて Docker のネットワーク設定で制限してください。
 
 ---
 
 ## トラブルシューティング
 
-### `Failed to start sandbox: ...`
+### `Failed to start sandbox: ...` / Docker に接続できない
 
-- Docker が起動しているか確認: `docker info`
-- docker-compose の場合: `docker-compose logs memory-mcp` でログ確認
-- `/var/run/docker.sock` のマウントがあるか: `docker inspect memory-mcp | grep Binds`
+- sandbox-docker サービスが起動しているか確認: `docker-compose ps sandbox-docker`
+- `MEMORY_MCP_SANDBOX__DOCKER_HOST=tcp://sandbox-docker:2375` が設定されているか確認
+- ローカル Python 実行の場合は Docker Desktop が起動しているか確認: `docker info`
+- docker-compose のログ: `docker-compose logs memory-mcp`
+
+### sandbox-docker が起動しない
+
+- `docker-compose logs sandbox-docker` でログを確認
+- DinD は `--privileged` が必要です。ホストが privileged コンテナを許可しているか確認してください。
 
 ### リモートホストに接続できない
 
-- `DOCKER_HOST` の値が正しいか確認
+- `MEMORY_MCP_SANDBOX__DOCKER_HOST` の値が正しいか確認
 - ファイアウォールでポート 2375/2376 が開放されているか確認
 - TLS 設定を使っている場合は証明書パスが正しいか確認
 
@@ -123,3 +142,4 @@ data/sandbox/{persona}/workspace/
 
 - サンドボックスが初回起動中はディレクトリ作成に少し時間がかかります
 - `data/sandbox/{persona}/workspace/` がホスト側に存在するか確認してください
+

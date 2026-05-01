@@ -27,6 +27,7 @@ FROM python:3.12-slim
 
 ENV APP_HOME=/opt/memory-mcp \
     MEMORY_MCP_DATA_ROOT=/data \
+    PYTHONUNBUFFERED=1 \
     TZ=Asia/Tokyo
 
 # Set working directory
@@ -60,22 +61,6 @@ COPY pyproject.toml ${APP_HOME}/
 
 # Create directories for runtime data and caches
 RUN mkdir -p /data
-
-# Default runtime environment — v2 Settings fields only
-ENV MEMORY_MCP_SERVER__HOST=0.0.0.0 \
-    MEMORY_MCP_SERVER__PORT=26262 \
-    MEMORY_MCP_EMBEDDING__MODEL=cl-nagoya/ruri-v3-30m \
-    MEMORY_MCP_EMBEDDING__DEVICE=cpu \
-    MEMORY_MCP_RERANKER__MODEL=hotchpotch/japanese-reranker-xsmall-v2 \
-    MEMORY_MCP_RERANKER__ENABLED=true \
-    MEMORY_MCP_QDRANT__URL=http://localhost:6333 \
-    MEMORY_MCP_QDRANT__COLLECTION_PREFIX=memory_ \
-    MEMORY_MCP_TIMEZONE=Asia/Tokyo \
-    MEMORY_MCP_LOG_LEVEL=INFO \
-    MEMORY_MCP_DEFAULT_PERSONA=default \
-    MEMORY_MCP_CONTRADICTION_THRESHOLD=0.85 \
-    MEMORY_MCP_DUPLICATE_THRESHOLD=0.90 \
-    PYTHONUNBUFFERED=1
 
 # Expose FastMCP HTTP port
 EXPOSE 26262

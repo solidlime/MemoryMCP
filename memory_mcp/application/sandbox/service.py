@@ -132,9 +132,10 @@ class SandboxSession:
                     checked = ", ".join(candidates)
                     hint = (
                         f"Docker ソケットが見つかりません（確認済み: {checked}）。"
-                        " docker-compose.yml に「- /var/run/docker.sock:/var/run/docker.sock」"
-                        " のマウントが設定されているか確認してください。"
-                        " ソケットパスが異なる場合は MEMORY_MCP_SANDBOX__DOCKER_SOCK 環境変数で指定できます。"
+                        " docker-compose を使っている場合は sandbox-docker サービスが起動しているか確認してください"
+                        " (`docker-compose ps sandbox-docker`)。"
+                        " MEMORY_MCP_SANDBOX__DOCKER_HOST=tcp://sandbox-docker:2375 を設定してください。"
+                        " ローカルで Python を直接起動している場合は Docker Desktop が起動しているか確認してください。"
                     )
                 raise RuntimeError(f"Docker に接続できませんでした: {hint}") from e
             raise RuntimeError(f"Failed to start sandbox: {e}") from e
