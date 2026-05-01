@@ -66,6 +66,7 @@ class ChatConfig(BaseModel):
     # Housekeeping auto-trigger threshold (total active goals+promises)
     housekeeping_threshold: int = 10
     sandbox_enabled: bool = False
+    sandbox_docker_host: str = ""  # empty = use global SandboxConfig.docker_host
     updated_at: str | None = None
 
     @field_validator("temperature")

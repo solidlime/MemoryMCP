@@ -80,6 +80,7 @@ class SandboxConfig(BaseModel):
 
     enabled: bool = False
     provider: str = "llm_sandbox"  # "llm_sandbox" | "none"
+    docker_host: str = ""  # empty = local socket, "tcp://host:2375" = remote Docker
     timeout: int = 30
     session_idle_timeout: int = 1800
     allowed_languages: list[str] = ["python", "javascript", "bash"]

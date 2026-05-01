@@ -28,6 +28,9 @@ services:
     volumes:
       # Persist all data (memory, logs, cache) on host
       - ./data:/data
+      # DinD (Docker-in-Docker): mount host Docker socket so sandbox can spawn sibling containers
+      # Remove this line if you do not use the code execution sandbox feature
+      - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
     depends_on:
       qdrant:
@@ -35,6 +38,12 @@ services:
     environment:
       # Point to the qdrant service (overrides Dockerfile default of localhost:6333)
       MEMORY_MCP_QDRANT__URL: http://qdrant:6333
+      # --- Code Execution Sandbox (optional) ---
+      # Uncomment MEMORY_MCP_SANDBOX__ENABLED to activate the sandbox.
+      # By default the sandbox uses the local Docker socket mounted above.
+      # To use a remote Docker host instead, set MEMORY_MCP_SANDBOX__DOCKER_HOST.
+      # MEMORY_MCP_SANDBOX__ENABLED: "true"
+      # MEMORY_MCP_SANDBOX__DOCKER_HOST: "tcp://remote-docker-host:2375"
     # Load env vars from .env file (ignored by git) so you can override Dockerfile defaults
     env_file:
       - .env

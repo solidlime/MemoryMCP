@@ -6,6 +6,7 @@ import logging
 import os
 import tempfile
 from dataclasses import dataclass
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -32,8 +33,9 @@ class SandboxFileInfo:
 class SandboxSession:
     """Wraps an InteractiveSandboxSession with lifecycle management."""
 
-    def __init__(self, persona: str) -> None:
+    def __init__(self, persona: str, docker_host: str = "") -> None:
         self.persona = persona
+        self._docker_host = docker_host
         self._session = None
         self._lock = asyncio.Lock()
 
@@ -43,8 +45,35 @@ class SandboxSession:
         try:
             from llm_sandbox import InteractiveSandboxSession
 
-            self._session = InteractiveSandboxSession(lang="python", kernel_type="ipython")
+            from memory_mcp.config.settings import get_settings
+
+            settings = get_settings()
+            effective_docker_host = self._docker_host or settings.sandbox.docker_host
+
+            # Set DOCKER_HOST so the Docker Python SDK connects to the right daemon
+            if effective_docker_host:
+                os.environ["DOCKER_HOST"] = effective_docker_host
+            elif "DOCKER_HOST" in os.environ:
+                # Clear any leftover env var so we fall back to the local socket
+                del os.environ["DOCKER_HOST"]
+
+            # Resolve persistent workspace path on the host
+            workspace_host = Path(settings.data_root) / "sandbox" / self.persona / "workspace"
+            workspace_host.mkdir(parents=True, exist_ok=True)
+
+            container_configs = {
+                "volumes": {
+                    str(workspace_host): {"bind": WORKSPACE, "mode": "rw"},
+                }
+            }
+
+            self._session = InteractiveSandboxSession(
+                lang="python",
+                kernel_type="ipython",
+                container_configs=container_configs,
+            )
             self._session.__enter__()
+            # Create sub-directories inside the mounted workspace
             self._session.run(
                 f"import os; os.makedirs('{UPLOADS_DIR}', exist_ok=True); "
                 f"os.makedirs('{OUTPUT_DIR}', exist_ok=True); print('workspace ready')"
@@ -145,11 +174,21 @@ print(json.dumps(result))
 _sessions: dict[str, SandboxSession] = {}
 
 
-def get_sandbox_session(persona: str) -> SandboxSession:
-    """Get or create a sandbox session for persona."""
-    if persona not in _sessions:
-        _sessions[persona] = SandboxSession(persona)
-    return _sessions[persona]
+def get_sandbox_session(persona: str, docker_host: str = "") -> SandboxSession:
+    """Get or create a sandbox session for persona.
+
+    If docker_host is provided it overrides the global SandboxConfig.docker_host.
+    When the docker_host changes for an existing session the old session is closed
+    and a new one is created so the new host takes effect immediately.
+    """
+    existing = _sessions.get(persona)
+    if existing is not None and existing._docker_host == docker_host:
+        return existing
+    if existing is not None:
+        existing.close()
+    session = SandboxSession(persona, docker_host=docker_host)
+    _sessions[persona] = session
+    return session
 
 
 def close_sandbox_session(persona: str) -> None:
