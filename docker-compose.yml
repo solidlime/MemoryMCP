@@ -60,7 +60,7 @@ services:
     environment:
       DOCKER_TLS_CERTDIR: ""  # Disable TLS (internal network only - no port exposed)
     volumes:
-      - ./data:/data          # Shared with memory-mcp so workspace paths align
+      - ./data/sandbox:/data/sandbox  # Minimal access: only workspace, not full memory data
       - dind-storage:/var/lib/docker
     restart: unless-stopped
     healthcheck:
