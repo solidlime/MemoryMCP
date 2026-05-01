@@ -1,4 +1,5 @@
 """Built-in tool executor and skill invocation."""
+
 from __future__ import annotations
 
 import json
@@ -56,11 +57,13 @@ async def execute_tool(ctx: AppContext, config: ChatConfig, tool_name: str, tool
                 items = []
                 for item in result.value:
                     mem = item[0] if isinstance(item, tuple) else item
-                    items.append({
-                        "content": getattr(mem, "content", str(mem)),
-                        "importance": getattr(mem, "importance", 0.5),
-                        "tags": getattr(mem, "tags", []),
-                    })
+                    items.append(
+                        {
+                            "content": getattr(mem, "content", str(mem)),
+                            "importance": getattr(mem, "importance", 0.5),
+                            "tags": getattr(mem, "tags", []),
+                        }
+                    )
                 return {"status": "ok", "memories": items}
             return {"status": "error", "message": str(result.error)}
 
@@ -213,7 +216,10 @@ async def invoke_skill(ctx: AppContext, config: ChatConfig, skill_name: str, tas
 
     try:
         provider = get_provider(
-            config.provider, api_key, config.get_effective_model(), config.get_effective_base_url(),
+            config.provider,
+            api_key,
+            config.get_effective_model(),
+            config.get_effective_base_url(),
         )
     except Exception as e:
         return {"error": f"Provider init failed: {e}"}

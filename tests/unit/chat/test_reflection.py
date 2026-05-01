@@ -1,4 +1,5 @@
 """Unit tests for _parse_insights() in reflection.py and threshold logic."""
+
 from __future__ import annotations
 
 import json

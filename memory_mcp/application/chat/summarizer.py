@@ -67,9 +67,7 @@ async def summarize_and_store(
     prompt = _SUMMARIZE_PROMPT.format(conversation="\n".join(conversation_lines))
 
     try:
-        provider = get_provider(
-            config.provider, api_key, model, config.get_effective_base_url()
-        )
+        provider = get_provider(config.provider, api_key, model, config.get_effective_base_url())
     except Exception as e:
         logger.warning("SessionSummarizer: provider init failed: %s", e)
         return None

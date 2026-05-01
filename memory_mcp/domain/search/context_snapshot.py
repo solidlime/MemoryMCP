@@ -1,4 +1,5 @@
 """Lightweight memory context snapshot for MemoRAG-style search."""
+
 from __future__ import annotations
 
 import json
@@ -45,13 +46,15 @@ class MemoryContextSnapshot:
             for mem in top_result.value:
                 content = mem.content or ""
                 snippet = content[:SNIPPET_MAX_CHARS] + ("…" if len(content) > SNIPPET_MAX_CHARS else "")
-                top_memories.append({
-                    "key": mem.key,
-                    "snippet": snippet,
-                    "importance": mem.importance,
-                    "tags": mem.tags or [],
-                    "emotion": mem.emotion or "",
-                })
+                top_memories.append(
+                    {
+                        "key": mem.key,
+                        "snippet": snippet,
+                        "importance": mem.importance,
+                        "tags": mem.tags or [],
+                        "emotion": mem.emotion or "",
+                    }
+                )
 
         index_result = memory_repo.get_memory_index()
         top_tags: list[tuple[str, int]] = []
@@ -91,13 +94,16 @@ class MemoryContextSnapshot:
 
     def to_json(self) -> str:
         """Serialize to JSON for storage."""
-        return json.dumps({
-            "top_memories": self.top_memories,
-            "top_tags": self.top_tags,
-            "emotion_dist": self.emotion_dist,
-            "memory_count": self.memory_count,
-            "built_at": self.built_at,
-        }, ensure_ascii=False)
+        return json.dumps(
+            {
+                "top_memories": self.top_memories,
+                "top_tags": self.top_tags,
+                "emotion_dist": self.emotion_dist,
+                "memory_count": self.memory_count,
+                "built_at": self.built_at,
+            },
+            ensure_ascii=False,
+        )
 
     @classmethod
     def from_json(cls, data: str) -> MemoryContextSnapshot:

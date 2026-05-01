@@ -1,4 +1,5 @@
 """Unit tests for MemoRAG search mode in SearchEngine."""
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock
@@ -20,7 +21,9 @@ def _make_engine(memorag_config=None, chat_config=None, memory_repo=None):
     keyword.search.return_value = Success([(_make_memory("k1"), 0.9)])
     semantic = MagicMock()
     semantic.search.return_value = Success([(_make_memory("k2"), 0.8)])
-    return SearchEngine(keyword, semantic, None, memory_repo=memory_repo, memorag_config=memorag_config, chat_config=chat_config)
+    return SearchEngine(
+        keyword, semantic, None, memory_repo=memory_repo, memorag_config=memorag_config, chat_config=chat_config
+    )
 
 
 class TestBestSearchMode:

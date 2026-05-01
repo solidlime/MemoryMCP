@@ -83,9 +83,7 @@ async def maybe_run_reflection(
         生成された洞察文字列のリスト。リフレクション未実行時は空リスト。
     """
     threshold: float = getattr(config, "reflection_threshold", _REFLECTION_THRESHOLD_DEFAULT)
-    min_interval_hours: float = getattr(
-        config, "reflection_min_interval_hours", _REFLECTION_MIN_INTERVAL_HOURS_DEFAULT
-    )
+    min_interval_hours: float = getattr(config, "reflection_min_interval_hours", _REFLECTION_MIN_INTERVAL_HOURS_DEFAULT)
 
     if recent_importance_sum < threshold:
         return []
@@ -98,7 +96,8 @@ async def maybe_run_reflection(
         if elapsed < min_interval_hours:
             logger.debug(
                 "Reflection skipped: last=%.1fh ago, min_interval=%.1fh",
-                elapsed, min_interval_hours,
+                elapsed,
+                min_interval_hours,
             )
             return []
 
@@ -112,32 +111,23 @@ async def maybe_run_reflection(
     recent_result = ctx.memory_service.get_recent(limit=20)
     if not recent_result.is_ok or not recent_result.value:
         # フォールバック: スマートサーチで最近記憶を取得
-        search_result = ctx.search_engine.search(
-            SearchQuery(text="記憶 事実 出来事", top_k=20, mode="hybrid")
-        )
+        search_result = ctx.search_engine.search(SearchQuery(text="記憶 事実 出来事", top_k=20, mode="hybrid"))
         memories = []
         if search_result.is_ok:
             for item in search_result.value:
                 mem = item[0] if isinstance(item, tuple) else item
                 memories.append(mem)
     else:
-        memories = [
-            m for m in recent_result.value
-            if m.created_at >= cutoff
-        ] or recent_result.value[:10]
+        memories = [m for m in recent_result.value if m.created_at >= cutoff] or recent_result.value[:10]
 
     if not memories:
         return []
 
-    memory_lines = "\n".join(
-        f"- [{m.importance:.1f}] {m.content[:120]}" for m in memories[:20]
-    )
+    memory_lines = "\n".join(f"- [{m.importance:.1f}] {m.content[:120]}" for m in memories[:20])
     prompt = _REFLECTION_PROMPT.format(memories=memory_lines)
 
     try:
-        provider = get_provider(
-            config.provider, api_key, extract_model, config.get_effective_base_url()
-        )
+        provider = get_provider(config.provider, api_key, extract_model, config.get_effective_base_url())
     except Exception as e:
         logger.warning("ReflectionEngine: provider init failed: %s", e)
         return []

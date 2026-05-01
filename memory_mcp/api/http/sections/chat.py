@@ -356,6 +356,11 @@ def render_chat_tab() -> str:
                         <div class="chat-field-label">コンテキスト履歴 (turns)</div>
                         <input type="number" id="chat-window-turns" class="chat-field-input" min="1" max="50" value="3" />
                     </div>
+                    <!-- Display history turns -->
+                    <div>
+                        <div class="chat-field-label">表示履歴 (turns) <span style="color:var(--text-muted);font-size:0.7rem;">（ページロード時に遡る件数）</span></div>
+                        <input type="number" id="chat-display-history-turns" class="chat-field-input" min="1" max="200" value="20" />
+                    </div>
                     <!-- Max tool calls -->
                     <div>
                         <div class="chat-field-label">最大ツール呼び出し回数</div>
@@ -463,6 +468,16 @@ def render_chat_tab() -> str:
                                 oninput="document.getElementById('chat-relevance-weight-val').textContent=parseFloat(this.value).toFixed(2)"
                                 style="width:100%;accent-color:var(--accent-purple);" />
                         </div>
+                    </div>
+                    <!-- Housekeeping settings -->
+                    <div style="border-top:1px solid var(--glass-border);padding-top:10px;">
+                        <div style="font-size:0.8rem; font-weight:600; color:var(--text-secondary); margin-bottom:8px;">🧹 コンテキスト整理</div>
+                        <div>
+                            <div class="chat-field-label">自動整理 閾値 (goals+promises 合計がこの数を超えたら実行)</div>
+                            <input type="number" id="chat-housekeeping-threshold" class="chat-field-input" min="1" max="100" value="10" />
+                        </div>
+                        <button class="chat-clear-btn" style="margin-top:8px;" onclick="runHousekeeping()">🧹 今すぐ整理</button>
+                        <div id="chat-housekeeping-status" style="font-size:0.75rem; text-align:center; min-height:16px;"></div>
                     </div>
                     <!-- Buttons -->
                     <button class="chat-save-btn" onclick="saveChatConfig()">💾 設定を保存</button>
@@ -578,6 +593,9 @@ function applyChatConfig(cfg) {
     setSlider('chat-recency-weight', 'chat-recency-weight-val', cfg.retrieval_recency_weight != null ? cfg.retrieval_recency_weight : 0.3);
     setSlider('chat-importance-weight', 'chat-importance-weight-val', cfg.retrieval_importance_weight != null ? cfg.retrieval_importance_weight : 0.3);
     setSlider('chat-relevance-weight', 'chat-relevance-weight-val', cfg.retrieval_relevance_weight != null ? cfg.retrieval_relevance_weight : 0.4);
+    // Housekeeping settings
+    set('chat-display-history-turns', cfg.display_history_turns != null ? cfg.display_history_turns : 20);
+    set('chat-housekeeping-threshold', cfg.housekeeping_threshold != null ? cfg.housekeeping_threshold : 10);
     const statusEl = document.getElementById('chat-config-status');
     if (statusEl) {
         if (cfg.is_configured) {
@@ -622,6 +640,8 @@ async function saveChatConfig() {
         retrieval_recency_weight: parseFloat(document.getElementById('chat-recency-weight')?.value || '0.3'),
         retrieval_importance_weight: parseFloat(document.getElementById('chat-importance-weight')?.value || '0.3'),
         retrieval_relevance_weight: parseFloat(document.getElementById('chat-relevance-weight')?.value || '0.4'),
+        display_history_turns: parseInt(document.getElementById('chat-display-history-turns')?.value || '20'),
+        housekeeping_threshold: parseInt(document.getElementById('chat-housekeeping-threshold')?.value || '10'),
     };
     try {
         const cfg = await api('/api/chat/' + encodeURIComponent(S.persona) + '/config', {
@@ -998,12 +1018,37 @@ async function restoreChatHistory() {
     try {
         const data = await api('/api/chat/' + encodeURIComponent(S.persona) + '/sessions/' + encodeURIComponent(sid));
         if (!data || !data.messages || data.messages.length === 0) return;
+        // display_history_turns 件数分（最新N turns = N*2 messages）に制限
+        const displayTurns = parseInt(document.getElementById('chat-display-history-turns')?.value || '20');
+        const maxMsgs = displayTurns * 2;
+        const msgs = data.messages.slice(-maxMsgs);
         container.innerHTML = '';
-        for (const msg of data.messages) {
+        for (const msg of msgs) {
             appendChatMessage(msg.role, msg.content, msg.time, msg.role === 'assistant');
         }
     } catch (_e) {
         // Session not found or API unavailable — start fresh
+    }
+}
+
+// Housekeeping: manual trigger
+async function runHousekeeping() {
+    if (!S.persona) { toast('ペルソナを選択してください', 'error'); return; }
+    const statusEl = document.getElementById('chat-housekeeping-status');
+    if (statusEl) statusEl.innerHTML = '<span style="color:var(--text-muted)">整理中...</span>';
+    try {
+        const result = await api('/api/chat/' + encodeURIComponent(S.persona) + '/housekeeping', {
+            method: 'POST',
+        });
+        const g = (result.cancelled_goals || []).length;
+        const p = (result.cancelled_promises || []).length;
+        const i = (result.removed_items || []).length;
+        const msg = `完了: goals ${g}件 / promises ${p}件 / items ${i}件 を整理`;
+        if (statusEl) statusEl.innerHTML = `<span style="color:var(--accent-green)">${msg}</span>`;
+        toast(msg, 'success');
+    } catch (e) {
+        if (statusEl) statusEl.innerHTML = `<span style="color:var(--accent-red)">失敗: ${e.message}</span>`;
+        toast('整理失敗: ' + e.message, 'error');
     }
 }
 

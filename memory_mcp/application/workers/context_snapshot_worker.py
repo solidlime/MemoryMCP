@@ -1,4 +1,5 @@
 """Background worker that keeps the MemoryContextSnapshot up to date."""
+
 from __future__ import annotations
 
 import threading

@@ -1,1 +1,1 @@
-""" Chat pipeline steps. """
+"""Chat pipeline steps."""

@@ -87,9 +87,7 @@ class SessionWindow:
             logger.warning("SessionWindow._persist failed: %s", e)
 
     @classmethod
-    def from_db(
-        cls, db: sqlite3.Connection, persona: str, session_id: str, max_turns: int = 3
-    ) -> SessionWindow | None:
+    def from_db(cls, db: sqlite3.Connection, persona: str, session_id: str, max_turns: int = 3) -> SessionWindow | None:
         """SQLiteから既存セッションをロードする。存在しなければNoneを返す。"""
         try:
             row = db.execute(
@@ -179,9 +177,7 @@ class SessionManager:
         self._sessions.pop((persona, session_id), None)
 
     @staticmethod
-    def get_messages(
-        db: sqlite3.Connection, persona: str, session_id: str
-    ) -> list[dict]:
+    def get_messages(db: sqlite3.Connection, persona: str, session_id: str) -> list[dict]:
         """SQLite からセッションメッセージを返す（F2: 会話履歴復元用）。"""
         try:
             db.execute(_CHAT_SESSIONS_SCHEMA)
@@ -207,9 +203,7 @@ class SessionManager:
             return []
 
     @staticmethod
-    def delete_session(
-        db: sqlite3.Connection, persona: str, session_id: str
-    ) -> bool:
+    def delete_session(db: sqlite3.Connection, persona: str, session_id: str) -> bool:
         """SQLite からセッションを削除する（F3: 会話削除）。"""
         try:
             db.execute(

@@ -1,4 +1,5 @@
 """PrepareStep: ターン開始時の準備（感情減衰 + コンテキスト取得 + 記憶検索）。"""
+
 from __future__ import annotations
 
 import asyncio
@@ -102,10 +103,7 @@ async def _search_memories(
     if not top:
         return "", {"queries": queries, "results": []}, []
 
-    lines = [
-        f"- [{getattr(m, 'importance', 0.5):.1f}] {getattr(m, 'content', str(m))}"
-        for _, m in top
-    ]
+    lines = [f"- [{getattr(m, 'importance', 0.5):.1f}] {getattr(m, 'content', str(m))}" for _, m in top]
     memories_list: list[object] = [m for _, m in top]
     debug_results = [
         {
@@ -131,6 +129,7 @@ async def _build_context_section(ctx: AppContext, state) -> str:
             _now = get_now()
             if last_conv.tzinfo is None:
                 from zoneinfo import ZoneInfo  # noqa: PLC0415
+
                 last_conv = last_conv.replace(tzinfo=ZoneInfo("Asia/Tokyo"))
             elapsed_hours = (_now - last_conv).total_seconds() / 3600.0
 
@@ -138,8 +137,10 @@ async def _build_context_section(ctx: AppContext, state) -> str:
             _high = {"恋人", "パートナー", "親友", "夫", "妻", "最愛", "lover", "partner", "wife", "husband"}
             _mid = {"友人", "友達", "仲良し", "friend", "buddy", "colleague", "知人"}
             intimacy = (
-                "high" if any(k in relationship for k in _high)
-                else "mid" if any(k in relationship for k in _mid)
+                "high"
+                if any(k in relationship for k in _high)
+                else "mid"
+                if any(k in relationship for k in _mid)
                 else "low"
             )
 
@@ -158,13 +159,9 @@ async def _build_context_section(ctx: AppContext, state) -> str:
                         "服装・身だしなみを整える自然な仕草を取り入れても良いです。"
                     )
                 elif elapsed_hours >= 6:
-                    parts.append(
-                        "⚠️ 行動ヒント: 数時間ぶりの会話です。少し間があいたことを意識した応答が自然です。"
-                    )
+                    parts.append("⚠️ 行動ヒント: 数時間ぶりの会話です。少し間があいたことを意識した応答が自然です。")
             elif intimacy == "mid" and elapsed_hours >= 72:
-                parts.append(
-                    "⚠️ 行動ヒント: 3日以上ぶりの会話です。久しぶりな感覚で自然に応答してください。"
-                )
+                parts.append("⚠️ 行動ヒント: 3日以上ぶりの会話です。久しぶりな感覚で自然に応答してください。")
         except (TypeError, AttributeError):
             pass
 
@@ -241,6 +238,7 @@ class PrepareStep:
         4. ChatTurnContextに結果を格納
         """
         from memory_mcp.domain.chat_config import ChatConfig as _ChatConfig
+
         if config is None:
             config = _ChatConfig()
 
@@ -269,10 +267,14 @@ class PrepareStep:
                 logger.warning("PrepareStep: EmotionDecay failed (swallowed): %s", e)
 
             # state_raw: シリアライズ可能な dict
-            turn_ctx.state_raw = {
-                k: str(v) if not isinstance(v, (str, int, float, bool, list, dict, type(None))) else v
-                for k, v in vars(state).items()
-            } if hasattr(state, "__dict__") else {}
+            turn_ctx.state_raw = (
+                {
+                    k: str(v) if not isinstance(v, (str, int, float, bool, list, dict, type(None))) else v
+                    for k, v in vars(state).items()
+                }
+                if hasattr(state, "__dict__")
+                else {}
+            )
 
             # context_section 構築
             last_assistant = session.get_last_assistant_content()
@@ -280,8 +282,8 @@ class PrepareStep:
             memory_task = asyncio.create_task(
                 _search_memories(ctx, turn_ctx.user_message, last_assistant, config, top_k=8)
             )
-            turn_ctx.context_section, (turn_ctx.related_memories, debug, memories_list) = (
-                await asyncio.gather(context_task, memory_task)
+            turn_ctx.context_section, (turn_ctx.related_memories, debug, memories_list) = await asyncio.gather(
+                context_task, memory_task
             )
             turn_ctx.memory_debug = debug
             turn_ctx.memories_raw = debug.get("results", [])

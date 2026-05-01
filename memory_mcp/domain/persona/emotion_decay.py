@@ -1,4 +1,5 @@
 """EmotionDecay: 時間経過による感情の自然な変化ロジック。"""
+
 from __future__ import annotations
 
 import logging
@@ -12,16 +13,16 @@ logger = logging.getLogger(__name__)
 
 # 感情ごとの減衰設定: decay_hours で neutral へ。None = 減衰なし
 _EMOTION_DECAY: dict[str, dict | None] = {
-    "anger":       {"decay_hours":  3.0, "to": "neutral"},
-    "fear":        {"decay_hours":  6.0, "to": "neutral"},
-    "joy":         {"decay_hours": 24.0, "to": "neutral"},
-    "love":        {"decay_hours": 12.0, "to": "neutral"},
-    "sadness":     {"decay_hours": 48.0, "to": "neutral"},
-    "excitement":  {"decay_hours":  8.0, "to": "neutral"},
-    "frustration": {"decay_hours":  4.0, "to": "neutral"},
-    "anxiety":     {"decay_hours": 12.0, "to": "neutral"},
-    "neutral":     None,
-    "loneliness":  None,   # loneliness は会話で自然消滅 (別途処理)
+    "anger": {"decay_hours": 3.0, "to": "neutral"},
+    "fear": {"decay_hours": 6.0, "to": "neutral"},
+    "joy": {"decay_hours": 24.0, "to": "neutral"},
+    "love": {"decay_hours": 12.0, "to": "neutral"},
+    "sadness": {"decay_hours": 48.0, "to": "neutral"},
+    "excitement": {"decay_hours": 8.0, "to": "neutral"},
+    "frustration": {"decay_hours": 4.0, "to": "neutral"},
+    "anxiety": {"decay_hours": 12.0, "to": "neutral"},
+    "neutral": None,
+    "loneliness": None,  # loneliness は会話で自然消滅 (別途処理)
 }
 
 # 24時間以上放置されると loneliness が生じる
@@ -109,7 +110,10 @@ async def apply_emotion_decay_if_needed(
         if result.is_ok:
             logger.info(
                 "EmotionDecay: %s → %s (intensity=%.2f, elapsed=%.1fh)",
-                state.emotion, updates["emotion"], updates["intensity"], elapsed_hours,
+                state.emotion,
+                updates["emotion"],
+                updates["intensity"],
+                elapsed_hours,
             )
             return True
         logger.warning("EmotionDecay: update_emotion failed: %s", result.error)

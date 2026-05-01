@@ -1,4 +1,5 @@
 """ChatService: パイプライン型チャットオーケストレーター。"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -57,5 +58,3 @@ class ChatService:
 
         async for post_event in PostProcessStep().run(ctx, config, session, turn_ctx, debug=debug):
             yield post_event.to_sse()
-
-

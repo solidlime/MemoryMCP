@@ -1,4 +1,5 @@
 """MEMORY_TOOLS: チャット組み込みツール定義。"""
+
 from __future__ import annotations
 
 from memory_mcp.infrastructure.llm.base import ToolDefinition
@@ -142,10 +143,22 @@ MEMORY_TOOLS: list[ToolDefinition] = [
 ]
 
 # MCPサーバー由来の memory 系ツール名（MEMORY_TOOLS と重複するため除外対象）
-_MEMORY_MCP_TOOL_NAMES: frozenset[str] = frozenset({
-    "memory", "search_memory", "get_context", "update_context", "item",
-    "memory_create", "memory_search", "context_update",
-    "goal_create", "goal_achieve", "goal_cancel",
-    "promise_create", "promise_fulfill",
-    "memory_update", "context_recall",
-})
+_MEMORY_MCP_TOOL_NAMES: frozenset[str] = frozenset(
+    {
+        "memory",
+        "search_memory",
+        "get_context",
+        "update_context",
+        "item",
+        "memory_create",
+        "memory_search",
+        "context_update",
+        "goal_create",
+        "goal_achieve",
+        "goal_cancel",
+        "promise_create",
+        "promise_fulfill",
+        "memory_update",
+        "context_recall",
+    }
+)

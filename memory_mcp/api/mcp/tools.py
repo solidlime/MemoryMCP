@@ -75,6 +75,7 @@ def register_tools(mcp: FastMCP) -> None:
         # 感情減衰: 時間経過による感情の自然な変化を適用
         try:
             from memory_mcp.domain.persona.emotion_decay import apply_emotion_decay_if_needed
+
             changed = await apply_emotion_decay_if_needed(ctx.persona_service, persona, state)
             if changed:
                 refreshed = ctx.persona_service.get_context(persona)
@@ -415,6 +416,7 @@ def register_tools(mcp: FastMCP) -> None:
 
         elif operation == "refresh_context_snapshot":
             from memory_mcp.domain.search.context_snapshot import MemoryContextSnapshot
+
             snapshot = MemoryContextSnapshot.build(ctx.memory_repo, top_n=ctx.settings.memorag.snapshot_top_memories)
             snapshot.save(ctx.memory_repo)
             return f"Context snapshot rebuilt.\n{snapshot.to_text()[:500]}"

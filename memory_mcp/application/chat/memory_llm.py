@@ -418,3 +418,154 @@ async def run_memory_llm(ctx: AppContext, config: ChatConfig, payload: dict) -> 
     except Exception as e:
         logger.warning("run_memory_llm failed: %s", e)
         return {}
+
+
+_HOUSEKEEPING_PROMPT = """\
+あなたは {persona_name} です。
+
+以下の現在のコンテキストを整理してください。
+古い・達成済み・重複・不要になったgoals/promises/itemsを特定してください。
+
+【現在のアクティブなGoals（目標）】
+{goals}
+
+【現在のアクティブなPromises（約束）】
+{promises}
+
+【現在の所持品】
+{inventory}
+
+【出力形式】
+JSONのみ。コメント不要。
+{{
+  "cancel_goals": ["key1", "key2"],
+  "cancel_promises": ["key3"],
+  "remove_items": ["item_name1"]
+}}
+
+【判断基準】
+- cancel_goals: 達成済み・不可能・古すぎる・曖昧すぎるgoalのmemory_key
+- cancel_promises: 履行済み・無効になった・古すぎるpromiseのmemory_key
+- remove_items: 重複・壊れた・不要になったアイテム名
+- 疑わしい場合は残す（積極的に削除しすぎない）
+- 何も不要なものがなければ {{"cancel_goals":[],"cancel_promises":[],"remove_items":[]}} を出力
+"""
+
+
+async def run_context_housekeeping(ctx: AppContext, config: ChatConfig) -> dict:
+    """staleなgoals/promises/itemsをLLMで判定してクリーンアップする。"""
+    api_key = config.get_effective_api_key()
+    extract_model = config.extract_model.strip() or config.get_effective_model()
+    if not api_key or not extract_model:
+        return {"skipped": "LLM not configured"}
+
+    # 現在のcommitmentsとinventoryを収集
+    goals_list: list[dict] = []
+    promises_list: list[dict] = []
+    try:
+        goal_result = ctx.memory_service.get_by_tags(["goal", "active"])
+        if goal_result.is_ok and goal_result.value:
+            goals_list = [{"key": m.key, "content": m.content[:100]} for m in goal_result.value[:20]]
+    except Exception:
+        pass
+
+    try:
+        promise_result = ctx.memory_service.get_by_tags(["promise", "active"])
+        if promise_result.is_ok and promise_result.value:
+            promises_list = [{"key": m.key, "content": m.content[:100]} for m in promise_result.value[:20]]
+    except Exception:
+        pass
+
+    inv_lines: list[str] = []
+    try:
+        items_result = ctx.equipment_service.search_items()
+        if items_result.is_ok and items_result.value:
+            for item in items_result.value[:20]:
+                desc = f" ({item.description})" if getattr(item, "description", None) else ""
+                inv_lines.append(f"  - {item.name}{desc}")
+    except Exception:
+        pass
+
+    goals_str = "\n".join(f"  - key={g['key']}: {g['content']}" for g in goals_list) or "(なし)"
+    promises_str = "\n".join(f"  - key={p['key']}: {p['content']}" for p in promises_list) or "(なし)"
+    inventory_str = "\n".join(inv_lines) or "(なし)"
+
+    prompt = _HOUSEKEEPING_PROMPT.format(
+        persona_name=ctx.persona or "assistant",
+        goals=goals_str,
+        promises=promises_str,
+        inventory=inventory_str,
+    )
+
+    try:
+        provider = get_provider(
+            config.provider,
+            api_key,
+            extract_model,
+            config.get_effective_base_url(),
+        )
+    except Exception as e:
+        logger.warning("run_context_housekeeping: provider init failed: %s", e)
+        return {"error": str(e)}
+
+    from memory_mcp.infrastructure.llm.base import DoneEvent, ErrorEvent, TextDeltaEvent
+
+    text = ""
+    try:
+        async for event in provider.stream(
+            messages=[LLMMessage(role="user", content=prompt)],
+            system="",
+            tools=[],
+            temperature=0.0,
+            max_tokens=512,
+        ):
+            if isinstance(event, TextDeltaEvent):
+                text += event.content
+            elif isinstance(event, (DoneEvent, ErrorEvent)):
+                break
+    except Exception as e:
+        logger.warning("run_context_housekeeping: LLM call failed: %s", e)
+        return {"error": str(e)}
+
+    # JSON解析
+    raw = text.strip()
+    if raw.startswith("```"):
+        lines = raw.splitlines()
+        raw = "\n".join(lines[1:-1] if lines[-1].startswith("```") else lines[1:])
+    try:
+        result = json.loads(raw)
+    except Exception:
+        result = {}
+
+    cancel_goals = result.get("cancel_goals", [])
+    cancel_promises = result.get("cancel_promises", [])
+    remove_items = result.get("remove_items", [])
+
+    cancelled_goals = []
+    for key in cancel_goals:
+        if isinstance(key, str) and key.strip():
+            upd = ctx.memory_service.update_memory(key.strip(), tags=["goal", "cancelled"])
+            if upd.is_ok:
+                cancelled_goals.append(key)
+                logger.info("housekeeping: goal cancelled key=%s", key)
+
+    cancelled_promises = []
+    for key in cancel_promises:
+        if isinstance(key, str) and key.strip():
+            upd = ctx.memory_service.update_memory(key.strip(), tags=["promise", "cancelled"])
+            if upd.is_ok:
+                cancelled_promises.append(key)
+                logger.info("housekeeping: promise cancelled key=%s", key)
+
+    removed_items = []
+    for item_name in remove_items:
+        if isinstance(item_name, str) and item_name.strip():
+            ctx.equipment_service.remove_item(item_name.strip())
+            removed_items.append(item_name)
+            logger.info("housekeeping: item removed name=%s", item_name)
+
+    return {
+        "cancelled_goals": cancelled_goals,
+        "cancelled_promises": cancelled_promises,
+        "removed_items": removed_items,
+    }

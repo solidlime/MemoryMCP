@@ -60,6 +60,15 @@ def register_chat_routes(mcp) -> None:
             "tool_result_max_chars",
             "mcp_servers",
             "enabled_skills",
+            "reflection_enabled",
+            "reflection_threshold",
+            "reflection_min_interval_hours",
+            "session_summarize",
+            "retrieval_recency_weight",
+            "retrieval_importance_weight",
+            "retrieval_relevance_weight",
+            "display_history_turns",
+            "housekeeping_threshold",
         ):
             if field_name in body:
                 update_data[field_name] = body[field_name]
@@ -196,3 +205,23 @@ def register_chat_routes(mcp) -> None:
         SessionManager.delete_session(db, persona, session_id)
         _session_manager.clear(persona, session_id)
         return JSONResponse({"deleted": True, "session_id": session_id})
+
+    @mcp.custom_route("/api/chat/{persona}/housekeeping", methods=["POST"])
+    async def run_housekeeping(request: Request) -> JSONResponse:
+        """コンテキスト整理: staleなgoals/promises/itemsをLLMで判定・削除する。"""
+        persona = _resolve_persona_from_request(request)
+        ctx = _safe_get_context(persona)
+        if not ctx:
+            return JSONResponse({"error": "Persona not found"}, status_code=404)
+
+        from memory_mcp.application.chat.memory_llm import run_context_housekeeping
+        from memory_mcp.domain.chat_config import ChatConfigRepository
+
+        repo = ChatConfigRepository(ctx.connection.get_memory_db())
+        config = repo.get(persona)
+        try:
+            result = await run_context_housekeeping(ctx, config)
+            return JSONResponse(result)
+        except Exception as e:
+            logger.warning("housekeeping failed: %s", e)
+            return JSONResponse({"error": str(e)}, status_code=500)

@@ -1,4 +1,5 @@
 """InferenceStep: LLMストリームループとツール実行。"""
+
 from __future__ import annotations
 
 import json
@@ -100,12 +101,14 @@ class InferenceStep:
                 truncated = registry.truncate_result(tool_result, config.tool_result_max_chars)
 
                 yield ToolResultSSE(name=tc.tool_name, result=truncated, id=tc.tool_use_id)
-                turn_ctx.tool_calls_log.append({
-                    "name": tc.tool_name,
-                    "input": tc.tool_input,
-                    "result": truncated,
-                    "result_raw": tool_result,
-                })
+                turn_ctx.tool_calls_log.append(
+                    {
+                        "name": tc.tool_name,
+                        "input": tc.tool_input,
+                        "result": truncated,
+                        "result_raw": tool_result,
+                    }
+                )
                 messages.append(
                     LLMMessage(
                         role="tool",

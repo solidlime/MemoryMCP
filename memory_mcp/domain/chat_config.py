@@ -61,6 +61,10 @@ class ChatConfig(BaseModel):
     retrieval_recency_weight: float = 0.3
     retrieval_importance_weight: float = 0.3
     retrieval_relevance_weight: float = 0.4
+    # Chat history display (separate from context window)
+    display_history_turns: int = 20
+    # Housekeeping auto-trigger threshold (total active goals+promises)
+    housekeeping_threshold: int = 10
     updated_at: str | None = None
 
     @field_validator("temperature")
@@ -108,6 +112,16 @@ class ChatConfig(BaseModel):
     def _clamp_retrieval_weights(cls, v: float) -> float:
         return max(0.0, min(1.0, v))
 
+    @field_validator("display_history_turns")
+    @classmethod
+    def _clamp_display_history_turns(cls, v: int) -> int:
+        return max(1, min(200, v))
+
+    @field_validator("housekeeping_threshold")
+    @classmethod
+    def _clamp_housekeeping_threshold(cls, v: int) -> int:
+        return max(1, min(100, v))
+
     def get_effective_api_key(self) -> str:
         """Return stored API key or fall back to environment variable."""
         if self.api_key:
@@ -152,17 +166,34 @@ class ChatConfigRepository:
 
     def get(self, persona: str) -> ChatConfig:
         """Load config for persona, returning defaults if not found."""
-        row = self._db.execute(
-            "SELECT persona, provider, model, api_key, base_url, system_prompt, "
-            "temperature, max_tokens, max_window_turns, max_tool_calls, updated_at, "
-            "auto_extract, extract_model, extract_max_tokens, "
-            "tool_result_max_chars, mcp_servers, enabled_skills, "
-            "reflection_enabled, reflection_threshold, reflection_min_interval_hours, "
-            "session_summarize, "
-            "retrieval_recency_weight, retrieval_importance_weight, retrieval_relevance_weight "
-            "FROM chat_settings WHERE persona = ?",
-            (persona,),
-        ).fetchone()
+        try:
+            row = self._db.execute(
+                "SELECT persona, provider, model, api_key, base_url, system_prompt, "
+                "temperature, max_tokens, max_window_turns, max_tool_calls, updated_at, "
+                "auto_extract, extract_model, extract_max_tokens, "
+                "tool_result_max_chars, mcp_servers, enabled_skills, "
+                "reflection_enabled, reflection_threshold, reflection_min_interval_hours, "
+                "session_summarize, "
+                "retrieval_recency_weight, retrieval_importance_weight, retrieval_relevance_weight, "
+                "display_history_turns, housekeeping_threshold "
+                "FROM chat_settings WHERE persona = ?",
+                (persona,),
+            ).fetchone()
+        except Exception:
+            # Fallback for older DB schemas missing new columns
+            row = self._db.execute(
+                "SELECT persona, provider, model, api_key, base_url, system_prompt, "
+                "temperature, max_tokens, max_window_turns, max_tool_calls, updated_at, "
+                "auto_extract, extract_model, extract_max_tokens, "
+                "tool_result_max_chars, mcp_servers, enabled_skills, "
+                "reflection_enabled, reflection_threshold, reflection_min_interval_hours, "
+                "session_summarize, "
+                "retrieval_recency_weight, retrieval_importance_weight, retrieval_relevance_weight "
+                "FROM chat_settings WHERE persona = ?",
+                (persona,),
+            ).fetchone()
+            if row is not None:
+                row = (*row, None, None)
         if row is None:
             return ChatConfig(persona=persona)
         return ChatConfig(
@@ -190,6 +221,8 @@ class ChatConfigRepository:
             retrieval_recency_weight=float(row[21]) if row[21] is not None else 0.3,
             retrieval_importance_weight=float(row[22]) if row[22] is not None else 0.3,
             retrieval_relevance_weight=float(row[23]) if row[23] is not None else 0.4,
+            display_history_turns=int(row[24]) if row[24] is not None else 20,
+            housekeeping_threshold=int(row[25]) if row[25] is not None else 10,
         )
 
     def save(self, config: ChatConfig) -> None:
@@ -205,8 +238,9 @@ class ChatConfigRepository:
                  reflection_enabled, reflection_threshold, reflection_min_interval_hours,
                  session_summarize,
                  retrieval_recency_weight, retrieval_importance_weight, retrieval_relevance_weight,
+                 display_history_turns, housekeeping_threshold,
                  updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(persona) DO UPDATE SET
                 provider=excluded.provider,
                 model=excluded.model,
@@ -230,6 +264,8 @@ class ChatConfigRepository:
                 retrieval_recency_weight=excluded.retrieval_recency_weight,
                 retrieval_importance_weight=excluded.retrieval_importance_weight,
                 retrieval_relevance_weight=excluded.retrieval_relevance_weight,
+                display_history_turns=excluded.display_history_turns,
+                housekeeping_threshold=excluded.housekeeping_threshold,
                 updated_at=excluded.updated_at
             """,
             (
@@ -256,6 +292,8 @@ class ChatConfigRepository:
                 config.retrieval_recency_weight,
                 config.retrieval_importance_weight,
                 config.retrieval_relevance_weight,
+                config.display_history_turns,
+                config.housekeeping_threshold,
                 now,
             ),
         )

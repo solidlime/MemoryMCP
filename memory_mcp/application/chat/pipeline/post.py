@@ -1,4 +1,5 @@
 """PostProcessStep: MemoryLLM await実行 + Reflection SSE + セッション更新 + DebugInfo SSE。"""
+
 from __future__ import annotations
 
 import asyncio
@@ -11,7 +12,7 @@ from memory_mcp.application.chat.events import (
     ReflectionDoneSSE,
     ReflectionStartSSE,
 )
-from memory_mcp.application.chat.memory_llm import run_memory_llm
+from memory_mcp.application.chat.memory_llm import run_context_housekeeping, run_memory_llm
 from memory_mcp.application.chat.reflection import maybe_run_reflection
 from memory_mcp.application.chat.summarizer import summarize_and_store
 from memory_mcp.domain.shared.time_utils import get_now
@@ -51,8 +52,10 @@ class PostProcessStep:
     ) -> AsyncIterator[DebugInfoSSE | DoneSSE | MemoryActivitySSE | ReflectionStartSSE | ReflectionDoneSSE]:
         # evict_callback を設定してからセッションにターンを追加
         if getattr(config, "session_summarize", True) and getattr(config, "extract_model", ""):
+
             def _evict_cb(evicted: list[dict]) -> None:
                 asyncio.create_task(_do_summarize(ctx, config, evicted))
+
             session.evict_callback = _evict_cb
 
         now = get_now()
@@ -74,19 +77,38 @@ class PostProcessStep:
             except Exception as e:
                 logger.warning("PostProcessStep: run_memory_llm failed: %s", e)
 
+        # Housekeeping: active goals+promises が threshold 超えたら自動整理
+        housekeeping_threshold = getattr(config, "housekeeping_threshold", 10)
+        try:
+            goal_count = 0
+            promise_count = 0
+            g_res = ctx.memory_service.get_by_tags(["goal", "active"])
+            if g_res.is_ok and g_res.value:
+                goal_count = len(g_res.value)
+            p_res = ctx.memory_service.get_by_tags(["promise", "active"])
+            if p_res.is_ok and p_res.value:
+                promise_count = len(p_res.value)
+            if goal_count + promise_count >= housekeeping_threshold:
+                logger.info(
+                    "PostProcessStep: housekeeping triggered (goals=%d, promises=%d, threshold=%d)",
+                    goal_count,
+                    promise_count,
+                    housekeeping_threshold,
+                )
+                asyncio.create_task(run_context_housekeeping(ctx, config))
+        except Exception as e:
+            logger.warning("PostProcessStep: housekeeping check failed: %s", e)
+
         # MemoryActivitySSE: 取得された記憶と保存された記憶・goals・promises を通知
         retrieved_for_sse = turn_ctx.memories_raw[:5]
         saved_facts = [
             {"content": f.get("content", ""), "tags": f.get("tags", [])}
-            for f in memory_result.get("facts", []) if f.get("content")
+            for f in memory_result.get("facts", [])
+            if f.get("content")
         ]
-        saved_goals = [
-            {"content": g.get("content", "")}
-            for g in memory_result.get("goals", []) if g.get("content")
-        ]
+        saved_goals = [{"content": g.get("content", "")} for g in memory_result.get("goals", []) if g.get("content")]
         saved_promises = [
-            {"content": p.get("content", "")}
-            for p in memory_result.get("promises", []) if p.get("content")
+            {"content": p.get("content", "")} for p in memory_result.get("promises", []) if p.get("content")
         ]
         yield MemoryActivitySSE(
             retrieved=retrieved_for_sse,
@@ -127,9 +149,10 @@ class PostProcessStep:
         # Reflection: DoneSSE後にawait実行 & SSE通知
         # importance_sum = 保存された facts の importance 合計 + ツールコール数 * 0.3
         if getattr(config, "reflection_enabled", True):
-            importance_sum = sum(
-                float(f.get("importance", 0.6)) for f in memory_result.get("facts", [])
-            ) + len(turn_ctx.tool_calls_log) * 0.3
+            importance_sum = (
+                sum(float(f.get("importance", 0.6)) for f in memory_result.get("facts", []))
+                + len(turn_ctx.tool_calls_log) * 0.3
+            )
             threshold = getattr(config, "reflection_threshold", 1.0)
             if importance_sum >= threshold:
                 try:

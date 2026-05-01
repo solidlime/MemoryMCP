@@ -1,4 +1,5 @@
 """Unit tests for composite-scoring retrieval logic in PrepareStep."""
+
 from __future__ import annotations
 
 import math
@@ -52,10 +53,7 @@ class TestComputeRecencyDecay:
     def test_monotonic_decrease(self):
         """Recency should strictly decrease as age increases."""
         now = datetime.now(tz=UTC)
-        scores = [
-            _compute_recency_decay(now - timedelta(days=d))
-            for d in [0, 1, 3, 7, 14]
-        ]
+        scores = [_compute_recency_decay(now - timedelta(days=d)) for d in [0, 1, 3, 7, 14]]
         for i in range(len(scores) - 1):
             assert scores[i] > scores[i + 1]
 
@@ -64,8 +62,9 @@ class TestCompositeScoreFormula:
     """Tests for the composite scoring formula used in _search_memories."""
 
     @staticmethod
-    def composite(recency: float, importance: float, rrf: float,
-                  rw: float = 0.3, iw: float = 0.3, relw: float = 0.4) -> float:
+    def composite(
+        recency: float, importance: float, rrf: float, rw: float = 0.3, iw: float = 0.3, relw: float = 0.4
+    ) -> float:
         return rw * recency + iw * importance + relw * rrf
 
     def test_weights_sum_to_correct_total(self):
@@ -76,13 +75,13 @@ class TestCompositeScoreFormula:
     def test_relevance_dominates_with_high_weight(self):
         """High relevance weight should make relevance dominate."""
         score_high_rel = self.composite(0.1, 0.1, 0.9, rw=0.1, iw=0.1, relw=0.8)
-        score_low_rel  = self.composite(0.9, 0.9, 0.1, rw=0.1, iw=0.1, relw=0.8)
+        score_low_rel = self.composite(0.9, 0.9, 0.1, rw=0.1, iw=0.1, relw=0.8)
         assert score_high_rel > score_low_rel
 
     def test_recency_dominates_with_high_weight(self):
         """High recency weight should make fresh memories rank higher."""
         score_fresh = self.composite(0.9, 0.1, 0.1, rw=0.8, iw=0.1, relw=0.1)
-        score_old   = self.composite(0.1, 0.9, 0.9, rw=0.8, iw=0.1, relw=0.1)
+        score_old = self.composite(0.1, 0.9, 0.9, rw=0.8, iw=0.1, relw=0.1)
         assert score_fresh > score_old
 
     def test_zero_scores_give_zero(self):

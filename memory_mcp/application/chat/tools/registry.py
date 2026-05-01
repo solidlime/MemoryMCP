@@ -1,4 +1,5 @@
 """ToolRegistry: built-in/MCPツールの統一管理。"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

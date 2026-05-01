@@ -1,4 +1,5 @@
 """tests/unit/test_chat_pipeline.py — パイプライン各ステップのユニットテスト。"""
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock
@@ -14,6 +15,7 @@ from memory_mcp.application.chat.events import (
 from memory_mcp.application.chat.pipeline.context import ChatTurnContext
 
 # --- Events ---
+
 
 class TestSSEEvents:
     def test_text_delta_sse(self):
@@ -55,6 +57,7 @@ class TestSSEEvents:
 
 # --- ChatTurnContext ---
 
+
 class TestChatTurnContext:
     def test_defaults(self):
         ctx = ChatTurnContext(session_id="s1", user_message="hello")
@@ -74,9 +77,11 @@ class TestChatTurnContext:
 
 # --- EmotionDecay ---
 
+
 class TestComputeEmotionDecay:
     def test_no_decay_for_neutral(self):
         from memory_mcp.domain.persona.emotion_decay import compute_emotion_decay
+
         state = MagicMock()
         state.emotion = "neutral"
         state.emotion_intensity = 0.5
@@ -87,6 +92,7 @@ class TestComputeEmotionDecay:
 
     def test_anger_decays_after_threshold(self):
         from memory_mcp.domain.persona.emotion_decay import compute_emotion_decay
+
         state = MagicMock()
         state.emotion = "anger"
         state.emotion_intensity = 0.8
@@ -96,6 +102,7 @@ class TestComputeEmotionDecay:
 
     def test_loneliness_generated_after_24h(self):
         from memory_mcp.domain.persona.emotion_decay import compute_emotion_decay
+
         state = MagicMock()
         state.emotion = "neutral"
         state.emotion_intensity = 0.0
@@ -106,6 +113,7 @@ class TestComputeEmotionDecay:
 
     def test_no_change_for_zero_elapsed(self):
         from memory_mcp.domain.persona.emotion_decay import compute_emotion_decay
+
         state = MagicMock()
         state.emotion = "anger"
         state.emotion_intensity = 0.8
@@ -115,10 +123,12 @@ class TestComputeEmotionDecay:
 
 # --- ToolRegistry ---
 
+
 class TestToolRegistry:
     def test_builtin_tools_only(self):
         from memory_mcp.application.chat.tools.registry import ToolRegistry
         from memory_mcp.infrastructure.llm.base import ToolDefinition
+
         tools = [ToolDefinition(name="t1", description="d1", input_schema={})]
         reg = ToolRegistry(tools, mcp_pool=None)
         assert len(reg.get_all_tools()) == 1
@@ -126,12 +136,14 @@ class TestToolRegistry:
 
     def test_mcp_tool_detection(self):
         from memory_mcp.application.chat.tools.registry import ToolRegistry
+
         reg = ToolRegistry([], mcp_pool=None)
         assert reg.is_mcp_tool("server__tool") is True
         assert reg.is_mcp_tool("memory_create") is False
 
     def test_truncate_result(self):
         from memory_mcp.application.chat.tools.registry import ToolRegistry
+
         reg = ToolRegistry([], mcp_pool=None)
         result = {"content": "x" * 10000}
         truncated = reg.truncate_result(result, max_chars=100)

@@ -1,4 +1,5 @@
 """MemoRAG ClueGenerator: LLM-based query clue generation."""
+
 from __future__ import annotations
 
 import json

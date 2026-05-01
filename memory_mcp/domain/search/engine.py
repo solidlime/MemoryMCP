@@ -243,19 +243,18 @@ class SearchEngine:
         if cfg.clue_generation_enabled and self._chat_config and self._chat_config.is_configured():
             try:
                 from memory_mcp.domain.search.clue_generator import ClueGenerator
+
                 generator = ClueGenerator()
                 try:
                     asyncio.get_running_loop()
                     import concurrent.futures
+
                     with concurrent.futures.ThreadPoolExecutor() as executor:
                         clues = executor.submit(
-                            asyncio.run,
-                            generator.generate(snapshot.to_text(), query.text, self._chat_config)
+                            asyncio.run, generator.generate(snapshot.to_text(), query.text, self._chat_config)
                         ).result(timeout=12.0)
                 except RuntimeError:
-                    clues = asyncio.run(
-                        generator.generate(snapshot.to_text(), query.text, self._chat_config)
-                    )
+                    clues = asyncio.run(generator.generate(snapshot.to_text(), query.text, self._chat_config))
             except Exception as e:
                 logger.debug("MemoRAG: clue generation failed: %s", e)
 
