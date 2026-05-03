@@ -332,6 +332,8 @@ def register_tools(mcp: FastMCP) -> None:
         elif operation == "check_contradictions":
             if not content and not memory_key:
                 return "Error: content or memory_key required"
+            if not ctx.vector_store:
+                return "Error: Qdrant vector store unavailable, check_contradictions operation disabled. Please ensure Qdrant is running or disable this operation."
             check_content = content
             exclude = None
             if memory_key and not content:
@@ -369,6 +371,8 @@ def register_tools(mcp: FastMCP) -> None:
         elif operation == "history":
             if not memory_key:
                 return "Error: memory_key required for history"
+            if not ctx.vector_store:
+                return "Error: Qdrant vector store unavailable, history operation disabled. Please ensure Qdrant is running or disable this operation."
             result = ctx.memory_service.get_memory_history(memory_key)
             if not result.is_ok:
                 return f"Error: {result.error}"
@@ -389,6 +393,8 @@ def register_tools(mcp: FastMCP) -> None:
         elif operation == "block_write":
             if not block_name or not content:
                 return "Error: block_name and content required"
+            if not ctx.vector_store:
+                return "Error: Qdrant vector store unavailable, block_write operation disabled. Please ensure Qdrant is running or disable this operation."
             result = ctx.memory_service.write_block(
                 block_name,
                 content,
@@ -401,16 +407,22 @@ def register_tools(mcp: FastMCP) -> None:
         elif operation == "block_read":
             if not block_name:
                 return "Error: block_name required"
+            if not ctx.vector_store:
+                return "Error: Qdrant vector store unavailable, block_read operation disabled. Please ensure Qdrant is running or disable this operation."
             result = ctx.memory_service.read_block(block_name)
             return str(result.value) if result.is_ok else f"Error: {result.error}"
 
         elif operation == "block_list":
+            if not ctx.vector_store:
+                return "Error: Qdrant vector store unavailable, block_list operation disabled. Please ensure Qdrant is running or disable this operation."
             result = ctx.memory_service.list_blocks()
             return str(result.value) if result.is_ok else f"Error: {result.error}"
 
         elif operation == "block_delete":
             if not block_name:
                 return "Error: block_name required"
+            if not ctx.vector_store:
+                return "Error: Qdrant vector store unavailable, block_delete operation disabled. Please ensure Qdrant is running or disable this operation."
             result = ctx.memory_service.delete_block(block_name)
             return "Block deleted" if result.is_ok else f"Error: {result.error}"
 
@@ -427,6 +439,8 @@ def register_tools(mcp: FastMCP) -> None:
             q = query or entity_id or ""
             if not q:
                 return "Error: query or entity_id required"
+            if not ctx.vector_store:
+                return "Error: Qdrant vector store unavailable, entity_search operation disabled. Please ensure Qdrant is running or disable this operation."
             result = ctx.entity_service.find_entities(q, entity_type)
             if not result.is_ok:
                 return f"Error: {result.error}"
@@ -439,6 +453,8 @@ def register_tools(mcp: FastMCP) -> None:
             eid = entity_id or query
             if not eid:
                 return "Error: entity_id required"
+            if not ctx.vector_store:
+                return "Error: Qdrant vector store unavailable, entity_graph operation disabled. Please ensure Qdrant is running or disable this operation."
             result = ctx.entity_service.get_entity_graph(eid, depth)
             if not result.is_ok:
                 return f"Error: {result.error}"
@@ -466,6 +482,18 @@ def register_tools(mcp: FastMCP) -> None:
         elif operation == "entity_add_relation":
             if not source_entity or not target_entity or not relation_type:
                 return "Error: source_entity, target_entity, and relation_type required"
+            if not ctx.vector_store:
+                return "Error: Qdrant vector store unavailable, entity_add_relation operation disabled. Please ensure Qdrant is running or disable this operation."
+            if not ctx.vector_store:
+                return "Error: Qdrant vector store unavailable, entity_add_relation operation disabled. Please ensure Qdrant is running or disable this operation."
+            if not ctx.vector_store:
+                return "Error: Qdrant vector store unavailable, entity_add_relation operation disabled. Please ensure Qdrant is running or disable this operation."
+            if not ctx.vector_store:
+                return "Error: Qdrant vector store unavailable, entity_add_relation operation disabled. Please ensure Qdrant is running or disable this operation."
+            if not ctx.vector_store:
+                return "Error: Qdrant vector store unavailable, entity_add_relation operation disabled. Please ensure Qdrant is running or disable this operation."
+            if not ctx.vector_store:
+                return "Error: Qdrant vector store unavailable, entity_add_relation operation disabled. Please ensure Qdrant is running or disable this operation."
             result = ctx.entity_service.add_relation(source_entity, target_entity, relation_type, memory_key)
             return (
                 f"Relation added: {source_entity} --[{relation_type}]--> {target_entity}"
