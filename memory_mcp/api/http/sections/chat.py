@@ -807,13 +807,13 @@ def render_chat_tab() -> str:
                         <!-- User Terminal (interactive) -->
                         <div class="terminal user-terminal">
                             <div class="terminal-title">👤 ユーザー操作</div>
-                            <textarea id="user-terminal-input" 
-                                      class="user-terminal-input" 
+                            <textarea id="user-terminal-input"
+                                      class="user-terminal-input"
                                       placeholder="コマンドやコードを入力（Ctrl+Enter で実行）..."></textarea>
                             <div id="user-terminal-output" class="terminal-content"></div>
                         </div>
                     </div>
-                </div>    
+                </div>
                 <!-- File Operations Log -->
                 <div id="file-log-container" class="file-log">
                     <div class="file-log-header">📝 ファイル変更履歴</div>
@@ -890,7 +890,7 @@ function loadChat() {
     const memoryBtn = document.getElementById('memoryPanelToggle');
     const debugBtn = document.getElementById('debugPanelToggle');
     const settingsBtn = document.getElementById('settingsPanelToggle');
-    
+
     if (CHAT.memoryPanelOpen && memoryPanel) {
         memoryPanel.classList.add('visible');
         if (memoryBtn) memoryBtn.classList.add('active');
@@ -1192,19 +1192,19 @@ function initUserTerminal() {
     const input = document.getElementById('user-terminal-input');
     const output = document.getElementById('user-terminal-output');
     if (!input || !output) return;
-    
+
     input.addEventListener('keydown', async (e) => {
         if (e.key === 'Enter' && e.ctrlKey) {
             e.preventDefault();
             const command = input.value.trim();
             if (!command) return;
-            
+
             // Display command
             const cmdLine = document.createElement('div');
             cmdLine.className = 'sandbox-output-line';
             cmdLine.innerHTML = '<span style="color:#60a5fa;">$ </span>' + esc(command);
             output.appendChild(cmdLine);
-            
+
             // Execute via API
             try {
                 const result = await api('/api/sandbox', {
@@ -1239,7 +1239,7 @@ function initUserTerminal() {
                 errLine.textContent = 'Error: ' + e.message;
                 output.appendChild(errLine);
             }
-            
+
             input.value = '';
             const terminal = document.getElementById('sandbox-terminal') || document.getElementById('llm-terminal');
             if (terminal) terminal.scrollTop = terminal.scrollHeight;
@@ -1263,7 +1263,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 errLine.textContent = 'Error: ' + e.message;
                 output.appendChild(errLine);
             }
-            
+
             input.value = '';
             const terminal = document.getElementById('sandbox-terminal');
             if (terminal) terminal.scrollTop = terminal.scrollHeight;
