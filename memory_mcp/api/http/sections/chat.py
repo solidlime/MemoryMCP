@@ -172,6 +172,7 @@ def render_chat_tab() -> str:
             padding: 14px;
             background: rgba(255,255,255,0.03);
             border-left: 1px solid var(--glass-border);
+            order: 3; /* チャットレイアウト内で右側に配置 */
         }
         #debug-panel.visible { display: flex; }
 

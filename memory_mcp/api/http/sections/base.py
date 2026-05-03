@@ -287,6 +287,16 @@ def render_head() -> str:
         html.light .badge-yellow { color: #d97706; } html.light .badge-red { color: #dc2626; }
 
         /* ============================================================
+           RESIZABLE TEXTAREA
+           ============================================================ */
+        .resizable-textarea {
+            resize: vertical;
+            min-height: 60px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        /* ============================================================
            MEMORY CARDS
            ============================================================ */
         .memory-card {
@@ -416,6 +426,16 @@ def render_head() -> str:
             .tab-btn { padding: 8px 14px; font-size: 0.82rem; }
             .main-content { padding: 16px; }
             .stat-value { font-size: 1.5rem; }
+            /* 防止头部按钮重叠 */
+            .header-controls {
+                flex-wrap: wrap;
+                gap: 6px;
+            }
+            .header-controls select,
+            .header-controls button {
+                font-size: 0.75rem;
+                padding: 6px 10px;
+            }
         }
         /* Memory Detail Modal */
         .mem-modal-overlay {
