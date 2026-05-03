@@ -912,36 +912,78 @@ function loadChat() {
 function toggleMemoryPanel() {
     const panel = document.getElementById('memory-panel');
     const btn = document.getElementById('memoryPanelToggle');
-    if (panel) {
-        panel.classList.toggle('visible');
-        const isOpen = panel.classList.contains('visible');
-        CHAT.memoryPanelOpen = isOpen;
-        localStorage.setItem('chat_memory_panel_open', isOpen);
-        if (btn) btn.classList.toggle('active', isOpen);
+    if (!panel) return;
+    const isOpen = !panel.classList.contains('visible');
+    panel.classList.toggle('visible', isOpen);
+    CHAT.memoryPanelOpen = isOpen;
+    localStorage.setItem('chat_memory_panel_open', isOpen);
+    if (btn) btn.classList.toggle('active', isOpen);
+    // Close other panels
+    if (isOpen) {
+        const debugPanel = document.getElementById('debug-panel');
+        const settingsPanel = document.getElementById('settings-panel');
+        const debugBtn = document.getElementById('debugPanelToggle');
+        const settingsBtn = document.getElementById('settingsPanelToggle');
+        if (debugPanel) debugPanel.classList.remove('visible');
+        if (settingsPanel) settingsPanel.classList.remove('visible');
+        CHAT.debugPanelOpen = false;
+        CHAT.settingsPanelOpen = false;
+        localStorage.setItem('chat_debug_panel_open', false);
+        localStorage.setItem('chat_settings_panel_open', false);
+        if (debugBtn) debugBtn.classList.remove('active');
+        if (settingsBtn) settingsBtn.classList.remove('active');
     }
 }
 
 function toggleDebugPanel() {
     const panel = document.getElementById('debug-panel');
     const btn = document.getElementById('debugPanelToggle');
-    if (panel) {
-        panel.classList.toggle('visible');
-        const isOpen = panel.classList.contains('visible');
-        CHAT.debugPanelOpen = isOpen;
-        localStorage.setItem('chat_debug_panel_open', isOpen);
-        if (btn) btn.classList.toggle('active', isOpen);
+    if (!panel) return;
+    const isOpen = !panel.classList.contains('visible');
+    panel.classList.toggle('visible', isOpen);
+    CHAT.debugPanelOpen = isOpen;
+    localStorage.setItem('chat_debug_panel_open', isOpen);
+    if (btn) btn.classList.toggle('active', isOpen);
+    // Close other panels
+    if (isOpen) {
+        const memoryPanel = document.getElementById('memory-panel');
+        const settingsPanel = document.getElementById('settings-panel');
+        const memoryBtn = document.getElementById('memoryPanelToggle');
+        const settingsBtn = document.getElementById('settingsPanelToggle');
+        if (memoryPanel) memoryPanel.classList.remove('visible');
+        if (settingsPanel) settingsPanel.classList.remove('visible');
+        CHAT.memoryPanelOpen = false;
+        CHAT.settingsPanelOpen = false;
+        localStorage.setItem('chat_memory_panel_open', false);
+        localStorage.setItem('chat_settings_panel_open', false);
+        if (memoryBtn) memoryBtn.classList.remove('active');
+        if (settingsBtn) settingsBtn.classList.remove('active');
     }
 }
 
 function toggleSettingsPanel() {
     const panel = document.getElementById('settings-panel');
     const btn = document.getElementById('settingsPanelToggle');
-    if (panel) {
-        panel.classList.toggle('visible');
-        const isOpen = panel.classList.contains('visible');
-        CHAT.settingsPanelOpen = isOpen;
-        localStorage.setItem('chat_settings_panel_open', isOpen);
-        if (btn) btn.classList.toggle('active', isOpen);
+    if (!panel) return;
+    const isOpen = !panel.classList.contains('visible');
+    panel.classList.toggle('visible', isOpen);
+    CHAT.settingsPanelOpen = isOpen;
+    localStorage.setItem('chat_settings_panel_open', isOpen);
+    if (btn) btn.classList.toggle('active', isOpen);
+    // Close other panels
+    if (isOpen) {
+        const memoryPanel = document.getElementById('memory-panel');
+        const debugPanel = document.getElementById('debug-panel');
+        const memoryBtn = document.getElementById('memoryPanelToggle');
+        const debugBtn = document.getElementById('debugPanelToggle');
+        if (memoryPanel) memoryPanel.classList.remove('visible');
+        if (debugPanel) debugPanel.classList.remove('visible');
+        CHAT.memoryPanelOpen = false;
+        CHAT.debugPanelOpen = false;
+        localStorage.setItem('chat_memory_panel_open', false);
+        localStorage.setItem('chat_debug_panel_open', false);
+        if (memoryBtn) memoryBtn.classList.remove('active');
+        if (debugBtn) debugBtn.classList.remove('active');
     }
 }
 
