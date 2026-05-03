@@ -58,7 +58,8 @@ services:
     image: docker:dind
     container_name: sandbox-docker
     privileged: true
-    command: ["--storage-driver=vfs"]  # overlayfs is unavailable in most DinD environments
+    command: ["--storage-driver=vfs", "--iptables=false"]  # overlayfs is unavailable in most DinD environments, disable iptables to avoid sandbox errors
+    pids_limit: 2000  # Prevent fork bombs inside sandbox
     environment:
       DOCKER_TLS_CERTDIR: ""  # Disable TLS (internal network only - no port exposed)
       TZ: Asia/Tokyo
