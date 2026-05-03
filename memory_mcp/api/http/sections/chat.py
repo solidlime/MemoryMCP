@@ -147,6 +147,48 @@ def render_chat_tab() -> str:
             overflow-y: auto; padding: 14px;
             background: rgba(255,255,255,0.03); border-right: 1px solid var(--glass-border);
         }
+        /* Memory Panel (left sidebar) */
+        #memory-panel {
+            width: 280px;
+            flex-shrink: 0;
+            display: none; /* 初期は非表示、JSで切り替え */
+            flex-direction: column;
+            gap: 12px;
+            overflow-y: auto;
+            padding: 14px;
+            background: rgba(255,255,255,0.03);
+            border-right: 1px solid var(--glass-border);
+        }
+        #memory-panel.visible { display: flex; }
+
+        /* Debug Panel (right sidebar) */
+        #debug-panel {
+            width: 280px;
+            flex-shrink: 0;
+            display: none;
+            flex-direction: column;
+            gap: 12px;
+            overflow-y: auto;
+            padding: 14px;
+            background: rgba(255,255,255,0.03);
+            border-left: 1px solid var(--glass-border);
+        }
+        #debug-panel.visible { display: flex; }
+
+        /* Settings Panel (right sidebar) */
+        #settings-panel {
+            width: 280px;
+            flex-shrink: 0;
+            display: none;
+            flex-direction: column;
+            gap: 12px;
+            overflow-y: auto;
+            padding: 14px;
+            background: rgba(255,255,255,0.03);
+            border-left: 1px solid var(--glass-border);
+        }
+        #settings-panel.visible { display: flex; }
+
         .memory-panel-title {
             font-size: 0.82rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px;
         }
@@ -311,6 +353,156 @@ def render_chat_tab() -> str:
             cursor: pointer; padding: 0 2px; font-size: 0.72rem;
         }
         .sb-breadcrumb-btn:hover { text-decoration: underline; }
+        /* Terminal styles */
+        .terminal {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .terminal-title {
+            padding: 8px 12px;
+            background: rgba(255,255,255,0.05);
+            border-bottom: 1px solid var(--glass-border);
+            font-size: 0.78rem;
+            color: var(--text-muted);
+        }
+        .terminal-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            font-size: 0.75rem;
+            line-height: 1.5;
+            color: #d4d4d4;
+            background: #1e1e1e;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .user-terminal-input {
+            width: 100%;
+            min-height: 60px;
+            max-height: 120px;
+            padding: 8px 10px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: 'Fira Code', 'Cascadia Code', monospace;
+            font-size: 0.78rem;
+            resize: vertical;
+            outline: none;
+        }
+        .user-terminal-input:focus {
+            border-color: var(--accent-blue);
+        }
+        .terminal-split {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1px;
+            flex: 1;
+            overflow: hidden;
+        }
+        /* File log */
+        .file-log {
+            padding: 10px;
+            overflow-y: auto;
+            max-height: 200px;
+        }
+        .file-log-header {
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        .file-log-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .file-log-list li {
+            padding: 4px 8px;
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+        }
+
+        /* Terminal styles */
+        .terminal {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .terminal-title {
+            padding: 8px 12px;
+            background: rgba(255,255,255,0.05);
+            border-bottom: 1px solid var(--glass-border);
+            font-size: 0.78rem;
+            color: var(--text-muted);
+        }
+        .terminal-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            font-size: 0.75rem;
+            line-height: 1.5;
+            color: #d4d4d4;
+            background: #1e1e1e;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .user-terminal-input {
+            width: 100%;
+            min-height: 60px;
+            max-height: 120px;
+            padding: 8px 10px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: 'Fira Code', 'Cascadia Code', monospace;
+            font-size: 0.78rem;
+            resize: vertical;
+            outline: none;
+        }
+        .user-terminal-input:focus {
+            border-color: var(--accent-blue);
+        }
+        .terminal-split {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1px;
+            flex: 1;
+            overflow: hidden;
+        }
+        /* File log */
+        .file-log {
+            padding: 10px;
+            overflow-y: auto;
+            max-height: 200px;
+        }
+        .file-log-header {
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        .file-log-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .file-log-list li {
+            padding: 4px 8px;
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+        }
+
         /* Sandbox toggle button */
         #sandbox-toggle-btn {
             background: rgba(96,165,250,0.1); border: 1px solid rgba(96,165,250,0.3);
@@ -333,14 +525,14 @@ def render_chat_tab() -> str:
         </style>
         <!-- ========== CHAT TAB ========== -->
         <section id="tab-chat" class="tab-panel" role="tabpanel">
-            <div style="position:relative; margin-bottom:12px; display:flex; align-items:center; justify-content:space-between;">
-                <h2 style="font-size:1.1rem; font-weight:600; color:var(--text-primary);">💬 Chat</h2>
-                <div style="display:flex;gap:8px;align-items:center;">
-                    <button class="mem-panel-toggle" id="memory-panel-toggle-btn" onclick="toggleMemoryPanel()" title="記憶パネルを開閉">🧠</button>
-                    <button id="sandbox-toggle-btn" onclick="toggleSandboxPanel()" title="サンドボックスパネルを開閉" style="display:none;">🔬 Sandbox</button>
-                    <button class="chat-debug-btn" id="chat-debug-btn" onclick="toggleDebugMode()" title="デバッグ情報の表示切替">🐛 Debug</button>
-                    <button class="chat-sidebar-toggle" onclick="toggleChatSidebar()" id="chat-sidebar-toggle-btn" title="設定パネルを開閉">⚙️ 設定</button>
+            <!-- Top Control Bar (buttons separated to avoid overlap) -->
+            <div class="chat-controls">
+                <div class="control-group">
+                    <button id="memoryPanelToggle" class="control-btn memory-btn" onclick="toggleMemoryPanel()">🧠 記憶</button>
+                    <button id="debugPanelToggle" class="control-btn debug-btn" onclick="toggleDebugMode()">🐛 Debug</button>
+                    <button id="settingsPanelToggle" class="control-btn settings-btn" onclick="toggleChatSidebar()">⚙️ 設定</button>
                 </div>
+                <div class="chat-title">Herta Chat</div>
             </div>
             <div id="chat-layout" class="glass" style="padding:0; overflow:hidden;">
                 <!-- Memory activity panel (left) -->
@@ -404,8 +596,8 @@ def render_chat_tab() -> str:
                         <button id="chat-send-btn" onclick="chatSend()">送信 ↑</button>
                     </div>
                 </div>
-                <!-- Settings sidebar -->
-                <div id="chat-sidebar" class="glass" style="margin:0; border-radius:0; border-left:1px solid var(--glass-border); padding:16px; gap:12px; display:flex; flex-direction:column;">
+                <!-- Settings Panel (right sidebar) -->
+                <div id="settings-panel" class="glass" style="margin:0; border-radius:0; border-left:1px solid var(--glass-border); padding:16px; gap:12px; display:none; flex-direction:column;">
                     <div style="font-size:0.85rem; font-weight:600; color:var(--text-primary); margin-bottom:4px;">⚙️ チャット設定</div>
                     <!-- Provider -->
                     <div>
@@ -464,9 +656,9 @@ def render_chat_tab() -> str:
                     <!-- System prompt -->
                     <div style="flex:1; display:flex; flex-direction:column; min-height:80px;">
                         <div class="chat-field-label">システムプロンプト</div>
-                        <textarea id="chat-system-prompt" class="chat-field-input" rows="4"
+                        <textarea id="chat-system-prompt" class="resizable-textarea chat-field-input" rows="4"
                             placeholder="（空白でデフォルト: ペルソナ名のアシスタント）"
-                            style="flex:1;resize:vertical;min-height:70px;"></textarea>
+                            style="flex:1;min-height:70px;"></textarea>
                     </div>
                     <!-- Auto extract -->
                     <div style="border-top:1px solid var(--glass-border);padding-top:10px;">
@@ -596,6 +788,39 @@ def render_chat_tab() -> str:
                     <div id="chat-config-status" style="font-size:0.75rem; text-align:center; min-height:16px;"></div>
                 </div>
             </div>
+            <!-- Bottom: Sandbox Terminal + User Terminal + File Log -->
+            <section id="sandbox-container" class="sandbox-container" style="display:none;">
+                <!-- Draggable Sandbox Window -->
+                <div id="sandbox-window" class="sandbox-window" draggable="true">
+                    <div class="sandbox-header">
+                        🎮 Sandbox実行
+                        <div style="margin-left:auto;display:flex;gap:6px;">
+                            <button onclick="clearUserTerminal()" style="background:none;border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.7);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:0.72rem;">🗑️ クリア</button>
+                        </div>
+                    </div>
+                    <div class="terminal-split">
+                        <!-- LLM Terminal (read-only) -->
+                        <div class="terminal llm-terminal">
+                            <div class="terminal-title">🤖 LLM操作</div>
+                            <div id="llm-terminal" class="terminal-content"></div>
+                        </div>
+                        <!-- User Terminal (interactive) -->
+                        <div class="terminal user-terminal">
+                            <div class="terminal-title">👤 ユーザー操作</div>
+                            <textarea id="user-terminal-input" 
+                                      class="user-terminal-input" 
+                                      placeholder="コマンドやコードを入力（Ctrl+Enter で実行）..."></textarea>
+                            <div id="user-terminal-output" class="terminal-content"></div>
+                        </div>
+                    </div>
+                </div>    
+                <!-- File Operations Log -->
+                <div id="file-log-container" class="file-log">
+                    <div class="file-log-header">📝 ファイル変更履歴</div>
+                    <ul id="file-log-list" class="file-log-list"></ul>
+                </div>
+            </section>
+
             <!-- Sandbox floating panel -->
             <div id="sandbox-panel">
                 <div class="sandbox-panel-header">
@@ -642,8 +867,10 @@ def render_chat_js() -> str:
 const CHAT = {
     streaming: false,
     sidebarOpen: true,
-    memoryPanelOpen: true,
+    memoryPanelOpen: localStorage.getItem('chat_memory_panel_open') === 'true',
     debugMode: localStorage.getItem('chat_debug_mode') === 'true',
+    debugPanelOpen: localStorage.getItem('chat_debug_panel_open') === 'true',
+    settingsPanelOpen: localStorage.getItem('chat_settings_panel_open') === 'true',
     messages: [],  // { role, content, time }
     mcpServers: [],
     enabledSkills: [],
@@ -656,9 +883,66 @@ function loadChat() {
     loadSkillsForChat();
     restoreChatHistory();
     loadChatCommitments();
+    // Restore panel states from localStorage
+    const memoryPanel = document.getElementById('memory-panel');
+    const debugPanel = document.getElementById('debug-panel');
+    const settingsPanel = document.getElementById('settings-panel');
+    const memoryBtn = document.getElementById('memoryPanelToggle');
+    const debugBtn = document.getElementById('debugPanelToggle');
+    const settingsBtn = document.getElementById('settingsPanelToggle');
+    
+    if (CHAT.memoryPanelOpen && memoryPanel) {
+        memoryPanel.classList.add('visible');
+        if (memoryBtn) memoryBtn.classList.add('active');
+    }
+    if (CHAT.debugPanelOpen && debugPanel) {
+        debugPanel.classList.add('visible');
+        if (debugBtn) debugBtn.classList.add('active');
+    }
+    if (CHAT.settingsPanelOpen && settingsPanel) {
+        settingsPanel.classList.add('visible');
+        if (settingsBtn) settingsBtn.classList.add('active');
+    }
     // Restore debug button state
-    const btn = document.getElementById('chat-debug-btn');
-    if (btn && CHAT.debugMode) btn.classList.add('active');
+    const debugBtnOld = document.getElementById('chat-debug-btn');
+    if (debugBtnOld && CHAT.debugMode) debugBtnOld.classList.add('active');
+}
+
+// Panel toggle functions
+function toggleMemoryPanel() {
+    const panel = document.getElementById('memory-panel');
+    const btn = document.getElementById('memoryPanelToggle');
+    if (panel) {
+        panel.classList.toggle('visible');
+        const isOpen = panel.classList.contains('visible');
+        CHAT.memoryPanelOpen = isOpen;
+        localStorage.setItem('chat_memory_panel_open', isOpen);
+        if (btn) btn.classList.toggle('active', isOpen);
+    }
+}
+
+function toggleDebugPanel() {
+    const panel = document.getElementById('debug-panel');
+    const btn = document.getElementById('debugPanelToggle');
+    if (panel) {
+        panel.classList.toggle('visible');
+        const isOpen = panel.classList.contains('visible');
+        CHAT.debugPanelOpen = isOpen;
+        localStorage.setItem('chat_debug_panel_open', isOpen);
+        if (btn) btn.classList.toggle('active', isOpen);
+    }
+}
+
+function toggleSettingsPanel() {
+    const panel = document.getElementById('settings-panel');
+    const btn = document.getElementById('settingsPanelToggle');
+    if (panel) {
+        panel.classList.toggle('visible');
+        const isOpen = panel.classList.contains('visible');
+        CHAT.settingsPanelOpen = isOpen;
+        localStorage.setItem('chat_settings_panel_open', isOpen);
+        if (btn) btn.classList.toggle('active', isOpen);
+    }
 }
 
 async function loadChatCommitments() {
@@ -890,20 +1174,138 @@ function renderSkillsList(allSkills, enabledSkills) {
 }
 
 function toggleChatSidebar() {
-    const sidebar = document.getElementById('chat-sidebar');
-    const btn = document.getElementById('chat-sidebar-toggle-btn');
-    CHAT.sidebarOpen = !CHAT.sidebarOpen;
-    if (CHAT.sidebarOpen) {
-        sidebar.style.width = '280px';
-        sidebar.style.overflow = 'auto';
-        sidebar.style.padding = '16px';
-        sidebar.style.display = 'flex';
-        if (btn) btn.textContent = '⚙️ 設定';
-    } else {
-        sidebar.style.width = '0';
-        sidebar.style.overflow = 'hidden';
-        sidebar.style.padding = '0';
-        if (btn) btn.textContent = '⚙️';
+    const sidebar = document.getElementById('settings-panel');
+    const btn = document.getElementById('settingsPanelToggle');
+    if (sidebar) {
+        sidebar.classList.toggle('visible');
+        const isOpen = sidebar.classList.contains('visible');
+        CHAT.settingsPanelOpen = isOpen;
+        localStorage.setItem('chat_settings_panel_open', isOpen);
+        if (btn) btn.classList.toggle('active', isOpen);
+    }
+}
+
+/* =================================================================
+   USER TERMINAL
+   ================================================================= */
+function initUserTerminal() {
+    const input = document.getElementById('user-terminal-input');
+    const output = document.getElementById('user-terminal-output');
+    if (!input || !output) return;
+    
+    input.addEventListener('keydown', async (e) => {
+        if (e.key === 'Enter' && e.ctrlKey) {
+            e.preventDefault();
+            const command = input.value.trim();
+            if (!command) return;
+            
+            // Display command
+            const cmdLine = document.createElement('div');
+            cmdLine.className = 'sandbox-output-line';
+            cmdLine.innerHTML = '<span style="color:#60a5fa;">$ </span>' + esc(command);
+            output.appendChild(cmdLine);
+            
+            // Execute via API
+            try {
+                const result = await api('/api/sandbox', {
+                    method: 'POST',
+                    body: JSON.stringify({ code: command, language: 'bash' })
+                });
+                if (result.stdout) {
+                    const outLine = document.createElement('div');
+                    outLine.className = 'sandbox-output-line';
+                    outLine.textContent = result.stdout;
+                    output.appendChild(outLine);
+                }
+                if (result.stderr) {
+                    const errLine = document.createElement('div');
+                    errLine.className = 'sandbox-output-line stderr';
+                    errLine.textContent = result.stderr;
+                    output.appendChild(errLine);
+                }
+                // Log file operations if any
+                if (result.files_modified && result.files_modified.length) {
+                    result.files_modified.forEach(f => logFileOperation('Modified', f));
+                }
+                if (result.files_created && result.files_created.length) {
+                    result.files_created.forEach(f => logFileOperation('Created', f));
+                }
+                if (result.files_deleted && result.files_deleted.length) {
+                    result.files_deleted.forEach(f => logFileOperation('Deleted', f));
+                }
+            } catch (e) {
+                const errLine = document.createElement('div');
+                errLine.className = 'sandbox-output-line stderr';
+                errLine.textContent = 'Error: ' + e.message;
+                output.appendChild(errLine);
+            }
+            
+            input.value = '';
+            const terminal = document.getElementById('sandbox-terminal') || document.getElementById('llm-terminal');
+            if (terminal) terminal.scrollTop = terminal.scrollHeight;
+        }
+    });
+}
+
+// Initialize user terminal on load
+document.addEventListener('DOMContentLoaded', () => {
+    initUserTerminal();
+    // Show sandbox container if any panel is open
+    const sandboxContainer = document.getElementById('sandbox-container');
+    if (sandboxContainer) {
+        const hasOpenPanel = CHAT.memoryPanelOpen || CHAT.debugPanelOpen || CHAT.settingsPanelOpen;
+        sandboxContainer.style.display = hasOpenPanel ? 'grid' : 'none';
+    }
+});
+            } catch (e) {
+                const errLine = document.createElement('div');
+                errLine.className = 'sandbox-output-line stderr';
+                errLine.textContent = 'Error: ' + e.message;
+                output.appendChild(errLine);
+            }
+            
+            input.value = '';
+            const terminal = document.getElementById('sandbox-terminal');
+            if (terminal) terminal.scrollTop = terminal.scrollHeight;
+        }
+    });
+}
+
+// Initialize user terminal on load
+document.addEventListener('DOMContentLoaded', () => {
+    initUserTerminal();
+    // Show sandbox container if any panel is open
+    const sandboxContainer = document.getElementById('sandbox-container');
+    if (sandboxContainer) {
+        const hasOpenPanel = CHAT.memoryPanelOpen || CHAT.debugPanelOpen || CHAT.settingsPanelOpen;
+        sandboxContainer.style.display = hasOpenPanel ? 'grid' : 'none';
+    }
+});
+
+function clearUserTerminal() {
+    const userOutput = document.getElementById('user-terminal-output');
+    const llmTerminal = document.getElementById('llm-terminal');
+    if (userOutput) userOutput.innerHTML = '';
+    if (llmTerminal) llmTerminal.innerHTML = '<span class="sandbox-output-line system">サンドボックスが起動すると出力がここに表示されます...</span>';
+    const fileLogList = document.getElementById('file-log-list');
+    if (fileLogList) fileLogList.innerHTML = '<li>ファイル操作履歴がありません</li>';
+}
+
+function logFileOperation(operation, filename, details='') {
+    const fileLogList = document.getElementById('file-log-list');
+    if (!fileLogList) return;
+    // Remove "no history" message if present
+    const emptyMsg = fileLogList.querySelector('li');
+    if (emptyMsg && emptyMsg.textContent.includes('ありません')) {
+        fileLogList.innerHTML = '';
+    }
+    const li = document.createElement('li');
+    const time = new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+    li.innerHTML = `<span style="color:var(--accent-blue);">[${time}]</span> ${esc(operation)}: ${esc(filename)}${details ? ' (' + esc(details) + ')' : ''}`;
+    fileLogList.prepend(li);
+    // Keep only last 50 entries
+    while (fileLogList.children.length > 50) {
+        fileLogList.removeChild(fileLogList.lastChild);
     }
 }
 

@@ -532,8 +532,8 @@ def render_utilities_js() -> str:
    STATE
    ================================================================= */
 const S = {
-    persona: null,
-    tab: 'overview',
+    persona: localStorage.getItem('selected_persona') || null,
+    tab: localStorage.getItem('active_tab') || 'overview',
     refreshTimer: null,
     charts: {},
     mem: { page: 1, tag: '', q: '', perPage: 20 },
@@ -695,6 +695,7 @@ function showSkeleton(tabId) {
    ================================================================= */
 function switchTab(tab) {
     S.tab = tab;
+    localStorage.setItem('active_tab', tab);
     document.querySelectorAll('.tab-btn').forEach(b => {
         const isActive = b.dataset.tab === tab;
         b.classList.toggle('active', isActive);
@@ -706,6 +707,37 @@ function switchTab(tab) {
     showSkeleton(tab);
     loadTab(tab);
 }
+
+/* =================================================================
+   STATE RESTORATION
+   ================================================================= */
+function restoreState() {
+    // Restore persona
+    const savedPersona = localStorage.getItem('selected_persona');
+    if (savedPersona && S.persona !== savedPersona) {
+        S.persona = savedPersona;
+        const personaSelect = document.getElementById('persona-select');
+        if (personaSelect) {
+            personaSelect.value = savedPersona;
+            personaSelect.dispatchEvent(new Event('change'));
+        }
+    }
+    // Restore active tab
+    const savedTab = localStorage.getItem('active_tab');
+    if (savedTab && S.tab !== savedTab) {
+        switchTab(savedTab);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const personaSelect = document.getElementById('persona-select');
+    if (personaSelect) {
+        personaSelect.addEventListener('change', (e) => {
+            localStorage.setItem('selected_persona', e.target.value);
+        });
+    }
+    restoreState();
+});
 function loadTab(tab) {
     if (!S.persona && tab !== 'settings' && tab !== 'personas') return;
     switch(tab) {
