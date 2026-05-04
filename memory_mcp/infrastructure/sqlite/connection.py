@@ -226,7 +226,7 @@ def get_global_skills_db(data_dir: str) -> sqlite3.Connection:
     if _global_skills_conn is None:
         db_path = Path(data_dir) / "skills.sqlite"
         db_path.parent.mkdir(parents=True, exist_ok=True)
-        conn = sqlite3.connect(str(db_path))
+        conn = sqlite3.connect(str(db_path), check_same_thread=False)
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("PRAGMA foreign_keys=ON")
         conn.row_factory = sqlite3.Row
@@ -257,7 +257,7 @@ class SQLiteConnection:
         if relative_path not in self._connections:
             db_path = Path(self.data_dir) / relative_path
             db_path.parent.mkdir(parents=True, exist_ok=True)
-            conn = sqlite3.connect(str(db_path))
+            conn = sqlite3.connect(str(db_path), check_same_thread=False)
             conn.execute("PRAGMA journal_mode=WAL")
             conn.execute("PRAGMA foreign_keys=ON")
             conn.row_factory = sqlite3.Row
