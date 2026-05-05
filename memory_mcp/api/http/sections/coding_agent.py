@@ -1077,7 +1077,7 @@ function _renderNodes(nodes, container, depth) {
 
       var icon = document.createElement('span');
       icon.className = 'ca-tree-icon';
-      icon.textContent = isOpen ? '\uD83D\uDCC2' : '\uD83D\uDCC1';
+      icon.textContent = isOpen ? '📂' : '📁';
 
       var label = document.createElement('span');
       label.className = 'ca-tree-name';
@@ -1173,11 +1173,11 @@ function _caShowCtxMenu(e, path, isDir) {
 
   var actions = [];
   if (!isDir) {
-    actions.push({ label: '\uD83D\uDCC2 開く',          fn: function () { caOpenFile(path); } });
+    actions.push({ label: '📂 開く',          fn: function () { caOpenFile(path); } });
     actions.push({ type: 'sep' });
   }
   actions.push({ label: '\u270F\uFE0F 名前を変更',      fn: function () { caRenameFile(path); } });
-  actions.push({ label: '\uD83D\uDDD1\uFE0F 削除',     fn: function () { caDeleteFile(path); } });
+  actions.push({ label: '🗑️ 削除',     fn: function () { caDeleteFile(path); } });
 
   actions.forEach(function (act) {
     if (act.type === 'sep') {
@@ -1282,7 +1282,7 @@ async function caSaveFile() {
     });
     var tab = _CA.tabs.find(function (t) { return t.path === path; });
     if (tab) { tab.dirty = false; caRenderTabs(); }
-    _toast('\uD83D\uDCBE 保存しました: ' + path.split('/').pop(), 'success');
+    _toast('💾 保存しました: ' + path.split('/').pop(), 'success');
   } catch (e) {
     _toast('保存に失敗しました: ' + e.message, 'error');
   }
@@ -1355,7 +1355,7 @@ function caClearOutput() {
   if (a) {
     a.innerHTML =
       '<div class="ca-artifacts-empty">' +
-      '\uD83D\uDDBC\uFE0F アーティファクトがここに表示されます<br>' +
+      '🖼️ アーティファクトがここに表示されます<br>' +
       '<small>matplotlib など画像を生成すると表示されます</small>' +
       '</div>';
   }
@@ -1415,7 +1415,7 @@ async function caInstallPackages() {
   var pkgs = raw.split(/\\s+/).filter(Boolean);
   if (!pkgs.length) { _toast('\u30D1\u30C3\u30B1\u30FC\u30B8\u540D\u3092\u5165\u529B\u3057\u3066\u304F\u3060\u3055\u3044', 'warning'); return; }
 
-  out.innerHTML = '<div class="ca-pip-loading">\uD83D\uDCE6 Installing ' + _esc(pkgs.join(', ')) + '...</div>';
+  out.innerHTML = '<div class="ca-pip-loading">📦 Installing ' + _esc(pkgs.join(', ')) + '...</div>';
   try {
     var r = await caApi('/sandbox/install', {
       method:  'POST',
@@ -1431,7 +1431,7 @@ async function caInstallPackages() {
 
 async function caSandboxReset() {
   var out = document.getElementById('ca-pip-output');
-  if (out) out.innerHTML = '<div class="ca-pip-loading">\uD83D\uDD04 \u30B5\u30F3\u30C9\u30DC\u30C3\u30AF\u30B9\u3092\u30EA\u30BB\u30C3\u30C8\u4E2D...</div>';
+  if (out) out.innerHTML = '<div class="ca-pip-loading">🔄 \u30B5\u30F3\u30C9\u30DC\u30C3\u30AF\u30B9\u3092\u30EA\u30BB\u30C3\u30C8\u4E2D...</div>';
   try {
     var r = await caApi('/sandbox/reset', {
       method:  'POST',
@@ -1441,7 +1441,7 @@ async function caSandboxReset() {
     if (out) out.innerHTML = '<div class="ca-pip-ok">\u2705 ' + _esc(r.message || '\u30EA\u30BB\u30C3\u30C8\u5B8C\u4E86') + '</div>';
     caClearOutput();
     await caRefreshTree();
-    _toast('\uD83D\uDD04 \u30B5\u30F3\u30C9\u30DC\u30C3\u30AF\u30B9\u3092\u30EA\u30BB\u30C3\u30C8\u3057\u307E\u3057\u305F', 'success');
+    _toast('🔄 \u30B5\u30F3\u30C9\u30DC\u30C3\u30AF\u30B9\u3092\u30EA\u30BB\u30C3\u30C8\u3057\u307E\u3057\u305F', 'success');
   } catch (e) {
     if (out) out.innerHTML = '<div class="ca-pip-error">\u274C ' + _esc(e.message) + '</div>';
   }
@@ -1463,7 +1463,7 @@ async function caNewFile() {
     });
     await caRefreshTree();
     caOpenTab(path, '', caLangFromExt(clean));
-    _toast('\uD83D\uDCC4 \u30D5\u30A1\u30A4\u30EB\u3092\u4F5C\u6210\u3057\u307E\u3057\u305F: ' + clean, 'success');
+    _toast('📄 \u30D5\u30A1\u30A4\u30EB\u3092\u4F5C\u6210\u3057\u307E\u3057\u305F: ' + clean, 'success');
   } catch (e) {
     _toast('\u30D5\u30A1\u30A4\u30EB\u306E\u4F5C\u6210\u306B\u5931\u6557\u3057\u307E\u3057\u305F: ' + e.message, 'error');
   }
@@ -1542,7 +1542,7 @@ async function caDeleteFile(path) {
     if (!res.ok) throw new Error('HTTP ' + res.status);
     if (_CA.tabs.find(function (t) { return t.path === path; })) caCloseTabForce(path);
     await caRefreshTree();
-    _toast('\uD83D\uDDD1\uFE0F \u524A\u9664\u3057\u307E\u3057\u305F: ' + name, 'success');
+    _toast('🗑️ \u524A\u9664\u3057\u307E\u3057\u305F: ' + name, 'success');
   } catch (e) {
     _toast('\u524A\u9664\u306B\u5931\u6557\u3057\u307E\u3057\u305F: ' + e.message, 'error');
   }
