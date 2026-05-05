@@ -407,7 +407,7 @@ def render_chat_tab() -> str:
                 <h2 style="font-size:1.1rem; font-weight:600; color:var(--text-primary);">💬 Chat</h2>
                 <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                     <button class="mem-panel-toggle" id="memory-panel-toggle-btn" onclick="toggleMemoryPanel()" title="記憶パネルを開閉">🧠</button>
-                    <button id="sandbox-toggle-btn" onclick="openCodingAgent()" title="Coding Agent を開く" style="display:none;">🔬 Code</button>
+                    <button id="sandbox-toggle-btn" onclick="openCodingAgent()" title="Coding Agent を開く">🔬 Code</button>
                     <button class="chat-debug-btn" id="chat-debug-btn" onclick="toggleDebugPanel()" title="デバッグ情報の表示切替">🐛 Debug</button>
                     <button class="chat-sidebar-toggle" onclick="toggleSettingsPanel()" id="chat-sidebar-toggle-btn" title="設定パネルを開閉">⚙️ 設定</button>
                 </div>
@@ -1609,8 +1609,6 @@ function handleFileToolCall(evt) {
 
 function onSandboxEnabledChange() {
     const enabled = document.getElementById('chat-sandbox-enabled')?.checked;
-    const btn = document.getElementById('sandbox-toggle-btn');
-    if (btn) btn.style.display = enabled ? '' : 'none';
     if (!enabled && typeof isCodingAgentOpen === 'function' && isCodingAgentOpen()) {
         closeCodingAgent();
     }
@@ -1985,8 +1983,6 @@ async function sandboxExecuteCmd() {
 /* ── Code block Run button ── */
 async function sandboxRunBlock(code, language, resultEl, runBtn) {
     if (!S.persona) return;
-    const enabled = document.getElementById('chat-sandbox-enabled')?.checked;
-    if (!enabled) { toast('サンドボックスが無効です。設定で有効にしてください。', 'error'); return; }
     if (typeof openCodingAgent === 'function') {
         openCodingAgent({ code, language });
         if (resultEl) {

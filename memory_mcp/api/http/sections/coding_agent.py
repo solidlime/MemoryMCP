@@ -1226,6 +1226,11 @@ async function caRunCode() {
     caInitEditor(function () { caRunCode(); });
     return;
   }
+  var sandboxEnabled = document.getElementById('chat-sandbox-enabled')?.checked ?? true;
+  if (!sandboxEnabled) {
+    _toast('コード実行が無効です。設定 > コード実行サンドボックスで有効化してください。', 'error');
+    return;
+  }
   var code = _CA.editor.getValue();
   if (!code.trim()) { _toast('コードが空です', 'warning'); return; }
 

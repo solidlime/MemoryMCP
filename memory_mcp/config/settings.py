@@ -78,7 +78,7 @@ class MemoRAGConfig(BaseModel):
 class SandboxConfig(BaseModel):
     """Sandbox code execution configuration."""
 
-    enabled: bool = False
+    enabled: bool = True
     provider: str = "llm_sandbox"  # "llm_sandbox" | "none"
     docker_host: str = ""  # empty = auto-detect socket, "tcp://host:2375" = remote Docker
     docker_sock: str = ""  # override socket path (empty = auto-detect common paths)

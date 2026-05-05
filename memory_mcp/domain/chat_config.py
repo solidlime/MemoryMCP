@@ -65,7 +65,7 @@ class ChatConfig(BaseModel):
     display_history_turns: int = 20
     # Housekeeping auto-trigger threshold (total active goals+promises)
     housekeeping_threshold: int = 10
-    sandbox_enabled: bool = False
+    sandbox_enabled: bool = True
     updated_at: str | None = None
 
     @field_validator("temperature")
