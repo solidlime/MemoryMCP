@@ -4,6 +4,8 @@ Renders a fully-functional chat interface with SSE streaming,
 tool call visualization, and an inline settings panel.
 """
 
+from .coding_agent import render_coding_agent_panel
+
 
 def render_chat_tab() -> str:
     """Return the HTML for the Chat tab."""
@@ -405,7 +407,7 @@ def render_chat_tab() -> str:
                 <h2 style="font-size:1.1rem; font-weight:600; color:var(--text-primary);">💬 Chat</h2>
                 <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                     <button class="mem-panel-toggle" id="memory-panel-toggle-btn" onclick="toggleMemoryPanel()" title="記憶パネルを開閉">🧠</button>
-                    <button id="sandbox-toggle-btn" onclick="toggleSandboxPanel()" title="サンドボックスパネルを開閉" style="display:none;">🔬 Sandbox</button>
+                    <button id="sandbox-toggle-btn" onclick="openCodingAgent()" title="Coding Agent を開く" style="display:none;">🔬 Code</button>
                     <button class="chat-debug-btn" id="chat-debug-btn" onclick="toggleDebugPanel()" title="デバッグ情報の表示切替">🐛 Debug</button>
                     <button class="chat-sidebar-toggle" onclick="toggleSettingsPanel()" id="chat-sidebar-toggle-btn" title="設定パネルを開閉">⚙️ 設定</button>
                 </div>
@@ -688,69 +690,7 @@ def render_chat_tab() -> str:
             <!-- highlight.js for syntax highlighting in chat bubbles -->
             <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
             <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" crossorigin="anonymous"></script>
-            <!-- Sandbox floating panel -->
-            <div id="sandbox-panel">
-                <div class="sandbox-panel-header">
-                    <span class="sandbox-panel-title">🔬 Sandbox</span>
-                    <div class="sandbox-panel-actions">
-                        <button class="sandbox-panel-btn" onclick="refreshSandboxFiles()" title="ファイル一覧更新">🔄</button>
-                        <button class="sandbox-panel-btn" onclick="clearSandboxTerminal()" title="ターミナルクリア">🗑</button>
-                        <button class="sandbox-panel-btn" onclick="toggleSandboxPanel()" title="閉じる">✕</button>
-                    </div>
-                </div>
-                <div id="sandbox-tabs">
-                    <div class="sandbox-tab active" onclick="switchSandboxTab('terminal')">💻 ターミナル</div>
-                    <div class="sandbox-tab" onclick="switchSandboxTab('files')">📁 ファイル</div>
-                    <div class="sandbox-tab" onclick="switchSandboxTab('artifacts')">🖼 Artifacts</div>
-                </div>
-                <!-- Terminal tab -->
-                <div id="sandbox-tab-terminal" class="sandbox-tab-content active">
-                    <div id="sandbox-terminal"><span class="sandbox-output-line system">サンドボックスが起動すると出力がここに表示されます...</span></div>
-                    <div style="display:flex;gap:4px;padding:4px 8px;border-top:1px solid var(--glass-border);align-items:center;flex-shrink:0;">
-                        <select id="sandbox-lang-select" title="実行言語">
-                            <option value="python">🐍 Python</option>
-                            <option value="javascript">🟨 JS</option>
-                            <option value="bash">💲 Bash</option>
-                            <option value="java">☕ Java</option>
-                            <option value="cpp">⚙️ C++</option>
-                            <option value="go">🐹 Go</option>
-                            <option value="r">📊 R</option>
-                        </select>
-                        <span style="color:var(--accent-green);font-size:0.8rem;">$</span>
-                        <input id="sandbox-cmd-input" type="text" placeholder="コマンドを入力... (Enter実行)"
-                               autocomplete="off"
-                               style="flex:1;background:rgba(255,255,255,0.05);border:1px solid var(--glass-border);border-radius:6px;padding:4px 8px;color:var(--text-primary);font-size:0.8rem;"
-                               onkeydown="sandboxCmdKeydown(event)" />
-                    </div>
-                    <div id="sandbox-install-row">
-                        <input id="sandbox-install-input" type="text" placeholder="pip install: numpy pandas ..." autocomplete="off" onkeydown="if(event.key==='Enter')sandboxInstallPackages()" />
-                        <button class="sandbox-install-btn" onclick="sandboxInstallPackages()" title="パッケージインストール">📦 Install</button>
-                        <button class="sandbox-reset-btn" onclick="sandboxReset()" title="セッションリセット">🔄 Reset</button>
-                    </div>
-                </div>
-                <!-- Artifacts tab -->
-                <div id="sandbox-tab-artifacts" class="sandbox-tab-content">
-                    <div id="sandbox-artifacts-list">
-                        <div style="font-size:0.75rem;color:var(--text-muted);padding:8px;">実行結果の画像がここに表示されます</div>
-                    </div>
-                </div>
-                <!-- Files tab -->
-                <div id="sandbox-tab-files" class="sandbox-tab-content" style="flex-direction:column;">
-                    <div class="sb-breadcrumb">
-                        <span>📂</span>
-                        <button class="sb-breadcrumb-btn" onclick="browseSandboxPath('/workspace')">/workspace</button>
-                    </div>
-                    <div id="sandbox-upload-zone" onclick="document.getElementById('sandbox-file-input').click()"
-                         ondragover="sandboxDragOver(event)" ondrop="sandboxDrop(event)">
-                        📎 ファイルをドロップまたはクリックしてアップロード
-                        <input type="file" id="sandbox-file-input" style="display:none;" onchange="sandboxFileSelected(event)" />
-                    </div>
-                    <div id="sandbox-filebrowser">
-                        <div style="font-size:0.75rem;color:var(--text-muted);padding:8px;">ファイルがありません</div>
-                    </div>
-                </div>
-            </div>
-        </section>"""
+        </section>""" + render_coding_agent_panel()
 
 
 def render_chat_js() -> str:
@@ -1671,17 +1611,16 @@ function onSandboxEnabledChange() {
     const enabled = document.getElementById('chat-sandbox-enabled')?.checked;
     const btn = document.getElementById('sandbox-toggle-btn');
     if (btn) btn.style.display = enabled ? '' : 'none';
-    if (!enabled && SANDBOX.visible) toggleSandboxPanel();
+    if (!enabled && typeof isCodingAgentOpen === 'function' && isCodingAgentOpen()) {
+        closeCodingAgent();
+    }
 }
 
 function toggleSandboxPanel() {
-    const panel = document.getElementById('sandbox-panel');
-    const btn = document.getElementById('sandbox-toggle-btn');
-    SANDBOX.visible = !SANDBOX.visible;
-    if (panel) panel.classList.toggle('visible', SANDBOX.visible);
-    if (btn) btn.classList.toggle('active', SANDBOX.visible);
-    if (SANDBOX.visible) {
-        refreshSandboxFiles();
+    if (typeof isCodingAgentOpen === 'function' && isCodingAgentOpen()) {
+        closeCodingAgent();
+    } else {
+        openCodingAgent();
     }
 }
 
@@ -1703,6 +1642,11 @@ function clearSandboxTerminal() {
 }
 
 function sandboxLog(text, type = '') {
+    if (typeof isCodingAgentOpen === 'function' && isCodingAgentOpen() &&
+        typeof caAppendOutput === 'function') {
+        caAppendOutput(text + '\n', type === 'stderr' ? 'stderr' : 'stdout');
+        return;
+    }
     const term = document.getElementById('sandbox-terminal');
     if (!term) return;
     const line = document.createElement('span');
@@ -2043,6 +1987,16 @@ async function sandboxRunBlock(code, language, resultEl, runBtn) {
     if (!S.persona) return;
     const enabled = document.getElementById('chat-sandbox-enabled')?.checked;
     if (!enabled) { toast('サンドボックスが無効です。設定で有効にしてください。', 'error'); return; }
+    if (typeof openCodingAgent === 'function') {
+        openCodingAgent({ code, language });
+        if (resultEl) {
+            resultEl.className = 'hljs-run-result stdout';
+            resultEl.textContent = '▶ Coding Agent で開きました';
+            resultEl.style.display = 'block';
+        }
+        if (runBtn) runBtn.textContent = '▶ Run';
+        return;
+    }
     runBtn.disabled = true;
     runBtn.textContent = '⏳';
     resultEl.className = 'hljs-run-result running';
