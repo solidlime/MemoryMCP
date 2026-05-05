@@ -332,6 +332,8 @@ def register_tools(mcp: FastMCP) -> None:
         elif operation == "check_contradictions":
             if not content and not memory_key:
                 return "Error: content or memory_key required"
+            if not ctx.vector_store:
+                return "Error: Qdrant vector store unavailable, check_contradictions operation disabled. Please ensure Qdrant is running."
             check_content = content
             exclude = None
             if memory_key and not content:

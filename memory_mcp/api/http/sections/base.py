@@ -533,7 +533,7 @@ def render_utilities_js() -> str:
    ================================================================= */
 const S = {
     persona: null,
-    tab: 'overview',
+    tab: localStorage.getItem('mmcp-tab') || 'overview',
     refreshTimer: null,
     charts: {},
     mem: { page: 1, tag: '', q: '', perPage: 20 },
@@ -575,6 +575,15 @@ function relativeTime(iso) {
 function fmtDate(iso) {
     if (!iso) return '--';
     return new Date(iso).toLocaleDateString('ja-JP', {month:'short', day:'numeric'});
+}
+
+/* Persona storage helpers — write to both keys for backward compatibility */
+function getStoredPersona() {
+    return localStorage.getItem('mmcp-persona') || localStorage.getItem('selected_persona') || null;
+}
+function setStoredPersona(persona) {
+    localStorage.setItem('mmcp-persona', persona);
+    localStorage.setItem('selected_persona', persona);
 }
 
 /* =================================================================
@@ -695,6 +704,7 @@ function showSkeleton(tabId) {
    ================================================================= */
 function switchTab(tab) {
     S.tab = tab;
+    localStorage.setItem('mmcp-tab', tab);
     document.querySelectorAll('.tab-btn').forEach(b => {
         const isActive = b.dataset.tab === tab;
         b.classList.toggle('active', isActive);
@@ -813,7 +823,7 @@ async function init() {
         }
         S.persona = _target;
         sel.value = _target;
-        loadTab(S.tab);
+        switchTab(S.tab);
     } catch (e) {
         toast('Failed to load personas: ' + e.message, 'error');
     }

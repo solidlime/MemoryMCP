@@ -98,11 +98,11 @@ def render_chat_tab() -> str:
         .chat-typing span:nth-child(3) { animation-delay: 0.4s; }
         @keyframes typingDot { 0%,80%,100%{transform:scale(0.7);opacity:0.4} 40%{transform:scale(1);opacity:1} }
         /* Settings sidebar */
-        #chat-sidebar {
+        #settings-panel {
             width: 280px; flex-shrink: 0; display: flex; flex-direction: column; gap: 12px;
             overflow-y: auto;
         }
-        #chat-sidebar.collapsed { width: 0; overflow: hidden; }
+        #settings-panel.collapsed { width: 0; overflow: hidden; }
         .chat-sidebar-toggle {
             position: absolute; right: 16px; top: 8px;
             background: none; border: 1px solid var(--glass-border);
@@ -184,7 +184,7 @@ def render_chat_tab() -> str:
         @media (max-width: 768px) {
             #chat-layout { flex-direction: column; height: auto; }
             #chat-messages { min-height: 350px; max-height: 50vh; }
-            #chat-sidebar { width: 100% !important; }
+            #settings-panel { width: 100% !important; }
             #memory-panel { display: none; }
         }
         /* Debug panel */
@@ -335,11 +335,11 @@ def render_chat_tab() -> str:
         <section id="tab-chat" class="tab-panel" role="tabpanel">
             <div style="position:relative; margin-bottom:12px; display:flex; align-items:center; justify-content:space-between;">
                 <h2 style="font-size:1.1rem; font-weight:600; color:var(--text-primary);">💬 Chat</h2>
-                <div style="display:flex;gap:8px;align-items:center;">
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                     <button class="mem-panel-toggle" id="memory-panel-toggle-btn" onclick="toggleMemoryPanel()" title="記憶パネルを開閉">🧠</button>
                     <button id="sandbox-toggle-btn" onclick="toggleSandboxPanel()" title="サンドボックスパネルを開閉" style="display:none;">🔬 Sandbox</button>
-                    <button class="chat-debug-btn" id="chat-debug-btn" onclick="toggleDebugMode()" title="デバッグ情報の表示切替">🐛 Debug</button>
-                    <button class="chat-sidebar-toggle" onclick="toggleChatSidebar()" id="chat-sidebar-toggle-btn" title="設定パネルを開閉">⚙️ 設定</button>
+                    <button class="chat-debug-btn" id="chat-debug-btn" onclick="toggleDebugPanel()" title="デバッグ情報の表示切替">🐛 Debug</button>
+                    <button class="chat-sidebar-toggle" onclick="toggleSettingsPanel()" id="chat-sidebar-toggle-btn" title="設定パネルを開閉">⚙️ 設定</button>
                 </div>
             </div>
             <div id="chat-layout" class="glass" style="padding:0; overflow:hidden;">
@@ -386,6 +386,22 @@ def render_chat_tab() -> str:
                             <div class="memory-empty">チャット中に自動更新されます</div>
                         </div>
                     </div>
+
+                    <!-- Memory operation log -->
+                    <div class="memory-panel-section">
+                        <div class="memory-section-header">🔧 操作ログ</div>
+                        <div id="memory-tool-ops-list">
+                            <div class="memory-empty">LLMの記憶操作がここに表示されます</div>
+                        </div>
+                    </div>
+
+                    <!-- Equipment -->
+                    <div class="memory-panel-section">
+                        <div class="memory-section-header">🎒 装備</div>
+                        <div id="memory-equipment-list">
+                            <div class="memory-empty">装備情報がここに表示されます</div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Chat area -->
@@ -405,7 +421,7 @@ def render_chat_tab() -> str:
                     </div>
                 </div>
                 <!-- Settings sidebar -->
-                <div id="chat-sidebar" class="glass" style="margin:0; border-radius:0; border-left:1px solid var(--glass-border); padding:16px; gap:12px; display:flex; flex-direction:column;">
+                <div id="settings-panel" class="glass" style="margin:0; border-radius:0; border-left:1px solid var(--glass-border); padding:16px; gap:12px; display:flex; flex-direction:column;">
                     <div style="font-size:0.85rem; font-weight:600; color:var(--text-primary); margin-bottom:4px;">⚙️ チャット設定</div>
                     <!-- Provider -->
                     <div>
@@ -466,7 +482,7 @@ def render_chat_tab() -> str:
                         <div class="chat-field-label">システムプロンプト</div>
                         <textarea id="chat-system-prompt" class="chat-field-input" rows="4"
                             placeholder="（空白でデフォルト: ペルソナ名のアシスタント）"
-                            style="flex:1;resize:vertical;min-height:70px;"></textarea>
+                            style="flex:1;resize:vertical;min-height:70px;max-height:300px;overflow-y:auto;"></textarea>
                     </div>
                     <!-- Auto extract -->
                     <div style="border-top:1px solid var(--glass-border);padding-top:10px;">
@@ -595,6 +611,11 @@ def render_chat_tab() -> str:
                     <!-- Config status -->
                     <div id="chat-config-status" style="font-size:0.75rem; text-align:center; min-height:16px;"></div>
                 </div>
+                <!-- Debug panel -->
+                <div id="debug-panel" style="display:none; position:absolute; top:50px; right:300px; width:320px; max-height:400px; overflow-y:auto; background:var(--bg-secondary); border:1px solid var(--glass-border); border-radius:12px; padding:12px; z-index:20; font-size:0.78rem;">
+                    <div style="font-weight:600; margin-bottom:8px; color:var(--text-primary);">🐛 デバッグ情報</div>
+                    <div id="debug-panel-content" style="color:var(--text-muted);">デバッグパネルを開くとここに情報が表示されます。</div>
+                </div>
             </div>
             <!-- Sandbox floating panel -->
             <div id="sandbox-panel">
@@ -613,6 +634,13 @@ def render_chat_tab() -> str:
                 <!-- Terminal tab -->
                 <div id="sandbox-tab-terminal" class="sandbox-tab-content active">
                     <div id="sandbox-terminal"><span class="sandbox-output-line system">サンドボックスが起動すると出力がここに表示されます...</span></div>
+                    <div style="display:flex;gap:4px;padding:4px 0 0;border-top:1px solid var(--glass-border);">
+                        <span style="color:var(--accent-green);font-size:0.8rem;align-self:center;">$</span>
+                        <input id="sandbox-cmd-input" type="text" placeholder="コマンドを入力... (Enter実行, ArrowUp/Down: 履歴)"
+                               autocomplete="off"
+                               style="flex:1;background:rgba(255,255,255,0.05);border:1px solid var(--glass-border);border-radius:6px;padding:4px 8px;color:var(--text-primary);font-size:0.8rem;"
+                               onkeydown="sandboxCmdKeydown(event)" />
+                    </div>
                 </div>
                 <!-- Files tab -->
                 <div id="sandbox-tab-files" class="sandbox-tab-content" style="flex-direction:column;">
@@ -889,8 +917,8 @@ function renderSkillsList(allSkills, enabledSkills) {
     });
 }
 
-function toggleChatSidebar() {
-    const sidebar = document.getElementById('chat-sidebar');
+function toggleSettingsPanel() {
+    const sidebar = document.getElementById('settings-panel');
     const btn = document.getElementById('chat-sidebar-toggle-btn');
     CHAT.sidebarOpen = !CHAT.sidebarOpen;
     if (CHAT.sidebarOpen) {
@@ -909,19 +937,17 @@ function toggleChatSidebar() {
 
 function toggleMemoryPanel() {
     const panel = document.getElementById('memory-panel');
-    const btn = document.getElementById('memory-panel-toggle-btn');
     CHAT.memoryPanelOpen = !CHAT.memoryPanelOpen;
     if (!panel) return;
     if (CHAT.memoryPanelOpen) {
         panel.style.display = 'flex';
-        if (btn) btn.style.opacity = '1';
     } else {
         panel.style.display = 'none';
-        if (btn) btn.style.opacity = '0.4';
     }
+    document.querySelectorAll('.mem-panel-toggle').forEach(b => b.classList.toggle('active', CHAT.memoryPanelOpen));
 }
 
-function toggleDebugMode() {
+function toggleDebugPanel() {
     CHAT.debugMode = !CHAT.debugMode;
     localStorage.setItem('chat_debug_mode', CHAT.debugMode);
     const btn = document.getElementById('chat-debug-btn');
@@ -929,6 +955,8 @@ function toggleDebugMode() {
     document.querySelectorAll('.chat-debug-panel').forEach(el => {
         el.style.display = CHAT.debugMode ? 'block' : 'none';
     });
+    const panel = document.getElementById('debug-panel');
+    if (panel) panel.style.display = CHAT.debugMode ? 'block' : 'none';
 }
 
 function renderDebugPanel(anchorEl, data) {
@@ -1358,12 +1386,28 @@ async function chatSend() {
                     document.getElementById('chat-messages').scrollTop = document.getElementById('chat-messages').scrollHeight;
 
                 } else if (evt.type === 'tool_call') {
-                    appendToolEvent('tool_call', evt);
+                    if (MEMORY_TOOL_NAMES.has(evt.name)) {
+                        handleMemoryToolCall(evt);
+                    } else {
+                        const sbEnabled = document.getElementById('chat-sandbox-enabled')?.checked;
+                        if (FILE_OP_TOOLS.has(evt.name) && sbEnabled) {
+                            handleFileToolCall(evt);
+                        } else {
+                            appendToolEvent('tool_call', evt);
+                        }
+                    }
                     statusEl.textContent = '🔧 ' + evt.name + ' を実行中...';
                     sandboxHandleToolEvent(evt);
 
                 } else if (evt.type === 'tool_result') {
-                    appendToolEvent('tool_result', evt);
+                    if (MEMORY_TOOL_NAMES.has(evt.name)) {
+                        handleMemoryToolResult(evt);
+                    } else {
+                        const sbEnabled = document.getElementById('chat-sandbox-enabled')?.checked;
+                        if (!FILE_OP_TOOLS.has(evt.name) || !sbEnabled) {
+                            appendToolEvent('tool_result', evt);
+                        }
+                    }
                     statusEl.textContent = '応答中...';
                     sandboxHandleToolEvent(evt);
 
@@ -1462,6 +1506,63 @@ const SANDBOX = {
     currentPath: '/workspace',
 };
 
+/* ── Memory tool filtering ── */
+const MEMORY_TOOL_NAMES = new Set(['memory', 'search_memory', 'update_context', 'item', 'get_context']);
+const FILE_OP_TOOLS = new Set(['edit', 'create', 'view', 'bash', 'powershell', 'str_replace_editor',
+    'write_file', 'read_file', 'delete_file', 'list_files', 'glob', 'grep']);
+
+// Track in-flight memory ops for result pairing
+const _memOps = {};
+
+function handleMemoryToolCall(evt) {
+    const el = document.getElementById('memory-tool-ops-list');
+    if (!el) return;
+    const empty = el.querySelector('.memory-empty');
+    if (empty) empty.remove();
+    const op = evt.input?.operation || '';
+    const icons = { memory:'💾', search_memory:'🔍', update_context:'🔄', item:'🎒', get_context:'📊' };
+    const icon = icons[evt.name] || '🔧';
+    const label = evt.name + (op ? '.' + op : '');
+    const id = 'mop-' + (evt.id || (evt.name + Date.now()));
+    const card = document.createElement('div');
+    card.className = 'memory-item-card';
+    card.id = id;
+    card.innerHTML = '<div class="mem-score">' + esc(icon + ' ' + label) + '</div>' +
+        '<span style="opacity:0.5;font-size:0.7rem">実行中...</span>';
+    el.prepend(card);
+    const cards = el.querySelectorAll('.memory-item-card');
+    if (cards.length > 8) cards[cards.length - 1].remove();
+    _memOps[evt.id || label] = id;
+}
+
+function handleMemoryToolResult(evt) {
+    const key = evt.id || (evt.name + (evt.input?.operation || ''));
+    const cardId = _memOps[key];
+    if (cardId) {
+        const card = document.getElementById(cardId);
+        if (card) {
+            const span = card.querySelector('span');
+            if (span) span.remove();
+            const resultStr = typeof evt.result === 'string' ? evt.result : JSON.stringify(evt.result);
+            const detail = document.createElement('div');
+            detail.style.cssText = 'font-size:0.7rem;opacity:0.75;margin-top:2px;';
+            detail.textContent = resultStr.substring(0, 100) + (resultStr.length > 100 ? '...' : '');
+            card.appendChild(detail);
+        }
+        delete _memOps[key];
+    }
+}
+
+function handleFileToolCall(evt) {
+    const icons = { edit:'✏️', create:'📝', view:'👁️', bash:'⚙️', powershell:'⚙️',
+        str_replace_editor:'✏️', delete_file:'🗑️', list_files:'📂',
+        write_file:'📝', read_file:'👁️', glob:'🔍', grep:'🔍' };
+    const icon = icons[evt.name] || '🔧';
+    const detail = evt.input?.path || evt.input?.file_path || evt.input?.command ||
+        evt.input?.pattern || evt.input?.glob || '';
+    sandboxLog(icon + ' ' + evt.name + (detail ? ': ' + String(detail).substring(0, 60) : ''), 'system');
+}
+
 function onSandboxEnabledChange() {
     const enabled = document.getElementById('chat-sandbox-enabled')?.checked;
     const btn = document.getElementById('sandbox-toggle-btn');
@@ -1521,6 +1622,56 @@ function sandboxHandleToolEvent(evt) {
             else if (l.startsWith('[exit code:')) sandboxLog(l, 'stderr');
             else sandboxLog(l, 'success');
         });
+    }
+}
+
+// Terminal command history
+const _sandboxCmdHistory = [];
+let _sandboxHistoryIdx = -1;
+
+function sandboxCmdKeydown(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        sandboxExecuteCmd();
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (_sandboxHistoryIdx < _sandboxCmdHistory.length - 1) {
+            _sandboxHistoryIdx++;
+            e.target.value = _sandboxCmdHistory[_sandboxCmdHistory.length - 1 - _sandboxHistoryIdx] || '';
+        }
+    } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (_sandboxHistoryIdx > 0) {
+            _sandboxHistoryIdx--;
+            e.target.value = _sandboxCmdHistory[_sandboxCmdHistory.length - 1 - _sandboxHistoryIdx] || '';
+        } else {
+            _sandboxHistoryIdx = -1;
+            e.target.value = '';
+        }
+    }
+}
+
+async function sandboxExecuteCmd() {
+    if (!S.persona) return;
+    const input = document.getElementById('sandbox-cmd-input');
+    if (!input) return;
+    const cmd = input.value.trim();
+    if (!cmd) return;
+    _sandboxCmdHistory.push(cmd);
+    _sandboxHistoryIdx = -1;
+    input.value = '';
+    sandboxLog('$ ' + cmd, 'system');
+    try {
+        const resp = await api('/api/chat/' + encodeURIComponent(S.persona) + '/sandbox/execute', {
+            method: 'POST',
+            body: JSON.stringify({ code: cmd, language: 'bash' }),
+        });
+        const output = resp.stdout || resp.output || '';
+        const stderr = resp.stderr || '';
+        if (output) output.split('\n').forEach(l => l && sandboxLog(l, 'success'));
+        if (stderr) stderr.split('\n').forEach(l => l && sandboxLog(l, 'stderr'));
+    } catch (ex) {
+        sandboxLog('Error: ' + ex.message, 'stderr');
     }
 }
 
