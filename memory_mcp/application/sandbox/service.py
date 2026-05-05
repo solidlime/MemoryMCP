@@ -5,6 +5,7 @@ import contextlib
 import logging
 import os
 import platform
+import re
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -72,12 +73,75 @@ class SandboxFileInfo:
     size: int = 0
 
 
+_HOST_DATA_ROOT_CACHE: str | None = None
+_HOST_DATA_ROOT_DETECTED = False
+
+
+def _get_own_container_id() -> str | None:
+    """Extract Docker container ID from /proc/self/cgroup (Linux only)."""
+    for proc_file in ("/proc/self/cgroup", "/proc/self/mountinfo"):
+        try:
+            with open(proc_file) as f:
+                for line in f:
+                    m = re.search(r"[/-]([a-f0-9]{64})", line)
+                    if m:
+                        return m.group(1)
+        except OSError:
+            pass
+    return None
+
+
+def _auto_detect_host_data_root(data_root: str) -> str:
+    """Auto-detect the Docker-host-side path of data_root by inspecting own container mounts.
+
+    Returns empty string if not running in Docker or detection fails.
+    Result is cached after first call.
+    """
+    global _HOST_DATA_ROOT_CACHE, _HOST_DATA_ROOT_DETECTED
+    if _HOST_DATA_ROOT_DETECTED:
+        return _HOST_DATA_ROOT_CACHE or ""
+    _HOST_DATA_ROOT_DETECTED = True
+
+    # Only relevant inside a Docker container
+    if not os.path.exists("/.dockerenv"):
+        return ""
+
+    container_id = _get_own_container_id()
+    if not container_id:
+        return ""
+
+    try:
+        import docker
+
+        client = docker.DockerClient(base_url="unix:///var/run/docker.sock")
+        container = client.containers.get(container_id)
+        data_root_abs = str(Path(data_root).resolve())
+
+        for mount in container.attrs.get("Mounts", []):
+            dest = mount.get("Destination", "").rstrip("/")
+            source = mount.get("Source", "").rstrip("/")
+            if not dest or not source:
+                continue
+            if data_root_abs == dest or data_root_abs.startswith(dest + "/"):
+                suffix = data_root_abs[len(dest):].lstrip("/")
+                host_path = f"{source}/{suffix}" if suffix else source
+                logger.info("Auto-detected host data root: %s (from container mount %s -> %s)", host_path, source, dest)
+                _HOST_DATA_ROOT_CACHE = host_path
+                return host_path
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("Host data root auto-detection failed: %s", exc)
+
+    return ""
+
+
 def _build_container_configs(persona: str) -> tuple[dict, Path | None]:
     """Build container_configs dict and return (configs, workspace_internal_path).
 
     workspace_internal_path is the path usable from the current process to create dirs.
-    The volume mount key uses host_data_root if available (sibling container support).
-    Returns (configs, None) if workspace volume mount is skipped.
+    The volume mount key is resolved in this order:
+      1. Explicit MEMORY_MCP_SANDBOX__HOST_DATA_ROOT env var
+      2. Auto-detected from own container's Docker mounts (sibling-container mode)
+      3. Fallback: same as internal path (local/dev mode)
     """
     from memory_mcp.config.settings import get_settings
 
@@ -87,9 +151,10 @@ def _build_container_configs(persona: str) -> tuple[dict, Path | None]:
     workspace_internal = Path(settings.data_root) / "memory" / persona / "workspace"
     workspace_internal.mkdir(parents=True, exist_ok=True)
 
-    # For sibling-container deployments, use host_data_root for the volume mount key
-    if settings.sandbox.host_data_root:
-        workspace_mount = Path(settings.sandbox.host_data_root) / "memory" / persona / "workspace"
+    # Resolve host-side data root (needed when memory-mcp runs in a sibling container)
+    host_root = settings.sandbox.host_data_root or _auto_detect_host_data_root(str(settings.data_root))
+    if host_root:
+        workspace_mount = Path(host_root) / "memory" / persona / "workspace"
     else:
         workspace_mount = workspace_internal
 

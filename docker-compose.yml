@@ -43,15 +43,11 @@ services:
       # No separate DinD service required.
       MEMORY_MCP_SANDBOX__ENABLED: "true"
       # Explicitly empty so .env cannot accidentally override with a stale DinD host.
-      # Remove this line only if you need a remote Docker host (set in .env instead).
       MEMORY_MCP_SANDBOX__DOCKER_HOST: ""
-      # Sibling container用: ホスト絶対パスでデータルートを指定 (例: /home/user/MemoryMCP/data)
-      # MEMORY_MCP_SANDBOX__HOST_DATA_ROOT: /absolute/host/path/to/data
-      # IMPORTANT: Set this to the HOST-absolute path to the data directory.
-      # Example for WSL2: MEMORY_MCP_SANDBOX__HOST_DATA_ROOT=/home/user/memory-mcp/data
-      # Example for Synology: MEMORY_MCP_SANDBOX__HOST_DATA_ROOT=/volume1/docker/memory-mcp/data
-      # If unset, sandbox workspace is ephemeral (no file persistence between sessions).
-      # MEMORY_MCP_SANDBOX__HOST_DATA_ROOT=
+      # HOST_DATA_ROOT: normally auto-detected from this container's own volume mounts.
+      # Set manually only if auto-detection fails (e.g. on Synology, custom Docker setups).
+      # Example: MEMORY_MCP_SANDBOX__HOST_DATA_ROOT: /volume1/docker/memory-mcp/data
+      # MEMORY_MCP_SANDBOX__HOST_DATA_ROOT:
     # Load env vars from .env file (ignored by git) so you can override Dockerfile defaults
     env_file:
       - .env
