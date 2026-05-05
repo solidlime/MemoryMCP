@@ -8,7 +8,6 @@ def test_chat_tab_buttons_use_panel_toggle_handlers():
     html = render_chat_tab()
 
     assert 'onclick="toggleMemoryPanel()"' in html
-    assert 'onclick="toggleDebugPanel()"' in html
     assert 'onclick="toggleSettingsPanel()"' in html
 
 
@@ -17,7 +16,6 @@ def test_chat_tab_renders_all_toggle_panels():
     html = render_chat_tab()
 
     assert 'id="memory-panel"' in html
-    assert 'id="debug-panel"' in html
     assert 'id="settings-panel"' in html
 
 
@@ -35,7 +33,6 @@ def test_chat_js_has_single_panel_toggle_definitions():
     js = render_chat_js()
 
     assert js.count("function toggleMemoryPanel()") == 1
-    assert js.count("function toggleDebugPanel()") == 1
     assert js.count("function toggleSettingsPanel()") == 1
     assert "memory-panel-toggle-btn" not in js
 
@@ -50,18 +47,19 @@ def test_chat_js_supports_terminal_history_and_scoped_execute_endpoint():
 
 
 def test_chat_tab_renders_artifacts_tab():
-    """Coding Agent panel should include an Artifacts tab for plot display."""
+    """Coding Agent panel should include an artifacts display area."""
     html = render_chat_tab()
 
-    assert 'ca-out-content-artifacts' in html
-    assert 'coding-agent-overlay' in html
+    assert 'ca-artifacts' in html
+    assert 'ca-panel' in html
 
 
 def test_chat_tab_renders_sandbox_install_ui():
-    """Coding Agent panel should include pip install input."""
+    """Coding Agent panel should include a code execution area."""
     html = render_chat_tab()
 
-    assert 'caInstallPackages' in html
+    assert 'ca-code-area' in html
+    assert 'ca-run-btn' in html
 
 
 def test_chat_js_has_sandbox_install_and_reset_functions():
