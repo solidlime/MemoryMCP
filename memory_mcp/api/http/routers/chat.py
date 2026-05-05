@@ -331,6 +331,41 @@ def register_chat_routes(mcp) -> None:
         except Exception as e:
             return JSONResponse({"error": str(e)}, status_code=500)
 
+    @mcp.custom_route("/api/chat/{persona}/sandbox/execute", methods=["POST"])
+    async def sandbox_execute(request: Request) -> JSONResponse:
+        """サンドボックスでコードを実行する。"""
+        persona = _resolve_persona_from_request(request)
+        ctx = _safe_get_context(persona)
+        if not ctx:
+            return JSONResponse({"error": "Persona not found"}, status_code=404)
+        from memory_mcp.domain.chat_config import ChatConfigRepository
+
+        chat_cfg = ChatConfigRepository(ctx.connection.get_memory_db()).get(persona)
+        if not chat_cfg.sandbox_enabled:
+            return JSONResponse({"error": "Sandbox not enabled for this persona"}, status_code=400)
+
+        try:
+            body = await request.json()
+        except Exception:
+            return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
+
+        code = body.get("code", "")
+        language = body.get("language", "python")
+        if not code:
+            return JSONResponse({"error": "code field required"}, status_code=400)
+
+        from memory_mcp.application.sandbox.service import get_sandbox_session
+
+        session = get_sandbox_session(persona)
+        result = await session.execute(code, language=language)
+        return JSONResponse(
+            {
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "exit_code": result.exit_code,
+            }
+        )
+
     @mcp.custom_route("/api/chat/{persona}/sandbox/files/{filepath:path}", methods=["DELETE"])
     async def sandbox_delete_file(request: Request) -> JSONResponse:
         """サンドボックスのファイルを削除する。"""
