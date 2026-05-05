@@ -311,6 +311,74 @@ def render_chat_tab() -> str:
             cursor: pointer; padding: 0 2px; font-size: 0.72rem;
         }
         .sb-breadcrumb-btn:hover { text-decoration: underline; }
+        /* Code block Run button styles */
+        .hljs-block-wrapper {
+            position: relative; margin: 0.5em 0; border-radius: 8px; overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .hljs-block-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 4px 8px; background: rgba(0,0,0,0.3); font-size: 0.72rem;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .hljs-lang-badge {
+            color: rgba(96,165,250,0.8); font-family: monospace; font-weight: 600;
+        }
+        .hljs-block-actions { display: flex; gap: 4px; }
+        .hljs-copy-btn, .hljs-run-btn {
+            background: none; border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 4px; color: var(--text-muted); padding: 2px 7px;
+            font-size: 0.68rem; cursor: pointer; transition: all 0.15s;
+        }
+        .hljs-copy-btn:hover { border-color: rgba(255,255,255,0.35); color: var(--text-primary); }
+        .hljs-run-btn { border-color: rgba(52,211,153,0.3); color: rgba(52,211,153,0.8); }
+        .hljs-run-btn:hover { border-color: rgba(52,211,153,0.7); background: rgba(52,211,153,0.08); color: rgba(52,211,153,1); }
+        .hljs-run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .hljs-run-result {
+            padding: 6px 10px; background: rgba(0,0,0,0.4); font-size: 0.76rem;
+            font-family: monospace; white-space: pre-wrap; word-break: break-all;
+            border-top: 1px solid rgba(255,255,255,0.06); max-height: 200px; overflow-y: auto;
+        }
+        .hljs-run-result.stdout { color: #85e89d; }
+        .hljs-run-result.stderr { color: #f97583; }
+        .hljs-run-result.running { color: rgba(96,165,250,0.7); font-style: italic; }
+        .hljs-artifact-img {
+            display: block; max-width: 100%; border-top: 1px solid rgba(255,255,255,0.06);
+            cursor: pointer;
+        }
+        /* Artifacts tab */
+        #sandbox-tab-artifacts { flex-direction: column; overflow-y: auto; padding: 8px; gap: 8px; }
+        .artifact-thumb {
+            border: 1px solid rgba(96,165,250,0.2); border-radius: 6px; overflow: hidden;
+            cursor: pointer;
+        }
+        .artifact-thumb img { display: block; max-width: 100%; }
+        .artifact-thumb-label { font-size: 0.68rem; color: var(--text-muted); padding: 2px 6px; }
+        /* pip install UI */
+        #sandbox-install-row {
+            display: flex; gap: 4px; padding: 4px 8px;
+            border-top: 1px solid var(--glass-border); flex-shrink: 0;
+        }
+        #sandbox-install-input {
+            flex: 1; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border);
+            border-radius: 6px; padding: 3px 8px; color: var(--text-primary);
+            font-size: 0.78rem; font-family: monospace; outline: none;
+        }
+        #sandbox-install-input:focus { border-color: rgba(96,165,250,0.5); }
+        .sandbox-install-btn, .sandbox-reset-btn {
+            background: none; border: 1px solid rgba(96,165,250,0.3);
+            border-radius: 6px; color: rgba(96,165,250,0.7);
+            padding: 3px 10px; font-size: 0.72rem; cursor: pointer; transition: all 0.2s;
+        }
+        .sandbox-install-btn:hover { background: rgba(96,165,250,0.1); color: rgba(96,165,250,1); }
+        .sandbox-reset-btn { border-color: rgba(248,113,113,0.3); color: rgba(248,113,113,0.7); }
+        .sandbox-reset-btn:hover { background: rgba(248,113,113,0.1); color: rgba(248,113,113,1); }
+        /* lang selector */
+        #sandbox-lang-select {
+            background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border);
+            border-radius: 6px; padding: 2px 6px; color: var(--text-primary);
+            font-size: 0.72rem; cursor: pointer; outline: none;
+        }
         /* Sandbox toggle button */
         #sandbox-toggle-btn {
             background: rgba(96,165,250,0.1); border: 1px solid rgba(96,165,250,0.3);
@@ -617,6 +685,9 @@ def render_chat_tab() -> str:
                     <div id="debug-panel-content" style="color:var(--text-muted);">デバッグパネルを開くとここに情報が表示されます。</div>
                 </div>
             </div>
+            <!-- highlight.js for syntax highlighting in chat bubbles -->
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" crossorigin="anonymous"></script>
             <!-- Sandbox floating panel -->
             <div id="sandbox-panel">
                 <div class="sandbox-panel-header">
@@ -630,16 +701,37 @@ def render_chat_tab() -> str:
                 <div id="sandbox-tabs">
                     <div class="sandbox-tab active" onclick="switchSandboxTab('terminal')">💻 ターミナル</div>
                     <div class="sandbox-tab" onclick="switchSandboxTab('files')">📁 ファイル</div>
+                    <div class="sandbox-tab" onclick="switchSandboxTab('artifacts')">🖼 Artifacts</div>
                 </div>
                 <!-- Terminal tab -->
                 <div id="sandbox-tab-terminal" class="sandbox-tab-content active">
                     <div id="sandbox-terminal"><span class="sandbox-output-line system">サンドボックスが起動すると出力がここに表示されます...</span></div>
-                    <div style="display:flex;gap:4px;padding:4px 0 0;border-top:1px solid var(--glass-border);">
-                        <span style="color:var(--accent-green);font-size:0.8rem;align-self:center;">$</span>
-                        <input id="sandbox-cmd-input" type="text" placeholder="コマンドを入力... (Enter実行, ArrowUp/Down: 履歴)"
+                    <div style="display:flex;gap:4px;padding:4px 8px;border-top:1px solid var(--glass-border);align-items:center;flex-shrink:0;">
+                        <select id="sandbox-lang-select" title="実行言語">
+                            <option value="python">🐍 Python</option>
+                            <option value="javascript">🟨 JS</option>
+                            <option value="bash">💲 Bash</option>
+                            <option value="java">☕ Java</option>
+                            <option value="cpp">⚙️ C++</option>
+                            <option value="go">🐹 Go</option>
+                            <option value="r">📊 R</option>
+                        </select>
+                        <span style="color:var(--accent-green);font-size:0.8rem;">$</span>
+                        <input id="sandbox-cmd-input" type="text" placeholder="コマンドを入力... (Enter実行)"
                                autocomplete="off"
                                style="flex:1;background:rgba(255,255,255,0.05);border:1px solid var(--glass-border);border-radius:6px;padding:4px 8px;color:var(--text-primary);font-size:0.8rem;"
                                onkeydown="sandboxCmdKeydown(event)" />
+                    </div>
+                    <div id="sandbox-install-row">
+                        <input id="sandbox-install-input" type="text" placeholder="pip install: numpy pandas ..." autocomplete="off" onkeydown="if(event.key==='Enter')sandboxInstallPackages()" />
+                        <button class="sandbox-install-btn" onclick="sandboxInstallPackages()" title="パッケージインストール">📦 Install</button>
+                        <button class="sandbox-reset-btn" onclick="sandboxReset()" title="セッションリセット">🔄 Reset</button>
+                    </div>
+                </div>
+                <!-- Artifacts tab -->
+                <div id="sandbox-tab-artifacts" class="sandbox-tab-content">
+                    <div id="sandbox-artifacts-list">
+                        <div style="font-size:0.75rem;color:var(--text-muted);padding:8px;">実行結果の画像がここに表示されます</div>
                     </div>
                 </div>
                 <!-- Files tab -->
@@ -1170,13 +1262,25 @@ function safeMarkdown(text) {
     if (!text) return '';
     try {
         if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
-            const html = marked.parse(text, { breaks: true, gfm: true });
-            return DOMPurify.sanitize(html, {
+            // Pre-process fenced code blocks to preserve onclick handlers through DOMPurify
+            const codeBlocks = [];
+            const textWithPlaceholders = text.replace(/```(\w*)\n([\s\S]*?)```/g, function(_, lang, code) {
+                const idx = codeBlocks.length;
+                codeBlocks.push(renderCodeBlock(lang || '', code.trimEnd()));
+                return 'CODEBLOCK_PLACEHOLDER_' + idx + '_END';
+            });
+            const html = marked.parse(textWithPlaceholders, { breaks: true, gfm: true });
+            let sanitized = DOMPurify.sanitize(html, {
                 ALLOWED_TAGS: ['p','strong','em','b','i','u','s','code','pre','ul','ol','li',
                                'h1','h2','h3','h4','blockquote','a','br','hr','table','thead',
                                'tbody','tr','th','td','span'],
                 ALLOWED_ATTR: ['href','title','class'],
             });
+            // Restore code blocks (renderCodeBlock output is already escaped/safe)
+            codeBlocks.forEach(function(block, idx) {
+                sanitized = sanitized.replace('CODEBLOCK_PLACEHOLDER_' + idx + '_END', block);
+            });
+            return sanitized;
         }
     } catch (e) { /* fallback to escaped text */ }
     return esc(text).replace(/\n/g, '<br>');
@@ -1828,5 +1932,190 @@ function sandboxDrop(event) {
     event.currentTarget.classList.remove('dragover');
     const files = event.dataTransfer.files;
     if (files && files[0]) sandboxUploadFile(files[0]);
+}
+
+/* ── Sandbox: Install packages ── */
+async function sandboxInstallPackages() {
+    if (!S.persona) return;
+    const input = document.getElementById('sandbox-install-input');
+    if (!input) return;
+    const raw = input.value.trim();
+    if (!raw) return;
+    const packages = raw.split(/\s+/).filter(Boolean);
+    input.value = '';
+    sandboxLog('📦 インストール中: ' + packages.join(', '), 'system');
+    try {
+        const resp = await api('/api/chat/' + encodeURIComponent(S.persona) + '/sandbox/install', {
+            method: 'POST',
+            body: JSON.stringify({ packages }),
+        });
+        sandboxLog('✓ ' + (resp.output || 'インストール完了'), 'success');
+    } catch (ex) {
+        sandboxLog('✗ インストール失敗: ' + ex.message, 'stderr');
+    }
+}
+
+/* ── Sandbox: Reset session ── */
+async function sandboxReset() {
+    if (!S.persona) return;
+    if (!confirm('セッションをリセットしますか？変数とインストール済みパッケージが消えます。')) return;
+    sandboxLog('🔄 セッションをリセット中...', 'system');
+    try {
+        await api('/api/chat/' + encodeURIComponent(S.persona) + '/sandbox/reset', {
+            method: 'POST',
+            body: JSON.stringify({}),
+        });
+        sandboxLog('✓ セッションをリセットしました', 'success');
+    } catch (ex) {
+        sandboxLog('✗ リセット失敗: ' + ex.message, 'stderr');
+    }
+}
+
+/* ── Sandbox: Add artifact to tab ── */
+function sandboxAddArtifact(base64png, label) {
+    const list = document.getElementById('sandbox-artifacts-list');
+    if (!list) return;
+    // Clear placeholder
+    const placeholder = list.querySelector('div[style*="text-muted"]');
+    if (placeholder) placeholder.remove();
+
+    const thumb = document.createElement('div');
+    thumb.className = 'artifact-thumb';
+    const img = document.createElement('img');
+    img.src = 'data:image/png;base64,' + base64png;
+    img.alt = label || 'artifact';
+    img.onclick = () => window.open(img.src, '_blank');
+    const lbl = document.createElement('div');
+    lbl.className = 'artifact-thumb-label';
+    lbl.textContent = label || new Date().toLocaleTimeString();
+    thumb.appendChild(img);
+    thumb.appendChild(lbl);
+    list.appendChild(thumb);
+}
+
+/* ── switchSandboxTab: update to support 3 tabs ── */
+// Override switchSandboxTab to support artifacts tab
+function switchSandboxTab(tab) {
+    SANDBOX.activeTab = tab;
+    const tabs = ['terminal', 'files', 'artifacts'];
+    document.querySelectorAll('.sandbox-tab').forEach((el, i) => {
+        el.classList.toggle('active', tabs[i] === tab);
+    });
+    document.querySelectorAll('.sandbox-tab-content').forEach(el => el.classList.remove('active'));
+    const tabEl = document.getElementById('sandbox-tab-' + tab);
+    if (tabEl) tabEl.classList.add('active');
+    if (tab === 'files') refreshSandboxFiles();
+}
+
+/* ── sandboxExecuteCmd: use selected language ── */
+// Override to use language selector
+async function sandboxExecuteCmd() {
+    if (!S.persona) return;
+    const input = document.getElementById('sandbox-cmd-input');
+    if (!input) return;
+    const cmd = input.value.trim();
+    if (!cmd) return;
+    const langSelect = document.getElementById('sandbox-lang-select');
+    const language = langSelect ? langSelect.value : 'python';
+    _sandboxCmdHistory.push(cmd);
+    _sandboxHistoryIdx = -1;
+    input.value = '';
+    sandboxLog('$ [' + language + '] ' + cmd, 'system');
+    try {
+        const resp = await api('/api/chat/' + encodeURIComponent(S.persona) + '/sandbox/execute', {
+            method: 'POST',
+            body: JSON.stringify({ code: cmd, language }),
+        });
+        const output = resp.stdout || resp.output || '';
+        const stderr = resp.stderr || '';
+        if (output) output.split('\n').forEach(l => l && sandboxLog(l, 'success'));
+        if (stderr) stderr.split('\n').forEach(l => l && sandboxLog(l, 'stderr'));
+        if (resp.artifacts && resp.artifacts.length > 0) {
+            resp.artifacts.forEach((a, i) => sandboxAddArtifact(a, 'artifact-' + (i + 1)));
+        }
+    } catch (ex) {
+        sandboxLog('Error: ' + ex.message, 'stderr');
+    }
+}
+
+/* ── Code block Run button ── */
+async function sandboxRunBlock(code, language, resultEl, runBtn) {
+    if (!S.persona) return;
+    const enabled = document.getElementById('chat-sandbox-enabled')?.checked;
+    if (!enabled) { toast('サンドボックスが無効です。設定で有効にしてください。', 'error'); return; }
+    runBtn.disabled = true;
+    runBtn.textContent = '⏳';
+    resultEl.className = 'hljs-run-result running';
+    resultEl.textContent = '実行中...';
+    resultEl.style.display = 'block';
+    try {
+        const resp = await api('/api/chat/' + encodeURIComponent(S.persona) + '/sandbox/execute', {
+            method: 'POST',
+            body: JSON.stringify({ code, language }),
+        });
+        const out = (resp.stdout || '').trim();
+        const err = (resp.stderr || '').trim();
+        if (err) {
+            resultEl.className = 'hljs-run-result stderr';
+            resultEl.textContent = err;
+        } else {
+            resultEl.className = 'hljs-run-result stdout';
+            resultEl.textContent = out || '(出力なし)';
+        }
+        if (resp.artifacts && resp.artifacts.length > 0) {
+            resp.artifacts.forEach((a, i) => {
+                const img = document.createElement('img');
+                img.src = 'data:image/png;base64,' + a;
+                img.className = 'hljs-artifact-img';
+                img.title = 'クリックで拡大';
+                img.onclick = () => window.open(img.src, '_blank');
+                resultEl.parentNode.insertBefore(img, resultEl.nextSibling);
+                sandboxAddArtifact(a, 'chart-' + new Date().toLocaleTimeString());
+            });
+        }
+        sandboxLog('▶ [' + language + '] ' + code.split('\n')[0].substring(0, 60) + (code.includes('\n') ? '...' : ''), 'system');
+        if (out) out.split('\n').forEach(l => l && sandboxLog(l, 'success'));
+        if (err) err.split('\n').forEach(l => l && sandboxLog(l, 'stderr'));
+    } catch (ex) {
+        resultEl.className = 'hljs-run-result stderr';
+        resultEl.textContent = 'Error: ' + ex.message;
+    } finally {
+        runBtn.disabled = false;
+        runBtn.textContent = '▶ Run';
+    }
+}
+
+/* ── Markdown code block rendering with syntax highlighting ── */
+function renderCodeBlock(lang, code) {
+    const sandboxEnabled = document.getElementById('chat-sandbox-enabled')?.checked;
+    const runnable = sandboxEnabled && lang && lang !== 'text' && lang !== 'output';
+    const escaped = esc(code);
+    // Try highlight.js
+    let highlighted = escaped;
+    try {
+        if (typeof hljs !== 'undefined' && lang && hljs.getLanguage(lang)) {
+            highlighted = hljs.highlight(code, { language: lang }).value;
+        } else if (typeof hljs !== 'undefined') {
+            highlighted = hljs.highlightAuto(code).value;
+        }
+    } catch (_) { /* fallback to plain */ }
+
+    const uid = 'codeblock-' + Math.random().toString(36).slice(2);
+    const runBtnHtml = runnable
+        ? '<button class="hljs-run-btn" id="runbtn-' + uid + '" onclick="sandboxRunBlock(' +
+          JSON.stringify(code) + ', ' + JSON.stringify(lang || 'python') + ', document.getElementById(\'result-' + uid + '\'), this)">▶ Run</button>'
+        : '';
+
+    return '<div class="hljs-block-wrapper">' +
+        '<div class="hljs-block-header">' +
+            '<span class="hljs-lang-badge">' + esc(lang || '') + '</span>' +
+            '<div class="hljs-block-actions">' +
+                '<button class="hljs-copy-btn" onclick="navigator.clipboard.writeText(' + JSON.stringify(code) + ').then(()=>toast(\'コピーしました\',\'success\'))">📋 Copy</button>' +
+                runBtnHtml +
+            '</div>' +
+        '</div>' +
+        '<pre style="margin:0;padding:8px 10px;background:#0d1117;overflow-x:auto;"><code class="hljs language-' + esc(lang || '') + '">' + highlighted + '</code></pre>' +
+        '<div id="result-' + uid + '" class="hljs-run-result" style="display:none;"></div>' +
+    '</div>';
 }
 """

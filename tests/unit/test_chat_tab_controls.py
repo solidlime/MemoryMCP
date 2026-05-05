@@ -47,3 +47,49 @@ def test_chat_js_supports_terminal_history_and_scoped_execute_endpoint():
     assert "ArrowUp" in js
     assert "ArrowDown" in js
     assert "/api/chat/' + encodeURIComponent(S.persona) + '/sandbox/execute" in js
+
+
+def test_chat_tab_renders_artifacts_tab():
+    """Sandbox panel should include an Artifacts tab for plot display."""
+    html = render_chat_tab()
+
+    assert 'switchSandboxTab(\'artifacts\')' in html or "switchSandboxTab('artifacts')" in html
+    assert 'id="sandbox-tab-artifacts"' in html
+    assert 'id="sandbox-artifacts-list"' in html
+
+
+def test_chat_tab_renders_sandbox_install_ui():
+    """Terminal tab should include pip install input and reset button."""
+    html = render_chat_tab()
+
+    assert 'id="sandbox-install-input"' in html
+    assert 'id="sandbox-install-row"' in html
+
+
+def test_chat_js_has_sandbox_install_and_reset_functions():
+    """JS should define sandboxInstallPackages and sandboxReset."""
+    js = render_chat_js()
+
+    assert 'function sandboxInstallPackages()' in js
+    assert 'function sandboxReset()' in js
+
+
+def test_chat_js_has_sandbox_run_block_function():
+    """JS should define sandboxRunBlock for code block execution."""
+    js = render_chat_js()
+
+    assert 'function sandboxRunBlock(' in js
+
+
+def test_chat_js_uses_install_endpoint():
+    """sandboxInstallPackages should call /sandbox/install endpoint."""
+    js = render_chat_js()
+
+    assert "/sandbox/install" in js
+
+
+def test_chat_js_uses_reset_endpoint():
+    """sandboxReset should call /sandbox/reset endpoint."""
+    js = render_chat_js()
+
+    assert "/sandbox/reset" in js

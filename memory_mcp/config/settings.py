@@ -87,6 +87,7 @@ class SandboxConfig(BaseModel):
     allowed_languages: list[str] = ["python", "javascript", "bash"]
     max_sessions: int = 10
     workspace_dir: str = "/workspace"
+    host_data_root: str = ""  # HOST-absolute path to data dir (needed for sibling-container volume mounts)
 
 
 class ForgettingConfig(BaseModel):
