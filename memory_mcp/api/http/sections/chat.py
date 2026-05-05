@@ -189,40 +189,53 @@ def render_chat_tab() -> str:
             #settings-panel { width: 100% !important; }
             #memory-panel { display: none; }
         }
-        /* Debug panel */
-        .chat-debug-panel {
-            margin-top: 4px; max-width: 85%;
-            background: rgba(0,0,0,0.25); border: 1px solid rgba(139,92,246,0.2);
-            border-radius: 8px; font-size: 0.72rem; overflow: hidden;
-        }
-        .chat-debug-panel details {
-            padding: 5px 10px; border-bottom: 1px solid rgba(255,255,255,0.04);
-        }
-        .chat-debug-panel details:last-child { border-bottom: none; }
-        .chat-debug-panel summary {
-            cursor: pointer; color: var(--text-muted); user-select: none; outline: none;
-            padding: 2px 0;
-        }
-        .chat-debug-panel summary:hover { color: var(--text-secondary); }
-        .chat-debug-panel pre {
-            margin: 6px 0 2px; white-space: pre-wrap; word-break: break-all;
-            color: rgba(200,200,255,0.7); max-height: 180px; overflow-y: auto;
-            font-size: 0.7rem; line-height: 1.4;
-        }
-        .chat-debug-btn {
-            background: none; border: 1px solid var(--glass-border);
-            border-radius: 8px; color: var(--text-muted); padding: 4px 8px;
-            cursor: pointer; font-size: 0.78rem; transition: all 0.2s;
-            opacity: 0.4;
-        }
-        .chat-debug-btn.active { opacity: 1; border-color: rgba(139,92,246,0.5); color: var(--accent-purple); }
-        .chat-debug-btn:hover { opacity: 0.8; }
         #chat-cancel-btn {
             background: rgba(248,113,113,0.12); border: 1px solid rgba(248,113,113,0.3);
             border-radius: 8px; color: var(--accent-red); padding: 8px 14px;
             cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: all 0.2s;
         }
         #chat-cancel-btn:hover { background: rgba(248,113,113,0.22); }
+        /* Attachment area */
+        #chat-attachments {
+            display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 16px 0;
+            min-height: 0; border-top: 0;
+        }
+        #chat-attachments:empty { display: none; }
+        .chat-attachment-badge {
+            display: flex; align-items: center; gap: 5px;
+            background: rgba(255,255,255,0.07); border: 1px solid var(--glass-border);
+            border-radius: 8px; padding: 4px 8px; font-size: 0.78rem; color: var(--text-secondary);
+            max-width: 180px; cursor: default;
+        }
+        .chat-attachment-badge img.thumb {
+            width: 36px; height: 36px; object-fit: cover; border-radius: 4px; cursor: pointer;
+            flex-shrink: 0;
+        }
+        .chat-attachment-badge video.thumb {
+            width: 36px; height: 36px; object-fit: cover; border-radius: 4px; cursor: pointer;
+            flex-shrink: 0;
+        }
+        .chat-attachment-badge .attach-name {
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;
+        }
+        .chat-attachment-badge .attach-remove {
+            background: none; border: none; color: var(--text-muted); cursor: pointer;
+            font-size: 0.85rem; padding: 0 2px; line-height: 1; flex-shrink: 0;
+        }
+        .chat-attachment-badge .attach-remove:hover { color: var(--accent-red); }
+        #chat-input.dragover {
+            border-color: var(--accent-purple); background: rgba(167,139,250,0.08);
+        }
+        /* Media viewer overlay */
+        #media-viewer-overlay {
+            display: none; position: fixed; inset: 0; z-index: 9500;
+            background: rgba(0,0,0,0.85); backdrop-filter: blur(6px);
+            align-items: center; justify-content: center; cursor: pointer;
+        }
+        #media-viewer-overlay.visible { display: flex; }
+        #media-viewer-inner { max-width: 90vw; max-height: 90vh; }
+        #media-viewer-inner img { max-width: 90vw; max-height: 90vh; border-radius: 8px; object-fit: contain; }
+        #media-viewer-inner video { max-width: 90vw; max-height: 90vh; border-radius: 8px; }
         /* Chat bubble markdown styles */
         .chat-bubble h1,.chat-bubble h2,.chat-bubble h3,.chat-bubble h4 {
             font-weight:700; margin:0.5em 0 0.25em; line-height:1.3;
@@ -408,7 +421,6 @@ def render_chat_tab() -> str:
                 <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                     <button class="mem-panel-toggle" id="memory-panel-toggle-btn" onclick="toggleMemoryPanel()" title="記憶パネルを開閉">🧠</button>
                     <button id="sandbox-toggle-btn" onclick="openCodingAgent()" title="Coding Agent を開く">🔬 Code</button>
-                    <button class="chat-debug-btn" id="chat-debug-btn" onclick="toggleDebugPanel()" title="デバッグ情報の表示切替">🐛 Debug</button>
                     <button class="chat-sidebar-toggle" onclick="toggleSettingsPanel()" id="chat-sidebar-toggle-btn" title="設定パネルを開閉">⚙️ 設定</button>
                 </div>
             </div>
@@ -484,8 +496,9 @@ def render_chat_tab() -> str:
                         </div>
                     </div>
                     <div id="chat-status"></div>
+                    <div id="chat-attachments"></div>
                     <div id="chat-input-area">
-                        <textarea id="chat-input" placeholder="メッセージを入力... (Shift+Enter で改行、Enter で送信)" rows="1"></textarea>
+                        <textarea id="chat-input" placeholder="メッセージを入力... (Shift+Enter で改行、Enter で送信、ファイルドロップ可)" rows="1"></textarea>
                         <button id="chat-cancel-btn" onclick="chatCancel()" style="display:none;">⏹ 中止</button>
                         <button id="chat-send-btn" onclick="chatSend()">送信 ↑</button>
                     </div>
@@ -669,11 +682,6 @@ def render_chat_tab() -> str:
                                 onchange="onSandboxEnabledChange()" />
                             <label for="chat-sandbox-enabled" class="chat-field-label" style="margin:0;cursor:pointer;">コード実行を許可 (Docker必要)</label>
                         </div>
-                        <div style="font-size:0.7rem;color:var(--text-muted);margin-top:4px;">
-                            Docker コンテナ内でコードを安全に実行します。<br>
-                            Docker が起動中かつ <code style="font-size:0.65rem;">llm-sandbox</code> がインストール済みの場合のみ使用可能です。<br>
-                            Docker ホストは環境変数 <code style="font-size:0.65rem;">MEMORY_MCP_SANDBOX__DOCKER_HOST</code> で設定できます。
-                        </div>
                     </div>
                     <!-- Buttons -->
                     <button class="chat-save-btn" onclick="saveChatConfig()">💾 設定を保存</button>
@@ -681,15 +689,14 @@ def render_chat_tab() -> str:
                     <!-- Config status -->
                     <div id="chat-config-status" style="font-size:0.75rem; text-align:center; min-height:16px;"></div>
                 </div>
-                <!-- Debug panel -->
-                <div id="debug-panel" style="display:none; position:absolute; top:50px; right:300px; width:320px; max-height:400px; overflow-y:auto; background:var(--bg-secondary); border:1px solid var(--glass-border); border-radius:12px; padding:12px; z-index:20; font-size:0.78rem;">
-                    <div style="font-weight:600; margin-bottom:8px; color:var(--text-primary);">🐛 デバッグ情報</div>
-                    <div id="debug-panel-content" style="color:var(--text-muted);">デバッグパネルを開くとここに情報が表示されます。</div>
-                </div>
             </div>
             <!-- highlight.js for syntax highlighting in chat bubbles -->
             <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
             <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" crossorigin="anonymous"></script>
+            <!-- Media viewer overlay -->
+            <div id="media-viewer-overlay" onclick="closeMediaViewer()">
+                <div id="media-viewer-inner" onclick="event.stopPropagation()"></div>
+            </div>
         </section>""" + render_coding_agent_panel()
 
 
@@ -703,11 +710,11 @@ const CHAT = {
     streaming: false,
     sidebarOpen: true,
     memoryPanelOpen: true,
-    debugMode: localStorage.getItem('chat_debug_mode') === 'true',
     messages: [],  // { role, content, time }
     mcpServers: [],
     enabledSkills: [],
     abortController: null,  // F4: AbortController for streaming cancel
+    attachments: [],  // { filename, url, workspace_path, mime_type, size }
 };
 
 function loadChat() {
@@ -716,9 +723,6 @@ function loadChat() {
     loadSkillsForChat();
     restoreChatHistory();
     loadChatCommitments();
-    // Restore debug button state
-    const btn = document.getElementById('chat-debug-btn');
-    if (btn && CHAT.debugMode) btn.classList.add('active');
 }
 
 async function loadChatCommitments() {
@@ -979,72 +983,18 @@ function toggleMemoryPanel() {
     document.querySelectorAll('.mem-panel-toggle').forEach(b => b.classList.toggle('active', CHAT.memoryPanelOpen));
 }
 
-function toggleDebugPanel() {
-    CHAT.debugMode = !CHAT.debugMode;
-    localStorage.setItem('chat_debug_mode', CHAT.debugMode);
-    const btn = document.getElementById('chat-debug-btn');
-    if (btn) btn.classList.toggle('active', CHAT.debugMode);
-    document.querySelectorAll('.chat-debug-panel').forEach(el => {
-        el.style.display = CHAT.debugMode ? 'block' : 'none';
-    });
-    const panel = document.getElementById('debug-panel');
-    if (panel) panel.style.display = CHAT.debugMode ? 'block' : 'none';
-}
-
 function renderDebugPanel(anchorEl, data) {
     try {
-        const panel = document.createElement('div');
-        panel.className = 'chat-debug-panel';
-        panel.style.display = CHAT.debugMode ? 'block' : 'none';
-
-        const SECTIONS = [
-            { key: 'system_prompt',    label: '📝 System Prompt' },
-            { key: 'context_summary',  label: '🧠 Context' },
-            { key: 'memories_raw',     label: '💡 Memories',     isArray: true },
-            { key: 'tool_calls',       label: '🔧 Tool Calls',   isArray: true },
-            { key: 'messages_sent',    label: '💬 Messages Sent', isArray: true },
-            { key: 'context_state',    label: '📊 Context State' },
-            { key: 'skills_raw',       label: '🎯 Skills',       isArray: true },
-        ];
-        const knownKeys = new Set(['type', ...SECTIONS.map(s => s.key)]);
-
-        let html = '';
-        for (const sec of SECTIONS) {
-            const val = data[sec.key];
-            if (val === undefined || val === null) continue;
-            let displayVal;
-            try { displayVal = typeof val === 'string' ? val : JSON.stringify(val, null, 2); }
-            catch (e) { displayVal = String(val); }
-            const count = sec.isArray && Array.isArray(val) ? ' (' + val.length + ')' : '';
-            html += '<details class="chat-debug-section"><summary>' + sec.label + count + '</summary>' +
-                    '<pre class="chat-tool-detail">' + esc(displayVal) + '</pre></details>';
+        console.group('[debug_info]');
+        const SECTIONS = ['system_prompt','context_summary','memories_raw','tool_calls','messages_sent','context_state','skills_raw'];
+        for (const key of SECTIONS) {
+            if (data[key] !== undefined && data[key] !== null) {
+                console.log(key + ':', data[key]);
+            }
         }
-        // Extra keys not in known sections
-        const extra = {};
-        for (const [k, v] of Object.entries(data)) {
-            if (!knownKeys.has(k)) extra[k] = v;
-        }
-        if (Object.keys(extra).length) {
-            let extraStr;
-            try { extraStr = JSON.stringify(extra, null, 2); } catch (e) { extraStr = String(extra); }
-            html += '<details class="chat-debug-section"><summary>📎 その他</summary>' +
-                    '<pre class="chat-tool-detail">' + esc(extraStr) + '</pre></details>';
-        }
-        panel.innerHTML = html;
-
-        const container = document.getElementById('chat-messages');
-        // T5: anchorEl が null や container 外の場合、最後の非デバッグ要素にフォールバック
-        let anchor = (anchorEl && anchorEl.parentNode === container) ? anchorEl : null;
-        if (!anchor) {
-            const children = [...container.children].filter(el => !el.classList.contains('chat-debug-panel'));
-            anchor = children.length ? children[children.length - 1] : null;
-        }
-        if (anchor) {
-            anchor.insertAdjacentElement('afterend', panel);
-        } else {
-            container.appendChild(panel);
-        }
-        container.scrollTop = container.scrollHeight;
+        const extra = Object.fromEntries(Object.entries(data).filter(([k]) => !['type',...SECTIONS].includes(k)));
+        if (Object.keys(extra).length) console.log('extra:', extra);
+        console.groupEnd();
     } catch (e) {
         console.error('[debug panel render error]', e);
     }
@@ -1347,24 +1297,157 @@ function removeTypingIndicator() {
     if (el) el.remove();
 }
 
+async function uploadAttachment(file) {
+    if (!S.persona) { toast('ペルソナを選択してください', 'error'); return; }
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+        const res = await fetch('/api/chat/' + encodeURIComponent(S.persona) + '/attachment/upload', {
+            method: 'POST',
+            body: formData,
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        CHAT.attachments.push(data);
+        renderAttachmentBadge(data);
+    } catch (e) {
+        toast('ファイルのアップロードに失敗しました: ' + e.message, 'error');
+    }
+}
+
+function renderAttachmentBadge(att) {
+    const area = document.getElementById('chat-attachments');
+    if (!area) return;
+    const badge = document.createElement('div');
+    badge.className = 'chat-attachment-badge';
+    badge.dataset.filename = att.filename;
+
+    const isImage = att.mime_type && att.mime_type.startsWith('image/');
+    const isVideo = att.mime_type && att.mime_type.startsWith('video/');
+
+    if (isImage) {
+        const img = document.createElement('img');
+        img.className = 'thumb';
+        img.src = att.url;
+        img.alt = att.filename;
+        img.onclick = () => openMediaViewer(att.url, 'image');
+        badge.appendChild(img);
+    } else if (isVideo) {
+        const vid = document.createElement('video');
+        vid.className = 'thumb';
+        vid.src = att.url;
+        vid.muted = true;
+        vid.onclick = () => openMediaViewer(att.url, 'video');
+        badge.appendChild(vid);
+    } else {
+        const icon = document.createElement('span');
+        const ext = att.filename.split('.').pop().toLowerCase();
+        icon.textContent = ext === 'pdf' ? '📕' : (ext === 'zip' || ext === 'tar' || ext === 'gz' ? '📦' : '📄');
+        badge.appendChild(icon);
+    }
+
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'attach-name';
+    nameSpan.textContent = att.filename;
+    badge.appendChild(nameSpan);
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'attach-remove';
+    removeBtn.textContent = '✕';
+    removeBtn.onclick = () => {
+        CHAT.attachments = CHAT.attachments.filter(a => a.filename !== att.filename);
+        badge.remove();
+    };
+    badge.appendChild(removeBtn);
+    area.appendChild(badge);
+}
+
+function openMediaViewer(url, type) {
+    const overlay = document.getElementById('media-viewer-overlay');
+    const inner = document.getElementById('media-viewer-inner');
+    if (!overlay || !inner) return;
+    inner.innerHTML = '';
+    if (type === 'image') {
+        const img = document.createElement('img');
+        img.src = url;
+        inner.appendChild(img);
+    } else {
+        const vid = document.createElement('video');
+        vid.src = url;
+        vid.controls = true;
+        vid.autoplay = true;
+        inner.appendChild(vid);
+    }
+    overlay.classList.add('visible');
+    // ESC to close
+    const escHandler = (e) => {
+        if (e.key === 'Escape') { closeMediaViewer(); document.removeEventListener('keydown', escHandler); }
+    };
+    document.addEventListener('keydown', escHandler);
+}
+
+function closeMediaViewer() {
+    const overlay = document.getElementById('media-viewer-overlay');
+    const inner = document.getElementById('media-viewer-inner');
+    if (overlay) overlay.classList.remove('visible');
+    if (inner) {
+        const vid = inner.querySelector('video');
+        if (vid) vid.pause();
+        inner.innerHTML = '';
+    }
+}
+
 async function chatSend() {
     if (!S.persona) { toast('ペルソナを選択してください', 'error'); return; }
     if (CHAT.streaming) return;
 
     const inputEl = document.getElementById('chat-input');
-    const message = inputEl.value.trim();
-    if (!message) return;
-
-    inputEl.value = '';
-    inputEl.style.height = 'auto';
+    const rawInput = inputEl.value.trim();
+    let message = rawInput;
+    if (!message && CHAT.attachments.length === 0) return;
+    if (!message) message = '';
 
     const sendBtn = document.getElementById('chat-send-btn');
     const cancelBtn = document.getElementById('chat-cancel-btn');
     const statusEl = document.getElementById('chat-status');
 
-    // Show user message
+    // Append attachment references to message
+    if (CHAT.attachments.length > 0) {
+        const TEXT_EXTS = new Set(['txt','csv','json','py','js','ts','md','yaml','yml','toml','ini','cfg','sh','bash','html','css','xml','log','sql','rs','go','java','cpp','c','h']);
+        const attachParts = [];
+        for (const att of CHAT.attachments) {
+            const ext = att.filename.split('.').pop().toLowerCase();
+            const isText = TEXT_EXTS.has(ext);
+            if (isText) {
+                try {
+                    const res = await fetch(att.url);
+                    const content = await res.text();
+                    attachParts.push('\n\n--- 添付: ' + att.filename + ' ---\n' + content + '\n---');
+                } catch (_e) {
+                    attachParts.push('\n[添付ファイル: ' + att.workspace_path + ']');
+                }
+            } else if (att.mime_type && att.mime_type.startsWith('image/')) {
+                attachParts.push('\n[添付画像: ' + att.workspace_path + ']');
+            } else {
+                attachParts.push('\n[添付ファイル: ' + att.workspace_path + ']');
+            }
+        }
+        if (attachParts.length > 0) {
+            message = message + attachParts.join('');
+        }
+    }
+
+    inputEl.value = '';
+    inputEl.style.height = 'auto';
+    // Clear attachments
+    CHAT.attachments = [];
+    const attArea = document.getElementById('chat-attachments');
+    if (attArea) attArea.innerHTML = '';
+
+    // Show user message with original input (not attachment content)
+    const displayMsg = rawInput || (CHAT.attachments.length > 0 ? '[ファイル添付]' : '');
     const timeStr = new Date().toLocaleTimeString('ja-JP', {hour:'2-digit',minute:'2-digit'});
-    appendChatMessage('user', message, timeStr);
+    appendChatMessage('user', displayMsg, timeStr);
     showTypingIndicator();
 
     CHAT.streaming = true;
@@ -1382,7 +1465,7 @@ async function chatSend() {
         const response = await fetch('/api/chat/' + encodeURIComponent(S.persona), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message, session_id: sessionId, debug: CHAT.debugMode }),
+            body: JSON.stringify({ message, session_id: sessionId, debug: false }),
             signal: CHAT.abortController.signal,
         });
 
@@ -1522,6 +1605,22 @@ document.addEventListener('DOMContentLoaded', () => {
     input.addEventListener('input', () => {
         input.style.height = 'auto';
         input.style.height = Math.min(input.scrollHeight, 160) + 'px';
+    });
+    // File drag-and-drop on chat input
+    input.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        input.classList.add('dragover');
+    });
+    input.addEventListener('dragleave', () => {
+        input.classList.remove('dragover');
+    });
+    input.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        input.classList.remove('dragover');
+        const files = Array.from(e.dataTransfer.files);
+        for (const file of files) {
+            await uploadAttachment(file);
+        }
     });
 });
 

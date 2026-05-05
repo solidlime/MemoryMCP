@@ -268,6 +268,89 @@ def register_chat_routes(mcp) -> None:
             with __import__("contextlib").suppress(Exception):
                 os.unlink(tmp_path)
 
+    @mcp.custom_route("/api/chat/{persona}/attachment/upload", methods=["POST"])
+    async def attachment_upload(request: Request) -> JSONResponse:
+        """チャット添付ファイルをホストFSに直接保存する（サンドボックス不要）。"""
+        import mimetypes
+        import os
+        from pathlib import Path
+
+        from starlette.datastructures import UploadFile
+
+        persona = _resolve_persona_from_request(request)
+        ctx = _safe_get_context(persona)
+        if not ctx:
+            return JSONResponse({"error": "Persona not found"}, status_code=404)
+
+        from memory_mcp.config.settings import get_settings
+        settings = get_settings()
+        uploads_dir = Path(settings.data_root) / "memory" / persona / "workspace" / "uploads"
+        uploads_dir.mkdir(parents=True, exist_ok=True)
+
+        form = await request.form()
+        upload: UploadFile = form.get("file")
+        if not upload:
+            return JSONResponse({"error": "file field required"}, status_code=400)
+
+        filename = upload.filename or "upload"
+        # Sanitize filename
+        safe_name = os.path.basename(filename).replace("..", "").strip()
+        if not safe_name:
+            safe_name = "upload"
+
+        dest = uploads_dir / safe_name
+        # Avoid overwrite: append counter if needed
+        counter = 0
+        stem = dest.stem
+        suffix = dest.suffix
+        while dest.exists():
+            counter += 1
+            dest = uploads_dir / f"{stem}_{counter}{suffix}"
+        safe_name = dest.name
+
+        dest.write_bytes(await upload.read())
+
+        mime_type, _ = mimetypes.guess_type(safe_name)
+        mime_type = mime_type or "application/octet-stream"
+        size = dest.stat().st_size
+
+        return JSONResponse({
+            "filename": safe_name,
+            "url": f"/api/chat/{persona}/attachment/{safe_name}",
+            "workspace_path": f"/workspace/uploads/{safe_name}",
+            "mime_type": mime_type,
+            "size": size,
+        })
+
+    @mcp.custom_route("/api/chat/{persona}/attachment/{filename}", methods=["GET"])
+    async def attachment_serve(request: Request) -> Response:
+        """アップロード済み添付ファイルをサーブする。"""
+        import mimetypes
+        import os
+        from pathlib import Path
+
+        from starlette.responses import FileResponse
+
+        persona = _resolve_persona_from_request(request)
+        ctx = _safe_get_context(persona)
+        if not ctx:
+            return JSONResponse({"error": "Persona not found"}, status_code=404)
+
+        filename = request.path_params.get("filename", "")
+        safe_name = os.path.basename(filename).replace("..", "").strip()
+        if not safe_name:
+            return JSONResponse({"error": "Invalid filename"}, status_code=400)
+
+        from memory_mcp.config.settings import get_settings
+        settings = get_settings()
+        file_path = Path(settings.data_root) / "memory" / persona / "workspace" / "uploads" / safe_name
+        if not file_path.exists():
+            return JSONResponse({"error": "File not found"}, status_code=404)
+
+        mime_type, _ = mimetypes.guess_type(safe_name)
+        mime_type = mime_type or "application/octet-stream"
+        return FileResponse(str(file_path), media_type=mime_type)
+
     @mcp.custom_route("/api/chat/{persona}/sandbox/files", methods=["GET"])
     async def sandbox_list_files(request: Request) -> JSONResponse:
         """サンドボックス内ファイル一覧を返す。"""

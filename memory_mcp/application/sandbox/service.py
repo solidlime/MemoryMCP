@@ -84,12 +84,12 @@ def _build_container_configs(persona: str) -> tuple[dict, Path | None]:
     settings = get_settings()
 
     # Create workspace dir using container-internal (or local) path
-    workspace_internal = Path(settings.data_root) / "sandbox" / persona / "workspace"
+    workspace_internal = Path(settings.data_root) / "memory" / persona / "workspace"
     workspace_internal.mkdir(parents=True, exist_ok=True)
 
     # For sibling-container deployments, use host_data_root for the volume mount key
     if settings.sandbox.host_data_root:
-        workspace_mount = Path(settings.sandbox.host_data_root) / "sandbox" / persona / "workspace"
+        workspace_mount = Path(settings.sandbox.host_data_root) / "memory" / persona / "workspace"
     else:
         workspace_mount = workspace_internal
 
@@ -163,8 +163,11 @@ class SandboxSession:
             await asyncio.to_thread(
                 self._python_session.run,
                 f"import os; os.makedirs('{UPLOADS_DIR}', exist_ok=True); "
-                f"os.makedirs('{OUTPUT_DIR}', exist_ok=True); print('workspace ready')",
+                f"os.makedirs('{OUTPUT_DIR}', exist_ok=True)",
             )
+            # Drain any startup messages from ArtifactSandboxSession
+            with contextlib.suppress(Exception):
+                await asyncio.to_thread(self._python_session.run, "pass")
             logger.info("Python sandbox session started for persona=%s", self.persona)
         except Exception as e:
             self._python_session = None
@@ -195,7 +198,7 @@ class SandboxSession:
             await self._ensure_python_started()
             try:
                 result = await asyncio.to_thread(self._python_session.run, code)
-                stdout = getattr(result, "stdout", "") or ""
+                stdout = (getattr(result, "stdout", "") or "").replace("Python plot detection setup complete\n", "").replace("Python plot detection setup complete", "")
                 stderr = getattr(result, "stderr", "") or ""
                 exit_code = getattr(result, "exit_code", 0) or 0
 
