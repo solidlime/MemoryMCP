@@ -4,7 +4,7 @@
 
 # Embedding & Reranker
 sentence-transformers>=3.0.0
-sentencepiece>=0.1.99  # Required for cl-nagoya/ruri-v3-30m tokenizer
+sentencepiece>=0.2.1  # Required for cl-nagoya/ruri-v3-30m tokenizer
 
 # PyTorch CPU版（sentence-transformersの依存として自動インストールされる）
 # Docker: Dockerfile で --index-url を使って CPU 版を先にインストール
