@@ -21,7 +21,7 @@ pydantic-settings>=2.0.0
 qdrant-client>=1.8.2
 
 # Numerical
-numpy>=1.24.0
+numpy>=2.4.4
 
 # E2E Testing (Playwright)
 playwright>=1.40.0
