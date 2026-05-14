@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import json
 import logging
 from typing import TYPE_CHECKING
@@ -1000,13 +1001,13 @@ def register_tools(mcp: FastMCP) -> None:
 
         Examples:
             # Data analysis
-            sandbox("import pandas as pd; df = pd.read_csv('/workspace/uploads/data.csv'); print(df.head())")
+            sandbox("import pandas as pd; df = pd.read_csv('/sandbox/uploads/data.csv'); print(df.head())")
             # Package install
             sandbox("import subprocess; subprocess.run(['pip', 'install', 'requests'], capture_output=True)")
             # File creation
-            sandbox("open('/workspace/output/result.txt', 'w').write('hello')")
+            sandbox("open('/sandbox/output/result.txt', 'w').write('hello')")
             # Bash command
-            sandbox("ls -la /workspace/", language="bash")
+            sandbox("ls -la /sandbox/", language="bash")
         """
         from memory_mcp.config.settings import get_settings
 
@@ -1027,6 +1028,10 @@ def register_tools(mcp: FastMCP) -> None:
                 parts.append(f"[stderr] {result.stderr}")
             if result.exit_code != 0:
                 parts.append(f"[exit code: {result.exit_code}]")
+            if result.artifacts:
+                parts.append(f"[artifacts: {len(result.artifacts)} image(s) generated]")
+                for i, b64 in enumerate(result.artifacts):
+                    parts.append(f"[artifact_{i}: data:image/png;base64,{b64}]")
             return "\n".join(parts) if parts else "(no output)"
         except Exception as e:
             return f"Sandbox error: {e}"

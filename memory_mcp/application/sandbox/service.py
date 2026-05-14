@@ -12,7 +12,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-WORKSPACE = "/workspace"
+WORKSPACE = "/sandbox"
 UPLOADS_DIR = f"{WORKSPACE}/uploads"
 OUTPUT_DIR = f"{WORKSPACE}/output"
 
@@ -183,7 +183,7 @@ def _verify_sandbox_mounts(session: object, container_configs: dict, persona: st
         if not mounts and expected_volumes:
             logger.warning(
                 "Sandbox container %s has NO volume mounts! Expected: %s. "
-                "Files written to /workspace will NOT persist on host. "
+                "Files written to /sandbox will NOT persist on host. "
                 "llm_sandbox may not be applying container_configs['volumes'].",
                 container_id[:12], list(expected_volumes.keys()),
             )
@@ -219,9 +219,9 @@ def _cleanup_stale_sandbox_container(persona: str) -> None:
 
 
 def _build_container_configs(persona: str) -> tuple[dict, Path | None]:
-    """Build container_configs dict and return (configs, workspace_internal_path).
+    """Build container_configs dict and return (configs, sandbox_internal_path).
 
-    workspace_internal_path is the path usable from the current process to create dirs.
+    sandbox_internal_path is the path usable from the current process to create dirs.
     The volume mount key is resolved in this order:
       1. Explicit MEMORY_MCP_SANDBOX__HOST_DATA_ROOT env var
       2. Auto-detected from own container's Docker mounts (sibling-container mode)
@@ -231,35 +231,35 @@ def _build_container_configs(persona: str) -> tuple[dict, Path | None]:
 
     settings = get_settings()
 
-    # Create workspace dir using container-internal (or local) path
-    workspace_internal = Path(settings.data_root) / "memory" / persona / "workspace"
-    workspace_internal.mkdir(parents=True, exist_ok=True)
+    # Create sandbox dir using container-internal (or local) path
+    sandbox_internal = Path(settings.data_root) / "memory" / persona / "sandbox"
+    sandbox_internal.mkdir(parents=True, exist_ok=True)
 
     # Resolve host-side data root (needed when memory-mcp runs in a sibling container)
     host_root = settings.sandbox.host_data_root or _auto_detect_host_data_root(str(settings.data_root))
-    workspace_mount = Path(host_root) / "memory" / persona / "workspace" if host_root else workspace_internal
+    sandbox_mount = Path(host_root) / "memory" / persona / "sandbox" if host_root else sandbox_internal
 
     if not host_root:
         logger.warning(
             "Sandbox files will NOT persist on host. Set MEMORY_MCP_SANDBOX__HOST_DATA_ROOT "
             "to the host-side path (e.g. /volume1/docker/MemoryMCP/data). "
             "Internal fallback path: %s",
-            workspace_internal,
+            sandbox_internal,
         )
 
     container_configs = {
         "name": f"sandbox-{persona}",  # predictable name for cleanup
         "volumes": {
-            str(workspace_mount): {"bind": WORKSPACE, "mode": "rw"},
+            str(sandbox_mount): {"bind": WORKSPACE, "mode": "rw"},
         },
         "cap_drop": ["ALL"],
         "security_opt": ["no-new-privileges:true"],
     }
     logger.info(
-        "Sandbox container_configs: persona=%s workspace_internal=%s workspace_mount=%s host_root=%s",
-        persona, workspace_internal, workspace_mount, host_root or "(not set)"
+        "Sandbox container_configs: persona=%s sandbox_internal=%s sandbox_mount=%s host_root=%s",
+        persona, sandbox_internal, sandbox_mount, host_root or "(not set)"
     )
-    return container_configs, workspace_internal
+    return container_configs, sandbox_internal
 
 
 class SandboxSession:
@@ -440,7 +440,7 @@ class SandboxSession:
                 logger.info("Python sandbox session reset for persona=%s", self.persona)
 
     async def upload_file(self, local_path: str, filename: str) -> str:
-        """Upload a file to /workspace/uploads/ in the sandbox."""
+        """Upload a file to /sandbox/uploads/ in the sandbox."""
         async with self._lock:
             await self._ensure_python_started()
             remote_path = f"{UPLOADS_DIR}/{filename}"

@@ -148,7 +148,7 @@ SANDBOX_TOOLS: list[ToolDefinition] = [
         description=(
             "サンドボックスコンテナ内でコードを実行する。"
             "Python スクリプト・計算・データ処理・ファイル生成に使う。"
-            "IPython カーネルなので `!ls /workspace` などシェルコマンドも実行可能。"
+            "IPython カーネルなので `!ls /sandbox` などシェルコマンドも実行可能。"
             "実行結果（stdout/stderr）を返す。"
         ),
         input_schema={
@@ -167,7 +167,7 @@ SANDBOX_TOOLS: list[ToolDefinition] = [
     ToolDefinition(
         name="sandbox_files",
         description=(
-            "サンドボックスの /workspace 配下でファイル操作を行う。"
+            "サンドボックスの /sandbox 配下でファイル操作を行う。"
             "operation: list（一覧）/ read（読み取り）/ write（書き込み）/ delete（削除）。"
         ),
         input_schema={
@@ -180,8 +180,8 @@ SANDBOX_TOOLS: list[ToolDefinition] = [
                 },
                 "path": {
                     "type": "string",
-                    "description": "/workspace 配下のパス（list はディレクトリ、read/write/delete はファイル）",
-                    "default": "/workspace",
+                    "description": "/sandbox 配下のパス（list はディレクトリ、read/write/delete はファイル）",
+                    "default": "/sandbox",
                 },
                 "content": {
                     "type": "string",

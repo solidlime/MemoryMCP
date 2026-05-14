@@ -51,7 +51,7 @@ python -m memory_mcp.main
 ### Sandbox File Persistence
 
 When running in Docker with sibling-container sandbox mode, files created inside the sandbox
-at `/workspace` need a host-side path to persist. If files are not visible on the host:
+at `/sandbox` need a host-side path to persist. If files are not visible on the host:
 
 1. **Set `MEMORY_MCP_SANDBOX__HOST_DATA_ROOT`** to the host-side data path:
    ```yaml
@@ -190,13 +190,13 @@ Execute code in an isolated Docker sandbox (sibling-container mode). Requires Do
 sandbox("import pandas as pd; print(pd.DataFrame({'a': [1,2,3]}))")
 
 # Bash コマンド実行
-sandbox("ls -la /workspace/", language="bash")
+sandbox("ls -la /sandbox/", language="bash")
 
 # パッケージインストール
 sandbox("import subprocess; subprocess.run(['pip', 'install', 'requests'], capture_output=True)")
 
-# ファイル作成（/workspace 以下は永続化可能）
-sandbox("open('/workspace/output/result.txt', 'w').write('hello')")
+# ファイル作成（/sandbox 以下は永続化可能）
+sandbox("open('/sandbox/output/result.txt', 'w').write('hello')")
 ```
 
 ## 設定

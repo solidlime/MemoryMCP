@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 from typing import TYPE_CHECKING
 
@@ -203,6 +204,7 @@ async def execute_tool(ctx: AppContext, config: ChatConfig, tool_name: str, tool
                 "stdout": result.stdout,
                 "stderr": result.stderr,
                 "exit_code": result.exit_code,
+                "artifacts": result.artifacts,
             }
 
         elif tool_name == "sandbox_files":
@@ -211,9 +213,9 @@ async def execute_tool(ctx: AppContext, config: ChatConfig, tool_name: str, tool
             from memory_mcp.application.sandbox.service import get_sandbox_session
 
             operation = tool_input.get("operation", "")
-            path = tool_input.get("path") or "/workspace"
-            if not path.startswith("/workspace"):
-                return {"status": "error", "message": "パスは /workspace 配下のみ許可されています"}
+            path = tool_input.get("path") or "/sandbox"
+            if not path.startswith("/sandbox"):
+                return {"status": "error", "message": "パスは /sandbox 配下のみ許可されています"}
 
             sandbox = get_sandbox_session(ctx.persona)
 
@@ -225,6 +227,26 @@ async def execute_tool(ctx: AppContext, config: ChatConfig, tool_name: str, tool
                 }
             elif operation == "read":
                 raw = await sandbox.read_file(path)
+                # Detect binary image files by magic bytes
+                is_image = False
+                content_type = None
+                if len(raw) >= 4:
+                    if raw[:4] == b"\x89PNG":
+                        is_image, content_type = True, "image/png"
+                    elif raw[:2] == b"\xff\xd8":
+                        is_image, content_type = True, "image/jpeg"
+                    elif raw[:3] == b"GIF":
+                        is_image, content_type = True, "image/gif"
+                    elif len(raw) >= 12 and raw[:4] == b"RIFF" and raw[8:12] == b"WEBP":
+                        is_image, content_type = True, "image/webp"
+                if is_image:
+                    b64_str = base64.b64encode(raw).decode("ascii")
+                    return {
+                        "status": "ok",
+                        "content_type": content_type,
+                        "content_base64": b64_str,
+                        "size": len(raw),
+                    }
                 max_read = 8192
                 truncated = len(raw) > max_read
                 text = raw[:max_read].decode("utf-8", errors="replace")

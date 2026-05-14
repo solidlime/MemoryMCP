@@ -1666,7 +1666,7 @@ window.__chatPersonaWatcher = setInterval(() => {
 const SANDBOX = {
     visible: false,
     activeTab: 'terminal',
-    currentPath: '/workspace',
+    currentPath: '/sandbox',
 };
 
 /* ── Memory tool filtering ── */
@@ -1928,7 +1928,7 @@ async function browseSandboxPath(path) {
 
 function downloadSandboxFile(remotePath) {
     if (!S.persona) return;
-    const clean = remotePath.replace(/^\/workspace\//, '');
+    const clean = remotePath.replace(/^\/sandbox\//, '');
     const url = '/api/chat/' + encodeURIComponent(S.persona) + '/sandbox/files/' + encodeURIComponent(clean);
     const a = document.createElement('a');
     a.href = url;
@@ -1941,7 +1941,7 @@ function downloadSandboxFile(remotePath) {
 async function deleteSandboxFile(remotePath) {
     if (!S.persona) return;
     if (!confirm('\u524a\u9664\u3057\u307e\u3059\u304b\uff1f ' + remotePath)) return;
-    const clean = remotePath.replace(/^\/workspace\//, '');
+    const clean = remotePath.replace(/^\/sandbox\//, '');
     try {
         await api('/api/chat/' + encodeURIComponent(S.persona) + '/sandbox/files/' + encodeURIComponent(clean), { method: 'DELETE' });
         toast('\u524a\u9664\u3057\u307e\u3057\u305f', 'success');

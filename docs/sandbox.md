@@ -15,7 +15,7 @@ MemoryMCP のチャットでは `llm-sandbox[docker]` を使った Python コー
 │   /data → ./data  ← memory-mcp と同パスで共有
 │   /var/lib/docker → dind-storage (named volume)
 │   └─ Python/IPython コンテナ（動的生成）
-│       /workspace → /data/sandbox/{persona}/workspace/
+│       /sandbox → /data/memory/{persona}/sandbox/
 │       cap_drop: ALL + no-new-privileges（ハードニング済み）
 │
 └─ [memory-mcp]
@@ -24,9 +24,9 @@ MemoryMCP のチャットでは `llm-sandbox[docker]` を使った Python コー
     ※ docker.sock マウントなし
 ```
 
-- **ファイル永続化**: コンテナの `/workspace` は `data/sandbox/{persona}/workspace/` にバインドマウントされます。MemoryMCP を再起動してもファイルは残ります。
+- **ファイル永続化**: コンテナの `/sandbox` は `data/memory/{persona}/sandbox/` にバインドマウントされます。MemoryMCP を再起動してもファイルは残ります。
 - **ペルソナ分離**: ペルソナごとに独立したワークスペースを持ちます。
-- **セキュリティ**: IPython コンテナは `cap_drop: ALL` + `no-new-privileges` で動作し、`/workspace` 以外にアクセスできません。
+- **セキュリティ**: IPython コンテナは `cap_drop: ALL` + `no-new-privileges` で動作し、`/sandbox` 以外にアクセスできません。
 
 ---
 
@@ -98,10 +98,10 @@ DOCKER_CERT_PATH=/path/to/certs
 
 ## ファイル永続化
 
-サンドボックス内の `/workspace` は以下のホストパスにバインドマウントされます。
+サンドボックス内の `/sandbox` は以下のホストパスにバインドマウントされます。
 
 ```
-data/sandbox/{persona}/workspace/
+data/memory/{persona}/sandbox/
 ```
 
 - `docker-compose` 環境では `./data/sandbox/` として永続化されます。
@@ -112,7 +112,7 @@ data/sandbox/{persona}/workspace/
 ## セキュリティ上の注意
 
 - **DinD**（`sandbox-docker` サービス）は `--privileged` で動作しますが、memory-mcp からは TCP 経由でのみアクセスします。`docker.sock` を memory-mcp にマウントしていないため、memory-mcp コンテナがホストの Docker デーモンを直接操作することはできません。
-- **IPython コンテナ**（ユーザーコードが実行される場所）は `cap_drop: ALL` + `no-new-privileges` + `/workspace` のみのマウントで動作します。
+- **IPython コンテナ**（ユーザーコードが実行される場所）は `cap_drop: ALL` + `no-new-privileges` + `/sandbox` のみのマウントで動作します。
 - **リモート Docker** を公開する場合は必ず TLS クライアント認証を設定してください。
 - サンドボックスコンテナはデフォルトでインターネットアクセスが可能です。必要に応じて Docker のネットワーク設定で制限してください。
 
@@ -138,8 +138,8 @@ data/sandbox/{persona}/workspace/
 - ファイアウォールでポート 2375/2376 が開放されているか確認
 - TLS 設定を使っている場合は証明書パスが正しいか確認
 
-### ファイルが `/workspace` に残らない
+### ファイルが `/sandbox` に残らない
 
 - サンドボックスが初回起動中はディレクトリ作成に少し時間がかかります
-- `data/sandbox/{persona}/workspace/` がホスト側に存在するか確認してください
+- `data/memory/{persona}/sandbox/` がホスト側に存在するか確認してください
 

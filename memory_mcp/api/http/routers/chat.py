@@ -285,7 +285,7 @@ def register_chat_routes(mcp) -> None:
         from memory_mcp.config.settings import get_settings
 
         settings = get_settings()
-        uploads_dir = Path(settings.data_root) / "memory" / persona / "workspace" / "uploads"
+        uploads_dir = Path(settings.data_root) / "memory" / persona / "sandbox" / "uploads"
         uploads_dir.mkdir(parents=True, exist_ok=True)
 
         form = await request.form()
@@ -319,7 +319,7 @@ def register_chat_routes(mcp) -> None:
             {
                 "filename": safe_name,
                 "url": f"/api/chat/{persona}/attachment/{safe_name}",
-                "workspace_path": f"/workspace/uploads/{safe_name}",
+                "workspace_path": f"/sandbox/uploads/{safe_name}",
                 "mime_type": mime_type,
                 "size": size,
             }
@@ -347,7 +347,7 @@ def register_chat_routes(mcp) -> None:
         from memory_mcp.config.settings import get_settings
 
         settings = get_settings()
-        file_path = Path(settings.data_root) / "memory" / persona / "workspace" / "uploads" / safe_name
+        file_path = Path(settings.data_root) / "memory" / persona / "sandbox" / "uploads" / safe_name
         if not file_path.exists():
             return JSONResponse({"error": "File not found"}, status_code=404)
 
@@ -368,7 +368,7 @@ def register_chat_routes(mcp) -> None:
         if not chat_cfg.sandbox_enabled:
             return JSONResponse({"error": "Sandbox not enabled for this persona"}, status_code=400)
 
-        path = request.query_params.get("path", "/workspace")
+        path = request.query_params.get("path", "/sandbox")
         from memory_mcp.application.sandbox.service import get_sandbox_session
 
         session = get_sandbox_session(persona)
@@ -397,8 +397,8 @@ def register_chat_routes(mcp) -> None:
             return JSONResponse({"error": "Sandbox not enabled for this persona"}, status_code=400)
 
         filepath = request.path_params.get("filepath", "")
-        if not filepath.startswith("workspace/") and not filepath.startswith("/workspace/"):
-            filepath = f"/workspace/{filepath}"
+        if not filepath.startswith("sandbox/") and not filepath.startswith("/sandbox/"):
+            filepath = f"/sandbox/{filepath}"
         elif not filepath.startswith("/"):
             filepath = f"/{filepath}"
 
@@ -517,7 +517,7 @@ def register_chat_routes(mcp) -> None:
 
         filepath = request.path_params.get("filepath", "")
         if not filepath.startswith("/"):
-            filepath = f"/workspace/{filepath}"
+            filepath = f"/sandbox/{filepath}"
 
         from memory_mcp.application.sandbox.service import get_sandbox_session
 
@@ -541,8 +541,8 @@ def register_chat_routes(mcp) -> None:
         path = request.query_params.get("path", "")
         if not path:
             return JSONResponse({"error": "path query parameter is required"}, status_code=400)
-        if not path.startswith("/workspace"):
-            return JSONResponse({"error": "path must be under /workspace"}, status_code=400)
+        if not path.startswith("/sandbox"):
+            return JSONResponse({"error": "path must be under /sandbox"}, status_code=400)
 
         from memory_mcp.application.sandbox.service import get_sandbox_session
 
@@ -575,8 +575,8 @@ def register_chat_routes(mcp) -> None:
         content = body.get("content", "")
         if not path:
             return JSONResponse({"error": "path is required"}, status_code=400)
-        if not path.startswith("/workspace"):
-            return JSONResponse({"error": "path must be under /workspace"}, status_code=400)
+        if not path.startswith("/sandbox"):
+            return JSONResponse({"error": "path must be under /sandbox"}, status_code=400)
 
         from memory_mcp.application.sandbox.service import get_sandbox_session
 
@@ -589,7 +589,7 @@ def register_chat_routes(mcp) -> None:
 
     @mcp.custom_route("/api/chat/{persona}/sandbox/tree", methods=["GET"])
     async def sandbox_file_tree(request: Request) -> JSONResponse:
-        """サンドボックスの再帰ファイルツリーを返す。?root=... でルートを指定（デフォルト /workspace）。"""
+        """サンドボックスの再帰ファイルツリーを返す。?root=... でルートを指定（デフォルト /sandbox）。"""
         persona = _resolve_persona_from_request(request)
         ctx = _safe_get_context(persona)
         if not ctx:
@@ -600,9 +600,9 @@ def register_chat_routes(mcp) -> None:
         if not chat_cfg.sandbox_enabled:
             return JSONResponse({"error": "Sandbox not enabled for this persona"}, status_code=400)
 
-        root = request.query_params.get("root", "/workspace")
-        if not root.startswith("/workspace"):
-            return JSONResponse({"error": "root must be under /workspace"}, status_code=400)
+        root = request.query_params.get("root", "/sandbox")
+        if not root.startswith("/sandbox"):
+            return JSONResponse({"error": "root must be under /sandbox"}, status_code=400)
 
         from memory_mcp.application.sandbox.service import get_sandbox_session
 
