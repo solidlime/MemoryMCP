@@ -282,7 +282,7 @@ class SandboxSession:
 
                     session = ArtifactSandboxSession(
                         lang="python",
-                        container_configs=container_configs,
+                        runtime_configs=container_configs,
                     )
                 except (ImportError, AttributeError):
                     from llm_sandbox import InteractiveSandboxSession
@@ -290,7 +290,7 @@ class SandboxSession:
                     session = InteractiveSandboxSession(
                         lang="python",
                         kernel_type="ipython",
-                        container_configs=container_configs,
+                        runtime_configs=container_configs,
                     )
                 session.__enter__()
                 return session
@@ -374,7 +374,7 @@ class SandboxSession:
                 # Keep security hardening
                 with LlmStatelessSession(
                     lang=language,
-                    container_configs={
+                    runtime_configs={
                         "cap_drop": container_configs.get("cap_drop", ["ALL"]),
                         "security_opt": container_configs.get("security_opt", ["no-new-privileges:true"]),
                     },
