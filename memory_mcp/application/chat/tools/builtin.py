@@ -256,8 +256,6 @@ async def execute_tool(ctx: AppContext, config: ChatConfig, tool_name: str, tool
                     read_result["total_bytes"] = len(raw)
                 return read_result
             elif operation == "write":
-                import base64
-
                 content_str = tool_input.get("content", "")
                 b64 = base64.b64encode(content_str.encode()).decode()
                 write_code = (
