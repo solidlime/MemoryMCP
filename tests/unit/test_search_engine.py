@@ -216,7 +216,7 @@ class TestSearchEngineSearch:
         assert result.is_ok
         assert len(result.value) == 1
         assert result.value[0].source == "keyword"
-        kw.search.assert_called_once_with("hello", limit=5)
+        kw.search.assert_called_once_with("hello", limit=5, date_from=None, date_to=None)
 
     def test_semantic_mode(self):
         mem = _mem("k2", content="hello")
@@ -341,3 +341,79 @@ class TestSearchEngineFilterByEmotion:
         # "joy" and "happy" normalize to the same canonical value
         out = SearchEngine._filter_by_emotion(results, "joy")
         assert len(out) == 1
+
+
+# ---------------------------------------------------------------------------
+# SearchEngine date_range integration tests (P1)
+# ---------------------------------------------------------------------------
+
+
+class TestSearchEngineDateRange:
+    """P1: date_range パラメータが検索戦略に正しく伝播されることを確認。"""
+
+    def _make_kw(self, pairs=None):
+        strat = MagicMock()
+        strat.search.return_value = Success(pairs or [])
+        return strat
+
+    def test_date_range_none_passes_none(self):
+        """date_range未指定時は date_from/date_to に None が渡される。"""
+        kw = self._make_kw()
+        engine = SearchEngine(keyword_search=kw)
+        result = engine.search(SearchQuery(text="hello", mode="keyword"))
+        assert result.is_ok
+        kw.search.assert_called_once_with(
+            "hello", limit=5, date_from=None, date_to=None
+        )
+
+    def test_date_range_passes_parsed_dates_to_keyword(self):
+        """date_range指定時はパース結果がキーワード検索に渡される。"""
+        kw = self._make_kw()
+        engine = SearchEngine(keyword_search=kw)
+        result = engine.search(SearchQuery(text="hello", mode="keyword", date_range="7d"))
+        assert result.is_ok
+        call_args = kw.search.call_args
+        assert call_args.kwargs["date_from"] is not None
+        assert call_args.kwargs["date_to"] is not None
+
+    def test_date_range_passes_parsed_dates_to_semantic(self):
+        """date_range指定時はパース結果がセマンティック検索に渡される。"""
+        sem = self._make_kw()
+        kw = self._make_kw()
+        engine = SearchEngine(keyword_search=kw, semantic_search=sem)
+        result = engine.search(SearchQuery(text="hello", mode="semantic", date_range="昨日"))
+        assert result.is_ok
+        call_args = sem.search.call_args
+        assert call_args.kwargs["date_from"] is not None
+        assert call_args.kwargs["date_to"] is not None
+
+    def test_date_range_passes_to_hybrid_both_strategies(self):
+        """ハイブリッドモードで両方の戦略に date_range が渡される。"""
+        sem = self._make_kw()
+        kw = self._make_kw()
+        engine = SearchEngine(keyword_search=kw, semantic_search=sem)
+        result = engine.search(SearchQuery(text="hello", mode="hybrid", date_range="30d"))
+        assert result.is_ok
+        # keyword strategy should receive parsed dates
+        assert kw.search.call_args.kwargs["date_from"] is not None
+        assert sem.search.call_args.kwargs["date_to"] is not None
+
+    def test_date_range_invalid_string_passes_none(self):
+        """パースできない文字列は None,None として扱われる（フィルタなし＝全件）。"""
+        kw = self._make_kw()
+        engine = SearchEngine(keyword_search=kw)
+        result = engine.search(SearchQuery(text="hello", mode="keyword", date_range="わけわからん"))
+        assert result.is_ok
+        kw.search.assert_called_once_with(
+            "hello", limit=5, date_from=None, date_to=None
+        )
+
+    def test_date_range_empty_string_passes_none(self):
+        """空文字列は None,None として扱われる。"""
+        kw = self._make_kw()
+        engine = SearchEngine(keyword_search=kw)
+        result = engine.search(SearchQuery(text="hello", mode="keyword", date_range=""))
+        assert result.is_ok
+        kw.search.assert_called_once_with(
+            "hello", limit=5, date_from=None, date_to=None
+        )

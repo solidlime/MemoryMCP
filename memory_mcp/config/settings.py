@@ -98,6 +98,17 @@ class ForgettingConfig(BaseModel):
     min_strength: float = 0.01
 
 
+class MemoryEnrichmentConfig(BaseModel):
+    """Memory enrichment (importance + relations) via LLM."""
+
+    enabled: bool = True
+    provider: str = "openrouter"
+    api_key: str | None = None
+    model: str = "openai/gpt-4o-mini"
+    base_url: str = "https://openrouter.ai/api/v1"
+    min_chars: int = 10  # skip enrichment for very short memories
+
+
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
@@ -116,6 +127,7 @@ class Settings(BaseSettings):
     forgetting: ForgettingConfig = ForgettingConfig()
     memorag: MemoRAGConfig = MemoRAGConfig()
     sandbox: SandboxConfig = SandboxConfig()
+    memory_enrichment: MemoryEnrichmentConfig = MemoryEnrichmentConfig()
     timezone: str = "Asia/Tokyo"
     data_root: str = "./data"
     log_level: str = "INFO"

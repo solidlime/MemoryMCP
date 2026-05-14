@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from memory_mcp.domain.memory.entities import Memory
@@ -194,10 +195,11 @@ class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
     # Keyword search
     # ------------------------------------------------------------------
 
-    def search_keyword(self, query: str, limit: int = 10) -> Result[list[tuple[Memory, float]], RepositoryError]:
+    def search_keyword(self, query: str, limit: int = 10, date_from: datetime | None = None, date_to: datetime | None = None) -> Result[list[tuple[Memory, float]], RepositoryError]:
         """Search memories by keyword with relevance scoring.
 
         Multi-word queries use AND logic: all terms must appear in the content.
+        Optionally filter by date range (created_at BETWEEN date_from AND date_to).
         """
         try:
             terms = [t for t in query.split() if t]
@@ -205,10 +207,23 @@ class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
                 return Success([])
             # Each term must match independently (AND logic)
             conditions = " AND ".join("content LIKE ?" for _ in terms)
-            params = tuple(f"%{t}%" for t in terms)
+            params = list(f"%{t}%" for t in terms)
+
+            # Date range filter
+            if date_from is not None or date_to is not None:
+                if date_from is not None and date_to is not None:
+                    conditions += " AND created_at BETWEEN ? AND ?"
+                    params.extend([date_from.isoformat(), date_to.isoformat()])
+                elif date_from is not None:
+                    conditions += " AND created_at >= ?"
+                    params.append(date_from.isoformat())
+                elif date_to is not None:
+                    conditions += " AND created_at <= ?"
+                    params.append(date_to.isoformat())
+
             rows = self._db.execute(
                 f"SELECT * FROM memories WHERE {conditions} ORDER BY updated_at DESC",  # noqa: S608  # nosec B608
-                params,
+                tuple(params),
             ).fetchall()
             scored: list[tuple[Memory, float]] = []
             for row in rows:

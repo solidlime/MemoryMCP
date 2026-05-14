@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
@@ -26,7 +27,7 @@ class MemoryRepository(Protocol):
 
     def count(self) -> Result[int, RepositoryError]: ...
 
-    def search_keyword(self, query: str, limit: int = 10) -> Result[list[tuple[Memory, float]], RepositoryError]: ...
+    def search_keyword(self, query: str, limit: int = 10, date_from: datetime | None = None, date_to: datetime | None = None) -> Result[list[tuple[Memory, float]], RepositoryError]: ...
 
     def find_all(self) -> Result[list[Memory], RepositoryError]: ...
 

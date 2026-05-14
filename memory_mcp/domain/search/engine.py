@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from memory_mcp.domain.shared.result import Failure, Result, Success
+from memory_mcp.domain.shared.time_utils import parse_date_range
 from memory_mcp.domain.value_objects import normalize_emotion
 
 if TYPE_CHECKING:
@@ -76,17 +77,20 @@ class SearchEngine:
             - ``smart``: Query expansion + multi-pass hybrid search merged with RRF.
             - Any other value: falls back to hybrid.
         """
+        # Parse date_range once for all strategies
+        date_from, date_to = parse_date_range(query.date_range)
+
         mode = query.mode or "hybrid"
         if mode == "keyword":
-            result = self._keyword_search(query)
+            result = self._keyword_search(query, date_from, date_to)
         elif mode == "semantic":
-            result = self._semantic_search(query)
+            result = self._semantic_search(query, date_from, date_to)
         elif mode == "smart":
             result = self._smart_search(query)
         elif mode == "memorag":
             result = self._memorag_search(query)
         else:
-            result = self._hybrid_search(query)
+            result = self._hybrid_search(query, date_from, date_to)
 
         if not result.is_ok:
             return result
@@ -111,32 +115,32 @@ class SearchEngine:
         """Convert (Memory, score) tuples from strategies into SearchResult objects."""
         return [SearchResult(memory=m, score=s, source=source) for m, s in pairs]
 
-    def _keyword_search(self, query: SearchQuery) -> Result[list[SearchResult], SearchError]:
+    def _keyword_search(self, query: SearchQuery, date_from=None, date_to=None) -> Result[list[SearchResult], SearchError]:
         """Execute keyword-only search."""
-        result = self._keyword.search(query.text, limit=query.top_k)
+        result = self._keyword.search(query.text, limit=query.top_k, date_from=date_from, date_to=date_to)
         if not result.is_ok:
             return Failure(result.error)
         return Success(self._to_search_results(result.value, "keyword"))
 
-    def _semantic_search(self, query: SearchQuery) -> Result[list[SearchResult], SearchError]:
+    def _semantic_search(self, query: SearchQuery, date_from=None, date_to=None) -> Result[list[SearchResult], SearchError]:
         """Execute semantic-only search, falling back to keyword on unavailability or error."""
         if self._semantic is None:
-            return self._keyword_search(query)
-        result = self._semantic.search(query.text, limit=query.top_k)
+            return self._keyword_search(query, date_from, date_to)
+        result = self._semantic.search(query.text, limit=query.top_k, date_from=date_from, date_to=date_to)
         if not result.is_ok:
-            return self._keyword_search(query)
+            return self._keyword_search(query, date_from, date_to)
         return Success(self._to_search_results(result.value, "semantic"))
 
-    def _hybrid_search(self, query: SearchQuery) -> Result[list[SearchResult], SearchError]:
+    def _hybrid_search(self, query: SearchQuery, date_from=None, date_to=None) -> Result[list[SearchResult], SearchError]:
         """Execute hybrid search combining keyword and semantic results."""
         all_results: list[SearchResult] = []
 
-        kw_result = self._keyword.search(query.text, limit=query.top_k)
+        kw_result = self._keyword.search(query.text, limit=query.top_k, date_from=date_from, date_to=date_to)
         if kw_result.is_ok:
             all_results.extend(self._to_search_results(kw_result.value, "keyword"))
 
         if self._semantic is not None:
-            sem_result = self._semantic.search(query.text, limit=query.top_k)
+            sem_result = self._semantic.search(query.text, limit=query.top_k, date_from=date_from, date_to=date_to)
             if sem_result.is_ok:
                 all_results.extend(self._to_search_results(sem_result.value, "semantic"))
 

@@ -55,6 +55,9 @@ class ChatConfig(BaseModel):
     reflection_enabled: bool = True
     reflection_threshold: float = 1.0  # sum of importance scores to trigger reflection
     reflection_min_interval_hours: float = 1.0
+    # Mental Model abstraction
+    mental_model_enabled: bool = True
+    mental_model_min_samples: int = 3
     # Session summarization
     session_summarize: bool = True
     # Retrieval composite scoring weights
@@ -176,7 +179,8 @@ class ChatConfigRepository:
                 "reflection_enabled, reflection_threshold, reflection_min_interval_hours, "
                 "session_summarize, "
                 "retrieval_recency_weight, retrieval_importance_weight, retrieval_relevance_weight, "
-                "display_history_turns, housekeeping_threshold, sandbox_enabled "
+                "display_history_turns, housekeeping_threshold, sandbox_enabled, "
+                "mental_model_enabled, mental_model_min_samples "
                 "FROM chat_settings WHERE persona = ?",
                 (persona,),
             ).fetchone()
@@ -189,12 +193,13 @@ class ChatConfigRepository:
                 "tool_result_max_chars, mcp_servers, enabled_skills, "
                 "reflection_enabled, reflection_threshold, reflection_min_interval_hours, "
                 "session_summarize, "
-                "retrieval_recency_weight, retrieval_importance_weight, retrieval_relevance_weight "
+                "retrieval_recency_weight, retrieval_importance_weight, retrieval_relevance_weight, "
+                "display_history_turns, housekeeping_threshold, sandbox_enabled "
                 "FROM chat_settings WHERE persona = ?",
                 (persona,),
             ).fetchone()
             if row is not None:
-                row = (*row, None, None, None)
+                row = (*row, None, None)
         if row is None:
             return ChatConfig(persona=persona)
         return ChatConfig(
@@ -225,6 +230,8 @@ class ChatConfigRepository:
             display_history_turns=int(row[24]) if row[24] is not None else 20,
             housekeeping_threshold=int(row[25]) if row[25] is not None else 10,
             sandbox_enabled=bool(row[26]) if row[26] is not None else False,
+            mental_model_enabled=bool(row[27]) if len(row) > 27 and row[27] is not None else True,
+            mental_model_min_samples=int(row[28]) if len(row) > 28 and row[28] is not None else 3,
         )
 
     def save(self, config: ChatConfig) -> None:
@@ -241,8 +248,9 @@ class ChatConfigRepository:
                  session_summarize,
                  retrieval_recency_weight, retrieval_importance_weight, retrieval_relevance_weight,
                  display_history_turns, housekeeping_threshold, sandbox_enabled,
+                 mental_model_enabled, mental_model_min_samples,
                  updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(persona) DO UPDATE SET
                 provider=excluded.provider,
                 model=excluded.model,
@@ -269,6 +277,8 @@ class ChatConfigRepository:
                 display_history_turns=excluded.display_history_turns,
                 housekeeping_threshold=excluded.housekeeping_threshold,
                 sandbox_enabled=excluded.sandbox_enabled,
+                mental_model_enabled=excluded.mental_model_enabled,
+                mental_model_min_samples=excluded.mental_model_min_samples,
                 updated_at=excluded.updated_at
             """,
             (
@@ -298,6 +308,8 @@ class ChatConfigRepository:
                 config.display_history_turns,
                 config.housekeeping_threshold,
                 int(config.sandbox_enabled),
+                int(config.mental_model_enabled),
+                config.mental_model_min_samples,
                 now,
             ),
         )

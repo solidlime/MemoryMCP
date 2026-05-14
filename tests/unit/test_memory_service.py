@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 from zoneinfo import ZoneInfo
 
 import pytest
 
+from memory_mcp.domain.memory.enrichment import EnrichmentResult, RelationCandidate
 from memory_mcp.domain.memory.service import MemoryService
 from memory_mcp.domain.shared.errors import RepositoryError
 from memory_mcp.domain.shared.result import Failure, Result, Success
@@ -177,6 +178,16 @@ def repo():
 @pytest.fixture
 def service(repo):
     return MemoryService(repo)
+
+
+@pytest.fixture
+def service_factory():
+    """Factory fixture to create MemoryService with optional enricher and entity_service."""
+
+    def _create(repo, enricher=None, entity_service=None):
+        return MemoryService(repo, entity_service=entity_service, enricher=enricher)
+
+    return _create
 
 
 # ---------------------------------------------------------------------------
@@ -456,3 +467,88 @@ class TestTagValidation:
         long_tag = "b" * 51
         result = service.update_memory(created.key, tags=[long_tag])
         assert not result.is_ok
+
+
+class TestMemoryEnrichment:
+    """Test that create_memory correctly interacts with the MemoryEnricher."""
+
+    def test_skips_enrichment_when_importance_explicitly_set(self, repo, service_factory):
+        """When importance != 0.5, enrichment should not be called."""
+        mock_enricher = MagicMock()
+        svc = service_factory(repo, enricher=mock_enricher)
+
+        svc.create_memory(content="This is a meaningful memory about John.", importance=0.9)
+
+        mock_enricher.enrich.assert_not_called()
+
+    def test_calls_enricher_when_importance_is_default_0_5(self, repo, service_factory):
+        """When importance is default 0.5, enrichment should be called."""
+        mock_enricher = MagicMock()
+        mock_enricher.enrich.return_value = EnrichmentResult(importance=0.8, relations=[])
+        svc = service_factory(repo, enricher=mock_enricher)
+
+        result = svc.create_memory(content="This is a meaningful memory about John.")
+        assert result.is_ok
+
+        mock_enricher.enrich.assert_called_once()
+
+    def test_enricher_updates_importance_on_memory(self, repo, service_factory):
+        """When enricher returns importance != 0.5, the memory importance is updated."""
+        mock_enricher = MagicMock()
+        mock_enricher.enrich.return_value = EnrichmentResult(importance=0.9, relations=[])
+        svc = service_factory(repo, enricher=mock_enricher)
+
+        result = svc.create_memory(content="This is an important memory.")
+        assert result.is_ok
+        memory = result.unwrap()
+        assert memory.importance == 0.9
+
+    def test_enricher_does_not_override_explicit_importance(self, repo, service_factory):
+        """When importance is explicitly set, enricher is not called."""
+        mock_enricher = MagicMock()
+        svc = service_factory(repo, enricher=mock_enricher)
+
+        result = svc.create_memory(content="Memory with explicit importance", importance=0.3)
+        assert result.is_ok
+        memory = result.unwrap()
+        assert memory.importance == 0.3
+        mock_enricher.enrich.assert_not_called()
+
+    def test_enricher_failure_does_not_block_create(self, repo, service_factory):
+        """When enricher raises an exception, memory creation still succeeds."""
+        mock_enricher = MagicMock()
+        mock_enricher.enrich.side_effect = RuntimeError("LLM down")
+        svc = service_factory(repo, enricher=mock_enricher)
+
+        result = svc.create_memory(content="This memory should still be created.")
+        assert result.is_ok
+        memory = result.unwrap()
+        assert memory.content == "This memory should still be created."
+
+    def test_enricher_relations_added_through_entity_service(self, repo, service_factory):
+        """When enricher returns relations, entity_service.add_relation is called."""
+        mock_enricher = MagicMock()
+        mock_enricher.enrich.return_value = EnrichmentResult(
+            importance=0.7,
+            relations=[
+                RelationCandidate(
+                    source_entity="Alice",
+                    target_entity="Bob",
+                    relation_type="knows",
+                    confidence=0.9,
+                )
+            ],
+        )
+        mock_entity_service = MagicMock()
+        svc = service_factory(repo, enricher=mock_enricher, entity_service=mock_entity_service)
+
+        result = svc.create_memory(content="Alice knows Bob.")
+        assert result.is_ok
+
+        mock_entity_service.add_relation.assert_called_once_with(
+            source="Alice",
+            target="Bob",
+            relation_type="knows",
+            memory_key=result.unwrap().key,
+            confidence=0.9,
+        )

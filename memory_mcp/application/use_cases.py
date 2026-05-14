@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from typing import TYPE_CHECKING
 
 from memory_mcp.domain.equipment.service import EquipmentService
@@ -29,8 +30,8 @@ class SQLiteKeywordSearch:
     def __init__(self, repo: SQLiteMemoryRepository) -> None:
         self.repo = repo
 
-    def search(self, query: str, limit: int = 10):
-        result = self.repo.search_keyword(query, limit)
+    def search(self, query: str, limit: int = 10, date_from=None, date_to=None):
+        result = self.repo.search_keyword(query, limit, date_from=date_from, date_to=date_to)
         if result.is_ok:
             return Success(result.value)
         return Failure(SearchError(str(result.error)))
@@ -44,8 +45,10 @@ class QdrantSemanticSearch:
         self.memory_repo = memory_repo
         self._persona: str = ""
 
-    def search(self, query: str, limit: int = 10):
-        result = self.vector_store.search(self._persona, query, limit)
+    def search(self, query: str, limit: int = 10, date_from=None, date_to=None):
+        # Fetch extra results to compensate for date post-filtering
+        fetch_limit = limit * 3 if (date_from or date_to) else limit
+        result = self.vector_store.search(self._persona, query, fetch_limit)
         if not result.is_ok:
             return Failure(SearchError(str(result.error)))
 
@@ -53,7 +56,17 @@ class QdrantSemanticSearch:
         for key, score in result.value:
             mem_result = self.memory_repo.find_by_key(key)
             if mem_result.is_ok and mem_result.value:
-                search_results.append((mem_result.value, score))
+                memory = mem_result.value
+                # Post-filter by date range
+                if date_from or date_to:
+                    created = memory.created_at
+                    if date_from and created < date_from:
+                        continue
+                    if date_to and created > date_to:
+                        continue
+                search_results.append((memory, score))
+                if len(search_results) >= limit:
+                    break
         return Success(search_results)
 
 
@@ -83,8 +96,33 @@ class AppContext:
 
         self.entity_service = EntityService(self.entity_repo)
 
+        # Create MemoryEnricher if configured (best-effort enrichment)
+        enricher = None
+        if self.settings.memory_enrichment.enabled:
+            api_key = (
+                self.settings.memory_enrichment.api_key
+                or os.environ.get("OPENROUTER_API_KEY")
+                or os.environ.get("ANTHROPIC_API_KEY")
+            )
+            if api_key:
+                from memory_mcp.infrastructure.llm.memory_enricher import (
+                    MemoryEnricher,
+                )
+
+                enricher = MemoryEnricher(
+                    provider=self.settings.memory_enrichment.provider,
+                    api_key=api_key,
+                    model=self.settings.memory_enrichment.model,
+                    base_url=self.settings.memory_enrichment.base_url,
+                    min_chars=self.settings.memory_enrichment.min_chars,
+                )
+
         # Services
-        self.memory_service = MemoryService(self.memory_repo, entity_service=self.entity_service)
+        self.memory_service = MemoryService(
+            self.memory_repo,
+            entity_service=self.entity_service,
+            enricher=enricher,
+        )
         self.persona_service = PersonaService(self.persona_repo)
         self.equipment_service = EquipmentService(self.equipment_repo)
 

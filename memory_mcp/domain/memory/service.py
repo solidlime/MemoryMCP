@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 from typing import TYPE_CHECKING
 
 from memory_mcp.domain.memory.entities import Memory, MemoryStrength
@@ -14,7 +15,9 @@ from memory_mcp.domain.shared.time_utils import generate_memory_key, get_now
 from memory_mcp.domain.value_objects import normalize_emotion
 
 if TYPE_CHECKING:
+    from memory_mcp.domain.memory.enrichment import EnrichmentResult
     from memory_mcp.domain.memory.repository import MemoryRepository
+    from memory_mcp.infrastructure.llm.memory_enricher import MemoryEnricher
 
 
 class MemoryService:
@@ -24,9 +27,11 @@ class MemoryService:
         self,
         repo: MemoryRepository,
         entity_service: object | None = None,
+        enricher: MemoryEnricher | None = None,
     ) -> None:
         self._repo = repo
         self._entity_service = entity_service
+        self._enricher = enricher
 
     def create_memory(
         self,
@@ -88,14 +93,46 @@ class MemoryService:
 
         # Entity extraction hook (best-effort, never blocks create)
         if self._entity_service is not None:
-            import contextlib
-
             with contextlib.suppress(Exception):
                 self._entity_service.extract_and_link(
                     memory_key=key,
                     content=content.strip(),
                     tags=tags,
                 )
+
+        # Memory enrichment: auto-evaluate importance + extract relations (best-effort)
+        if self._enricher is not None and importance == 0.5:
+            with contextlib.suppress(Exception):
+                # Extract entities from content for LLM context
+                from memory_mcp.domain.memory.entity_extractor import (
+                    SimpleEntityExtractor,
+                )
+
+                extracted_entities = SimpleEntityExtractor().extract(content.strip())
+                enrichment = self._enricher.enrich(
+                    content=content.strip(),
+                    type_tags=type_hints or [],
+                    entities=extracted_entities,
+                )
+                if enrichment is not None:
+                    # Update importance if auto-evaluated differently
+                    if enrichment.importance != 0.5:
+                        clamped = max(0.0, min(1.0, enrichment.importance))
+                        memory.importance = clamped
+                        with contextlib.suppress(Exception):
+                            self._repo.update(key, importance=clamped)
+
+                    # Register auto-extracted relations
+                    if enrichment.relations and self._entity_service is not None:
+                        for rel in enrichment.relations:
+                            with contextlib.suppress(Exception):
+                                self._entity_service.add_relation(
+                                    source=rel.source_entity,
+                                    target=rel.target_entity,
+                                    relation_type=rel.relation_type,
+                                    memory_key=key,
+                                    confidence=rel.confidence,
+                                )
 
         return Success(memory)
 
