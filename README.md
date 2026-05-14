@@ -16,6 +16,11 @@
 - **矛盾検出** — ベクトル類似度ベースで既存記憶との矛盾を自動検出
 - **Persona 分離** — マルチテナント対応。Persona ごとに独立した DB・ベクトルコレクション
 - **Web ダッシュボード** — `http://localhost:26262` でブラウザから記憶・グラフ・統計を可視化
+- 🔮 **Reflection (リフレクション)**: LLM-driven high-level insights from recent memories (Generative Agents style). Auto-triggered by importance accumulation. Configurable threshold & interval.
+- 🧠 **Mental Model (メンタルモデル)**: Pattern abstraction from accumulated type-tagged memories. Detects repeated patterns (e.g. "user drinks coffee every morning") and creates abstracted models. Auto-triggered by memory count per type.
+- ⚡ **Sandbox Code Execution**: Execute Python/Bash code in isolated Docker containers (sibling-container mode). Supports file operations, package installs. Requires Docker socket mount.
+- 🔍 **Memory Enrichment**: Auto-evaluate importance scores and extract entity relations via LLM when memories are created. Configurable provider/model.
+- 🧩 **MemoRAG**: Memory Context Snapshot + Clue Generation for enhanced retrieval (query expansion from global context).
 
 ## クイックスタート
 
@@ -43,7 +48,26 @@ python -m memory_mcp.main
 
 サーバーは `http://localhost:26262` で起動する。
 
-## MCP ツール（5 本）
+### Sandbox File Persistence
+
+When running in Docker with sibling-container sandbox mode, files created inside the sandbox
+at `/workspace` need a host-side path to persist. If files are not visible on the host:
+
+1. **Set `MEMORY_MCP_SANDBOX__HOST_DATA_ROOT`** to the host-side data path:
+   ```yaml
+   # docker-compose.yml
+   environment:
+     MEMORY_MCP_SANDBOX__HOST_DATA_ROOT: /volume1/docker/MemoryMCP/data
+   ```
+
+2. **Ensure `docker` Python SDK** is installed (`pip install docker>=7.0.0`)
+
+3. **Verify Docker socket** is mounted: `/var/run/docker.sock:/var/run/docker.sock`
+
+Auto-detection of the host path works in standard Docker setups but may fail
+on custom deployments (Synology, Podman, etc.).
+
+## MCP ツール（6 本）
 
 ### `get_context()`
 
@@ -74,6 +98,9 @@ result = get_context()
 | `entity_search` | エンティティ（人物・場所・概念）を検索 |
 | `entity_graph` | エンティティの関係性グラフを取得 |
 | `entity_add_relation` | エンティティ間の関係を追加 |
+| `enrich` | 既存記憶の LLM 補完（重要度再評価 + エンティティ関係抽出）を再実行 |
+| `run_mental_model` | メンタルモデル抽象化を手動トリガー |
+| `refresh_context_snapshot` | グローバルコンテキストスナップショットを再構築 |
 
 ```python
 # 記憶を作成
@@ -149,6 +176,29 @@ item(operation="equip", equipment={"top": "白いドレス", "accessories": "花
 item(operation="search", category="clothing")
 ```
 
+### `sandbox(code, language="python")`
+
+Execute code in an isolated Docker sandbox (sibling-container mode). Requires Docker socket mount.
+
+| パラメータ | 説明 |
+|---|---|
+| `code` | 実行するコード文字列（Python / Bash） |
+| `language` | 言語: `"python"`（デフォルト）または `"bash"` |
+
+```python
+# Python コード実行
+sandbox("import pandas as pd; print(pd.DataFrame({'a': [1,2,3]}))")
+
+# Bash コマンド実行
+sandbox("ls -la /workspace/", language="bash")
+
+# パッケージインストール
+sandbox("import subprocess; subprocess.run(['pip', 'install', 'requests'], capture_output=True)")
+
+# ファイル作成（/workspace 以下は永続化可能）
+sandbox("open('/workspace/output/result.txt', 'w').write('hello')")
+```
+
 ## 設定
 
 すべての設定は環境変数（`MEMORY_MCP_` プレフィックス）で制御する。ネストした設定は `__` 区切りで指定する。
@@ -165,6 +215,22 @@ item(operation="search", category="clothing")
 | `MEMORY_MCP_LOG_LEVEL` | `INFO` | ログレベル |
 | `MEMORY_MCP_DEFAULT_PERSONA` | `default` | デフォルト Persona 名 |
 | `PERSONA` | *(なし)* | デフォルト Persona 名（`MEMORY_MCP_DEFAULT_PERSONA` より優先） |
+| `MEMORY_MCP_SANDBOX__ENABLED` | `true` | Sandbox コード実行を有効化 |
+| `MEMORY_MCP_SANDBOX__PROVIDER` | `llm_sandbox` | Sandbox プロバイダー |
+| `MEMORY_MCP_SANDBOX__DOCKER_HOST` | *(auto)* | Docker ホスト URL（空 = ソケット自動検出） |
+| `MEMORY_MCP_SANDBOX__HOST_DATA_ROOT` | *(auto)* | ホスト側データディレクトリ絶対パス（sibling-container 永続化用） |
+| `MEMORY_MCP_SANDBOX__TIMEOUT` | `30` | コード実行タイムアウト（秒） |
+| `MEMORY_MCP_MEMORY_ENRICHMENT__ENABLED` | `true` | 記憶作成時の LLM 補完（重要度・関係抽出）を有効化 |
+| `MEMORY_MCP_MEMORY_ENRICHMENT__PROVIDER` | `openrouter` | LLM プロバイダー |
+| `MEMORY_MCP_MEMORY_ENRICHMENT__API_KEY` | *(なし)* | LLM API キー |
+| `MEMORY_MCP_MEMORY_ENRICHMENT__MODEL` | `openai/gpt-4o-mini` | LLM モデル |
+| `MEMORY_MCP_MEMORY_ENRICHMENT__BASE_URL` | `https://openrouter.ai/api/v1` | LLM API ベース URL |
+| `MEMORY_MCP_MEMORY_ENRICHMENT__MIN_CHARS` | `10` | 補完をスキップする最小文字数 |
+| `MEMORY_MCP_MEMORAG__ENABLED` | `true` | MemoRAG コンテキストスナップショットを有効化 |
+| `MEMORY_MCP_MEMORAG__CLUE_GENERATION_ENABLED` | `false` | LLM ベースのクエリ手がかり生成を有効化 |
+| `MEMORY_MCP_FORGETTING__ENABLED` | `true` | Ebbinghaus 忘却曲線を有効化 |
+| `MEMORY_MCP_FORGETTING__DECAY_INTERVAL_SECONDS` | `3600` | 減衰ワーカー実行間隔（秒） |
+| `MEMORY_MCP_FORGETTING__MIN_STRENGTH` | `0.01` | 最小記憶強度 |
 
 ### Persona 識別の優先順位
 
@@ -223,15 +289,20 @@ memory_mcp/
 ├── main.py              # エントリポイント（FastMCP + HTTP）
 ├── config/settings.py   # Pydantic BaseSettings
 ├── domain/              # ビジネスロジック
+│   ├── skill.py              # Skills system
+│   └── shared/
+│       └── time_utils.py     # 日付範囲パース、時刻ユーティリティ
 ├── infrastructure/      # SQLite / Qdrant / Embedding
 ├── application/         # UseCases
 │   ├── chat/            # チャットサブパッケージ
-│   │   ├── service.py        # ChatService（SSEストリーミング）
-│   │   ├── session_store.py  # セッション管理（SQLite永続化）
-│   │   ├── memory_llm.py     # MemoryLLM（自動記憶抽出）
-│   │   └── tools.py          # 組み込みツール定義・実行
-│   └── chat_service.py  # 後方互換 re-export
-├── api/mcp/             # MCP ツール 5 本
+│   │   ├── service.py             # ChatService（SSEストリーミング）
+│   │   ├── session_store.py       # セッション管理（SQLite永続化）
+│   │   ├── memory_llm.py          # MemoryLLM（自動記憶抽出）
+│   │   ├── pattern_detector.py    # メンタルモデル抽象化
+│   │   └── tools.py               # 組み込みツール定義・実行
+│   ├── sandbox/          # Sandbox コード実行（Docker sibling-container）
+│   └── chat_service.py   # 後方互換 re-export
+├── api/mcp/             # MCP ツール 6 本
 ├── api/http/            # Web ダッシュボード + REST API
 └── migration/           # スキーママイグレーション
 ```
@@ -287,6 +358,15 @@ Content-Type: application/json
 | `enable_memory_tools` | `true` | 組み込み memory ツールを注入するか |
 | `mcp_servers` | `[]` | 追加 MCP サーバーの設定リスト |
 | `enabled_skills` | `[]` | 有効化するスキル名のリスト |
+| `reflection_enabled` | `true` | Reflection（高次洞察）を有効化 |
+| `reflection_threshold` | `1.0` | Reflection トリガー重要度累積閾値 |
+| `reflection_min_interval_hours` | `1.0` | Reflection 最小実行間隔（時間） |
+| `mental_model_enabled` | `true` | メンタルモデル抽象化を有効化 |
+| `mental_model_min_samples` | `3` | メンタルモデル生成に必要な最小サンプル数 |
+| `sandbox_enabled` | `true` | コード実行（Docker Sandbox）を許可 |
+| `retrieval_recency_weight` | `0.3` | 検索スコアの再近性重み |
+| `retrieval_importance_weight` | `0.3` | 検索スコアの重要度重み |
+| `retrieval_relevance_weight` | `0.4` | 検索スコアの関連性重み |
 
 ### チャットログ永続化
 

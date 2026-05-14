@@ -129,7 +129,13 @@ def _auto_detect_host_data_root(data_root: str) -> str:
                 _HOST_DATA_ROOT_CACHE = host_path
                 return host_path
     except Exception as exc:  # noqa: BLE001
-        logger.debug("Host data root auto-detection failed: %s", exc)
+        logger.warning(
+            "Host data root auto-detection failed: %s. "
+            "Set MEMORY_MCP_SANDBOX__HOST_DATA_ROOT to the host-side path of '%s' "
+            "(e.g. /volume1/docker/MemoryMCP/data) to enable sandbox file persistence.",
+            exc,
+            data_root,
+        )
 
     return ""
 
@@ -154,6 +160,14 @@ def _build_container_configs(persona: str) -> tuple[dict, Path | None]:
     # Resolve host-side data root (needed when memory-mcp runs in a sibling container)
     host_root = settings.sandbox.host_data_root or _auto_detect_host_data_root(str(settings.data_root))
     workspace_mount = Path(host_root) / "memory" / persona / "workspace" if host_root else workspace_internal
+
+    if not host_root:
+        logger.warning(
+            "Sandbox files will NOT persist on host. Set MEMORY_MCP_SANDBOX__HOST_DATA_ROOT "
+            "to the host-side path (e.g. /volume1/docker/MemoryMCP/data). "
+            "Internal fallback path: %s",
+            workspace_internal,
+        )
 
     container_configs = {
         "volumes": {
