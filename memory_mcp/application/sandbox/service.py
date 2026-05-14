@@ -143,38 +143,54 @@ def _auto_detect_host_data_root(data_root: str) -> str:
 def _verify_sandbox_mounts(session: object, container_configs: dict, persona: str) -> None:
     """Verify that the Docker volume mounts were applied to the sandbox container.
 
+    Uses ``docker inspect`` via subprocess (no Python Docker SDK required).
     Logs a warning if volumes specified in container_configs are missing from the
-    running container, helping diagnose llm_sandbox configuration issues.
+    running container.
     """
     try:
-        import docker
-
-        client = docker.DockerClient(base_url="unix:///var/run/docker.sock")
-        container_id = getattr(session, "container_id", None) or getattr(session, "_container_id", None)
+        container_id = None
+        for attr in ("container_id", "_container_id"):
+            cid = getattr(session, attr, None)
+            if cid:
+                container_id = cid
+                break
         if not container_id:
-            c = getattr(session, "container", None) or getattr(session, "_container", None)
-            if c is not None:
-                container_id = getattr(c, "id", None) or getattr(c, "short_id", None)
+            for attr in ("container", "_container"):
+                c = getattr(session, attr, None)
+                if c is not None:
+                    container_id = getattr(c, "id", None) or getattr(c, "short_id", None)
+                    if container_id:
+                        break
         if not container_id:
             logger.debug("Cannot verify sandbox mounts: no container_id found on session")
             return
 
-        ct = client.containers.get(container_id)
-        actual_mounts = ct.attrs.get("Mounts", [])
+        import json as _json
+        import subprocess as _sp
+
+        result = _sp.run(
+            ["docker", "inspect", container_id],
+            capture_output=True, text=True, timeout=10,
+        )
+        if result.returncode != 0:
+            logger.debug("docker inspect failed: %s", result.stderr.strip())
+            return
+
+        data = _json.loads(result.stdout)
+        mounts = data[0].get("Mounts", []) if data else []
         expected_volumes = container_configs.get("volumes", {})
 
-        if not actual_mounts and expected_volumes:
+        if not mounts and expected_volumes:
             logger.warning(
                 "Sandbox container %s has NO volume mounts! Expected: %s. "
                 "Files written to /workspace will NOT persist on host. "
-                "Check that llm_sandbox supports container_configs['volumes'].",
+                "llm_sandbox may not be applying container_configs['volumes'].",
                 container_id[:12], list(expected_volumes.keys()),
             )
-        else:
-            mount_sources = [m.get("Source", "") for m in actual_mounts]
+        elif mounts:
+            mount_info = [(m.get("Source", "?"), m.get("Destination", "?")) for m in mounts]
             logger.info(
-                "Sandbox container %s mounts verified: %s → %s",
-                container_id[:12], mount_sources, [m.get("Destination", "") for m in actual_mounts],
+                "Sandbox container %s mounts: %s", container_id[:12], mount_info,
             )
     except Exception as exc:
         logger.debug("Sandbox mount verification skipped: %s", exc)
