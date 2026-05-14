@@ -140,6 +140,46 @@ def _auto_detect_host_data_root(data_root: str) -> str:
     return ""
 
 
+def _verify_sandbox_mounts(session: object, container_configs: dict, persona: str) -> None:
+    """Verify that the Docker volume mounts were applied to the sandbox container.
+
+    Logs a warning if volumes specified in container_configs are missing from the
+    running container, helping diagnose llm_sandbox configuration issues.
+    """
+    try:
+        import docker
+
+        client = docker.DockerClient(base_url="unix:///var/run/docker.sock")
+        container_id = getattr(session, "container_id", None) or getattr(session, "_container_id", None)
+        if not container_id:
+            c = getattr(session, "container", None) or getattr(session, "_container", None)
+            if c is not None:
+                container_id = getattr(c, "id", None) or getattr(c, "short_id", None)
+        if not container_id:
+            logger.debug("Cannot verify sandbox mounts: no container_id found on session")
+            return
+
+        ct = client.containers.get(container_id)
+        actual_mounts = ct.attrs.get("Mounts", [])
+        expected_volumes = container_configs.get("volumes", {})
+
+        if not actual_mounts and expected_volumes:
+            logger.warning(
+                "Sandbox container %s has NO volume mounts! Expected: %s. "
+                "Files written to /workspace will NOT persist on host. "
+                "Check that llm_sandbox supports container_configs['volumes'].",
+                container_id[:12], list(expected_volumes.keys()),
+            )
+        else:
+            mount_sources = [m.get("Source", "") for m in actual_mounts]
+            logger.info(
+                "Sandbox container %s mounts verified: %s → %s",
+                container_id[:12], mount_sources, [m.get("Destination", "") for m in actual_mounts],
+            )
+    except Exception as exc:
+        logger.debug("Sandbox mount verification skipped: %s", exc)
+
+
 def _build_container_configs(persona: str) -> tuple[dict, Path | None]:
     """Build container_configs dict and return (configs, workspace_internal_path).
 
@@ -176,6 +216,10 @@ def _build_container_configs(persona: str) -> tuple[dict, Path | None]:
         "cap_drop": ["ALL"],
         "security_opt": ["no-new-privileges:true"],
     }
+    logger.info(
+        "Sandbox container_configs: persona=%s workspace_internal=%s workspace_mount=%s host_root=%s",
+        persona, workspace_internal, workspace_mount, host_root or "(not set)"
+    )
     return container_configs, workspace_internal
 
 
@@ -245,6 +289,10 @@ class SandboxSession:
             # Drain any startup messages from ArtifactSandboxSession
             with contextlib.suppress(Exception):
                 await asyncio.to_thread(self._python_session.run, "pass")
+
+            # Verify volume mount was applied
+            _verify_sandbox_mounts(self._python_session, container_configs, self.persona)
+
             logger.info("Python sandbox session started for persona=%s", self.persona)
         except Exception as e:
             self._python_session = None
