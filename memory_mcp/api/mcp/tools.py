@@ -187,6 +187,7 @@ def register_tools(mcp: FastMCP) -> None:
         Operations and their parameters:
           create   - content(required), importance, emotion_type, emotion_intensity,
                      tags, privacy_level, source_context, defer_vector
+                     (Note: if importance is not specified, auto-evaluated via LLM when enrichment is enabled)
           read     - memory_key (omit to get 10 most recent)
           update   - memory_key(required), content, importance, emotion_type,
                      emotion_intensity, tags, privacy_level
@@ -207,18 +208,33 @@ def register_tools(mcp: FastMCP) -> None:
           import_conversation - content=file_path(required). Import user messages from
                                 conversation exports as memories. Supports Claude Code JSONL,
                                 Claude.ai JSON, ChatGPT JSON. Uses content param as file path.
+          enrich   - memory_key(required). Re-run LLM enrichment (importance + entity relations)
+                     on an existing memory. Best-effort; never blocks.
+          run_mental_model - (no params). Manually trigger mental model abstraction
+                             from accumulated type-tagged memories.
 
         Common parameters:
           operation - str, required. One of the operations listed above.
           content - str. Memory text for create/update/block_write.
           query - str. Search text for delete/entity_search.
           memory_key - str. Unique memory identifier.
-          importance - float (0.0-1.0). Memory importance score.
+          importance - float (0.0-1.0). Memory importance score. Auto-evaluated via LLM
+                       when not specified and enrichment is enabled (memory_enrichment.enabled=true).
           emotion_type - str. Emotion label (e.g. "joy", "sadness").
           tags - list[str]. Categorization tags.
           defer_vector - bool (default: False). Skip immediate vector indexing.
 
         Notes:
+            Enrichment: When creating memories without an explicit importance score,
+            the system auto-evaluates importance and extracts entity relations via LLM
+            (if memory_enrichment.enabled is true). Use operation="enrich" to re-evaluate
+            an existing memory's importance and relations.
+
+            Mental Models: Accumulated memories with the same type tag (decision,
+            preference, milestone, problem, emotional) are periodically abstracted into
+            "mental models" — high-level pattern descriptions. Use operation="run_mental_model"
+            to trigger this manually. Find models via search_memory(tags=["mental_model"]).
+
             Goals & Promises: Use memory tags to manage lifecycle:
                 create:  memory(operation="create", content="...", tags=["goal","active"], importance=0.8)
                 achieve: memory(operation="update", memory_key="...", tags=["goal","achieved"])
@@ -230,6 +246,8 @@ def register_tools(mcp: FastMCP) -> None:
             memory(operation="create", content="User loves coffee", importance=0.7)
             memory(operation="read", memory_key="mem_20250101_120000")
             memory(operation="entity_graph", entity_id="user123", depth=2)
+            memory(operation="enrich", memory_key="mem_20250101_120000")
+            memory(operation="run_mental_model")
         """
         persona = _resolve_persona()
         ctx = AppContextRegistry.get(persona)
@@ -508,6 +526,94 @@ def register_tools(mcp: FastMCP) -> None:
                     skipped += 1
 
             return f"Conversation imported: {imported} messages stored, {skipped} skipped."
+
+        elif operation == "enrich":
+            if not memory_key:
+                return "Error: memory_key is required for enrich"
+            try:
+                from memory_mcp.config.settings import get_settings
+                from memory_mcp.domain.memory.entity_extractor import SimpleEntityExtractor
+                from memory_mcp.domain.memory.type_classifier import auto_tags
+                from memory_mcp.infrastructure.llm.memory_enricher import MemoryEnricher
+
+                mem_result = ctx.memory_service.get_memory(memory_key)
+                if not mem_result.is_ok:
+                    return f"Error: {mem_result.error}"
+                memory = mem_result.value
+                settings = get_settings()
+                mcfg = settings.memory_enrichment
+                if not mcfg.enabled:
+                    return "Memory enrichment is disabled. Enable it in settings (memory_enrichment.enabled)."
+                api_key = (
+                    mcfg.api_key
+                    or __import__("os").environ.get("OPENROUTER_API_KEY")
+                    or __import__("os").environ.get("ANTHROPIC_API_KEY")
+                )
+                if not api_key:
+                    return "No LLM API key configured. Set memory_enrichment.api_key or environment variable."
+                enricher = MemoryEnricher(
+                    provider=mcfg.provider,
+                    api_key=api_key,
+                    model=mcfg.model,
+                    base_url=mcfg.base_url,
+                    min_chars=mcfg.min_chars,
+                )
+                extractor = SimpleEntityExtractor()
+                entities = extractor.extract(memory.content)
+                type_hints = auto_tags(memory.content, memory.tags)
+                enrichment = enricher.enrich(memory.content, type_hints, entities)
+                if enrichment is None:
+                    return "Enrichment failed (LLM error or content too short)."
+                # Update importance if changed
+                if enrichment.importance != memory.importance:
+                    ctx.memory_service.update_memory(memory_key, importance=enrichment.importance)
+                # Add relations
+                rel_count = 0
+                if enrichment.relations and ctx.entity_service:
+                    for rel in enrichment.relations:
+                        try:
+                            ctx.entity_service.add_relation(
+                                source=rel.source_entity,
+                                target=rel.target_entity,
+                                relation_type=rel.relation_type,
+                                memory_key=memory_key,
+                                confidence=rel.confidence,
+                            )
+                            rel_count += 1
+                        except Exception:
+                            pass
+                return (
+                    f"Enriched memory {memory_key}: importance={enrichment.importance:.2f}, relations_added={rel_count}"
+                )
+            except Exception as e:
+                return f"Enrichment failed: {e}"
+
+        elif operation == "run_mental_model":
+            try:
+                from memory_mcp.application.chat.pattern_detector import maybe_run_mental_model
+                from memory_mcp.config.settings import get_settings
+
+                persona = _resolve_persona()
+                # Get chat config for LLM settings
+                chat_config_result = ctx.memory_repo.get_block("chat_config")
+                config = None
+                if chat_config_result.is_ok and chat_config_result.value:
+                    import json as _json
+
+                    from memory_mcp.domain.chat_config import ChatConfig
+
+                    config = ChatConfig(**_json.loads(chat_config_result.value.get("content", "{}")))
+                settings = get_settings()
+                min_samples = getattr(config, "mental_model_min_samples", 3) if config else 3
+                if config and not getattr(config, "mental_model_enabled", True):
+                    return "Mental model extraction is disabled. Enable it in ChatConfig (mental_model_enabled)."
+                if config:
+                    models = await maybe_run_mental_model(ctx, config, min_samples=min_samples)
+                    return f"Mental model abstraction complete: {len(models)} models generated."
+                else:
+                    return "No ChatConfig found. Please configure chat settings first."
+            except Exception as e:
+                return f"Mental model abstraction failed: {e}"
 
         else:
             return f"Unknown operation: {operation}"

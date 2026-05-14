@@ -30,6 +30,9 @@ def register_search_routes(mcp) -> None:
         except ValueError:
             return JSONResponse({"error": "limit must be an integer"}, status_code=400)
         mode = request.query_params.get("mode", "hybrid")
+        date_range = request.query_params.get("date_range")
+        min_importance_str = request.query_params.get("min_importance")
+        emotion = request.query_params.get("emotion")
         # mode parameter accepted for backwards compatibility; always uses hybrid internally
         if not q:
             return JSONResponse({"error": "Query parameter 'q' is required"}, status_code=400)
@@ -39,7 +42,15 @@ def register_search_routes(mcp) -> None:
         try:
             from memory_mcp.domain.search.engine import SearchQuery
 
-            query = SearchQuery(text=q, mode=mode, top_k=limit)
+            query_kwargs: dict = {"text": q, "mode": mode, "top_k": limit}
+            if date_range:
+                query_kwargs["date_range"] = date_range
+            if min_importance_str:
+                with __import__("contextlib").suppress(ValueError):
+                    query_kwargs["min_importance"] = float(min_importance_str)
+            if emotion:
+                query_kwargs["emotion"] = emotion
+            query = SearchQuery(**query_kwargs)
             if hasattr(ctx.search_engine, "_semantic") and ctx.search_engine._semantic is not None:
                 ctx.search_engine._semantic._persona = persona  # noqa: SLF001
 

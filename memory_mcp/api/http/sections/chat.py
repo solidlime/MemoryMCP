@@ -632,6 +632,20 @@ def render_chat_tab() -> str:
                             <label for="chat-session-summarize" class="chat-field-label" style="margin:0;cursor:pointer;">セッション要約</label>
                         </div>
                     </div>
+                    <!-- Mental Model settings -->
+                    <div style="border-top:1px solid var(--glass-border);padding-top:10px;">
+                        <div style="font-size:0.8rem; font-weight:600; color:var(--text-secondary); margin-bottom:8px;">🧠 メンタルモデル</div>
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                            <input type="checkbox" id="chat-mental-model-enabled" checked
+                                style="width:15px;height:15px;accent-color:var(--accent-purple);cursor:pointer;" />
+                            <label for="chat-mental-model-enabled" class="chat-field-label" style="margin:0;cursor:pointer;">メンタルモデル抽出を有効</label>
+                        </div>
+                        <div>
+                            <div class="chat-field-label">最小サンプル数</div>
+                            <input type="number" id="chat-mental-model-min-samples" class="chat-field-input"
+                                min="1" max="20" value="3" />
+                        </div>
+                    </div>
                     <!-- Retrieval weights -->
                     <div style="border-top:1px solid var(--glass-border);padding-top:10px;">
                         <div style="font-size:0.8rem; font-weight:600; color:var(--text-secondary); margin-bottom:8px;">⚖️ 検索重み</div>
@@ -792,6 +806,10 @@ function applyChatConfig(cfg) {
     set('chat-reflection-interval', cfg.reflection_min_interval_hours != null ? cfg.reflection_min_interval_hours : 1.0);
     const sessSum = document.getElementById('chat-session-summarize');
     if (sessSum) sessSum.checked = cfg.session_summarize !== false;
+    // Mental model settings
+    const mmEnabled = document.getElementById('chat-mental-model-enabled');
+    if (mmEnabled) mmEnabled.checked = cfg.mental_model_enabled !== false;
+    set('chat-mental-model-min-samples', cfg.mental_model_min_samples != null ? cfg.mental_model_min_samples : 3);
     // Retrieval weights
     const setSlider = (id, valId, v) => {
         const el = document.getElementById(id);
@@ -857,6 +875,8 @@ async function saveChatConfig() {
         display_history_turns: parseInt(document.getElementById('chat-display-history-turns')?.value || '20'),
         housekeeping_threshold: parseInt(document.getElementById('chat-housekeeping-threshold')?.value || '10'),
         sandbox_enabled: document.getElementById('chat-sandbox-enabled')?.checked ?? false,
+        mental_model_enabled: document.getElementById('chat-mental-model-enabled')?.checked ?? true,
+        mental_model_min_samples: parseInt(document.getElementById('chat-mental-model-min-samples')?.value || '3'),
     };
     try {
         const cfg = await api('/api/chat/' + encodeURIComponent(S.persona) + '/config', {

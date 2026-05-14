@@ -55,6 +55,14 @@ SETTINGS_META: dict[str, dict[str, dict]] = {
         },
         "min_importance": {"hot_reload": True, "description": "Minimum importance score for memories to summarize"},
     },
+    "memory_enrichment": {
+        "enabled": {"hot_reload": True, "description": "Auto-evaluate importance & relations via LLM"},
+        "provider": {"hot_reload": True, "description": "LLM provider (anthropic/openai/openrouter)"},
+        "api_key": {"hot_reload": True, "description": "LLM API key", "masked": True},
+        "model": {"hot_reload": True, "description": "LLM model for enrichment"},
+        "base_url": {"hot_reload": True, "description": "LLM API base URL"},
+        "min_chars": {"hot_reload": True, "description": "Min content length to trigger enrichment"},
+    },
     "general": {
         "timezone": {"hot_reload": True, "description": "Timezone"},
         "log_level": {"hot_reload": True, "description": "Log level"},
