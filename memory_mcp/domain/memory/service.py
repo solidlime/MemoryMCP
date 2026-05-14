@@ -15,7 +15,6 @@ from memory_mcp.domain.shared.time_utils import generate_memory_key, get_now
 from memory_mcp.domain.value_objects import normalize_emotion
 
 if TYPE_CHECKING:
-    from memory_mcp.domain.memory.enrichment import EnrichmentResult
     from memory_mcp.domain.memory.repository import MemoryRepository
     from memory_mcp.infrastructure.llm.memory_enricher import MemoryEnricher
 

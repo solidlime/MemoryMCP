@@ -75,10 +75,7 @@ def _has_new_memories_since(ctx: AppContext, type_tag: str, memories: list) -> b
     if last_at is None:
         # 初回: 抽象化したことがないので処理対象
         return True
-    for mem in memories:
-        if hasattr(mem, "created_at") and mem.created_at and mem.created_at > last_at:
-            return True
-    return False
+    return any(hasattr(mem, "created_at") and mem.created_at and mem.created_at > last_at for mem in memories)
 
 
 def _parse_models(text: str) -> list[str]:
@@ -158,16 +155,12 @@ async def maybe_run_mental_model(
 
             # Collect recent N memories (up to 20 for LLM context)
             recent = sorted(memories, key=lambda m: m.created_at, reverse=True)[:20]
-            memory_lines = "\n".join(
-                f"- [{m.importance:.1f}] {m.content[:200]}" for m in recent
-            )
+            memory_lines = "\n".join(f"- [{m.importance:.1f}] {m.content[:200]}" for m in recent)
 
             prompt = _PROMPT_TEMPLATE.format(type_tag=type_tag, memories=memory_lines)
 
             try:
-                provider = get_provider(
-                    config.provider, api_key, extract_model, config.get_effective_base_url()
-                )
+                provider = get_provider(config.provider, api_key, extract_model, config.get_effective_base_url())
             except Exception as e:
                 logger.warning("PatternDetector: provider init failed for %s: %s", type_tag, e)
                 continue
@@ -197,7 +190,7 @@ async def maybe_run_mental_model(
                 continue
 
             # Store each model as a memory
-            source_keys = [m.key for m in recent]
+            _source_keys = [m.key for m in recent]
             for model_content in models:
                 ctx.memory_service.create_memory(
                     content=model_content,

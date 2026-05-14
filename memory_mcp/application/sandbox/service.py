@@ -123,7 +123,7 @@ def _auto_detect_host_data_root(data_root: str) -> str:
             if not dest or not source:
                 continue
             if data_root_abs == dest or data_root_abs.startswith(dest + "/"):
-                suffix = data_root_abs[len(dest):].lstrip("/")
+                suffix = data_root_abs[len(dest) :].lstrip("/")
                 host_path = f"{source}/{suffix}" if suffix else source
                 logger.info("Auto-detected host data root: %s (from container mount %s -> %s)", host_path, source, dest)
                 _HOST_DATA_ROOT_CACHE = host_path
@@ -153,10 +153,7 @@ def _build_container_configs(persona: str) -> tuple[dict, Path | None]:
 
     # Resolve host-side data root (needed when memory-mcp runs in a sibling container)
     host_root = settings.sandbox.host_data_root or _auto_detect_host_data_root(str(settings.data_root))
-    if host_root:
-        workspace_mount = Path(host_root) / "memory" / persona / "workspace"
-    else:
-        workspace_mount = workspace_internal
+    workspace_mount = Path(host_root) / "memory" / persona / "workspace" if host_root else workspace_internal
 
     container_configs = {
         "volumes": {
@@ -208,12 +205,14 @@ class SandboxSession:
             def _start_session():
                 try:
                     from llm_sandbox import ArtifactSandboxSession
+
                     session = ArtifactSandboxSession(
                         lang="python",
                         container_configs=container_configs,
                     )
                 except (ImportError, AttributeError):
                     from llm_sandbox import InteractiveSandboxSession
+
                     session = InteractiveSandboxSession(
                         lang="python",
                         kernel_type="ipython",
@@ -227,8 +226,7 @@ class SandboxSession:
             # Initialize workspace directories
             await asyncio.to_thread(
                 self._python_session.run,
-                f"import os; os.makedirs('{UPLOADS_DIR}', exist_ok=True); "
-                f"os.makedirs('{OUTPUT_DIR}', exist_ok=True)",
+                f"import os; os.makedirs('{UPLOADS_DIR}', exist_ok=True); os.makedirs('{OUTPUT_DIR}', exist_ok=True)",
             )
             # Drain any startup messages from ArtifactSandboxSession
             with contextlib.suppress(Exception):
@@ -239,9 +237,7 @@ class SandboxSession:
             error_msg = str(e)
             if "FileNotFoundError" in error_msg or "Connection aborted" in error_msg:
                 if platform.system() == "Windows":
-                    hint = (
-                        "Docker Desktop が起動していることを確認してください。"
-                    )
+                    hint = "Docker Desktop が起動していることを確認してください。"
                 else:
                     candidates = _SOCKET_CANDIDATES.get(platform.system(), ["/var/run/docker.sock"])
                     checked = ", ".join(candidates)
@@ -263,7 +259,11 @@ class SandboxSession:
             await self._ensure_python_started()
             try:
                 result = await asyncio.to_thread(self._python_session.run, code)
-                stdout = (getattr(result, "stdout", "") or "").replace("Python plot detection setup complete\n", "").replace("Python plot detection setup complete", "")
+                stdout = (
+                    (getattr(result, "stdout", "") or "")
+                    .replace("Python plot detection setup complete\n", "")
+                    .replace("Python plot detection setup complete", "")
+                )
                 stderr = getattr(result, "stderr", "") or ""
                 exit_code = getattr(result, "exit_code", 0) or 0
 
@@ -276,7 +276,9 @@ class SandboxSession:
                         if b64:
                             artifacts.append(b64)
 
-                return ExecResult(stdout=stdout, stderr=stderr, exit_code=exit_code, artifacts=artifacts, language="python")
+                return ExecResult(
+                    stdout=stdout, stderr=stderr, exit_code=exit_code, artifacts=artifacts, language="python"
+                )
             except Exception as e:
                 logger.warning("Sandbox Python execute error: %s", e)
                 return ExecResult(stdout="", stderr=str(e), exit_code=1, language="python")
@@ -288,6 +290,7 @@ class SandboxSession:
         def _run() -> ExecResult:
             try:
                 from llm_sandbox import SandboxSession as LlmStatelessSession
+
                 container_configs, _ = _build_container_configs(self.persona)
                 # Remove volume for stateless sessions if needed (faster startup)
                 # Keep security hardening
@@ -327,10 +330,8 @@ class SandboxSession:
         """Close and reset the Python session (will be re-created on next execute)."""
         async with self._lock:
             if self._python_session is not None:
-                try:
+                with contextlib.suppress(Exception):
                     await asyncio.to_thread(self._python_session.__exit__, None, None, None)
-                except Exception:
-                    pass
                 self._python_session = None
                 logger.info("Python sandbox session reset for persona=%s", self.persona)
 
@@ -359,6 +360,7 @@ print(json.dumps(result))
             try:
                 exec_result = await asyncio.to_thread(self._python_session.run, code)
                 import json
+
                 entries = json.loads(exec_result.stdout.strip())
                 return [SandboxFileInfo(**e) for e in entries if "error" not in e]
             except Exception as e:
@@ -406,7 +408,7 @@ except Exception as e:
             result = await asyncio.to_thread(self._python_session.run, code)
             text = getattr(result, "stdout", "") or ""
             if text.startswith("__ERROR__:"):
-                raise RuntimeError(text[len("__ERROR__:"):].strip())
+                raise RuntimeError(text[len("__ERROR__:") :].strip())
             return text
 
     async def write_file_text(self, remote_path: str, content: str) -> None:
@@ -414,6 +416,7 @@ except Exception as e:
         async with self._lock:
             await self._ensure_python_started()
             import json as _json
+
             safe_content = _json.dumps(content)
             code = f"""
 import os
@@ -447,6 +450,7 @@ print(json.dumps(_tree({root!r})))
             try:
                 result = await asyncio.to_thread(self._python_session.run, code)
                 import json
+
                 return json.loads((result.stdout or "").strip()) or []
             except Exception as e:
                 logger.warning("get_file_tree error: %s", e)
@@ -454,10 +458,8 @@ print(json.dumps(_tree({root!r})))
 
     def close(self) -> None:
         if self._python_session is not None:
-            try:
+            with contextlib.suppress(Exception):
                 self._python_session.__exit__(None, None, None)
-            except Exception:
-                pass
             self._python_session = None
 
 

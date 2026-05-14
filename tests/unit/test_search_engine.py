@@ -362,9 +362,7 @@ class TestSearchEngineDateRange:
         engine = SearchEngine(keyword_search=kw)
         result = engine.search(SearchQuery(text="hello", mode="keyword"))
         assert result.is_ok
-        kw.search.assert_called_once_with(
-            "hello", limit=5, date_from=None, date_to=None
-        )
+        kw.search.assert_called_once_with("hello", limit=5, date_from=None, date_to=None)
 
     def test_date_range_passes_parsed_dates_to_keyword(self):
         """date_range指定時はパース結果がキーワード検索に渡される。"""
@@ -404,9 +402,7 @@ class TestSearchEngineDateRange:
         engine = SearchEngine(keyword_search=kw)
         result = engine.search(SearchQuery(text="hello", mode="keyword", date_range="わけわからん"))
         assert result.is_ok
-        kw.search.assert_called_once_with(
-            "hello", limit=5, date_from=None, date_to=None
-        )
+        kw.search.assert_called_once_with("hello", limit=5, date_from=None, date_to=None)
 
     def test_date_range_empty_string_passes_none(self):
         """空文字列は None,None として扱われる。"""
@@ -414,6 +410,4 @@ class TestSearchEngineDateRange:
         engine = SearchEngine(keyword_search=kw)
         result = engine.search(SearchQuery(text="hello", mode="keyword", date_range=""))
         assert result.is_ok
-        kw.search.assert_called_once_with(
-            "hello", limit=5, date_from=None, date_to=None
-        )
+        kw.search.assert_called_once_with("hello", limit=5, date_from=None, date_to=None)

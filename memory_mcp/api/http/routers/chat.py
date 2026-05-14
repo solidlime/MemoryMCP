@@ -243,7 +243,7 @@ def register_chat_routes(mcp) -> None:
         import os
         import tempfile
 
-        from starlette.datastructures import UploadFile
+        from starlette.datastructures import UploadFile  # noqa: TC002
 
         form = await request.form()
         upload: UploadFile = form.get("file")
@@ -275,7 +275,7 @@ def register_chat_routes(mcp) -> None:
         import os
         from pathlib import Path
 
-        from starlette.datastructures import UploadFile
+        from starlette.datastructures import UploadFile  # noqa: TC002
 
         persona = _resolve_persona_from_request(request)
         ctx = _safe_get_context(persona)
@@ -283,6 +283,7 @@ def register_chat_routes(mcp) -> None:
             return JSONResponse({"error": "Persona not found"}, status_code=404)
 
         from memory_mcp.config.settings import get_settings
+
         settings = get_settings()
         uploads_dir = Path(settings.data_root) / "memory" / persona / "workspace" / "uploads"
         uploads_dir.mkdir(parents=True, exist_ok=True)
@@ -314,13 +315,15 @@ def register_chat_routes(mcp) -> None:
         mime_type = mime_type or "application/octet-stream"
         size = dest.stat().st_size
 
-        return JSONResponse({
-            "filename": safe_name,
-            "url": f"/api/chat/{persona}/attachment/{safe_name}",
-            "workspace_path": f"/workspace/uploads/{safe_name}",
-            "mime_type": mime_type,
-            "size": size,
-        })
+        return JSONResponse(
+            {
+                "filename": safe_name,
+                "url": f"/api/chat/{persona}/attachment/{safe_name}",
+                "workspace_path": f"/workspace/uploads/{safe_name}",
+                "mime_type": mime_type,
+                "size": size,
+            }
+        )
 
     @mcp.custom_route("/api/chat/{persona}/attachment/{filename}", methods=["GET"])
     async def attachment_serve(request: Request) -> Response:
@@ -342,6 +345,7 @@ def register_chat_routes(mcp) -> None:
             return JSONResponse({"error": "Invalid filename"}, status_code=400)
 
         from memory_mcp.config.settings import get_settings
+
         settings = get_settings()
         file_path = Path(settings.data_root) / "memory" / persona / "workspace" / "uploads" / safe_name
         if not file_path.exists():

@@ -50,31 +50,31 @@ def test_chat_tab_renders_artifacts_tab():
     """Coding Agent panel should include an artifacts display area."""
     html = render_chat_tab()
 
-    assert 'ca-artifacts' in html
-    assert 'ca-panel' in html
+    assert "ca-artifacts" in html
+    assert "ca-panel" in html
 
 
 def test_chat_tab_renders_sandbox_install_ui():
     """Coding Agent panel should include a code execution area."""
     html = render_chat_tab()
 
-    assert 'ca-code-area' in html
-    assert 'ca-run-btn' in html
+    assert "ca-code-area" in html
+    assert "ca-run-btn" in html
 
 
 def test_chat_js_has_sandbox_install_and_reset_functions():
     """JS should define sandboxInstallPackages and sandboxReset."""
     js = render_chat_js()
 
-    assert 'function sandboxInstallPackages()' in js
-    assert 'function sandboxReset()' in js
+    assert "function sandboxInstallPackages()" in js
+    assert "function sandboxReset()" in js
 
 
 def test_chat_js_has_sandbox_run_block_function():
     """JS should define sandboxRunBlock for code block execution."""
     js = render_chat_js()
 
-    assert 'function sandboxRunBlock(' in js
+    assert "function sandboxRunBlock(" in js
 
 
 def test_chat_js_uses_install_endpoint():

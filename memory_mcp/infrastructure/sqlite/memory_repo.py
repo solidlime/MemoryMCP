@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from memory_mcp.domain.memory.entities import Memory
@@ -13,6 +12,8 @@ from memory_mcp.infrastructure.sqlite.block_repo import SQLiteBlockMixin
 from memory_mcp.infrastructure.sqlite.strength_repo import SQLiteStrengthMixin
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from memory_mcp.infrastructure.sqlite.connection import SQLiteConnection
 
 logger = get_logger(__name__)
@@ -195,7 +196,9 @@ class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
     # Keyword search
     # ------------------------------------------------------------------
 
-    def search_keyword(self, query: str, limit: int = 10, date_from: datetime | None = None, date_to: datetime | None = None) -> Result[list[tuple[Memory, float]], RepositoryError]:
+    def search_keyword(
+        self, query: str, limit: int = 10, date_from: datetime | None = None, date_to: datetime | None = None
+    ) -> Result[list[tuple[Memory, float]], RepositoryError]:
         """Search memories by keyword with relevance scoring.
 
         Multi-word queries use AND logic: all terms must appear in the content.

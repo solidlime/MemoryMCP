@@ -2,17 +2,14 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from typing import Any
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from memory_mcp.domain.memory.enrichment import EnrichmentResult, RelationCandidate
 from memory_mcp.infrastructure.llm.base import DoneEvent, TextDeltaEvent
 from memory_mcp.infrastructure.llm.memory_enricher import MemoryEnricher
-
-if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
 
 
 @pytest.fixture
@@ -270,10 +267,7 @@ class TestErrorHandling:
 class TestMarkdownCodeBlock:
     def test_parse_json_from_markdown_block(self, enricher: MemoryEnricher, mock_get_provider):
         """LLM may return JSON inside ```json ... ``` block."""
-        md_text = (
-            "Here is the analysis:\n\n"
-            '```json\n{"importance": 0.9, "relations": []}\n```\n'
-        )
+        md_text = 'Here is the analysis:\n\n```json\n{"importance": 0.9, "relations": []}\n```\n'
         mock_provider, _ = mock_get_provider
         mock_provider.stream.return_value = _async_iter(
             TextDeltaEvent(content=md_text),

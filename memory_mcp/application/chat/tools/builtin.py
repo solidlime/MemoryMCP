@@ -221,16 +221,13 @@ async def execute_tool(ctx: AppContext, config: ChatConfig, tool_name: str, tool
                 files = await sandbox.list_files(path)
                 return {
                     "status": "ok",
-                    "files": [
-                        {"name": f.name, "path": f.path, "is_dir": f.is_dir, "size": f.size}
-                        for f in files
-                    ],
+                    "files": [{"name": f.name, "path": f.path, "is_dir": f.is_dir, "size": f.size} for f in files],
                 }
             elif operation == "read":
                 raw = await sandbox.read_file(path)
-                MAX_READ = 8192
-                truncated = len(raw) > MAX_READ
-                text = raw[:MAX_READ].decode("utf-8", errors="replace")
+                max_read = 8192
+                truncated = len(raw) > max_read
+                text = raw[:max_read].decode("utf-8", errors="replace")
                 read_result: dict = {"status": "ok", "content": text}
                 if truncated:
                     read_result["truncated"] = True

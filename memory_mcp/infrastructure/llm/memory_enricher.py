@@ -108,9 +108,7 @@ class MemoryEnricher:
                 model=self._model,
                 base_url=self._base_url,
             )
-            result_text = asyncio.run(
-                self._call_llm(provider, _SYSTEM_PROMPT, user_message)
-            )
+            result_text = asyncio.run(self._call_llm(provider, _SYSTEM_PROMPT, user_message))
             if not result_text:
                 return None
             return self._parse_response(result_text)
@@ -118,9 +116,7 @@ class MemoryEnricher:
             logger.exception("Memory enrichment failed")
             return None
 
-    async def _call_llm(
-        self, provider: LLMProvider, system: str, user_message: str
-    ) -> str | None:
+    async def _call_llm(self, provider: LLMProvider, system: str, user_message: str) -> str | None:
         """Call the LLM stream and collect the full text response."""
         from memory_mcp.infrastructure.llm.base import (
             DoneEvent,

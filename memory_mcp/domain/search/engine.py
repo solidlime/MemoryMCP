@@ -115,14 +115,18 @@ class SearchEngine:
         """Convert (Memory, score) tuples from strategies into SearchResult objects."""
         return [SearchResult(memory=m, score=s, source=source) for m, s in pairs]
 
-    def _keyword_search(self, query: SearchQuery, date_from=None, date_to=None) -> Result[list[SearchResult], SearchError]:
+    def _keyword_search(
+        self, query: SearchQuery, date_from=None, date_to=None
+    ) -> Result[list[SearchResult], SearchError]:
         """Execute keyword-only search."""
         result = self._keyword.search(query.text, limit=query.top_k, date_from=date_from, date_to=date_to)
         if not result.is_ok:
             return Failure(result.error)
         return Success(self._to_search_results(result.value, "keyword"))
 
-    def _semantic_search(self, query: SearchQuery, date_from=None, date_to=None) -> Result[list[SearchResult], SearchError]:
+    def _semantic_search(
+        self, query: SearchQuery, date_from=None, date_to=None
+    ) -> Result[list[SearchResult], SearchError]:
         """Execute semantic-only search, falling back to keyword on unavailability or error."""
         if self._semantic is None:
             return self._keyword_search(query, date_from, date_to)
@@ -131,7 +135,9 @@ class SearchEngine:
             return self._keyword_search(query, date_from, date_to)
         return Success(self._to_search_results(result.value, "semantic"))
 
-    def _hybrid_search(self, query: SearchQuery, date_from=None, date_to=None) -> Result[list[SearchResult], SearchError]:
+    def _hybrid_search(
+        self, query: SearchQuery, date_from=None, date_to=None
+    ) -> Result[list[SearchResult], SearchError]:
         """Execute hybrid search combining keyword and semantic results."""
         all_results: list[SearchResult] = []
 

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from datetime import datetime
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from memory_mcp.domain.memory.entities import Memory
     from memory_mcp.domain.shared.errors import SearchError
     from memory_mcp.domain.shared.result import Result
