@@ -300,6 +300,45 @@ async def execute_tool(ctx: AppContext, config: ChatConfig, tool_name: str, tool
             else:
                 return {"status": "error", "message": f"Unknown operation: {operation}"}
 
+        elif tool_name == "sandbox_image":
+            if not getattr(config, "sandbox_enabled", False):
+                return {"status": "error", "message": "sandbox が無効です。チャット設定で有効化してください。"}
+            from memory_mcp.application.sandbox.service import get_sandbox_session
+
+            path = tool_input.get("path", "")
+            if not path.startswith("/sandbox"):
+                return {"status": "error", "message": "パスは /sandbox 配下のみ許可されています"}
+
+            sandbox = get_sandbox_session(ctx.persona)
+            raw = await sandbox.read_file(path)
+
+            # Detect image type from magic bytes
+            content_type = None
+            if len(raw) >= 4:
+                if raw[:4] == b"\x89PNG":
+                    content_type = "image/png"
+                elif raw[:2] == b"\xff\xd8":
+                    content_type = "image/jpeg"
+                elif raw[:3] == b"GIF":
+                    content_type = "image/gif"
+                elif len(raw) >= 12 and raw[:4] == b"RIFF" and raw[8:12] == b"WEBP":
+                    content_type = "image/webp"
+
+            if not content_type:
+                return {"status": "error", "message": "画像ファイルではありません（PNG/JPEG/GIF/WebPのみ対応）"}
+
+            b64_str = base64.b64encode(raw).decode("ascii")
+            return {
+                "status": "ok",
+                "content_type": content_type,
+                "content_base64": b64_str,
+                "size": len(raw),
+                "message": (
+                    f"{content_type}画像（{len(raw)}バイト）を読み取りました。"
+                    "この画像の内容を詳細に説明してください。"
+                ),
+            }
+
         else:
             return {"status": "error", "message": f"Unknown tool: {tool_name}"}
 

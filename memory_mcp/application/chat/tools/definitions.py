@@ -149,7 +149,8 @@ SANDBOX_TOOLS: list[ToolDefinition] = [
             "サンドボックスコンテナ内でコードを実行する。"
             "Python スクリプト・計算・データ処理・ファイル生成に使う。"
             "IPython カーネルなので `!ls /sandbox` などシェルコマンドも実行可能。"
-            "実行結果（stdout/stderr）を返す。"
+            "matplotlib 等で生成したグラフ・画像は自動で表示される。"
+            "実行結果（stdout/stderr）と画像を返す。"
         ),
         input_schema={
             "type": "object",
@@ -168,7 +169,8 @@ SANDBOX_TOOLS: list[ToolDefinition] = [
         name="sandbox_files",
         description=(
             "サンドボックスの /sandbox 配下でファイル操作を行う。"
-            "operation: list（一覧）/ read（読み取り）/ write（書き込み）/ delete（削除）。"
+            "operation: list（一覧）/ read（テキスト読み取り）/ write（書き込み）/ delete（削除）。"
+            "画像ファイルを読み取る場合は sandbox_image を使うこと。"
         ),
         input_schema={
             "type": "object",
@@ -189,6 +191,25 @@ SANDBOX_TOOLS: list[ToolDefinition] = [
                 },
             },
             "required": ["operation"],
+        },
+    ),
+    ToolDefinition(
+        name="sandbox_image",
+        description=(
+            "サンドボックス内の画像ファイルを表示して視覚的に分析するための専用ツール。"
+            "PNG/JPEG/GIF/WebP画像を読み取ると、画像が表示され内容を説明できる。"
+            "画像の内容確認・文字起こし・グラフ解釈・写真分析に必ずこのツールを使うこと。"
+            "画像ファイルを分析したい時は、sandbox_files でなくこの sandbox_image を使う。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "画像ファイルのパス（/sandbox 配下、例: /sandbox/photo.png）",
+                },
+            },
+            "required": ["path"],
         },
     ),
 ]
