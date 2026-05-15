@@ -122,16 +122,22 @@ class InferenceStep:
             # Inject image data as user message content_parts
             # (OpenAI API requires image_url parts in user messages, not tool messages)
             image_parts: list[dict] = []
+            logger.debug(
+                "InferenceStep: checking %d tool call results for image data",
+                len(pending_tool_calls),
+            )
             for log_entry in turn_ctx.tool_calls_log[-len(pending_tool_calls):]:
                 result = log_entry.get("result_raw", log_entry.get("result", {}))
                 if isinstance(result, dict):
                     ct = result.get("content_type", "image/png")
                     if result.get("content_base64"):
+                        logger.info("InferenceStep: found content_base64 in tool result (len=%d)", len(result['content_base64']))
                         image_parts.append({
                             "type": "image_url",
                             "image_url": {"url": f"data:{ct};base64,{result['content_base64']}", "detail": "auto"},
                         })
                     if result.get("artifacts"):
+                        logger.info("InferenceStep: found %d artifacts in tool result", len(result['artifacts']))
                         for b64 in result["artifacts"]:
                             if isinstance(b64, str) and len(b64) > 100:
                                 image_parts.append({
@@ -140,6 +146,11 @@ class InferenceStep:
                                 })
 
             if image_parts:
+                logger.info(
+                    "InferenceStep: injecting %d image content_parts into user message (types: %s)",
+                    len(image_parts),
+                    [p.get("type", "?") for p in image_parts],
+                )
                 messages.append(LLMMessage(
                     role="user",
                     content="The tool execution produced image(s). Please analyze:",
@@ -148,6 +159,11 @@ class InferenceStep:
                         *image_parts
                     ],
                 ))
+            else:
+                logger.debug(
+                    "InferenceStep: no image data found in %d tool calls",
+                    len(pending_tool_calls),
+                )
 
         # messages (with tool calls) を turn_ctx に保存（PostStep用）
         turn_ctx.messages = messages

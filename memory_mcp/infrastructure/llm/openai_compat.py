@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import TYPE_CHECKING
 
 from .base import (
@@ -13,6 +14,8 @@ from .base import (
     ToolCallEvent,
     ToolDefinition,
 )
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -73,6 +76,11 @@ class OpenAICompatProvider(LLMProvider):
                 )
             elif msg.role == "user" and msg.content_parts:
                 # Use rich content parts (text + images) for multimodal
+                logger.info(
+                    "OpenAICompatProvider: using content_parts with %d parts for user message (types: %s)",
+                    len(msg.content_parts),
+                    [p.get("type", "?") for p in msg.content_parts],
+                )
                 result.append({"role": "user", "content": msg.content_parts})
             else:
                 result.append({"role": msg.role, "content": content})

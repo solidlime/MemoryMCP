@@ -30,6 +30,13 @@ def truncate_tool_result(result: dict, max_chars: int) -> dict:
     Preserves image data (content_base64 / artifacts) when present.
     """
     has_images = "content_base64" in result or "artifacts" in result
+    if has_images:
+        logger.info(
+            "truncate_tool_result: image data detected (content_base64=%s, artifacts=%d, content_type=%s)",
+            "yes" if "content_base64" in result else "no",
+            len(result.get("artifacts", [])),
+            result.get("content_type", "unknown"),
+        )
 
     if not has_images:
         result_str = json.dumps(result, ensure_ascii=False)

@@ -398,6 +398,21 @@ class SandboxSession:
                         if b64:
                             artifacts.append(b64)
 
+                # Schedule cleanup of temp .py files created by llm_sandbox
+                # (each run() creates a UUID-named .py file in /sandbox)
+                async def _cleanup():
+                    try:
+                        if self._python_session:
+                            await asyncio.to_thread(
+                                self._python_session.run,
+                                "import os; [os.remove(os.path.join('/sandbox',f)) for f in os.listdir('/sandbox') "
+                                "if f.endswith('.py') and len(open(os.path.join('/sandbox',f),'rb').read())<10240]",
+                            )
+                    except Exception:
+                        pass
+
+                asyncio.ensure_future(_cleanup())
+
                 return ExecResult(
                     stdout=stdout, stderr=stderr, exit_code=exit_code, artifacts=artifacts, language="python"
                 )
@@ -469,15 +484,30 @@ class SandboxSession:
         """List files in sandbox path."""
         async with self._lock:
             await self._ensure_python_started()
+
+            # --- DEBUG: verify sandbox state ---
+            try:
+                check = await asyncio.to_thread(
+                    self._python_session.run,
+                    f"import os; print('EXISTS:' + str(os.path.exists({path!r}))); print('ISDIR:' + str(os.path.isdir({path!r}))); print('LISTDIR:' + str(os.listdir({path!r})))",
+                )
+                logger.info("list_files pre-check path=%s: %s", path, (check.stdout or "").strip().replace("\n", " | "))
+            except Exception as e:
+                logger.warning("list_files pre-check failed: %s", e)
+            # --- END DEBUG ---
+
             code = f"""
-import os, json
+import os, json, sys
 target = {path!r}
 result = []
+sys.stderr.write(f"[DEBUG] target={{target}} exists={{os.path.exists(target)}}\\n")
 if not os.path.exists(target):
     result = [{{"error": f"Path does not exist: {{target}}"}}]
 else:
     try:
-        for entry in os.scandir(target):
+        entries = list(os.scandir(target))
+        sys.stderr.write(f"[DEBUG] scandir found {{len(entries)}} entries\\n")
+        for entry in entries:
             try:
                 st = entry.stat(follow_symlinks=False)
                 is_dir = (st.st_mode & 0o170000) == 0o040000  # S_ISDIR
@@ -486,24 +516,56 @@ else:
                 is_dir, size = False, 0
             result.append({{"name": entry.name, "path": entry.path, "is_dir": is_dir, "size": size}})
     except Exception as e:
+        sys.stderr.write(f"[DEBUG] scandir error: {{e}}\\n")
         result = [{{"error": str(e), "target": target}}]
+sys.stderr.write(f"[DEBUG] result count={{len(result)}}\\n")
 print(json.dumps(result))
 """
             try:
                 exec_result = await asyncio.to_thread(self._python_session.run, code)
                 import json
 
-                raw = (exec_result.stdout or "").strip()
-                entries = json.loads(raw)
+                raw_stdout = (exec_result.stdout or "").strip()
+                raw_stderr = (exec_result.stderr or "").strip()
+                logger.info(
+                    "list_files path=%s stdout_len=%d stderr_len=%d stdout_preview=%s stderr_preview=%s",
+                    path, len(raw_stdout), len(raw_stderr),
+                    raw_stdout[:200] if raw_stdout else "(empty)",
+                    raw_stderr[:200] if raw_stderr else "(empty)",
+                )
+                entries = json.loads(raw_stdout)
                 file_infos = [SandboxFileInfo(**e) for e in entries if "error" not in e]
                 if not file_infos and entries:
                     errors = [e for e in entries if "error" in e]
                     logger.warning("list_files path=%s errors: %s", path, errors)
-                logger.debug("list_files path=%s found %d entries", path, len(file_infos))
+                logger.info("list_files path=%s found %d entries", path, len(file_infos))
                 return file_infos
             except Exception as e:
                 logger.warning("list_files error for path=%s: %s", path, e)
-                return []
+                # Fallback: try os.listdir
+                try:
+                    fallback_code = f"""
+import os, json
+target = {path!r}
+result = []
+for name in os.listdir(target):
+    fp = os.path.join(target, name)
+    try:
+        is_dir = os.path.isdir(fp)
+        size = os.path.getsize(fp) if not is_dir else 0
+    except OSError:
+        is_dir, size = False, 0
+    result.append({{"name": name, "path": fp, "is_dir": is_dir, "size": size}})
+print(json.dumps(result))
+"""
+                    fb_result = await asyncio.to_thread(self._python_session.run, fallback_code)
+                    fb_entries = json.loads((fb_result.stdout or "").strip())
+                    fb_infos = [SandboxFileInfo(**e) for e in fb_entries if "error" not in e]
+                    logger.info("list_files fallback path=%s found %d entries", path, len(fb_infos))
+                    return fb_infos
+                except Exception as fb_e:
+                    logger.warning("list_files fallback also failed: %s", fb_e)
+                    return []
 
     async def read_file(self, remote_path: str) -> bytes:
         """Download a file from the sandbox."""
