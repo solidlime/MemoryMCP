@@ -310,34 +310,105 @@ async def execute_tool(ctx: AppContext, config: ChatConfig, tool_name: str, tool
                 return {"status": "error", "message": "パスは /sandbox 配下のみ許可されています"}
 
             sandbox = get_sandbox_session(ctx.persona)
-            raw = await sandbox.read_file(path)
+
+            # Preprocess: resize large images via PIL to avoid context bloat
+            # Target: max 1568px on longest side, ~300KB output
+            import json as _json
+
+            max_dim = 1568
+            preprocess_code = (
+                "import os, json\n"
+                f"p = {_json.dumps(path)}\n"
+                "r = {'ok': False}\n"
+                "if not os.path.exists(p):\n"
+                " r['error'] = f'File not found: {p}'\n"
+                "else:\n"
+                " sz = os.path.getsize(p)\n"
+                " try:\n"
+                "  from PIL import Image\n"
+                f"  im = Image.open(p); w, h = im.size\n"
+                f"  if w > {max_dim} or h > {max_dim} or sz > 500*1024:\n"
+                f"   im.thumbnail(({max_dim}, {max_dim}), Image.LANCZOS)\n"
+                "   tmp = '/sandbox/_rszd_' + os.path.basename(p) + '.jpg'\n"
+                "   im.convert('RGB').save(tmp, 'JPEG', quality=80, optimize=True)\n"
+                "   r = {'ok': True, 'path': tmp, 'orig_size': sz, 'new_size': os.path.getsize(tmp), "
+                f"  'orig_w': w, 'orig_h': h, 'new_w': im.size[0], 'new_h': im.size[1]}}\n"
+                "  else:\n"
+                "   r = {'ok': True, 'path': p, 'size': sz}\n"
+                " except ImportError:\n"
+                "  r = {'ok': True, 'path': p, 'size': sz, 'nopil': True}\n"
+                " except Exception as e:\n"
+                "  r['error'] = str(e)\n"
+                "print(json.dumps(r))"
+            )
+            pre_result = await sandbox.execute(preprocess_code)
+            pre_raw = pre_result.stdout.strip()
+            if not pre_raw:
+                return {"status": "error", "message": "画像の前処理に失敗しました（stdout空）"}
+            try:
+                pre = _json.loads(pre_raw)
+            except Exception:
+                # stdout might contain plot detection prefix — already stripped by _execute_python
+                return {"status": "error", "message": f"画像前処理のJSONパース失敗: {pre_raw[:200]}"}
+
+            if pre.get("error"):
+                return {"status": "error", "message": pre["error"]}
+
+            # If PIL not available, try installing it (one-time per session)
+            if pre.get("nopil"):
+                try:
+                    await sandbox.install_packages(["Pillow"])
+                    # Retry once
+                    retry_result = await sandbox.execute(preprocess_code)
+                    pre = _json.loads(retry_result.stdout.strip())
+                except Exception:
+                    pass  # Fall through — use unresized image
+
+            read_path = pre.get("path", path)
+            raw = await sandbox.read_file(read_path)
 
             # Detect image type from magic bytes
-            content_type = None
-            if len(raw) >= 4:
-                if raw[:4] == b"\x89PNG":
-                    content_type = "image/png"
-                elif raw[:2] == b"\xff\xd8":
-                    content_type = "image/jpeg"
-                elif raw[:3] == b"GIF":
-                    content_type = "image/gif"
-                elif len(raw) >= 12 and raw[:4] == b"RIFF" and raw[8:12] == b"WEBP":
-                    content_type = "image/webp"
-
+            content_type = "image/jpeg" if read_path.endswith(".jpg") else None
             if not content_type:
-                return {"status": "error", "message": "画像ファイルではありません（PNG/JPEG/GIF/WebPのみ対応）"}
+                if len(raw) >= 4:
+                    if raw[:4] == b"\x89PNG":
+                        content_type = "image/png"
+                    elif raw[:2] == b"\xff\xd8":
+                        content_type = "image/jpeg"
+                    elif raw[:3] == b"GIF":
+                        content_type = "image/gif"
+                    elif len(raw) >= 12 and raw[:4] == b"RIFF" and raw[8:12] == b"WEBP":
+                        content_type = "image/webp"
+                if not content_type:
+                    content_type = "image/png"  # fallback
 
             b64_str = base64.b64encode(raw).decode("ascii")
-            return {
+            result: dict = {
                 "status": "ok",
                 "content_type": content_type,
                 "content_base64": b64_str,
                 "size": len(raw),
-                "message": (
+            }
+            if pre.get("orig_size"):
+                result["resized"] = True
+                result["orig_size"] = pre["orig_size"]
+                result["orig_dims"] = f"{pre['orig_w']}x{pre['orig_h']}"
+                result["message"] = (
+                    f"画像を {pre['orig_w']}x{pre['orig_h']}({pre['orig_size']}B) から "
+                    f"{pre['new_w']}x{pre['new_h']}({pre['new_size']}B) にリサイズしました。"
+                    "この画像の内容を詳細に説明してください。"
+                )
+            else:
+                result["message"] = (
                     f"{content_type}画像（{len(raw)}バイト）を読み取りました。"
                     "この画像の内容を詳細に説明してください。"
-                ),
-            }
+                )
+
+            # Clean up temp resized file
+            if read_path != path:
+                await sandbox.delete_file(read_path)
+
+            return result
 
         else:
             return {"status": "error", "message": f"Unknown tool: {tool_name}"}
