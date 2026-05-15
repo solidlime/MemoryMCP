@@ -1,5 +1,52 @@
 # PLAN - やりたいこと
 
+## フロントエンド・ツール改善（2026-05-15）
+チャットWebUI・MCPツールの包括的監査に基づく改善計画。4フェーズに分割。
+
+### 🔴 Phase 1: バグ修正（即効・低工数）
+- [ ] **旧サンドボックスパネルの死にコード削除** — `chat.py` の CSS 255-416行 + JS 1665-2100行。`#sandbox-panel`, `#sandbox-terminal` 等のDOM要素は既に存在しない
+- [ ] **MEMORY_TOOL_NAMES にbuiltinツール追加** — `chat.py:1673` の Set がMCPツール5個だけで、`memory_create` 等12個不在。メモリパネルにツール結果が表示されない
+- [ ] **caAppendOutput をグローバル公開** — `coding_agent.py:426` の `_appendOutput` を `window.caAppendOutput` に。sandbox結果がCoding Agentパネルに届かない
+- [ ] **switchSandboxTab/sandboxExecuteCmd の二重定義削除** — `chat.py:1744` と `chat.py:2059` の重複
+- [ ] **promise_cancel 追加** — `goal_create/achieve/cancel` に対し promise は create/fulfill のみ。非対称
+- [ ] **sandbox_files list 空問題** — `service.py:list_files` の `entry.stat()` が単一ファイルのOSErrorでループ全体を殺す → エントリ毎try/except化（実装済み、要デプロイ）
+- [ ] **bash実行時の `!` プレフィックス自動除去** — `language="bash"` 時に `!ls` がシェルで解釈不可 → 自動strip（実装済み、要デプロイ）
+
+### 🟡 Phase 2: 設定UIの欠落（低工数）
+- [ ] **enable_memory_tools トグル追加** — チャットLLMに組み込みツールを渡すか制御不可。設定パネルにチェックボックス追加
+- [ ] **extract_max_tokens 入力欄追加** — 事実抽出のトークン制限が512固定。`auto_extract` の横に数値入力追加
+- [ ] **設定の保存ボタンをsticky footer化** — 全スクロール必須の問題
+
+### 🟠 Phase 3: UX改善（中工数）
+- [ ] **設定パネルをアコーディオン化** — 10セクションが280pxサイドバーにフラットスクロール → `<details>` で折りたたみ
+- [ ] **リトライ/編集ボタン** — 最後のアシスタント応答を再生成、ユーザー入力を編集して再送
+- [ ] **スラッシュコマンド** — `/memory`, `/goal`, `/code` でクイック操作。`chat-input` のkeydown監視
+- [ ] **デバッグモードトグル** — バックエンドにあるdebugモードをUIからON/OFF
+- [ ] **Alt+1〜9ショートカットにChatタブ追加** — `base.py:866` に `'chat'` を追加
+- [ ] **温度スライダー値の初期表示修正** — `applyChatConfig()` でスライダー値を明示更新
+- [ ] **添付ファイル表示ラベル復活** — `chat.py:1462` で `CHAT.attachments` をクリアする前に数を保存
+- [ ] **console.log → console.debug** — 本番にデバッグログが露出
+
+### 🔵 Phase 4: 新機能（高工数）
+- [ ] **メモリパネルにCRUD操作** — 記憶カードをクリック→編集/削除、goal完了操作を直接UIから
+- [ ] **メモリタイムライン可視化** — 感情色付きの記憶履歴タイムライン（vis-network活用）
+- [ ] **スキルベースのシステムプロンプトテンプレート** — ドロップダウンで切替
+- [ ] **音声入力 🎤** — Web Speech API
+- [ ] **会話エクスポート** — チャットをMarkdown/JSON出力
+- [ ] **Web検索トグル** — チャット入力に「🌐 Web検索」追加
+
+### 🟣 Phase 5: ツール不整合（低〜中工数）
+- [ ] **MCP `memory` ツールの死にパラメータ削除** — `context_tags`, `description`, `status` 未使用
+- [ ] **importance検証統一** — MCP createが黙ってclamp、updateがエラー返却 → 両方エラーに統一
+- [ ] **builtin `memory_search` の結果上限を200に** — 現在10件キャップ（MCPは200）
+- [ ] **builtinの感情検証追加** — MCPは `_VALID_EMOTIONS` 21種検証、builtinはスルー
+- [ ] **`search_memory` の死に `mode` パラメータ削除**
+
+### 🟢 sandbox 追加修正（2026-05-15）
+- [x] **_cleanup_stale_sandbox_container をPython Docker SDKに** — subprocess `docker rm -f` がmemory-mcpコンテナにdocker CLI不在で無言失敗 → `docker.from_env()` に変更（実装済み、要デプロイ）
+- [ ] **sandboxコンテナ手動掃除（1回限り）** — NAS上で `sudo docker exec sandbox-docker docker rm -f sandbox-herta`
+- [ ] **NASで `docker-compose build --no-cache memory-mcp && docker-compose up -d`** — 全修正をデプロイ
+
 ## Hindsight 分析（2026-05-13）
 vectorize-io/hindsight（13.2k stars）を分析し、MemoryMCP とのギャップを特定。
 

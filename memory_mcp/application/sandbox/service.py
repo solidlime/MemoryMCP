@@ -361,9 +361,14 @@ class SandboxSession:
             if language in ("bash", "shell", "sh"):
                 import json as _json
 
+                # Strip IPython magic ! prefix — users may copy commands from
+                # Python sandbox (!ls) but use language="bash" where ! is invalid
+                shell_code = code.lstrip()
+                if shell_code.startswith("!"):
+                    shell_code = shell_code[1:].lstrip()
                 code = (
                     "import subprocess as _sp; "
-                    f"r = _sp.run({_json.dumps(code)}, "
+                    f"r = _sp.run({_json.dumps(shell_code)}, "
                     "shell=True, capture_output=True, text=True); "
                     "print(r.stdout, end=''); "
                     "__import__('sys').stderr.write(r.stderr)"
