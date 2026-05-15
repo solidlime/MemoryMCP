@@ -398,37 +398,33 @@ class SandboxSession:
                         if b64:
                             artifacts.append(b64)
 
-                # Clean up temp .py files created by llm_sandbox
+                # Clean up temp .py files created by llm_sandbox immediately
                 # (each run() writes code to a UUID-named temp file before execution)
-                # Pattern: 32 hex chars + .py — matches only llm_sandbox temp files,
-                # never user files like "script.py" or "utils.py"
-                async def _cleanup_temp():
-                    try:
-                        if not self._python_session:
-                            return
-                        cleanup_code = (
-                            "import os, re; c=0; "
-                            "for f in os.listdir('/sandbox'): "
-                            " if re.match(r'^[a-f0-9]{32}\\.py$', f, re.I): "
-                            "  try: os.remove(os.path.join('/sandbox',f)); c+=1 "
-                            "  except OSError: pass; "
-                            "print(c)"
-                        )
-                        cleanup_result = await asyncio.to_thread(
-                            self._python_session.run, cleanup_code,
-                        )
-                        count = (
-                            (cleanup_result.stdout or "")
-                            .replace("Python plot detection setup complete\n", "")
-                            .replace("Python plot detection setup complete", "")
-                            .strip()
-                        )
-                        if count and count != "0":
-                            logger.debug("Sandbox cleanup: removed %s temp files", count)
-                    except Exception:
-                        pass
-
-                asyncio.ensure_future(_cleanup_temp())
+                # Pattern: 32 hex chars + .py — matches only llm_sandbox temp files
+                try:
+                    cleanup_code = (
+                        "import os, re; c=0; "
+                        "for f in os.listdir('/sandbox'): "
+                        " if re.match(r'^[a-f0-9]{32}\\.py$', f, re.I): "
+                        "  try: os.remove(os.path.join('/sandbox',f)); c+=1 "
+                        "  except OSError: pass; "
+                        "print(c)"
+                    )
+                    cleanup_result = await asyncio.to_thread(
+                        self._python_session.run, cleanup_code,
+                    )
+                    count = (
+                        (cleanup_result.stdout or "")
+                        .replace("Python plot detection setup complete\n", "")
+                        .replace("Python plot detection setup complete", "")
+                        .strip()
+                    )
+                    if count and count != "0":
+                        logger.info("Sandbox cleanup: removed %s temp files", count)
+                    elif count == "0":
+                        logger.debug("Sandbox cleanup: no temp files to remove")
+                except Exception:
+                    pass
 
                 return ExecResult(
                     stdout=stdout, stderr=stderr, exit_code=exit_code, artifacts=artifacts, language="python"
