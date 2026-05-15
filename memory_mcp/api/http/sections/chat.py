@@ -99,12 +99,49 @@ def render_chat_tab() -> str:
         .chat-typing span:nth-child(2) { animation-delay: 0.2s; }
         .chat-typing span:nth-child(3) { animation-delay: 0.4s; }
         @keyframes typingDot { 0%,80%,100%{transform:scale(0.7);opacity:0.4} 40%{transform:scale(1);opacity:1} }
+        /* Message action buttons */
+        .chat-msg-actions {
+            display: flex; gap: 4px; margin-top: 4px; opacity: 0; transition: opacity 0.2s;
+        }
+        .chat-msg:hover .chat-msg-actions { opacity: 1; }
+        .chat-msg-action-btn {
+            background: none; border: 1px solid var(--glass-border); border-radius: 4px;
+            color: var(--text-muted); padding: 1px 6px; font-size: 0.68rem;
+            cursor: pointer; transition: all 0.15s;
+        }
+        .chat-msg-action-btn:hover { color: var(--text-primary); background: var(--glass-bg); }
+        .chat-msg-action-btn.retry:hover { color: var(--accent-purple); border-color: rgba(167,139,250,0.4); }
+        .chat-msg-action-btn.edit:hover { color: var(--accent-blue); border-color: rgba(96,165,250,0.4); }
         /* Settings sidebar */
         #settings-panel {
             width: 280px; flex-shrink: 0; display: flex; flex-direction: column; gap: 12px;
             overflow-y: auto;
         }
         #settings-panel.collapsed { width: 0; overflow: hidden; }
+        /* Settings accordion */
+        #settings-panel details {
+            border: 1px solid var(--glass-border); border-radius: 8px;
+            overflow: hidden; margin-bottom: 8px;
+        }
+        #settings-panel details[open] { border-color: rgba(167,139,250,0.25); }
+        #settings-panel summary {
+            padding: 9px 12px; font-size: 0.8rem; font-weight: 600;
+            color: var(--text-secondary); cursor: pointer;
+            background: rgba(255,255,255,0.03);
+            user-select: none; transition: background 0.15s;
+        }
+        #settings-panel summary:hover { background: rgba(255,255,255,0.06); }
+        #settings-panel details .details-body {
+            padding: 10px 12px; display: flex; flex-direction: column; gap: 10px;
+        }
+        /* Settings sticky footer */
+        .settings-footer {
+            position: sticky; bottom: 0;
+            background: linear-gradient(transparent, var(--bg-primary) 40%);
+            padding: 12px 0 4px; margin-top: 4px;
+            display: flex; flex-direction: column; gap: 8px;
+            z-index: 5;
+        }
         .chat-sidebar-toggle {
             position: absolute; right: 16px; top: 8px;
             background: none; border: 1px solid var(--glass-border);
@@ -161,12 +198,43 @@ def render_chat_tab() -> str:
             background: rgba(255,255,255,0.04); border: 1px solid var(--glass-border);
             border-radius: 8px; padding: 7px 9px; font-size: 0.74rem;
             color: var(--text-secondary); line-height: 1.4; margin-bottom: 5px;
-            word-break: break-word;
+            word-break: break-word; cursor: pointer; transition: all 0.2s;
         }
+        .memory-item-card:hover { background: rgba(255,255,255,0.07); border-color: rgba(167,139,250,0.25); }
         .memory-item-card .mem-score {
             font-size: 0.68rem; color: var(--accent-purple); margin-bottom: 3px;
             font-weight: 600;
         }
+        .memory-item-card .mem-actions {
+            display: flex; gap: 4px; margin-top: 4px; opacity: 0; transition: opacity 0.2s;
+        }
+        .memory-item-card:hover .mem-actions { opacity: 1; }
+        .mem-action-btn {
+            background: none; border: 1px solid var(--glass-border); border-radius: 4px;
+            color: var(--text-muted); padding: 1px 5px; font-size: 0.64rem;
+            cursor: pointer; transition: all 0.15s;
+        }
+        .mem-action-btn:hover { color: var(--text-primary); background: var(--glass-bg); }
+        .mem-action-btn.done:hover { color: var(--accent-green); border-color: rgba(52,211,153,0.4); }
+        .mem-action-btn.del:hover { color: var(--accent-red); border-color: rgba(248,113,113,0.4); }
+        /* Memory edit modal */
+        #mem-edit-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 2000;
+            display: none; align-items: center; justify-content: center;
+        }
+        #mem-edit-overlay.show { display: flex; }
+        #mem-edit-modal {
+            background: var(--bg-primary); border: 1px solid var(--glass-border);
+            border-radius: 12px; padding: 20px; width: 400px; max-width: 90vw;
+            display: flex; flex-direction: column; gap: 10px;
+        }
+        #mem-edit-modal .mem-edit-label { font-size: 0.78rem; color: var(--text-muted); }
+        #mem-edit-modal textarea, #mem-edit-modal input {
+            width: 100%; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border);
+            border-radius: 8px; padding: 8px 10px; color: var(--text-primary);
+            font-size: 0.85rem; font-family: inherit; outline: none; box-sizing: border-box;
+        }
+        #mem-edit-modal textarea { min-height: 80px; resize: vertical; }
         .memory-empty { font-size: 0.74rem; color: var(--text-muted); font-style: italic; padding: 4px 0; }
         .reflection-insight {
             background: rgba(167,139,250,0.08); border: 1px solid rgba(167,139,250,0.2);
@@ -251,81 +319,6 @@ def render_chat_tab() -> str:
         .chat-bubble pre code { background:none; padding:0; }
         .chat-bubble blockquote { border-left:3px solid var(--accent-purple); padding-left:8px; margin:0.3em 0; opacity:0.8; }
         .chat-bubble a { color:var(--accent-blue); text-decoration:underline; }
-        /* Sandbox panel */
-        #sandbox-panel {
-            position: fixed; bottom: 20px; right: 20px; width: 480px;
-            background: #1a1a2e; border: 1px solid rgba(96,165,250,0.3);
-            border-radius: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-            z-index: 1000; display: none; flex-direction: column;
-            max-height: 480px; overflow: hidden;
-            font-family: 'Fira Code', 'Cascadia Code', monospace;
-        }
-        #sandbox-panel.visible { display: flex; }
-        .sandbox-panel-header {
-            display: flex; align-items: center; justify-content: space-between;
-            padding: 10px 14px; background: rgba(96,165,250,0.1);
-            border-bottom: 1px solid rgba(96,165,250,0.2); flex-shrink: 0;
-        }
-        .sandbox-panel-title { font-size: 0.82rem; font-weight: 600; color: rgba(96,165,250,0.9); }
-        .sandbox-panel-actions { display: flex; gap: 6px; }
-        .sandbox-panel-btn {
-            background: none; border: 1px solid rgba(96,165,250,0.3);
-            border-radius: 6px; color: rgba(96,165,250,0.7);
-            padding: 2px 8px; font-size: 0.72rem; cursor: pointer; transition: all 0.2s;
-        }
-        .sandbox-panel-btn:hover { background: rgba(96,165,250,0.1); color: rgba(96,165,250,1); }
-        #sandbox-tabs {
-            display: flex; border-bottom: 1px solid rgba(96,165,250,0.15); flex-shrink: 0;
-        }
-        .sandbox-tab {
-            padding: 6px 14px; font-size: 0.75rem; cursor: pointer;
-            color: var(--text-muted); border-bottom: 2px solid transparent;
-            transition: all 0.2s;
-        }
-        .sandbox-tab.active { color: rgba(96,165,250,0.9); border-bottom-color: rgba(96,165,250,0.7); }
-        .sandbox-tab-content { display: none; flex: 1; overflow: hidden; }
-        .sandbox-tab-content.active { display: flex; flex-direction: column; }
-        /* Terminal */
-        #sandbox-terminal {
-            flex: 1; padding: 10px; overflow-y: auto; font-size: 0.75rem;
-            line-height: 1.5; color: #d4d4d4; background: #1e1e1e;
-            white-space: pre-wrap; word-break: break-all; min-height: 150px;
-        }
-        .sandbox-output-line { margin: 0; }
-        .sandbox-output-line.stderr { color: #f97583; }
-        .sandbox-output-line.system { color: rgba(96,165,250,0.6); font-style: italic; }
-        .sandbox-output-line.success { color: #85e89d; }
-        /* File browser */
-        #sandbox-filebrowser {
-            flex: 1; overflow-y: auto; padding: 8px;
-        }
-        .sb-file-item {
-            display: flex; align-items: center; gap: 8px;
-            padding: 4px 8px; border-radius: 6px; cursor: pointer;
-            font-size: 0.78rem; color: var(--text-secondary);
-            transition: background 0.15s;
-        }
-        .sb-file-item:hover { background: rgba(96,165,250,0.08); }
-        .sb-file-item .sb-file-icon { font-size: 0.9rem; flex-shrink: 0; }
-        .sb-file-item .sb-file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .sb-file-item .sb-file-size { font-size: 0.68rem; color: var(--text-muted); flex-shrink: 0; }
-        .sb-file-actions { display: flex; gap: 4px; }
-        .sb-file-action-btn {
-            background: none; border: none; color: var(--text-muted);
-            padding: 2px 4px; border-radius: 4px; cursor: pointer; font-size: 0.72rem;
-            transition: all 0.15s;
-        }
-        .sb-file-action-btn:hover { color: var(--text-secondary); background: rgba(255,255,255,0.08); }
-        .sb-breadcrumb {
-            padding: 4px 8px; font-size: 0.72rem; color: var(--text-muted);
-            border-bottom: 1px solid rgba(255,255,255,0.06); flex-shrink: 0;
-            display: flex; align-items: center; gap: 4px;
-        }
-        .sb-breadcrumb-btn {
-            background: none; border: none; color: rgba(96,165,250,0.7);
-            cursor: pointer; padding: 0 2px; font-size: 0.72rem;
-        }
-        .sb-breadcrumb-btn:hover { text-decoration: underline; }
         /* Code block Run button styles */
         .hljs-block-wrapper {
             position: relative; margin: 0.5em 0; border-radius: 8px; overflow: hidden;
@@ -361,39 +354,6 @@ def render_chat_tab() -> str:
             display: block; max-width: 100%; border-top: 1px solid rgba(255,255,255,0.06);
             cursor: pointer;
         }
-        /* Artifacts tab */
-        #sandbox-tab-artifacts { flex-direction: column; overflow-y: auto; padding: 8px; gap: 8px; }
-        .artifact-thumb {
-            border: 1px solid rgba(96,165,250,0.2); border-radius: 6px; overflow: hidden;
-            cursor: pointer;
-        }
-        .artifact-thumb img { display: block; max-width: 100%; }
-        .artifact-thumb-label { font-size: 0.68rem; color: var(--text-muted); padding: 2px 6px; }
-        /* pip install UI */
-        #sandbox-install-row {
-            display: flex; gap: 4px; padding: 4px 8px;
-            border-top: 1px solid var(--glass-border); flex-shrink: 0;
-        }
-        #sandbox-install-input {
-            flex: 1; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border);
-            border-radius: 6px; padding: 3px 8px; color: var(--text-primary);
-            font-size: 0.78rem; font-family: monospace; outline: none;
-        }
-        #sandbox-install-input:focus { border-color: rgba(96,165,250,0.5); }
-        .sandbox-install-btn, .sandbox-reset-btn {
-            background: none; border: 1px solid rgba(96,165,250,0.3);
-            border-radius: 6px; color: rgba(96,165,250,0.7);
-            padding: 3px 10px; font-size: 0.72rem; cursor: pointer; transition: all 0.2s;
-        }
-        .sandbox-install-btn:hover { background: rgba(96,165,250,0.1); color: rgba(96,165,250,1); }
-        .sandbox-reset-btn { border-color: rgba(248,113,113,0.3); color: rgba(248,113,113,0.7); }
-        .sandbox-reset-btn:hover { background: rgba(248,113,113,0.1); color: rgba(248,113,113,1); }
-        /* lang selector */
-        #sandbox-lang-select {
-            background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border);
-            border-radius: 6px; padding: 2px 6px; color: var(--text-primary);
-            font-size: 0.72rem; cursor: pointer; outline: none;
-        }
         /* Sandbox toggle button */
         #sandbox-toggle-btn {
             background: rgba(96,165,250,0.1); border: 1px solid rgba(96,165,250,0.3);
@@ -402,17 +362,6 @@ def render_chat_tab() -> str:
         }
         #sandbox-toggle-btn:hover { background: rgba(96,165,250,0.2); }
         #sandbox-toggle-btn.active { background: rgba(96,165,250,0.2); color: rgba(96,165,250,1); }
-        /* File upload area */
-        #sandbox-upload-zone {
-            border: 2px dashed rgba(96,165,250,0.3); border-radius: 8px;
-            padding: 10px; text-align: center; margin: 8px;
-            font-size: 0.75rem; color: var(--text-muted); cursor: pointer;
-            transition: all 0.2s; flex-shrink: 0;
-        }
-        #sandbox-upload-zone:hover, #sandbox-upload-zone.dragover {
-            border-color: rgba(96,165,250,0.7); background: rgba(96,165,250,0.05);
-            color: var(--text-secondary);
-        }
         </style>
         <!-- ========== CHAT TAB ========== -->
         <section id="tab-chat" class="tab-panel" role="tabpanel">
@@ -499,209 +448,243 @@ def render_chat_tab() -> str:
                     <div id="chat-attachments"></div>
                     <div id="chat-input-area">
                         <textarea id="chat-input" placeholder="メッセージを入力... (Shift+Enter で改行、Enter で送信、ファイルドロップ可)" rows="1"></textarea>
+                        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+                            <button id="chat-voice-btn" onclick="toggleVoiceInput()" title="音声入力" style="background:none;border:1px solid var(--glass-border);border-radius:6px;color:var(--text-muted);padding:3px 8px;font-size:0.85rem;cursor:pointer;white-space:nowrap;">🎤</button>
+                            <label id="chat-web-search-label" style="display:flex;align-items:center;gap:4px;font-size:0.72rem;color:var(--text-muted);cursor:pointer;white-space:nowrap;">
+                                <input type="checkbox" id="chat-web-search" style="width:14px;height:14px;accent-color:var(--accent-blue);cursor:pointer;" />🌐 Web検索
+                            </label>
+                            <button id="chat-export-btn" onclick="exportChatHistory()" title="会話をエクスポート" style="background:none;border:1px solid var(--glass-border);border-radius:6px;color:var(--text-muted);padding:3px 8px;font-size:0.72rem;cursor:pointer;white-space:nowrap;">📥 Export</button>
+                        </div>
                         <button id="chat-cancel-btn" onclick="chatCancel()" style="display:none;">⏹ 中止</button>
                         <button id="chat-send-btn" onclick="chatSend()">送信 ↑</button>
                     </div>
                 </div>
                 <!-- Settings sidebar -->
-                <div id="settings-panel" class="glass" style="margin:0; border-radius:0; border-left:1px solid var(--glass-border); padding:16px; gap:12px; display:flex; flex-direction:column;">
+                <div id="settings-panel" class="glass" style="margin:0; border-radius:0; border-left:1px solid var(--glass-border); padding:16px; gap:8px; display:flex; flex-direction:column;">
                     <div style="font-size:0.85rem; font-weight:600; color:var(--text-primary); margin-bottom:4px;">⚙️ チャット設定</div>
-                    <!-- Provider -->
-                    <div>
-                        <div class="chat-field-label">プロバイダー</div>
-                        <select id="chat-provider" class="chat-field-input" onchange="onChatProviderChange()">
-                            <option value="anthropic">Anthropic (Claude)</option>
-                            <option value="openai">OpenAI</option>
-                            <option value="openrouter">OpenRouter</option>
-                        </select>
-                    </div>
-                    <!-- Model -->
-                    <div>
-                        <div class="chat-field-label">モデル <span style="color:var(--accent-blue);font-size:0.7rem;">（空白でデフォルト）</span></div>
-                        <input type="text" id="chat-model" class="chat-field-input" placeholder="例: claude-opus-4-5" />
-                    </div>
-                    <!-- API Key -->
-                    <div>
-                        <div class="chat-field-label">APIキー</div>
-                        <input type="password" id="chat-api-key" class="chat-field-input" placeholder="sk-..." autocomplete="off" />
-                    </div>
-                    <!-- Base URL (OpenRouter / Custom) -->
-                    <div id="chat-base-url-row">
-                        <div class="chat-field-label">Base URL <span style="color:var(--text-muted);font-size:0.7rem;">（任意）</span></div>
-                        <input type="text" id="chat-base-url" class="chat-field-input" placeholder="https://openrouter.ai/api/v1" />
-                    </div>
-                    <!-- Temperature -->
-                    <div>
-                        <div class="chat-field-label" style="display:flex;justify-content:space-between;">
-                            <span>Temperature</span>
-                            <span id="chat-temp-val" style="color:var(--accent-purple);">0.7</span>
+                    <!-- Provider / Model / API -->
+                    <details open>
+                        <summary>🔧 基本設定</summary>
+                        <div class="details-body">
+                            <div>
+                                <div class="chat-field-label">プロバイダー</div>
+                                <select id="chat-provider" class="chat-field-input" onchange="onChatProviderChange()">
+                                    <option value="anthropic">Anthropic (Claude)</option>
+                                    <option value="openai">OpenAI</option>
+                                    <option value="openrouter">OpenRouter</option>
+                                </select>
+                            </div>
+                            <div>
+                                <div class="chat-field-label">モデル <span style="color:var(--accent-blue);font-size:0.7rem;">（空白でデフォルト）</span></div>
+                                <input type="text" id="chat-model" class="chat-field-input" placeholder="例: claude-opus-4-5" />
+                            </div>
+                            <div>
+                                <div class="chat-field-label">APIキー</div>
+                                <input type="password" id="chat-api-key" class="chat-field-input" placeholder="sk-..." autocomplete="off" />
+                            </div>
+                            <div id="chat-base-url-row">
+                                <div class="chat-field-label">Base URL <span style="color:var(--text-muted);font-size:0.7rem;">（任意）</span></div>
+                                <input type="text" id="chat-base-url" class="chat-field-input" placeholder="https://openrouter.ai/api/v1" />
+                            </div>
+                            <div>
+                                <div class="chat-field-label" style="display:flex;justify-content:space-between;">
+                                    <span>Temperature</span>
+                                    <span id="chat-temp-val" style="color:var(--accent-purple);">0.7</span>
+                                </div>
+                                <input type="range" id="chat-temperature" min="0" max="2" step="0.05" value="0.7"
+                                    oninput="document.getElementById('chat-temp-val').textContent=parseFloat(this.value).toFixed(2)"
+                                    style="width:100%;accent-color:var(--accent-purple);" />
+                            </div>
+                            <div>
+                                <div class="chat-field-label">Max Tokens</div>
+                                <input type="number" id="chat-max-tokens" class="chat-field-input" min="1" max="32768" value="2048" />
+                            </div>
                         </div>
-                        <input type="range" id="chat-temperature" min="0" max="2" step="0.05" value="0.7"
-                            oninput="document.getElementById('chat-temp-val').textContent=parseFloat(this.value).toFixed(2)"
-                            style="width:100%;accent-color:var(--accent-purple);" />
-                    </div>
-                    <!-- Max tokens -->
-                    <div>
-                        <div class="chat-field-label">Max Tokens</div>
-                        <input type="number" id="chat-max-tokens" class="chat-field-input" min="1" max="32768" value="2048" />
-                    </div>
-                    <!-- Context window turns -->
-                    <div>
-                        <div class="chat-field-label">コンテキスト履歴 (turns)</div>
-                        <input type="number" id="chat-window-turns" class="chat-field-input" min="1" max="50" value="3" />
-                    </div>
-                    <!-- Display history turns -->
-                    <div>
-                        <div class="chat-field-label">表示履歴 (turns) <span style="color:var(--text-muted);font-size:0.7rem;">（ページロード時に遡る件数）</span></div>
-                        <input type="number" id="chat-display-history-turns" class="chat-field-input" min="1" max="200" value="20" />
-                    </div>
-                    <!-- Max tool calls -->
-                    <div>
-                        <div class="chat-field-label">最大ツール呼び出し回数</div>
-                        <input type="number" id="chat-max-tool-calls" class="chat-field-input" min="0" max="20" value="5" />
-                    </div>
-                    <!-- System prompt -->
-                    <div style="flex:1; display:flex; flex-direction:column; min-height:80px;">
-                        <div class="chat-field-label">システムプロンプト</div>
-                        <textarea id="chat-system-prompt" class="chat-field-input" rows="4"
-                            placeholder="（空白でデフォルト: ペルソナ名のアシスタント）"
-                            style="flex:1;resize:vertical;min-height:70px;max-height:300px;overflow-y:auto;"></textarea>
-                    </div>
-                    <!-- Auto extract -->
-                    <div style="border-top:1px solid var(--glass-border);padding-top:10px;">
-                        <div style="font-size:0.8rem; font-weight:600; color:var(--text-secondary); margin-bottom:8px;">🧠 自動ファクト抽出 (Mem0方式)</div>
-                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-                            <input type="checkbox" id="chat-auto-extract" checked
-                                style="width:15px;height:15px;accent-color:var(--accent-purple);cursor:pointer;" />
-                            <label for="chat-auto-extract" class="chat-field-label" style="margin:0;cursor:pointer;">ターン毎に記憶を自動抽出</label>
+                    </details>
+                    <!-- Context & System Prompt -->
+                    <details>
+                        <summary>💬 コンテキスト</summary>
+                        <div class="details-body">
+                            <div>
+                                <div class="chat-field-label">コンテキスト履歴 (turns)</div>
+                                <input type="number" id="chat-window-turns" class="chat-field-input" min="1" max="50" value="3" />
+                            </div>
+                            <div>
+                                <div class="chat-field-label">表示履歴 (turns) <span style="color:var(--text-muted);font-size:0.7rem;">（ページロード時に遡る件数）</span></div>
+                                <input type="number" id="chat-display-history-turns" class="chat-field-input" min="1" max="200" value="20" />
+                            </div>
+                            <div>
+                                <div class="chat-field-label">最大ツール呼び出し回数</div>
+                                <input type="number" id="chat-max-tool-calls" class="chat-field-input" min="0" max="20" value="5" />
+                            </div>
+                            <div style="flex:1; display:flex; flex-direction:column; min-height:80px;">
+                                <div class="chat-field-label">システムプロンプト</div>
+                                <textarea id="chat-system-prompt" class="chat-field-input" rows="4"
+                                    placeholder="（空白でデフォルト: ペルソナ名のアシスタント）"
+                                    style="flex:1;resize:vertical;min-height:70px;max-height:300px;overflow-y:auto;"></textarea>
+                            </div>
                         </div>
-                        <div>
-                            <div class="chat-field-label">抽出モデル <span style="color:var(--text-muted);font-size:0.7rem;">（空白でチャットと同モデル）</span></div>
-                            <input type="text" id="chat-extract-model" class="chat-field-input"
-                                placeholder="例: claude-haiku-4-5, gpt-4o-mini" />
+                    </details>
+                    <!-- Memory extraction -->
+                    <details>
+                        <summary>🧠 記憶・抽出</summary>
+                        <div class="details-body">
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <input type="checkbox" id="chat-auto-extract" checked
+                                    style="width:15px;height:15px;accent-color:var(--accent-purple);cursor:pointer;" />
+                                <label for="chat-auto-extract" class="chat-field-label" style="margin:0;cursor:pointer;">ターン毎に記憶を自動抽出 (Mem0方式)</label>
+                            </div>
+                            <div>
+                                <div class="chat-field-label">抽出モデル <span style="color:var(--text-muted);font-size:0.7rem;">（空白でチャットと同モデル）</span></div>
+                                <input type="text" id="chat-extract-model" class="chat-field-input"
+                                    placeholder="例: claude-haiku-4-5, gpt-4o-mini" />
+                            </div>
+                            <div>
+                                <div class="chat-field-label">抽出 Max Tokens</div>
+                                <input type="number" id="chat-extract-max-tokens" class="chat-field-input" min="64" max="2048" value="512" />
+                            </div>
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <input type="checkbox" id="chat-enable-memory-tools" checked
+                                    style="width:15px;height:15px;accent-color:var(--accent-purple);cursor:pointer;" />
+                                <label for="chat-enable-memory-tools" class="chat-field-label" style="margin:0;cursor:pointer;">LLMに組み込みメモリツールを渡す</label>
+                            </div>
                         </div>
-                    </div>
+                    </details>
                     <!-- MCP Servers -->
-                    <div style="border-top:1px solid var(--glass-border);padding-top:10px;" id="chat-mcp-section">
-                        <div style="margin-bottom:6px;">
-                            <div style="font-size:0.8rem; font-weight:600; color:var(--text-secondary); margin-bottom:4px;">🔌 MCPサーバー</div>
-                            <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:6px;">Claude の mcp.json 形式で貼り付け・編集できます</div>
-                            <textarea id="chat-mcp-json" class="chat-field-input" rows="6"
-                                style="resize:vertical;min-height:100px;font-family:monospace;font-size:0.73rem;line-height:1.45;"
-                                placeholder='{&#10;  "mcpServers": {&#10;    "my-server": {&#10;      "command": "npx",&#10;      "args": ["-y", "@modelcontextprotocol/server-filesystem"]&#10;    }&#10;  }&#10;}'></textarea>
-                            <div id="chat-mcp-json-error" style="font-size:0.72rem;color:var(--accent-red);margin-top:3px;display:none;"></div>
-                        </div>
-                        <div>
-                            <div class="chat-field-label" style="display:flex;justify-content:space-between;">
-                                <span>ツール結果最大文字数</span>
-                                <span id="chat-tool-max-val" style="color:var(--accent-purple);">4000</span>
+                    <details>
+                        <summary>🔌 MCPサーバー</summary>
+                        <div class="details-body" id="chat-mcp-section">
+                            <div>
+                                <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:4px;">Claude の mcp.json 形式で貼り付け・編集できます</div>
+                                <textarea id="chat-mcp-json" class="chat-field-input" rows="6"
+                                    style="resize:vertical;min-height:100px;font-family:monospace;font-size:0.73rem;line-height:1.45;"
+                                    placeholder='{&#10;  "mcpServers": {&#10;    "my-server": {&#10;      "command": "npx",&#10;      "args": ["-y", "@modelcontextprotocol/server-filesystem"]&#10;    }&#10;  }&#10;}'></textarea>
+                                <div id="chat-mcp-json-error" style="font-size:0.72rem;color:var(--accent-red);margin-top:3px;display:none;"></div>
                             </div>
-                            <input type="range" id="chat-tool-result-max" min="500" max="20000" step="500" value="4000"
-                                oninput="document.getElementById('chat-tool-max-val').textContent=this.value"
-                                style="width:100%;accent-color:var(--accent-purple);" />
+                            <div>
+                                <div class="chat-field-label" style="display:flex;justify-content:space-between;">
+                                    <span>ツール結果最大文字数</span>
+                                    <span id="chat-tool-max-val" style="color:var(--accent-purple);">4000</span>
+                                </div>
+                                <input type="range" id="chat-tool-result-max" min="500" max="20000" step="500" value="4000"
+                                    oninput="document.getElementById('chat-tool-max-val').textContent=this.value"
+                                    style="width:100%;accent-color:var(--accent-purple);" />
+                            </div>
                         </div>
-                    </div>
+                    </details>
                     <!-- Skills -->
-                    <div style="border-top:1px solid var(--glass-border);padding-top:10px;" id="chat-skills-section">
-                        <div style="font-size:0.8rem; font-weight:600; color:var(--text-secondary); margin-bottom:8px;">🎯 Skills</div>
-                        <div id="chat-skills-list" style="display:flex;flex-direction:column;gap:4px;"></div>
-                    </div>
-                    <!-- Reflection & Retrieval settings -->
-                    <div style="border-top:1px solid var(--glass-border);padding-top:10px;">
-                        <div style="font-size:0.8rem; font-weight:600; color:var(--text-secondary); margin-bottom:8px;">🔮 リフレクション設定</div>
-                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-                            <input type="checkbox" id="chat-reflection-enabled" checked
-                                style="width:15px;height:15px;accent-color:var(--accent-purple);cursor:pointer;" />
-                            <label for="chat-reflection-enabled" class="chat-field-label" style="margin:0;cursor:pointer;">リフレクション有効</label>
+                    <details>
+                        <summary>🎯 Skills</summary>
+                        <div class="details-body" id="chat-skills-section">
+                            <div id="chat-skills-list" style="display:flex;flex-direction:column;gap:4px;"></div>
                         </div>
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
-                            <div>
-                                <div class="chat-field-label">閾値</div>
-                                <input type="number" id="chat-reflection-threshold" class="chat-field-input"
-                                    min="0.1" max="100" step="0.1" value="1.0" />
+                    </details>
+                    <!-- Reflection -->
+                    <details>
+                        <summary>🔮 リフレクション</summary>
+                        <div class="details-body">
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <input type="checkbox" id="chat-reflection-enabled" checked
+                                    style="width:15px;height:15px;accent-color:var(--accent-purple);cursor:pointer;" />
+                                <label for="chat-reflection-enabled" class="chat-field-label" style="margin:0;cursor:pointer;">リフレクション有効</label>
+                            </div>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                                <div>
+                                    <div class="chat-field-label">閾値</div>
+                                    <input type="number" id="chat-reflection-threshold" class="chat-field-input"
+                                        min="0.1" max="100" step="0.1" value="1.0" />
+                                </div>
+                                <div>
+                                    <div class="chat-field-label">最小間隔 (時間)</div>
+                                    <input type="number" id="chat-reflection-interval" class="chat-field-input"
+                                        min="0" max="168" step="0.5" value="1.0" />
+                                </div>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <input type="checkbox" id="chat-session-summarize" checked
+                                    style="width:15px;height:15px;accent-color:var(--accent-purple);cursor:pointer;" />
+                                <label for="chat-session-summarize" class="chat-field-label" style="margin:0;cursor:pointer;">セッション要約</label>
+                            </div>
+                        </div>
+                    </details>
+                    <!-- Mental Model -->
+                    <details>
+                        <summary>🧩 メンタルモデル</summary>
+                        <div class="details-body">
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <input type="checkbox" id="chat-mental-model-enabled" checked
+                                    style="width:15px;height:15px;accent-color:var(--accent-purple);cursor:pointer;" />
+                                <label for="chat-mental-model-enabled" class="chat-field-label" style="margin:0;cursor:pointer;">メンタルモデル抽出を有効</label>
                             </div>
                             <div>
-                                <div class="chat-field-label">最小間隔 (時間)</div>
-                                <input type="number" id="chat-reflection-interval" class="chat-field-input"
-                                    min="0" max="168" step="0.5" value="1.0" />
+                                <div class="chat-field-label">最小サンプル数</div>
+                                <input type="number" id="chat-mental-model-min-samples" class="chat-field-input"
+                                    min="1" max="20" value="3" />
                             </div>
                         </div>
-                        <div style="display:flex;align-items:center;gap:8px;">
-                            <input type="checkbox" id="chat-session-summarize" checked
-                                style="width:15px;height:15px;accent-color:var(--accent-purple);cursor:pointer;" />
-                            <label for="chat-session-summarize" class="chat-field-label" style="margin:0;cursor:pointer;">セッション要約</label>
-                        </div>
-                    </div>
-                    <!-- Mental Model settings -->
-                    <div style="border-top:1px solid var(--glass-border);padding-top:10px;">
-                        <div style="font-size:0.8rem; font-weight:600; color:var(--text-secondary); margin-bottom:8px;">🧠 メンタルモデル</div>
-                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-                            <input type="checkbox" id="chat-mental-model-enabled" checked
-                                style="width:15px;height:15px;accent-color:var(--accent-purple);cursor:pointer;" />
-                            <label for="chat-mental-model-enabled" class="chat-field-label" style="margin:0;cursor:pointer;">メンタルモデル抽出を有効</label>
-                        </div>
-                        <div>
-                            <div class="chat-field-label">最小サンプル数</div>
-                            <input type="number" id="chat-mental-model-min-samples" class="chat-field-input"
-                                min="1" max="20" value="3" />
-                        </div>
-                    </div>
+                    </details>
                     <!-- Retrieval weights -->
-                    <div style="border-top:1px solid var(--glass-border);padding-top:10px;">
-                        <div style="font-size:0.8rem; font-weight:600; color:var(--text-secondary); margin-bottom:8px;">⚖️ 検索重み</div>
-                        <div style="margin-bottom:8px;">
-                            <div class="chat-field-label" style="display:flex;justify-content:space-between;">
-                                <span>鮮度</span>
-                                <span id="chat-recency-weight-val" style="color:var(--accent-purple);">0.30</span>
+                    <details>
+                        <summary>⚖️ 検索重み</summary>
+                        <div class="details-body">
+                            <div>
+                                <div class="chat-field-label" style="display:flex;justify-content:space-between;">
+                                    <span>鮮度</span>
+                                    <span id="chat-recency-weight-val" style="color:var(--accent-purple);">0.30</span>
+                                </div>
+                                <input type="range" id="chat-recency-weight" min="0" max="1" step="0.05" value="0.3"
+                                    oninput="document.getElementById('chat-recency-weight-val').textContent=parseFloat(this.value).toFixed(2)"
+                                    style="width:100%;accent-color:var(--accent-purple);" />
                             </div>
-                            <input type="range" id="chat-recency-weight" min="0" max="1" step="0.05" value="0.3"
-                                oninput="document.getElementById('chat-recency-weight-val').textContent=parseFloat(this.value).toFixed(2)"
-                                style="width:100%;accent-color:var(--accent-purple);" />
-                        </div>
-                        <div style="margin-bottom:8px;">
-                            <div class="chat-field-label" style="display:flex;justify-content:space-between;">
-                                <span>重要度</span>
-                                <span id="chat-importance-weight-val" style="color:var(--accent-purple);">0.30</span>
+                            <div>
+                                <div class="chat-field-label" style="display:flex;justify-content:space-between;">
+                                    <span>重要度</span>
+                                    <span id="chat-importance-weight-val" style="color:var(--accent-purple);">0.30</span>
+                                </div>
+                                <input type="range" id="chat-importance-weight" min="0" max="1" step="0.05" value="0.3"
+                                    oninput="document.getElementById('chat-importance-weight-val').textContent=parseFloat(this.value).toFixed(2)"
+                                    style="width:100%;accent-color:var(--accent-purple);" />
                             </div>
-                            <input type="range" id="chat-importance-weight" min="0" max="1" step="0.05" value="0.3"
-                                oninput="document.getElementById('chat-importance-weight-val').textContent=parseFloat(this.value).toFixed(2)"
-                                style="width:100%;accent-color:var(--accent-purple);" />
-                        </div>
-                        <div>
-                            <div class="chat-field-label" style="display:flex;justify-content:space-between;">
-                                <span>関連性</span>
-                                <span id="chat-relevance-weight-val" style="color:var(--accent-purple);">0.40</span>
+                            <div>
+                                <div class="chat-field-label" style="display:flex;justify-content:space-between;">
+                                    <span>関連性</span>
+                                    <span id="chat-relevance-weight-val" style="color:var(--accent-purple);">0.40</span>
+                                </div>
+                                <input type="range" id="chat-relevance-weight" min="0" max="1" step="0.05" value="0.4"
+                                    oninput="document.getElementById('chat-relevance-weight-val').textContent=parseFloat(this.value).toFixed(2)"
+                                    style="width:100%;accent-color:var(--accent-purple);" />
                             </div>
-                            <input type="range" id="chat-relevance-weight" min="0" max="1" step="0.05" value="0.4"
-                                oninput="document.getElementById('chat-relevance-weight-val').textContent=parseFloat(this.value).toFixed(2)"
-                                style="width:100%;accent-color:var(--accent-purple);" />
                         </div>
-                    </div>
-                    <!-- Housekeeping settings -->
-                    <div style="border-top:1px solid var(--glass-border);padding-top:10px;">
-                        <div style="font-size:0.8rem; font-weight:600; color:var(--text-secondary); margin-bottom:8px;">🧹 コンテキスト整理</div>
-                        <div>
-                            <div class="chat-field-label">自動整理 閾値 (goals+promises 合計がこの数を超えたら実行)</div>
-                            <input type="number" id="chat-housekeeping-threshold" class="chat-field-input" min="1" max="100" value="10" />
+                    </details>
+                    <!-- Housekeeping & Other -->
+                    <details>
+                        <summary>🧹 整理・その他</summary>
+                        <div class="details-body">
+                            <div>
+                                <div class="chat-field-label">自動整理 閾値 (goals+promises 合計がこの数を超えたら実行)</div>
+                                <input type="number" id="chat-housekeeping-threshold" class="chat-field-input" min="1" max="100" value="10" />
+                            </div>
+                            <button class="chat-clear-btn" style="margin-top:4px;" onclick="runHousekeeping()">🧹 今すぐ整理</button>
+                            <div id="chat-housekeeping-status" style="font-size:0.75rem; text-align:center; min-height:16px;"></div>
+                            <div style="border-top:1px solid var(--glass-border);padding-top:8px;display:flex;align-items:center;gap:8px;">
+                                <input type="checkbox" id="chat-sandbox-enabled"
+                                    style="width:15px;height:15px;accent-color:var(--accent-blue);cursor:pointer;"
+                                    onchange="onSandboxEnabledChange()" />
+                                <label for="chat-sandbox-enabled" class="chat-field-label" style="margin:0;cursor:pointer;">コード実行 (Dockerサンドボックス)</label>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <input type="checkbox" id="chat-debug-mode"
+                                    style="width:15px;height:15px;accent-color:var(--accent-purple);cursor:pointer;" />
+                                <label for="chat-debug-mode" class="chat-field-label" style="margin:0;cursor:pointer;">🐛 デバッグモード</label>
+                            </div>
                         </div>
-                        <button class="chat-clear-btn" style="margin-top:8px;" onclick="runHousekeeping()">🧹 今すぐ整理</button>
-                        <div id="chat-housekeeping-status" style="font-size:0.75rem; text-align:center; min-height:16px;"></div>
+                    </details>
+                    <!-- Sticky footer buttons -->
+                    <div class="settings-footer">
+                        <button class="chat-save-btn" onclick="saveChatConfig()">💾 設定を保存</button>
+                        <button class="chat-clear-btn" onclick="clearChatHistory()">🗑️ 会話をリセット</button>
+                        <div id="chat-config-status" style="font-size:0.75rem; text-align:center; min-height:16px;"></div>
                     </div>
-                    <!-- Sandbox settings -->
-                    <div style="border-top:1px solid var(--glass-border);padding-top:10px;" id="chat-sandbox-section">
-                        <div style="font-size:0.8rem; font-weight:600; color:var(--text-secondary); margin-bottom:8px;">🔬 コード実行サンドボックス</div>
-                        <div style="display:flex;align-items:center;gap:8px;">
-                            <input type="checkbox" id="chat-sandbox-enabled"
-                                style="width:15px;height:15px;accent-color:var(--accent-blue);cursor:pointer;"
-                                onchange="onSandboxEnabledChange()" />
-                            <label for="chat-sandbox-enabled" class="chat-field-label" style="margin:0;cursor:pointer;">コード実行を許可 (Docker必要)</label>
-                        </div>
-                    </div>
-                    <!-- Buttons -->
-                    <button class="chat-save-btn" onclick="saveChatConfig()">💾 設定を保存</button>
-                    <button class="chat-clear-btn" onclick="clearChatHistory()">🗑️ 会話をリセット</button>
-                    <!-- Config status -->
-                    <div id="chat-config-status" style="font-size:0.75rem; text-align:center; min-height:16px;"></div>
                 </div>
             </div>
             <!-- highlight.js for syntax highlighting in chat bubbles -->
@@ -710,6 +693,30 @@ def render_chat_tab() -> str:
             <!-- Media viewer overlay -->
             <div id="media-viewer-overlay" onclick="closeMediaViewer()">
                 <div id="media-viewer-inner" onclick="event.stopPropagation()"></div>
+            </div>
+            <!-- Memory edit modal -->
+            <div id="mem-edit-overlay" onclick="closeMemEdit()">
+                <div id="mem-edit-modal" onclick="event.stopPropagation()">
+                    <div style="font-size:0.85rem;font-weight:600;color:var(--text-primary);">メモリ編集</div>
+                    <div>
+                        <div class="mem-edit-label">内容</div>
+                        <textarea id="mem-edit-content"></textarea>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                        <div>
+                            <div class="mem-edit-label">重要度 (0.0-1.0)</div>
+                            <input type="number" id="mem-edit-importance" min="0" max="1" step="0.05" value="0.5" />
+                        </div>
+                        <div>
+                            <div class="mem-edit-label">タグ (カンマ区切り)</div>
+                            <input type="text" id="mem-edit-tags" placeholder="goal, active" />
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px;">
+                        <button class="chat-clear-btn" style="width:auto;padding:6px 14px;" onclick="deleteMemCard()">削除</button>
+                        <button class="chat-save-btn" style="width:auto;padding:6px 14px;" onclick="saveMemEdit()">保存</button>
+                    </div>
+                </div>
             </div>
         </section>""" + render_coding_agent_panel()
 
@@ -775,6 +782,7 @@ async function loadChatConfig() {
 function applyChatConfig(cfg) {
     if (!cfg) return;
     const set = (id, v) => { const el = document.getElementById(id); if (el && v !== undefined && v !== null) el.value = v; };
+    const setChecked = (id, v) => { const el = document.getElementById(id); if (el) el.checked = v === true; };
     set('chat-provider', cfg.provider);
     set('chat-model', cfg.model || '');
     set('chat-api-key', cfg.api_key || '');
@@ -784,11 +792,16 @@ function applyChatConfig(cfg) {
     set('chat-window-turns', cfg.max_window_turns || 3);
     set('chat-max-tool-calls', cfg.max_tool_calls || 5);
     set('chat-system-prompt', cfg.system_prompt || '');
-    const autoExtract = document.getElementById('chat-auto-extract');
-    if (autoExtract) autoExtract.checked = cfg.auto_extract !== false;
+    setChecked('chat-auto-extract', cfg.auto_extract !== false);
     set('chat-extract-model', cfg.extract_model || '');
+    set('chat-extract-max-tokens', cfg.extract_max_tokens || 512);
+    setChecked('chat-enable-memory-tools', cfg.enable_memory_tools !== false);
+    // Temperature display sync
     const tempEl = document.getElementById('chat-temp-val');
-    if (tempEl) tempEl.textContent = parseFloat(cfg.temperature || 0.7).toFixed(2);
+    const tempSlider = document.getElementById('chat-temperature');
+    if (tempEl && tempSlider) {
+        tempEl.textContent = parseFloat(tempSlider.value).toFixed(2);
+    }
     onChatProviderChange();
     CHAT.mcpServers = cfg.mcp_servers || [];
     renderMcpJson(CHAT.mcpServers);
@@ -800,15 +813,12 @@ function applyChatConfig(cfg) {
     }
     CHAT.enabledSkills = cfg.enabled_skills || [];
     // Reflection settings
-    const reflEnabled = document.getElementById('chat-reflection-enabled');
-    if (reflEnabled) reflEnabled.checked = cfg.reflection_enabled !== false;
+    setChecked('chat-reflection-enabled', cfg.reflection_enabled !== false);
     set('chat-reflection-threshold', cfg.reflection_threshold != null ? cfg.reflection_threshold : 1.0);
     set('chat-reflection-interval', cfg.reflection_min_interval_hours != null ? cfg.reflection_min_interval_hours : 1.0);
-    const sessSum = document.getElementById('chat-session-summarize');
-    if (sessSum) sessSum.checked = cfg.session_summarize !== false;
+    setChecked('chat-session-summarize', cfg.session_summarize !== false);
     // Mental model settings
-    const mmEnabled = document.getElementById('chat-mental-model-enabled');
-    if (mmEnabled) mmEnabled.checked = cfg.mental_model_enabled !== false;
+    setChecked('chat-mental-model-enabled', cfg.mental_model_enabled !== false);
     set('chat-mental-model-min-samples', cfg.mental_model_min_samples != null ? cfg.mental_model_min_samples : 3);
     // Retrieval weights
     const setSlider = (id, valId, v) => {
@@ -823,11 +833,10 @@ function applyChatConfig(cfg) {
     set('chat-display-history-turns', cfg.display_history_turns != null ? cfg.display_history_turns : 20);
     set('chat-housekeeping-threshold', cfg.housekeeping_threshold != null ? cfg.housekeeping_threshold : 10);
     // Sandbox settings
-    const sandboxEnabled = document.getElementById('chat-sandbox-enabled');
-    if (sandboxEnabled) {
-        sandboxEnabled.checked = cfg.sandbox_enabled === true;
-        onSandboxEnabledChange();
-    }
+    setChecked('chat-sandbox-enabled', cfg.sandbox_enabled === true);
+    onSandboxEnabledChange();
+    // Debug mode
+    setChecked('chat-debug-mode', cfg.debug_mode === true);
     const statusEl = document.getElementById('chat-config-status');
     if (statusEl) {
         if (cfg.is_configured) {
@@ -850,6 +859,7 @@ async function saveChatConfig() {
     if (!S.persona) { toast('ペルソナを選択してください', 'error'); return; }
     const apiKeyEl = document.getElementById('chat-api-key');
     const apiKeyVal = apiKeyEl ? apiKeyEl.value.trim() : '';
+    const getChecked = (id) => document.getElementById(id)?.checked ?? false;
     const payload = {
         provider: document.getElementById('chat-provider').value,
         model: document.getElementById('chat-model').value.trim(),
@@ -860,23 +870,26 @@ async function saveChatConfig() {
         max_window_turns: parseInt(document.getElementById('chat-window-turns').value),
         max_tool_calls: parseInt(document.getElementById('chat-max-tool-calls')?.value || '5'),
         system_prompt: document.getElementById('chat-system-prompt').value.trim(),
-        auto_extract: document.getElementById('chat-auto-extract')?.checked ?? true,
+        auto_extract: getChecked('chat-auto-extract'),
         extract_model: document.getElementById('chat-extract-model')?.value.trim() || '',
+        extract_max_tokens: parseInt(document.getElementById('chat-extract-max-tokens')?.value || '512'),
+        enable_memory_tools: getChecked('chat-enable-memory-tools'),
         mcp_servers: parseMcpJson(),
         tool_result_max_chars: parseInt(document.getElementById('chat-tool-result-max')?.value || '4000'),
         enabled_skills: CHAT.enabledSkills,
-        reflection_enabled: document.getElementById('chat-reflection-enabled')?.checked ?? true,
+        reflection_enabled: getChecked('chat-reflection-enabled'),
         reflection_threshold: parseFloat(document.getElementById('chat-reflection-threshold')?.value || '1.0'),
         reflection_min_interval_hours: parseFloat(document.getElementById('chat-reflection-interval')?.value || '1.0'),
-        session_summarize: document.getElementById('chat-session-summarize')?.checked ?? true,
+        session_summarize: getChecked('chat-session-summarize'),
         retrieval_recency_weight: parseFloat(document.getElementById('chat-recency-weight')?.value || '0.3'),
         retrieval_importance_weight: parseFloat(document.getElementById('chat-importance-weight')?.value || '0.3'),
         retrieval_relevance_weight: parseFloat(document.getElementById('chat-relevance-weight')?.value || '0.4'),
         display_history_turns: parseInt(document.getElementById('chat-display-history-turns')?.value || '20'),
         housekeeping_threshold: parseInt(document.getElementById('chat-housekeeping-threshold')?.value || '10'),
-        sandbox_enabled: document.getElementById('chat-sandbox-enabled')?.checked ?? false,
-        mental_model_enabled: document.getElementById('chat-mental-model-enabled')?.checked ?? true,
+        sandbox_enabled: getChecked('chat-sandbox-enabled'),
+        mental_model_enabled: getChecked('chat-mental-model-enabled'),
         mental_model_min_samples: parseInt(document.getElementById('chat-mental-model-min-samples')?.value || '3'),
+        debug_mode: getChecked('chat-debug-mode'),
     };
     try {
         const cfg = await api('/api/chat/' + encodeURIComponent(S.persona) + '/config', {
@@ -1009,11 +1022,11 @@ function renderDebugPanel(anchorEl, data) {
         const SECTIONS = ['system_prompt','context_summary','memories_raw','tool_calls','messages_sent','context_state','skills_raw'];
         for (const key of SECTIONS) {
             if (data[key] !== undefined && data[key] !== null) {
-                console.log(key + ':', data[key]);
+                console.debug(key + ':', data[key]);
             }
         }
         const extra = Object.fromEntries(Object.entries(data).filter(([k]) => !['type',...SECTIONS].includes(k)));
-        if (Object.keys(extra).length) console.log('extra:', extra);
+        if (Object.keys(extra).length) console.debug('extra:', extra);
         console.groupEnd();
     } catch (e) {
         console.error('[debug panel render error]', e);
@@ -1022,6 +1035,7 @@ function renderDebugPanel(anchorEl, data) {
 
 /* ── Memory Panel helpers ── */
 function updateMemoryPanel(retrieved, saved, goals, promises) {
+    const escAttr = (s) => String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     if (retrieved !== undefined) {
         const retrievedList = document.getElementById('memory-retrieved-list');
         if (retrievedList) {
@@ -1033,9 +1047,12 @@ function updateMemoryPanel(retrieved, saved, goals, promises) {
                     const imp = m.importance != null ? parseFloat(m.importance).toFixed(2) : '';
                     const content = esc((m.content || '').substring(0, 80));
                     const meta = [score ? 'score:' + score : '', imp ? 'imp:' + imp : ''].filter(Boolean).join(' ');
-                    return '<div class="memory-item-card">' +
+                    const key = m.key || '';
+                    return '<div class="memory-item-card" data-key="' + escAttr(key) + '" data-content="' + escAttr(m.content || '') + '" data-importance="' + (m.importance || 0.5) + '" data-tags="' + escAttr((m.tags || []).join(',')) + '" onclick="openMemEdit(this)">' +
                         (meta ? '<div class="mem-score">' + esc(meta) + '</div>' : '') +
-                        content + '</div>';
+                        content +
+                        '<div class="mem-actions"><button class="mem-action-btn del" onclick="event.stopPropagation();deleteMemCard(\'' + escAttr(key) + '\')">削除</button></div>' +
+                        '</div>';
                 }).join('');
             }
         }
@@ -1049,8 +1066,11 @@ function updateMemoryPanel(retrieved, saved, goals, promises) {
                 savedList.innerHTML = saved.map(m => {
                     const content = esc((m.content || '').substring(0, 80));
                     const tags = m.tags ? m.tags.join(', ') : '';
-                    return '<div class="memory-item-card">' + content +
-                        (tags ? '<div class="mem-score">' + esc(tags) + '</div>' : '') + '</div>';
+                    const key = m.key || '';
+                    return '<div class="memory-item-card" data-key="' + escAttr(key) + '" data-content="' + escAttr(m.content || '') + '" data-importance="' + (m.importance || 0.5) + '" data-tags="' + escAttr((m.tags || []).join(',')) + '" onclick="openMemEdit(this)">' + content +
+                        (tags ? '<div class="mem-score">' + esc(tags) + '</div>' : '') +
+                        '<div class="mem-actions"><button class="mem-action-btn del" onclick="event.stopPropagation();deleteMemCard(\'' + escAttr(key) + '\')">削除</button></div>' +
+                        '</div>';
                 }).join('');
             }
         }
@@ -1061,9 +1081,13 @@ function updateMemoryPanel(retrieved, saved, goals, promises) {
             if (!goals || goals.length === 0) {
                 goalsList.innerHTML = '<div class="memory-empty">なし</div>';
             } else {
-                goalsList.innerHTML = goals.map(g =>
-                    '<div class="memory-item-card">🎯 ' + esc((g.content || '').substring(0, 80)) + '</div>'
-                ).join('');
+                goalsList.innerHTML = goals.map(g => {
+                    const key = g.key || '';
+                    return '<div class="memory-item-card" data-key="' + escAttr(key) + '" data-content="' + escAttr(g.content || '') + '" data-importance="' + (g.importance || 0.75) + '" data-tags="' + escAttr((g.tags || []).join(',')) + '" onclick="openMemEdit(this)">' +
+                        '🎯 ' + esc((g.content || '').substring(0, 80)) +
+                        '<div class="mem-actions"><button class="mem-action-btn done" onclick="event.stopPropagation();completeGoal(\'' + escAttr(key) + '\',\'' + escAttr((g.content || '').substring(0, 50)) + '\')">完了</button><button class="mem-action-btn del" onclick="event.stopPropagation();deleteMemCard(\'' + escAttr(key) + '\')">削除</button></div>' +
+                        '</div>';
+                }).join('');
             }
         }
     }
@@ -1073,9 +1097,13 @@ function updateMemoryPanel(retrieved, saved, goals, promises) {
             if (!promises || promises.length === 0) {
                 promisesList.innerHTML = '<div class="memory-empty">なし</div>';
             } else {
-                promisesList.innerHTML = promises.map(p =>
-                    '<div class="memory-item-card">🤝 ' + esc((p.content || '').substring(0, 80)) + '</div>'
-                ).join('');
+                promisesList.innerHTML = promises.map(p => {
+                    const key = p.key || '';
+                    return '<div class="memory-item-card" data-key="' + escAttr(key) + '" data-content="' + escAttr(p.content || '') + '" data-importance="' + (p.importance || 0.8) + '" data-tags="' + escAttr((p.tags || []).join(',')) + '" onclick="openMemEdit(this)">' +
+                        '🤝 ' + esc((p.content || '').substring(0, 80)) +
+                        '<div class="mem-actions"><button class="mem-action-btn done" onclick="event.stopPropagation();fulfillPromise(\'' + escAttr(key) + '\',\'' + escAttr((p.content || '').substring(0, 50)) + '\')">遂行</button><button class="mem-action-btn del" onclick="event.stopPropagation();deleteMemCard(\'' + escAttr(key) + '\')">削除</button></div>' +
+                        '</div>';
+                }).join('');
             }
         }
     }
@@ -1162,6 +1190,40 @@ function appendChatMessage(role, content, timeStr, isMarkdown) {
     timeDiv.textContent = timeStr || new Date().toLocaleTimeString('ja-JP', {hour:'2-digit',minute:'2-digit'});
     div.appendChild(bubble);
     div.appendChild(timeDiv);
+
+    // Action buttons
+    const actions = document.createElement('div');
+    actions.className = 'chat-msg-actions';
+    if (role === 'user') {
+        const editBtn = document.createElement('button');
+        editBtn.className = 'chat-msg-action-btn edit';
+        editBtn.textContent = '✏️ 編集';
+        editBtn.onclick = () => {
+            const inputEl = document.getElementById('chat-input');
+            if (inputEl) {
+                inputEl.value = content;
+                inputEl.focus();
+                inputEl.dispatchEvent(new Event('input'));
+            }
+        };
+        actions.appendChild(editBtn);
+    } else if (role === 'assistant') {
+        const retryBtn = document.createElement('button');
+        retryBtn.className = 'chat-msg-action-btn retry';
+        retryBtn.textContent = '🔄 再生成';
+        retryBtn.onclick = () => { chatSend(true); };
+        actions.appendChild(retryBtn);
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'chat-msg-action-btn';
+        copyBtn.textContent = '📋';
+        copyBtn.title = 'コピー';
+        copyBtn.onclick = () => {
+            navigator.clipboard.writeText(content).then(() => toast('コピーしました', 'success'));
+        };
+        actions.appendChild(copyBtn);
+    }
+    div.appendChild(actions);
+
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
     return div;
@@ -1247,10 +1309,93 @@ async function runHousekeeping() {
 
 // F4: Cancel streaming
 function chatCancel() {
+    CHAT.streaming = false;
     if (CHAT.abortController) {
         CHAT.abortController.abort();
         CHAT.abortController = null;
     }
+    const cancelBtn = document.getElementById('chat-cancel-btn');
+    const sendBtn = document.getElementById('chat-send-btn');
+    const statusEl = document.getElementById('chat-status');
+    if (cancelBtn) cancelBtn.style.display = 'none';
+    if (sendBtn) sendBtn.style.display = '';
+    if (statusEl) statusEl.textContent = '中断しました';
+    removeTypingIndicator();
+}
+
+/* ── Export chat history ── */
+function exportChatHistory() {
+    const container = document.getElementById('chat-messages');
+    if (!container) return;
+    const bubbles = container.querySelectorAll('.chat-msg');
+    if (bubbles.length === 0) { toast('エクスポートする会話がありません', 'error'); return; }
+    const lines = [];
+    const persona = S.persona || 'default';
+    lines.push('# 会話ログ - ' + persona);
+    lines.push('> エクスポート日時: ' + new Date().toISOString());
+    lines.push('');
+    bubbles.forEach(msg => {
+        const role = msg.classList.contains('user') ? '**👤 ユーザー**' : '**🤖 アシスタント**';
+        const bubble = msg.querySelector('.chat-bubble');
+        const time = msg.querySelector('.chat-time')?.textContent || '';
+        const content = bubble ? bubble.textContent : '';
+        lines.push('### ' + role + ' _' + time + '_');
+        lines.push('');
+        lines.push(content);
+        lines.push('');
+    });
+    const blob = new Blob([lines.join('\n')], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'chat-' + persona + '-' + new Date().toISOString().slice(0, 10) + '.md';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('会話をエクスポートしました', 'success');
+}
+
+/* ── Voice input (Web Speech API) ── */
+let _voiceRecognition = null;
+function toggleVoiceInput() {
+    const btn = document.getElementById('chat-voice-btn');
+    if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+        toast('お使いのブラウザは音声入力に対応していません', 'error');
+        return;
+    }
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (_voiceRecognition) {
+        _voiceRecognition.stop();
+        _voiceRecognition = null;
+        if (btn) { btn.textContent = '🎤'; btn.style.color = ''; }
+        return;
+    }
+    _voiceRecognition = new SpeechRecognition();
+    _voiceRecognition.lang = 'ja-JP';
+    _voiceRecognition.interimResults = false;
+    _voiceRecognition.continuous = false;
+    if (btn) { btn.textContent = '🔴'; btn.style.color = 'var(--accent-red)'; }
+    _voiceRecognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        const inputEl = document.getElementById('chat-input');
+        if (inputEl) {
+            inputEl.value = (inputEl.value ? inputEl.value + ' ' : '') + transcript;
+            inputEl.dispatchEvent(new Event('input'));
+        }
+        _voiceRecognition = null;
+        if (btn) { btn.textContent = '🎤'; btn.style.color = ''; }
+    };
+    _voiceRecognition.onerror = () => {
+        toast('音声認識エラー', 'error');
+        _voiceRecognition = null;
+        if (btn) { btn.textContent = '🎤'; btn.style.color = ''; }
+    };
+    _voiceRecognition.onend = () => {
+        if (btn) { btn.textContent = '🎤'; btn.style.color = ''; }
+    };
+    _voiceRecognition.start();
+}
 }
 
 function appendToolEvent(eventType, data) {
@@ -1417,15 +1562,146 @@ function closeMediaViewer() {
     }
 }
 
-async function chatSend() {
+/* ── Memory CRUD operations ── */
+let _memEditKey = null;
+
+function openMemEdit(card) {
+    _memEditKey = card.dataset.key;
+    document.getElementById('mem-edit-content').value = card.dataset.content || '';
+    document.getElementById('mem-edit-importance').value = card.dataset.importance || '0.5';
+    document.getElementById('mem-edit-tags').value = card.dataset.tags || '';
+    document.getElementById('mem-edit-overlay').classList.add('show');
+}
+
+function closeMemEdit() {
+    document.getElementById('mem-edit-overlay').classList.remove('show');
+    _memEditKey = null;
+}
+
+async function saveMemEdit() {
+    if (!_memEditKey || !S.persona) return;
+    const content = document.getElementById('mem-edit-content').value.trim();
+    const importance = parseFloat(document.getElementById('mem-edit-importance').value) || 0.5;
+    const tagsStr = document.getElementById('mem-edit-tags').value.trim();
+    const tags = tagsStr ? tagsStr.split(',').map(t => t.trim()).filter(Boolean) : [];
+    if (!content) { toast('内容を入力してください', 'error'); return; }
+    try {
+        await api('/api/memories/' + encodeURIComponent(S.persona) + '/' + encodeURIComponent(_memEditKey), {
+            method: 'PUT',
+            body: JSON.stringify({ content, importance, tags }),
+        });
+        closeMemEdit();
+        toast('メモリを更新しました', 'success');
+        loadChatCommitments(); // refresh panels
+    } catch (e) {
+        toast('更新失敗: ' + e.message, 'error');
+    }
+}
+
+async function deleteMemCard(key) {
+    const k = key || _memEditKey;
+    if (!k || !S.persona) return;
+    if (!confirm('このメモリを削除しますか？')) return;
+    try {
+        await api('/api/memories/' + encodeURIComponent(S.persona) + '/' + encodeURIComponent(k), {
+            method: 'DELETE',
+        });
+        closeMemEdit();
+        toast('メモリを削除しました', 'success');
+        loadChatCommitments(); // refresh panels
+    } catch (e) {
+        toast('削除失敗: ' + e.message, 'error');
+    }
+}
+
+async function completeGoal(key, content) {
+    if (!S.persona) return;
+    try {
+        const resp = await api('/api/chat/' + encodeURIComponent(S.persona) + '/tool', {
+            method: 'POST',
+            body: JSON.stringify({ tool: 'goal_achieve', input: { content } }),
+        });
+        if (resp.status === 'ok') {
+            toast('目標を達成しました: ' + (resp.updated || content), 'success');
+            loadChatCommitments();
+        } else {
+            toast('完了失敗: ' + (resp.message || ''), 'error');
+        }
+    } catch (e) {
+        toast('エラー: ' + e.message, 'error');
+    }
+}
+
+async function fulfillPromise(key, content) {
+    if (!S.persona) return;
+    try {
+        const resp = await api('/api/chat/' + encodeURIComponent(S.persona) + '/tool', {
+            method: 'POST',
+            body: JSON.stringify({ tool: 'promise_fulfill', input: { content } }),
+        });
+        if (resp.status === 'ok') {
+            toast('約束を遂行しました: ' + (resp.updated || content), 'success');
+            loadChatCommitments();
+        } else {
+            toast('遂行失敗: ' + (resp.message || ''), 'error');
+        }
+    } catch (e) {
+        toast('エラー: ' + e.message, 'error');
+    }
+}
+
+/* ── Slash command handler ── */
+async function handleSlashCommand(toolName, toolInput) {
+    const inputEl = document.getElementById('chat-input');
+    const rawInput = inputEl.value.trim();
+    inputEl.value = '';
+    inputEl.style.height = 'auto';
+    const timeStr = new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+    appendChatMessage('user', rawInput, timeStr);
+    showTypingIndicator();
+    try {
+        const resp = await api('/api/chat/' + encodeURIComponent(S.persona) + '/tool', {
+            method: 'POST',
+            body: JSON.stringify({ tool: toolName, input: toolInput }),
+        });
+        removeTypingIndicator();
+        const resultMsg = resp.status === 'ok'
+            ? '✓ ' + (resp.key ? '作成: ' + resp.key : resp.updated ? '更新: ' + resp.updated : '実行完了')
+            : '✗ ' + (resp.message || resp.error || 'エラー');
+        appendChatMessage('assistant', resultMsg, new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }));
+        if (resp.status === 'ok') toast(resultMsg, 'success');
+    } catch (ex) {
+        removeTypingIndicator();
+        appendChatMessage('assistant', '✗ コマンド実行失敗: ' + ex.message,
+            new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }));
+        toast('コマンド失敗: ' + ex.message, 'error');
+    }
+}
+
+async function chatSend(retry) {
     if (!S.persona) { toast('ペルソナを選択してください', 'error'); return; }
     if (CHAT.streaming) return;
 
     const inputEl = document.getElementById('chat-input');
-    const rawInput = inputEl.value.trim();
+    let rawInput;
+    if (retry) {
+        // Find last user message
+        const msgs = document.querySelectorAll('.chat-msg.user .chat-bubble');
+        rawInput = msgs.length > 0 ? msgs[msgs.length - 1].textContent : '';
+        if (!rawInput) { toast('再送するメッセージがありません', 'error'); return; }
+    } else {
+        rawInput = inputEl.value.trim();
+    }
     let message = rawInput;
     if (!message && CHAT.attachments.length === 0) return;
     if (!message) message = '';
+
+    // Web search toggle
+    const webSearchEl = document.getElementById('chat-web-search');
+    if (webSearchEl && webSearchEl.checked && message) {
+        message = '[Web検索モード]\n以下の質問について、まずWeb検索を行い最新の情報を取得してから回答してください。\n\n' + message;
+        webSearchEl.checked = false; // one-shot
+    }
 
     const sendBtn = document.getElementById('chat-send-btn');
     const cancelBtn = document.getElementById('chat-cancel-btn');
@@ -1459,13 +1735,14 @@ async function chatSend() {
 
     inputEl.value = '';
     inputEl.style.height = 'auto';
-    // Clear attachments
+    // Save attachment info before clearing
+    const attNames = CHAT.attachments.map(a => a.filename);
     CHAT.attachments = [];
     const attArea = document.getElementById('chat-attachments');
     if (attArea) attArea.innerHTML = '';
 
-    // Show user message with original input (not attachment content)
-    const displayMsg = rawInput || (CHAT.attachments.length > 0 ? '[ファイル添付]' : '');
+    // Show user message with filename display
+    const displayMsg = rawInput || (attNames.length > 0 ? '📎 ' + attNames.join(', ') : '');
     const timeStr = new Date().toLocaleTimeString('ja-JP', {hour:'2-digit',minute:'2-digit'});
     appendChatMessage('user', displayMsg, timeStr);
     showTypingIndicator();
@@ -1579,7 +1856,7 @@ async function chatSend() {
                     break;
 
                 } else if (evt.type === 'debug_info') {
-                    console.log('[debug_info received]', Object.keys(evt));
+                    console.debug('[debug_info received]', Object.keys(evt));
                     renderDebugPanel(assistantDiv, evt);
 
                 } else if (evt.type === 'done') {
@@ -1619,7 +1896,19 @@ document.addEventListener('DOMContentLoaded', () => {
     input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            chatSend();
+            const val = input.value.trim();
+            // Slash commands
+            if (val.startsWith('/memory ')) {
+                handleSlashCommand('memory_create', { content: val.slice(8).trim(), importance: 0.7, tags: [] });
+            } else if (val.startsWith('/goal ')) {
+                handleSlashCommand('goal_create', { content: val.slice(6).trim(), importance: 0.8 });
+            } else if (val.startsWith('/promise ')) {
+                handleSlashCommand('promise_create', { content: val.slice(9).trim(), importance: 0.8 });
+            } else if (val.startsWith('/code ') && S.persona) {
+                handleSlashCommand('execute_code', { code: val.slice(6).trim(), language: 'python' });
+            } else {
+                chatSend();
+            }
         }
     });
     input.addEventListener('input', () => {
@@ -1662,15 +1951,17 @@ window.__chatPersonaWatcher = setInterval(() => {
     }
 }, 500);
 
-/* ── Sandbox Panel ── */
-const SANDBOX = {
-    visible: false,
-    activeTab: 'terminal',
-    currentPath: '/sandbox',
-};
-
 /* ── Memory tool filtering ── */
-const MEMORY_TOOL_NAMES = new Set(['memory', 'search_memory', 'update_context', 'item', 'get_context']);
+const MEMORY_TOOL_NAMES = new Set([
+    // MCP tools
+    'memory', 'search_memory', 'update_context', 'item', 'get_context',
+    // Builtin tools
+    'memory_create', 'memory_search', 'memory_update',
+    'context_update', 'context_recall',
+    'goal_create', 'goal_achieve', 'goal_cancel',
+    'promise_create', 'promise_fulfill', 'promise_cancel',
+    'invoke_skill',
+]);
 const FILE_OP_TOOLS = new Set(['edit', 'create', 'view', 'bash', 'powershell', 'str_replace_editor',
     'write_file', 'read_file', 'delete_file', 'list_files', 'glob', 'grep']);
 
@@ -1726,309 +2017,17 @@ function handleFileToolCall(evt) {
     sandboxLog(icon + ' ' + evt.name + (detail ? ': ' + String(detail).substring(0, 60) : ''), 'system');
 }
 
-function onSandboxEnabledChange() {
-    const enabled = document.getElementById('chat-sandbox-enabled')?.checked;
-    if (!enabled && typeof isCodingAgentOpen === 'function' && isCodingAgentOpen()) {
-        closeCodingAgent();
-    }
-}
-
-function toggleSandboxPanel() {
-    if (typeof isCodingAgentOpen === 'function' && isCodingAgentOpen()) {
-        closeCodingAgent();
-    } else {
-        openCodingAgent();
-    }
-}
-
-function switchSandboxTab(tab) {
-    SANDBOX.activeTab = tab;
-    document.querySelectorAll('.sandbox-tab').forEach((el, i) => {
-        const tabs = ['terminal', 'files'];
-        el.classList.toggle('active', tabs[i] === tab);
-    });
-    document.querySelectorAll('.sandbox-tab-content').forEach(el => el.classList.remove('active'));
-    const tabEl = document.getElementById('sandbox-tab-' + tab);
-    if (tabEl) tabEl.classList.add('active');
-    if (tab === 'files') refreshSandboxFiles();
-}
-
-function clearSandboxTerminal() {
-    const term = document.getElementById('sandbox-terminal');
-    if (term) term.innerHTML = '<span class="sandbox-output-line system">ターミナルをクリアしました</span>';
-}
-
 function sandboxLog(text, type = '') {
     if (typeof isCodingAgentOpen === 'function' && isCodingAgentOpen() &&
         typeof caAppendOutput === 'function') {
         caAppendOutput(text + '\n', type === 'stderr' ? 'stderr' : 'stdout');
-        return;
-    }
-    const term = document.getElementById('sandbox-terminal');
-    if (!term) return;
-    const line = document.createElement('span');
-    line.className = 'sandbox-output-line' + (type ? ' ' + type : '');
-    line.textContent = text;
-    term.appendChild(line);
-    term.appendChild(document.createElement('br'));
-    term.scrollTop = term.scrollHeight;
-}
-
-// Listen for tool_call/tool_result events to populate terminal
-function sandboxHandleToolEvent(evt) {
-    if (evt.name !== 'sandbox') return;
-    if (evt.type === 'tool_call') {
-        sandboxLog('\u25b6 ' + (evt.input?.code || '').split('\n')[0].substring(0, 80) + '...', 'system');
-    } else if (evt.type === 'tool_result') {
-        const out = typeof evt.result === 'string' ? evt.result : JSON.stringify(evt.result);
-        const lines = out.split('\n');
-        lines.forEach(l => {
-            if (l.startsWith('[stderr]')) sandboxLog(l, 'stderr');
-            else if (l.startsWith('[exit code:')) sandboxLog(l, 'stderr');
-            else sandboxLog(l, 'success');
-        });
     }
 }
 
-// Terminal command history
-const _sandboxCmdHistory = [];
-let _sandboxHistoryIdx = -1;
-
-function sandboxCmdKeydown(e) {
-    if (e.key === 'Enter') {
-        e.preventDefault();
-        sandboxExecuteCmd();
-    } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        if (_sandboxHistoryIdx < _sandboxCmdHistory.length - 1) {
-            _sandboxHistoryIdx++;
-            e.target.value = _sandboxCmdHistory[_sandboxCmdHistory.length - 1 - _sandboxHistoryIdx] || '';
-        }
-    } else if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        if (_sandboxHistoryIdx > 0) {
-            _sandboxHistoryIdx--;
-            e.target.value = _sandboxCmdHistory[_sandboxCmdHistory.length - 1 - _sandboxHistoryIdx] || '';
-        } else {
-            _sandboxHistoryIdx = -1;
-            e.target.value = '';
-        }
-    }
-}
-
-async function sandboxExecuteCmd() {
-    if (!S.persona) return;
-    const input = document.getElementById('sandbox-cmd-input');
-    if (!input) return;
-    const cmd = input.value.trim();
-    if (!cmd) return;
-    _sandboxCmdHistory.push(cmd);
-    _sandboxHistoryIdx = -1;
-    input.value = '';
-    sandboxLog('$ ' + cmd, 'system');
-    try {
-        const resp = await api('/api/chat/' + encodeURIComponent(S.persona) + '/sandbox/execute', {
-            method: 'POST',
-            body: JSON.stringify({ code: cmd, language: 'bash' }),
-        });
-        const output = resp.stdout || resp.output || '';
-        const stderr = resp.stderr || '';
-        if (output) output.split('\n').forEach(l => l && sandboxLog(l, 'success'));
-        if (stderr) stderr.split('\n').forEach(l => l && sandboxLog(l, 'stderr'));
-    } catch (ex) {
-        sandboxLog('Error: ' + ex.message, 'stderr');
-    }
-}
-
-async function refreshSandboxFiles() {
-    if (!S.persona) return;
+function onSandboxEnabledChange() {
     const enabled = document.getElementById('chat-sandbox-enabled')?.checked;
-    if (!enabled) return;
-    try {
-        const data = await api('/api/chat/' + encodeURIComponent(S.persona) + '/sandbox/files?path=' + encodeURIComponent(SANDBOX.currentPath));
-        renderSandboxFiles(data.files || [], data.path || SANDBOX.currentPath);
-    } catch (e) {
-        // sandbox not started yet — silently ignore
-    }
-}
-
-function renderSandboxFiles(files, path) {
-    SANDBOX.currentPath = path;
-    const browser = document.getElementById('sandbox-filebrowser');
-    const breadcrumb = document.querySelector('.sb-breadcrumb');
-    if (!browser) return;
-
-    // Update breadcrumb
-    if (breadcrumb) {
-        const parts = path.split('/').filter(Boolean);
-        let html = '<span>\ud83d\udcc2</span>';
-        let cumPath = '';
-        parts.forEach((part, i) => {
-            cumPath += '/' + part;
-            const p = cumPath;
-            html += '<span style="color:var(--text-muted);">/</span>';
-            html += '<button class="sb-breadcrumb-btn" onclick="browseSandboxPath(\'' + p + '\')">' + esc(part) + '</button>';
-        });
-        breadcrumb.innerHTML = html;
-    }
-
-    if (!files || files.length === 0) {
-        browser.innerHTML = '<div style="font-size:0.75rem;color:var(--text-muted);padding:8px;">\u30d5\u30a1\u30a4\u30eb\u304c\u3042\u308a\u307e\u305b\u3093</div>';
-        return;
-    }
-    const sorted = [...files].sort((a, b) => {
-        if (a.is_dir !== b.is_dir) return a.is_dir ? -1 : 1;
-        return a.name.localeCompare(b.name);
-    });
-    browser.innerHTML = sorted.map(f => {
-        const icon = f.is_dir ? '\ud83d\udcc1' : getFileIcon(f.name);
-        const size = f.is_dir ? '' : formatBytes(f.size);
-        const actionBtns = f.is_dir ? '' :
-            '<div class="sb-file-actions">' +
-                '<button class="sb-file-action-btn" onclick="downloadSandboxFile(\'' + esc(f.path) + '\')" title="\u30c0\u30a6\u30f3\u30ed\u30fc\u30c9">\ud83d\udce5</button>' +
-                '<button class="sb-file-action-btn" onclick="deleteSandboxFile(\'' + esc(f.path) + '\')" title="\u524a\u9664">\ud83d\uddd1</button>' +
-            '</div>';
-        const onclick = f.is_dir
-            ? 'browseSandboxPath(\'' + esc(f.path) + '\')'
-            : 'previewSandboxFile(\'' + esc(f.path) + '\', \'' + esc(f.name) + '\')';
-        return '<div class="sb-file-item" onclick="' + onclick + '">' +
-            '<span class="sb-file-icon">' + icon + '</span>' +
-            '<span class="sb-file-name">' + esc(f.name) + '</span>' +
-            '<span class="sb-file-size">' + size + '</span>' +
-            actionBtns +
-        '</div>';
-    }).join('');
-}
-
-function getFileIcon(name) {
-    const ext = name.split('.').pop().toLowerCase();
-    const icons = { py:'\ud83d\udc0d', js:'\ud83d\udfe8', ts:'\ud83d\udd37', json:'\ud83d\udccb', csv:'\ud83d\udcca', xlsx:'\ud83d\udcca',
-                    png:'\ud83d\uddbc', jpg:'\ud83d\uddbc', jpeg:'\ud83d\uddbc', gif:'\ud83d\uddbc', svg:'\ud83d\uddbc',
-                    txt:'\ud83d\udcc4', md:'\ud83d\udcdd', html:'\ud83c\udf10', css:'\ud83c\udfa8', sh:'\u2699\ufe0f',
-                    pdf:'\ud83d\udcd5', zip:'\ud83d\uddc2', tar:'\ud83d\uddc2', gz:'\ud83d\uddc2' };
-    return icons[ext] || '\ud83d\udcc4';
-}
-
-function formatBytes(bytes) {
-    if (!bytes) return '0B';
-    if (bytes < 1024) return bytes + 'B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + 'KB';
-    return (bytes / 1024 / 1024).toFixed(1) + 'MB';
-}
-
-async function browseSandboxPath(path) {
-    if (!S.persona) return;
-    try {
-        const data = await api('/api/chat/' + encodeURIComponent(S.persona) + '/sandbox/files?path=' + encodeURIComponent(path));
-        renderSandboxFiles(data.files || [], data.path || path);
-    } catch (e) {
-        toast('\u30d5\u30a1\u30a4\u30eb\u4e00\u89a7\u53d6\u5f97\u5931\u6557: ' + e.message, 'error');
-    }
-}
-
-function downloadSandboxFile(remotePath) {
-    if (!S.persona) return;
-    const clean = remotePath.replace(/^\/sandbox\//, '');
-    const url = '/api/chat/' + encodeURIComponent(S.persona) + '/sandbox/files/' + encodeURIComponent(clean);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = remotePath.split('/').pop();
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-}
-
-async function deleteSandboxFile(remotePath) {
-    if (!S.persona) return;
-    if (!confirm('\u524a\u9664\u3057\u307e\u3059\u304b\uff1f ' + remotePath)) return;
-    const clean = remotePath.replace(/^\/sandbox\//, '');
-    try {
-        await api('/api/chat/' + encodeURIComponent(S.persona) + '/sandbox/files/' + encodeURIComponent(clean), { method: 'DELETE' });
-        toast('\u524a\u9664\u3057\u307e\u3057\u305f', 'success');
-        refreshSandboxFiles();
-    } catch (e) {
-        toast('\u524a\u9664\u5931\u6557: ' + e.message, 'error');
-    }
-}
-
-function previewSandboxFile(remotePath, filename) {
-    // For now, just download — preview for text/images can be added later
-    downloadSandboxFile(remotePath);
-}
-
-async function sandboxUploadFile(file) {
-    if (!S.persona || !file) return;
-    const formData = new FormData();
-    formData.append('file', file);
-    try {
-        sandboxLog('\ud83d\udcce ' + file.name + ' \u3092\u30a2\u30c3\u30d7\u30ed\u30fc\u30c9\u4e2d...', 'system');
-        const resp = await fetch('/api/chat/' + encodeURIComponent(S.persona) + '/sandbox/upload', {
-            method: 'POST',
-            body: formData,
-        });
-        if (!resp.ok) throw new Error('HTTP ' + resp.status);
-        const data = await resp.json();
-        sandboxLog('\u2713 ' + data.filename + ' \u2192 ' + data.remote_path, 'success');
-        toast('\u30a2\u30c3\u30d7\u30ed\u30fc\u30c9\u5b8c\u4e86: ' + data.filename, 'success');
-        refreshSandboxFiles();
-    } catch (e) {
-        sandboxLog('\u2717 \u30a2\u30c3\u30d7\u30ed\u30fc\u30c9\u5931\u6557: ' + e.message, 'stderr');
-        toast('\u30a2\u30c3\u30d7\u30ed\u30fc\u30c9\u5931\u6557: ' + e.message, 'error');
-    }
-}
-
-function sandboxFileSelected(event) {
-    const files = event.target.files;
-    if (files && files[0]) sandboxUploadFile(files[0]);
-    event.target.value = '';
-}
-
-function sandboxDragOver(event) {
-    event.preventDefault();
-    event.currentTarget.classList.add('dragover');
-}
-
-function sandboxDrop(event) {
-    event.preventDefault();
-    event.currentTarget.classList.remove('dragover');
-    const files = event.dataTransfer.files;
-    if (files && files[0]) sandboxUploadFile(files[0]);
-}
-
-/* ── Sandbox: Install packages ── */
-async function sandboxInstallPackages() {
-    if (!S.persona) return;
-    const input = document.getElementById('sandbox-install-input');
-    if (!input) return;
-    const raw = input.value.trim();
-    if (!raw) return;
-    const packages = raw.split(/\s+/).filter(Boolean);
-    input.value = '';
-    sandboxLog('📦 インストール中: ' + packages.join(', '), 'system');
-    try {
-        const resp = await api('/api/chat/' + encodeURIComponent(S.persona) + '/sandbox/install', {
-            method: 'POST',
-            body: JSON.stringify({ packages }),
-        });
-        sandboxLog('✓ ' + (resp.output || 'インストール完了'), 'success');
-    } catch (ex) {
-        sandboxLog('✗ インストール失敗: ' + ex.message, 'stderr');
-    }
-}
-
-/* ── Sandbox: Reset session ── */
-async function sandboxReset() {
-    if (!S.persona) return;
-    if (!confirm('セッションをリセットしますか？変数とインストール済みパッケージが消えます。')) return;
-    sandboxLog('🔄 セッションをリセット中...', 'system');
-    try {
-        await api('/api/chat/' + encodeURIComponent(S.persona) + '/sandbox/reset', {
-            method: 'POST',
-            body: JSON.stringify({}),
-        });
-        sandboxLog('✓ セッションをリセットしました', 'success');
-    } catch (ex) {
-        sandboxLog('✗ リセット失敗: ' + ex.message, 'stderr');
+    if (!enabled && typeof isCodingAgentOpen === 'function' && isCodingAgentOpen()) {
+        closeCodingAgent();
     }
 }
 
@@ -2052,51 +2051,6 @@ function sandboxAddArtifact(base64png, label) {
     thumb.appendChild(img);
     thumb.appendChild(lbl);
     list.appendChild(thumb);
-}
-
-/* ── switchSandboxTab: update to support 3 tabs ── */
-// Override switchSandboxTab to support artifacts tab
-function switchSandboxTab(tab) {
-    SANDBOX.activeTab = tab;
-    const tabs = ['terminal', 'files', 'artifacts'];
-    document.querySelectorAll('.sandbox-tab').forEach((el, i) => {
-        el.classList.toggle('active', tabs[i] === tab);
-    });
-    document.querySelectorAll('.sandbox-tab-content').forEach(el => el.classList.remove('active'));
-    const tabEl = document.getElementById('sandbox-tab-' + tab);
-    if (tabEl) tabEl.classList.add('active');
-    if (tab === 'files') refreshSandboxFiles();
-}
-
-/* ── sandboxExecuteCmd: use selected language ── */
-// Override to use language selector
-async function sandboxExecuteCmd() {
-    if (!S.persona) return;
-    const input = document.getElementById('sandbox-cmd-input');
-    if (!input) return;
-    const cmd = input.value.trim();
-    if (!cmd) return;
-    const langSelect = document.getElementById('sandbox-lang-select');
-    const language = langSelect ? langSelect.value : 'python';
-    _sandboxCmdHistory.push(cmd);
-    _sandboxHistoryIdx = -1;
-    input.value = '';
-    sandboxLog('$ [' + language + '] ' + cmd, 'system');
-    try {
-        const resp = await api('/api/chat/' + encodeURIComponent(S.persona) + '/sandbox/execute', {
-            method: 'POST',
-            body: JSON.stringify({ code: cmd, language }),
-        });
-        const output = resp.stdout || resp.output || '';
-        const stderr = resp.stderr || '';
-        if (output) output.split('\n').forEach(l => l && sandboxLog(l, 'success'));
-        if (stderr) stderr.split('\n').forEach(l => l && sandboxLog(l, 'stderr'));
-        if (resp.artifacts && resp.artifacts.length > 0) {
-            resp.artifacts.forEach((a, i) => sandboxAddArtifact(a, 'artifact-' + (i + 1)));
-        }
-    } catch (ex) {
-        sandboxLog('Error: ' + ex.message, 'stderr');
-    }
 }
 
 /* ── Code block Run button ── */

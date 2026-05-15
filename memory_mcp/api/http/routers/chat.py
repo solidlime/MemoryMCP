@@ -612,3 +612,26 @@ def register_chat_routes(mcp) -> None:
             return JSONResponse({"tree": tree, "root": root})
         except Exception as e:
             return JSONResponse({"error": str(e)}, status_code=500)
+
+    @mcp.custom_route("/api/chat/{persona}/tool", methods=["POST"])
+    async def execute_chat_tool(request: Request) -> JSONResponse:
+        """Execute a builtin memory tool directly (for slash commands)."""
+        persona = _resolve_persona_from_request(request)
+        ctx = _safe_get_context(persona)
+        if not ctx:
+            return JSONResponse({"error": "Persona not found"}, status_code=404)
+        from memory_mcp.domain.chat_config import ChatConfigRepository
+        from memory_mcp.application.chat.tools.builtin import execute_tool
+
+        repo = ChatConfigRepository(ctx.connection.get_memory_db())
+        config = repo.get(persona)
+        body = await request.json()
+        tool_name = body.get("tool", "")
+        tool_input = body.get("input", {})
+        if not tool_name:
+            return JSONResponse({"status": "error", "message": "tool name required"}, status_code=400)
+        try:
+            result = await execute_tool(ctx, config, tool_name, tool_input)
+            return JSONResponse(result)
+        except Exception as e:
+            return JSONResponse({"status": "error", "message": str(e)}, status_code=500)

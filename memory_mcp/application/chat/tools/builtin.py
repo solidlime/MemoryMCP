@@ -18,6 +18,12 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
+_VALID_EMOTIONS = frozenset({
+    "joy", "sadness", "anger", "fear", "surprise", "disgust", "love", "neutral",
+    "anticipation", "trust", "anxiety", "excitement", "frustration", "nostalgia",
+    "pride", "shame", "guilt", "loneliness", "contentment", "curiosity", "awe", "relief"
+})
+
 
 def filter_extra_tools(extra_tools: list[ToolDefinition]) -> list[ToolDefinition]:
     """MCP extra ツールから memory 系重複ツールを除外する。"""
@@ -67,11 +73,14 @@ async def execute_tool(ctx: AppContext, config: ChatConfig, tool_name: str, tool
     """組み込みツールを実行する。"""
     try:
         if tool_name == "memory_create":
+            emotion = tool_input.get("emotion_type", "neutral")
+            if emotion not in _VALID_EMOTIONS:
+                emotion = "neutral"
             result = ctx.memory_service.create_memory(
                 content=tool_input.get("content", ""),
                 importance=float(tool_input.get("importance", 0.6)),
                 tags=tool_input.get("tags", []),
-                emotion=tool_input.get("emotion_type", "neutral"),
+                emotion=emotion,
             )
             if result.is_ok:
                 return {"status": "ok", "key": result.value.key}
@@ -80,7 +89,7 @@ async def execute_tool(ctx: AppContext, config: ChatConfig, tool_name: str, tool
         elif tool_name == "memory_search":
             query = tool_input.get("query", "")
             top_k = int(tool_input.get("top_k", 5))
-            result = ctx.search_engine.search(SearchQuery(text=query, top_k=min(top_k, 10)))
+            result = ctx.search_engine.search(SearchQuery(text=query, top_k=min(top_k, 200)))
             if result.is_ok:
                 items = []
                 for item in result.value:
@@ -172,6 +181,23 @@ async def execute_tool(ctx: AppContext, config: ChatConfig, tool_name: str, tool
             if match is None:
                 return {"status": "not_found", "query": tool_input.get("content", "")}
             update_result = ctx.memory_service.update_memory(match.key, tags=["promise", "fulfilled"])
+            if update_result.is_ok:
+                return {"status": "ok", "updated": match.content[:80]}
+            return {"status": "error", "message": str(update_result.error)}
+
+        elif tool_name == "promise_cancel":
+            target_content = tool_input.get("content", "").lower()
+            tag_result = ctx.memory_service.get_by_tags(["promise", "active"])
+            if not tag_result.is_ok:
+                return {"status": "error", "message": str(tag_result.error)}
+            candidates = tag_result.value or []
+            match = next(
+                (m for m in candidates if target_content in m.content.lower()),
+                None,
+            )
+            if match is None:
+                return {"status": "not_found", "query": tool_input.get("content", "")}
+            update_result = ctx.memory_service.update_memory(match.key, tags=["promise", "cancelled"])
             if update_result.is_ok:
                 return {"status": "ok", "updated": match.content[:80]}
             return {"status": "error", "message": str(update_result.error)}

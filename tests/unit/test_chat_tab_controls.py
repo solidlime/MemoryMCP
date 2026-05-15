@@ -38,11 +38,9 @@ def test_chat_js_has_single_panel_toggle_definitions():
 
 
 def test_chat_js_supports_terminal_history_and_scoped_execute_endpoint():
-    """User terminal should support history keys and execute against the persona-scoped sandbox API."""
+    """Sandbox terminal history was moved to Coding Agent panel. Chat tab JS should retain the persona-scoped sandbox execute API reference."""
     js = render_chat_js()
 
-    assert "ArrowUp" in js
-    assert "ArrowDown" in js
     assert "/api/chat/' + encodeURIComponent(S.persona) + '/sandbox/execute" in js
 
 
@@ -63,11 +61,10 @@ def test_chat_tab_renders_sandbox_install_ui():
 
 
 def test_chat_js_has_sandbox_install_and_reset_functions():
-    """JS should define sandboxInstallPackages and sandboxReset."""
+    """Sandbox install/reset functions were moved to Coding Agent panel. Chat tab JS should retain sandboxRunBlock."""
     js = render_chat_js()
 
-    assert "function sandboxInstallPackages()" in js
-    assert "function sandboxReset()" in js
+    assert "function sandboxRunBlock(" in js
 
 
 def test_chat_js_has_sandbox_run_block_function():
@@ -78,14 +75,14 @@ def test_chat_js_has_sandbox_run_block_function():
 
 
 def test_chat_js_uses_install_endpoint():
-    """sandboxInstallPackages should call /sandbox/install endpoint."""
+    """Sandbox install was moved to Coding Agent. Check that sandbox execute endpoint remains."""
     js = render_chat_js()
 
-    assert "/sandbox/install" in js
+    assert "/sandbox/execute" in js
 
 
 def test_chat_js_uses_reset_endpoint():
-    """sandboxReset should call /sandbox/reset endpoint."""
+    """Sandbox reset was moved to Coding Agent. sandboxRunBlock should be present."""
     js = render_chat_js()
 
-    assert "/sandbox/reset" in js
+    assert "function sandboxRunBlock(" in js

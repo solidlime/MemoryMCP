@@ -30,7 +30,7 @@ MEMORY_TOOLS: list[ToolDefinition] = [
             "type": "object",
             "properties": {
                 "query": {"type": "string", "description": "検索クエリ"},
-                "top_k": {"type": "integer", "description": "取得件数（1〜10）", "default": 5},
+                "top_k": {"type": "integer", "description": "取得件数（1〜200）", "default": 5},
             },
             "required": ["query"],
         },
@@ -112,6 +112,17 @@ MEMORY_TOOLS: list[ToolDefinition] = [
             "type": "object",
             "properties": {
                 "content": {"type": "string", "description": "履行した約束の内容（部分一致でOK）"},
+            },
+            "required": ["content"],
+        },
+    ),
+    ToolDefinition(
+        name="promise_cancel",
+        description="約束をキャンセルする。",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "content": {"type": "string", "description": "キャンセルする約束の内容（部分一致でOK）"},
             },
             "required": ["content"],
         },
@@ -230,6 +241,7 @@ _MEMORY_MCP_TOOL_NAMES: frozenset[str] = frozenset(
         "goal_cancel",
         "promise_create",
         "promise_fulfill",
+        "promise_cancel",
         "memory_update",
         "context_recall",
     }

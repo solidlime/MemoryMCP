@@ -503,7 +503,6 @@ class TestSearchMemory:
             mock_reg_cls.get.return_value = ctx
             await search_memory(
                 query="test",
-                mode="keyword",
                 top_k=3,
                 tags=["goal"],
                 min_importance=0.7,
@@ -512,7 +511,7 @@ class TestSearchMemory:
                 recency_weight=0.3,
             )
         call_args = ctx.search_engine.search.call_args[0][0]
-        assert call_args.mode == "keyword"
+        assert call_args.mode == "hybrid"  # mode is now always hybrid
         assert call_args.top_k == 3
         assert call_args.tags == ["goal"]
         assert call_args.min_importance == 0.7

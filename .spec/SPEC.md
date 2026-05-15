@@ -141,3 +141,217 @@ MemoryRepository.save(memory)
 - `SearchQuery.date_range: str | None` → `parse_date_range()` → `(datetime | None, datetime | None)`
 - `EnrichmentResult`: `{importance: float, relations: [{source, target, type, confidence}]}`
 - `MentalModel`: `{content, source_memory_keys: list[str], confidence: float, abstracted_at: datetime}`
+
+---
+
+# フロントエンド・ツール改善（2026-05-15）
+
+## 🔴 Phase 1: バグ修正
+
+### F001: 旧サンドボックスパネル死にコード削除
+| 項目 | 内容 |
+|------|------|
+| ファイル | `memory_mcp/api/http/sections/chat.py` |
+| CSS削除範囲 | 255-416行（`#sandbox-panel` 全スタイル） |
+| JS削除範囲 | 1665-2100行（Sandbox Panel JS全体） |
+| 補足 | `#sandbox-panel`, `#sandbox-terminal` 等のDOM要素は既に存在しない。Coding Agentパネル（coding_agent.py）が現行のサンドボックスUI |
+
+### F002: MEMORY_TOOL_NAMES にbuiltinツール追加
+| 項目 | 内容 |
+|------|------|
+| ファイル | `memory_mcp/api/http/sections/chat.py:1673` |
+| 現状 | `Set(['memory', 'search_memory', 'update_context', 'item', 'get_context'])` — MCPツール5個のみ |
+| 追加対象 | `memory_create`, `memory_search`, `memory_update`, `context_update`, `context_recall`, `goal_create`, `goal_achieve`, `goal_cancel`, `promise_create`, `promise_fulfill`, `promise_cancel`, `invoke_skill` |
+| 追加後 | Set に上記12個を追加 → メモリパネルにbuiltinツール結果表示 |
+
+### F003: ~~caAppendOutput グローバル公開~~ → **実装済み**
+| 項目 | 内容 |
+|------|------|
+| 状況 | `coding_agent.py:598` に `window.caAppendOutput = _appendOutput` 既存。chat.py:1763-1764 から呼出済み |
+| 対応 | スキップ（完了） |
+
+### F004: switchSandboxTab/sandboxExecuteCmd 二重定義削除
+| 項目 | 内容 |
+|------|------|
+| ファイル | `memory_mcp/api/http/sections/chat.py` |
+| 第1定義 | 1744-1754行（2タブ用: terminal, files）、1819-1841行（bash固定） |
+| 第2定義 | 2057-2069行（3タブ用: terminal, files, artifacts）、2071-2100行（言語セレクタ使用） |
+| 対応 | 第1定義を削除。第2定義はF001で削除される範囲内のためF001とまとめて対応 |
+
+### F005: promise_cancel ツール追加
+| 項目 | 内容 |
+|------|------|
+| ファイル | `memory_mcp/application/chat/tools/builtin.py` + `definitions.py` |
+| 設計 | `goal_cancel` と同パターン: `promise_create`/`promise_fulfill` に対し `promise_cancel` を追加 |
+| 実装 | `memory_service.get_by_tags(["promise", "active"])` → マッチ → `update_memory(key, tags=["promise", "cancelled"])` |
+
+### F006: sandbox_files list 空問題 → 実装済み（要確認）
+### F007: bash `!` プレフィックス自動除去 → 実装済み（要確認）
+
+---
+
+## 🟡 Phase 2: 設定UIの欠落
+
+### F008: enable_memory_tools トグル追加
+| 項目 | 内容 |
+|------|------|
+| ファイル | `memory_mcp/api/http/sections/chat.py` 設定パネルHTML (507-691行) |
+| バックエンド | `ChatConfig.enable_memory_tools: bool`（既存、`service.py:52` で参照） |
+| UI | 設定パネルにチェックボックス追加。`applyChatConfig()` で読み書き |
+
+### F009: extract_max_tokens 入力欄追加
+| 項目 | 内容 |
+|------|------|
+| ファイル | chat.py 設定パネル + `config/settings.py` |
+| 現状 | `SummarizationConfig.llm_max_tokens: int = 500` のみ。`auto_extract` 用の `extract_max_tokens` は未定義 |
+| 追加 | `ChatConfig.extract_max_tokens: int = 512` を settings.py に追加。chat.py の `auto_extract` 横に数値入力追加 |
+
+### F010: 設定保存ボタン sticky footer化
+| 項目 | 内容 |
+|------|------|
+| ファイル | `memory_mcp/api/http/sections/chat.py` CSS + HTML |
+| 設計 | `#settings-panel` の下部に `position: sticky; bottom: 0` なフッター。Save/Cancelボタンを常時表示 |
+
+---
+
+## 🟠 Phase 3: UX改善
+
+### F011: 設定パネル アコーディオン化
+| 項目 | 内容 |
+|------|------|
+| ファイル | chat.py 設定パネルHTML (507-691行) |
+| 設計 | 全10セクションを `<details><summary>` で折りたたみ。デフォルトで最初のセクションのみ開く |
+| セクション | プロバイダー、モデル、APIキー、Temperature/MaxTokens、コンテキスト履歴、自動抽出、MCPサーバー、Skills、リフレクション、メンタルモデル、検索重み、サンドボックス |
+
+### F012: リトライ/編集ボタン
+| 項目 | 内容 |
+|------|------|
+| ファイル | chat.py JS |
+| 設計 | 最後のアシスタント応答の横に 🔄 リトライボタン（同じ入力で再生成）。ユーザー入力バブルに ✏️ 編集ボタン（入力を `chat-input` に戻して再送） |
+
+### F013: スラッシュコマンド
+| 項目 | 内容 |
+|------|------|
+| ファイル | chat.py JS (chat-input の keydown イベント) |
+| コマンド | `/memory <text>` → `memory_create` 発行、`/goal <text>` → `goal_create`、`/code <text>` → `execute_code` |
+| 実装 | `chat-input` の `keydown` で `/` + Enter を検知。プレフィックスに応じてツール実行 |
+
+### F014: デバッグモードトグル
+| 項目 | 内容 |
+|------|------|
+| ファイル | chat.py 設定パネル + `config/settings.py` |
+| 現状 | `log_level` で制御（`DEBUG`/`INFO` 等）。UI切替なし |
+| 追加 | 設定パネルに `debug_mode: bool` トグル。`log_level` 連動 or 独立フラグ |
+
+### F015: Alt+1〜9ショートカットにChatタブ追加
+| 項目 | 内容 |
+|------|------|
+| ファイル | `memory_mcp/api/http/sections/base.py:863-869` |
+| 現状 | Alt+1〜8 で overview〜admin の8タブ切替。Alt+9 未定義 |
+| 変更 | tabs配列に `'chat'` 追加（Alt+9）。条件を `e.key >= '1' && e.key <= '9'` に |
+
+### F016: 温度スライダー値初期表示修正
+| 項目 | 内容 |
+|------|------|
+| ファイル | chat.py `applyChatConfig()` 関数 |
+| 設計 | `applyChatConfig()` 内で温度スライダー `input[type="range"]` の value を明示的に設定 |
+
+### F017: 添付ファイル表示ラベル復活
+| 項目 | 内容 |
+|------|------|
+| ファイル | chat.py `chatSend()` 関数 (1420-1615行) |
+| 現状 | chat.py:1462 で `CHAT.attachments` クリア前に入力表示。ファイル名が消える |
+| 修正 | クリア前に `CHAT.attachments.length` を保存し、送信メッセージにファイル名表示 |
+
+### F018: console.log → console.debug 置換
+| 項目 | 内容 |
+|------|------|
+| ファイル | `memory_mcp/api/http/sections/chat.py` |
+| 該当行 | 1012, 1016, 1582（3箇所） |
+| 対応 | `console.log` → `console.debug` に置換 |
+
+---
+
+## 🔵 Phase 4: 新機能（高工数）
+
+### F019: メモリパネルCRUD操作
+| 項目 | 内容 |
+|------|------|
+| ファイル | chat.py JS (Memory Panel) |
+| 設計 | 記憶カードにクリックイベント追加 → 編集モーダル（content/importance/tags編集）。削除ボタン。goal系カードに「完了」ボタン |
+
+### F020: メモリタイムライン可視化
+| 項目 | 内容 |
+|------|------|
+| ファイル | 新規: `memory_mcp/api/http/sections/timeline.py` または memories.py 拡張 |
+| 設計 | vis-network 活用。感情色付き横軸タイムライン。記憶をカード/ノードとして配置 |
+
+### F021: スキルベースのシステムプロンプトテンプレート
+| 項目 | 内容 |
+|------|------|
+| ファイル | chat.py 設定パネル |
+| 設計 | `#chat-system-prompt` の上にドロップダウン。ビルトインプリセット + ユーザースキルから動的生成 |
+
+### F022: 音声入力 🎤
+| 項目 | 内容 |
+|------|------|
+| 設計 | Web Speech API (`SpeechRecognition`)。chat-input横に🎤ボタン。認識結果をchat-inputに挿入 |
+
+### F023: 会話エクスポート
+| 項目 | 内容 |
+|------|------|
+| 設計 | チャット履歴をMarkdown/JSONでダウンロード。メッセージ一覧から生成。ダウンロードボタン追加 |
+
+### F024: Web検索トグル
+| 項目 | 内容 |
+|------|------|
+| 設計 | chat-input横に「🌐 Web検索」チェックボックス。ON時はシステムプロンプトにWeb検索指示追加 |
+
+---
+
+## 🟣 Phase 5: ツール不整合
+
+### F025: MCP `memory` ツールの死にパラメータ削除
+| 項目 | 内容 |
+|------|------|
+| ファイル | `memory_mcp/api/mcp/tools.py:159-260` |
+| 削除対象 | `context_tags: list[str] | None`, `description: str | None`, `status: str | None` — シグネチャにあるが未使用 |
+| 削除方法 | 関数シグネチャ + docstringから削除。呼出側が存在しないことを確認してから |
+
+### F026: importance検証統一
+| 項目 | 内容 |
+|------|------|
+| ファイル | `memory_mcp/api/mcp/tools.py:258-261, 308-311` |
+| 現状 | create: 黙って clamp（`max(0.0, min(1.0, importance))`）。update: エラー返却 |
+| 統一 | create も update と同様に「範囲外はエラー返却」に統一 |
+
+### F027: builtin `memory_search` 結果上限を200に
+| 項目 | 内容 |
+|------|------|
+| ファイル | `memory_mcp/application/chat/tools/builtin.py:83` |
+| 現状 | `top_k = int(tool_input.get("top_k", 5)); ... min(top_k, 10)` — ハードキャップ10 |
+| 変更 | `min(top_k, 10)` → `min(top_k, 200)`。definitions.py の `top_k` description も更新（1〜10 → 1〜200） |
+
+### F028: builtinの感情検証追加
+| 項目 | 内容 |
+|------|------|
+| ファイル | `memory_mcp/application/chat/tools/builtin.py:69-78` |
+| 現状 | `memory_create` で `emotion_type` を検証せずDBに渡す |
+| 追加 | `_VALID_EMOTIONS` をインポートし、`emotion_type` が有効値か検証。無効なら `"neutral"` にフォールバック |
+
+### F029: `search_memory` の死に `mode` パラメータ削除
+| 項目 | 内容 |
+|------|------|
+| ファイル | `memory_mcp/api/mcp/tools.py:622-650` |
+| 現状 | `mode: str = "hybrid"` — 互換性のために残っているが内部では常にhybrid使用 |
+| 削除 | 関数シグネチャ + docstringから `mode` 削除 |
+
+---
+
+## 🟢 sandbox 追加修正
+
+### F030: sandboxコンテナ手動掃除（1回限り）
+- NAS上で `sudo docker exec sandbox-docker docker rm -f sandbox-herta` 実行
+
+### F031: NASデプロイ
+- `docker-compose build --no-cache memory-mcp && docker-compose up -d`

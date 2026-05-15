@@ -861,9 +861,9 @@ async function init() {
 
     // Keyboard: tab navigation
     document.addEventListener('keydown', (e) => {
-        if (e.altKey && e.key >= '1' && e.key <= '8') {
+        if (e.altKey && e.key >= '1' && e.key <= '9') {
             e.preventDefault();
-            const tabs = ['overview','analytics','memories','graph','import-export','personas','settings','admin'];
+            const tabs = ['overview','analytics','memories','graph','import-export','personas','settings','admin','chat'];
             switchTab(tabs[parseInt(e.key) - 1]);
         }
     });

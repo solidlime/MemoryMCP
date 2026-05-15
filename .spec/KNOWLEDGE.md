@@ -37,3 +37,24 @@
 - **P2 即時処理**: バッチ処理より即時処理の方がシンプル。importance は作成時に決まるべき情報
 - **P4 バッチ処理**: メンタルモデルは複数記憶の蓄積を待つ必要があるため、バッチ（トリガー）方式が自然
 - **Qdrant ポストフィルタ方式**: payload に created_at を追加するには全upsert箇所の修正と再構築が必要。アダプタ層フィルタの方が低侵襲
+
+## フロントエンド改善（2026-05-15）で得た知見
+
+### chat.py 構造
+- 2190行→1910行に削減（死にコード280行削除）
+- CSSは12-416行、JSは約700行以降に分離（Python文字列リテラル内）
+- 設定パネルHTMLは `<details>` アコーディオン化（10セクション→9セクション）
+- Sandbox panel JSは完全に削除。`sandboxLog`/`sandboxRunBlock`/`sandboxAddArtifact`/`renderCodeBlock` はコードブロックRunボタン用に保持
+- `MEMORY_TOOL_NAMES` はMCPツール5個→builtin含む17個に拡張
+
+### バックエンド連携
+- `extract_max_tokens` と `enable_memory_tools` は既に `ChatConfig` に存在（UI追加のみで可）
+- `debug_mode` は `ChatConfig` に新規追加
+- `/api/chat/{persona}/tool` エンドポイントを新規追加（builtin tool直接実行用）
+- `promise_cancel` を `builtin.py` + `definitions.py` に追加（`goal_cancel` 同パターン）
+- `memory_search` builtin上限を10→200に
+
+### テスト修正
+- sandboxターミナル履歴（ArrowUp/ArrowDown）テストをCoding Agent移行に合わせて更新
+- sandboxInstallPackages/sandboxResetテストをsandboxRunBlockに変更
+- `search_memory` の `mode` パラメータ削除に伴いテストの `mode="keyword"` を `mode="hybrid"` に

@@ -168,13 +168,10 @@ def register_tools(mcp: FastMCP) -> None:
         privacy_level: str | None = None,
         source_context: str | None = None,
         defer_vector: bool = False,
-        context_tags: list[str] | None = None,
         block_name: str | None = None,
         block_type: str | None = None,
         max_tokens: int | None = None,
         priority: int | None = None,
-        description: str | None = None,
-        status: str | None = None,
         entity_id: str | None = None,
         entity_type: str | None = None,
         source_entity: str | None = None,
@@ -258,7 +255,7 @@ def register_tools(mcp: FastMCP) -> None:
             # Validate importance
             if importance is not None and not (0.0 <= importance <= 1.0):
                 return "Error: importance must be between 0.0 and 1.0"
-            importance = max(0.0, min(1.0, importance)) if importance is not None else 0.5
+            importance = importance if importance is not None else 0.5
             # Warn if emotion_type is not a recognized value
             warning = ""
             if emotion_type and emotion_type not in _VALID_EMOTIONS:
@@ -621,7 +618,6 @@ def register_tools(mcp: FastMCP) -> None:
     @mcp.tool()
     async def search_memory(
         query: str,
-        mode: str = "hybrid",
         top_k: int = 5,
         tags: list[str] | None = None,
         date_range: str | None = None,
@@ -634,8 +630,6 @@ def register_tools(mcp: FastMCP) -> None:
 
         Args:
             query - str, required. Search text.
-            mode - str, default "hybrid". Deprecated — accepted for backwards compatibility
-                but always uses hybrid (keyword + semantic + RRF) internally.
             top_k - int, default 5. Maximum number of results.
             tags - list[str] | None. Filter by tags.
             date_range - str | None. Time filter, e.g. "7d", "30d",
@@ -661,7 +655,6 @@ def register_tools(mcp: FastMCP) -> None:
 
         search_query = SearchQuery(
             text=query,
-            mode=mode,
             top_k=top_k,
             tags=tags,
             date_range=date_range,
@@ -682,7 +675,7 @@ def register_tools(mcp: FastMCP) -> None:
             return "No results found."
 
         # Log search for topic detection
-        ctx.memory_service.log_search(query, mode, len(result.value))
+        ctx.memory_service.log_search(query, "hybrid", len(result.value))
 
         lines: list[str] = []
         for sr in result.value:
