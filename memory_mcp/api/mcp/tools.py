@@ -994,6 +994,8 @@ def register_tools(mcp: FastMCP) -> None:
         Args:
             code: Code to execute (Python by default, or bash commands).
             language: "python" (default) or "bash".
+                bash commands run via subprocess inside the Python session
+                (llm_sandbox has no dedicated bash container).
 
         Returns:
             stdout/stderr output from execution.
