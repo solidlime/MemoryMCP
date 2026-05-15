@@ -398,20 +398,37 @@ class SandboxSession:
                         if b64:
                             artifacts.append(b64)
 
-                # Schedule cleanup of temp .py files created by llm_sandbox
-                # (each run() creates a UUID-named .py file in /sandbox)
-                async def _cleanup():
+                # Clean up temp .py files created by llm_sandbox
+                # (each run() writes code to a UUID-named temp file before execution)
+                # Pattern: 32 hex chars + .py — matches only llm_sandbox temp files,
+                # never user files like "script.py" or "utils.py"
+                async def _cleanup_temp():
                     try:
-                        if self._python_session:
-                            await asyncio.to_thread(
-                                self._python_session.run,
-                                "import os; [os.remove(os.path.join('/sandbox',f)) for f in os.listdir('/sandbox') "
-                                "if f.endswith('.py') and len(open(os.path.join('/sandbox',f),'rb').read())<10240]",
-                            )
+                        if not self._python_session:
+                            return
+                        cleanup_code = (
+                            "import os, re; c=0; "
+                            "for f in os.listdir('/sandbox'): "
+                            " if re.match(r'^[a-f0-9]{32}\\.py$', f, re.I): "
+                            "  try: os.remove(os.path.join('/sandbox',f)); c+=1 "
+                            "  except OSError: pass; "
+                            "print(c)"
+                        )
+                        cleanup_result = await asyncio.to_thread(
+                            self._python_session.run, cleanup_code,
+                        )
+                        count = (
+                            (cleanup_result.stdout or "")
+                            .replace("Python plot detection setup complete\n", "")
+                            .replace("Python plot detection setup complete", "")
+                            .strip()
+                        )
+                        if count and count != "0":
+                            logger.debug("Sandbox cleanup: removed %s temp files", count)
                     except Exception:
                         pass
 
-                asyncio.ensure_future(_cleanup())
+                asyncio.ensure_future(_cleanup_temp())
 
                 return ExecResult(
                     stdout=stdout, stderr=stderr, exit_code=exit_code, artifacts=artifacts, language="python"
