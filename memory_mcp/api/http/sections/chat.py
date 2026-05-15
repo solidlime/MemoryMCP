@@ -121,9 +121,11 @@ def render_chat_tab() -> str:
         /* Settings accordion */
         #settings-panel details {
             border: 1px solid var(--glass-border); border-radius: 8px;
-            overflow: hidden; margin-bottom: 8px;
+            margin-bottom: 8px;
         }
-        #settings-panel details[open] { border-color: rgba(167,139,250,0.25); }
+        #settings-panel details:not([open]) { overflow: hidden; }
+        #settings-panel details[open] { border-color: rgba(167,139,250,0.25); overflow: visible; }
+        #settings-panel details[open] .details-body { max-height: 280px; overflow-y: auto; }
         #settings-panel summary {
             padding: 9px 12px; font-size: 0.8rem; font-weight: 600;
             color: var(--text-secondary); cursor: pointer;

@@ -69,6 +69,8 @@ on custom deployments (Synology, Podman, etc.).
 
 ## MCP ツール（6 本）
 
+MCP サーバー（`/mcp` エンドポイント）経由で LLM に露出されるツール群。
+
 ### `get_context()`
 
 現在のペルソナ状態・記憶サマリー・装備・感情・Block・約束・目標を一括返却する。セッション開始時に最初に呼ぶ。
@@ -192,6 +194,52 @@ sandbox("import subprocess; subprocess.run(['pip', 'install', 'requests'], captu
 sandbox("open('/sandbox/output/result.txt', 'w').write('hello')")
 ```
 
+## WebUI チャット組み込みツール（15 本）
+
+WebUI チャット（`/chat/{persona}`）で LLM に注入されるビルトインツール。MCP ツールの簡易ラッパー + サンドボックス専用ツールで構成。
+
+### メモリ操作（12 本）
+
+| ツール名 | 説明 | 対応 MCP |
+|---|---|---|
+| `memory_create` | 記憶を作成（content, importance, tags, emotion_type） | `memory(operation="create")` |
+| `memory_search` | 記憶を検索（query, top_k=1〜200） | `search_memory()` |
+| `memory_update` | 既存記憶を更新（query → 検索 → 上書き） | `memory(operation="update")` |
+| `context_update` | 感情・状態を更新（emotion, mental_state） | `update_context()` |
+| `context_recall` | タグ指定で記憶を取得（tags, top_k） | `search_memory(tags=...)` |
+| `goal_create` | 目標を作成（content, importance=0.75） | `memory(tags=["goal","active"])` |
+| `goal_achieve` | 目標を達成（content 部分一致） | `memory(operation="update", tags=["goal","achieved"])` |
+| `goal_cancel` | 目標をキャンセル | `memory(operation="update", tags=["goal","cancelled"])` |
+| `promise_create` | 約束を記録（content, importance=0.8） | `memory(tags=["promise","active"])` |
+| `promise_fulfill` | 約束を遂行 | `memory(operation="update", tags=["promise","fulfilled"])` |
+| `promise_cancel` | 約束をキャンセル | `memory(operation="update", tags=["promise","cancelled"])` |
+| `invoke_skill` | スキルを独立コンテキストで実行 | （Builtin 専用） |
+
+### サンドボックス操作（3 本）
+
+| ツール名 | 説明 | 対応 MCP |
+|---|---|---|
+| `execute_code` | コード実行（Python/Bash、matplotlib 画像自動表示） | `sandbox()` |
+| `sandbox_files` | ファイル操作（list/read/write/delete、画像は自動 base64） | （Builtin 専用） |
+| `sandbox_image` | 画像ファイルの表示・分析（PIL リサイズ + マジックバイト検出） | （Builtin 専用） |
+
+### MCP ↔ Builtin 対応表
+
+| 機能 | MCP ツール | Builtin ツール | 備考 |
+|---|---|---|---|
+| 記憶 CRUD | `memory(operation=...)` | `memory_create/update` | Builtin は簡易ラッパー |
+| 検索 | `search_memory()` | `memory_search/context_recall` | Builtin は上限200件 |
+| 状態更新 | `update_context()` | `context_update` | Builtin は感情・状態のみ |
+| Goal 管理 | `memory(tags=["goal"])` | `goal_create/achieve/cancel` | Builtin はタグ自動付与 |
+| Promise 管理 | `memory(tags=["promise"])` | `promise_create/fulfill/cancel` | Builtin はタグ自動付与 |
+| コード実行 | `sandbox()` | `execute_code/sandbox_files/sandbox_image` | Builtin は 3 ツールに分割 |
+| エンティティグラフ | `memory(entity_*)` | — | MCP 専用 |
+| 矛盾検出 | `memory(check_contradictions)` | — | MCP 専用 |
+| メンタルモデル | `memory(run_mental_model)` | — | MCP 専用 |
+| 会話インポート | `memory(import_conversation)` | — | MCP 専用 |
+| アイテム管理 | `item()` | — | MCP 専用 |
+| スキル実行 | — | `invoke_skill` | Builtin 専用 |
+
 ## 設定
 
 すべての設定は環境変数（`MEMORY_MCP_` プレフィックス）で制御する。ネストした設定は `__` 区切りで指定する。
@@ -256,8 +304,8 @@ Clean Architecture + DDD に基づくレイヤー構成：
 ```
 ┌───────────────────────────────────────────────────────────┐
 │                      API Layer                            │
-│   api/mcp/  ── 5 つの MCP ツール                          │
-│   api/http/ ── Web ダッシュボード + REST API              │
+│   api/mcp/  ── 6 つの MCP ツール                          │
+│   api/http/ ── Web ダッシュボード + REST API + 15 ビルトインツール │
 ├───────────────────────────────────────────────────────────┤
 │                  Application Layer                        │
 │   application/  ── UseCases（ビジネスフロー制御）          │
@@ -292,7 +340,10 @@ memory_mcp/
 │   │   ├── session_store.py       # セッション管理（SQLite永続化）
 │   │   ├── memory_llm.py          # MemoryLLM（自動記憶抽出）
 │   │   ├── pattern_detector.py    # メンタルモデル抽象化
-│   │   └── tools.py               # 組み込みツール定義・実行
+│   │   ├── summarizer.py          # セッション要約（LLM）
+│   │   └── tools/                 # 組み込みツール定義・実行
+│   │       ├── definitions.py     # 15 ツールのスキーマ定義
+│   │       └── builtin.py         # ツール実装
 │   ├── sandbox/          # Sandbox コード実行（Docker sibling-container）
 │   └── chat_service.py   # 後方互換 re-export
 ├── api/mcp/             # MCP ツール 6 本

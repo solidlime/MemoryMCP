@@ -66,6 +66,7 @@ def register_memory_routes(mcp) -> None:
             return JSONResponse({"ok": True})
         return JSONResponse({"error": str(result.error)}, status_code=500)
 
+    # DEPRECATED: Use /api/observations/{persona}?mode=recent&per_page=N instead
     @mcp.custom_route("/api/recent/{persona}", methods=["GET"])
     async def recent_memories(request: Request) -> JSONResponse:
         persona = _resolve_persona_from_request(request)
@@ -85,6 +86,8 @@ def register_memory_routes(mcp) -> None:
             return JSONResponse(
                 {
                     "persona": persona,
+                    "deprecated": True,
+                    "message": "Use /api/observations/{persona}?mode=recent&per_page=N instead",
                     "memories": [_memory_to_dict(m) for m in result.value],
                 }
             )
@@ -110,6 +113,25 @@ def register_memory_routes(mcp) -> None:
         tag = request.query_params.get("tag") or None
         q = request.query_params.get("q") or None
         sort_order = request.query_params.get("sort", "desc")
+        mode = request.query_params.get("mode") or None
+        if mode == "recent":
+            try:
+                limit = int(request.query_params.get("per_page", "10"))
+                if limit < 1 or limit > 1000:
+                    return JSONResponse({"error": "per_page must be between 1 and 1000"}, status_code=400)
+            except ValueError:
+                return JSONResponse({"error": "per_page must be an integer"}, status_code=400)
+            ctx = _safe_get_context(persona)
+            if ctx is None:
+                return JSONResponse({"error": f"Persona '{persona}' not found"}, status_code=404)
+            result = ctx.memory_service.get_recent(limit=limit)
+            if not result.is_ok:
+                return JSONResponse({"error": str(result.error)}, status_code=500)
+            return JSONResponse({
+                "persona": persona,
+                "mode": "recent",
+                "memories": [_memory_to_dict(m) for m in result.value],
+            })
         ctx = _safe_get_context(persona)
         if ctx is None:
             return JSONResponse({"error": f"Persona '{persona}' not found"}, status_code=404)

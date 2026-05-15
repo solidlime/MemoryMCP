@@ -357,7 +357,7 @@ def register_chat_routes(mcp) -> None:
 
     @mcp.custom_route("/api/chat/{persona}/sandbox/files", methods=["GET"])
     async def sandbox_list_files(request: Request) -> JSONResponse:
-        """サンドボックス内ファイル一覧を返す。"""
+        """サンドボックス内ファイル一覧を返す。?recursive=true で再帰ツリー表示。"""
         persona = _resolve_persona_from_request(request)
         ctx = _safe_get_context(persona)
         if not ctx:
@@ -369,10 +369,15 @@ def register_chat_routes(mcp) -> None:
             return JSONResponse({"error": "Sandbox not enabled for this persona"}, status_code=400)
 
         path = request.query_params.get("path", "/sandbox")
+        recursive = request.query_params.get("recursive", "").lower() in ("true", "1", "yes")
+
         from memory_mcp.application.sandbox.service import get_sandbox_session
 
         session = get_sandbox_session(persona)
         try:
+            if recursive:
+                tree = await session.get_file_tree(path)
+                return JSONResponse({"tree": tree, "root": path, "recursive": True})
             files = await session.list_files(path)
             return JSONResponse(
                 {
@@ -385,7 +390,16 @@ def register_chat_routes(mcp) -> None:
 
     @mcp.custom_route("/api/chat/{persona}/sandbox/files/{filepath:path}", methods=["GET"])
     async def sandbox_download_file(request: Request) -> Response:
-        """サンドボックスからファイルをダウンロードする。"""
+        """サンドボックスからファイルを取得する。
+
+        ?format=text   → JSON {content, path} でテキスト返却
+        ?format=base64 → JSON {content_base64, path, mime_type} でBase64返却（画像/PDF/バイナリ全般）
+        省略時         → 拡張子で自動判別:
+                         画像(.png/.jpg/.gif/.webp/.svg等) → インライン表示
+                         テキスト(.txt/.py/.json/.md等)   → JSONテキスト
+                         PDF(.pdf)                         → JSON Base64
+                         その他                             → バイナリDL
+        """
         persona = _resolve_persona_from_request(request)
         ctx = _safe_get_context(persona)
         if not ctx:
@@ -402,13 +416,59 @@ def register_chat_routes(mcp) -> None:
         elif not filepath.startswith("/"):
             filepath = f"/{filepath}"
 
+        fmt = request.query_params.get("format", "").lower()
+        if not fmt:
+            # Auto-detect by extension
+            ext = filepath.rsplit(".", 1)[-1].lower() if "." in filepath else ""
+            image_exts = {"png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "ico"}
+            text_exts = {"txt", "py", "js", "ts", "json", "md", "yaml", "yml", "html", "css",
+                         "xml", "log", "sql", "sh", "bash", "rs", "go", "java", "cpp", "c", "h",
+                         "toml", "ini", "cfg", "csv", "tsv"}
+            if ext in image_exts:
+                fmt = "image"
+            elif ext in text_exts:
+                fmt = "text"
+            elif ext == "pdf":
+                fmt = "base64"
+            else:
+                fmt = "download"
+
         from memory_mcp.application.sandbox.service import get_sandbox_session
 
         session = get_sandbox_session(persona)
         try:
+            if fmt == "text":
+                content = await session.read_file_text(filepath)
+                return JSONResponse({"content": content, "path": filepath, "format": "text"})
+            if fmt in ("base64", "image"):
+                if fmt == "image":
+                    # Use sandbox_image preprocessing (PIL resize + magic byte detection)
+                    img_data = await session.read_image(filepath)
+                    # Return as inline image viewer
+                    from starlette.responses import HTMLResponse
+                    return HTMLResponse(
+                        f'<html><body style="margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh">'
+                        f'<img src="data:{img_data["content_type"]};base64,{img_data["content_base64"]}" '
+                        f'style="max-width:100%;max-height:100vh;object-fit:contain" />'
+                        f'</body></html>',
+                        media_type="text/html",
+                    )
+                # format=base64: raw binary → base64, no preprocessing
+                data = await session.read_file(filepath)
+                import base64
+                encoded = base64.b64encode(data).decode("ascii")
+                import mimetypes
+                mime, _ = mimetypes.guess_type(filepath)
+                mime = mime or "application/octet-stream"
+                return JSONResponse({
+                    "content_base64": encoded,
+                    "path": filepath,
+                    "mime_type": mime,
+                    "format": "base64",
+                })
+            # Default: binary download
             data = await session.read_file(filepath)
             import os
-
             filename = os.path.basename(filepath)
             return Response(
                 content=data,
@@ -587,6 +647,7 @@ def register_chat_routes(mcp) -> None:
         except Exception as e:
             return JSONResponse({"error": str(e)}, status_code=500)
 
+    # DEPRECATED: Use /api/chat/{persona}/sandbox/files?recursive=true instead
     @mcp.custom_route("/api/chat/{persona}/sandbox/tree", methods=["GET"])
     async def sandbox_file_tree(request: Request) -> JSONResponse:
         """サンドボックスの再帰ファイルツリーを返す。?root=... でルートを指定（デフォルト /sandbox）。"""
@@ -620,8 +681,8 @@ def register_chat_routes(mcp) -> None:
         ctx = _safe_get_context(persona)
         if not ctx:
             return JSONResponse({"error": "Persona not found"}, status_code=404)
-        from memory_mcp.domain.chat_config import ChatConfigRepository
         from memory_mcp.application.chat.tools.builtin import execute_tool
+        from memory_mcp.domain.chat_config import ChatConfigRepository
 
         repo = ChatConfigRepository(ctx.connection.get_memory_db())
         config = repo.get(persona)

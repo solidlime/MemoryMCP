@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import shutil
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from starlette.responses import JSONResponse
@@ -90,7 +92,17 @@ def register_skills_routes(mcp) -> None:
         if not existing:
             return JSONResponse({"error": "Skill not found"}, status_code=404)
         repo.delete(name)
-        return JSONResponse({"status": "deleted"})
+        # Also delete from filesystem to prevent re-import by syncSkillsFromFiles()
+        fs_deleted = False
+        try:
+            from memory_mcp.config.settings import get_settings
+            skill_dir = Path(get_settings().skills_dir) / name
+            if skill_dir.exists():
+                shutil.rmtree(skill_dir)
+                fs_deleted = True
+        except Exception:
+            pass  # Non-critical: DB deletion succeeded
+        return JSONResponse({"status": "deleted", "filesystem": fs_deleted})
 
     @mcp.custom_route("/api/skills/sync", methods=["POST"])
     async def sync_skills(request: Request) -> JSONResponse:

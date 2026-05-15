@@ -592,6 +592,11 @@ _CA_HTML = """\
     _initTabs();
     _initTerminal();
     _initFiles();
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && _open) {
+        window.closeCodingAgent();
+      }
+    });
   }
 
   if (document.readyState === 'loading') {
@@ -608,11 +613,16 @@ _CA_HTML = """\
     _open = true;
     if (options.code != null) codeArea.value = options.code;
     if (options.language != null) langSelect.value = options.language;
+    // Toggle Code button active state
+    const btn = document.getElementById('sandbox-toggle-btn');
+    if (btn) btn.classList.add('active');
   };
 
   window.closeCodingAgent = function() {
     if (panel) panel.classList.remove('ca-open');
     _open = false;
+    const btn = document.getElementById('sandbox-toggle-btn');
+    if (btn) btn.classList.remove('active');
   };
 
   window.isCodingAgentOpen = function() {

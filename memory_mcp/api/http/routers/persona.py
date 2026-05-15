@@ -48,6 +48,7 @@ def register_persona_routes(mcp) -> None:
             personas = []
         return JSONResponse({"personas": personas})
 
+    # DEPRECATED: Use /api/dashboard/{persona} instead (includes stats + more)
     @mcp.custom_route("/api/stats/{persona}", methods=["GET"])
     async def persona_stats(request: Request) -> JSONResponse:
         persona = _resolve_persona_from_request(request)
@@ -55,7 +56,11 @@ def register_persona_routes(mcp) -> None:
         if ctx is None:
             return JSONResponse({"error": f"Persona '{persona}' not found"}, status_code=404)
         stats = ctx.memory_service.get_stats()
-        return JSONResponse(stats.value if stats.is_ok else {"error": str(stats.error)})
+        if stats.is_ok:
+            return JSONResponse(
+                {"deprecated": True, "message": "Use /api/dashboard/{persona} instead", **stats.value}
+            )
+        return JSONResponse({"error": str(stats.error)})
 
     @mcp.custom_route("/", methods=["GET"])
     async def dashboard_page(request: Request) -> HTMLResponse:
@@ -117,8 +122,22 @@ def register_persona_routes(mcp) -> None:
                 "max": round(max(strength_values), 3) if strength_values else None,
             }
 
+            # Helper: sort goals/promises by status priority (active first), then by recency
+            _status_priority = {"active": 0, "fulfilled": 1, "achieved": 1, "cancelled": 2}
+            _max_commitments = 30
+
             goals_result = ctx.memory_repo.get_by_tags(["goal"])
             _goals_raw = goals_result.value if goals_result.is_ok else []
+            _goals_sorted = sorted(
+                _goals_raw,
+                key=lambda m: (
+                    _status_priority.get(
+                        next((t for t in (m.tags or []) if t in ("active", "achieved", "cancelled")), "active"),
+                        99,
+                    ),
+                    -(m.created_at.timestamp() if m.created_at else 0),
+                ),
+            )
             goals = [
                 {
                     "content": m.content,
@@ -126,10 +145,20 @@ def register_persona_routes(mcp) -> None:
                     "created_at": m.created_at.isoformat() if m.created_at else None,
                     "key": m.key,
                 }
-                for m in _goals_raw
+                for m in _goals_sorted[:_max_commitments]
             ]
             promises_result = ctx.memory_repo.get_by_tags(["promise"])
             _promises_raw = promises_result.value if promises_result.is_ok else []
+            _promises_sorted = sorted(
+                _promises_raw,
+                key=lambda m: (
+                    _status_priority.get(
+                        next((t for t in (m.tags or []) if t in ("active", "fulfilled", "cancelled")), "active"),
+                        99,
+                    ),
+                    -(m.created_at.timestamp() if m.created_at else 0),
+                ),
+            )
             promises = [
                 {
                     "content": m.content,
@@ -137,7 +166,7 @@ def register_persona_routes(mcp) -> None:
                     "created_at": m.created_at.isoformat() if m.created_at else None,
                     "key": m.key,
                 }
-                for m in _promises_raw
+                for m in _promises_sorted[:_max_commitments]
             ]
 
             try:
@@ -148,6 +177,24 @@ def register_persona_routes(mcp) -> None:
                     ).fetchone()
                     linked_count = linked_row["cnt"] if linked_row else 0
                     stats["linked_ratio"] = min(linked_count / total_count, 1.0)
+            except Exception:
+                pass
+
+            # Relationship highlights from memory tags
+            rel_highlights: list[dict] = []
+            try:
+                rel_result = ctx.memory_repo.find_relationship_highlights(limit=10)
+                if rel_result.is_ok and rel_result.value:
+                    rel_highlights = [
+                        {
+                            "content": m.content,
+                            "key": m.key,
+                            "importance": m.importance,
+                            "tags": m.tags or [],
+                            "created_at": m.created_at.isoformat() if m.created_at else None,
+                        }
+                        for m in rel_result.value
+                    ]
             except Exception:
                 pass
 
@@ -163,6 +210,7 @@ def register_persona_routes(mcp) -> None:
                     "strengths": strengths_summary,
                     "goals": goals,
                     "promises": promises,
+                    "relationship_highlights": rel_highlights,
                 }
             )
         except Exception as exc:

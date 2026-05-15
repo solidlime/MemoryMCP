@@ -635,6 +635,102 @@ except Exception as e:
                 raise RuntimeError(text[len("__ERROR__:") :].strip())
             return text
 
+    async def read_image(self, remote_path: str, max_dim: int = 1568) -> dict:
+        """Read and preprocess an image from the sandbox.
+
+        Returns a dict with:
+            content_base64, content_type, size, path
+            If resized: resized=True, orig_size, orig_dims, new_dims, new_size
+        """
+        import base64 as _b64
+        import json as _json
+
+        preprocess_code = (
+            "import os, json\n"
+            f"p = {_json.dumps(remote_path)}\n"
+            "r = {'ok': False}\n"
+            "if not os.path.exists(p):\n"
+            " r['error'] = f'File not found: {p}'\n"
+            "else:\n"
+            " sz = os.path.getsize(p)\n"
+            " try:\n"
+            "  from PIL import Image\n"
+            f"  im = Image.open(p); w, h = im.size\n"
+            f"  if w > {max_dim} or h > {max_dim} or sz > 500*1024:\n"
+            f"   im.thumbnail(({max_dim}, {max_dim}), Image.LANCZOS)\n"
+            "   tmp = '/sandbox/_rszd_' + os.path.basename(p) + '.jpg'\n"
+            "   im.convert('RGB').save(tmp, 'JPEG', quality=80, optimize=True)\n"
+            "   r = {'ok': True, 'path': tmp, 'orig_size': sz, 'new_size': os.path.getsize(tmp), "
+            f"  'orig_w': w, 'orig_h': h, 'new_w': im.size[0], 'new_h': im.size[1]}}\n"
+            "  else:\n"
+            "   r = {'ok': True, 'path': p, 'size': sz}\n"
+            " except ImportError:\n"
+            "  r = {'ok': True, 'path': p, 'size': sz, 'nopil': True}\n"
+            " except Exception as e:\n"
+            "  r['error'] = str(e)\n"
+            "print(json.dumps(r))"
+        )
+        async with self._lock:
+            await self._ensure_python_started()
+            result = await asyncio.to_thread(self._python_session.run, preprocess_code)
+            pre_raw = (result.stdout or "").strip()
+            if not pre_raw:
+                raise RuntimeError("Image preprocessing failed: empty stdout")
+            try:
+                pre = _json.loads(pre_raw)
+            except Exception as e:
+                raise RuntimeError(f"Image preprocessing JSON parse failed: {pre_raw[:200]}") from e
+
+            if pre.get("error"):
+                raise RuntimeError(pre["error"])
+
+            # If PIL not available, try installing it (one-time per session)
+            if pre.get("nopil"):
+                try:
+                    await self.install_packages(["Pillow"])
+                    retry_result = await asyncio.to_thread(self._python_session.run, preprocess_code)
+                    pre = _json.loads((retry_result.stdout or "").strip())
+                except Exception:
+                    pass  # Fall through — use unresized image
+
+            read_path = pre.get("path", remote_path)
+            raw = await self.read_file(read_path)
+
+            # Detect image type from magic bytes
+            content_type = "image/jpeg" if read_path.endswith(".jpg") else None
+            if not content_type:
+                if len(raw) >= 4:
+                    if raw[:4] == b"\x89PNG":
+                        content_type = "image/png"
+                    elif raw[:2] == b"\xff\xd8":
+                        content_type = "image/jpeg"
+                    elif raw[:3] == b"GIF":
+                        content_type = "image/gif"
+                    elif len(raw) >= 12 and raw[:4] == b"RIFF" and raw[8:12] == b"WEBP":
+                        content_type = "image/webp"
+                if not content_type:
+                    content_type = "image/png"  # fallback
+
+            b64_str = _b64.b64encode(raw).decode("ascii")
+            out: dict = {
+                "content_base64": b64_str,
+                "content_type": content_type,
+                "size": len(raw),
+                "path": remote_path,
+            }
+            if pre.get("orig_size"):
+                out["resized"] = True
+                out["orig_size"] = pre["orig_size"]
+                out["orig_dims"] = f"{pre['orig_w']}x{pre['orig_h']}"
+                out["new_dims"] = f"{pre['new_w']}x{pre['new_h']}"
+                out["new_size"] = pre["new_size"]
+
+            # Clean up temp resized file
+            if read_path != remote_path:
+                await self.delete_file(read_path)
+
+            return out
+
     async def write_file_text(self, remote_path: str, content: str) -> None:
         """Write text content to a file in the sandbox."""
         async with self._lock:

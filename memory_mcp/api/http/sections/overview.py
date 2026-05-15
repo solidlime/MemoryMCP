@@ -304,12 +304,12 @@ async function loadOverview() {
             <div class="card-title">🎯 Goals & Promises</div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                    <div style="font-size:0.8rem;font-weight:600;color:var(--accent-green);margin-bottom:8px">Goals</div>
-                    ${renderGoalItems(effectiveGoals, 'goals')}
+                    <div style="font-size:0.8rem;font-weight:600;color:var(--accent-green);margin-bottom:8px">Goals <span style="opacity:0.6;font-weight:400">(${effectiveGoals.length}件)</span></div>
+                    <div style="max-height:240px;overflow-y:auto;padding-right:4px">${renderGoalItems(effectiveGoals, 'goals')}</div>
                 </div>
                 <div>
-                    <div style="font-size:0.8rem;font-weight:600;color:var(--accent-pink);margin-bottom:8px">Promises</div>
-                    ${renderGoalItems(effectivePromises, 'promises')}
+                    <div style="font-size:0.8rem;font-weight:600;color:var(--accent-pink);margin-bottom:8px">Promises <span style="opacity:0.6;font-weight:400">(${effectivePromises.length}件)</span></div>
+                    <div style="max-height:240px;overflow-y:auto;padding-right:4px">${renderGoalItems(effectivePromises, 'promises')}</div>
                 </div>
             </div>
         </div>
@@ -391,6 +391,18 @@ async function loadOverview() {
                 </div>
             </div>
         </div>
+        <!-- Relationship Highlights (from memory tags) -->
+        ${data.relationship_highlights && data.relationship_highlights.length > 0 ? `
+        <div class="glass p-6 mb-6">
+            <div class="card-title">💞 Relationship Highlights</div>
+            <div style="max-height:200px;overflow-y:auto">
+            ${data.relationship_highlights.map(h => `
+                <div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:0.82rem;color:var(--text-secondary)">
+                    <span style="color:var(--accent-pink);margin-right:6px">💬</span>${esc(h.content || h)}
+                </div>
+            `).join('')}
+            </div>
+        </div>` : ''}
         <!-- Memory Stats -->
         <div class="glass p-6 mb-6">
             <div class="card-title">📈 Memory Stats</div>

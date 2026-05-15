@@ -461,6 +461,34 @@ def render_head() -> str:
         .collapsible { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
         .collapsible.open { max-height: 2000px; }
 
+        /* ── Custom scrollbar (dark theme) ── */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(167,139,250,0.25); border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(167,139,250,0.45); }
+        html.light ::-webkit-scrollbar-thumb {
+            background: rgba(124,58,237,0.2);
+        }
+        html.light ::-webkit-scrollbar-thumb:hover { background: rgba(124,58,237,0.35); }
+
+        /* ── Consistent focus ring ── */
+        :focus-visible {
+            outline: 2px solid var(--accent-purple);
+            outline-offset: 2px;
+            border-radius: 4px;
+        }
+        button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible {
+            outline: 2px solid var(--accent-purple);
+            outline-offset: 2px;
+        }
+
+        /* ── Smooth card transitions ── */
+        .glass {
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+        }
+
         /* ── Phase 5: Mobile optimization ── */
         @media (max-width: 640px) {
             .tab-bar { flex-wrap: wrap; }
