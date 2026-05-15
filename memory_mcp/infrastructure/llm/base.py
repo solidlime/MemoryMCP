@@ -17,6 +17,7 @@ class LLMMessage:
     time_label: str | None = None
     tool_calls: list[dict] | None = None
     tool_call_id: str | None = None
+    content_parts: list[dict] | None = None  # rich content (text + images) for multimodal
 
 
 @dataclass

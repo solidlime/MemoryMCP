@@ -25,15 +25,35 @@ def filter_extra_tools(extra_tools: list[ToolDefinition]) -> list[ToolDefinition
 
 
 def truncate_tool_result(result: dict, max_chars: int) -> dict:
-    """Truncate tool result string to avoid context overflow."""
-    result_str = json.dumps(result, ensure_ascii=False)
-    if len(result_str) <= max_chars:
-        return result
-    remaining = len(result_str) - max_chars
-    return {
-        "truncated": True,
-        "content": result_str[:max_chars] + f"... [truncated: {remaining} chars remaining]",
-    }
+    """Truncate tool result string to avoid context overflow.
+
+    Preserves image data (content_base64 / artifacts) when present.
+    """
+    has_images = "content_base64" in result or "artifacts" in result
+
+    if not has_images:
+        result_str = json.dumps(result, ensure_ascii=False)
+        if len(result_str) <= max_chars:
+            return result
+        remaining = len(result_str) - max_chars
+        return {
+            "truncated": True,
+            "content": result_str[:max_chars] + f"... [truncated: {remaining} chars remaining]",
+        }
+
+    # Has image data: truncate ONLY text fields, preserve image payloads
+    text_parts = {k: v for k, v in result.items() if k not in ("content_base64", "artifacts")}
+    text_str = json.dumps(text_parts, ensure_ascii=False)
+    if len(text_str) > max_chars:
+        text_str = text_str[:max_chars] + "... [truncated]"
+
+    output = {"content": text_str}
+    if "content_base64" in result:
+        output["content_base64"] = result["content_base64"]
+        output["content_type"] = result.get("content_type", "image/png")
+    if "artifacts" in result:
+        output["artifacts"] = result["artifacts"]
+    return output
 
 
 async def execute_tool(ctx: AppContext, config: ChatConfig, tool_name: str, tool_input: dict) -> dict:

@@ -63,6 +63,27 @@ class AnthropicProvider(LLMProvider):
                         ],
                     }
                 )
+            elif msg.role == "user" and msg.content_parts:
+                # Convert OpenAI-style content_parts to Anthropic native format
+                anthropic_content: list[dict] = []
+                for part in msg.content_parts:
+                    if part["type"] == "text":
+                        anthropic_content.append({"type": "text", "text": part["text"]})
+                    elif part["type"] == "image_url":
+                        url = part["image_url"]["url"]
+                        if url.startswith("data:"):
+                            # Format: data:image/png;base64,XXXX
+                            header, _, b64_data = url.partition(",")
+                            media_type = header[5:].split(";")[0]  # "image/png"
+                            anthropic_content.append({
+                                "type": "image",
+                                "source": {
+                                    "type": "base64",
+                                    "media_type": media_type,
+                                    "data": b64_data,
+                                },
+                            })
+                result.append({"role": "user", "content": anthropic_content})
             else:
                 result.append({"role": msg.role, "content": content})
         return result

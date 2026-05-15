@@ -119,5 +119,35 @@ class InferenceStep:
 
             turn_ctx.tool_call_count += 1
 
+            # Inject image data as user message content_parts
+            # (OpenAI API requires image_url parts in user messages, not tool messages)
+            image_parts: list[dict] = []
+            for log_entry in turn_ctx.tool_calls_log[-len(pending_tool_calls):]:
+                result = log_entry.get("result_raw", log_entry.get("result", {}))
+                if isinstance(result, dict):
+                    ct = result.get("content_type", "image/png")
+                    if result.get("content_base64"):
+                        image_parts.append({
+                            "type": "image_url",
+                            "image_url": {"url": f"data:{ct};base64,{result['content_base64']}", "detail": "auto"},
+                        })
+                    if result.get("artifacts"):
+                        for b64 in result["artifacts"]:
+                            if isinstance(b64, str) and len(b64) > 100:
+                                image_parts.append({
+                                    "type": "image_url",
+                                    "image_url": {"url": f"data:image/png;base64,{b64}", "detail": "auto"},
+                                })
+
+            if image_parts:
+                messages.append(LLMMessage(
+                    role="user",
+                    content="The tool execution produced image(s). Please analyze:",
+                    content_parts=[
+                        {"type": "text", "text": "The previous tool execution produced the following image(s). Please analyze them carefully."},
+                        *image_parts
+                    ],
+                ))
+
         # messages (with tool calls) を turn_ctx に保存（PostStep用）
         turn_ctx.messages = messages

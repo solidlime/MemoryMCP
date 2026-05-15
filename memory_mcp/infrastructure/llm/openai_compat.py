@@ -71,6 +71,9 @@ class OpenAICompatProvider(LLMProvider):
                         "content": content,
                     }
                 )
+            elif msg.role == "user" and msg.content_parts:
+                # Use rich content parts (text + images) for multimodal
+                result.append({"role": "user", "content": msg.content_parts})
             else:
                 result.append({"role": msg.role, "content": content})
         return result

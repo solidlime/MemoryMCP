@@ -50,6 +50,7 @@ def create_app() -> MemoryFastMCP:
         host=settings.server.host,
         port=settings.server.port,
         stateless_http=True,
+        json_response=True,  # Accept: application/json のみでOK（SSE不要）
     )
 
     # Auto-import on startup
