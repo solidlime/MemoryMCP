@@ -9,6 +9,7 @@ from .memories import render_memories_js, render_memories_tab
 from .overview import render_overview_js, render_overview_tab
 from .persona import render_persona_js, render_persona_tab
 from .settings import render_settings_js, render_settings_tab
+from .timeline import render_timeline_js, render_timeline_tab
 
 __all__ = [
     "render_head",
@@ -21,6 +22,8 @@ __all__ = [
     "render_analytics_js",
     "render_memories_tab",
     "render_memories_js",
+    "render_timeline_tab",
+    "render_timeline_js",
     "render_graph_tab",
     "render_graph_js",
     "render_import_export_tab",

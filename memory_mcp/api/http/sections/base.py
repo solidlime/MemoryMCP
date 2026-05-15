@@ -19,6 +19,8 @@ def render_head() -> str:
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
     <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <link href="https://unpkg.com/vis-timeline/standalone/umd/vis-timeline-graph2d.min.css" rel="stylesheet" />
+    <script src="https://unpkg.com/vis-timeline/standalone/umd/vis-timeline-graph2d.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
     <style>
@@ -688,13 +690,14 @@ function showSkeleton(tabId) {
             + '<div class="skeleton glass" style="height:200px"></div>',
         personas: '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">'
             + '<div class="skeleton skeleton-card glass"></div>'.repeat(3) + '</div>',
-        admin: '<div class="skeleton glass" style="height:300px"></div>'
+        admin: '<div class="skeleton glass" style="height:300px"></div>',
+        timeline: '<div class="skeleton glass" style="height:500px"></div>'
     };
-    /* graph / import-export / personas / chat manage their own loading state via
-       inner elements (#graph-loading, #persona-grid, #export-preview, #chat-messages).
+    /* graph / import-export / personas / chat / timeline manage their own loading state via
+       inner elements (#graph-loading, #persona-grid, #export-preview, #chat-messages, #tl-loading).
        Replacing their innerHTML would destroy those elements and cause
        silent failures in the corresponding load functions. */
-    if (tabId === 'graph' || tabId === 'import-export' || tabId === 'personas' || tabId === 'chat') return;
+    if (tabId === 'graph' || tabId === 'import-export' || tabId === 'personas' || tabId === 'chat' || tabId === 'timeline') return;
     const content = container.querySelector('[id$="-content"]') || container;
     content.innerHTML = skeletons[tabId] || '<div class="skeleton skeleton-card glass"></div>';
 }
@@ -861,10 +864,11 @@ async function init() {
 
     // Keyboard: tab navigation
     document.addEventListener('keydown', (e) => {
-        if (e.altKey && e.key >= '1' && e.key <= '9') {
+        if (e.altKey && ((e.key >= '1' && e.key <= '9') || e.key === '0')) {
             e.preventDefault();
-            const tabs = ['overview','analytics','memories','graph','import-export','personas','settings','admin','chat'];
-            switchTab(tabs[parseInt(e.key) - 1]);
+            const tabs = ['overview','analytics','memories','timeline','graph','import-export','personas','chat','settings','admin'];
+            const idx = e.key === '0' ? 9 : parseInt(e.key) - 1;
+            switchTab(tabs[idx]);
         }
     });
 }

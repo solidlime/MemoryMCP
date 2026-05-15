@@ -15,6 +15,7 @@ from .sections.memories import render_memories_js, render_memories_tab
 from .sections.overview import render_overview_js, render_overview_tab
 from .sections.persona import render_persona_js, render_persona_tab
 from .sections.settings import render_settings_js, render_settings_tab
+from .sections.timeline import render_timeline_js, render_timeline_tab
 
 
 def render_dashboard(persona: str | None = None) -> str:
@@ -23,6 +24,7 @@ def render_dashboard(persona: str | None = None) -> str:
         {"id": "overview", "icon": "📊", "label": "Overview"},
         {"id": "analytics", "icon": "📈", "label": "Analytics"},
         {"id": "memories", "icon": "🧠", "label": "Memories"},
+        {"id": "timeline", "icon": "⏳", "label": "Timeline"},
         {"id": "graph", "icon": "🕸️", "label": "Graph"},
         {"id": "import-export", "icon": "📦", "label": "Import/Export"},
         {"id": "personas", "icon": "👤", "label": "Personas"},
@@ -38,6 +40,7 @@ def render_dashboard(persona: str | None = None) -> str:
             render_overview_tab(),
             render_analytics_tab(),
             render_memories_tab(),
+            render_timeline_tab(),
             render_graph_tab(),
             render_import_export_tab(),
             render_persona_tab(),
@@ -54,6 +57,7 @@ def render_dashboard(persona: str | None = None) -> str:
                 render_overview_js(),
                 render_analytics_js(),
                 render_memories_js(),
+                render_timeline_js(),
                 render_graph_js(),
                 render_import_export_js(),
                 render_persona_js(),
