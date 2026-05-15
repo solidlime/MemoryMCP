@@ -525,7 +525,12 @@ print(json.dumps(result))
                 exec_result = await asyncio.to_thread(self._python_session.run, code)
                 import json
 
-                raw_stdout = (exec_result.stdout or "").strip()
+                raw_stdout = (
+                    (exec_result.stdout or "")
+                    .replace("Python plot detection setup complete\n", "")
+                    .replace("Python plot detection setup complete", "")
+                    .strip()
+                )
                 raw_stderr = (exec_result.stderr or "").strip()
                 logger.info(
                     "list_files path=%s stdout_len=%d stderr_len=%d stdout_preview=%s stderr_preview=%s",
@@ -559,7 +564,13 @@ for name in os.listdir(target):
 print(json.dumps(result))
 """
                     fb_result = await asyncio.to_thread(self._python_session.run, fallback_code)
-                    fb_entries = json.loads((fb_result.stdout or "").strip())
+                    fb_stdout = (
+                        (fb_result.stdout or "")
+                        .replace("Python plot detection setup complete\n", "")
+                        .replace("Python plot detection setup complete", "")
+                        .strip()
+                    )
+                    fb_entries = json.loads(fb_stdout)
                     fb_infos = [SandboxFileInfo(**e) for e in fb_entries if "error" not in e]
                     logger.info("list_files fallback path=%s found %d entries", path, len(fb_infos))
                     return fb_infos
@@ -651,7 +662,13 @@ print(json.dumps(_tree({root!r})))
                 result = await asyncio.to_thread(self._python_session.run, code)
                 import json
 
-                return json.loads((result.stdout or "").strip()) or []
+                raw = (
+                    (result.stdout or "")
+                    .replace("Python plot detection setup complete\n", "")
+                    .replace("Python plot detection setup complete", "")
+                    .strip()
+                )
+                return json.loads(raw) or []
             except Exception as e:
                 logger.warning("get_file_tree error: %s", e)
                 return []
