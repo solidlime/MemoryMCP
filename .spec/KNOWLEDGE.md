@@ -58,3 +58,11 @@
 - sandboxターミナル履歴（ArrowUp/ArrowDown）テストをCoding Agent移行に合わせて更新
 - sandboxInstallPackages/sandboxResetテストをsandboxRunBlockに変更
 - `search_memory` の `mode` パラメータ削除に伴いテストの `mode="keyword"` を `mode="hybrid"` に
+
+### F020: メモリタイムライン可視化（2026-05-15）
+- vis-timeline standalone UMD ビルドを使用（vis-data, moment.js 内包）
+- データソース: `GET /api/observations/{persona}` から最大5ページ取得しクライアント側フィルタ
+- 21種感情色マッピング + 絵文字。重要度でフォントサイズ変動（0.65rem + imp*0.2）
+- showSkeleton スキップ対象（#tl-loading で自前ローディング管理）
+- ダッシュボードタブ順: overview→analytics→memories→**timeline**→graph→…→admin
+- Alt+1〜0 ショートカット（Alt+4=Timeline）

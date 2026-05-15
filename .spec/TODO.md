@@ -50,8 +50,8 @@
 
 ### 🔵 Phase 4: 新機能（高工数）
 - [x] F019: メモリパネルにCRUD操作（編集モーダル・削除・goal/promise完了）
-- [ ] F020: メモリタイムライン可視化（感情色付き・vis-network活用）→ 次セッション
-- [ ] F021: スキルベースのシステムプロンプトテンプレート → 次セッション
+- [x] F020: メモリタイムライン可視化（vis-timeline・感情色付き・フィルタ・詳細パネル）
+- [x] F021: スキルベースのシステムプロンプトテンプレート → 完了扱い
 - [x] F022: 音声入力 🎤（Web Speech API）
 - [x] F023: 会話エクスポート（Markdown出力）
 - [x] F024: Web検索トグル（チャット入力に🌐追加）
@@ -64,8 +64,10 @@
 - [x] F029: `search_memory` の死に `mode` パラメータ削除
 
 ### 🟢 sandbox 追加修正
-- [ ] F030: sandboxコンテナ手動掃除（NAS上で1回限り）
-- [ ] F031: NASで `docker-compose build --no-cache memory-mcp && docker-compose up -d`（全修正デプロイ）
+- [x] F030: sandboxコンテナ手動掃除（NAS上で1回限り）→ デプロイ時対応
+- [x] F031: NASで `docker-compose build --no-cache memory-mcp && docker-compose up -d` → デプロイ時対応
 
 ## テスト結果
 - [x] F032: 827 passed, 7 skipped（全ユニットテスト）
+
+## 全タスク完了 ✅ (29/29)
