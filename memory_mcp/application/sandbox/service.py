@@ -353,8 +353,22 @@ class SandboxSession:
             raise RuntimeError(f"Failed to start sandbox: {e}") from e
 
     async def execute(self, code: str, language: str = "python", libraries: list[str] | None = None) -> ExecResult:
-        """Execute code in the appropriate sandbox session."""
-        if language in ("python", "py"):
+        """Execute code in the appropriate sandbox session.
+
+        bash/shell/shell は専用コンテナが無いため、Python IPython セッション内で
+        subprocess 経由で実行する。
+        """
+        if language in ("python", "py", "bash", "shell", "sh"):
+            if language in ("bash", "shell", "sh"):
+                import json as _json
+
+                code = (
+                    "import subprocess as _sp; "
+                    f"r = _sp.run({_json.dumps(code)}, "
+                    "shell=True, capture_output=True, text=True); "
+                    "print(r.stdout, end=''); "
+                    "__import__('sys').stderr.write(r.stderr)"
+                )
             return await self._execute_python(code)
         return await self._execute_stateless(code, language, libraries or [])
 
@@ -453,22 +467,38 @@ class SandboxSession:
             await self._ensure_python_started()
             code = f"""
 import os, json
+target = {path!r}
 result = []
-try:
-    for entry in os.scandir({path!r}):
-        result.append({{"name": entry.name, "path": entry.path, "is_dir": entry.is_dir(), "size": entry.stat().st_size if not entry.is_dir() else 0}})
-except Exception as e:
-    result = [{{"error": str(e)}}]
+if not os.path.exists(target):
+    result = [{{"error": f"Path does not exist: {{target}}"}}]
+else:
+    try:
+        for entry in os.scandir(target):
+            try:
+                st = entry.stat(follow_symlinks=False)
+                is_dir = (st.st_mode & 0o170000) == 0o040000  # S_ISDIR
+                size = st.st_size if not is_dir else 0
+            except OSError:
+                is_dir, size = False, 0
+            result.append({{"name": entry.name, "path": entry.path, "is_dir": is_dir, "size": size}})
+    except Exception as e:
+        result = [{{"error": str(e), "target": target}}]
 print(json.dumps(result))
 """
             try:
                 exec_result = await asyncio.to_thread(self._python_session.run, code)
                 import json
 
-                entries = json.loads(exec_result.stdout.strip())
-                return [SandboxFileInfo(**e) for e in entries if "error" not in e]
+                raw = (exec_result.stdout or "").strip()
+                entries = json.loads(raw)
+                file_infos = [SandboxFileInfo(**e) for e in entries if "error" not in e]
+                if not file_infos and entries:
+                    errors = [e for e in entries if "error" in e]
+                    logger.warning("list_files path=%s errors: %s", path, errors)
+                logger.debug("list_files path=%s found %d entries", path, len(file_infos))
+                return file_infos
             except Exception as e:
-                logger.warning("list_files error: %s", e)
+                logger.warning("list_files error for path=%s: %s", path, e)
                 return []
 
     async def read_file(self, remote_path: str) -> bytes:
