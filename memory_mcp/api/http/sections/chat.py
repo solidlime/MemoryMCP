@@ -1396,7 +1396,6 @@ function toggleVoiceInput() {
     };
     _voiceRecognition.start();
 }
-}
 
 function appendToolEvent(eventType, data) {
     const container = document.getElementById('chat-messages');
