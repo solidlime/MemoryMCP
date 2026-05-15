@@ -148,7 +148,7 @@ def render_timeline_js() -> str:
 /* =================================================================
    MEMORY TIMELINE
    ================================================================= */
-const EMOTION_COLORS = {
+const TL_EMOTION_COLORS = {
     joy:         { bg: 'rgba(251,191,36,0.15)',  border: '#FBBF24', emoji: '😊' },
     sadness:     { bg: 'rgba(96,165,250,0.15)',  border: '#60A5FA', emoji: '😢' },
     anger:       { bg: 'rgba(248,113,113,0.15)', border: '#F87171', emoji: '😠' },
@@ -173,14 +173,14 @@ const EMOTION_COLORS = {
 };
 
 function getEmotionStyle(emotion) {
-    return EMOTION_COLORS[emotion] || EMOTION_COLORS['neutral'];
+    return TL_EMOTION_COLORS[emotion] || TL_EMOTION_COLORS['neutral'];
 }
 
 function buildEmotionLegend() {
     const legend = document.getElementById('tl-legend');
     if (!legend) return;
     let html = '';
-    for (const [emo, style] of Object.entries(EMOTION_COLORS)) {
+    for (const [emo, style] of Object.entries(TL_EMOTION_COLORS)) {
         html += '<span><span class="tl-legend-dot" style="background:' + style.border + '"></span>' + style.emoji + ' ' + emo + '</span>';
     }
     legend.innerHTML = html;
@@ -188,8 +188,8 @@ function buildEmotionLegend() {
     const sel = document.getElementById('tl-emotion');
     if (sel) {
         sel.innerHTML = '<option value="">すべて</option>';
-        for (const emo of Object.keys(EMOTION_COLORS).sort()) {
-            sel.innerHTML += '<option value="' + emo + '">' + EMOTION_COLORS[emo].emoji + ' ' + emo + '</option>';
+        for (const emo of Object.keys(TL_EMOTION_COLORS).sort()) {
+            sel.innerHTML += '<option value="' + emo + '">' + TL_EMOTION_COLORS[emo].emoji + ' ' + emo + '</option>';
         }
     }
 }
