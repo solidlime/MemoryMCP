@@ -199,21 +199,20 @@ def _verify_sandbox_mounts(session: object, container_configs: dict, persona: st
 def _cleanup_stale_sandbox_container(persona: str) -> None:
     """Remove any existing Docker container with the sandbox name for this persona.
 
-    Prevents accumulation of stale containers when sessions are recreated
-    (e.g. after server restart, reset, or docker_host change).
+    Uses Python Docker SDK (via docker.from_env()) so it respects DOCKER_HOST,
+    unlike subprocess("docker rm -f") which requires docker CLI installed.
     """
     container_name = f"sandbox-{persona}"
     try:
-        import subprocess as _sp
+        import docker
 
-        result = _sp.run(
-            ["docker", "rm", "-f", container_name],
-            capture_output=True, text=True, timeout=10,
-        )
-        if result.returncode == 0:
+        client = docker.from_env()
+        try:
+            container = client.containers.get(container_name)
+            container.remove(force=True)
             logger.info("Removed stale sandbox container: %s", container_name)
-        elif "No such container" not in result.stderr:
-            logger.debug("Container cleanup: %s", result.stderr.strip())
+        except docker.errors.NotFound:
+            pass
     except Exception as exc:
         logger.debug("Container cleanup skipped: %s", exc)
 
