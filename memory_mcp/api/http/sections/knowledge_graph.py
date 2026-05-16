@@ -505,10 +505,10 @@ function openGraphDetailPanel(data) {
         html += '</div>';
     }
 
-    /* Multi-emotion bars */
-    if (data.emotions && Object.keys(data.emotions).length > 0) {
+    /* Emotion bar */
+    if (data.emotion) {
         html += '<div style="margin-bottom:16px">';
-        html += renderEmotionBars(data.emotions);
+        html += renderEmotionBars(data.emotion, data.emotion_intensity);
         html += '</div>';
     }
 

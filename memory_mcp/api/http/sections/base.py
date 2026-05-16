@@ -702,44 +702,27 @@ function renderBodyStateBars(bodyState) {
     return html;
 }
 
-function renderEmotionBars(emotions) {
-    if (!emotions) return '';
-    const entries = Object.entries(emotions).filter(function(e) { return e[1] > 0.05; })
-        .sort(function(a,b) { return b[1]-a[1]; }).slice(0, 3);
-    if (entries.length === 0) return '';
-    let html = '<div class="mem-modal-row"><span class="mem-modal-key">Emotions</span><span style="display:flex;flex-direction:column;gap:6px;flex:1">';
-    entries.forEach(function(e) {
-        const name = e[0];
-        const val = e[1];
-        const color = EMOTION_BAR_COLORS[name] || EMOTION_BAR_COLORS.neutral;
-        const pct = Math.round(val * 100);
-        html += '<div style="display:flex;align-items:center;gap:8px">';
-        html += '<span style="font-size:0.75rem;color:var(--text-muted);min-width:70px;text-transform:capitalize">' + esc(name) + '</span>';
-        html += '<div style="flex:1;height:5px;background:rgba(255,255,255,0.1);border-radius:3px;overflow:hidden">';
-        html += '<div style="height:100%;width:' + pct + '%;background:' + color + ';border-radius:3px"></div>';
-        html += '</div>';
-        html += '<span style="font-size:0.75rem;color:var(--text-muted);min-width:32px;text-align:right">' + pct + '%</span>';
-        html += '</div>';
-    });
-    html += '</span></div>';
-    return html;
+function renderEmotionBars(emotion, emotion_intensity) {
+    if (!emotion) return '';
+    const pct = Math.round((emotion_intensity || 0) * 100);
+    if (pct <= 0) return '';
+    const color = EMOTION_BAR_COLORS[emotion] || EMOTION_BAR_COLORS.neutral;
+    return '<div class="mem-modal-row"><span class="mem-modal-key">Emotion</span><span style="display:flex;flex-direction:column;gap:6px;flex:1">' +
+        '<div style="display:flex;align-items:center;gap:8px">' +
+        '<span style="font-size:0.75rem;color:var(--text-muted);min-width:70px;text-transform:capitalize">' + esc(emotion) + '</span>' +
+        '<div style="flex:1;height:5px;background:rgba(255,255,255,0.1);border-radius:3px;overflow:hidden">' +
+        '<div style="height:100%;width:' + pct + '%;background:' + color + ';border-radius:3px"></div>' +
+        '</div>' +
+        '<span style="font-size:0.75rem;color:var(--text-muted);min-width:32px;text-align:right">' + pct + '%</span>' +
+        '</div></span></div>';
 }
 
 /* Compact emotion badges for list/card views */
-function renderEmotionBadges(emotions) {
-    if (!emotions) return '';
-    const entries = Object.entries(emotions).filter(function(e) { return e[1] > 0.05; })
-        .sort(function(a,b) { return b[1]-a[1]; }).slice(0, 3);
-    if (entries.length === 0) return '';
-    let html = '';
-    entries.forEach(function(e) {
-        const name = e[0];
-        const val = e[1];
-        const color = EMOTION_COLORS[name] || '#94a3b8';
-        const pct = Math.round(val * 100);
-        html += '<span style="font-size:0.65rem;display:inline-block;padding:1px 5px;border-radius:3px;background:' + color + '22;color:' + color + ';border:1px solid ' + color + '44;margin-right:3px">' + esc(name) + ' ' + pct + '%</span>';
-    });
-    return html;
+function renderEmotionBadges(emotion, emotion_intensity) {
+    if (!emotion) return '';
+    const pct = Math.round((emotion_intensity || 0) * 100);
+    const color = EMOTION_COLORS[emotion] || '#94a3b8';
+    return '<span style="font-size:0.65rem;display:inline-block;padding:1px 5px;border-radius:3px;background:' + color + '22;color:' + color + ';border:1px solid ' + color + '44;margin-right:3px">' + esc(emotion) + ' ' + pct + '%</span>';
 }
 
 /* Compact body state indicator for list/card views - shows all 5 metrics */
@@ -945,11 +928,8 @@ function openMemModal(mem) {
     const content = document.getElementById('mem-modal-content');
     const tags = (mem.tags || []).map(t => '<span class="badge badge-purple">' + esc(t) + '</span>').join(' ');
     var emoHtml = '';
-    if (mem.emotions && Object.keys(mem.emotions).length > 0) {
-        var topEmo = Object.entries(mem.emotions).filter(function(e) { return e[1] > 0.05; }).sort(function(a,b) { return b[1]-a[1]; }).slice(0, 2);
-        emoHtml = topEmo.map(function(e) { return '<span class="badge badge-pink">' + esc(e[0]) + ' ' + (e[1]*100).toFixed(0) + '%</span>'; }).join(' ');
-    } else if (mem.emotion_type) {
-        emoHtml = '<span class="badge badge-pink">😊 ' + esc(mem.emotion_type) + (mem.emotion_intensity != null ? ' (' + (mem.emotion_intensity * 100).toFixed(0) + '%)' : '') + '</span>';
+    if (mem.emotion) {
+        emoHtml = '<span class="badge badge-pink">😊 ' + esc(mem.emotion) + (mem.emotion_intensity != null ? ' (' + (mem.emotion_intensity * 100).toFixed(0) + '%)' : '') + '</span>';
     }
     content.innerHTML = `
         <div class="mem-modal-header">
@@ -970,7 +950,7 @@ function openMemModal(mem) {
             ${mem.state_snapped_at && mem.state_snapped_at !== mem.created_at ? `<div class="mem-modal-row"><span class="mem-modal-key">State</span><span>📸 ${relativeTime(mem.state_snapped_at)} <span style="color:var(--text-muted);font-size:0.75rem">(${new Date(mem.state_snapped_at).toLocaleString('ja-JP')})</span></span></div>` : ''}
             ${mem.updated_at ? `<div class="mem-modal-row"><span class="mem-modal-key">Updated</span><span>📅 ${relativeTime(mem.updated_at)}</span></div>` : ''}
             ${mem.body_state ? renderBodyStateBars(mem.body_state) : ''}
-            ${mem.emotions && Object.keys(mem.emotions).length > 0 ? renderEmotionBars(mem.emotions) : ''}
+            ${mem.emotion ? renderEmotionBars(mem.emotion, mem.emotion_intensity) : ''}
         </div>`;
     overlay.style.display = 'flex';
     overlay.classList.add('show');

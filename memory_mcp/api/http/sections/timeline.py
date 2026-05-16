@@ -329,25 +329,8 @@ function showTimelineDetail(mem) {
             bodyHtml += '</div>';
         }
     }
-    if (mem.emotions && Object.keys(mem.emotions).length > 0) {
-        var emoEntries = Object.entries(mem.emotions).filter(function(e){ return e[1] > 0.05; }).sort(function(a,b){ return b[1]-a[1]; }).slice(0, 3);
-        if (emoEntries.length > 0) {
-            var emoBarColors = {joy:'linear-gradient(90deg,#fbbf24,#fcd34d)',sadness:'linear-gradient(90deg,#60a5fa,#93c5fd)',anger:'linear-gradient(90deg,#ef4444,#fca5a5)',fear:'linear-gradient(90deg,#a855f7,#c4b5fd)',disgust:'linear-gradient(90deg,#22c55e,#86efac)',surprise:'linear-gradient(90deg,#ec4899,#f9a8d4)',love:'linear-gradient(90deg,#fb7185,#fda4af)',trust:'linear-gradient(90deg,#14b8a6,#5eead4)',anticipation:'linear-gradient(90deg,#f97316,#fdba74)',curiosity:'linear-gradient(90deg,#6366f1,#a5b4fc)',neutral:'linear-gradient(90deg,#9ca3af,#d1d5db)',excitement:'linear-gradient(90deg,#f59e0b,#fbbf24)',pride:'linear-gradient(90deg,#818cf8,#a5b4fc)',shame:'linear-gradient(90deg,#fb7185,#fda4af)',nostalgia:'linear-gradient(90deg,#a78bfa,#c4b5fd)',anxiety:'linear-gradient(90deg,#f87171,#fca5a5)',contentment:'linear-gradient(90deg,#86efac,#bbf7d0)',frustration:'linear-gradient(90deg,#fb923c,#fdba74)',loneliness:'linear-gradient(90deg,#94a3b8,#cbd5e1)',awe:'linear-gradient(90deg,#c084fc,#e9d5ff)',relief:'linear-gradient(90deg,#6ee7b7,#a7f3d0)'};
-            bodyHtml += '<div><div class="tl-detail-label">Emotions</div>';
-            emoEntries.forEach(function(e) {
-                var name = e[0], val = e[1];
-                var color = emoBarColors[name] || emoBarColors.neutral;
-                var pct = Math.round(val * 100);
-                bodyHtml += '<div style="display:flex;align-items:center;gap:6px;margin-top:4px;">';
-                bodyHtml += '<span style="font-size:0.7rem;color:var(--text-muted);min-width:70px;text-transform:capitalize">' + name + '</span>';
-                bodyHtml += '<div style="flex:1;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden">';
-                bodyHtml += '<div style="height:100%;width:' + pct + '%;background:' + color + ';border-radius:2px"></div>';
-                bodyHtml += '</div>';
-                bodyHtml += '<span style="font-size:0.7rem;color:var(--text-muted);min-width:28px;text-align:right">' + pct + '%</span>';
-                bodyHtml += '</div>';
-            });
-            bodyHtml += '</div>';
-        }
+    if (mem.emotion) {
+        bodyHtml += '<div style="margin-bottom:16px">' + renderEmotionBars(mem.emotion, mem.emotion_intensity) + '</div>';
     }
     document.getElementById('tl-detail-body').innerHTML = bodyHtml;
 

@@ -101,26 +101,11 @@ class SearchEngine:
         results: list[SearchResult],
         emotion: str | None,
     ) -> list[SearchResult]:
-        """Post-filter results by emotion using normalized comparison.
-        Checks both single emotion field and multi-dimensional emotions dict."""
+        """Post-filter results by emotion using normalized comparison."""
         if emotion is None:
             return results
         target = normalize_emotion(emotion)
-
-        def _matches(memory: Memory) -> bool:
-            if normalize_emotion(memory.emotion) == target:
-                return True
-            if memory.emotions:
-                # Check if target emotion exists in multi-dim dict with value > 0
-                if target in memory.emotions and memory.emotions[target] > 0:
-                    return True
-                # Also check normalized variants
-                for key, val in memory.emotions.items():
-                    if val > 0 and normalize_emotion(key) == target:
-                        return True
-            return False
-
-        return [r for r in results if _matches(r.memory)]
+        return [r for r in results if normalize_emotion(r.memory.emotion) == target]
 
     @staticmethod
     def _to_search_results(

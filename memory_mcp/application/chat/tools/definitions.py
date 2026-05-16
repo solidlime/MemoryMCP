@@ -38,10 +38,6 @@ MEMORY_TOOLS: list[ToolDefinition] = [
             "properties": {
                 "emotion": {"type": "string", "description": "感情タイプ"},
                 "emotion_intensity": {"type": "number", "description": "感情強度 0.0〜1.0"},
-                "emotions": {
-                    "type": "object",
-                    "description": "9基本感情dict (joy/sadness/anger/fear/disgust/surprise/love/trust/anticipation: 0.0-1.0)。emotionより優先",
-                },
                 "mental_state": {"type": "string", "description": "精神状態の説明"},
                 "context_note": {
                     "type": "string",
@@ -113,10 +109,6 @@ MEMORY_TOOLS: list[ToolDefinition] = [
                 "query": {"type": "string", "description": "更新したい記憶を検索するクエリ"},
                 "new_content": {"type": "string", "description": "新しい内容"},
                 "importance": {"type": "number", "description": "新しい重要度（省略可）"},
-                "emotions": {
-                    "type": "object",
-                    "description": "更新する9基本感情dict (joy/sadness/anger/fear/disgust/surprise/love/trust/anticipation: 0.0-1.0)",
-                },
             },
             "required": ["query", "new_content"],
         },

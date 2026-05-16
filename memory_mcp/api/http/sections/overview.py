@@ -335,26 +335,22 @@ async function loadOverview() {
                             curiosity: ['#6366f1', '#a5b4fc'],
                             neutral: ['#9ca3af', '#d1d5db']
                         };
-                        if (ctx.emotions && Object.keys(ctx.emotions).length > 0) {
-                            var top5 = Object.entries(ctx.emotions).filter(function(e) { return e[1] > 0.05; }).sort(function(a,b) { return b[1]-a[1]; }).slice(0, 5);
-                            if (top5.length > 0) {
-                                var bars = top5.map(function(e) {
-                                    var colors = emotionColors[e[0]] || emotionColors.neutral;
-                                    var pct = (e[1]*100).toFixed(0);
-                                    return '<div style="margin-bottom:8px">' +
-                                        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">' +
-                                        '<span style="font-size:0.78rem;color:var(--text-muted)">' + esc(e[0]) + '</span>' +
-                                        '<span style="font-size:0.78rem;color:var(--text-secondary);font-weight:600">' + pct + '%</span>' +
-                                        '</div>' +
-                                        '<div style="height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden">' +
-                                        '<div style="height:100%;width:' + pct + '%;background:linear-gradient(90deg,' + colors[0] + ',' + colors[1] + ');border-radius:3px;transition:width 0.4s ease"></div>' +
-                                        '</div>' +
-                                        '</div>';
-                                }).join('');
-                                return '<div style="margin-bottom:12px">' + bars + '</div>';
-                            }
+                        if (ctx.emotion) {
+                            var colors = emotionColors[ctx.emotion] || emotionColors.neutral;
+                            var pct = (ctx.emotion_intensity || 0) * 100;
+                            pct = Math.round(pct);
+                            return '<div style="margin-bottom:12px">' +
+                                '<div style="margin-bottom:8px">' +
+                                '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">' +
+                                '<span style="font-size:0.78rem;color:var(--text-muted)">' + esc(ctx.emotion) + '</span>' +
+                                '<span style="font-size:0.78rem;color:var(--text-secondary);font-weight:600">' + pct + '%</span>' +
+                                '</div>' +
+                                '<div style="height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden">' +
+                                '<div style="height:100%;width:' + pct + '%;background:linear-gradient(90deg,' + colors[0] + ',' + colors[1] + ');border-radius:3px;transition:width 0.4s ease"></div>' +
+                                '</div>' +
+                                '</div></div>';
                         }
-                        return '<div style="font-size:0.9rem;color:var(--text-muted);margin-bottom:12px">' + esc(ctx.emotion || '--') + (ctx.emotion_intensity != null ? ' · ' + (ctx.emotion_intensity * 100).toFixed(0) + '%' : '') + '</div>';
+                        return '<div style="font-size:0.9rem;color:var(--text-muted);margin-bottom:12px">--</div>';
                     })()}
                     <div style="display:flex;flex-direction:column;gap:6px">
                         <div><span style="font-size:0.78rem;color:var(--text-muted)">Physical: </span><span style="font-size:0.85rem">${esc(ctx.physical_state || '--')}</span></div>

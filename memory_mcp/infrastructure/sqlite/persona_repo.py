@@ -70,7 +70,6 @@ class SQLitePersonaRepository:
                     persona=persona,
                     emotion=state_map.get("emotion", "neutral"),
                     emotion_intensity=float(state_map.get("emotion_intensity", "0.0")),
-                    emotions=_parse_emotions_json(state_map.get("emotions")),
                     physical_state=state_map.get("physical_state"),
                     mental_state=state_map.get("mental_state"),
                     environment=state_map.get("environment"),
@@ -158,13 +157,12 @@ class SQLitePersonaRepository:
             self._db.execute(
                 """
                 INSERT INTO emotion_history
-                    (emotion_type, intensity, emotions, timestamp, trigger_memory_key, context)
-                VALUES (?, ?, ?, ?, ?, ?)
+                    (emotion_type, intensity, timestamp, trigger_memory_key, context)
+                VALUES (?, ?, ?, ?, ?)
                 """,
                 (
                     record.emotion_type,
                     record.intensity,
-                    json.dumps(record.emotions, ensure_ascii=False) if record.emotions else None,
                     format_iso(record.timestamp) if record.timestamp else now,
                     record.trigger_memory_key,
                     record.context,
@@ -291,30 +289,14 @@ class SQLitePersonaRepository:
 
     @staticmethod
     def _row_to_emotion_record(row) -> EmotionRecord:
-        try:
-            emotions_raw = row["emotions"]
-        except (KeyError, IndexError):
-            emotions_raw = None
         return EmotionRecord(
             id=row["id"],
             emotion_type=row["emotion_type"],
             intensity=row["intensity"] or 0.5,
-            emotions=_parse_emotions_json(emotions_raw),
             timestamp=parse_iso(row["timestamp"]),
             trigger_memory_key=row["trigger_memory_key"],
             context=row["context"],
         )
-
-
-def _parse_emotions_json(value: str | None) -> dict[str, float]:
-    """Parse emotions JSON from context_state or history."""
-    if not value:
-        return {}
-    try:
-        raw = json.loads(value)
-        return {k: float(v) for k, v in raw.items() if isinstance(v, (int, float))}
-    except (json.JSONDecodeError, TypeError, ValueError):
-        return {}
 
 
 def _resolve_last_conversation_time(db, state_map: dict):

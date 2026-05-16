@@ -1314,7 +1314,7 @@ function updateMemoryPanel(retrieved, saved, goals, promises) {
                     const content = esc((m.content || '').substring(0, 80));
                     const meta = [score ? 'score:' + score : '', imp ? 'imp:' + imp : ''].filter(Boolean).join(' ');
                     const key = m.key || '';
-                    const emotionBadges = renderEmotionBadges(m.emotions);
+                    const emotionBadges = renderEmotionBadges(m.emotion, m.emotion_intensity);
                     const bodyCompact = renderBodyStateCompact(m.body_state);
                     const extra = [emotionBadges, bodyCompact].filter(Boolean).join(' ');
                     return '<div class="memory-item-card" data-key="' + escAttr(key) + '" data-content="' + escAttr(m.content || '') + '" data-importance="' + (m.importance || 0.5) + '" data-tags="' + escAttr((m.tags || []).join(',')) + '" onclick="openMemEdit(this)">' +
@@ -1337,7 +1337,7 @@ function updateMemoryPanel(retrieved, saved, goals, promises) {
                     const content = esc((m.content || '').substring(0, 80));
                     const tags = m.tags ? m.tags.join(', ') : '';
                     const key = m.key || '';
-                    const emotionBadges = renderEmotionBadges(m.emotions);
+                    const emotionBadges = renderEmotionBadges(m.emotion, m.emotion_intensity);
                     const bodyCompact = renderBodyStateCompact(m.body_state);
                     const extra = [emotionBadges, bodyCompact].filter(Boolean).join(' ');
                     return '<div class="memory-item-card" data-key="' + escAttr(key) + '" data-content="' + escAttr(m.content || '') + '" data-importance="' + (m.importance || 0.5) + '" data-tags="' + escAttr((m.tags || []).join(',')) + '" onclick="openMemEdit(this)">' + content +

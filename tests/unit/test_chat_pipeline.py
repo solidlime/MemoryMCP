@@ -77,43 +77,29 @@ class TestChatTurnContext:
 
 
 class TestComputeEmotionDecay:
-    def test_no_decay_for_neutral(self):
-        """All-zero emotions → no decay (empty dict returned)."""
+    def test_zero_intensity_no_decay(self):
+        """Zero intensity → no decay needed, returns 0.0."""
         from memory_mcp.domain.persona.emotion_decay import compute_emotion_decay
 
-        emotions = {
-            "joy": 0.0,
-            "sadness": 0.0,
-            "anger": 0.0,
-            "fear": 0.0,
-            "disgust": 0.0,
-            "surprise": 0.0,
-            "love": 0.0,
-            "trust": 0.0,
-            "anticipation": 0.0,
-        }
-        result = compute_emotion_decay(emotions, elapsed_hours=10)
-        assert result == {}
+        result = compute_emotion_decay(intensity=0.0, elapsed_hours=10)
+        assert result == 0.0
 
-    def test_anger_decays_after_threshold(self):
-        """anger half-life=3h, elapsed=4h → significant decay."""
+    def test_decay_after_elapsed(self):
+        """intensity=0.8, elapsed=48h (2 half-lives) → 0.8 * 0.25 = 0.2."""
         from memory_mcp.domain.persona.emotion_decay import compute_emotion_decay
 
-        emotions = {"anger": 0.8}
-        result = compute_emotion_decay(emotions, elapsed_hours=4.0)
-        assert result  # non-empty
-        assert "anger" in result
-        assert result["anger"] < 0.8  # decayed
-        # 4h / 3h half-life → factor 0.5^(4/3) ≈ 0.397 → 0.8*0.397 ≈ 0.317
-        assert result["anger"] < 0.5
+        result = compute_emotion_decay(intensity=0.8, elapsed_hours=48.0)
+        assert result > 0.0
+        assert result < 0.8  # decayed
+        # 48h / 24h half-life → factor 0.5^(2) = 0.25 → 0.8*0.25 = 0.2
+        assert 0.19 <= result <= 0.21
 
     def test_no_change_for_zero_elapsed(self):
-        """Zero elapsed → no decay."""
+        """Zero elapsed → decay returns 0.0 (caller skips when elapsed <= 0)."""
         from memory_mcp.domain.persona.emotion_decay import compute_emotion_decay
 
-        emotions = {"anger": 0.8, "joy": 0.5}
-        result = compute_emotion_decay(emotions, elapsed_hours=0)
-        assert result == {}
+        result = compute_emotion_decay(intensity=0.8, elapsed_hours=0)
+        assert result == 0.0
 
 
 # --- ToolRegistry ---

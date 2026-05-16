@@ -8,7 +8,6 @@ from mcp.server.fastmcp import FastMCP  # noqa: TC002
 
 from memory_mcp.api.mcp.middleware import get_current_persona
 from memory_mcp.application.use_cases import AppContextRegistry
-from memory_mcp.domain.persona.entities import BASIC_EMOTIONS
 from memory_mcp.domain.search.engine import SearchQuery
 from memory_mcp.domain.shared.time_utils import get_now, relative_time_str
 
@@ -141,14 +140,6 @@ async def _tool_get_context(ctx: AppContext, persona: str) -> str:
     )
 
 
-def _compute_dominant_from_emotions(emotions: dict[str, float] | None) -> str:
-    """Derive dominant emotion name from emotions dict."""
-    if not emotions:
-        return "neutral"
-    dominant = max(emotions.items(), key=lambda kv: kv[1])
-    return dominant[0] if dominant[1] > 0 else "neutral"
-
-
 async def _tool_memory_create(
     ctx: AppContext,
     persona: str,
@@ -159,7 +150,7 @@ async def _tool_memory_create(
     source_context: str | None = None,
     defer_vector: bool = False,
 ) -> str:
-    """Create a memory. Current persona state (emotions, body_state) is automatically
+    """Create a memory. Current persona state (emotion, body_state) is automatically
     snapshotted at creation time. Always call context_update/update_context *before*
     memory_create if your emotional/physical state has changed, so the snapshot
     captures your latest state."""
@@ -170,7 +161,7 @@ async def _tool_memory_create(
     importance = importance if importance is not None else 0.5
 
     # Auto-snapshot current persona state
-    emotions_snap, body_snap, snapped_at = ctx.persona_service.get_state_snapshot(persona)
+    emotion_snap, intensity_snap, body_snap, snapped_at = ctx.persona_service.get_state_snapshot(persona)
 
     result = ctx.memory_service.create_memory(
         content=content,
@@ -178,8 +169,8 @@ async def _tool_memory_create(
         tags=tags,
         privacy_level=privacy_level or "internal",
         source_context=source_context,
-        emotions=emotions_snap,
-        emotion=_compute_dominant_from_emotions(emotions_snap),
+        emotion=emotion_snap,
+        emotion_intensity=intensity_snap,
         body_state=body_snap,
         state_snapped_at=snapped_at,
     )
@@ -207,13 +198,7 @@ async def _tool_memory_read(
                 logger.warning(f"boost_recall failed: {e}")
             m = result.value
             emotion_line = f"Emotion: {m.emotion}"
-            if m.emotions:
-                active = [f"{k}={v:.2f}" for k, v in m.emotions.items() if v > 0.05]
-                if active:
-                    emotion_line += f"\nEmotions: {' '.join(active)}"
-                else:
-                    emotion_line += "\nEmotions: (all zero)"
-            elif m.emotion_intensity:
+            if m.emotion_intensity:
                 emotion_line += f" (intensity: {m.emotion_intensity})"
             return (
                 f"Key: {m.key}\nContent: {m.content}\n"
@@ -237,7 +222,6 @@ async def _tool_memory_update(
     importance: float | None = None,
     emotion_type: str | None = None,
     emotion_intensity: float | None = None,
-    emotions: dict | None = None,
     tags: list[str] | None = None,
     privacy_level: str | None = None,
 ) -> str:
@@ -252,22 +236,14 @@ async def _tool_memory_update(
             return "Error: importance must be between 0.0 and 1.0"
         updates["importance"] = max(0.0, min(1.0, importance))
     update_warning = ""
-    if emotions is not None:
-        updates["emotions"] = json.dumps(emotions)
-        from memory_mcp.domain.persona.entities import compute_dominant_emotion
-
-        dominant_name, dominant_intensity = compute_dominant_emotion(emotions)
-        updates["emotion"] = dominant_name
-        updates["emotion_intensity"] = dominant_intensity
-    else:
-        if emotion_type is not None:
-            if emotion_type not in _VALID_EMOTIONS:
-                update_warning = (
-                    f"[Warning: emotion_type '{emotion_type}' is not a valid emotion, defaulted to 'neutral']\n"
-                )
-            updates["emotion"] = emotion_type
-        if emotion_intensity is not None:
-            updates["emotion_intensity"] = emotion_intensity
+    if emotion_type is not None:
+        if emotion_type not in _VALID_EMOTIONS:
+            update_warning = (
+                f"[Warning: emotion_type '{emotion_type}' is not a valid emotion, defaulted to 'neutral']\n"
+            )
+        updates["emotion"] = emotion_type
+    if emotion_intensity is not None:
+        updates["emotion_intensity"] = emotion_intensity
     if tags is not None:
         updates["tags"] = tags
     if privacy_level is not None:
@@ -324,7 +300,6 @@ async def _tool_memory_search(
     emotion: str | None = None,
     importance_weight: float = 0.0,
     recency_weight: float = 0.0,
-    emotions: dict | None = None,
 ) -> str:
     """Search memories with hybrid retrieval."""
     if top_k is not None and (top_k < 1 or top_k > 200):
@@ -349,30 +324,12 @@ async def _tool_memory_search(
         return "No results found."
     ctx.memory_service.log_search(query, "hybrid", len(result.value))
 
-    # Apply emotional similarity boost if emotions query provided
-    if emotions:
-        for sr in result.value:
-            m = sr.memory
-            if m.emotions:
-                sim = _emotion_similarity(emotions, m.emotions)
-                sr.score = sr.score * (1.0 + sim * 0.5)  # boost by up to 50%
-        result.value.sort(key=lambda x: x.score, reverse=True)
-
     lines: list[str] = []
     for sr in result.value:
         m = sr.memory
-        # Show top emotions if multi-dimensional data available
-        sim_tag = ""
-        if emotions and m.emotions:
-            sim = _emotion_similarity(emotions, m.emotions)
-            sim_tag = f" [sim:{sim:.2f}]"
-        if m.emotions:
-            top_emotions = sorted(m.emotions.items(), key=lambda x: x[1], reverse=True)[:3]
-            emotion_str = ", ".join(f"{k}={v:.2f}" for k, v in top_emotions if v > 0.05)
-        else:
-            emotion_str = f"{m.emotion}={m.emotion_intensity:.2f}" if m.emotion_intensity else m.emotion
+        emotion_str = f"{m.emotion}={m.emotion_intensity:.2f}" if m.emotion_intensity else m.emotion
         lines.append(
-            f"[{sr.score:.3f}] [{sr.source}]{sim_tag} {m.key}\n"
+            f"[{sr.score:.3f}] [{sr.source}] {m.key}\n"
             f"  {m.content}\n"
             f"  importance={m.importance} emotion={emotion_str} tags={m.tags}"
         )
@@ -392,7 +349,6 @@ async def _tool_update_context(
     persona: str,
     emotion: str | None = None,
     emotion_intensity: float | None = None,
-    emotions: dict | None = None,
     physical_state: str | None = None,
     mental_state: str | None = None,
     environment: str | None = None,
@@ -410,15 +366,7 @@ async def _tool_update_context(
     body_state: {fatigue, warmth, arousal, heart_rate, pain (0.0-1.0)}."""
     updated: list[str] = []
 
-    # Multi-dimensional emotions (takes precedence over single emotion)
-    if emotions is not None:
-        from memory_mcp.domain.persona.entities import compute_dominant_emotion
-
-        result = ctx.persona_service.update_emotions(persona, emotions)
-        if result.is_ok:
-            dominant, intensity = compute_dominant_emotion(emotions)
-            updated.append(f"emotions={dominant}({intensity:.2f})")
-    elif emotion is not None:
+    if emotion is not None:
         result = ctx.persona_service.update_emotion(persona, emotion, emotion_intensity or 0.5)
         if result.is_ok:
             updated.append(f"emotion={emotion}")
@@ -957,13 +905,11 @@ def register_tools(mcp: FastMCP) -> None:
         importance: float | None = None,
         emotion_type: str | None = None,
         emotion_intensity: float | None = None,
-        emotions: dict | None = None,
         tags: list[str] | None = None,
         privacy_level: str | None = None,
     ) -> str:
         """Update a memory. Only provided fields are changed.
-        importance must be 0.0-1.0. Invalid emotion_type silently falls back to neutral.
-        emotions: 9基本感情dict {joy, sadness, anger, fear, disgust, surprise, love, trust, anticipation: 0.0-1.0}. Takes precedence over emotion_type/emotion_intensity."""
+        importance must be 0.0-1.0. Invalid emotion_type silently falls back to neutral."""
         p = _resolve_persona()
         return await _tool_memory_update(
             AppContextRegistry.get(p),
@@ -973,7 +919,6 @@ def register_tools(mcp: FastMCP) -> None:
             importance=importance,
             emotion_type=emotion_type,
             emotion_intensity=emotion_intensity,
-            emotions=emotions,
             tags=tags,
             privacy_level=privacy_level,
         )
@@ -996,12 +941,10 @@ def register_tools(mcp: FastMCP) -> None:
         emotion: str | None = None,
         importance_weight: float = 0.0,
         recency_weight: float = 0.0,
-        emotions: dict | None = None,
     ) -> str:
         """Search memories with hybrid retrieval. Use when conversation references past events
         or you need context about the user. date_range: "7d","30d","昨日".
-        importance_weight/recency_weight: RRF scoring boosts (0.0-1.0).
-        emotions: 9基本感情dict for emotional similarity boosting (e.g., {"joy":0.8,"love":0.5})."""
+        importance_weight/recency_weight: RRF scoring boosts (0.0-1.0)."""
         p = _resolve_persona()
         return await _tool_memory_search(
             AppContextRegistry.get(p),
@@ -1014,7 +957,6 @@ def register_tools(mcp: FastMCP) -> None:
             emotion=emotion,
             importance_weight=importance_weight,
             recency_weight=recency_weight,
-            emotions=emotions,
         )
 
     # memory_stats
@@ -1029,7 +971,6 @@ def register_tools(mcp: FastMCP) -> None:
     async def update_context(
         emotion: str | None = None,
         emotion_intensity: float | None = None,
-        emotions: dict | None = None,
         physical_state: str | None = None,
         mental_state: str | None = None,
         environment: str | None = None,
@@ -1045,15 +986,13 @@ def register_tools(mcp: FastMCP) -> None:
     ) -> str:
         """Update persona state. context_note: short note on current activity (session continuity).
         body_state: {fatigue, warmth, arousal, heart_rate, pain (0.0-1.0)}.
-        user_info: {name, nickname, preferred_address}. persona_info: {nickname, ...}.
-        emotions: 9基本感情dict {joy, sadness, anger, fear, disgust, surprise, love, trust, anticipation: 0.0-1.0}. Takes precedence over emotion/emotion_intensity."""
+        user_info: {name, nickname, preferred_address}. persona_info: {nickname, ...}."""
         p = _resolve_persona()
         return await _tool_update_context(
             AppContextRegistry.get(p),
             p,
             emotion=emotion,
             emotion_intensity=emotion_intensity,
-            emotions=emotions,
             physical_state=physical_state,
             mental_state=mental_state,
             environment=environment,
@@ -1249,17 +1188,8 @@ def _format_state_block(state: PersonaState) -> str:
         lines.append(f"  Body  : {' | '.join(body_parts)}")
 
     # Mind (emotions) line
-    if state.emotions and any(v > 0.05 for v in state.emotions.values()):
-        top_emotions = sorted(state.emotions.items(), key=lambda x: x[1], reverse=True)
-        active = [(k, v) for k, v in top_emotions if v > 0.05][:5]
-        if active:
-            mind_parts = [f"{k}:{v:.2f}" for k, v in active]
-            dominant = active[0][0] if active else "neutral"
-            lines.append(f"  Mind  : {' | '.join(mind_parts)}  (dominant: {dominant})")
-        else:
-            lines.append("  Mind  : neutral (dominant: neutral)")
-    elif state.emotion:
-        lines.append(f"  Mind  : {state.emotion}:{state.emotion_intensity:.2f}  (dominant: {state.emotion})")
+    if state.emotion:
+        lines.append(f"  Mind  : {state.emotion}:{state.emotion_intensity:.2f}")
 
     # Action line
     if state.action_tag:
@@ -1286,18 +1216,6 @@ def _format_state_diff(time_since: str) -> str:
         if not has_larger:
             return ""
     return f"\n⏱️ {time_since} elapsed since last session — body & emotions have naturally shifted."
-
-
-def _emotion_similarity(query_emotions: dict[str, float], mem_emotions: dict[str, float]) -> float:
-    """Compute cosine similarity between two emotion vectors."""
-    q_vec = [query_emotions.get(e, 0.0) for e in BASIC_EMOTIONS]
-    m_vec = [mem_emotions.get(e, 0.0) for e in BASIC_EMOTIONS]
-    dot = sum(a * b for a, b in zip(q_vec, m_vec, strict=True))
-    norm_q = (sum(a * a for a in q_vec)) ** 0.5
-    norm_m = (sum(b * b for b in m_vec)) ** 0.5
-    if norm_q == 0 or norm_m == 0:
-        return 0.0
-    return dot / (norm_q * norm_m)
 
 
 def _resolve_persona() -> str:
@@ -1400,9 +1318,9 @@ def _format_lightweight_response(
     if emotion_history and len(emotion_history) >= 2:
         recent_emotions = emotion_history[-5:]
         prev_emotion = recent_emotions[-2]
-        if prev_emotion.emotion_type != state.dominant_emotion:
+        if prev_emotion.emotion_type != state.emotion:
             trend = " → ".join(r.emotion_type for r in recent_emotions[-4:])
-            trend += f" → {state.dominant_emotion}"
+            trend += f" → {state.emotion}"
             lines.append(f"Your emotion trend: {trend}")
 
     # Equipment

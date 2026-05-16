@@ -499,3 +499,245 @@ MemoryRepository.save(memory)
 - **後方互換**: 既存クライアントが動作し続けること
 - **テスト件数目標**: 現状988件 → 700〜800件（質は落とさず行数半減）
 - **リファクタ範囲**: `memory_mcp/` 以下全ファイル。`scripts/` は対象外
+
+---
+
+# 実運用フィードバック修正（2026-05-17）
+
+## 🔴 Phase A: 感情モデルロールバック（最重要）
+
+### 背景
+- commit 57f3734 で多次元感情（`emotions: dict[str, float]`）を導入したが、複雑すぎて実用に耐えない
+- 単一感情タグ（`emotion: str`）+ 強度（`emotion_intensity: float`）に戻す
+- 時間経過でニュートラルに減衰する仕様は維持
+
+### A1: データモデル変更
+| 変更箇所 | ファイル | 内容 |
+|----------|----------|------|
+| Memoryエンティティ | `domain/memory/entities.py:22` | `emotions: dict[str, float] \| None` フィールド削除。`emotion: str` + `emotion_intensity: float` のみに |
+| PersonaState | `domain/persona/entities.py:31-68` | `emotions: dict \| None` + `dominant_emotion`/`dominant_intensity` プロパティ削除。`emotion: str` + `emotion_intensity: float` に統一 |
+| EmotionRecord | `domain/persona/entities.py:84-93` | `emotions: dict \| None` フィールド削除 |
+| `compute_dominant_emotion()` | `domain/persona/entities.py` | 関数削除 |
+
+### A2: DBマイグレーション
+| 項目 | 内容 |
+|------|------|
+| 新規マイグレーション | `migration/versions/v021_remove_multi_emotions.py` |
+| memories テーブル | `emotions TEXT` カラム削除 |
+| emotion_history テーブル | `emotions TEXT` カラム削除 |
+| 注意 | `emotion` (TEXT) + `emotion_intensity` (REAL) カラムは維持 |
+
+### A3: 感情減衰の単一化
+| 変更箇所 | ファイル | 内容 |
+|----------|----------|------|
+| 減衰設定 | `domain/persona/emotion_decay.py` | 多次元各感情の半減期 → 単一 `EMOTION_HALF_LIFE`（デフォルト24h）に |
+| `compute_emotion_decay()` | 同上 | 9次元個別計算 → 単一強度の指数減衰のみに |
+| `apply_emotion_decay_if_needed()` | 同上 | `update_emotions()` → `update_emotion(name, intensity)` に変更。孤独感自動生成ロジックも削除 |
+
+### A4: ツールシグネチャ変更
+| 変更箇所 | ファイル | 内容 |
+|----------|----------|------|
+| `_tool_memory_create` | `tools.py:152-190` | `emotions` パラメータ削除。`emotion` + `emotion_intensity` のみ |
+| `_tool_memory_update` | `tools.py:192-270` | `emotions` パラメータ削除 |
+| `_tool_update_context` | `tools.py:390-449` | `emotions` パラメータ削除。`emotion` + `emotion_intensity` のみ |
+| MCPツールラッパー | `tools.py:917-1069` | `emotions` パラメータを全ツールから削除 |
+| builtin handlers | `builtin.py:61-88, 123-148` | `emotions` 処理削除 |
+| definitions.py | `definitions.py` | `emotions` スキーマフィールド削除 |
+| `get_state_snapshot()` | `domain/persona/service.py:184-207` | 返り値から `emotions` dict 削除、`emotion`+`intensity` のみ |
+
+### A5: WebUI表示変更
+| 変更箇所 | ファイル | 内容 |
+|----------|----------|------|
+| `renderEmotionBars()` | `base.py:705-726` | 削除（多次元表示用） |
+| `EMOTION_BAR_COLORS` | `base.py:643-665` | 削除（多次元グラデーション用） |
+| `renderEmotionBars` 呼出箇所 | `memories.py:845-865`, `knowledge_graph.py:511`, `base.py:973`, `timeline.py` | `renderEmotionBadges()` + `emotion_type` 単一表示に置換 |
+| 感情検索フィルター | `memories.py:447-456` | 22感情ドロップダウンは維持（単一感情選択に使えるため） |
+| アナリティクス感情グラフ | `analytics.py:46-47` | 単一感情時系列グラフに変更 |
+
+---
+
+## 🔴 Phase B: 身体状態減衰修正（最重要）
+
+### B1: 減衰トリガー追加
+| 項目 | 内容 |
+|------|------|
+| 問題 | `body_decay.py` の減衰は `get_context()` 呼出時のみ発火。WebUIダッシュボード閲覧では減衰しない |
+| 修正 | `GET /api/dashboard/{persona}` および `GET /api/persona/{persona}` のレスポンス生成時にも `apply_body_decay_if_needed()` を呼ぶ |
+| 影響ファイル | `api/http/routers/persona.py`, `api/http/routers/dashboard.py` |
+| 補足 | 減衰ロジック自体（`body_decay.py`）は正しい。呼出箇所の追加のみ |
+
+### B2: 減衰ワーカー追加（オプション）
+| 項目 | 内容 |
+|------|------|
+| 新規 | `application/workers/state_decay_worker.py` |
+| 設計 | 既存 `DecayWorker`（記憶忘却用）と同パターンの常駐デーモンスレッド |
+| 間隔 | 設定 `state_decay_interval_seconds`（デフォルト300=5分） |
+| 処理 | `apply_body_decay_if_needed()` + `apply_emotion_decay_if_needed()` を全ペルソナに対して実行 |
+| 設定 | `config/settings.py` に `state_decay_interval_seconds: int = 300` 追加 |
+
+---
+
+## 🟡 Phase C: Goal/Promise ライフサイクル改善
+
+### C1: 達成/取消時の長期記憶化
+| 変更箇所 | ファイル | 内容 |
+|----------|----------|------|
+| `_tool_goal_manage` achieve/cancel | `tools.py:767` | タグ変更に加え `importance = max(importance, 0.7)` に引き上げ、`tags.append("archived")` 追加 |
+| `_tool_promise_manage` fulfill/cancel | `tools.py:810` | 同上 |
+| 補足 | `context_note` に「🎯 goal X を達成しました / 取消しました」を自動追記 |
+
+### C2: 安易なpromise追加の抑制
+| 変更箇所 | ファイル | 内容 |
+|----------|----------|------|
+| `_tool_promise_manage` create | `tools.py:787` | 作成時に `importance` が 0.5未満なら警告ログ出力し 0.5 にクランプ |
+| definitions.py | `definitions.py:87-105` | promise_manage の description に「重要な約束のみ追加すること。単なるTODOは memory_create を使うこと」を明記 |
+| builtin definitions | `definitions.py` | 同上 |
+
+### C3: Context注入（既存の改善）
+| 変更箇所 | ファイル | 内容 |
+|----------|----------|------|
+| `_format_lightweight_response` | `tools.py:1414-1426` | アクティブgoal/promise の表示を現在の単純リストから、`importance` でソートし上位5件のみに（ノイズ削減） |
+| chat pipeline | `prepare.py:222-238` | 同上の改善 |
+| 表示形式 | — | `🎯 [goal] content（N分前）` の形式を維持 |
+
+---
+
+## 🟡 Phase D: WebUI Action 廃止
+
+### D1: バックエンド削除
+| 変更箇所 | ファイル | 内容 |
+|----------|----------|------|
+| PersonaState | `domain/persona/entities.py:47` | `action_tag: str \| None` フィールド削除 |
+| Memoryエンティティ | `domain/memory/entities.py:29` | `action_tag` フィールド削除（非推奨化済み） |
+| PersonaService | `domain/persona/service.py:116` | `update_physical_state()` の allowed_keys から `action_tag` 削除 |
+| MCP `_tool_update_context` | `tools.py:401, 437-438` | `action_tag` パラメータ削除 |
+| MCP `update_context` wrapper | `tools.py:1028-1069` | `action_tag` パラメータ削除 |
+| `get_context` stale clear | `tools.py:85-94` | action_tag の自動クリアロジック削除 |
+| `get_context` formatting | `tools.py:1265-1266` | Action 行削除 |
+| definitions.py | — | `action_tag` フィールド削除 |
+
+### D2: フロントエンド削除
+| 変更箇所 | ファイル | 内容 |
+|----------|----------|------|
+| Overview タブ | `overview.py:363` | 🎬 Action バッジ表示削除 |
+| Dashboard API | `persona.py:94` | action_tag の stats マージ削除 |
+
+### D3: DB（マイグレーション不要）
+- `action_tag` カラムは `memories` テーブルと `context_state` テーブルに残るが、コードから参照しなくなるため実質的に死にカラム
+- 後日整理用マイグレーションで対応可能。今回のスコープ外
+
+---
+
+## 🔴 Phase E: Itemツール builtin対応
+
+### E1: _MCP_SHARED_TOOLS 追加
+| 変更箇所 | ファイル | 内容 |
+|----------|----------|------|
+| `_MCP_SHARED_TOOLS` | `builtin.py:239-246` | `item_add`, `item_remove`, `item_equip`, `item_unequip`, `item_update`, `item_search`, `item_history` の7ツールを追加 |
+| builtin definitions | `definitions.py` | 全itemツールが builtin tool list に含まれていることを確認（既存のはず） |
+
+### E2: チャット装備欄実装
+| 変更箇所 | ファイル | 内容 |
+|----------|----------|------|
+| HTML プレースホルダー | `chat.py:653-658` | 現在空の `#memory-equipment-list` に装備情報をレンダリングするJS追加 |
+| `updateMemoryPanel()` | `chat.py:1303-1384` | equipment 引数追加、装備スロット表示ロジック |
+| SSE受信 | `chat.py:2102-2104` | InventoryUpdateSSE 受信時の `#memory-equipment-list` 更新処理追加 |
+| バックエンド | `post.py:153-157` | InventoryUpdateSSE 生成は既存。フロントのみ対応 |
+
+---
+
+## 🟠 Phase F: Skills DB 定期更新
+
+### F1: ファイル監視追加
+| 変更箇所 | ファイル | 内容 |
+|----------|----------|------|
+| 新規 | `application/workers/skills_watcher.py` | `watchdog` または簡易ポーリングで `data/skills/` ディレクトリを監視 |
+| 設計 | watchdog利用不可なら簡易ポーリング（`threading.Timer` でN秒毎にglob） |
+| 間隔 | 設定 `skills_sync_interval_seconds: int = 30` |
+| 起動 | `main.py` の `lifespan` でスキル監視ワーカーを起動 |
+| 変更検知時 | `SkillRepository.load_from_dir(skills_dir)` を呼び出しDB再同期 |
+| 設定追加 | `config/settings.py` に `skills_sync_interval_seconds: int = 30` 追加 |
+
+---
+
+## 🟡 Phase G: 記憶リンク改善（身体状態）
+
+### G1: Knowledge Graph 身体状態エッジ追加
+| 変更箇所 | ファイル | 内容 |
+|----------|----------|------|
+| Graph API | `api/http/routers/search.py:117-188` | `_build_graph()` に body_state 類似度エッジを追加 |
+| 設計 | 同一ペルソナの記憶間で body_state の各次元（fatigue/warmth/arousal/heart_rate/pain）の差分 ≤ 0.15 のペアに `type: "body_state"` エッジ生成 |
+| 色 | 身体状態エッジは緑系（`#34d399`）で表示 |
+
+---
+
+## 🟡 Phase H: WebUI メモリーカード表示改善
+
+### H1: メモリー一覧カードに身体状態追加（確認と修正）
+| 項目 | 内容 |
+|------|------|
+| 現状 | `renderBodyStateCompact()` が `memories.py:518, 544` で呼ばれているが、`bodyState[k] > 0` 条件のためニュートラル値（warmth=0.5, heart_rate=0.5）が表示されない |
+| 修正 | `renderBodyStateCompact()` の条件を `bodyState[k] > 0` → `bodyState[k] != target_neutral` に変更。ニュートラルからの乖離があれば表示 |
+| 影響 | `base.py:746-759` |
+
+### H2: タイムライン詳細パネル確認
+| 項目 | 内容 |
+|------|------|
+| 現状 | 探索結果では body_state bars が表示されている（`timeline.py:309-331`） |
+| 対応 | 動作確認のみ。問題なければスキップ |
+
+### H3: Graph詳細パネル確認
+| 項目 | 内容 |
+|------|------|
+| 現状 | `knowledge_graph.py:516-520` で `renderBodyStateBars(data.body_state)` 呼出あり |
+| 対応 | 動作確認のみ。問題なければスキップ |
+
+---
+
+## 🟢 Phase I: チャットUI改善
+
+### I1: 操作ログ マウスオーバー詳細表示
+| 変更箇所 | ファイル | 内容 |
+|----------|----------|------|
+| HTML/CSS | `chat.py` | `.memory-tool-log` カードに `title` 属性追加（ツール名・パラメータ要約） |
+| JS | `chat.py:2271-2287` | `handleMemoryToolResult()` で結果テキスト全文を tooltip データ属性に保存 |
+| CSS | `chat.py` | `.memory-tool-log:hover::after` 疑似要素でツールチップ表示（最大300字） |
+
+### I2: 🧠記憶活動にメンタルモデル表示
+| 変更箇所 | ファイル | 内容 |
+|----------|----------|------|
+| HTML | `chat.py:600-660` | メンタルモデルセクション追加（`#memory-mental-models-list`） |
+| JS | `chat.py:1303-1384` | `updateMemoryPanel()` に mental_models 引数追加 |
+| SSE | `chat.py:2102-2104` | `mental_model_done` イベント受信時にリスト更新 |
+| バックエンド | `post.py:206-209` | `mental_model_done` SSE イベント送信（既存の可能性あり、確認） |
+
+### I3: 🎯目標/🤝約束/🧩メンタルモデル追加時も💾保存された記憶に表示
+| 変更箇所 | ファイル | 内容 |
+|----------|----------|------|
+| JS | `chat.py:1303-1384` | `updateMemoryPanel()` で goals/promises/mental_models が追加された場合、それらを saved リストにも重複表示（タグバッジ付き） |
+| 設計 | saved 配列に `{...goal, _source: "goal"}` のようにマークして、表示時に「🎯 目標として保存」等のラベル付与 |
+
+### I4: ✨リフレクションの表示カテゴリ見直し
+| 変更箇所 | ファイル | 内容 |
+|----------|----------|------|
+| HTML | `chat.py:622-625` | セクションタイトルを「✨ リフレクション」→「✨ 洞察・リフレクション」に変更 |
+| JS | `chat.py:1393-1404` | `updateReflectionPanel()` のカードを `memory-item-card` ではなく `insight-card` クラスに変更（記憶と視覚的に区別） |
+| CSS | `chat.py` | `.insight-card` スタイル追加（破線ボーダー、イタリック体など記憶と異なる表現） |
+
+---
+
+## 🟢 Phase J: Speech 更新促進
+
+### J1: get_context 時リマインド
+| 変更箇所 | ファイル | 内容 |
+|----------|----------|------|
+| `_tool_get_context()` | `tools.py:54-141` | speech_style の最終更新から24時間以上経過していたら、context_note に「💬 speech_styleが{N}時間更新されていません。会話の調子に変化があれば update_context で更新してください」を追加 |
+| `_format_lightweight_response()` | `tools.py` | speech_style の経過時間をコンテキストに注記（`💬 Speech: {style}（{N}時間前更新）`） |
+
+---
+
+## 非機能要件（本フェーズ）
+- **DBマイグレーション**: A2（emotionsカラム削除）のみ必須。他は破壊的変更なし
+- **後方互換**: MCPツールの `emotions` パラメータは削除されるが、使われていなければエラーにならない（Pydanticはデフォルトで未知フィールドを無視）
+- **テスト**: 感情モデル変更に伴い関連テストの修正必須。新機能にはテスト追加
+- **優先順位**: A → B → E → D → C → G → F → H → I → J

@@ -32,6 +32,9 @@ from memory_mcp.migration.versions.v017_chat_mental_model import upgrade as v017
 from memory_mcp.migration.versions.v018_multi_emotions import upgrade as v018_upgrade
 from memory_mcp.migration.versions.v019_body_state_refine import upgrade as v019_upgrade
 from memory_mcp.migration.versions.v020_memory_body_state import upgrade as v020_upgrade
+from memory_mcp.migration.versions.v021_remove_multi_emotions import (
+    upgrade as v021_upgrade,
+)
 
 ALL_MIGRATIONS: list[tuple[str, str, object]] = [
     ("001", "Initial schema", v001_upgrade),
@@ -54,4 +57,5 @@ ALL_MIGRATIONS: list[tuple[str, str, object]] = [
     ("018", "Add multi-dimensional emotions support", v018_upgrade),
     ("019", "Refine body_state: heart_rate numeric, pain added", v019_upgrade),
     ("020", "Add body_state and state_snapped_at to memories", v020_upgrade),
+    ("021", "Remove multi-dimensional emotions support", v021_upgrade),
 ]

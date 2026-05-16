@@ -112,3 +112,56 @@
 - トークン削減: ~7,085 → ~600 (-91%)
 - 総コミット: 12 commits
 - 純減: ~500 lines
+
+---
+
+## 2026-05-17: 実運用フィードバック修正
+
+### 🔴 Phase A: 感情モデルロールバック（最重要）
+- [ ] A1: データモデル変更（entities.py ×2: emotions dict削除、compute_dominant_emotion削除）
+- [ ] A2: DBマイグレーション v021（emotions TEXTカラム削除）
+- [ ] A3: 感情減衰単一化（emotion_decay.py 9次元→単一強度減衰）
+- [ ] A4: ツールシグネチャ変更（tools.py + builtin.py + definitions.py: emotionsパラメータ削除）
+- [ ] A5: persona service更新（get_state_snapshotからemotions dict削除、update_emotions→update_emotion）
+- [ ] A6: WebUI表示変更（base.py renderEmotionBars/EMOTION_BAR_COLORS削除、全セクション単一感情表示化）
+
+### 🔴 Phase B: 身体状態減衰修正
+- [ ] B1: Dashboard/Persona APIに減衰トリガー追加（routers/persona.py, dashboard.py）
+- [ ] B2: 常駐減衰ワーカー追加（state_decay_worker.py 新規）
+
+### 🟡 Phase C: Goal/Promise 長期記憶化
+- [ ] C1: 達成/取消時のimportance引き上げ＋archivedタグ追加（tools.py goal/promise_manage）
+- [ ] C2: 安易なpromise追加抑制（importance下限チェック + definitions警告文）
+- [ ] C3: Context注入のノイズ削減（上位5件のみ表示）
+
+### 🟡 Phase D: WebUI Action 廃止
+- [ ] D1: バックエンド削除（entities.py, service.py, tools.py, definitions.py からaction_tag削除）
+- [ ] D2: フロントエンド削除（overview.py から🎬Action表示削除、persona.py からaction_tagマージ削除）
+
+### 🔴 Phase E: Itemツール builtin対応
+- [ ] E1: _MCP_SHARED_TOOLS に item系7ツール追加（builtin.py）
+- [ ] E2: チャット装備欄実装（chat.py: 装備情報レンダリング + SSE受信処理）
+
+### 🟠 Phase F: Skills DB 定期更新
+- [ ] F1: SkillsWatcherワーカー新規作成（application/workers/skills_watcher.py）
+- [ ] F2: main.py lifespan にワーカー起動追加
+- [ ] F3: settings に skills_sync_interval_seconds 追加
+
+### 🟡 Phase G: 記憶リンク改善（身体状態）
+- [ ] G1: Knowledge Graph APIに body_state類似度エッジ追加（search.py _build_graph）
+
+### 🟡 Phase H: WebUI メモリーカード表示
+- [ ] H1: renderBodyStateCompact の表示条件修正（ニュートラル値も表示）
+
+### 🟢 Phase I: チャットUI改善
+- [ ] I1: 操作ログ マウスオーバー詳細表示（chat.py CSS/JS）
+- [ ] I2: 🧠記憶活動にメンタルモデル表示追加（HTML + JS + SSE）
+- [ ] I3: 目標/約束/メンタルモデル追加時も💾保存された記憶に表示
+- [ ] I4: ✨リフレクションを記憶と視覚的に区別（insight-card クラス）
+
+### 🟢 Phase J: Speech 更新促進
+- [ ] J1: get_context 時にspeech_style 更新リマインド（tools.py）
+
+### 🧪 テスト
+- [ ] T001: 感情モデル変更の関連テスト修正
+- [ ] T002: 全テスト実行確認

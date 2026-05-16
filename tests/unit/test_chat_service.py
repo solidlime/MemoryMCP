@@ -315,6 +315,11 @@ class TestChatService:
         state.mental_state = None
         state.physical_state = None
         state.environment = None
+        state.fatigue = None
+        state.warmth = None
+        state.arousal = None
+        state.heart_rate = None
+        state.pain = None
         state_result = MagicMock()
         state_result.is_ok = True
         state_result.value = state
@@ -407,14 +412,20 @@ class TestChatService:
 
         ctx = self._make_ctx()
         # Make search return something
-        mem = MagicMock()
-        mem.content = "test memory"
-        mem.importance = 0.8
-        mem.tags = []
-        mem.created_at = datetime(2025, 1, 1, 12, 0, 0)
+        from memory_mcp.domain.memory.entities import Memory
+        from memory_mcp.domain.search.engine import SearchResult
+
+        mem = Memory(
+            key="mem_001",
+            content="test memory",
+            created_at=datetime(2025, 1, 1, 12, 0, 0),
+            updated_at=datetime(2025, 1, 1, 12, 0, 0),
+            importance=0.8,
+            emotion="neutral",
+        )
         search_result = MagicMock()
         search_result.is_ok = True
-        search_result.value = [(mem, 0.9)]
+        search_result.value = [SearchResult(memory=mem, score=0.9, source="keyword")]
         ctx.search_engine.search.return_value = search_result
 
         cfg = self._make_config(api_key="sk-valid-key")

@@ -64,14 +64,10 @@ async def _handle_context_update(ctx: AppContext, config: ChatConfig, tool_input
         update_kwargs["emotion"] = tool_input["emotion"]
     if "emotion_intensity" in tool_input:
         update_kwargs["emotion_intensity"] = float(tool_input["emotion_intensity"])
-    if "emotions" in tool_input and tool_input["emotions"]:
-        update_kwargs["emotions"] = tool_input["emotions"]
     if "mental_state" in tool_input:
         update_kwargs["mental_state"] = tool_input["mental_state"]
     if update_kwargs:
-        if "emotions" in update_kwargs:
-            ctx.persona_service.update_emotions(ctx.persona, update_kwargs["emotions"])
-        elif "emotion" in update_kwargs:
+        if "emotion" in update_kwargs:
             ctx.persona_service.update_emotion(
                 ctx.persona,
                 update_kwargs["emotion"],
@@ -126,20 +122,14 @@ async def _handle_memory_create_builtin(ctx: AppContext, config: ChatConfig, too
         return {"status": "error", "message": "importance must be between 0.0 and 1.0"}
 
     # Auto-snapshot current persona state
-    emotions_snap, body_snap, snapped_at = ctx.persona_service.get_state_snapshot(ctx.persona)
-
-    # Derive dominant emotion name for backward-compat single field
-    dominant = "neutral"
-    if emotions_snap:
-        dom = max(emotions_snap.items(), key=lambda kv: kv[1])
-        dominant = dom[0] if dom[1] > 0 else "neutral"
+    emotion_snap, intensity_snap, body_snap, snapped_at = ctx.persona_service.get_state_snapshot(ctx.persona)
 
     result = ctx.memory_service.create_memory(
         content=tool_input.get("content", ""),
         importance=importance,
         tags=tool_input.get("tags", []),
-        emotion=dominant,
-        emotions=emotions_snap,
+        emotion=emotion_snap,
+        emotion_intensity=intensity_snap,
         body_state=body_snap,
         state_snapped_at=snapped_at,
     )
@@ -163,7 +153,6 @@ async def _handle_memory_search_builtin(ctx: AppContext, config: ChatConfig, too
                     "tags": getattr(mem, "tags", []),
                     "emotion_type": getattr(mem, "emotion", "neutral"),
                     "emotion_intensity": getattr(mem, "emotion_intensity", 0.0),
-                    "emotions": (mem.emotions if isinstance(getattr(mem, "emotions", None), dict) else None),
                 }
             )
         return {"status": "ok", "memories": items}

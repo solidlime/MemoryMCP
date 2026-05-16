@@ -91,7 +91,7 @@ class TestMemoryCreate:
     async def test_create_success(self, registered_tools):
         tools, ctx, registry = registered_tools
         ctx.memory_service.create_memory.return_value = Success(_mem("mem_new"))
-        ctx.persona_service.get_state_snapshot.return_value = ({}, {}, None)
+        ctx.persona_service.get_state_snapshot.return_value = ("neutral", 0.0, {}, None)
 
         memory_create = tools["memory_create"]
         with (
@@ -133,7 +133,7 @@ class TestMemoryCreate:
     @pytest.mark.asyncio
     async def test_create_unknown_emotion_warns(self, registered_tools):
         tools, ctx, _ = registered_tools
-        ctx.persona_service.get_state_snapshot.return_value = ({}, {}, None)
+        ctx.persona_service.get_state_snapshot.return_value = ("neutral", 0.0, {}, None)
         ctx.memory_service.create_memory.return_value = Success(_mem("mem_x"))
         memory_create = tools["memory_create"]
         with (
@@ -147,7 +147,7 @@ class TestMemoryCreate:
     @pytest.mark.asyncio
     async def test_create_service_failure(self, registered_tools):
         tools, ctx, _ = registered_tools
-        ctx.persona_service.get_state_snapshot.return_value = ({}, {}, None)
+        ctx.persona_service.get_state_snapshot.return_value = ("neutral", 0.0, {}, None)
         ctx.memory_service.create_memory.return_value = Failure(RepositoryError("db error"))
         memory_create = tools["memory_create"]
         with (
