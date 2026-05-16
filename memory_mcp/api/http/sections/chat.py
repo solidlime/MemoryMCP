@@ -115,23 +115,11 @@ def render_chat_tab() -> str:
         /* Settings sidebar */
         #settings-panel {
             width: 360px; flex-shrink: 0; display: flex; flex-direction: column;
-            overflow-y: auto; overflow-x: hidden;
-            /* Custom scrollbar */
-            scrollbar-width: thin;
-            scrollbar-color: rgba(167,139,250,0.3) transparent;
-        }
-        #settings-panel::-webkit-scrollbar { width: 6px; }
-        #settings-panel::-webkit-scrollbar-track { background: transparent; }
-        #settings-panel::-webkit-scrollbar-thumb {
-            background: rgba(167,139,250,0.3);
-            border-radius: 3px;
-        }
-        #settings-panel::-webkit-scrollbar-thumb:hover {
-            background: rgba(167,139,250,0.5);
+            overflow: hidden;
         }
         #settings-panel.collapsed { width: 0; overflow: hidden; }
 
-        /* Settings accordion - modern redesign */
+        /* Settings accordion - scrollable container */
         #settings-panel .settings-scroll-container {
             flex: 1;
             display: flex;
@@ -139,9 +127,24 @@ def render_chat_tab() -> str:
             gap: 6px;
             padding: 16px;
             min-height: 0;
+            overflow-y: auto;
+            overflow-x: hidden;
+            /* Custom scrollbar */
+            scrollbar-width: thin;
+            scrollbar-color: rgba(167,139,250,0.3) transparent;
+        }
+        #settings-panel .settings-scroll-container::-webkit-scrollbar { width: 6px; }
+        #settings-panel .settings-scroll-container::-webkit-scrollbar-track { background: transparent; }
+        #settings-panel .settings-scroll-container::-webkit-scrollbar-thumb {
+            background: rgba(167,139,250,0.3);
+            border-radius: 3px;
+        }
+        #settings-panel .settings-scroll-container::-webkit-scrollbar-thumb:hover {
+            background: rgba(167,139,250,0.5);
         }
 
         #settings-panel details {
+            flex-shrink: 0;
             border: 1px solid var(--glass-border);
             border-radius: 10px;
             background: rgba(255,255,255,0.02);
