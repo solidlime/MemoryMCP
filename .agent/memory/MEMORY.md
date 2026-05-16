@@ -5,25 +5,40 @@ MemoryMCP: 日本語特化の永続記憶 MCP サーバー。SQLite + Qdrant + E
 
 ## 学習した知識・教訓
 
-### herta-memory ツール改修（2026-05-16）
-- goal_manage/promise_manage は `memory_key` で直接参照可能に。`_tool_goal_manage()`/`_tool_promise_manage()` のachieve/fulfill/cancel分岐で、memory_key指定時はcontent文字列一致をスキップして直接キー参照
-- memory_read は limit/offset でページネーション可能に。find_recent/get_recent チェーンに offset 追加、SQLite も LIMIT/OFFSET 対応
-- MCPツールラッパー変更時は definitions.py のLLMスキーマも忘れず更新
+### get_context 軽量化（2026-05-16）
+- fullモードの返り値が膨大すぎて実用に耐えない。modeパラメータごと削除し軽量モード一本化
+- `get_top_by_importance(15→8)` で ESSENTIAL STORY も半分に
+- char_budget 2000→1500, snippet 120→100
+- 削除した関数をテストしている場合は、残存関数にテスト対象を変更（test_goals_promises.py → _format_lightweight_response）
 
-### フロントエンド大幅改良（2026-05-15）
-- chat.py は Python 文字列リテラル内に HTML/CSS/JS を内包する特殊構造。編集時は構文チェック必須
-- 設定パネルHTMLは `<details><summary>` アコーディオン化で9セクションに整理。CSSは `.details-body` で内側余白制御
-- Sandbox panel 削除時、`sandboxLog`/`sandboxRunBlock`/`sandboxAddArtifact`/`renderCodeBlock` はコードブロックRunボタンで現役のため保持必須
-- `MEMORY_TOOL_NAMES` はMCPツール名5個 → builtinツール12個追加で17個に。メモリパネルへのツール結果反映に必須
-- `/api/chat/{persona}/tool` エンドポイント新設。builtinツールのHTTP直接実行に使用
-- `promise_cancel` は `builtin.py` + `definitions.py` に `goal_cancel` 同パターンで追加
+### goal/promise_manage memory_key 参照（2026-05-16）
+- achieve/fulfill/cancel 時に memory_key があれば content 文字列一致をスキップし直接キー参照
+- MCPツールラッパーで content を `str = ""`（オプショナル）にすることで、memory_key 指定時の Pydantic 必須エラー解消
+- definitions.py の LLM スキーマも必ず同期更新
 
-### テスト更新パターン
-- 削除した関数をテストしている場合は、同機能の残存関数にテスト対象を変更
-- 削除したパラメータをテストしている場合は、新しいデフォルト値に期待値を変更
-- インターフェースにパラメータ追加時は全モックのシグネチャも更新
+### sandbox 一時ファイルクリーンアップ（2026-05-16）
+- `llm_sandbox` ライブラリは `/sandbox` ではなく `/tmp` に一時ファイルを作成する
+- クリーンアップは `/sandbox` と `tempfile.gettempdir()` の両方を検索すべき
 
-### WebUI 構造
-- ダッシュボード: dashboard.py が各セクションの render 関数を呼び出し
-- 新規タブ追加手順: (1) sections/新規ファイル作成 (2) __init__.py エクスポート (3) dashboard.py 登録 (4) base.py ショートカット+skeleton追加
-- showSkeleton: 自前ローディング状態を持つタブ（graph, import-export, personas, chat, timeline）はスキップ必須
+### MCPツール設計パターン
+- flat 名単一目的ツールの方が LLM の選択精度が高い（god-tool より有利）
+- コードは DRY、インターフェースは flat
+- MCPツール変更時は tools.py + definitions.py + builtin.py の3点セット確認必須
+
+### フロントエンド構造
+- WebUI は 14 セクションファイルを dashboard.py が合成
+- 各セクションは `render_*_tab()`（HTML）と `render_*_js()`（JS）の2関数を提供
+- base.py に共通CSS・JS関数（renderEmotionBars, renderBodyStateBars 等）が定義されている
+- セクション間で JS 関数や CSS が重複しがち。base.py に集約すべき
+
+### 感情・身体状態のデータフロー
+- Memory エンティティ: `emotions: dict[str, float]`（多次元）+ `emotion: str`（旧単一・フォールバック用）
+- body_state: `dict[str, float]`（fatigue/warmth/arousal/heart_rate/pain）
+- state_snapped_at: auto-snapshot 機能で自動記録（v020 マイグレーションで追加）
+- フロントエンド表示はモーダル・概要タブでは対応済みだが、チャットパネル・グラフ詳細・メモリー一覧では未対応
+
+### テスト設計
+- 肥大化: 59ファイル 988テスト ~13,000行。行数半減が目標
+- parametrize を活用し同パターンのテストを統合
+- AsyncMock を非同期関数に使用（MagicMock より正確）
+- In-Memory Repository パターンでモックより実体テストを優先

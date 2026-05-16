@@ -43,7 +43,5 @@ data/*/
 data/_tmp/
 !data/*.zip
 
-# Serena / Agent local files
+# Serena local files
 .serena/
-.agent/
-.spec/

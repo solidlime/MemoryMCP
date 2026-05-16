@@ -505,6 +505,20 @@ function openGraphDetailPanel(data) {
         html += '</div>';
     }
 
+    /* Multi-emotion bars */
+    if (data.emotions && Object.keys(data.emotions).length > 0) {
+        html += '<div style="margin-bottom:16px">';
+        html += renderEmotionBars(data.emotions);
+        html += '</div>';
+    }
+
+    /* Body state bars */
+    if (data.body_state && Object.keys(data.body_state).length > 0) {
+        html += '<div style="margin-bottom:16px">';
+        html += renderBodyStateBars(data.body_state);
+        html += '</div>';
+    }
+
     /* Importance bar */
     if (data.importance != null) {
         var pct = (data.importance * 100).toFixed(0);

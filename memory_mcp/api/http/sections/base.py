@@ -725,6 +725,39 @@ function renderEmotionBars(emotions) {
     return html;
 }
 
+/* Compact emotion badges for list/card views */
+function renderEmotionBadges(emotions) {
+    if (!emotions) return '';
+    const entries = Object.entries(emotions).filter(function(e) { return e[1] > 0.05; })
+        .sort(function(a,b) { return b[1]-a[1]; }).slice(0, 3);
+    if (entries.length === 0) return '';
+    let html = '';
+    entries.forEach(function(e) {
+        const name = e[0];
+        const val = e[1];
+        const color = EMOTION_COLORS[name] || '#94a3b8';
+        const pct = Math.round(val * 100);
+        html += '<span style="font-size:0.65rem;display:inline-block;padding:1px 5px;border-radius:3px;background:' + color + '22;color:' + color + ';border:1px solid ' + color + '44;margin-right:3px">' + esc(name) + ' ' + pct + '%</span>';
+    });
+    return html;
+}
+
+/* Compact body state indicator for list/card views - shows all 5 metrics */
+function renderBodyStateCompact(bodyState) {
+    if (!bodyState) return '';
+    const keys = Object.keys(bodyState).filter(function(k) { return BODY_LABELS[k] && bodyState[k] != null && bodyState[k] > 0; });
+    if (keys.length === 0) return '';
+    let html = '<span style="font-size:0.65rem;color:var(--text-muted)">';
+    keys.forEach(function(k) {
+        const val = bodyState[k];
+        const pct = Math.round(val * 100);
+        const emoji = BODY_LABELS[k].split(' ')[0];
+        html += emoji + pct + '% ';
+    });
+    html += '</span>';
+    return html;
+}
+
 /* =================================================================
    UTILITIES
    ================================================================= */

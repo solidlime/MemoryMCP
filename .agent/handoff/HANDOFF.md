@@ -1,58 +1,40 @@
-# HANDOFF - 2026-05-16 18:02
+# HANDOFF - 2026-05-16 22:45
 
-## 完了したタスク
+## セッションで完了したこと
 
-### 🔧 herta-memory ツールセット評価・改修
+### get_context 軽量化（commit 7a2bf83）
+- `_tool_get_context`: modeパラメータ削除、fullモード分岐削除（約50行削減）
+- `get_top_by_importance(15→8)`: 重要記憶の取得数を半減
+- `_format_lightweight_response`: char_budget 2000→1500, snippet 120→100
+- `_format_context_response(240行)`: 関数全体削除
+- 結果: +27/-327行。21件テスト修正・全パス
 
-#### 評価レポート
-全ツールの動作検証を実施し、以下の評価結果を得た：
+### goal/promise_manage content MUSTバグ修正（commit c14a479）
+- MCPツールシグネチャ `content: str` → `content: str=""` に変更（tools.py）
+- definitions.py のLLMスキーマも content を required から外す
+- achieve/fulfill/cancel 時に memory_key 指定だけで動作可能に
+- 全動作確認済み（本番サーバーで検証）
 
-| 項目 | 評価 |
-|------|------|
-| 記憶の永続性 | ★★★★★ |
-| 検索精度 | ★★★★☆ |
-| body_state/emotion/speech_style/relationship | ★★★★★（全反映） |
-| sandbox (Python/ファイルI/O/画像生成) | ★★★★★ |
-| Goal/Promise管理 | ★★★☆☆（memory_key不足） |
-| memory_read操作性 | ★★★☆☆（ページネーション不在） |
+### sandbox cleanup改善（commit c14a479）
+- `_execute_python`, `_execute_stateless`, `close` の3箇所
+- `/sandbox` のみ検索 → `tempfile.gettempdir()` も検索するよう修正
+- 本番デプロイ済み
 
-#### 改修内容（commit b9b1482, 7ファイル変更）
+## 現在の状態
 
-1. **goal_manage/promise_manage に memory_key 追加**
-   - `tools.py`: `_tool_goal_manage()` + `_tool_promise_manage()` + MCPラッパー
-   - `definitions.py`: LLMスキーマに `memory_key` (optional) 追加
-   - achieve/fulfill/cancel 時にcontent文字列一致ではなくキー直接参照が可能に
+### コードベース
+- 最新コミット: `c14a479`（goal_manage content fix）
+- 全変更 本番NASにデプロイ済み
+- テスト: 48件パス（context/persona/goals）、3件失敗は既存issue（auto-snapshotモック未追従）
 
-2. **memory_read に limit/offset 追加**
-   - `tools.py`: `_tool_memory_read()` + MCPラッパー
-   - `repository.py`: `find_recent` に `offset: int = 0` 
-   - `service.py`: `get_recent` に `offset: int = 0`
-   - `sqlite/memory_repo.py`: SQLに `OFFSET ?` 追加
-   - テストモック更新: `test_memory_service.py`, `test_memory_versions.py`
+### 次のセッションで実施すること
+**大規模リファクタ（新フェーズ）**:
+1. バックエンドのコード重複・整合性整理
+2. フロントエンドのメモリーカード表示改善（特に感情・身体状態の追従不足）
+3. テスト全削除 → 再作成（肥大化解消）
+4. 機能破壊禁止、品質最優先
 
-3. **テスト: 全78件パス確認**
-
-#### 発見された軽微な問題
-- `satisfaction` 感情が `neutral` に正規化される → 感情バリデーションの許容リスト確認推奨
-- `action_tag` は `update_context` で明示的に渡さないと更新されない（仕様通り）
-
-## 次のセッションでの確認事項
-
-1. **memory_key パラメータの動作確認**
-   - MCPサーバー再起動後、goal_manage/promise_manage で memory_key 指定した操作が動作するか
-
-2. **感情正規化の調査**
-   - `satisfaction` → `neutral` 変換の原因特定
-   - `update_emotion` のバリデーションロジック確認
-
-## ファイル変更一覧
-
-| ファイル | 変更内容 |
-|---------|---------|
-| `memory_mcp/api/mcp/tools.py` | goal_manage/promise_manage に memory_key 追加、memory_read に limit/offset 追加 |
-| `memory_mcp/application/chat/tools/definitions.py` | LLMスキーマに memory_key 追加 |
-| `memory_mcp/domain/memory/repository.py` | find_recent に offset 追加 |
-| `memory_mcp/domain/memory/service.py` | get_recent に offset 追加 |
-| `memory_mcp/infrastructure/sqlite/memory_repo.py` | SQLに OFFSET 追加 |
-| `tests/unit/test_memory_service.py` | モックシグネチャ更新 |
-| `tests/unit/test_memory_versions.py` | モックシグネチャ更新 |
+### 調査済み（使える情報）
+- フロントエンド: 14セクションファイル、矛盾箇所6箇所（body_state/emotionsがgraph detail/chat panelで未表示、他）
+- テスト: 59ファイル988テスト、削除候補2件、統合候補8件、分割候補3件
+- SDD: `.spec/PLAN.md` に新フェーズ追記済み

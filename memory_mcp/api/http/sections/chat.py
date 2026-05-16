@@ -1314,9 +1314,13 @@ function updateMemoryPanel(retrieved, saved, goals, promises) {
                     const content = esc((m.content || '').substring(0, 80));
                     const meta = [score ? 'score:' + score : '', imp ? 'imp:' + imp : ''].filter(Boolean).join(' ');
                     const key = m.key || '';
+                    const emotionBadges = renderEmotionBadges(m.emotions);
+                    const bodyCompact = renderBodyStateCompact(m.body_state);
+                    const extra = [emotionBadges, bodyCompact].filter(Boolean).join(' ');
                     return '<div class="memory-item-card" data-key="' + escAttr(key) + '" data-content="' + escAttr(m.content || '') + '" data-importance="' + (m.importance || 0.5) + '" data-tags="' + escAttr((m.tags || []).join(',')) + '" onclick="openMemEdit(this)">' +
                         (meta ? '<div class="mem-score">' + esc(meta) + '</div>' : '') +
                         content +
+                        (extra ? '<div class="mem-score" style="font-size:0.7rem;margin-top:3px">' + extra + '</div>' : '') +
                         '<div class="mem-actions"><button class="mem-action-btn del" onclick="event.stopPropagation();deleteMemCard(\'' + escAttr(key) + '\')">削除</button></div>' +
                         '</div>';
                 }).join('');
@@ -1333,8 +1337,12 @@ function updateMemoryPanel(retrieved, saved, goals, promises) {
                     const content = esc((m.content || '').substring(0, 80));
                     const tags = m.tags ? m.tags.join(', ') : '';
                     const key = m.key || '';
+                    const emotionBadges = renderEmotionBadges(m.emotions);
+                    const bodyCompact = renderBodyStateCompact(m.body_state);
+                    const extra = [emotionBadges, bodyCompact].filter(Boolean).join(' ');
                     return '<div class="memory-item-card" data-key="' + escAttr(key) + '" data-content="' + escAttr(m.content || '') + '" data-importance="' + (m.importance || 0.5) + '" data-tags="' + escAttr((m.tags || []).join(',')) + '" onclick="openMemEdit(this)">' + content +
                         (tags ? '<div class="mem-score">' + esc(tags) + '</div>' : '') +
+                        (extra ? '<div class="mem-score" style="font-size:0.7rem;margin-top:3px">' + extra + '</div>' : '') +
                         '<div class="mem-actions"><button class="mem-action-btn del" onclick="event.stopPropagation();deleteMemCard(\'' + escAttr(key) + '\')">削除</button></div>' +
                         '</div>';
                 }).join('');

@@ -356,3 +356,146 @@ MemoryRepository.save(memory)
 
 ### F031: NASデプロイ
 - `docker-compose build --no-cache memory-mcp && docker-compose up -d`
+
+---
+
+# 大規模リファクタ（2026-05-16 夜〜）
+
+## 🟣 Phase R1: フロントエンド 感情/身体状態表示修正（最重要）
+
+### R1-1: メモリー一覧の感情表示強化
+| 項目 | 内容 |
+|------|------|
+| 影響ファイル | `memory_mcp/api/http/sections/memories.py` |
+| 現状 | コンパクト表示・カード表示とも `emotions` dict を完全無視。`emotion_type`（単一・旧形式）のみ参照 |
+| 修正内容 | emotions dict がある場合は renderEmotionBars(emotions) を表示。なければ emotion_type にフォールバック |
+| 行番号 | 517-527（compact）、549-558（card） |
+
+### R1-2: メモリー一覧の身体状態完全表示
+| 項目 | 内容 |
+|------|------|
+| 影響ファイル | `memory_mcp/api/http/sections/memories.py` |
+| 現状 | コンパクト・カード表示とも fatigue と warmth のみ表示。arousal/heart_rate/pain は無視 |
+| 修正内容 | renderBodyStateBars(body_state) を呼び出すよう統一。5指標すべて表示 |
+| 行番号 | 517-527（compact）、549-558（card） |
+
+### R1-3: グラフ詳細パネルへの感情・身体状態追加
+| 項目 | 内容 |
+|------|------|
+| 影響ファイル | `memory_mcp/api/http/sections/knowledge_graph.py` |
+| 現状 | openGraphDetailPanel(): key, content, tags, emotion_type, importance のみ。body_state/emotions 表示なし |
+| 修正内容 | 詳細パネルに renderEmotionBars(data.emotions) + renderBodyStateBars(data.body_state) 追加 |
+| 行番号 | 465-527 |
+
+### R1-4: チャット メモリパネルへの感情・身体状態追加
+| 項目 | 内容 |
+|------|------|
+| 影響ファイル | `memory_mcp/api/http/sections/chat.py` |
+| 現状 | メモリパネル（検索結果・保存済みメモリ表示）に感情・身体状態の表示が一切ない |
+| 修正内容 | memory-item-card に emotion + body_state 情報を追加。emotions dict から上位感情をバッジ表示、body_state 非ゼロ値があればコンパクト表示 |
+
+### R1-5: 共通JS関数の重複除去
+| 項目 | 内容 |
+|------|------|
+| 影響ファイル | `base.py`, `memories.py`, `knowledge_graph.py`, `overview.py`, `persona.py`, `chat.py` |
+| 現状 | `renderEmotionBars()`, `renderBodyStateBars()`, `EMOTION_COLORS`, `BODY_BAR_COLORS` が base.py に定義済みだが、他のセクションで部分的に再定義・重複している |
+| 修正内容 | base.py の共通関数を全セクションで使い回すよう統一。重複定義を削除 |
+
+---
+
+## 🟠 Phase R2: フロントエンド品質改善
+
+### R2-1: 未表示フィールドの対応（表示 or 削除）
+| 項目 | 内容 |
+|------|------|
+| バックエンドに存在するがフロントエンド未表示のフィールド | `access_count`, `last_accessed`, `summary_ref`, `equipped_items` |
+| 判定 | `access_count`/`last_accessed`: メモリモーダルに追加表示（デバッグ情報として有用）。`summary_ref`/`equipped_items`: 内部管理用なので表示不要。 |
+
+### R2-2: emotion フォールバックロジック統一
+| 項目 | 内容 |
+|------|------|
+| 現状 | emotions dict があるのに emotion_type を表示している箇所が複数。`mem.emotion_type` という古いフィールド名と `mem.emotion` が混在 |
+| 修正内容 | `emotions` dict > `emotion_type` > `emotion` の優先順位で表示するラッパー関数 `getEmotionDisplay(mem)` を作成し全箇所で統一 |
+
+### R2-3: CSS重複・未使用スタイル削除
+| 項目 | 内容 |
+|------|------|
+| 現状 | chat.py の CSS 590行が肥大。各セクションのインラインスタイルに重複多数 |
+| 修正内容 | base.py の共通CSSに統合可能なものを抽出。未使用クラス・死にスタイルを削除 |
+
+---
+
+## 🔵 Phase R3: バックエンド品質改善
+
+### R3-1: コード重複除去
+| 項目 | 内容 |
+|------|------|
+| 重複① | `tools.py` と `builtin.py` で同じ引数バリデーション・エラー処理パターンを繰り返している |
+| 重複② | `_VALID_EMOTIONS` が tools.py, builtin.py, emotion_validator.py の3箇所に定義 |
+| 重複③ | `importance` の検証ロジックが tools.py 内で複数回出現 |
+| 修正内容 | 共通バリデーションを `domain/memory/validators.py`（新規）に集約。`_VALID_EMOTIONS` を単一定義に統一 |
+
+### R3-2: デッドコード除去
+| 項目 | 内容 |
+|------|------|
+| 対象 | `tools.py` 内の未使用インポート、`builtin.py` の死にパラメータ、コメントアウトコード |
+| 確認方法 | vulture/flake8 で未使用コード検出 |
+
+### R3-3: 型アノテーション完全化
+| 項目 | 内容 |
+|------|------|
+| 現状 | `dict`, `list` 等のジェネリック型が未パラメータ化の箇所多数 |
+| 修正内容 | `dict[str, Any]`, `list[str]` 等に完全化。mypy strict で検証 |
+
+---
+
+## 🟢 Phase R4: テスト再構築
+
+### R4-1: 削除するテストファイル
+| ファイル | 理由 |
+|---------|------|
+| `test_placeholder.py` | セットアップ検証のみ。不要 |
+| `test_dashboard_state_restore.py` | 1テストのみ。base.py のテストに統合 |
+
+### R4-2: 統合するテストファイル（8→4）
+| 統合元 | 統合先 | 理由 |
+|--------|--------|------|
+| `test_boost_recall.py` | `test_memory_service.py` | 同一ドメイン |
+| `test_dashboard_goals_format.py` | `test_dashboard_e2e.py` | UIフォーマット |
+| `test_chat_tab_controls.py` | `test_chat_service.py` | チャットUI |
+| `test_normalize_emotion.py` | `test_memory_enricher.py` | 感情処理 |
+| `test_clue_generator.py` | `test_search_engine.py` | 検索関連 |
+| `test_memorag_search.py` | `test_search_engine.py` | 検索関連 |
+| `test_migration_v006.py` | `test_migration_v009.py` | 旧マイグレーション |
+| `test_migration_v008.py` | `test_migration_v009.py` | 旧マイグレーション |
+
+### R4-3: 分割するテストファイル（3→8）
+| 分割元 | 分割先 |
+|--------|--------|
+| `test_mcp_tools.py` | `test_mcp_memory_create.py`, `test_mcp_memory_read.py`, `test_mcp_search.py`, `test_mcp_context.py`, `test_mcp_items.py` |
+| `test_goals_promises.py` | `test_goals.py`, `test_promises.py` |
+| `test_summarization_worker.py` | `test_summarization.py`（一本化） |
+
+### R4-4: 不足テストの追加
+| ツール | 優先度 | 
+|--------|--------|
+| `goal_manage` MCPツール | 🔴 高 |
+| `promise_manage` MCPツール | 🔴 高 |
+| `sandbox` MCPツール | 🔴 高 |
+| `sandbox_files` MCPツール | 🔴 高 |
+| `invoke_skill` MCPツール | 🟡 中 |
+| `item_history` MCPツール | 🟡 中 |
+
+### R4-5: テスト品質改善
+- `@pytest.mark.parametrize` を積極活用（現状1回のみ）
+- `AsyncMock` を非同期関数に使用（現状 MagicMock で代用多数）
+- 共通 fixture を `conftest.py` に集約
+- In-Memory Repository パターンを標準化（モックより実体テスト優先）
+
+---
+
+## 非機能要件
+- **機能破壊禁止**: MCPツール名・シグネチャ、HTTP APIエンドポイント・レスポンス形式、DBスキーマは変更しない
+- **後方互換**: 既存クライアントが動作し続けること
+- **テスト件数目標**: 現状988件 → 700〜800件（質は落とさず行数半減）
+- **リファクタ範囲**: `memory_mcp/` 以下全ファイル。`scripts/` は対象外
