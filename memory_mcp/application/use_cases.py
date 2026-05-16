@@ -85,7 +85,13 @@ class AppContext:
         # Run pending schema migrations
         from memory_mcp.migration.engine import MigrationEngine
 
-        MigrationEngine(self.connection).run_all()
+        migration_result = MigrationEngine(self.connection).run_all()
+        if not migration_result.is_ok:
+            import logging
+
+            logging.getLogger("memory_mcp").error(
+                "Migration failed for persona '%s': %s", persona, migration_result.error
+            )
 
         # Repositories
         self.memory_repo = SQLiteMemoryRepository(self.connection)

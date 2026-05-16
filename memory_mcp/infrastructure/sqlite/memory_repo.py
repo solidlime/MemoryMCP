@@ -649,9 +649,9 @@ class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
             summary_ref=row["summary_ref"],
             equipped_items=row["equipped_items"],
             access_count=row["access_count"] or 0,
-            last_accessed=self._parse_iso_or_none(row["last_accessed"]),
-            body_state=self._parse_json_dict(row["body_state"]),
-            state_snapped_at=self._parse_iso_or_none(row["state_snapped_at"]),
+            last_accessed=self._parse_iso_or_none(row.get("last_accessed")),
+            body_state=self._parse_json_dict(row.get("body_state")),
+            state_snapped_at=self._parse_iso_or_none(row.get("state_snapped_at")),
         )
 
     @staticmethod
