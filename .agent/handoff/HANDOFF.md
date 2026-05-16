@@ -1,40 +1,54 @@
-# HANDOFF - 2026-05-16 07:55
+# HANDOFF - 2026-05-16
 
 ## 使用ツール
 OpenCode (deepseek-v4-pro)
 
 ## 現在のタスクと進捗
-- [x] 本セッション: WebUI改善 + バックエンド最適化 + エンドポイント統合 (11 files, +372/-100, 227 tests)
-- [x] ドッグフーディング: MCP全ツール 16/16 オペレーションテスト完了
-- [x] ツール統合・コンテキスト最適化の分析・方針決定
-- [x] PLAN.md 更新（次セッションの実装計画）
+- [x] MCPツール flat化リファクタリング Phase 1-3 完了（13 commits）
+- [x] get_context デフォルト軽量化（~600-800 tokens, -90%）
+- [x] context_note 導入（update_context → get_context 自動復元）
+- [x] ツール定義を自己説明的に改善（LLMが自然に使う設計）
+- [x] テスト: 821 passed, 7 skipped
+- [x] **本番デプロイ済み（NAS herta-memory）**
 
 ## 次のセッションで最初にやること
-1. **NAS デプロイ**: `docker-compose build --no-cache memory-mcp && docker-compose up -d`
-2. **Phase 1: T001** sandbox_image → sandbox_files 統合
-3. **Phase 1: T002** MCPツールを flat 名に再編（memory god-tool 分割）
-4. **Phase 1: T003** goal/promise 6→2ツール化
-5. **Phase 1: T004** entity/contradictions/mental_model/import を LLMツールから削除
 
-## 方針決定事項
-- **sandbox_image は sandbox_files に統合**（read操作で画像自動検出）
-- **ツール命名は Builtin flat スタイル統一**（`memory_create` > `memory(operation="create")`）
-- **エンティティグラフ・矛盾検出・メンタルモデル・会話import は LLMツールから外す**（自動化/Admin化）
-- **全docstring 300字キャップ**
-- **goal/promise 6ツール → 2ツール（operationパラメータ付き）**
-- **コードはDRY、インターフェースはflat** が最適解
+### 🔬 本番動作テスト
+1. **`get_context()` を呼ぶ** → 軽量出力を確認
+   - `📌 Now:` 行に context_note が表示されるか
+   - Recent + Current context が表示されるか
+   - Speech Style が引き継がれているか
+
+2. **`update_context(context_note="...")` を呼ぶ**
+   - 感情更新と同時に context_note を設定
+   - 再度 get_context で反映確認
+
+3. **新 flat ツール全般の動作確認**
+   - `memory_search(query="...")` 
+   - `goal_manage(operation="create", ...)` / `promise_manage`
+   - `memory_stats()`, `memory_create(...)`
+   - `sandbox_files(operation="list")` / `sandbox(code="...")`
+
+4. **会話継続テスト**
+   - `context_note` が別セッションで復元されるか
+   - `Current context` タグ合成が適切か
+
+### 🛠 改善候補（テスト結果を見て判断）
+- `get_context` の `Current context` タグ合成の精度
+- `memory_search` のデフォルト importance_weight/recency_weight 調整
+- past commitments が多すぎる場合の自動アーカイブ
 
 ## 試したこと・結果
-- ✅ MCP全ツール 16/16 オペレーション正常動作（NAS本番環境）
-- ✅ matplotlib + PIL 画像生成・読み取り成功（日本語フォント欠損はあるが描画出力OK）
-- ✅ JSON ファイルラウンドトリップ正常
-- ✅ PDF ファイル存在確認（PyPDF2未インストール）
-- ✅ コンテキスト圧迫分析: 7,085→~1,015 tokens (86%削減見込)
-- ⚠️ sandbox に日本語フォント・PDFライブラリ不在
-- ⚠️ sandbox file tree に .sandbox-pip-cache/ が露出
+- ✅ MCPツール 6 god-tool → 20 flat単一目的ツールに再編
+- ✅ builtin.py if/elif チェーン廃止 → dispatch dict 化
+- ✅ コア関数 str→dict 化（共有4関数）
+- ✅ get_context デフォルト軽量: 感情・状態・装備・目標・約束・直近記憶・コンテキスト合成
+- ✅ 全ユニットテスト 821 passed
 
-## 注意点・ブロッカー
-- `.agent/` `.spec/` は gitignore 対象。リポジトリにコミット不要
-- 本番未デプロイのため全WebUI修正はコード上のみ
-- 次のセッションでツール統合の大規模リファクタ。テストへの影響注意（LLMモック依存）
-- `sandbox_files` の画像読取統合時、builtin.py の sandbox_image コードを削除（既に read_image() 共通化済）
+## 注意点
+- NAS 本番環境は `docker-compose up -d --build` でデプロイ済み
+- `get_context` はデフォルトで軽量モード。全量が必要なら `mode="full"`
+- `update_context` の context_note は 1行50字以内推奨
+- `memory_search` の旧名 `search_memory` は削除済み
+- `goal_create/achieve/cancel` → `goal_manage(operation=...)` に統一
+- `sandbox_image` 削除 → `sandbox_files(operation="read")` で画像読取

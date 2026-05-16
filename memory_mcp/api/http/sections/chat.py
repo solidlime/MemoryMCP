@@ -114,35 +114,257 @@ def render_chat_tab() -> str:
         .chat-msg-action-btn.edit:hover { color: var(--accent-blue); border-color: rgba(96,165,250,0.4); }
         /* Settings sidebar */
         #settings-panel {
-            width: 280px; flex-shrink: 0; display: flex; flex-direction: column; gap: 12px;
-            overflow-y: auto;
+            width: 360px; flex-shrink: 0; display: flex; flex-direction: column;
+            overflow-y: auto; overflow-x: hidden;
+            /* Custom scrollbar */
+            scrollbar-width: thin;
+            scrollbar-color: rgba(167,139,250,0.3) transparent;
+        }
+        #settings-panel::-webkit-scrollbar { width: 6px; }
+        #settings-panel::-webkit-scrollbar-track { background: transparent; }
+        #settings-panel::-webkit-scrollbar-thumb {
+            background: rgba(167,139,250,0.3);
+            border-radius: 3px;
+        }
+        #settings-panel::-webkit-scrollbar-thumb:hover {
+            background: rgba(167,139,250,0.5);
         }
         #settings-panel.collapsed { width: 0; overflow: hidden; }
-        /* Settings accordion */
+
+        /* Settings accordion - modern redesign */
+        #settings-panel .settings-scroll-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 16px;
+            min-height: 0;
+        }
+
         #settings-panel details {
-            border: 1px solid var(--glass-border); border-radius: 8px;
-            margin-bottom: 8px;
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            background: rgba(255,255,255,0.02);
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        #settings-panel details:not([open]) { overflow: hidden; }
-        #settings-panel details[open] { border-color: rgba(167,139,250,0.25); overflow: visible; }
-        #settings-panel details[open] .details-body { max-height: 280px; overflow-y: auto; }
+
+        #settings-panel details:not([open]):hover {
+            border-color: rgba(167,139,250,0.2);
+            background: rgba(255,255,255,0.04);
+            transform: translateX(2px);
+        }
+
+        #settings-panel details[open] {
+            border-color: rgba(167,139,250,0.35);
+            background: rgba(167,139,250,0.04);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+
+        /* Sticky accordion summary with animation */
         #settings-panel summary {
-            padding: 9px 12px; font-size: 0.8rem; font-weight: 600;
-            color: var(--text-secondary); cursor: pointer;
-            background: rgba(255,255,255,0.03);
-            user-select: none; transition: background 0.15s;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            padding: 11px 14px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            cursor: pointer;
+            background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%);
+            border-bottom: 1px solid transparent;
+            user-select: none;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            list-style: none;
         }
-        #settings-panel summary:hover { background: rgba(255,255,255,0.06); }
+
+        #settings-panel summary::-webkit-details-marker { display: none; }
+
+        #settings-panel summary::before {
+            content: '▸';
+            font-size: 0.7rem;
+            color: var(--accent-purple);
+            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            opacity: 0.8;
+        }
+
+        #settings-panel details[open] summary::before {
+            transform: rotate(90deg);
+        }
+
+        #settings-panel details[open] summary {
+            background: linear-gradient(135deg, rgba(167,139,250,0.12) 0%, rgba(167,139,250,0.04) 100%);
+            border-bottom-color: rgba(167,139,250,0.2);
+            color: var(--text-primary);
+        }
+
+        #settings-panel summary:hover {
+            background: linear-gradient(135deg, rgba(167,139,250,0.1) 0%, rgba(167,139,250,0.03) 100%);
+            color: var(--text-primary);
+        }
+
+        /* Animated accordion body */
         #settings-panel details .details-body {
-            padding: 10px 12px; display: flex; flex-direction: column; gap: 10px;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            opacity: 0;
+            transform: translateY(-8px);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        /* Settings sticky footer */
+
+        #settings-panel details[open] .details-body {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Category styling with accent colors */
+        #settings-panel details[data-category="core"] summary::before { color: var(--accent-purple); }
+        #settings-panel details[data-category="context"] summary::before { color: var(--accent-blue); }
+        #settings-panel details[data-category="memory"] summary::before { color: #a78bfa; }
+        #settings-panel details[data-category="tools"] summary::before { color: #60a5fa; }
+        #settings-panel details[data-category="skills"] summary::before { color: #fbbf24; }
+        #settings-panel details[data-category="reflection"] summary::before { color: #c084fc; }
+        #settings-panel details[data-category="mental"] summary::before { color: #818cf8; }
+        #settings-panel details[data-category="weights"] summary::before { color: #34d399; }
+        #settings-panel details[data-category="other"] summary::before { color: #f87171; }
+
+        /* Enhanced field labels */
+        .chat-field-label {
+            font-size: 0.76rem;
+            color: var(--text-muted);
+            margin-bottom: 5px;
+            font-weight: 500;
+            letter-spacing: 0.01em;
+        }
+
+        .chat-field-label span {
+            font-weight: 400;
+        }
+
+        /* Enhanced inputs */
+        .chat-field-input {
+            width: 100%;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            padding: 9px 11px;
+            color: var(--text-primary);
+            font-size: 0.86rem;
+            font-family: inherit;
+            outline: none;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            box-sizing: border-box;
+        }
+
+        .chat-field-input:hover {
+            border-color: rgba(167,139,250,0.25);
+            background: rgba(255,255,255,0.06);
+        }
+
+        .chat-field-input:focus {
+            border-color: var(--accent-purple);
+            background: rgba(167,139,250,0.05);
+            box-shadow: 0 0 0 3px rgba(167,139,250,0.1);
+        }
+
+        .chat-field-input option { background: #1a0533; }
+
+        /* Range slider styling */
+        input[type="range"].chat-field-input {
+            padding: 4px 0;
+            background: transparent;
+            border: none;
+            box-shadow: none;
+        }
+
+        input[type="range"].chat-field-input:focus {
+            box-shadow: none;
+        }
+
+        /* Settings sticky footer - enhanced */
         .settings-footer {
-            position: sticky; bottom: 0;
-            background: linear-gradient(transparent, var(--bg-primary) 40%);
-            padding: 12px 0 4px; margin-top: 4px;
-            display: flex; flex-direction: column; gap: 8px;
-            z-index: 5;
+            position: sticky;
+            bottom: 0;
+            background: linear-gradient(to top, var(--bg-primary) 0%, var(--bg-primary) 70%, transparent 100%);
+            padding: 16px 16px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 20;
+            border-top: 1px solid rgba(255,255,255,0.06);
+            margin-top: auto;
+        }
+
+        .chat-save-btn {
+            width: 100%;
+            padding: 10px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, rgba(167,139,250,0.18) 0%, rgba(124,58,237,0.12) 100%);
+            border: 1px solid rgba(167,139,250,0.35);
+            color: var(--accent-purple);
+            cursor: pointer;
+            font-size: 0.88rem;
+            font-weight: 600;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            letter-spacing: 0.01em;
+        }
+
+        .chat-save-btn:hover {
+            background: linear-gradient(135deg, rgba(167,139,250,0.28) 0%, rgba(124,58,237,0.2) 100%);
+            border-color: rgba(167,139,250,0.5);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 14px rgba(167,139,250,0.25);
+        }
+
+        .chat-save-btn:active {
+            transform: translateY(0);
+        }
+
+        .chat-clear-btn {
+            width: 100%;
+            padding: 8px;
+            border-radius: 10px;
+            background: rgba(248,113,113,0.08);
+            border: 1px solid rgba(248,113,113,0.2);
+            color: var(--accent-red);
+            cursor: pointer;
+            font-size: 0.84rem;
+            font-weight: 500;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .chat-clear-btn:hover {
+            background: rgba(248,113,113,0.14);
+            border-color: rgba(248,113,113,0.35);
+            transform: translateY(-1px);
+        }
+
+        /* Mobile responsive */
+        @media (max-width: 768px) {
+            #chat-layout { flex-direction: column; height: auto; }
+            #chat-messages { min-height: 350px; max-height: 50vh; }
+            #memory-panel { display: none; }
+            #settings-panel {
+                width: 100%;
+                position: fixed;
+                top: 0;
+                right: 0;
+                bottom: 0;
+                z-index: 1000;
+                background: var(--bg-primary);
+            }
+            #settings-panel.collapsed {
+                width: 0;
+                transform: translateX(100%);
+            }
+            #settings-panel .settings-scroll-container {
+                padding: 12px;
+            }
         }
         .chat-sidebar-toggle {
             position: absolute; right: 16px; top: 8px;
@@ -151,29 +373,6 @@ def render_chat_tab() -> str:
             cursor: pointer; font-size: 0.78rem; transition: all 0.2s;
         }
         .chat-sidebar-toggle:hover { color: var(--text-primary); background: var(--glass-bg); }
-        .chat-field-label { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 4px; }
-        .chat-field-input {
-            width: 100%; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border);
-            border-radius: 8px; padding: 8px 10px; color: var(--text-primary);
-            font-size: 0.85rem; font-family: inherit; outline: none; transition: border-color 0.2s;
-            box-sizing: border-box;
-        }
-        .chat-field-input:focus { border-color: var(--accent-purple); }
-        .chat-field-input option { background: #1a0533; }
-        .chat-save-btn {
-            width: 100%; padding: 8px; border-radius: 8px;
-            background: rgba(167,139,250,0.15); border: 1px solid rgba(167,139,250,0.3);
-            color: var(--accent-purple); cursor: pointer; font-size: 0.85rem; font-weight: 600;
-            transition: all 0.2s;
-        }
-        .chat-save-btn:hover { background: rgba(167,139,250,0.25); }
-        .chat-clear-btn {
-            width: 100%; padding: 7px; border-radius: 8px;
-            background: rgba(248,113,113,0.08); border: 1px solid rgba(248,113,113,0.2);
-            color: var(--accent-red); cursor: pointer; font-size: 0.82rem;
-            transition: all 0.2s;
-        }
-        .chat-clear-btn:hover { background: rgba(248,113,113,0.15); }
         #chat-status { font-size: 0.75rem; color: var(--text-muted); padding: 4px 16px; min-height: 20px; }
         .chat-welcome {
             flex: 1; display: flex; flex-direction: column; align-items: center;
@@ -253,12 +452,7 @@ def render_chat_tab() -> str:
         @media (max-width: 900px) {
             #memory-panel { display: none; }
         }
-        @media (max-width: 768px) {
-            #chat-layout { flex-direction: column; height: auto; }
-            #chat-messages { min-height: 350px; max-height: 50vh; }
-            #settings-panel { width: 100% !important; }
-            #memory-panel { display: none; }
-        }
+
         #chat-cancel-btn {
             background: rgba(248,113,113,0.12); border: 1px solid rgba(248,113,113,0.3);
             border-radius: 8px; color: var(--accent-red); padding: 8px 14px;
@@ -462,225 +656,230 @@ def render_chat_tab() -> str:
                     </div>
                 </div>
                 <!-- Settings sidebar -->
-                <div id="settings-panel" class="glass" style="margin:0; border-radius:0; border-left:1px solid var(--glass-border); padding:16px; gap:8px; display:flex; flex-direction:column;">
-                    <div style="font-size:0.85rem; font-weight:600; color:var(--text-primary); margin-bottom:4px;">⚙️ チャット設定</div>
-                    <!-- Provider / Model / API -->
-                    <details open>
-                        <summary>🔧 基本設定</summary>
-                        <div class="details-body">
-                            <div>
-                                <div class="chat-field-label">プロバイダー</div>
-                                <select id="chat-provider" class="chat-field-input" onchange="onChatProviderChange()">
-                                    <option value="anthropic">Anthropic (Claude)</option>
-                                    <option value="openai">OpenAI</option>
-                                    <option value="openrouter">OpenRouter</option>
-                                </select>
-                            </div>
-                            <div>
-                                <div class="chat-field-label">モデル <span style="color:var(--accent-blue);font-size:0.7rem;">（空白でデフォルト）</span></div>
-                                <input type="text" id="chat-model" class="chat-field-input" placeholder="例: claude-opus-4-5" />
-                            </div>
-                            <div>
-                                <div class="chat-field-label">APIキー</div>
-                                <input type="password" id="chat-api-key" class="chat-field-input" placeholder="sk-..." autocomplete="off" />
-                            </div>
-                            <div id="chat-base-url-row">
-                                <div class="chat-field-label">Base URL <span style="color:var(--text-muted);font-size:0.7rem;">（任意）</span></div>
-                                <input type="text" id="chat-base-url" class="chat-field-input" placeholder="https://openrouter.ai/api/v1" />
-                            </div>
-                            <div>
-                                <div class="chat-field-label" style="display:flex;justify-content:space-between;">
-                                    <span>Temperature</span>
-                                    <span id="chat-temp-val" style="color:var(--accent-purple);">0.7</span>
-                                </div>
-                                <input type="range" id="chat-temperature" min="0" max="2" step="0.05" value="0.7"
-                                    oninput="document.getElementById('chat-temp-val').textContent=parseFloat(this.value).toFixed(2)"
-                                    style="width:100%;accent-color:var(--accent-purple);" />
-                            </div>
-                            <div>
-                                <div class="chat-field-label">Max Tokens</div>
-                                <input type="number" id="chat-max-tokens" class="chat-field-input" min="1" max="32768" value="2048" />
-                            </div>
+                <div id="settings-panel" class="glass" style="margin:0; border-radius:0; border-left:1px solid var(--glass-border); padding:0;">
+                    <div class="settings-scroll-container">
+                        <div style="font-size:0.9rem; font-weight:600; color:var(--text-primary); padding-bottom:8px; border-bottom:1px solid rgba(167,139,250,0.2); display:flex; align-items:center; gap:8px;">
+                            <span style="font-size:1.1rem;">⚙️</span>
+                            <span>チャット設定</span>
                         </div>
-                    </details>
-                    <!-- Context & System Prompt -->
-                    <details>
-                        <summary>💬 コンテキスト</summary>
-                        <div class="details-body">
-                            <div>
-                                <div class="chat-field-label">コンテキスト履歴 (turns)</div>
-                                <input type="number" id="chat-window-turns" class="chat-field-input" min="1" max="50" value="3" />
-                            </div>
-                            <div>
-                                <div class="chat-field-label">表示履歴 (turns) <span style="color:var(--text-muted);font-size:0.7rem;">（ページロード時に遡る件数）</span></div>
-                                <input type="number" id="chat-display-history-turns" class="chat-field-input" min="1" max="200" value="20" />
-                            </div>
-                            <div>
-                                <div class="chat-field-label">最大ツール呼び出し回数</div>
-                                <input type="number" id="chat-max-tool-calls" class="chat-field-input" min="0" max="20" value="5" />
-                            </div>
-                            <div style="flex:1; display:flex; flex-direction:column; min-height:80px;">
-                                <div class="chat-field-label">システムプロンプト</div>
-                                <textarea id="chat-system-prompt" class="chat-field-input" rows="4"
-                                    placeholder="（空白でデフォルト: ペルソナ名のアシスタント）"
-                                    style="flex:1;resize:vertical;min-height:70px;max-height:300px;overflow-y:auto;"></textarea>
-                            </div>
-                        </div>
-                    </details>
-                    <!-- Memory extraction -->
-                    <details>
-                        <summary>🧠 記憶・抽出</summary>
-                        <div class="details-body">
-                            <div style="display:flex;align-items:center;gap:8px;">
-                                <input type="checkbox" id="chat-auto-extract" checked
-                                    style="width:15px;height:15px;accent-color:var(--accent-purple);cursor:pointer;" />
-                                <label for="chat-auto-extract" class="chat-field-label" style="margin:0;cursor:pointer;">ターン毎に記憶を自動抽出 (Mem0方式)</label>
-                            </div>
-                            <div>
-                                <div class="chat-field-label">抽出モデル <span style="color:var(--text-muted);font-size:0.7rem;">（空白でチャットと同モデル）</span></div>
-                                <input type="text" id="chat-extract-model" class="chat-field-input"
-                                    placeholder="例: claude-haiku-4-5, gpt-4o-mini" />
-                            </div>
-                            <div>
-                                <div class="chat-field-label">抽出 Max Tokens</div>
-                                <input type="number" id="chat-extract-max-tokens" class="chat-field-input" min="64" max="2048" value="512" />
-                            </div>
-                            <div style="display:flex;align-items:center;gap:8px;">
-                                <input type="checkbox" id="chat-enable-memory-tools" checked
-                                    style="width:15px;height:15px;accent-color:var(--accent-purple);cursor:pointer;" />
-                                <label for="chat-enable-memory-tools" class="chat-field-label" style="margin:0;cursor:pointer;">LLMに組み込みメモリツールを渡す</label>
-                            </div>
-                        </div>
-                    </details>
-                    <!-- MCP Servers -->
-                    <details>
-                        <summary>🔌 MCPサーバー</summary>
-                        <div class="details-body" id="chat-mcp-section">
-                            <div>
-                                <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:4px;">Claude の mcp.json 形式で貼り付け・編集できます</div>
-                                <textarea id="chat-mcp-json" class="chat-field-input" rows="6"
-                                    style="resize:vertical;min-height:100px;font-family:monospace;font-size:0.73rem;line-height:1.45;"
-                                    placeholder='{&#10;  "mcpServers": {&#10;    "my-server": {&#10;      "command": "npx",&#10;      "args": ["-y", "@modelcontextprotocol/server-filesystem"]&#10;    }&#10;  }&#10;}'></textarea>
-                                <div id="chat-mcp-json-error" style="font-size:0.72rem;color:var(--accent-red);margin-top:3px;display:none;"></div>
-                            </div>
-                            <div>
-                                <div class="chat-field-label" style="display:flex;justify-content:space-between;">
-                                    <span>ツール結果最大文字数</span>
-                                    <span id="chat-tool-max-val" style="color:var(--accent-purple);">4000</span>
-                                </div>
-                                <input type="range" id="chat-tool-result-max" min="500" max="20000" step="500" value="4000"
-                                    oninput="document.getElementById('chat-tool-max-val').textContent=this.value"
-                                    style="width:100%;accent-color:var(--accent-purple);" />
-                            </div>
-                        </div>
-                    </details>
-                    <!-- Skills -->
-                    <details>
-                        <summary>🎯 Skills</summary>
-                        <div class="details-body" id="chat-skills-section">
-                            <div id="chat-skills-list" style="display:flex;flex-direction:column;gap:4px;"></div>
-                        </div>
-                    </details>
-                    <!-- Reflection -->
-                    <details>
-                        <summary>🔮 リフレクション</summary>
-                        <div class="details-body">
-                            <div style="display:flex;align-items:center;gap:8px;">
-                                <input type="checkbox" id="chat-reflection-enabled" checked
-                                    style="width:15px;height:15px;accent-color:var(--accent-purple);cursor:pointer;" />
-                                <label for="chat-reflection-enabled" class="chat-field-label" style="margin:0;cursor:pointer;">リフレクション有効</label>
-                            </div>
-                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                        <!-- Provider / Model / API -->
+                        <details data-category="core" open>
+                            <summary>🔧 基本設定</summary>
+                            <div class="details-body">
                                 <div>
-                                    <div class="chat-field-label">閾値</div>
-                                    <input type="number" id="chat-reflection-threshold" class="chat-field-input"
-                                        min="0.1" max="100" step="0.1" value="1.0" />
+                                    <div class="chat-field-label">プロバイダー</div>
+                                    <select id="chat-provider" class="chat-field-input" onchange="onChatProviderChange()">
+                                        <option value="anthropic">Anthropic (Claude)</option>
+                                        <option value="openai">OpenAI</option>
+                                        <option value="openrouter">OpenRouter</option>
+                                    </select>
                                 </div>
                                 <div>
-                                    <div class="chat-field-label">最小間隔 (時間)</div>
-                                    <input type="number" id="chat-reflection-interval" class="chat-field-input"
-                                        min="0" max="168" step="0.5" value="1.0" />
+                                    <div class="chat-field-label">モデル <span style="color:var(--accent-blue);font-size:0.7rem;">（空白でデフォルト）</span></div>
+                                    <input type="text" id="chat-model" class="chat-field-input" placeholder="例: claude-opus-4-5" />
+                                </div>
+                                <div>
+                                    <div class="chat-field-label">APIキー</div>
+                                    <input type="password" id="chat-api-key" class="chat-field-input" placeholder="sk-..." autocomplete="off" />
+                                </div>
+                                <div id="chat-base-url-row">
+                                    <div class="chat-field-label">Base URL <span style="color:var(--text-muted);font-size:0.7rem;">（任意）</span></div>
+                                    <input type="text" id="chat-base-url" class="chat-field-input" placeholder="https://openrouter.ai/api/v1" />
+                                </div>
+                                <div>
+                                    <div class="chat-field-label" style="display:flex;justify-content:space-between;">
+                                        <span>Temperature</span>
+                                        <span id="chat-temp-val" style="color:var(--accent-purple);">0.7</span>
+                                    </div>
+                                    <input type="range" id="chat-temperature" class="chat-field-input" min="0" max="2" step="0.05" value="0.7"
+                                        oninput="document.getElementById('chat-temp-val').textContent=parseFloat(this.value).toFixed(2)"
+                                        style="width:100%;accent-color:var(--accent-purple);" />
+                                </div>
+                                <div>
+                                    <div class="chat-field-label">Max Tokens</div>
+                                    <input type="number" id="chat-max-tokens" class="chat-field-input" min="1" max="32768" value="2048" />
                                 </div>
                             </div>
-                            <div style="display:flex;align-items:center;gap:8px;">
-                                <input type="checkbox" id="chat-session-summarize" checked
-                                    style="width:15px;height:15px;accent-color:var(--accent-purple);cursor:pointer;" />
-                                <label for="chat-session-summarize" class="chat-field-label" style="margin:0;cursor:pointer;">セッション要約</label>
-                            </div>
-                        </div>
-                    </details>
-                    <!-- Mental Model -->
-                    <details>
-                        <summary>🧩 メンタルモデル</summary>
-                        <div class="details-body">
-                            <div style="display:flex;align-items:center;gap:8px;">
-                                <input type="checkbox" id="chat-mental-model-enabled" checked
-                                    style="width:15px;height:15px;accent-color:var(--accent-purple);cursor:pointer;" />
-                                <label for="chat-mental-model-enabled" class="chat-field-label" style="margin:0;cursor:pointer;">メンタルモデル抽出を有効</label>
-                            </div>
-                            <div>
-                                <div class="chat-field-label">最小サンプル数</div>
-                                <input type="number" id="chat-mental-model-min-samples" class="chat-field-input"
-                                    min="1" max="20" value="3" />
-                            </div>
-                        </div>
-                    </details>
-                    <!-- Retrieval weights -->
-                    <details>
-                        <summary>⚖️ 検索重み</summary>
-                        <div class="details-body">
-                            <div>
-                                <div class="chat-field-label" style="display:flex;justify-content:space-between;">
-                                    <span>鮮度</span>
-                                    <span id="chat-recency-weight-val" style="color:var(--accent-purple);">0.30</span>
+                        </details>
+                        <!-- Context & System Prompt -->
+                        <details data-category="context">
+                            <summary>💬 コンテキスト</summary>
+                            <div class="details-body">
+                                <div>
+                                    <div class="chat-field-label">コンテキスト履歴 (turns)</div>
+                                    <input type="number" id="chat-window-turns" class="chat-field-input" min="1" max="50" value="3" />
                                 </div>
-                                <input type="range" id="chat-recency-weight" min="0" max="1" step="0.05" value="0.3"
-                                    oninput="document.getElementById('chat-recency-weight-val').textContent=parseFloat(this.value).toFixed(2)"
-                                    style="width:100%;accent-color:var(--accent-purple);" />
-                            </div>
-                            <div>
-                                <div class="chat-field-label" style="display:flex;justify-content:space-between;">
-                                    <span>重要度</span>
-                                    <span id="chat-importance-weight-val" style="color:var(--accent-purple);">0.30</span>
+                                <div>
+                                    <div class="chat-field-label">表示履歴 (turns) <span style="color:var(--text-muted);font-size:0.7rem;">（ページロード時に遡る件数）</span></div>
+                                    <input type="number" id="chat-display-history-turns" class="chat-field-input" min="1" max="200" value="20" />
                                 </div>
-                                <input type="range" id="chat-importance-weight" min="0" max="1" step="0.05" value="0.3"
-                                    oninput="document.getElementById('chat-importance-weight-val').textContent=parseFloat(this.value).toFixed(2)"
-                                    style="width:100%;accent-color:var(--accent-purple);" />
-                            </div>
-                            <div>
-                                <div class="chat-field-label" style="display:flex;justify-content:space-between;">
-                                    <span>関連性</span>
-                                    <span id="chat-relevance-weight-val" style="color:var(--accent-purple);">0.40</span>
+                                <div>
+                                    <div class="chat-field-label">最大ツール呼び出し回数</div>
+                                    <input type="number" id="chat-max-tool-calls" class="chat-field-input" min="0" max="20" value="5" />
                                 </div>
-                                <input type="range" id="chat-relevance-weight" min="0" max="1" step="0.05" value="0.4"
-                                    oninput="document.getElementById('chat-relevance-weight-val').textContent=parseFloat(this.value).toFixed(2)"
-                                    style="width:100%;accent-color:var(--accent-purple);" />
+                                <div style="flex:1; display:flex; flex-direction:column; min-height:80px;">
+                                    <div class="chat-field-label">システムプロンプト</div>
+                                    <textarea id="chat-system-prompt" class="chat-field-input" rows="4"
+                                        placeholder="（空白でデフォルト: ペルソナ名のアシスタント）"
+                                        style="flex:1;resize:vertical;min-height:70px;max-height:300px;overflow-y:auto;"></textarea>
+                                </div>
                             </div>
-                        </div>
-                    </details>
-                    <!-- Housekeeping & Other -->
-                    <details>
-                        <summary>🧹 整理・その他</summary>
-                        <div class="details-body">
-                            <div>
-                                <div class="chat-field-label">自動整理 閾値 (goals+promises 合計がこの数を超えたら実行)</div>
-                                <input type="number" id="chat-housekeeping-threshold" class="chat-field-input" min="1" max="100" value="10" />
+                        </details>
+                        <!-- Memory extraction -->
+                        <details data-category="memory">
+                            <summary>🧠 記憶・抽出</summary>
+                            <div class="details-body">
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <input type="checkbox" id="chat-auto-extract" checked
+                                        style="width:15px;height:15px;accent-color:var(--accent-purple);cursor:pointer;" />
+                                    <label for="chat-auto-extract" class="chat-field-label" style="margin:0;cursor:pointer;">ターン毎に記憶を自動抽出 (Mem0方式)</label>
+                                </div>
+                                <div>
+                                    <div class="chat-field-label">抽出モデル <span style="color:var(--text-muted);font-size:0.7rem;">（空白でチャットと同モデル）</span></div>
+                                    <input type="text" id="chat-extract-model" class="chat-field-input"
+                                        placeholder="例: claude-haiku-4-5, gpt-4o-mini" />
+                                </div>
+                                <div>
+                                    <div class="chat-field-label">抽出 Max Tokens</div>
+                                    <input type="number" id="chat-extract-max-tokens" class="chat-field-input" min="64" max="2048" value="512" />
+                                </div>
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <input type="checkbox" id="chat-enable-memory-tools" checked
+                                        style="width:15px;height:15px;accent-color:var(--accent-purple);cursor:pointer;" />
+                                    <label for="chat-enable-memory-tools" class="chat-field-label" style="margin:0;cursor:pointer;">LLMに組み込みメモリツールを渡す</label>
+                                </div>
                             </div>
-                            <button class="chat-clear-btn" style="margin-top:4px;" onclick="runHousekeeping()">🧹 今すぐ整理</button>
-                            <div id="chat-housekeeping-status" style="font-size:0.75rem; text-align:center; min-height:16px;"></div>
-                            <div style="border-top:1px solid var(--glass-border);padding-top:8px;display:flex;align-items:center;gap:8px;">
-                                <input type="checkbox" id="chat-sandbox-enabled"
-                                    style="width:15px;height:15px;accent-color:var(--accent-blue);cursor:pointer;"
-                                    onchange="onSandboxEnabledChange()" />
-                                <label for="chat-sandbox-enabled" class="chat-field-label" style="margin:0;cursor:pointer;">コード実行 (Dockerサンドボックス)</label>
+                        </details>
+                        <!-- MCP Servers -->
+                        <details data-category="tools">
+                            <summary>🔌 MCPサーバー</summary>
+                            <div class="details-body" id="chat-mcp-section">
+                                <div>
+                                    <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:4px;">Claude の mcp.json 形式で貼り付け・編集できます</div>
+                                    <textarea id="chat-mcp-json" class="chat-field-input" rows="6"
+                                        style="resize:vertical;min-height:100px;font-family:monospace;font-size:0.73rem;line-height:1.45;"
+                                        placeholder='{&#10;  "mcpServers": {&#10;    "my-server": {&#10;      "command": "npx",&#10;      "args": ["-y", "@modelcontextprotocol/server-filesystem"]&#10;    }&#10;  }&#10;}'></textarea>
+                                    <div id="chat-mcp-json-error" style="font-size:0.72rem;color:var(--accent-red);margin-top:3px;display:none;"></div>
+                                </div>
+                                <div>
+                                    <div class="chat-field-label" style="display:flex;justify-content:space-between;">
+                                        <span>ツール結果最大文字数</span>
+                                        <span id="chat-tool-max-val" style="color:var(--accent-purple);">4000</span>
+                                    </div>
+                                    <input type="range" id="chat-tool-result-max" class="chat-field-input" min="500" max="20000" step="500" value="4000"
+                                        oninput="document.getElementById('chat-tool-max-val').textContent=this.value"
+                                        style="width:100%;accent-color:var(--accent-purple);" />
+                                </div>
                             </div>
-                            <div style="display:flex;align-items:center;gap:8px;">
-                                <input type="checkbox" id="chat-debug-mode"
-                                    style="width:15px;height:15px;accent-color:var(--accent-purple);cursor:pointer;" />
-                                <label for="chat-debug-mode" class="chat-field-label" style="margin:0;cursor:pointer;">🐛 デバッグモード</label>
+                        </details>
+                        <!-- Skills -->
+                        <details data-category="skills">
+                            <summary>🎯 Skills</summary>
+                            <div class="details-body" id="chat-skills-section">
+                                <div id="chat-skills-list" style="display:flex;flex-direction:column;gap:4px;"></div>
                             </div>
-                        </div>
-                    </details>
+                        </details>
+                        <!-- Reflection -->
+                        <details data-category="reflection">
+                            <summary>🔮 リフレクション</summary>
+                            <div class="details-body">
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <input type="checkbox" id="chat-reflection-enabled" checked
+                                        style="width:15px;height:15px;accent-color:var(--accent-purple);cursor:pointer;" />
+                                    <label for="chat-reflection-enabled" class="chat-field-label" style="margin:0;cursor:pointer;">リフレクション有効</label>
+                                </div>
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                                    <div>
+                                        <div class="chat-field-label">閾値</div>
+                                        <input type="number" id="chat-reflection-threshold" class="chat-field-input"
+                                            min="0.1" max="100" step="0.1" value="1.0" />
+                                    </div>
+                                    <div>
+                                        <div class="chat-field-label">最小間隔 (時間)</div>
+                                        <input type="number" id="chat-reflection-interval" class="chat-field-input"
+                                            min="0" max="168" step="0.5" value="1.0" />
+                                    </div>
+                                </div>
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <input type="checkbox" id="chat-session-summarize" checked
+                                        style="width:15px;height:15px;accent-color:var(--accent-purple);cursor:pointer;" />
+                                    <label for="chat-session-summarize" class="chat-field-label" style="margin:0;cursor:pointer;">セッション要約</label>
+                                </div>
+                            </div>
+                        </details>
+                        <!-- Mental Model -->
+                        <details data-category="mental">
+                            <summary>🧩 メンタルモデル</summary>
+                            <div class="details-body">
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <input type="checkbox" id="chat-mental-model-enabled" checked
+                                        style="width:15px;height:15px;accent-color:var(--accent-purple);cursor:pointer;" />
+                                    <label for="chat-mental-model-enabled" class="chat-field-label" style="margin:0;cursor:pointer;">メンタルモデル抽出を有効</label>
+                                </div>
+                                <div>
+                                    <div class="chat-field-label">最小サンプル数</div>
+                                    <input type="number" id="chat-mental-model-min-samples" class="chat-field-input"
+                                        min="1" max="20" value="3" />
+                                </div>
+                            </div>
+                        </details>
+                        <!-- Retrieval weights -->
+                        <details data-category="weights">
+                            <summary>⚖️ 検索重み</summary>
+                            <div class="details-body">
+                                <div>
+                                    <div class="chat-field-label" style="display:flex;justify-content:space-between;">
+                                        <span>鮮度</span>
+                                        <span id="chat-recency-weight-val" style="color:var(--accent-purple);">0.30</span>
+                                    </div>
+                                    <input type="range" id="chat-recency-weight" class="chat-field-input" min="0" max="1" step="0.05" value="0.3"
+                                        oninput="document.getElementById('chat-recency-weight-val').textContent=parseFloat(this.value).toFixed(2)"
+                                        style="width:100%;accent-color:var(--accent-purple);" />
+                                </div>
+                                <div>
+                                    <div class="chat-field-label" style="display:flex;justify-content:space-between;">
+                                        <span>重要度</span>
+                                        <span id="chat-importance-weight-val" style="color:var(--accent-purple);">0.30</span>
+                                    </div>
+                                    <input type="range" id="chat-importance-weight" class="chat-field-input" min="0" max="1" step="0.05" value="0.3"
+                                        oninput="document.getElementById('chat-importance-weight-val').textContent=parseFloat(this.value).toFixed(2)"
+                                        style="width:100%;accent-color:var(--accent-purple);" />
+                                </div>
+                                <div>
+                                    <div class="chat-field-label" style="display:flex;justify-content:space-between;">
+                                        <span>関連性</span>
+                                        <span id="chat-relevance-weight-val" style="color:var(--accent-purple);">0.40</span>
+                                    </div>
+                                    <input type="range" id="chat-relevance-weight" class="chat-field-input" min="0" max="1" step="0.05" value="0.4"
+                                        oninput="document.getElementById('chat-relevance-weight-val').textContent=parseFloat(this.value).toFixed(2)"
+                                        style="width:100%;accent-color:var(--accent-purple);" />
+                                </div>
+                            </div>
+                        </details>
+                        <!-- Housekeeping & Other -->
+                        <details data-category="other">
+                            <summary>🧹 整理・その他</summary>
+                            <div class="details-body">
+                                <div>
+                                    <div class="chat-field-label">自動整理 閾値 (goals+promises 合計がこの数を超えたら実行)</div>
+                                    <input type="number" id="chat-housekeeping-threshold" class="chat-field-input" min="1" max="100" value="10" />
+                                </div>
+                                <button class="chat-clear-btn" style="margin-top:4px;" onclick="runHousekeeping()">🧹 今すぐ整理</button>
+                                <div id="chat-housekeeping-status" style="font-size:0.75rem; text-align:center; min-height:16px;"></div>
+                                <div style="border-top:1px solid var(--glass-border);padding-top:8px;display:flex;align-items:center;gap:8px;">
+                                    <input type="checkbox" id="chat-sandbox-enabled"
+                                        style="width:15px;height:15px;accent-color:var(--accent-blue);cursor:pointer;"
+                                        onchange="onSandboxEnabledChange()" />
+                                    <label for="chat-sandbox-enabled" class="chat-field-label" style="margin:0;cursor:pointer;">コード実行 (Dockerサンドボックス)</label>
+                                </div>
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <input type="checkbox" id="chat-debug-mode"
+                                        style="width:15px;height:15px;accent-color:var(--accent-purple);cursor:pointer;" />
+                                    <label for="chat-debug-mode" class="chat-field-label" style="margin:0;cursor:pointer;">🐛 デバッグモード</label>
+                                </div>
+                            </div>
+                        </details>
+                    </div>
                     <!-- Sticky footer buttons -->
                     <div class="settings-footer">
                         <button class="chat-save-btn" onclick="saveChatConfig()">💾 設定を保存</button>
@@ -993,15 +1192,13 @@ function toggleSettingsPanel() {
     const btn = document.getElementById('chat-sidebar-toggle-btn');
     CHAT.sidebarOpen = !CHAT.sidebarOpen;
     if (CHAT.sidebarOpen) {
-        sidebar.style.width = '280px';
-        sidebar.style.overflow = 'auto';
-        sidebar.style.padding = '16px';
+        sidebar.style.width = '360px';
         sidebar.style.display = 'flex';
+        sidebar.classList.remove('collapsed');
         if (btn) btn.textContent = '⚙️ 設定';
     } else {
         sidebar.style.width = '0';
-        sidebar.style.overflow = 'hidden';
-        sidebar.style.padding = '0';
+        sidebar.classList.add('collapsed');
         if (btn) btn.textContent = '⚙️';
     }
 }
