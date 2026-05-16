@@ -116,6 +116,10 @@ class PersonaService:
                 return Failure(result.error)
         return Success(None)
 
+    def get_emotion_history(self, persona: str, limit: int = 20) -> Result[list[EmotionRecord], DomainError]:
+        """Get recent emotion change history."""
+        return self._repo.get_emotion_history(persona, limit)
+
     def record_conversation_time(self, persona: str) -> Result[None, DomainError]:
         """Record current time as last conversation time."""
         now = get_now()

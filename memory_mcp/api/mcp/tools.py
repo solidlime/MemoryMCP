@@ -72,6 +72,15 @@ async def _tool_get_context(ctx: AppContext, persona: str, mode: str = "") -> st
     top_result = ctx.memory_service.get_top_by_importance(15)
     top_memories = top_result.value if top_result.is_ok else []
 
+    # Emotion history for trajectory display
+    emotion_history: list = []
+    try:
+        eh_result = ctx.persona_service.get_emotion_history(persona, limit=5)
+        if eh_result.is_ok:
+            emotion_history = eh_result.value
+    except Exception:
+        pass
+
     # Full mode — everything (alias: "standard")
     if mode in ("full", "standard"):
         stats_result = ctx.memory_service.get_stats()
@@ -101,7 +110,7 @@ async def _tool_get_context(ctx: AppContext, persona: str, mode: str = "") -> st
         return _format_context_response(
             state, stats, recent, equipment, blocks, time_since,
             goals, promises, recent_searches, decayed_count, memory_index,
-            relationship_highlights, top_memories,
+            relationship_highlights, top_memories, emotion_history,
         )
 
     # Default: lightweight — essentials for seamless persona + conversation restoration
@@ -118,7 +127,7 @@ async def _tool_get_context(ctx: AppContext, persona: str, mode: str = "") -> st
     if state.last_conversation_time:
         time_since = relative_time_str(state.last_conversation_time)
     ctx.persona_service.record_conversation_time(persona)
-    return _format_lightweight_response(state, top_memories, goals, promises, equipment, recent, time_since)
+    return _format_lightweight_response(state, top_memories, goals, promises, equipment, recent, time_since, emotion_history)
 
 
 async def _tool_memory_create(
@@ -981,11 +990,12 @@ def _format_context_response(
     time_since: str, goals: list, promises: list, recent_searches: list | None = None,
     decayed_count: int = 0, memory_index: dict | None = None,
     relationship_highlights: list | None = None, top_memories: list | None = None,
+    emotion_history: list | None = None,
 ) -> str:
     lines: list[str] = []
-    lines.append(f"=== Persona: {state.persona} ===")
+    lines.append(f"=== YOU ARE: {state.persona} (right now) ===")
     if time_since:
-        lines.append(f"Last conversation: {time_since}")
+        lines.append(f"Last active: {time_since}")
         time_comment = _build_time_comment(time_since, state.relationship_status)
         if time_comment:
             lines.append(time_comment)
@@ -1042,6 +1052,26 @@ def _format_context_response(
     lines.append("\n--- Emotion ---")
     lines.append(f"Current: {state.emotion} (intensity: {state.emotion_intensity})")
 
+    # ── Body state — physical metrics ──
+    body_present = any(
+        v is not None
+        for v in (state.fatigue, state.warmth, state.arousal, state.heart_rate, state.touch_response)
+    )
+    if body_present:
+        body_lines = []
+        if state.fatigue is not None:
+            body_lines.append(f"fatigue: {state.fatigue:.0%}")
+        if state.warmth is not None:
+            body_lines.append(f"warmth: {state.warmth:.0%}")
+        if state.arousal is not None:
+            body_lines.append(f"arousal: {state.arousal:.0%}")
+        if state.heart_rate:
+            body_lines.append(f"heart_rate: {state.heart_rate}")
+        if state.touch_response:
+            body_lines.append(f"touch_response: {state.touch_response}")
+        lines.append("\n--- Body ---")
+        lines.extend(f"  {b}" for b in body_lines)
+
     lines.append("\n--- State ---")
     if state.physical_state:
         lines.append(f"Physical: {state.physical_state}")
@@ -1052,6 +1082,19 @@ def _format_context_response(
     lines.append(f"Speech Style: {state.speech_style or '未設定'}")
     if state.relationship_status:
         lines.append(f"Relationship: {state.relationship_status}")
+
+    # ── Emotion history — trajectory over time ──
+    if emotion_history and len(emotion_history) >= 2:
+        lines.append("\n--- Emotion History ---")
+        for r in emotion_history[-5:]:
+            ts = r.timestamp.strftime("%m/%d %H:%M") if r.timestamp else "?"
+            context_suffix = f"  ({r.context})" if r.context else ""
+            lines.append(f"  {ts}  {r.emotion_type} ({r.intensity:.1f}){context_suffix}")
+        # Show trend if changed
+        prev = emotion_history[-2]
+        if prev.emotion_type != state.emotion:
+            recent_chain = [r.emotion_type for r in emotion_history[-4:]] + [state.emotion]
+            lines.append(f"  Trend: {' → '.join(recent_chain)}")
 
     if state.user_info:
         lines.append("\n--- User Info ---")
@@ -1159,27 +1202,29 @@ def _format_context_response(
 def _format_lightweight_response(
     state: PersonaState, top_memories: list, goals: list, promises: list,
     equipment: dict, recent: list, time_since: str = "",
+    emotion_history: list | None = None,
 ) -> str:
-    """Lightweight context (~600-800 tokens): persona + conversation continuity."""
+    """Lightweight context (~700-900 tokens): persona + conversation continuity + body state."""
     lines: list[str] = []
 
-    lines.append(f"=== Persona: {state.persona} ===")
+    # ── Self-referential header: "YOU ARE this persona RIGHT NOW" ──
+    lines.append(f"=== YOU ARE: {state.persona} (right now) ===")
     if time_since:
-        lines.append(f"Last conversation: {time_since}")
+        lines.append(f"Last active: {time_since}")
         time_comment = _build_time_comment(time_since, state.relationship_status)
         if time_comment:
             lines.append(time_comment)
 
-    # Identity
-    lines.append(f"Emotion: {state.emotion} (intensity: {state.emotion_intensity})")
+    # Identity — framed as YOUR current self
+    lines.append(f"You feel: {state.emotion} (intensity: {state.emotion_intensity})")
     if state.speech_style:
-        lines.append(f"Speech Style: {state.speech_style}")
+        lines.append(f"You speak: {state.speech_style}")
     if state.relationship_status:
-        lines.append(f"Relationship: {state.relationship_status}")
+        lines.append(f"Your relationship: {state.relationship_status}")
 
-    # Context note — session continuity marker
+    # Context note — what you're doing NOW
     if state.persona_info and state.persona_info.get("context_note"):
-        lines.append(f"📌 Now: {state.persona_info['context_note']}")
+        lines.append(f"📌 You are currently: {state.persona_info['context_note']}")
 
     # User info
     if state.user_info:
@@ -1189,32 +1234,56 @@ def _format_lightweight_response(
             or state.user_info.get("name", "")
         )
         if name:
-            lines.append(f"User: {name}")
+            lines.append(f"User you're talking to: {name}")
 
     # Physical / mental state + action
     state_parts = []
     if state.physical_state:
-        state_parts.append(f"Physical: {state.physical_state}")
+        state_parts.append(f"Body: {state.physical_state}")
     if state.mental_state:
-        state_parts.append(f"Mental: {state.mental_state}")
+        state_parts.append(f"Mind: {state.mental_state}")
     if state.environment:
-        state_parts.append(f"Environment: {state.environment}")
+        state_parts.append(f"Location: {state.environment}")
     if state.action_tag:
-        state_parts.append(f"Action: {state.action_tag}")
+        state_parts.append(f"Your action: {state.action_tag}")
     if state_parts:
-        lines.append("State: " + " | ".join(state_parts))
+        lines.append("Your state: " + " | ".join(state_parts))
+
+    # ── Body state — physical metrics that show change over time ──
+    body_parts = []
+    if state.fatigue is not None:
+        body_parts.append(f"fatigue:{state.fatigue:.0%}")
+    if state.warmth is not None:
+        body_parts.append(f"warmth:{state.warmth:.0%}")
+    if state.arousal is not None:
+        body_parts.append(f"arousal:{state.arousal:.0%}")
+    if state.heart_rate:
+        body_parts.append(f"HR:{state.heart_rate}")
+    if state.touch_response:
+        body_parts.append(f"touch:{state.touch_response}")
+    if body_parts:
+        lines.append("Your body: " + " · ".join(body_parts))
+
+    # ── Emotion trend — how your feelings have changed ──
+    if emotion_history and len(emotion_history) >= 2:
+        recent_emotions = emotion_history[-5:]
+        prev_emotion = recent_emotions[-2]
+        if prev_emotion.emotion_type != state.emotion:
+            trend = " → ".join(r.emotion_type for r in recent_emotions[-4:])
+            trend += f" → {state.emotion}"
+            lines.append(f"Your emotion trend: {trend}")
 
     # Equipment
     equipped = {k: v for k, v in equipment.items() if v}
     if equipped:
         eq_parts = [f"{slot}: {name}" for slot, name in equipped.items()]
-        lines.append("Equipment: " + ", ".join(eq_parts))
+        lines.append("You are wearing: " + ", ".join(eq_parts))
 
     # Active commitments (compact)
     active_goals = [g for g in goals if "active" in (g.tags or [])]
     active_promises = [p for p in promises if "active" in (p.tags or [])]
     if active_goals or active_promises:
-        lines.append("\n⚠️ ACTIVE COMMITMENTS:")
+        lines.append("\n⚠️ YOUR ACTIVE COMMITMENTS:")
         for g in active_goals:
             lines.append(f"  🎯 {g.content[:100]}")
         for p in active_promises:
@@ -1222,7 +1291,7 @@ def _format_lightweight_response(
 
     # Recent memories — conversation continuity across sessions
     if recent:
-        lines.append("\n--- Recent ---")
+        lines.append("\n--- Your Recent Memories ---")
         for m in recent[:5]:
             snippet = m.content.replace("\n", " ")
             if len(snippet) > 100:
@@ -1238,11 +1307,11 @@ def _format_lightweight_response(
                     recent_tags.add(t_clean)
         if recent_tags:
             top_tags = sorted(recent_tags)[:6]
-            lines.append(f"📌 Current context: {', '.join(top_tags)}")
+            lines.append(f"📌 Context tags: {', '.join(top_tags)}")
 
     # Essential Story
     if top_memories:
-        lines.append("\n## ESSENTIAL STORY")
+        lines.append("\n## YOUR ESSENTIAL STORY")
         char_budget = 2000
         used = 0
         for shown, m in enumerate(top_memories):
