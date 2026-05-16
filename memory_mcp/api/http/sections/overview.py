@@ -372,6 +372,9 @@ async function loadOverview() {
                             <div style="height:100%;width:${stats.arousal != null ? (stats.arousal * 100).toFixed(1) : 0}%;background:linear-gradient(90deg,#a78bfa,#c4b5fd);border-radius:3px;transition:width 0.4s ease"></div>
                         </div>
                     </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px;font-size:0.82rem">
+                    <div><span style="color:var(--text-muted)">💓 Heart:</span> <span style="color:var(--text-secondary)">${stats.heart_rate || '--'}</span></div>
+                    <div><span style="color:var(--text-muted)">✋ Touch:</span> <span style="color:var(--text-secondary)">${stats.touch_response || '--'}</span></div>
                 </div>
             </div>
         </div>
