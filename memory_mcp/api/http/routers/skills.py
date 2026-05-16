@@ -96,6 +96,7 @@ def register_skills_routes(mcp) -> None:
         fs_deleted = False
         try:
             from memory_mcp.config.settings import get_settings
+
             skill_dir = Path(get_settings().skills_dir) / name
             if skill_dir.exists():
                 shutil.rmtree(skill_dir)

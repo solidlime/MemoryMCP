@@ -44,7 +44,10 @@ MEMORY_TOOLS: list[ToolDefinition] = [
                 "emotion": {"type": "string", "description": "感情タイプ"},
                 "emotion_intensity": {"type": "number", "description": "感情強度 0.0〜1.0"},
                 "mental_state": {"type": "string", "description": "精神状態の説明"},
-                "context_note": {"type": "string", "description": "現在の作業内容の要約（1行・50字以内）。次回セッションのget_contextで自動復元される"},
+                "context_note": {
+                    "type": "string",
+                    "description": "現在の作業内容の要約（1行・50字以内）。次回セッションのget_contextで自動復元される",
+                },
             },
         },
     ),

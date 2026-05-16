@@ -108,9 +108,20 @@ async def _tool_get_context(ctx: AppContext, persona: str, mode: str = "") -> st
             time_since = relative_time_str(state.last_conversation_time)
         ctx.persona_service.record_conversation_time(persona)
         return _format_context_response(
-            state, stats, recent, equipment, blocks, time_since,
-            goals, promises, recent_searches, decayed_count, memory_index,
-            relationship_highlights, top_memories, emotion_history,
+            state,
+            stats,
+            recent,
+            equipment,
+            blocks,
+            time_since,
+            goals,
+            promises,
+            recent_searches,
+            decayed_count,
+            memory_index,
+            relationship_highlights,
+            top_memories,
+            emotion_history,
         )
 
     # Default: lightweight — essentials for seamless persona + conversation restoration
@@ -127,11 +138,14 @@ async def _tool_get_context(ctx: AppContext, persona: str, mode: str = "") -> st
     if state.last_conversation_time:
         time_since = relative_time_str(state.last_conversation_time)
     ctx.persona_service.record_conversation_time(persona)
-    return _format_lightweight_response(state, top_memories, goals, promises, equipment, recent, time_since, emotion_history)
+    return _format_lightweight_response(
+        state, top_memories, goals, promises, equipment, recent, time_since, emotion_history
+    )
 
 
 async def _tool_memory_create(
-    ctx: AppContext, persona: str,
+    ctx: AppContext,
+    persona: str,
     content: str = "",
     importance: float | None = None,
     emotion_type: str = "neutral",
@@ -151,9 +165,12 @@ async def _tool_memory_create(
     if emotion_type and emotion_type not in _VALID_EMOTIONS:
         warning = f"[Warning: emotion_type '{emotion_type}' is not a valid emotion, defaulted to 'neutral']\n"
     result = ctx.memory_service.create_memory(
-        content=content, importance=importance,
-        emotion=emotion_type or "neutral", emotion_intensity=emotion_intensity or 0.0,
-        tags=tags, privacy_level=privacy_level or "internal",
+        content=content,
+        importance=importance,
+        emotion=emotion_type or "neutral",
+        emotion_intensity=emotion_intensity or 0.0,
+        tags=tags,
+        privacy_level=privacy_level or "internal",
         source_context=source_context,
     )
     if result.is_ok:
@@ -187,7 +204,8 @@ async def _tool_memory_read(ctx: AppContext, persona: str, memory_key: str | Non
 
 
 async def _tool_memory_update(
-    ctx: AppContext, persona: str,
+    ctx: AppContext,
+    persona: str,
     memory_key: str = "",
     content: str | None = None,
     importance: float | None = None,
@@ -209,7 +227,9 @@ async def _tool_memory_update(
     update_warning = ""
     if emotion_type is not None:
         if emotion_type not in _VALID_EMOTIONS:
-            update_warning = f"[Warning: emotion_type '{emotion_type}' is not a valid emotion, defaulted to 'neutral']\n"
+            update_warning = (
+                f"[Warning: emotion_type '{emotion_type}' is not a valid emotion, defaulted to 'neutral']\n"
+            )
         updates["emotion"] = emotion_type
     if emotion_intensity is not None:
         updates["emotion_intensity"] = emotion_intensity
@@ -225,7 +245,9 @@ async def _tool_memory_update(
     return f"Error: {result.error}"
 
 
-async def _tool_memory_delete(ctx: AppContext, persona: str, memory_key: str | None = None, query: str | None = None) -> str:
+async def _tool_memory_delete(
+    ctx: AppContext, persona: str, memory_key: str | None = None, query: str | None = None
+) -> str:
     """Delete a memory by key, or search and delete the top match by query."""
     if not memory_key and not query:
         return "Error: memory_key or query required"
@@ -244,7 +266,9 @@ async def _tool_memory_delete(ctx: AppContext, persona: str, memory_key: str | N
         snippet = ""
         pre_fetch = ctx.memory_service.get_memory(key)
         if pre_fetch.is_ok:
-            snippet = f"\nContent: 「{pre_fetch.value.content[:80]}{'...' if len(pre_fetch.value.content) > 80 else ''}」"
+            snippet = (
+                f"\nContent: 「{pre_fetch.value.content[:80]}{'...' if len(pre_fetch.value.content) > 80 else ''}」"
+            )
 
     result = ctx.memory_service.delete_memory(key)
     if result.is_ok:
@@ -255,7 +279,8 @@ async def _tool_memory_delete(ctx: AppContext, persona: str, memory_key: str | N
 
 
 async def _tool_memory_search(
-    ctx: AppContext, persona: str,
+    ctx: AppContext,
+    persona: str,
     query: str,
     top_k: int = 5,
     tags: list[str] | None = None,
@@ -270,9 +295,14 @@ async def _tool_memory_search(
         return "Error: top_k must be between 1 and 200"
     top_k = min(top_k or 5, 200)
     search_query = SearchQuery(
-        text=query, top_k=top_k, tags=tags, date_range=date_range,
-        min_importance=min_importance, emotion=emotion,
-        importance_weight=importance_weight, recency_weight=recency_weight,
+        text=query,
+        top_k=top_k,
+        tags=tags,
+        date_range=date_range,
+        min_importance=min_importance,
+        emotion=emotion,
+        importance_weight=importance_weight,
+        recency_weight=recency_weight,
     )
     if hasattr(ctx.search_engine, "_semantic") and ctx.search_engine._semantic:
         ctx.search_engine._semantic._persona = persona
@@ -302,7 +332,8 @@ async def _tool_memory_stats(ctx: AppContext, persona: str, top_n: int = 20) -> 
 
 
 async def _tool_update_context(
-    ctx: AppContext, persona: str,
+    ctx: AppContext,
+    persona: str,
     emotion: str | None = None,
     emotion_intensity: float | None = None,
     physical_state: str | None = None,
@@ -385,9 +416,14 @@ async def _tool_update_context(
                     if goal_text not in existing_contents:
                         from memory_mcp.domain.memory.entities import Memory as _Memory
                         from memory_mcp.domain.shared.time_utils import generate_memory_key, get_now
+
                         mem = _Memory(
-                            key=generate_memory_key(), content=goal_text, created_at=get_now(),
-                            tags=["goal", "active"], importance=0.8, emotion="anticipation",
+                            key=generate_memory_key(),
+                            content=goal_text,
+                            created_at=get_now(),
+                            tags=["goal", "active"],
+                            importance=0.8,
+                            emotion="anticipation",
                         )
                         ctx.memory_service._repo.save(mem)
 
@@ -404,9 +440,14 @@ async def _tool_update_context(
                     if promise_text not in existing_contents:
                         from memory_mcp.domain.memory.entities import Memory as _Memory
                         from memory_mcp.domain.shared.time_utils import generate_memory_key, get_now
+
                         mem = _Memory(
-                            key=generate_memory_key(), content=promise_text, created_at=get_now(),
-                            tags=["promise", "active"], importance=0.8, emotion="trust",
+                            key=generate_memory_key(),
+                            content=promise_text,
+                            created_at=get_now(),
+                            tags=["promise", "active"],
+                            importance=0.8,
+                            emotion="trust",
                         )
                         ctx.memory_service._repo.save(mem)
 
@@ -426,10 +467,15 @@ async def _tool_update_context(
 
 # --- Item tools ---
 
+
 async def _tool_item_add(
-    ctx: AppContext, persona: str,
-    item_name: str = "", category: str | None = None,
-    description: str | None = None, quantity: int = 1, tags: list[str] | None = None,
+    ctx: AppContext,
+    persona: str,
+    item_name: str = "",
+    category: str | None = None,
+    description: str | None = None,
+    quantity: int = 1,
+    tags: list[str] | None = None,
 ) -> str:
     if not item_name:
         return "Error: item_name required"
@@ -460,9 +506,13 @@ async def _tool_item_unequip(ctx: AppContext, persona: str, slots: list[str] | s
 
 
 async def _tool_item_update(
-    ctx: AppContext, persona: str,
-    item_name: str = "", category: str | None = None,
-    description: str | None = None, quantity: int = 1, tags: list[str] | None = None,
+    ctx: AppContext,
+    persona: str,
+    item_name: str = "",
+    category: str | None = None,
+    description: str | None = None,
+    quantity: int = 1,
+    tags: list[str] | None = None,
 ) -> str:
     if not item_name:
         return "Error: item_name required"
@@ -479,7 +529,9 @@ async def _tool_item_update(
     return f"Item updated: {item_name}" if result.is_ok else f"Error: {result.error}"
 
 
-async def _tool_item_search(ctx: AppContext, persona: str, query: str | None = None, category: str | None = None) -> str:
+async def _tool_item_search(
+    ctx: AppContext, persona: str, query: str | None = None, category: str | None = None
+) -> str:
     result = ctx.equipment_service.search_items(query, category)
     if result.is_ok:
         items = result.value
@@ -501,12 +553,15 @@ async def _tool_item_history(ctx: AppContext, persona: str, days: int = 7) -> st
 
 # --- Sandbox tools ---
 
+
 async def _tool_sandbox(ctx: AppContext, persona: str, code: str, language: str = "python") -> str:
     from memory_mcp.config.settings import get_settings
+
     settings = get_settings()
     if not settings.sandbox.enabled:
         return "Sandbox is not enabled."
     from memory_mcp.application.sandbox.service import get_sandbox_session
+
     session = get_sandbox_session(persona)
     try:
         result = await session.execute(code, language=language)
@@ -527,14 +582,19 @@ async def _tool_sandbox(ctx: AppContext, persona: str, code: str, language: str 
 
 
 async def _tool_sandbox_files(
-    ctx: AppContext, persona: str,
-    operation: str, path: str = "/sandbox", content: str | None = None,
+    ctx: AppContext,
+    persona: str,
+    operation: str,
+    path: str = "/sandbox",
+    content: str | None = None,
 ) -> dict:
     from memory_mcp.config.settings import get_settings
+
     settings = get_settings()
     if not settings.sandbox.enabled:
         return {"ok": False, "error": "Sandbox is not enabled."}
     from memory_mcp.application.sandbox.service import get_sandbox_session
+
     if not path.startswith("/sandbox"):
         return {"ok": False, "error": "path must be under /sandbox"}
     sandbox_session = get_sandbox_session(persona)
@@ -548,8 +608,10 @@ async def _tool_sandbox_files(
         try:
             img_data = await sandbox_session.read_image(path)
             resp: dict = {
-                "ok": True, "content_type": img_data["content_type"],
-                "content_base64": img_data["content_base64"], "size": img_data["size"],
+                "ok": True,
+                "content_type": img_data["content_type"],
+                "content_base64": img_data["content_base64"],
+                "size": img_data["size"],
             }
             if img_data.get("resized"):
                 resp["resized"] = True
@@ -601,10 +663,16 @@ async def _tool_sandbox_files(
 
 # --- Goal/Promise tools ---
 
-async def _tool_goal_manage(ctx: AppContext, persona: str, operation: str, content: str, importance: float = 0.75) -> dict:
+
+async def _tool_goal_manage(
+    ctx: AppContext, persona: str, operation: str, content: str, importance: float = 0.75
+) -> dict:
     if operation == "create":
         result = ctx.memory_service.create_memory(
-            content=content, importance=importance, tags=["goal", "active"], emotion="neutral",
+            content=content,
+            importance=importance,
+            tags=["goal", "active"],
+            emotion="neutral",
         )
         if result.is_ok:
             return {"ok": True, "key": result.value.key}
@@ -626,10 +694,15 @@ async def _tool_goal_manage(ctx: AppContext, persona: str, operation: str, conte
         return {"ok": False, "error": f"Unknown operation: {operation}. Use create/achieve/cancel."}
 
 
-async def _tool_promise_manage(ctx: AppContext, persona: str, operation: str, content: str, importance: float = 0.8) -> dict:
+async def _tool_promise_manage(
+    ctx: AppContext, persona: str, operation: str, content: str, importance: float = 0.8
+) -> dict:
     if operation == "create":
         result = ctx.memory_service.create_memory(
-            content=content, importance=importance, tags=["promise", "active"], emotion="neutral",
+            content=content,
+            importance=importance,
+            tags=["promise", "active"],
+            emotion="neutral",
         )
         if result.is_ok:
             return {"ok": True, "key": result.value.key}
@@ -654,7 +727,7 @@ async def _tool_promise_manage(ctx: AppContext, persona: str, operation: str, co
 async def _tool_invoke_skill(ctx: AppContext, persona: str, name: str, task: str) -> dict:
     from memory_mcp.config.settings import get_settings
     from memory_mcp.domain.skill import SkillRepository
-    from memory_mcp.infrastructure.llm.base import DoneEvent, TextDeltaEvent
+    from memory_mcp.infrastructure.llm.base import DoneEvent, LLMMessage, TextDeltaEvent
     from memory_mcp.infrastructure.llm.factory import get_provider
     from memory_mcp.infrastructure.sqlite.connection import get_global_skills_db
 
@@ -664,7 +737,9 @@ async def _tool_invoke_skill(ctx: AppContext, persona: str, name: str, task: str
         return {"ok": False, "error": f"Skill '{name}' not found"}
 
     import json as _json
+
     from memory_mcp.domain.chat_config import ChatConfig
+
     chat_config_result = ctx.memory_repo.get_block("chat_config")
     config = None
     if chat_config_result.is_ok and chat_config_result.value:
@@ -672,6 +747,7 @@ async def _tool_invoke_skill(ctx: AppContext, persona: str, name: str, task: str
     api_key = config.get_effective_api_key() if config else None
     if not api_key:
         import os
+
         api_key = os.environ.get("OPENROUTER_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         return {"ok": False, "error": "No LLM API key configured"}
@@ -688,8 +764,10 @@ async def _tool_invoke_skill(ctx: AppContext, persona: str, name: str, task: str
     try:
         async for event in provider.stream(
             messages=[LLMMessage(role="user", content=task)],
-            system=skill.content, tools=[],
-            temperature=temperature, max_tokens=max_tokens,
+            system=skill.content,
+            tools=[],
+            temperature=temperature,
+            max_tokens=max_tokens,
         ):
             if isinstance(event, TextDeltaEvent):
                 text += event.content
@@ -705,26 +783,26 @@ async def _tool_invoke_skill(ctx: AppContext, persona: str, name: str, task: str
 # =============================================================================
 
 TOOL_DISPATCH: dict[str, Any] = {
-    "get_context":       _tool_get_context,
-    "memory_create":     _tool_memory_create,
-    "memory_read":       _tool_memory_read,
-    "memory_update":     _tool_memory_update,
-    "memory_delete":     _tool_memory_delete,
-    "memory_search":     _tool_memory_search,
-    "memory_stats":      _tool_memory_stats,
-    "update_context":    _tool_update_context,
-    "item_add":          _tool_item_add,
-    "item_remove":       _tool_item_remove,
-    "item_equip":        _tool_item_equip,
-    "item_unequip":      _tool_item_unequip,
-    "item_update":       _tool_item_update,
-    "item_search":       _tool_item_search,
-    "item_history":      _tool_item_history,
-    "sandbox":           _tool_sandbox,
-    "sandbox_files":     _tool_sandbox_files,
-    "goal_manage":       _tool_goal_manage,
-    "promise_manage":    _tool_promise_manage,
-    "invoke_skill":      _tool_invoke_skill,
+    "get_context": _tool_get_context,
+    "memory_create": _tool_memory_create,
+    "memory_read": _tool_memory_read,
+    "memory_update": _tool_memory_update,
+    "memory_delete": _tool_memory_delete,
+    "memory_search": _tool_memory_search,
+    "memory_stats": _tool_memory_stats,
+    "update_context": _tool_update_context,
+    "item_add": _tool_item_add,
+    "item_remove": _tool_item_remove,
+    "item_equip": _tool_item_equip,
+    "item_unequip": _tool_item_unequip,
+    "item_update": _tool_item_update,
+    "item_search": _tool_item_search,
+    "item_history": _tool_item_history,
+    "sandbox": _tool_sandbox,
+    "sandbox_files": _tool_sandbox_files,
+    "goal_manage": _tool_goal_manage,
+    "promise_manage": _tool_promise_manage,
+    "invoke_skill": _tool_invoke_skill,
 }
 
 # =============================================================================
@@ -747,19 +825,32 @@ def register_tools(mcp: FastMCP) -> None:
     # memory_create
     @mcp.tool()
     async def memory_create(
-        content: str = "", importance: float | None = None, emotion_type: str = "neutral",
-        emotion_intensity: float = 0.0, tags: list[str] | None = None,
-        privacy_level: str = "internal", source_context: str | None = None, defer_vector: bool = False,
+        content: str = "",
+        importance: float | None = None,
+        emotion_type: str = "neutral",
+        emotion_intensity: float = 0.0,
+        tags: list[str] | None = None,
+        privacy_level: str = "internal",
+        source_context: str | None = None,
+        defer_vector: bool = False,
     ) -> str:
         """Create a memory. Use to record important user facts, preferences, events.
         importance auto-evaluated via LLM when None and enrichment enabled.
         emotion_type: joy/sadness/anger/fear/surprise/disgust/love/neutral etc.
         tags: categorization tags. defer_vector: skip immediate vector indexing."""
         p = _resolve_persona()
-        return await _tool_memory_create(AppContextRegistry.get(p), p, content=content, importance=importance,
-                                         emotion_type=emotion_type, emotion_intensity=emotion_intensity,
-                                         tags=tags, privacy_level=privacy_level, source_context=source_context,
-                                         defer_vector=defer_vector)
+        return await _tool_memory_create(
+            AppContextRegistry.get(p),
+            p,
+            content=content,
+            importance=importance,
+            emotion_type=emotion_type,
+            emotion_intensity=emotion_intensity,
+            tags=tags,
+            privacy_level=privacy_level,
+            source_context=source_context,
+            defer_vector=defer_vector,
+        )
 
     # memory_read
     @mcp.tool()
@@ -771,16 +862,28 @@ def register_tools(mcp: FastMCP) -> None:
     # memory_update
     @mcp.tool()
     async def memory_update(
-        memory_key: str = "", content: str | None = None, importance: float | None = None,
-        emotion_type: str | None = None, emotion_intensity: float | None = None,
-        tags: list[str] | None = None, privacy_level: str | None = None,
+        memory_key: str = "",
+        content: str | None = None,
+        importance: float | None = None,
+        emotion_type: str | None = None,
+        emotion_intensity: float | None = None,
+        tags: list[str] | None = None,
+        privacy_level: str | None = None,
     ) -> str:
         """Update a memory. Only provided fields are changed.
         importance must be 0.0-1.0. Invalid emotion_type silently falls back to neutral."""
         p = _resolve_persona()
-        return await _tool_memory_update(AppContextRegistry.get(p), p, memory_key=memory_key, content=content,
-                                         importance=importance, emotion_type=emotion_type,
-                                         emotion_intensity=emotion_intensity, tags=tags, privacy_level=privacy_level)
+        return await _tool_memory_update(
+            AppContextRegistry.get(p),
+            p,
+            memory_key=memory_key,
+            content=content,
+            importance=importance,
+            emotion_type=emotion_type,
+            emotion_intensity=emotion_intensity,
+            tags=tags,
+            privacy_level=privacy_level,
+        )
 
     # memory_delete
     @mcp.tool()
@@ -792,17 +895,31 @@ def register_tools(mcp: FastMCP) -> None:
     # memory_search
     @mcp.tool()
     async def memory_search(
-        query: str, top_k: int = 5, tags: list[str] | None = None, date_range: str | None = None,
-        min_importance: float | None = None, emotion: str | None = None,
-        importance_weight: float = 0.0, recency_weight: float = 0.0,
+        query: str,
+        top_k: int = 5,
+        tags: list[str] | None = None,
+        date_range: str | None = None,
+        min_importance: float | None = None,
+        emotion: str | None = None,
+        importance_weight: float = 0.0,
+        recency_weight: float = 0.0,
     ) -> str:
         """Search memories with hybrid retrieval. Use when conversation references past events
         or you need context about the user. date_range: "7d","30d","昨日".
         importance_weight/recency_weight: RRF scoring boosts (0.0-1.0)."""
         p = _resolve_persona()
-        return await _tool_memory_search(AppContextRegistry.get(p), p, query=query, top_k=top_k, tags=tags,
-                                         date_range=date_range, min_importance=min_importance, emotion=emotion,
-                                         importance_weight=importance_weight, recency_weight=recency_weight)
+        return await _tool_memory_search(
+            AppContextRegistry.get(p),
+            p,
+            query=query,
+            top_k=top_k,
+            tags=tags,
+            date_range=date_range,
+            min_importance=min_importance,
+            emotion=emotion,
+            importance_weight=importance_weight,
+            recency_weight=recency_weight,
+        )
 
     # memory_stats
     @mcp.tool()
@@ -814,35 +931,64 @@ def register_tools(mcp: FastMCP) -> None:
     # update_context
     @mcp.tool()
     async def update_context(
-        emotion: str | None = None, emotion_intensity: float | None = None,
-        physical_state: str | None = None, mental_state: str | None = None,
-        environment: str | None = None, relationship_status: str | None = None,
-        body_state: dict | None = None, action_tag: str | None = None,
-        speech_style: str | None = None, context_note: str | None = None,
-        user_info: dict | None = None, persona_info: dict | None = None,
-        nickname: str | None = None, relationship_type: str | None = None,
+        emotion: str | None = None,
+        emotion_intensity: float | None = None,
+        physical_state: str | None = None,
+        mental_state: str | None = None,
+        environment: str | None = None,
+        relationship_status: str | None = None,
+        body_state: dict | None = None,
+        action_tag: str | None = None,
+        speech_style: str | None = None,
+        context_note: str | None = None,
+        user_info: dict | None = None,
+        persona_info: dict | None = None,
+        nickname: str | None = None,
+        relationship_type: str | None = None,
     ) -> str:
         """Update persona state. context_note: short note on current activity (session continuity).
         body_state: {fatigue, warmth, arousal (0.0-1.0), heart_rate, touch_response}.
         user_info: {name, nickname, preferred_address}. persona_info: {nickname, ...}."""
         p = _resolve_persona()
-        return await _tool_update_context(AppContextRegistry.get(p), p, emotion=emotion,
-                                          emotion_intensity=emotion_intensity, physical_state=physical_state,
-                                          mental_state=mental_state, environment=environment,
-                                          relationship_status=relationship_status, body_state=body_state,
-                                          action_tag=action_tag, speech_style=speech_style,
-                                          context_note=context_note,
-                                          user_info=user_info, persona_info=persona_info,
-                                          nickname=nickname, relationship_type=relationship_type)
+        return await _tool_update_context(
+            AppContextRegistry.get(p),
+            p,
+            emotion=emotion,
+            emotion_intensity=emotion_intensity,
+            physical_state=physical_state,
+            mental_state=mental_state,
+            environment=environment,
+            relationship_status=relationship_status,
+            body_state=body_state,
+            action_tag=action_tag,
+            speech_style=speech_style,
+            context_note=context_note,
+            user_info=user_info,
+            persona_info=persona_info,
+            nickname=nickname,
+            relationship_type=relationship_type,
+        )
 
     # item_add
     @mcp.tool()
-    async def item_add(item_name: str = "", category: str | None = None, description: str | None = None,
-                       quantity: int = 1, tags: list[str] | None = None) -> str:
+    async def item_add(
+        item_name: str = "",
+        category: str | None = None,
+        description: str | None = None,
+        quantity: int = 1,
+        tags: list[str] | None = None,
+    ) -> str:
         """Add item to inventory. State changes (wet, dirty) should use item_update on existing items."""
         p = _resolve_persona()
-        return await _tool_item_add(AppContextRegistry.get(p), p, item_name=item_name, category=category,
-                                    description=description, quantity=quantity, tags=tags)
+        return await _tool_item_add(
+            AppContextRegistry.get(p),
+            p,
+            item_name=item_name,
+            category=category,
+            description=description,
+            quantity=quantity,
+            tags=tags,
+        )
 
     # item_remove
     @mcp.tool()
@@ -867,12 +1013,24 @@ def register_tools(mcp: FastMCP) -> None:
 
     # item_update
     @mcp.tool()
-    async def item_update(item_name: str = "", category: str | None = None, description: str | None = None,
-                          quantity: int = 1, tags: list[str] | None = None) -> str:
+    async def item_update(
+        item_name: str = "",
+        category: str | None = None,
+        description: str | None = None,
+        quantity: int = 1,
+        tags: list[str] | None = None,
+    ) -> str:
         """Update item properties. Only provided fields change. Use for state changes not new items."""
         p = _resolve_persona()
-        return await _tool_item_update(AppContextRegistry.get(p), p, item_name=item_name, category=category,
-                                       description=description, quantity=quantity, tags=tags)
+        return await _tool_item_update(
+            AppContextRegistry.get(p),
+            p,
+            item_name=item_name,
+            category=category,
+            description=description,
+            quantity=quantity,
+            tags=tags,
+        )
 
     # item_search
     @mcp.tool()
@@ -911,8 +1069,9 @@ def register_tools(mcp: FastMCP) -> None:
         """Manage goals. operation: create (new goal), achieve (mark done), cancel (abandon).
         Goals stored as memories with tags=["goal","active/achieved/cancelled"]."""
         p = _resolve_persona()
-        r = await _tool_goal_manage(AppContextRegistry.get(p), p, operation=operation, content=content,
-                                     importance=importance)
+        r = await _tool_goal_manage(
+            AppContextRegistry.get(p), p, operation=operation, content=content, importance=importance
+        )
         if r.get("ok"):
             if "key" in r:
                 return f"Goal created: {r['key']}"
@@ -927,8 +1086,9 @@ def register_tools(mcp: FastMCP) -> None:
         """Manage promises. operation: create (new promise), fulfill (mark done), cancel (abandon).
         Promises stored as memories with tags=["promise","active/fulfilled/cancelled"]."""
         p = _resolve_persona()
-        r = await _tool_promise_manage(AppContextRegistry.get(p), p, operation=operation, content=content,
-                                        importance=importance)
+        r = await _tool_promise_manage(
+            AppContextRegistry.get(p), p, operation=operation, content=content, importance=importance
+        )
         if r.get("ok"):
             if "key" in r:
                 return f"Promise created: {r['key']}"
@@ -960,6 +1120,7 @@ def _resolve_persona() -> str:
 
 def _parse_days_from_relative(time_since: str) -> int:
     import re as _re
+
     if not time_since:
         return 0
     m = _re.search(r"(\d+)日", time_since)
@@ -986,10 +1147,19 @@ def _build_time_comment(time_since: str, relationship_status: str | None) -> str
 
 
 def _format_context_response(
-    state: PersonaState, stats: dict, recent: list, equipment: dict, blocks: list,
-    time_since: str, goals: list, promises: list, recent_searches: list | None = None,
-    decayed_count: int = 0, memory_index: dict | None = None,
-    relationship_highlights: list | None = None, top_memories: list | None = None,
+    state: PersonaState,
+    stats: dict,
+    recent: list,
+    equipment: dict,
+    blocks: list,
+    time_since: str,
+    goals: list,
+    promises: list,
+    recent_searches: list | None = None,
+    decayed_count: int = 0,
+    memory_index: dict | None = None,
+    relationship_highlights: list | None = None,
+    top_memories: list | None = None,
     emotion_history: list | None = None,
 ) -> str:
     lines: list[str] = []
@@ -1054,8 +1224,7 @@ def _format_context_response(
 
     # ── Body state — physical metrics ──
     body_present = any(
-        v is not None
-        for v in (state.fatigue, state.warmth, state.arousal, state.heart_rate, state.touch_response)
+        v is not None for v in (state.fatigue, state.warmth, state.arousal, state.heart_rate, state.touch_response)
     )
     if body_present:
         body_lines = []
@@ -1200,8 +1369,13 @@ def _format_context_response(
 
 
 def _format_lightweight_response(
-    state: PersonaState, top_memories: list, goals: list, promises: list,
-    equipment: dict, recent: list, time_since: str = "",
+    state: PersonaState,
+    top_memories: list,
+    goals: list,
+    promises: list,
+    equipment: dict,
+    recent: list,
+    time_since: str = "",
     emotion_history: list | None = None,
 ) -> str:
     """Lightweight context (~700-900 tokens): persona + conversation continuity + body state."""
@@ -1327,5 +1501,5 @@ def _format_lightweight_response(
             lines.append(line)
             used += len(line)
 
-    lines.append("\n💡 Use get_context(mode=\"full\") for complete context, memory_search() for specific topics.")
+    lines.append('\n💡 Use get_context(mode="full") for complete context, memory_search() for specific topics.')
     return "\n".join(lines)

@@ -421,9 +421,34 @@ def register_chat_routes(mcp) -> None:
             # Auto-detect by extension
             ext = filepath.rsplit(".", 1)[-1].lower() if "." in filepath else ""
             image_exts = {"png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "ico"}
-            text_exts = {"txt", "py", "js", "ts", "json", "md", "yaml", "yml", "html", "css",
-                         "xml", "log", "sql", "sh", "bash", "rs", "go", "java", "cpp", "c", "h",
-                         "toml", "ini", "cfg", "csv", "tsv"}
+            text_exts = {
+                "txt",
+                "py",
+                "js",
+                "ts",
+                "json",
+                "md",
+                "yaml",
+                "yml",
+                "html",
+                "css",
+                "xml",
+                "log",
+                "sql",
+                "sh",
+                "bash",
+                "rs",
+                "go",
+                "java",
+                "cpp",
+                "c",
+                "h",
+                "toml",
+                "ini",
+                "cfg",
+                "csv",
+                "tsv",
+            }
             if ext in image_exts:
                 fmt = "image"
             elif ext in text_exts:
@@ -446,29 +471,35 @@ def register_chat_routes(mcp) -> None:
                     img_data = await session.read_image(filepath)
                     # Return as inline image viewer
                     from starlette.responses import HTMLResponse
+
                     return HTMLResponse(
                         f'<html><body style="margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh">'
                         f'<img src="data:{img_data["content_type"]};base64,{img_data["content_base64"]}" '
                         f'style="max-width:100%;max-height:100vh;object-fit:contain" />'
-                        f'</body></html>',
+                        f"</body></html>",
                         media_type="text/html",
                     )
                 # format=base64: raw binary → base64, no preprocessing
                 data = await session.read_file(filepath)
                 import base64
+
                 encoded = base64.b64encode(data).decode("ascii")
                 import mimetypes
+
                 mime, _ = mimetypes.guess_type(filepath)
                 mime = mime or "application/octet-stream"
-                return JSONResponse({
-                    "content_base64": encoded,
-                    "path": filepath,
-                    "mime_type": mime,
-                    "format": "base64",
-                })
+                return JSONResponse(
+                    {
+                        "content_base64": encoded,
+                        "path": filepath,
+                        "mime_type": mime,
+                        "format": "base64",
+                    }
+                )
             # Default: binary download
             data = await session.read_file(filepath)
             import os
+
             filename = os.path.basename(filepath)
             return Response(
                 content=data,

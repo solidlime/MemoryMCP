@@ -57,9 +57,7 @@ def register_persona_routes(mcp) -> None:
             return JSONResponse({"error": f"Persona '{persona}' not found"}, status_code=404)
         stats = ctx.memory_service.get_stats()
         if stats.is_ok:
-            return JSONResponse(
-                {"deprecated": True, "message": "Use /api/dashboard/{persona} instead", **stats.value}
-            )
+            return JSONResponse({"deprecated": True, "message": "Use /api/dashboard/{persona} instead", **stats.value})
         return JSONResponse({"error": str(stats.error)})
 
     @mcp.custom_route("/", methods=["GET"])

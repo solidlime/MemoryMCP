@@ -75,14 +75,16 @@ class AnthropicProvider(LLMProvider):
                             # Format: data:image/png;base64,XXXX
                             header, _, b64_data = url.partition(",")
                             media_type = header[5:].split(";")[0]  # "image/png"
-                            anthropic_content.append({
-                                "type": "image",
-                                "source": {
-                                    "type": "base64",
-                                    "media_type": media_type,
-                                    "data": b64_data,
-                                },
-                            })
+                            anthropic_content.append(
+                                {
+                                    "type": "image",
+                                    "source": {
+                                        "type": "base64",
+                                        "media_type": media_type,
+                                        "data": b64_data,
+                                    },
+                                }
+                            )
                 result.append({"role": "user", "content": anthropic_content})
             else:
                 result.append({"role": msg.role, "content": content})

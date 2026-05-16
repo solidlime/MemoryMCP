@@ -170,7 +170,9 @@ def _verify_sandbox_mounts(session: object, container_configs: dict, persona: st
 
         result = _sp.run(
             ["docker", "inspect", container_id],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         if result.returncode != 0:
             logger.debug("docker inspect failed: %s", result.stderr.strip())
@@ -185,12 +187,15 @@ def _verify_sandbox_mounts(session: object, container_configs: dict, persona: st
                 "Sandbox container %s has NO volume mounts! Expected: %s. "
                 "Files written to /sandbox will NOT persist on host. "
                 "llm_sandbox may not be applying container_configs['volumes'].",
-                container_id[:12], list(expected_volumes.keys()),
+                container_id[:12],
+                list(expected_volumes.keys()),
             )
         elif mounts:
             mount_info = [(m.get("Source", "?"), m.get("Destination", "?")) for m in mounts]
             logger.info(
-                "Sandbox container %s mounts: %s", container_id[:12], mount_info,
+                "Sandbox container %s mounts: %s",
+                container_id[:12],
+                mount_info,
             )
     except Exception as exc:
         logger.debug("Sandbox mount verification skipped: %s", exc)
@@ -256,7 +261,10 @@ def _build_container_configs(persona: str) -> tuple[dict, Path | None]:
     }
     logger.info(
         "Sandbox container_configs: persona=%s sandbox_internal=%s sandbox_mount=%s host_root=%s",
-        persona, sandbox_internal, sandbox_mount, host_root or "(not set)"
+        persona,
+        sandbox_internal,
+        sandbox_mount,
+        host_root or "(not set)",
     )
     return container_configs, sandbox_internal
 
@@ -411,7 +419,8 @@ class SandboxSession:
                         "print(c)"
                     )
                     cleanup_result = await asyncio.to_thread(
-                        self._python_session.run, cleanup_code,
+                        self._python_session.run,
+                        cleanup_code,
                     )
                     count = (
                         (cleanup_result.stdout or "")
@@ -547,7 +556,9 @@ print(json.dumps(result))
                 raw_stderr = (exec_result.stderr or "").strip()
                 logger.info(
                     "list_files path=%s stdout_len=%d stderr_len=%d stdout_preview=%s stderr_preview=%s",
-                    path, len(raw_stdout), len(raw_stderr),
+                    path,
+                    len(raw_stdout),
+                    len(raw_stderr),
                     raw_stdout[:200] if raw_stdout else "(empty)",
                     raw_stderr[:200] if raw_stderr else "(empty)",
                 )

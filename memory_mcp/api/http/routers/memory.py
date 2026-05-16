@@ -127,11 +127,13 @@ def register_memory_routes(mcp) -> None:
             result = ctx.memory_service.get_recent(limit=limit)
             if not result.is_ok:
                 return JSONResponse({"error": str(result.error)}, status_code=500)
-            return JSONResponse({
-                "persona": persona,
-                "mode": "recent",
-                "memories": [_memory_to_dict(m) for m in result.value],
-            })
+            return JSONResponse(
+                {
+                    "persona": persona,
+                    "mode": "recent",
+                    "memories": [_memory_to_dict(m) for m in result.value],
+                }
+            )
         ctx = _safe_get_context(persona)
         if ctx is None:
             return JSONResponse({"error": f"Persona '{persona}' not found"}, status_code=404)

@@ -5,15 +5,15 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING, Any
 
-from memory_mcp.api.mcp.tools import TOOL_DISPATCH, _VALID_EMOTIONS
+from memory_mcp.api.mcp.tools import _VALID_EMOTIONS, TOOL_DISPATCH
 from memory_mcp.application.chat.tools.definitions import _MEMORY_MCP_TOOL_NAMES
 from memory_mcp.domain.search.engine import SearchQuery
-from memory_mcp.infrastructure.llm.base import ToolDefinition
 from memory_mcp.infrastructure.logging.structured import get_logger
 
 if TYPE_CHECKING:
     from memory_mcp.application.use_cases import AppContext
     from memory_mcp.domain.chat_config import ChatConfig
+    from memory_mcp.infrastructure.llm.base import ToolDefinition
 
 logger = get_logger(__name__)
 
@@ -69,12 +69,14 @@ async def _handle_context_update(ctx: AppContext, config: ChatConfig, tool_input
     if update_kwargs:
         if "emotion" in update_kwargs:
             ctx.persona_service.update_emotion(
-                ctx.persona, update_kwargs["emotion"],
+                ctx.persona,
+                update_kwargs["emotion"],
                 update_kwargs.get("emotion_intensity", 0.5),
             )
         if "mental_state" in update_kwargs:
             ctx.persona_service.update_physical_state(
-                ctx.persona, mental_state=update_kwargs["mental_state"],
+                ctx.persona,
+                mental_state=update_kwargs["mental_state"],
             )
     # context_note: session continuity — persists in persona_info, displayed in get_context
     if "context_note" in tool_input and tool_input["context_note"]:
@@ -93,10 +95,7 @@ async def _handle_context_recall(ctx: AppContext, config: ChatConfig, tool_input
     else:
         recent_result = ctx.memory_service.get_recent(limit=top_k)
         memories = recent_result.value if recent_result.is_ok else []
-    items = [
-        {"content": m.content, "importance": m.importance, "tags": m.tags}
-        for m in memories[:top_k]
-    ]
+    items = [{"content": m.content, "importance": m.importance, "tags": m.tags} for m in memories[:top_k]]
     return {"status": "ok", "memories": items, "count": len(items)}
 
 
@@ -104,13 +103,16 @@ async def _handle_execute_code(ctx: AppContext, config: ChatConfig, tool_input: 
     if not getattr(config, "sandbox_enabled", False):
         return {"status": "error", "message": "sandbox が無効です。チャット設定で有効化してください。"}
     from memory_mcp.application.sandbox.service import get_sandbox_session
+
     code = tool_input.get("code", "")
     language = tool_input.get("language", "python")
     sandbox = get_sandbox_session(ctx.persona)
     result = await sandbox.execute(code, language)
     return {
-        "stdout": result.stdout, "stderr": result.stderr,
-        "exit_code": result.exit_code, "artifacts": result.artifacts,
+        "stdout": result.stdout,
+        "stderr": result.stderr,
+        "exit_code": result.exit_code,
+        "artifacts": result.artifacts,
     }
 
 
@@ -140,11 +142,13 @@ async def _handle_memory_search_builtin(ctx: AppContext, config: ChatConfig, too
         items = []
         for item in result.value:
             mem = item[0] if isinstance(item, tuple) else item
-            items.append({
-                "content": getattr(mem, "content", str(mem)),
-                "importance": getattr(mem, "importance", 0.5),
-                "tags": getattr(mem, "tags", []),
-            })
+            items.append(
+                {
+                    "content": getattr(mem, "content", str(mem)),
+                    "importance": getattr(mem, "importance", 0.5),
+                    "tags": getattr(mem, "tags", []),
+                }
+            )
         return {"status": "ok", "memories": items}
     return {"status": "error", "message": str(result.error)}
 
@@ -215,9 +219,14 @@ _BUILTIN_DISPATCH: dict[str, Any] = {
     "memory_update": _handle_memory_update_builtin,
 }
 
-_MCP_SHARED_TOOLS = frozenset({
-    "goal_manage", "promise_manage", "invoke_skill", "sandbox_files",
-})
+_MCP_SHARED_TOOLS = frozenset(
+    {
+        "goal_manage",
+        "promise_manage",
+        "invoke_skill",
+        "sandbox_files",
+    }
+)
 
 
 async def execute_tool(ctx: AppContext, config: ChatConfig, tool_name: str, tool_input: dict) -> dict:

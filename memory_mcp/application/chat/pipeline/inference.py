@@ -126,24 +126,30 @@ class InferenceStep:
                 "InferenceStep: checking %d tool call results for image data",
                 len(pending_tool_calls),
             )
-            for log_entry in turn_ctx.tool_calls_log[-len(pending_tool_calls):]:
+            for log_entry in turn_ctx.tool_calls_log[-len(pending_tool_calls) :]:
                 result = log_entry.get("result_raw", log_entry.get("result", {}))
                 if isinstance(result, dict):
                     ct = result.get("content_type", "image/png")
                     if result.get("content_base64"):
-                        logger.info("InferenceStep: found content_base64 in tool result (len=%d)", len(result['content_base64']))
-                        image_parts.append({
-                            "type": "image_url",
-                            "image_url": {"url": f"data:{ct};base64,{result['content_base64']}", "detail": "auto"},
-                        })
+                        logger.info(
+                            "InferenceStep: found content_base64 in tool result (len=%d)", len(result["content_base64"])
+                        )
+                        image_parts.append(
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": f"data:{ct};base64,{result['content_base64']}", "detail": "auto"},
+                            }
+                        )
                     if result.get("artifacts"):
-                        logger.info("InferenceStep: found %d artifacts in tool result", len(result['artifacts']))
+                        logger.info("InferenceStep: found %d artifacts in tool result", len(result["artifacts"]))
                         for b64 in result["artifacts"]:
                             if isinstance(b64, str) and len(b64) > 100:
-                                image_parts.append({
-                                    "type": "image_url",
-                                    "image_url": {"url": f"data:image/png;base64,{b64}", "detail": "auto"},
-                                })
+                                image_parts.append(
+                                    {
+                                        "type": "image_url",
+                                        "image_url": {"url": f"data:image/png;base64,{b64}", "detail": "auto"},
+                                    }
+                                )
 
             if image_parts:
                 logger.info(
@@ -151,14 +157,19 @@ class InferenceStep:
                     len(image_parts),
                     [p.get("type", "?") for p in image_parts],
                 )
-                messages.append(LLMMessage(
-                    role="user",
-                    content="The tool execution produced image(s). Please analyze:",
-                    content_parts=[
-                        {"type": "text", "text": "The previous tool execution produced the following image(s). Please analyze them carefully."},
-                        *image_parts
-                    ],
-                ))
+                messages.append(
+                    LLMMessage(
+                        role="user",
+                        content="The tool execution produced image(s). Please analyze:",
+                        content_parts=[
+                            {
+                                "type": "text",
+                                "text": "The previous tool execution produced the following image(s). Please analyze them carefully.",
+                            },
+                            *image_parts,
+                        ],
+                    )
+                )
             else:
                 logger.debug(
                     "InferenceStep: no image data found in %d tool calls",
