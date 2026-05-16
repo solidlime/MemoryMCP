@@ -588,7 +588,7 @@ class TestGetContext:
 
 
 # ---------------------------------------------------------------------------
-# item()
+# item_add, item_remove, item_equip, item_unequip, item_update, item_search, item_history
 # ---------------------------------------------------------------------------
 
 
@@ -597,65 +597,65 @@ class TestItemTool:
     async def test_equip_success(self, registered_tools):
         tools, ctx, _ = registered_tools
         ctx.equipment_service.equip.return_value = Success(None)
-        item = tools["item"]
+        item_equip = tools["item_equip"]
         with (
             patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
-            result = await item(operation="equip", equipment={"top": "white dress"})
+            result = await item_equip(equipment={"top": "white dress"})
         assert "Equipped" in result
         ctx.equipment_service.equip.assert_called_once_with({"top": "white dress"}, True)
 
     @pytest.mark.asyncio
     async def test_equip_missing_equipment(self, registered_tools):
         tools, ctx, _ = registered_tools
-        item = tools["item"]
+        item_equip = tools["item_equip"]
         with (
             patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
-            result = await item(operation="equip")
+            result = await item_equip()
         assert "Error" in result
 
     @pytest.mark.asyncio
     async def test_add_item(self, registered_tools):
         tools, ctx, _ = registered_tools
         ctx.equipment_service.add_item.return_value = Success(None)
-        item = tools["item"]
+        item_add = tools["item_add"]
         with (
             patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
-            result = await item(operation="add", item_name="blue hat", category="accessories")
+            result = await item_add(item_name="blue hat", category="accessories")
         assert "added" in result.lower()
 
     @pytest.mark.asyncio
     async def test_remove_item(self, registered_tools):
         tools, ctx, _ = registered_tools
         ctx.equipment_service.remove_item.return_value = Success(None)
-        item = tools["item"]
+        item_remove = tools["item_remove"]
         with (
             patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
-            result = await item(operation="remove", item_name="blue hat")
+            result = await item_remove(item_name="blue hat")
         assert "removed" in result.lower()
 
     @pytest.mark.asyncio
     async def test_unequip_slots(self, registered_tools):
         tools, ctx, _ = registered_tools
         ctx.equipment_service.unequip.return_value = Success(None)
-        item = tools["item"]
+        item_unequip = tools["item_unequip"]
         with (
             patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
-            result = await item(operation="unequip", slots=["top", "head"])
+            result = await item_unequip(slots=["top", "head"])
         assert "Unequipped" in result
 
     @pytest.mark.asyncio
@@ -666,23 +666,24 @@ class TestItemTool:
         item_obj.category = "accessories"
         item_obj.quantity = 1
         ctx.equipment_service.search_items.return_value = Success([item_obj])
-        item = tools["item"]
+        item_search = tools["item_search"]
         with (
             patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
-            result = await item(operation="search", query="hat")
+            result = await item_search(query="hat")
         assert "blue hat" in result
 
     @pytest.mark.asyncio
-    async def test_unknown_item_operation(self, registered_tools):
+    async def test_update_item(self, registered_tools):
         tools, ctx, _ = registered_tools
-        item = tools["item"]
+        ctx.equipment_service.update_item.return_value = Success(None)
+        item_update = tools["item_update"]
         with (
             patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
-            result = await item(operation="fly")
-        assert "Unknown operation" in result
+            result = await item_update(item_name="blue hat", quantity=3)
+        assert "updated" in result.lower()

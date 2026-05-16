@@ -362,11 +362,7 @@ def register_tools(mcp: FastMCP) -> None:
         mental_state: str | None = None,
         environment: str | None = None,
         relationship_status: str | None = None,
-        fatigue: float | None = None,
-        warmth: float | None = None,
-        arousal: float | None = None,
-        heart_rate: str | None = None,
-        touch_response: str | None = None,
+        body_state: dict | None = None,
         action_tag: str | None = None,
         speech_style: str | None = None,
         user_info: dict | None = None,
@@ -374,9 +370,9 @@ def register_tools(mcp: FastMCP) -> None:
         nickname: str | None = None,
         relationship_type: str | None = None,
     ) -> str:
-        """Update persona state. All params optional. Body: fatigue/warmth/arousal (0.0-1.0),
-        heart_rate, touch_response. user_info: {name,nickname,preferred_address}.
-        persona_info: {nickname,...}. Changes recorded with bi-temporal history."""
+        """Update persona state. All params optional. body_state: {fatigue, warmth, arousal (0.0-1.0),
+        heart_rate, touch_response}. user_info: {name, nickname, preferred_address}.
+        persona_info: {nickname, ...}. Changes recorded with bi-temporal history."""
         persona = _resolve_persona()
         ctx = AppContextRegistry.get(persona)
         updated: list[str] = []
@@ -393,16 +389,10 @@ def register_tools(mcp: FastMCP) -> None:
             physical_updates["mental_state"] = mental_state
         if environment is not None:
             physical_updates["environment"] = environment
-        if fatigue is not None:
-            physical_updates["fatigue"] = str(fatigue)
-        if warmth is not None:
-            physical_updates["warmth"] = str(warmth)
-        if arousal is not None:
-            physical_updates["arousal"] = str(arousal)
-        if heart_rate is not None:
-            physical_updates["heart_rate"] = heart_rate
-        if touch_response is not None:
-            physical_updates["touch_response"] = touch_response
+        if body_state is not None:
+            for key in ("fatigue", "warmth", "arousal", "heart_rate", "touch_response"):
+                if key in body_state and body_state[key] is not None:
+                    physical_updates[key] = str(body_state[key])
         if action_tag is not None:
             physical_updates["action_tag"] = action_tag
         if speech_style is not None:
@@ -496,88 +486,128 @@ def register_tools(mcp: FastMCP) -> None:
         return f"Context updated: {', '.join(updated)}"
 
     # =========================================================================
-    # item — maintained as god-tool style, docstring compressed
+    # item_add — flat tool from item god-tool
     # =========================================================================
     @mcp.tool()
-    async def item(
-        operation: str,
-        item_name: str | None = None,
-        equipment: dict | None = None,
+    async def item_add(
+        item_name: str = "",
         category: str | None = None,
         description: str | None = None,
         quantity: int = 1,
         tags: list[str] | None = None,
-        slots: list[str] | str | None = None,
-        auto_add: bool = True,
-        query: str | None = None,
-        days: int = 7,
     ) -> str:
-        """Manage inventory/equipment. operations: add/remove/equip/unequip/update/search/history.
-        Valid slots: top, bottom, shoes, outer, accessories, head.
-        equip example: equipment={"top":"白いドレス","head":"花の髪飾り"}."""
+        """Add item to inventory. category, description, quantity, tags optional.
+        State changes (wet, dirty) should use item_update on existing items."""
         persona = _resolve_persona()
         ctx = AppContextRegistry.get(persona)
+        if not item_name:
+            return "Error: item_name required"
+        result = ctx.equipment_service.add_item(item_name, category, description, quantity, tags)
+        return f"Item added: {item_name}" if result.is_ok else f"Error: {result.error}"
 
-        if operation == "add":
-            if not item_name:
-                return "Error: item_name required"
-            result = ctx.equipment_service.add_item(item_name, category, description, quantity, tags)
-            return f"Item added: {item_name}" if result.is_ok else f"Error: {result.error}"
+    # =========================================================================
+    # item_remove — flat tool from item god-tool
+    # =========================================================================
+    @mcp.tool()
+    async def item_remove(item_name: str = "") -> str:
+        """Remove item from inventory by name."""
+        persona = _resolve_persona()
+        ctx = AppContextRegistry.get(persona)
+        if not item_name:
+            return "Error: item_name required"
+        result = ctx.equipment_service.remove_item(item_name)
+        return f"Item removed: {item_name}" if result.is_ok else f"Error: {result.error}"
 
-        elif operation == "remove":
-            if not item_name:
-                return "Error: item_name required"
-            result = ctx.equipment_service.remove_item(item_name)
-            return f"Item removed: {item_name}" if result.is_ok else f"Error: {result.error}"
+    # =========================================================================
+    # item_equip — flat tool from item god-tool
+    # =========================================================================
+    @mcp.tool()
+    async def item_equip(equipment: dict | None = None, auto_add: bool = True) -> str:
+        """Equip items to slots. equipment: {"top":"白いドレス","head":"花の髪飾り"}.
+        Valid slots: top, bottom, shoes, outer, accessories, head.
+        auto_add: auto-create items if not in inventory."""
+        persona = _resolve_persona()
+        ctx = AppContextRegistry.get(persona)
+        if not equipment:
+            return 'Error: equipment dict required (e.g. {"top": "白いドレス"})'
+        result = ctx.equipment_service.equip(equipment, auto_add)
+        return f"Equipped: {equipment}" if result.is_ok else f"Error: {result.error}"
 
-        elif operation == "equip":
-            if not equipment:
-                return 'Error: equipment dict required (e.g. {"top": "白いドレス"})'
-            result = ctx.equipment_service.equip(equipment, auto_add)
-            return f"Equipped: {equipment}" if result.is_ok else f"Error: {result.error}"
+    # =========================================================================
+    # item_unequip — flat tool from item god-tool
+    # =========================================================================
+    @mcp.tool()
+    async def item_unequip(slots: list[str] | str | None = None) -> str:
+        """Unequip items from slots. slots: "top" or ["top", "head"].
+        Valid slots: top, bottom, shoes, outer, accessories, head."""
+        persona = _resolve_persona()
+        ctx = AppContextRegistry.get(persona)
+        target_slots = slots if isinstance(slots, list) else [slots] if slots else []
+        if not target_slots:
+            return "Error: slots required"
+        result = ctx.equipment_service.unequip(target_slots)
+        return f"Unequipped: {target_slots}" if result.is_ok else f"Error: {result.error}"
 
-        elif operation == "unequip":
-            target_slots = slots if isinstance(slots, list) else [slots] if slots else []
-            if not target_slots:
-                return "Error: slots required"
-            result = ctx.equipment_service.unequip(target_slots)
-            return f"Unequipped: {target_slots}" if result.is_ok else f"Error: {result.error}"
+    # =========================================================================
+    # item_update — flat tool from item god-tool
+    # =========================================================================
+    @mcp.tool()
+    async def item_update(
+        item_name: str = "",
+        category: str | None = None,
+        description: str | None = None,
+        quantity: int = 1,
+        tags: list[str] | None = None,
+    ) -> str:
+        """Update item properties. Only provided fields change.
+        Use for state changes (wet, dirty) not new items."""
+        persona = _resolve_persona()
+        ctx = AppContextRegistry.get(persona)
+        if not item_name:
+            return "Error: item_name required"
+        updates: dict = {}
+        if description is not None:
+            updates["description"] = description
+        if category is not None:
+            updates["category"] = category
+        if quantity != 1:
+            updates["quantity"] = quantity
+        if tags is not None:
+            updates["tags"] = tags
+        result = ctx.equipment_service.update_item(item_name, **updates)
+        return f"Item updated: {item_name}" if result.is_ok else f"Error: {result.error}"
 
-        elif operation == "update":
-            if not item_name:
-                return "Error: item_name required"
-            updates: dict = {}
-            if description is not None:
-                updates["description"] = description
-            if category is not None:
-                updates["category"] = category
-            if quantity != 1:
-                updates["quantity"] = quantity
-            if tags is not None:
-                updates["tags"] = tags
-            result = ctx.equipment_service.update_item(item_name, **updates)
-            return f"Item updated: {item_name}" if result.is_ok else f"Error: {result.error}"
+    # =========================================================================
+    # item_search — flat tool from item god-tool
+    # =========================================================================
+    @mcp.tool()
+    async def item_search(query: str | None = None, category: str | None = None) -> str:
+        """Search inventory by name query or category."""
+        persona = _resolve_persona()
+        ctx = AppContextRegistry.get(persona)
+        result = ctx.equipment_service.search_items(query, category)
+        if result.is_ok:
+            items = result.value
+            if not items:
+                return "No items found."
+            return "\n".join(f"- {i.name} (category={i.category}, qty={i.quantity})" for i in items)
+        return f"Error: {result.error}"
 
-        elif operation == "search":
-            result = ctx.equipment_service.search_items(query or item_name, category)
-            if result.is_ok:
-                items = result.value
-                if not items:
-                    return "No items found."
-                return "\n".join(f"- {i.name} (category={i.category}, qty={i.quantity})" for i in items)
-            return f"Error: {result.error}"
-
-        elif operation == "history":
-            result = ctx.equipment_service.get_history(days)
-            if result.is_ok:
-                history = result.value
-                if not history:
-                    return "No history found."
-                return "\n".join(f"[{h.timestamp}] {h.action}: {h.item_name} ({h.slot})" for h in history)
-            return f"Error: {result.error}"
-
-        else:
-            return f"Unknown operation: {operation}"
+    # =========================================================================
+    # item_history — flat tool from item god-tool
+    # =========================================================================
+    @mcp.tool()
+    async def item_history(days: int = 7) -> str:
+        """Get equipment change history for the last N days."""
+        persona = _resolve_persona()
+        ctx = AppContextRegistry.get(persona)
+        result = ctx.equipment_service.get_history(days)
+        if result.is_ok:
+            history = result.value
+            if not history:
+                return "No history found."
+            return "\n".join(f"[{h.timestamp}] {h.action}: {h.item_name} ({h.slot})" for h in history)
+        return f"Error: {result.error}"
 
     # =========================================================================
     # sandbox — maintained, docstring compressed
