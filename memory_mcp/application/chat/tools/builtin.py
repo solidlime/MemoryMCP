@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-import base64
 import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
+from memory_mcp.api.mcp.tools import TOOL_DISPATCH
 from memory_mcp.application.chat.tools.definitions import _MEMORY_MCP_TOOL_NAMES
 from memory_mcp.domain.search.engine import SearchQuery
 from memory_mcp.infrastructure.llm.base import LLMMessage, ToolDefinition
-from memory_mcp.infrastructure.llm.factory import get_provider
 from memory_mcp.infrastructure.logging.structured import get_logger
 
 if TYPE_CHECKING:
@@ -31,10 +30,7 @@ def filter_extra_tools(extra_tools: list[ToolDefinition]) -> list[ToolDefinition
 
 
 def truncate_tool_result(result: dict, max_chars: int) -> dict:
-    """Truncate tool result string to avoid context overflow.
-
-    Preserves image data (content_base64 / artifacts) when present.
-    """
+    """Truncate tool result string to avoid context overflow."""
     has_images = "content_base64" in result or "artifacts" in result
     if has_images:
         logger.info(
@@ -43,7 +39,6 @@ def truncate_tool_result(result: dict, max_chars: int) -> dict:
             len(result.get("artifacts", [])),
             result.get("content_type", "unknown"),
         )
-
     if not has_images:
         result_str = json.dumps(result, ensure_ascii=False)
         if len(result_str) <= max_chars:
@@ -53,13 +48,10 @@ def truncate_tool_result(result: dict, max_chars: int) -> dict:
             "truncated": True,
             "content": result_str[:max_chars] + f"... [truncated: {remaining} chars remaining]",
         }
-
-    # Has image data: truncate ONLY text fields, preserve image payloads
     text_parts = {k: v for k, v in result.items() if k not in ("content_base64", "artifacts")}
     text_str = json.dumps(text_parts, ensure_ascii=False)
     if len(text_str) > max_chars:
         text_str = text_str[:max_chars] + "... [truncated]"
-
     output = {"content": text_str}
     if "content_base64" in result:
         output["content_base64"] = result["content_base64"]
@@ -69,269 +61,198 @@ def truncate_tool_result(result: dict, max_chars: int) -> dict:
     return output
 
 
-async def execute_tool(ctx: AppContext, config: ChatConfig, tool_name: str, tool_input: dict) -> dict:
-    """組み込みツールを実行する。"""
-    try:
-        if tool_name == "memory_create":
-            emotion = tool_input.get("emotion_type", "neutral")
-            if emotion not in _VALID_EMOTIONS:
-                emotion = "neutral"
-            result = ctx.memory_service.create_memory(
-                content=tool_input.get("content", ""),
-                importance=float(tool_input.get("importance", 0.6)),
-                tags=tool_input.get("tags", []),
-                emotion=emotion,
+# ── Builtin-only handlers (different from MCP counterparts) ──
+
+
+async def _handle_context_update(ctx: AppContext, config: ChatConfig, tool_input: dict) -> dict:
+    update_kwargs: dict = {}
+    if "emotion" in tool_input:
+        update_kwargs["emotion"] = tool_input["emotion"]
+    if "emotion_intensity" in tool_input:
+        update_kwargs["emotion_intensity"] = float(tool_input["emotion_intensity"])
+    if "mental_state" in tool_input:
+        update_kwargs["mental_state"] = tool_input["mental_state"]
+    if update_kwargs:
+        if "emotion" in update_kwargs:
+            ctx.persona_service.update_emotion(
+                ctx.persona, update_kwargs["emotion"],
+                update_kwargs.get("emotion_intensity", 0.5),
             )
-            if result.is_ok:
-                return {"status": "ok", "key": result.value.key}
-            return {"status": "error", "message": str(result.error)}
+        if "mental_state" in update_kwargs:
+            ctx.persona_service.update_physical_state(
+                ctx.persona, mental_state=update_kwargs["mental_state"],
+            )
+    return {"status": "ok"}
 
-        elif tool_name == "memory_search":
-            query = tool_input.get("query", "")
-            top_k = int(tool_input.get("top_k", 5))
-            result = ctx.search_engine.search(SearchQuery(text=query, top_k=min(top_k, 200)))
-            if result.is_ok:
-                items = []
-                for item in result.value:
-                    mem = item[0] if isinstance(item, tuple) else item
-                    items.append(
-                        {
-                            "content": getattr(mem, "content", str(mem)),
-                            "importance": getattr(mem, "importance", 0.5),
-                            "tags": getattr(mem, "tags", []),
-                        }
-                    )
-                return {"status": "ok", "memories": items}
-            return {"status": "error", "message": str(result.error)}
 
-        elif tool_name == "context_update":
-            update_kwargs: dict = {}
-            if "emotion" in tool_input:
-                update_kwargs["emotion"] = tool_input["emotion"]
-            if "emotion_intensity" in tool_input:
-                update_kwargs["emotion_intensity"] = float(tool_input["emotion_intensity"])
-            if "mental_state" in tool_input:
-                update_kwargs["mental_state"] = tool_input["mental_state"]
-            if update_kwargs:
-                if "emotion" in update_kwargs:
-                    ctx.persona_service.update_emotion(
-                        ctx.persona,
-                        update_kwargs["emotion"],
-                        update_kwargs.get("emotion_intensity", 0.5),
-                    )
-                if "mental_state" in update_kwargs:
-                    ctx.persona_service.update_physical_state(ctx.persona, mental_state=update_kwargs["mental_state"])
-            return {"status": "ok"}
+async def _handle_context_recall(ctx: AppContext, config: ChatConfig, tool_input: dict) -> dict:
+    tags: list[str] = tool_input.get("tags", [])
+    top_k: int = int(tool_input.get("top_k", 10))
+    if tags:
+        tag_result = ctx.memory_service.get_by_tags(tags)
+        if not tag_result.is_ok:
+            return {"status": "error", "message": str(tag_result.error)}
+        memories = tag_result.value or []
+    else:
+        recent_result = ctx.memory_service.get_recent(limit=top_k)
+        memories = recent_result.value if recent_result.is_ok else []
+    items = [
+        {"content": m.content, "importance": m.importance, "tags": m.tags}
+        for m in memories[:top_k]
+    ]
+    return {"status": "ok", "memories": items, "count": len(items)}
 
-        elif tool_name == "invoke_skill":
-            skill_name = tool_input.get("name", "")
-            task = tool_input.get("task", "")
-            return await invoke_skill(ctx, config, skill_name, task)
 
-        elif tool_name == "goal_manage":
-            operation = tool_input.get("operation", "")
-            content = tool_input.get("content", "")
-            if operation == "create":
-                imp = float(tool_input.get("importance", 0.75))
-                result = ctx.memory_service.create_memory(
-                    content=content, importance=imp, tags=["goal", "active"], emotion="neutral",
-                )
-                if result.is_ok:
-                    return {"status": "ok", "key": result.value.key}
-                return {"status": "error", "message": str(result.error)}
-            elif operation in ("achieve", "cancel"):
-                new_status = "achieved" if operation == "achieve" else "cancelled"
-                tag_result = ctx.memory_service.get_by_tags(["goal", "active"])
-                if not tag_result.is_ok:
-                    return {"status": "error", "message": str(tag_result.error)}
-                candidates = tag_result.value or []
-                match = next((m for m in candidates if content.lower() in m.content.lower()), None)
-                if match is None:
-                    return {"status": "not_found", "query": content}
-                update_result = ctx.memory_service.update_memory(match.key, tags=["goal", new_status])
-                if update_result.is_ok:
-                    return {"status": "ok", "updated": match.content[:80]}
-                return {"status": "error", "message": str(update_result.error)}
-            else:
-                return {"status": "error", "message": f"Unknown operation: {operation}. Use create/achieve/cancel."}
+async def _handle_execute_code(ctx: AppContext, config: ChatConfig, tool_input: dict) -> dict:
+    if not getattr(config, "sandbox_enabled", False):
+        return {"status": "error", "message": "sandbox が無効です。チャット設定で有効化してください。"}
+    from memory_mcp.application.sandbox.service import get_sandbox_session
+    code = tool_input.get("code", "")
+    language = tool_input.get("language", "python")
+    sandbox = get_sandbox_session(ctx.persona)
+    result = await sandbox.execute(code, language)
+    return {
+        "stdout": result.stdout, "stderr": result.stderr,
+        "exit_code": result.exit_code, "artifacts": result.artifacts,
+    }
 
-        elif tool_name == "promise_manage":
-            operation = tool_input.get("operation", "")
-            content = tool_input.get("content", "")
-            if operation == "create":
-                imp = float(tool_input.get("importance", 0.8))
-                result = ctx.memory_service.create_memory(
-                    content=content, importance=imp, tags=["promise", "active"], emotion="neutral",
-                )
-                if result.is_ok:
-                    return {"status": "ok", "key": result.value.key}
-                return {"status": "error", "message": str(result.error)}
-            elif operation in ("fulfill", "cancel"):
-                new_status = "fulfilled" if operation == "fulfill" else "cancelled"
-                tag_result = ctx.memory_service.get_by_tags(["promise", "active"])
-                if not tag_result.is_ok:
-                    return {"status": "error", "message": str(tag_result.error)}
-                candidates = tag_result.value or []
-                match = next((m for m in candidates if content.lower() in m.content.lower()), None)
-                if match is None:
-                    return {"status": "not_found", "query": content}
-                update_result = ctx.memory_service.update_memory(match.key, tags=["promise", new_status])
-                if update_result.is_ok:
-                    return {"status": "ok", "updated": match.content[:80]}
-                return {"status": "error", "message": str(update_result.error)}
-            else:
-                return {"status": "error", "message": f"Unknown operation: {operation}. Use create/fulfill/cancel."}
 
-        elif tool_name == "memory_update":
-            query = tool_input.get("query", "")
-            new_content = tool_input.get("new_content", "")
-            if not query or not new_content:
-                return {"status": "error", "message": "query and new_content are required"}
-            search_result = ctx.search_engine.search(SearchQuery(text=query, top_k=1))
-            if not search_result.is_ok or not search_result.value:
-                return {"status": "not_found", "query": query}
-            item = search_result.value[0]
+async def _handle_memory_create_builtin(ctx: AppContext, config: ChatConfig, tool_input: dict) -> dict:
+    emotion = tool_input.get("emotion_type", "neutral")
+    if emotion not in _VALID_EMOTIONS:
+        emotion = "neutral"
+    result = ctx.memory_service.create_memory(
+        content=tool_input.get("content", ""),
+        importance=float(tool_input.get("importance", 0.6)),
+        tags=tool_input.get("tags", []),
+        emotion=emotion,
+    )
+    if result.is_ok:
+        return {"status": "ok", "key": result.value.key}
+    return {"status": "error", "message": str(result.error)}
+
+
+async def _handle_memory_search_builtin(ctx: AppContext, config: ChatConfig, tool_input: dict) -> dict:
+    query = tool_input.get("query", "")
+    top_k = int(tool_input.get("top_k", 5))
+    result = ctx.search_engine.search(SearchQuery(text=query, top_k=min(top_k, 200)))
+    if result.is_ok:
+        items = []
+        for item in result.value:
             mem = item[0] if isinstance(item, tuple) else item
-            mem_key = getattr(mem, "key", None)
-            if not mem_key:
-                return {"status": "error", "message": "memory key not found"}
-            update_kwargs: dict = {"content": new_content}
-            if "importance" in tool_input:
-                update_kwargs["importance"] = float(tool_input["importance"])
-            update_result = ctx.memory_service.update_memory(mem_key, **update_kwargs)
-            if update_result.is_ok:
-                return {"status": "ok", "key": mem_key}
-            return {"status": "error", "message": str(update_result.error)}
+            items.append({
+                "content": getattr(mem, "content", str(mem)),
+                "importance": getattr(mem, "importance", 0.5),
+                "tags": getattr(mem, "tags", []),
+            })
+        return {"status": "ok", "memories": items}
+    return {"status": "error", "message": str(result.error)}
 
-        elif tool_name == "context_recall":
-            tags: list[str] = tool_input.get("tags", [])
-            top_k: int = int(tool_input.get("top_k", 10))
-            if tags:
-                tag_result = ctx.memory_service.get_by_tags(tags)
-                if not tag_result.is_ok:
-                    return {"status": "error", "message": str(tag_result.error)}
-                memories = tag_result.value or []
-            else:
-                recent_result = ctx.memory_service.get_recent(limit=top_k)
-                memories = recent_result.value if recent_result.is_ok else []
-            items = [
-                {
-                    "content": m.content,
-                    "importance": m.importance,
-                    "tags": m.tags,
-                }
-                for m in memories[:top_k]
-            ]
-            return {"status": "ok", "memories": items, "count": len(items)}
 
-        elif tool_name == "execute_code":
-            if not getattr(config, "sandbox_enabled", False):
-                return {"status": "error", "message": "sandbox が無効です。チャット設定で有効化してください。"}
-            from memory_mcp.application.sandbox.service import get_sandbox_session
+async def _handle_memory_update_builtin(ctx: AppContext, config: ChatConfig, tool_input: dict) -> dict:
+    query = tool_input.get("query", "")
+    new_content = tool_input.get("new_content", "")
+    if not query or not new_content:
+        return {"status": "error", "message": "query and new_content are required"}
+    search_result = ctx.search_engine.search(SearchQuery(text=query, top_k=1))
+    if not search_result.is_ok or not search_result.value:
+        return {"status": "not_found", "query": query}
+    item = search_result.value[0]
+    mem = item[0] if isinstance(item, tuple) else item
+    mem_key = getattr(mem, "key", None)
+    if not mem_key:
+        return {"status": "error", "message": "memory key not found"}
+    update_kwargs: dict = {"content": new_content}
+    if "importance" in tool_input:
+        update_kwargs["importance"] = float(tool_input["importance"])
+    update_result = ctx.memory_service.update_memory(mem_key, **update_kwargs)
+    if update_result.is_ok:
+        return {"status": "ok", "key": mem_key}
+    return {"status": "error", "message": str(update_result.error)}
 
-            code = tool_input.get("code", "")
-            language = tool_input.get("language", "python")
-            sandbox = get_sandbox_session(ctx.persona)
-            result = await sandbox.execute(code, language)
-            return {
-                "stdout": result.stdout,
-                "stderr": result.stderr,
-                "exit_code": result.exit_code,
-                "artifacts": result.artifacts,
-            }
 
-        elif tool_name == "sandbox_files":
-            if not getattr(config, "sandbox_enabled", False):
-                return {"status": "error", "message": "sandbox が無効です。チャット設定で有効化してください。"}
-            from memory_mcp.application.sandbox.service import get_sandbox_session
+# ── MCP-shared handlers (delegate to TOOL_DISPATCH) ──
 
-            operation = tool_input.get("operation", "")
-            path = tool_input.get("path") or "/sandbox"
-            if not path.startswith("/sandbox"):
-                return {"status": "error", "message": "パスは /sandbox 配下のみ許可されています"}
 
-            sandbox = get_sandbox_session(ctx.persona)
+def _parse_tool_str(tool_name: str, result_str: str) -> dict:
+    """Parse MCP tool string result into builtin dict format."""
+    if result_str.startswith("Error:"):
+        return {"status": "error", "message": result_str[7:]}
+    if tool_name in ("goal_manage", "promise_manage"):
+        if ": " in result_str:
+            prefix, value = result_str.split(": ", 1)
+            if "created" in prefix:
+                return {"status": "ok", "key": value}
+            if "achieved" in prefix or "cancelled" in prefix or "fulfilled" in prefix:
+                return {"status": "ok", "updated": value}
+    if result_str.startswith("No active"):
+        return {"status": "not_found", "query": result_str}
+    if result_str.startswith("Unknown operation:"):
+        return {"status": "error", "message": result_str}
+    return {"status": "ok", "result": result_str}
 
-            if operation == "list":
-                files = await sandbox.list_files(path)
-                return {
-                    "status": "ok",
-                    "files": [{"name": f.name, "path": f.path, "is_dir": f.is_dir, "size": f.size} for f in files],
-                }
-            elif operation == "read":
-                try:
-                    img_data = await sandbox.read_image(path)
-                    result_dict: dict = {
-                        "status": "ok",
-                        "content_type": img_data["content_type"],
-                        "content_base64": img_data["content_base64"],
-                        "size": img_data["size"],
-                    }
-                    if img_data.get("resized"):
-                        result_dict["resized"] = True
-                        result_dict["orig_dims"] = img_data["orig_dims"]
-                        result_dict["message"] = (
-                            f"画像を {img_data['orig_dims']}({img_data['orig_size']}B) から "
-                            f"{img_data['new_dims']}({img_data['new_size']}B) にリサイズしました。"
-                            "この画像の内容を詳細に説明してください。"
-                        )
-                    else:
-                        ct = img_data["content_type"]
-                        result_dict["message"] = (
-                            f"{ct}画像（{img_data['size']}バイト）を読み取りました。"
-                            "この画像の内容を詳細に説明してください。"
-                        )
-                    return result_dict
-                except Exception:
-                    # Fallback to raw read for text files
-                    raw = await sandbox.read_file(path)
-                    is_image = False
-                    content_type = None
-                    if len(raw) >= 4:
-                        if raw[:4] == b"\x89PNG":
-                            is_image, content_type = True, "image/png"
-                        elif raw[:2] == b"\xff\xd8":
-                            is_image, content_type = True, "image/jpeg"
-                        elif raw[:3] == b"GIF":
-                            is_image, content_type = True, "image/gif"
-                        elif len(raw) >= 12 and raw[:4] == b"RIFF" and raw[8:12] == b"WEBP":
-                            is_image, content_type = True, "image/webp"
-                    if is_image:
-                        b64_str = base64.b64encode(raw).decode("ascii")
-                        return {
-                            "status": "ok",
-                            "content_type": content_type,
-                            "content_base64": b64_str,
-                            "size": len(raw),
-                        }
-                    max_read = 8192
-                    truncated = len(raw) > max_read
-                    text = raw[:max_read].decode("utf-8", errors="replace")
-                    read_result: dict = {"status": "ok", "content": text}
-                    if truncated:
-                        read_result["truncated"] = True
-                        read_result["total_bytes"] = len(raw)
-                    return read_result
-            elif operation == "write":
-                content_str = tool_input.get("content", "")
-                b64 = base64.b64encode(content_str.encode()).decode()
-                write_code = (
-                    f"import base64, os\n"
-                    f"_d = base64.b64decode({b64!r})\n"
-                    f"os.makedirs(os.path.dirname({path!r}) or '.', exist_ok=True)\n"
-                    f"open({path!r}, 'wb').write(_d)\n"
-                    f"print('written', len(_d), 'bytes')"
-                )
-                exec_result = await sandbox.execute(write_code)
-                return {"status": "ok", "path": path, "stdout": exec_result.stdout.strip()}
-            elif operation == "delete":
-                deleted = await sandbox.delete_file(path)
-                return {"status": "ok" if deleted else "error", "path": path}
-            else:
-                return {"status": "error", "message": f"Unknown operation: {operation}"}
 
-        else:
-            return {"status": "error", "message": f"Unknown tool: {tool_name}"}
+async def _handle_mcp_dispatch(tool_name: str, ctx: AppContext, config: ChatConfig, tool_input: dict) -> dict:
+    """Call shared MCP tool implementation via TOOL_DISPATCH."""
+    # Sandbox guard for sandbox_files (sandbox itself is called via execute_code)
+    if tool_name == "sandbox_files" and not getattr(config, "sandbox_enabled", False):
+        return {"status": "error", "message": "sandbox が無効です。チャット設定で有効化してください。"}
+
+    func = TOOL_DISPATCH.get(tool_name)
+    if func is None:
+        return {"status": "error", "message": f"Unknown tool: {tool_name}"}
+
+    import base64 as _b64
+
+    # sandbox_files returns JSON — parse it
+    if tool_name == "sandbox_files":
+        result_str = await func(ctx, ctx.persona, **tool_input)
+        try:
+            return json.loads(result_str)
+        except json.JSONDecodeError:
+            return {"status": "error", "message": result_str}
+
+    # invoke_skill returns text — wrap in result
+    if tool_name == "invoke_skill":
+        result_str = await func(ctx, ctx.persona, **tool_input)
+        if result_str.startswith("Error:"):
+            return {"status": "error", "message": result_str[7:]}
+        return {"result": result_str}
+
+    # goal_manage / promise_manage — parse string
+    result_str = await func(ctx, ctx.persona, **tool_input)
+    return _parse_tool_str(tool_name, result_str)
+
+
+# ── Handler dispatch table (replaces if/elif chain) ──
+
+_BUILTIN_DISPATCH: dict[str, Any] = {
+    "context_update": _handle_context_update,
+    "context_recall": _handle_context_recall,
+    "execute_code": _handle_execute_code,
+    "memory_create": _handle_memory_create_builtin,
+    "memory_search": _handle_memory_search_builtin,
+    "memory_update": _handle_memory_update_builtin,
+}
+
+_MCP_SHARED_TOOLS = frozenset({
+    "goal_manage", "promise_manage", "invoke_skill", "sandbox_files",
+})
+
+
+async def execute_tool(ctx: AppContext, config: ChatConfig, tool_name: str, tool_input: dict) -> dict:
+    """Execute built-in or shared MCP tool via dispatch table."""
+    try:
+        # Builtin-specific handler
+        handler = _BUILTIN_DISPATCH.get(tool_name)
+        if handler is not None:
+            return await handler(ctx, config, tool_input)
+
+        # Shared MCP tool (delegates to TOOL_DISPATCH)
+        if tool_name in _MCP_SHARED_TOOLS:
+            return await _handle_mcp_dispatch(tool_name, ctx, config, tool_input)
+
+        return {"status": "error", "message": f"Unknown tool: {tool_name}"}
 
     except Exception as e:
         logger.exception("Tool execution failed: %s", tool_name)
@@ -343,6 +264,7 @@ async def invoke_skill(ctx: AppContext, config: ChatConfig, skill_name: str, tas
     from memory_mcp.config.settings import get_settings
     from memory_mcp.domain.skill import SkillRepository
     from memory_mcp.infrastructure.llm.base import DoneEvent, TextDeltaEvent
+    from memory_mcp.infrastructure.llm.factory import get_provider
     from memory_mcp.infrastructure.sqlite.connection import get_global_skills_db
 
     skill_repo = SkillRepository(get_global_skills_db(get_settings().data_root))
@@ -356,9 +278,7 @@ async def invoke_skill(ctx: AppContext, config: ChatConfig, skill_name: str, tas
 
     try:
         provider = get_provider(
-            config.provider,
-            api_key,
-            config.get_effective_model(),
+            config.provider, api_key, config.get_effective_model(),
             config.get_effective_base_url(),
         )
     except Exception as e:
@@ -368,10 +288,8 @@ async def invoke_skill(ctx: AppContext, config: ChatConfig, skill_name: str, tas
     try:
         async for event in provider.stream(
             messages=[LLMMessage(role="user", content=task)],
-            system=skill.content,
-            tools=[],
-            temperature=config.temperature,
-            max_tokens=config.max_tokens,
+            system=skill.content, tools=[],
+            temperature=config.temperature, max_tokens=config.max_tokens,
         ):
             if isinstance(event, TextDeltaEvent):
                 text += event.content
