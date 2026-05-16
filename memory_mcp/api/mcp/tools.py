@@ -303,12 +303,14 @@ async def _tool_update_context(
     body_state: dict | None = None,
     action_tag: str | None = None,
     speech_style: str | None = None,
+    context_note: str | None = None,
     user_info: dict | None = None,
     persona_info: dict | None = None,
     nickname: str | None = None,
     relationship_type: str | None = None,
 ) -> str:
-    """Update persona state. body_state: {fatigue, warmth, arousal, heart_rate, touch_response}."""
+    """Update persona state. context_note: short note on current activity for session continuity.
+    body_state: {fatigue, warmth, arousal, heart_rate, touch_response}."""
     updated: list[str] = []
 
     if emotion is not None:
@@ -336,6 +338,11 @@ async def _tool_update_context(
         result = ctx.persona_service.update_physical_state(persona, **physical_updates)
         if result.is_ok:
             updated.extend(f"{k}={v}" for k, v in physical_updates.items())
+
+    # context_note: lightweight session continuity marker
+    if context_note is not None:
+        ctx.persona_service.update_persona_info(persona, {"context_note": context_note})
+        updated.append("context_note updated")
 
     if relationship_status is not None or relationship_type is not None:
         status = relationship_status or relationship_type
@@ -513,29 +520,32 @@ async def _tool_sandbox(ctx: AppContext, persona: str, code: str, language: str 
 async def _tool_sandbox_files(
     ctx: AppContext, persona: str,
     operation: str, path: str = "/sandbox", content: str | None = None,
-) -> str:
+) -> dict:
     from memory_mcp.config.settings import get_settings
     settings = get_settings()
     if not settings.sandbox.enabled:
-        return "Sandbox is not enabled."
+        return {"ok": False, "error": "Sandbox is not enabled."}
     from memory_mcp.application.sandbox.service import get_sandbox_session
     if not path.startswith("/sandbox"):
-        return "Error: path must be under /sandbox"
+        return {"ok": False, "error": "path must be under /sandbox"}
     sandbox_session = get_sandbox_session(persona)
     import base64 as _b64
 
     if operation == "list":
         files = await sandbox_session.list_files(path)
         file_list = [{"name": f.name, "path": f.path, "is_dir": f.is_dir, "size": f.size} for f in files]
-        return json.dumps({"status": "ok", "files": file_list}, ensure_ascii=False)
+        return {"ok": True, "files": file_list}
     elif operation == "read":
         try:
             img_data = await sandbox_session.read_image(path)
-            return json.dumps({
-                "status": "ok", "content_type": img_data["content_type"],
+            resp: dict = {
+                "ok": True, "content_type": img_data["content_type"],
                 "content_base64": img_data["content_base64"], "size": img_data["size"],
-                **({"resized": True, "orig_dims": img_data.get("orig_dims", "")} if img_data.get("resized") else {}),
-            }, ensure_ascii=False)
+            }
+            if img_data.get("resized"):
+                resp["resized"] = True
+                resp["orig_dims"] = img_data.get("orig_dims", "")
+            return resp
         except Exception:
             raw = await sandbox_session.read_file(path)
             is_image = False
@@ -551,16 +561,16 @@ async def _tool_sandbox_files(
                     is_image, content_type = True, "image/webp"
             if is_image:
                 b64_str = _b64.b64encode(raw).decode("ascii")
-                return json.dumps({"status": "ok", "content_type": content_type, "content_base64": b64_str, "size": len(raw)}, ensure_ascii=False)
+                return {"ok": True, "content_type": content_type, "content_base64": b64_str, "size": len(raw)}
             max_read = 8192
             truncated = len(raw) > max_read
             text = raw[:max_read].decode("utf-8", errors="replace")
             if truncated:
-                return json.dumps({"status": "ok", "content": text, "truncated": True, "total_bytes": len(raw)}, ensure_ascii=False)
-            return json.dumps({"status": "ok", "content": text}, ensure_ascii=False)
+                return {"ok": True, "content": text, "truncated": True, "total_bytes": len(raw)}
+            return {"ok": True, "content": text}
     elif operation == "write":
         if not content:
-            return "Error: content is required for write"
+            return {"ok": False, "error": "content is required for write"}
         b64 = _b64.b64encode(content.encode()).decode()
         write_code = (
             f"import base64, os\n"
@@ -570,67 +580,69 @@ async def _tool_sandbox_files(
             f"print('written', len(_d), 'bytes')"
         )
         exec_result = await sandbox_session.execute(write_code)
-        return json.dumps({"status": "ok", "path": path, "stdout": exec_result.stdout.strip()}, ensure_ascii=False)
+        return {"ok": True, "path": path, "stdout": exec_result.stdout.strip()}
     elif operation == "delete":
         deleted = await sandbox_session.delete_file(path)
-        return json.dumps({"status": "ok" if deleted else "error", "path": path}, ensure_ascii=False)
+        if deleted:
+            return {"ok": True, "path": path}
+        return {"ok": False, "error": "delete failed", "path": path}
     else:
-        return f"Unknown operation: {operation}. Use list/read/write/delete."
+        return {"ok": False, "error": f"Unknown operation: {operation}. Use list/read/write/delete."}
 
 
 # --- Goal/Promise tools ---
 
-async def _tool_goal_manage(ctx: AppContext, persona: str, operation: str, content: str, importance: float = 0.75) -> str:
+async def _tool_goal_manage(ctx: AppContext, persona: str, operation: str, content: str, importance: float = 0.75) -> dict:
     if operation == "create":
         result = ctx.memory_service.create_memory(
             content=content, importance=importance, tags=["goal", "active"], emotion="neutral",
         )
         if result.is_ok:
-            return f"Goal created: {result.value.key}"
-        return f"Error: {result.error}"
+            return {"ok": True, "key": result.value.key}
+        return {"ok": False, "error": result.error}
     elif operation in ("achieve", "cancel"):
         new_status = "achieved" if operation == "achieve" else "cancelled"
         tag_result = ctx.memory_service.get_by_tags(["goal", "active"])
         if not tag_result.is_ok:
-            return f"Error: {tag_result.error}"
+            return {"ok": False, "error": tag_result.error}
         candidates = tag_result.value or []
         match = next((m for m in candidates if content.strip().lower() == m.content.strip().lower()), None)
         if match is None:
-            return f"No active goal matching '{content}' found."
+            return {"ok": False, "error": f"No active goal matching '{content}' found."}
         update_result = ctx.memory_service.update_memory(match.key, tags=["goal", new_status])
         if update_result.is_ok:
-            return f"Goal {new_status}: {match.content[:80]}"
-        return f"Error: {update_result.error}"
+            return {"ok": True, "status": new_status, "content": match.content[:80]}
+        return {"ok": False, "error": update_result.error}
     else:
-        return f"Unknown operation: {operation}. Use create/achieve/cancel."
+        return {"ok": False, "error": f"Unknown operation: {operation}. Use create/achieve/cancel."}
 
 
-async def _tool_promise_manage(ctx: AppContext, persona: str, operation: str, content: str, importance: float = 0.8) -> str:
+async def _tool_promise_manage(ctx: AppContext, persona: str, operation: str, content: str, importance: float = 0.8) -> dict:
     if operation == "create":
         result = ctx.memory_service.create_memory(
             content=content, importance=importance, tags=["promise", "active"], emotion="neutral",
         )
         if result.is_ok:
-            return f"Promise created: {result.value.key}"
-        return f"Error: {result.error}"
+            return {"ok": True, "key": result.value.key}
+        return {"ok": False, "error": result.error}
     elif operation in ("fulfill", "cancel"):
         new_status = "fulfilled" if operation == "fulfill" else "cancelled"
         tag_result = ctx.memory_service.get_by_tags(["promise", "active"])
         if not tag_result.is_ok:
-            return f"Error: {tag_result.error}"
+            return {"ok": False, "error": tag_result.error}
         candidates = tag_result.value or []
         match = next((m for m in candidates if content.strip().lower() == m.content.strip().lower()), None)
         if match is None:
-            return f"No active promise matching '{content}' found."
+            return {"ok": False, "error": f"No active promise matching '{content}' found."}
         update_result = ctx.memory_service.update_memory(match.key, tags=["promise", new_status])
         if update_result.is_ok:
-            return f"Promise {new_status}: {match.content[:80]}"
-        return f"Error: {update_result.error}"
+            return {"ok": True, "status": new_status, "content": match.content[:80]}
+        return {"ok": False, "error": update_result.error}
     else:
-        return f"Unknown operation: {operation}. Use create/fulfill/cancel."
+        return {"ok": False, "error": f"Unknown operation: {operation}. Use create/fulfill/cancel."}
 
 
-async def _tool_invoke_skill(ctx: AppContext, persona: str, name: str, task: str) -> str:
+async def _tool_invoke_skill(ctx: AppContext, persona: str, name: str, task: str) -> dict:
     from memory_mcp.config.settings import get_settings
     from memory_mcp.domain.skill import SkillRepository
     from memory_mcp.infrastructure.llm.base import DoneEvent, TextDeltaEvent
@@ -640,7 +652,7 @@ async def _tool_invoke_skill(ctx: AppContext, persona: str, name: str, task: str
     skill_repo = SkillRepository(get_global_skills_db(get_settings().data_root))
     skill = skill_repo.get(name)
     if not skill:
-        return f"Error: Skill '{name}' not found"
+        return {"ok": False, "error": f"Skill '{name}' not found"}
 
     import json as _json
     from memory_mcp.domain.chat_config import ChatConfig
@@ -653,7 +665,7 @@ async def _tool_invoke_skill(ctx: AppContext, persona: str, name: str, task: str
         import os
         api_key = os.environ.get("OPENROUTER_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
-        return "Error: No LLM API key configured"
+        return {"ok": False, "error": "No LLM API key configured"}
     provider_name = config.provider if config else "openrouter"
     model = config.get_effective_model() if config else "openai/gpt-4o-mini"
     base_url = config.get_effective_base_url() if config else None
@@ -662,7 +674,7 @@ async def _tool_invoke_skill(ctx: AppContext, persona: str, name: str, task: str
     try:
         provider = get_provider(provider_name, api_key, model, base_url)
     except Exception as e:
-        return f"Error: Provider init failed: {e}"
+        return {"ok": False, "error": f"Provider init failed: {e}"}
     text = ""
     try:
         async for event in provider.stream(
@@ -675,8 +687,8 @@ async def _tool_invoke_skill(ctx: AppContext, persona: str, name: str, task: str
             elif isinstance(event, DoneEvent):
                 break
     except Exception as e:
-        return f"Error: Skill execution failed: {e}"
-    return text or "(no response)"
+        return {"ok": False, "error": f"Skill execution failed: {e}"}
+    return {"ok": True, "result": text or "(no response)"}
 
 
 # =============================================================================
@@ -795,19 +807,20 @@ def register_tools(mcp: FastMCP) -> None:
         physical_state: str | None = None, mental_state: str | None = None,
         environment: str | None = None, relationship_status: str | None = None,
         body_state: dict | None = None, action_tag: str | None = None,
-        speech_style: str | None = None, user_info: dict | None = None,
-        persona_info: dict | None = None, nickname: str | None = None,
-        relationship_type: str | None = None,
+        speech_style: str | None = None, context_note: str | None = None,
+        user_info: dict | None = None, persona_info: dict | None = None,
+        nickname: str | None = None, relationship_type: str | None = None,
     ) -> str:
-        """Update persona state. All params optional. body_state: {fatigue, warmth, arousal (0.0-1.0),
-        heart_rate, touch_response}. user_info: {name, nickname, preferred_address}.
-        persona_info: {nickname, ...}. Changes recorded with bi-temporal history."""
+        """Update persona state. context_note: short note on current activity (session continuity).
+        body_state: {fatigue, warmth, arousal (0.0-1.0), heart_rate, touch_response}.
+        user_info: {name, nickname, preferred_address}. persona_info: {nickname, ...}."""
         p = _resolve_persona()
         return await _tool_update_context(AppContextRegistry.get(p), p, emotion=emotion,
                                           emotion_intensity=emotion_intensity, physical_state=physical_state,
                                           mental_state=mental_state, environment=environment,
                                           relationship_status=relationship_status, body_state=body_state,
                                           action_tag=action_tag, speech_style=speech_style,
+                                          context_note=context_note,
                                           user_info=user_info, persona_info=persona_info,
                                           nickname=nickname, relationship_type=relationship_type)
 
@@ -878,7 +891,8 @@ def register_tools(mcp: FastMCP) -> None:
         """Sandbox file operations under /sandbox. operation: list/read/write/delete.
         read auto-detects images (PNG/JPEG/GIF/WebP) returning base64 with PIL resize support."""
         p = _resolve_persona()
-        return await _tool_sandbox_files(AppContextRegistry.get(p), p, operation=operation, path=path, content=content)
+        r = await _tool_sandbox_files(AppContextRegistry.get(p), p, operation=operation, path=path, content=content)
+        return json.dumps(r, ensure_ascii=False)
 
     # goal_manage
     @mcp.tool()
@@ -886,8 +900,15 @@ def register_tools(mcp: FastMCP) -> None:
         """Manage goals. operation: create (new goal), achieve (mark done), cancel (abandon).
         Goals stored as memories with tags=["goal","active/achieved/cancelled"]."""
         p = _resolve_persona()
-        return await _tool_goal_manage(AppContextRegistry.get(p), p, operation=operation, content=content,
-                                       importance=importance)
+        r = await _tool_goal_manage(AppContextRegistry.get(p), p, operation=operation, content=content,
+                                     importance=importance)
+        if r.get("ok"):
+            if "key" in r:
+                return f"Goal created: {r['key']}"
+            if "status" in r:
+                return f"Goal {r['status']}: {r['content']}"
+            return "Goal done"
+        return f"Error: {r.get('error', 'unknown')}"
 
     # promise_manage
     @mcp.tool()
@@ -895,8 +916,15 @@ def register_tools(mcp: FastMCP) -> None:
         """Manage promises. operation: create (new promise), fulfill (mark done), cancel (abandon).
         Promises stored as memories with tags=["promise","active/fulfilled/cancelled"]."""
         p = _resolve_persona()
-        return await _tool_promise_manage(AppContextRegistry.get(p), p, operation=operation, content=content,
-                                          importance=importance)
+        r = await _tool_promise_manage(AppContextRegistry.get(p), p, operation=operation, content=content,
+                                        importance=importance)
+        if r.get("ok"):
+            if "key" in r:
+                return f"Promise created: {r['key']}"
+            if "status" in r:
+                return f"Promise {r['status']}: {r['content']}"
+            return "Promise done"
+        return f"Error: {r.get('error', 'unknown')}"
 
     # invoke_skill
     @mcp.tool()
@@ -904,7 +932,10 @@ def register_tools(mcp: FastMCP) -> None:
         """Execute a skill in isolated LLM context. Loads skill from store,
         runs with chat config provider/model. Returns skill output text."""
         p = _resolve_persona()
-        return await _tool_invoke_skill(AppContextRegistry.get(p), p, name=name, task=task)
+        r = await _tool_invoke_skill(AppContextRegistry.get(p), p, name=name, task=task)
+        if r.get("ok"):
+            return r.get("result", "(no response)")
+        return f"Error: {r.get('error', 'unknown')}"
 
 
 # =============================================================================
@@ -1143,6 +1174,10 @@ def _format_lightweight_response(
         lines.append(f"Speech Style: {state.speech_style}")
     if state.relationship_status:
         lines.append(f"Relationship: {state.relationship_status}")
+
+    # Context note — session continuity marker
+    if state.persona_info and state.persona_info.get("context_note"):
+        lines.append(f"📌 Now: {state.persona_info['context_note']}")
 
     # User info
     if state.user_info:

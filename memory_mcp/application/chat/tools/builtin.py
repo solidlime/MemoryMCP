@@ -171,27 +171,8 @@ async def _handle_memory_update_builtin(ctx: AppContext, config: ChatConfig, too
 # ── MCP-shared handlers (delegate to TOOL_DISPATCH) ──
 
 
-def _parse_tool_str(tool_name: str, result_str: str) -> dict:
-    """Parse MCP tool string result into builtin dict format."""
-    if result_str.startswith("Error:"):
-        return {"status": "error", "message": result_str[7:]}
-    if tool_name in ("goal_manage", "promise_manage"):
-        if ": " in result_str:
-            prefix, value = result_str.split(": ", 1)
-            if "created" in prefix:
-                return {"status": "ok", "key": value}
-            if "achieved" in prefix or "cancelled" in prefix or "fulfilled" in prefix:
-                return {"status": "ok", "updated": value}
-    if result_str.startswith("No active"):
-        return {"status": "not_found", "query": result_str}
-    if result_str.startswith("Unknown operation:"):
-        return {"status": "error", "message": result_str}
-    return {"status": "ok", "result": result_str}
-
-
 async def _handle_mcp_dispatch(tool_name: str, ctx: AppContext, config: ChatConfig, tool_input: dict) -> dict:
     """Call shared MCP tool implementation via TOOL_DISPATCH."""
-    # Sandbox guard for sandbox_files (sandbox itself is called via execute_code)
     if tool_name == "sandbox_files" and not getattr(config, "sandbox_enabled", False):
         return {"status": "error", "message": "sandbox が無効です。チャット設定で有効化してください。"}
 
@@ -199,24 +180,25 @@ async def _handle_mcp_dispatch(tool_name: str, ctx: AppContext, config: ChatConf
     if func is None:
         return {"status": "error", "message": f"Unknown tool: {tool_name}"}
 
-    # sandbox_files returns JSON — parse it
-    if tool_name == "sandbox_files":
-        result_str = await func(ctx, ctx.persona, **tool_input)
-        try:
-            return json.loads(result_str)
-        except json.JSONDecodeError:
-            return {"status": "error", "message": result_str}
-
-    # invoke_skill returns text — wrap in result
-    if tool_name == "invoke_skill":
-        result_str = await func(ctx, ctx.persona, **tool_input)
-        if result_str.startswith("Error:"):
-            return {"status": "error", "message": result_str[7:]}
-        return {"result": result_str}
-
-    # goal_manage / promise_manage — parse string
-    result_str = await func(ctx, ctx.persona, **tool_input)
-    return _parse_tool_str(tool_name, result_str)
+    result = await func(ctx, ctx.persona, **tool_input)
+    # Translate core dict format to builtin format
+    if result.get("ok"):
+        if "key" in result:
+            return {"status": "ok", "key": result["key"]}
+        if "status" in result:
+            return {"status": "ok", "updated": result.get("content", "")}
+        if "result" in result:
+            return {"result": result["result"]}
+        if "files" in result:
+            return result  # sandbox_files list
+        if "content_base64" in result:
+            return result  # sandbox_files read (image)
+        if "content" in result:
+            return result  # sandbox_files read (text)
+        if "path" in result:
+            return {"status": "ok", "path": result.get("path", "")}
+        return {"status": "ok"}
+    return {"status": "error", "message": result.get("error", "unknown")}
 
 
 # ── Handler dispatch table (replaces if/elif chain) ──

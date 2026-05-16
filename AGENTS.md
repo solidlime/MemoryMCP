@@ -36,3 +36,11 @@
 - SPEC.mdが確定してからTODO.mdのタスク分解を行い、ユーザーの承認を得てから実作業を開始する
 - 作業完了後は TODO.md の該当タスクにチェックを入れ、KNOWLEDGE.md に学びを記録する
 - 仕様が不明確な場合は作業を開始せず、ユーザーに確認してから SPEC.md を更新する
+
+## セッション継続（Session Continuity）
+- **セッション開始直後**: `get_context()` を呼び出し、前回の状態・会話コンテキストを復元すること
+- **毎ターン（任意）**: `update_context(context_note="いましていることの要約")` で現在の作業コンテキストを記録すること
+  - 内容は1行・50字以内。「MemoryMCPのget_context軽量化を実装中」など
+  - 感情・状態更新と同時に呼べば1コールで済む
+  - 記録されたcontext_noteは次回セッションのget_contextに自動表示される
+- **セッション終了時（推奨）**: 最終ターンでも `update_context(context_note="[前回: 〜を実装中、〜まで完了]")` を呼ぶこと。context_noteはpersona_stateに永続化され、次回get_contextで自動復元される。`memory_create` で別途残す必要なし。
