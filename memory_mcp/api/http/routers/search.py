@@ -139,6 +139,7 @@ def register_search_routes(mcp) -> None:
                         "content": mem.content[:100] if mem.content else "",
                         "tags": mem.tags or [],
                         "emotion_type": mem.emotion,
+                        "emotions": mem.emotions,
                         "importance": mem.importance,
                     }
                 )

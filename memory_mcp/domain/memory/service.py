@@ -256,7 +256,13 @@ class MemoryService:
         for m in memories:
             for tag in m.tags:
                 tag_dist[tag] = tag_dist.get(tag, 0) + 1
-            emotion_dist[m.emotion] = emotion_dist.get(m.emotion, 0) + 1
+            # Use dominant from multi-dim emotions if available, fall back to single emotion
+            dominant = m.emotion
+            if m.emotions:
+                from memory_mcp.domain.persona.entities import compute_dominant_emotion
+
+                dominant, _ = compute_dominant_emotion(m.emotions)
+            emotion_dist[dominant] = emotion_dist.get(dominant, 0) + 1
 
         total_count = count_result.value
         tagged_count = sum(1 for m in memories if m.tags)

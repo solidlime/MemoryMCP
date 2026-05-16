@@ -640,6 +640,91 @@ const EMOTION_COLORS = {
     happiness:'#fbbf24', calm:'#2dd4bf'
 };
 
+const EMOTION_BAR_COLORS = {
+    joy: 'linear-gradient(90deg,#fbbf24,#fcd34d)',
+    sadness: 'linear-gradient(90deg,#60a5fa,#93c5fd)',
+    anger: 'linear-gradient(90deg,#ef4444,#fca5a5)',
+    fear: 'linear-gradient(90deg,#a855f7,#c4b5fd)',
+    disgust: 'linear-gradient(90deg,#22c55e,#86efac)',
+    surprise: 'linear-gradient(90deg,#ec4899,#f9a8d4)',
+    love: 'linear-gradient(90deg,#fb7185,#fda4af)',
+    trust: 'linear-gradient(90deg,#14b8a6,#5eead4)',
+    anticipation: 'linear-gradient(90deg,#f97316,#fdba74)',
+    curiosity: 'linear-gradient(90deg,#6366f1,#a5b4fc)',
+    neutral: 'linear-gradient(90deg,#9ca3af,#d1d5db)',
+    excitement: 'linear-gradient(90deg,#f59e0b,#fbbf24)',
+    pride: 'linear-gradient(90deg,#818cf8,#a5b4fc)',
+    shame: 'linear-gradient(90deg,#fb7185,#fda4af)',
+    nostalgia: 'linear-gradient(90deg,#a78bfa,#c4b5fd)',
+    anxiety: 'linear-gradient(90deg,#f87171,#fca5a5)',
+    contentment: 'linear-gradient(90deg,#86efac,#bbf7d0)',
+    frustration: 'linear-gradient(90deg,#fb923c,#fdba74)',
+    loneliness: 'linear-gradient(90deg,#94a3b8,#cbd5e1)',
+    awe: 'linear-gradient(90deg,#c084fc,#e9d5ff)',
+    relief: 'linear-gradient(90deg,#6ee7b7,#a7f3d0)'
+};
+
+const BODY_BAR_COLORS = {
+    fatigue: 'linear-gradient(90deg,#f87171,#fca5a5)',
+    warmth: 'linear-gradient(90deg,#f9a8d4,#fda4af)',
+    arousal: 'linear-gradient(90deg,#a78bfa,#c4b5fd)',
+    heart_rate: 'linear-gradient(90deg,#ef4444,#fca5a5)',
+    pain: 'linear-gradient(90deg,#f59e0b,#fcd34d)'
+};
+
+const BODY_LABELS = {
+    fatigue: '🔥 Fatigue',
+    warmth: '🌸 Warmth',
+    arousal: '⚡ Arousal',
+    heart_rate: '💓 Heart',
+    pain: '💢 Pain'
+};
+
+function renderBodyStateBars(bodyState) {
+    if (!bodyState) return '';
+    const keys = Object.keys(bodyState).filter(k => BODY_LABELS[k] && bodyState[k] != null);
+    if (keys.length === 0) return '';
+    let html = '<div class="mem-modal-row"><span class="mem-modal-key">Body</span><span style="display:flex;flex-direction:column;gap:6px;flex:1">';
+    keys.forEach(function(k) {
+        const val = bodyState[k];
+        const color = BODY_BAR_COLORS[k] || BODY_BAR_COLORS.fatigue;
+        const label = BODY_LABELS[k];
+        const pct = Math.round(val * 100);
+        html += '<div style="display:flex;align-items:center;gap:8px">';
+        html += '<span style="font-size:0.75rem;color:var(--text-muted);min-width:70px">' + label + '</span>';
+        html += '<div style="flex:1;height:5px;background:rgba(255,255,255,0.1);border-radius:3px;overflow:hidden">';
+        html += '<div style="height:100%;width:' + pct + '%;background:' + color + ';border-radius:3px"></div>';
+        html += '</div>';
+        html += '<span style="font-size:0.75rem;color:var(--text-muted);min-width:32px;text-align:right">' + pct + '%</span>';
+        html += '</div>';
+    });
+    html += '</span></div>';
+    return html;
+}
+
+function renderEmotionBars(emotions) {
+    if (!emotions) return '';
+    const entries = Object.entries(emotions).filter(function(e) { return e[1] > 0.05; })
+        .sort(function(a,b) { return b[1]-a[1]; }).slice(0, 3);
+    if (entries.length === 0) return '';
+    let html = '<div class="mem-modal-row"><span class="mem-modal-key">Emotions</span><span style="display:flex;flex-direction:column;gap:6px;flex:1">';
+    entries.forEach(function(e) {
+        const name = e[0];
+        const val = e[1];
+        const color = EMOTION_BAR_COLORS[name] || EMOTION_BAR_COLORS.neutral;
+        const pct = Math.round(val * 100);
+        html += '<div style="display:flex;align-items:center;gap:8px">';
+        html += '<span style="font-size:0.75rem;color:var(--text-muted);min-width:70px;text-transform:capitalize">' + esc(name) + '</span>';
+        html += '<div style="flex:1;height:5px;background:rgba(255,255,255,0.1);border-radius:3px;overflow:hidden">';
+        html += '<div style="height:100%;width:' + pct + '%;background:' + color + ';border-radius:3px"></div>';
+        html += '</div>';
+        html += '<span style="font-size:0.75rem;color:var(--text-muted);min-width:32px;text-align:right">' + pct + '%</span>';
+        html += '</div>';
+    });
+    html += '</span></div>';
+    return html;
+}
+
 /* =================================================================
    UTILITIES
    ================================================================= */
@@ -849,7 +934,10 @@ function openMemModal(mem) {
             ${mem.privacy_level ? `<div class="mem-modal-row"><span class="mem-modal-key">Privacy</span><span>${esc(mem.privacy_level)}</span></div>` : ''}
             ${mem.source_context ? `<div class="mem-modal-row"><span class="mem-modal-key">Source</span><span style="color:var(--text-muted)">${esc(mem.source_context)}</span></div>` : ''}
             ${mem.created_at ? `<div class="mem-modal-row"><span class="mem-modal-key">Created</span><span>📅 ${relativeTime(mem.created_at)} <span style="color:var(--text-muted);font-size:0.75rem">(${new Date(mem.created_at).toLocaleString('ja-JP')})</span></span></div>` : ''}
+            ${mem.state_snapped_at && mem.state_snapped_at !== mem.created_at ? `<div class="mem-modal-row"><span class="mem-modal-key">State</span><span>📸 ${relativeTime(mem.state_snapped_at)} <span style="color:var(--text-muted);font-size:0.75rem">(${new Date(mem.state_snapped_at).toLocaleString('ja-JP')})</span></span></div>` : ''}
             ${mem.updated_at ? `<div class="mem-modal-row"><span class="mem-modal-key">Updated</span><span>📅 ${relativeTime(mem.updated_at)}</span></div>` : ''}
+            ${mem.body_state ? renderBodyStateBars(mem.body_state) : ''}
+            ${mem.emotions && Object.keys(mem.emotions).length > 0 ? renderEmotionBars(mem.emotions) : ''}
         </div>`;
     overlay.style.display = 'flex';
     overlay.classList.add('show');

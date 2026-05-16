@@ -53,6 +53,8 @@ class MemoryContextSnapshot:
                         "importance": mem.importance,
                         "tags": mem.tags or [],
                         "emotion": mem.emotion or "",
+                        "emotions": mem.emotions,
+                        "body_state": mem.body_state,
                     }
                 )
 

@@ -172,6 +172,29 @@ async def _build_context_section(ctx: AppContext, state) -> str:
     if getattr(state, "emotion", None):
         intensity = getattr(state, "emotion_intensity", 0.5)
         parts.append(f"感情: {state.emotion} (強度: {intensity:.1f})")
+    # Show multi-dimensional emotions if available (top 3 by intensity)
+    emotions = getattr(state, "emotions", None)
+    if emotions:
+        top = sorted(
+            ((k, v) for k, v in emotions.items() if v > 0.05),
+            key=lambda x: -x[1],
+        )[:3]
+        if top:
+            parts.append("感情分布: " + " ".join(f"{k}={v:.1f}" for k, v in top))
+    # Show body state if available
+    body_parts: list[str] = []
+    for key, label in [
+        ("fatigue", "疲労"),
+        ("warmth", "体温"),
+        ("arousal", "興奮"),
+        ("heart_rate", "心拍"),
+        ("pain", "痛み"),
+    ]:
+        val = getattr(state, key, None)
+        if val is not None:
+            body_parts.append(f"{label}={val:.1f}")
+    if body_parts:
+        parts.append("身体状態: " + " ".join(body_parts))
     if getattr(state, "mental_state", None):
         parts.append(f"精神状態: {state.mental_state}")
     if getattr(state, "physical_state", None):
