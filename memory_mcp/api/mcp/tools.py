@@ -1288,7 +1288,7 @@ def _format_state_block(state: PersonaState) -> str:
         ("fatigue", "fatigue"),
         ("warmth", "warmth"),
         ("arousal", "arousal"),
-        ("heart_rate", "HR"),
+        ("heart_rate", "heart"),
         ("pain", "pain"),
     ]:
         val = getattr(state, key, None)
