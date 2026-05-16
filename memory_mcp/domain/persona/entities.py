@@ -49,6 +49,7 @@ class PersonaState:
     user_info: dict = field(default_factory=dict)
     persona_info: dict = field(default_factory=dict)
     last_conversation_time: datetime | None = None
+    last_state_update: datetime | None = None
 
     @property
     def dominant_emotion(self) -> str:

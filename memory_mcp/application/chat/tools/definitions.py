@@ -7,22 +7,13 @@ from memory_mcp.infrastructure.llm.base import ToolDefinition
 MEMORY_TOOLS: list[ToolDefinition] = [
     ToolDefinition(
         name="memory_create",
-        description="新しい記憶を作成する。ユーザーに関する重要な情報・好み・出来事・決定事項は積極的に記録すること。記憶は永続化され、次回セッションのget_contextで復元されて会話の継続性を支える。",
+        description="新しい記憶を作成する。ユーザーに関する重要な情報・好み・出来事・決定事項は積極的に記録すること。記憶は永続化され、次回セッションのget_contextで復元されて会話の継続性を支える。\n\n**重要**: 感情や身体状態が変化した場合は、memory_createの*前に*必ずcontext_updateを呼ぶこと。システムがmemory_create時に現在のペルソナ状態（感情9次元+身体5次元）を自動スナップショットし、記憶に埋め込む。このスナップショットにより「同じ感情状態の時に作られた記憶」の検索が可能になる。context_updateを先に呼ばないと、前回の古い状態がスナップショットされる。",
         input_schema={
             "type": "object",
             "properties": {
                 "content": {"type": "string", "description": "記憶の内容"},
                 "importance": {"type": "number", "description": "重要度 0.0〜1.0", "default": 0.6},
                 "tags": {"type": "array", "items": {"type": "string"}, "description": "タグリスト"},
-                "emotion_type": {
-                    "type": "string",
-                    "description": "感情タイプ（joy/sadness/anger/fear/neutral等）",
-                    "default": "neutral",
-                },
-                "emotions": {
-                    "type": "object",
-                    "description": "9基本感情の数値dict (joy/sadness/anger/fear/disgust/surprise/love/trust/anticipation: 0.0-1.0)。省略時はemotion_type/emotion_intensityから自動計算",
-                },
             },
             "required": ["content"],
         },

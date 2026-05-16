@@ -16,6 +16,8 @@ from memory_mcp.domain.shared.time_utils import get_now
 from memory_mcp.domain.value_objects import normalize_emotion
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from memory_mcp.domain.persona.repository import PersonaRepository
 
 
@@ -61,11 +63,15 @@ class PersonaService:
         if not result.is_ok:
             return Failure(result.error)
 
+        # Record last state update timestamp (for memory auto-snapshot)
+        now = get_now()
+        self._repo.update_state(persona, "last_state_update", now.isoformat())
+
         # Record history
         record = EmotionRecord(
             emotion_type=dominant_name,
             intensity=dominant_intensity,
-            timestamp=get_now(),
+            timestamp=now,
             trigger_memory_key=trigger_key,
             context=context,
             emotions=normalized,
@@ -110,6 +116,7 @@ class PersonaService:
             "action_tag",
             "speech_style",
         }
+        updated = False
         for key, value in states.items():
             if key not in allowed_keys:
                 continue
@@ -118,6 +125,9 @@ class PersonaService:
             result = self._repo.update_state(persona, key, str(value))
             if not result.is_ok:
                 return Failure(result.error)
+            updated = True
+        if updated:
+            self._repo.update_state(persona, "last_state_update", get_now().isoformat())
         return Success(None)
 
     def update_relationship(self, persona: str, status: str) -> Result[None, DomainError]:
@@ -159,3 +169,39 @@ class PersonaService:
         """Record current time as last conversation time."""
         now = get_now()
         return self._repo.update_state(persona, "last_conversation_time", now.isoformat())
+
+    @staticmethod
+    def build_body_state_dict(state: PersonaState) -> dict[str, float | None]:
+        """Extract body state numeric values from a PersonaState as a dict.
+
+        Returns None for values that are None (never set).
+        """
+        result: dict[str, float | None] = {}
+        for key in ("fatigue", "warmth", "arousal", "heart_rate", "pain"):
+            result[key] = getattr(state, key, None)
+        return result
+
+    def get_state_snapshot(
+        self, persona: str
+    ) -> tuple[dict[str, float] | None, dict[str, float] | None, datetime | None]:
+        """Get (emotions, body_state, snapped_at) for memory auto-snapshot.
+
+        Returns:
+            emotions: 9-dim dict or None if never set
+            body_state: 5-dim dict or None if never set
+            snapped_at: timestamp of last state update or None
+        """
+        state_result = self.get_context(persona)
+        if not state_result.is_ok:
+            return None, None, None
+        state = state_result.value
+
+        emotions = state.emotions if state.emotions and any(v > 0 for v in state.emotions.values()) else None
+        body_state_raw = self.build_body_state_dict(state)
+        body_state: dict[str, float] | None = None
+        if body_state_raw:
+            numeric = {k: v for k, v in body_state_raw.items() if v is not None}
+            if numeric:
+                body_state = numeric
+
+        return emotions, body_state, state.last_state_update

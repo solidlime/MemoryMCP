@@ -60,9 +60,12 @@ class QdrantSemanticSearch:
                 # Post-filter by date range
                 if date_from or date_to:
                     created = memory.created_at
-                    if date_from and created < date_from:
+                    # Strip timezone from filter bounds for naive comparison.
+                    # date_from/date_to from parse_date_range are JST-aware,
+                    # but memory.created_at from SQLite is timezone-naive.
+                    if date_from and created < date_from.replace(tzinfo=None):
                         continue
-                    if date_to and created > date_to:
+                    if date_to and created > date_to.replace(tzinfo=None):
                         continue
                 search_results.append((memory, score))
                 if len(search_results) >= limit:

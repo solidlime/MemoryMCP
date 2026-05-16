@@ -44,8 +44,8 @@ class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
                     emotion, emotion_intensity, emotions, physical_state, mental_state,
                     environment, relationship_status, action_tag, source_context,
                     related_keys, summary_ref, equipped_items, access_count,
-                    last_accessed, privacy_level
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    last_accessed, privacy_level, body_state, state_snapped_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     memory.key,
@@ -69,6 +69,8 @@ class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
                     memory.access_count,
                     format_iso(memory.last_accessed) if memory.last_accessed else None,
                     memory.privacy_level,
+                    json.dumps(memory.body_state, ensure_ascii=False) if memory.body_state else None,
+                    format_iso(memory.state_snapped_at) if memory.state_snapped_at else None,
                 ),
             )
             # T4-A: Insert initial memory_strength record so WebUI shows a
@@ -605,6 +607,17 @@ class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
             return None
 
     @staticmethod
+    def _parse_json_dict(value: str | None) -> dict | None:
+        """Parse a JSON dict column. Returns None for empty/null."""
+        if not value:
+            return None
+        try:
+            raw = json.loads(value)
+            return raw if isinstance(raw, dict) else None
+        except (json.JSONDecodeError, TypeError):
+            return None
+
+    @staticmethod
     def _parse_iso_or_none(value: str | None):
         """Parse ISO datetime string or return None."""
         if not value:
@@ -637,6 +650,8 @@ class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
             equipped_items=row["equipped_items"],
             access_count=row["access_count"] or 0,
             last_accessed=self._parse_iso_or_none(row["last_accessed"]),
+            body_state=self._parse_json_dict(row["body_state"]),
+            state_snapped_at=self._parse_iso_or_none(row["state_snapped_at"]),
         )
 
     @staticmethod

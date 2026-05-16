@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING, Any
 
-from memory_mcp.api.mcp.tools import _VALID_EMOTIONS, TOOL_DISPATCH
+from memory_mcp.api.mcp.tools import TOOL_DISPATCH
 from memory_mcp.application.chat.tools.definitions import _MEMORY_MCP_TOOL_NAMES
 from memory_mcp.domain.search.engine import SearchQuery
 from memory_mcp.infrastructure.logging.structured import get_logger
@@ -121,28 +121,28 @@ async def _handle_execute_code(ctx: AppContext, config: ChatConfig, tool_input: 
 
 
 async def _handle_memory_create_builtin(ctx: AppContext, config: ChatConfig, tool_input: dict) -> dict:
-    emotions_dict = tool_input.get("emotions")
-    if emotions_dict:
-        from memory_mcp.domain.persona.entities import compute_dominant_emotion
-
-        dominant_name, _ = compute_dominant_emotion(emotions_dict)
-        emotion = dominant_name
-    else:
-        emotion = tool_input.get("emotion_type", "neutral")
-        if emotion not in _VALID_EMOTIONS:
-            emotion = "neutral"
     importance = float(tool_input.get("importance", 0.6))
     if not (0.0 <= importance <= 1.0):
         return {"status": "error", "message": "importance must be between 0.0 and 1.0"}
-    kwargs: dict = {
-        "content": tool_input.get("content", ""),
-        "importance": importance,
-        "tags": tool_input.get("tags", []),
-        "emotion": emotion,
-    }
-    if emotions_dict:
-        kwargs["emotions"] = emotions_dict
-    result = ctx.memory_service.create_memory(**kwargs)
+
+    # Auto-snapshot current persona state
+    emotions_snap, body_snap, snapped_at = ctx.persona_service.get_state_snapshot(ctx.persona)
+
+    # Derive dominant emotion name for backward-compat single field
+    dominant = "neutral"
+    if emotions_snap:
+        dom = max(emotions_snap.items(), key=lambda kv: kv[1])
+        dominant = dom[0] if dom[1] > 0 else "neutral"
+
+    result = ctx.memory_service.create_memory(
+        content=tool_input.get("content", ""),
+        importance=importance,
+        tags=tool_input.get("tags", []),
+        emotion=dominant,
+        emotions=emotions_snap,
+        body_state=body_snap,
+        state_snapped_at=snapped_at,
+    )
     if result.is_ok:
         return {"status": "ok", "key": result.value.key}
     return {"status": "error", "message": str(result.error)}

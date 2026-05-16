@@ -322,12 +322,39 @@ async function loadOverview() {
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     ${(function() {
+                        var emotionColors = {
+                            joy: ['#fbbf24', '#fcd34d'],
+                            sadness: ['#60a5fa', '#93c5fd'],
+                            anger: ['#ef4444', '#fca5a5'],
+                            fear: ['#a855f7', '#c4b5fd'],
+                            disgust: ['#22c55e', '#86efac'],
+                            surprise: ['#ec4899', '#f9a8d4'],
+                            love: ['#fb7185', '#fda4af'],
+                            trust: ['#14b8a6', '#5eead4'],
+                            anticipation: ['#f97316', '#fdba74'],
+                            curiosity: ['#6366f1', '#a5b4fc'],
+                            neutral: ['#9ca3af', '#d1d5db']
+                        };
                         if (ctx.emotions && Object.keys(ctx.emotions).length > 0) {
-                            var top3 = Object.entries(ctx.emotions).filter(function(e) { return e[1] > 0.05; }).sort(function(a,b) { return b[1]-a[1]; }).slice(0, 3);
-                            var badges = top3.map(function(e) { return '<span style="display:inline-block;margin:2px;padding:2px 8px;border-radius:12px;background:var(--glass-bg);font-size:0.8rem">' + esc(e[0]) + ' ' + (e[1]*100).toFixed(0) + '%</span>'; }).join('');
-                            return '<div style="font-size:2rem;font-weight:700;color:var(--accent-yellow);margin-bottom:4px">' + esc(top3[0] ? top3[0][0] : (ctx.emotion || '--')) + '</div><div style="margin-bottom:12px">' + badges + '</div>';
+                            var top5 = Object.entries(ctx.emotions).filter(function(e) { return e[1] > 0.05; }).sort(function(a,b) { return b[1]-a[1]; }).slice(0, 5);
+                            if (top5.length > 0) {
+                                var bars = top5.map(function(e) {
+                                    var colors = emotionColors[e[0]] || emotionColors.neutral;
+                                    var pct = (e[1]*100).toFixed(0);
+                                    return '<div style="margin-bottom:8px">' +
+                                        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">' +
+                                        '<span style="font-size:0.78rem;color:var(--text-muted)">' + esc(e[0]) + '</span>' +
+                                        '<span style="font-size:0.78rem;color:var(--text-secondary);font-weight:600">' + pct + '%</span>' +
+                                        '</div>' +
+                                        '<div style="height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden">' +
+                                        '<div style="height:100%;width:' + pct + '%;background:linear-gradient(90deg,' + colors[0] + ',' + colors[1] + ');border-radius:3px;transition:width 0.4s ease"></div>' +
+                                        '</div>' +
+                                        '</div>';
+                                }).join('');
+                                return '<div style="margin-bottom:12px">' + bars + '</div>';
+                            }
                         }
-                        return '<div style="font-size:2rem;font-weight:700;color:var(--accent-yellow);margin-bottom:4px">' + esc(ctx.emotion || '--') + '</div><div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:12px">Emotion' + (ctx.emotion_intensity != null ? ' · ' + (ctx.emotion_intensity * 100).toFixed(0) + '% intensity' : '') + '</div>';
+                        return '<div style="font-size:0.9rem;color:var(--text-muted);margin-bottom:12px">' + esc(ctx.emotion || '--') + (ctx.emotion_intensity != null ? ' · ' + (ctx.emotion_intensity * 100).toFixed(0) + '%' : '') + '</div>';
                     })()}
                     <div style="display:flex;flex-direction:column;gap:6px">
                         <div><span style="font-size:0.78rem;color:var(--text-muted)">Physical: </span><span style="font-size:0.85rem">${esc(ctx.physical_state || '--')}</span></div>
@@ -375,7 +402,7 @@ async function loadOverview() {
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px;font-size:0.82rem">
                     <div>
                         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
-                            <span style="font-size:0.78rem;color:var(--text-muted)">💓 Heart Rate</span>
+                            <span style="font-size:0.78rem;color:var(--text-muted);min-width:85px">💓 Heart Rate</span>
                             <span style="font-size:0.78rem;color:var(--text-secondary);font-weight:600">${stats.heart_rate != null ? (stats.heart_rate * 100).toFixed(0) + '%' : '--'}</span>
                         </div>
                         <div style="height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden">
@@ -384,7 +411,7 @@ async function loadOverview() {
                     </div>
                     <div>
                         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
-                            <span style="font-size:0.78rem;color:var(--text-muted)">💢 Pain</span>
+                            <span style="font-size:0.78rem;color:var(--text-muted);min-width:85px">💢 Pain</span>
                             <span style="font-size:0.78rem;color:var(--text-secondary);font-weight:600">${stats.pain != null ? (stats.pain * 100).toFixed(0) + '%' : '--'}</span>
                         </div>
                         <div style="height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden">

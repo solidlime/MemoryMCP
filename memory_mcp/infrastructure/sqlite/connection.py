@@ -29,7 +29,9 @@ CREATE TABLE IF NOT EXISTS memories (
     equipped_items TEXT,
     access_count INTEGER DEFAULT 0,
     last_accessed TEXT,
-    privacy_level TEXT DEFAULT 'internal'
+    privacy_level TEXT DEFAULT 'internal',
+    body_state TEXT,
+    state_snapped_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS memory_strength (

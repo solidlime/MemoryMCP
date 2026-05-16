@@ -33,6 +33,8 @@ class Memory:
     equipped_items: str | None = None
     access_count: int = 0
     last_accessed: datetime | None = None
+    body_state: dict[str, float] | None = None
+    state_snapped_at: datetime | None = None
 
 
 @dataclass

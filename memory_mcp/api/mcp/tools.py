@@ -194,48 +194,52 @@ async def _tool_get_context(ctx: AppContext, persona: str, mode: str = "") -> st
     )
 
 
+def _compute_dominant_from_emotions(emotions: dict[str, float] | None) -> str:
+    """Derive dominant emotion name from emotions dict."""
+    if not emotions:
+        return "neutral"
+    dominant = max(emotions.items(), key=lambda kv: kv[1])
+    return dominant[0] if dominant[1] > 0 else "neutral"
+
+
 async def _tool_memory_create(
     ctx: AppContext,
     persona: str,
     content: str = "",
     importance: float | None = None,
-    emotion_type: str = "neutral",
-    emotion_intensity: float = 0.0,
-    emotions: dict | None = None,
     tags: list[str] | None = None,
     privacy_level: str = "internal",
     source_context: str | None = None,
     defer_vector: bool = False,
 ) -> str:
-    """Create a memory."""
+    """Create a memory. Current persona state (emotions, body_state) is automatically
+    snapshotted at creation time. Always call context_update/update_context *before*
+    memory_create if your emotional/physical state has changed, so the snapshot
+    captures your latest state."""
     if not content:
         return "Error: content is required"
     if importance is not None and not (0.0 <= importance <= 1.0):
         return "Error: importance must be between 0.0 and 1.0"
     importance = importance if importance is not None else 0.5
-    warning = ""
-    if emotions:
-        from memory_mcp.domain.persona.entities import compute_dominant_emotion
 
-        dominant_name, dominant_intensity = compute_dominant_emotion(emotions)
-        emotion_type = dominant_name
-        emotion_intensity = dominant_intensity
-    elif emotion_type and emotion_type not in _VALID_EMOTIONS:
-        warning = f"[Warning: emotion_type '{emotion_type}' is not a valid emotion, defaulted to 'neutral']\n"
+    # Auto-snapshot current persona state
+    emotions_snap, body_snap, snapped_at = ctx.persona_service.get_state_snapshot(persona)
+
     result = ctx.memory_service.create_memory(
         content=content,
         importance=importance,
-        emotion=emotion_type or "neutral",
-        emotion_intensity=emotion_intensity or 0.0,
         tags=tags,
         privacy_level=privacy_level or "internal",
         source_context=source_context,
-        emotions=emotions,
+        emotions=emotions_snap,
+        emotion=_compute_dominant_from_emotions(emotions_snap),
+        body_state=body_snap,
+        state_snapped_at=snapped_at,
     )
     if result.is_ok:
         if not defer_vector and ctx.vector_store:
             ctx.vector_store.upsert(persona, result.value.key, content)
-        return f"{warning}Memory created: {result.value.key}"
+        return f"Memory created: {result.value.key}"
     return f"Error: {result.error}"
 
 
@@ -967,9 +971,6 @@ def register_tools(mcp: FastMCP) -> None:
     async def memory_create(
         content: str = "",
         importance: float | None = None,
-        emotion_type: str = "neutral",
-        emotion_intensity: float = 0.0,
-        emotions: dict | None = None,
         tags: list[str] | None = None,
         privacy_level: str = "internal",
         source_context: str | None = None,
@@ -977,18 +978,18 @@ def register_tools(mcp: FastMCP) -> None:
     ) -> str:
         """Create a memory. Use to record important user facts, preferences, events.
         importance auto-evaluated via LLM when None and enrichment enabled.
-        emotion_type: joy/sadness/anger/fear/surprise/disgust/love/neutral etc.
-        emotions: 9基本感情dict {joy, sadness, anger, fear, disgust, surprise, love, trust, anticipation: 0.0-1.0}. Takes precedence over emotion_type/emotion_intensity.
-        tags: categorization tags. defer_vector: skip immediate vector indexing."""
+        tags: categorization tags. defer_vector: skip immediate vector indexing.
+
+        **Important**: Call context_update/update_context *before* memory_create
+        if your emotional or physical state has changed. The system automatically
+        snapshots your current persona state (emotions + body_state) at memory creation time —
+        this enables searching memories by the emotional/physical context in which they were created."""
         p = _resolve_persona()
         return await _tool_memory_create(
             AppContextRegistry.get(p),
             p,
             content=content,
             importance=importance,
-            emotion_type=emotion_type,
-            emotion_intensity=emotion_intensity,
-            emotions=emotions,
             tags=tags,
             privacy_level=privacy_level,
             source_context=source_context,

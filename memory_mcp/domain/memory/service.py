@@ -3,6 +3,9 @@ from __future__ import annotations
 import contextlib
 from typing import TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from datetime import datetime
+
 from memory_mcp.domain.memory.entities import Memory, MemoryStrength
 from memory_mcp.domain.memory.type_classifier import auto_tags
 from memory_mcp.domain.shared.errors import (
@@ -41,9 +44,17 @@ class MemoryService:
         tags: list[str] | None = None,
         privacy_level: str = "internal",
         source_context: str | None = None,
+        body_state: dict[str, float] | None = None,
+        state_snapped_at: datetime | None = None,
         **extra_fields: object,
     ) -> Result[Memory, DomainError]:
-        """Create and persist a new memory entry."""
+        """Create and persist a new memory entry.
+
+        emotion/emotion_intensity are deprecated — use emotions via extra_fields
+        or let the caller auto-snapshot from persona state.
+        body_state and state_snapped_at are set by the caller after capturing
+        current persona state (see PersonaService.get_state_snapshot).
+        """
         if not content or not content.strip():
             return Failure(MemoryValidationError("Content must not be empty"))
 
@@ -74,6 +85,8 @@ class MemoryService:
             tags=tags or [],
             privacy_level=privacy_level,
             source_context=source_context,
+            body_state=body_state,
+            state_snapped_at=state_snapped_at,
             **{k: v for k, v in extra_fields.items() if hasattr(Memory, k)},
         )
         result = self._repo.save(memory)
