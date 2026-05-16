@@ -8,6 +8,7 @@ from mcp.server.fastmcp import FastMCP  # noqa: TC002
 
 from memory_mcp.api.mcp.middleware import get_current_persona
 from memory_mcp.application.use_cases import AppContextRegistry
+from memory_mcp.domain.persona.entities import BASIC_EMOTIONS
 from memory_mcp.domain.search.engine import SearchQuery
 from memory_mcp.domain.shared.time_utils import get_now, relative_time_str
 
@@ -372,6 +373,7 @@ async def _tool_memory_search(
     emotion: str | None = None,
     importance_weight: float = 0.0,
     recency_weight: float = 0.0,
+    emotions: dict | None = None,
 ) -> str:
     """Search memories with hybrid retrieval."""
     if top_k is not None and (top_k < 1 or top_k > 200):
@@ -395,17 +397,31 @@ async def _tool_memory_search(
     if not result.value:
         return "No results found."
     ctx.memory_service.log_search(query, "hybrid", len(result.value))
+
+    # Apply emotional similarity boost if emotions query provided
+    if emotions:
+        for sr in result.value:
+            m = sr.memory
+            if m.emotions:
+                sim = _emotion_similarity(emotions, m.emotions)
+                sr.score = sr.score * (1.0 + sim * 0.5)  # boost by up to 50%
+        result.value.sort(key=lambda x: x.score, reverse=True)
+
     lines: list[str] = []
     for sr in result.value:
         m = sr.memory
         # Show top emotions if multi-dimensional data available
+        sim_tag = ""
+        if emotions and m.emotions:
+            sim = _emotion_similarity(emotions, m.emotions)
+            sim_tag = f" [sim:{sim:.2f}]"
         if m.emotions:
             top_emotions = sorted(m.emotions.items(), key=lambda x: x[1], reverse=True)[:3]
             emotion_str = ", ".join(f"{k}={v:.2f}" for k, v in top_emotions if v > 0.05)
         else:
             emotion_str = f"{m.emotion}={m.emotion_intensity:.2f}" if m.emotion_intensity else m.emotion
         lines.append(
-            f"[{sr.score:.3f}] [{sr.source}] {m.key}\n"
+            f"[{sr.score:.3f}] [{sr.source}]{sim_tag} {m.key}\n"
             f"  {m.content}\n"
             f"  importance={m.importance} emotion={emotion_str} tags={m.tags}"
         )
@@ -1033,10 +1049,12 @@ def register_tools(mcp: FastMCP) -> None:
         emotion: str | None = None,
         importance_weight: float = 0.0,
         recency_weight: float = 0.0,
+        emotions: dict | None = None,
     ) -> str:
         """Search memories with hybrid retrieval. Use when conversation references past events
         or you need context about the user. date_range: "7d","30d","昨日".
-        importance_weight/recency_weight: RRF scoring boosts (0.0-1.0)."""
+        importance_weight/recency_weight: RRF scoring boosts (0.0-1.0).
+        emotions: 9基本感情dict for emotional similarity boosting (e.g., {"joy":0.8,"love":0.5})."""
         p = _resolve_persona()
         return await _tool_memory_search(
             AppContextRegistry.get(p),
@@ -1049,6 +1067,7 @@ def register_tools(mcp: FastMCP) -> None:
             emotion=emotion,
             importance_weight=importance_weight,
             recency_weight=recency_weight,
+            emotions=emotions,
         )
 
     # memory_stats
@@ -1259,6 +1278,77 @@ def register_tools(mcp: FastMCP) -> None:
 # =============================================================================
 
 
+def _format_state_block(state: PersonaState) -> str:
+    """Format body + emotions + action + speech as compact state block."""
+    lines = ["📊 CURRENT STATE"]
+
+    # Body line
+    body_parts = []
+    for key, label in [
+        ("fatigue", "fatigue"),
+        ("warmth", "warmth"),
+        ("arousal", "arousal"),
+        ("heart_rate", "HR"),
+        ("pain", "pain"),
+    ]:
+        val = getattr(state, key, None)
+        if val is not None:
+            body_parts.append(f"{label}:{val:.0%}" if isinstance(val, (int, float)) else f"{label}:{val}")
+    if body_parts:
+        lines.append(f"  Body  : {' | '.join(body_parts)}")
+
+    # Mind (emotions) line
+    if state.emotions and any(v > 0.05 for v in state.emotions.values()):
+        top_emotions = sorted(state.emotions.items(), key=lambda x: x[1], reverse=True)
+        active = [(k, v) for k, v in top_emotions if v > 0.05][:5]
+        if active:
+            mind_parts = [f"{k}:{v:.2f}" for k, v in active]
+            dominant = active[0][0] if active else "neutral"
+            lines.append(f"  Mind  : {' | '.join(mind_parts)}  (dominant: {dominant})")
+        else:
+            lines.append("  Mind  : neutral (dominant: neutral)")
+    elif state.emotion:
+        lines.append(f"  Mind  : {state.emotion}:{state.emotion_intensity:.2f}  (dominant: {state.emotion})")
+
+    # Action line
+    if state.action_tag:
+        lines.append(f"  Action: {state.action_tag}")
+
+    # Speech line
+    if state.speech_style:
+        lines.append(f"  Speech: {state.speech_style}")
+
+    return "\n".join(lines)
+
+
+def _format_state_diff(time_since: str) -> str:
+    """Format a simple note about state changes due to time elapsed."""
+    if not time_since:
+        return ""
+    import re as _re
+
+    # Only show if more than 30 minutes have passed
+    m = _re.search(r"(\d+)分", time_since)
+    if m and int(m.group(1)) < 30:
+        # Check if there are also larger units (hours, days)
+        has_larger = _re.search(r"(時間|日|ヶ月|年)", time_since)
+        if not has_larger:
+            return ""
+    return f"\n⏱️ {time_since} elapsed since last session — body & emotions have naturally shifted."
+
+
+def _emotion_similarity(query_emotions: dict[str, float], mem_emotions: dict[str, float]) -> float:
+    """Compute cosine similarity between two emotion vectors."""
+    q_vec = [query_emotions.get(e, 0.0) for e in BASIC_EMOTIONS]
+    m_vec = [mem_emotions.get(e, 0.0) for e in BASIC_EMOTIONS]
+    dot = sum(a * b for a, b in zip(q_vec, m_vec, strict=True))
+    norm_q = (sum(a * a for a in q_vec)) ** 0.5
+    norm_m = (sum(b * b for b in m_vec)) ** 0.5
+    if norm_q == 0 or norm_m == 0:
+        return 0.0
+    return dot / (norm_q * norm_m)
+
+
 def _resolve_persona() -> str:
     return get_current_persona()
 
@@ -1313,6 +1403,15 @@ def _format_context_response(
 ) -> str:
     lines: list[str] = []
     lines.append(f"=== YOU ARE: {state.persona} (right now) ===")
+
+    # Current state block — compact body/mind/action/speech overview
+    lines.append(_format_state_block(state))
+
+    # State diff note if time has passed
+    diff_note = _format_state_diff(time_since)
+    if diff_note:
+        lines.append(diff_note)
+
     if current_time:
         lines.append(f"現在: {current_time} (JST)")
     if time_since:
@@ -1374,39 +1473,12 @@ def _format_context_response(
             lines.append(f"- {decayed_count} important memories have decayed (strength < 0.3)")
             lines.append('- Consider: memory_search("important") to refresh context')
 
-    lines.append("\n--- Emotion ---")
-    lines.append(f"Current: {state.dominant_emotion} (intensity: {state.dominant_intensity})")
-    if state.emotions and any(v > 0.05 for v in state.emotions.values()):
-        active = [f"{k}={v:.2f}" for k, v in state.emotions.items() if v > 0.05]
-        lines.append(f"Active emotions: {' '.join(active)}")
-
-    # ── Body state — physical metrics ──
-    body_present = any(
-        v is not None for v in (state.fatigue, state.warmth, state.arousal, state.heart_rate, state.pain)
-    )
-    if body_present:
-        body_lines = []
-        if state.fatigue is not None:
-            body_lines.append(f"fatigue: {state.fatigue:.0%}")
-        if state.warmth is not None:
-            body_lines.append(f"warmth: {state.warmth:.0%}")
-        if state.arousal is not None:
-            body_lines.append(f"arousal: {state.arousal:.0%}")
-        if state.heart_rate is not None:
-            body_lines.append(f"heart_rate: {state.heart_rate:.0%}")
-        if state.pain is not None:
-            body_lines.append(f"pain: {state.pain:.0%}")
-        lines.append("\n--- Body ---")
-        lines.extend(f"  {b}" for b in body_lines)
-
-    lines.append("\n--- State ---")
+    lines.append("\n--- Body & Mind (detail) ---")
     if state.physical_state:
         lines.append(f"Physical: {state.physical_state}")
     if state.mental_state:
         lines.append(f"Mental: {state.mental_state}")
     lines.append(f"Environment: {state.environment or '未設定'}")
-    lines.append(f"Action: {state.action_tag or '未設定'}")
-    lines.append(f"Speech Style: {state.speech_style or '未設定'}")
     if state.relationship_status:
         lines.append(f"Relationship: {state.relationship_status}")
 
@@ -1572,6 +1644,15 @@ def _format_lightweight_response(
 
     # ── Self-referential header: "YOU ARE this persona RIGHT NOW" ──
     lines.append(f"=== YOU ARE: {state.persona} (right now) ===")
+
+    # Current state block — compact body/mind/action/speech overview
+    lines.append(_format_state_block(state))
+
+    # State diff note if time has passed
+    diff_note = _format_state_diff(time_since)
+    if diff_note:
+        lines.append(diff_note)
+
     if current_time:
         lines.append(f"Now: {current_time} (JST)")
     if time_since:
@@ -1580,13 +1661,6 @@ def _format_lightweight_response(
         if time_comment:
             lines.append(time_comment)
 
-    # Identity — framed as YOUR current self
-    lines.append(f"You feel: {state.dominant_emotion} (intensity: {state.dominant_intensity})")
-    if state.emotions and any(v > 0.05 for v in state.emotions.values()):
-        active = [f"{k}={v:.2f}" for k, v in state.emotions.items() if v > 0.05]
-        lines.append(f"Active emotions: {' '.join(active)}")
-    if state.speech_style:
-        lines.append(f"You speak: {state.speech_style}")
     if state.relationship_status:
         lines.append(f"Your relationship: {state.relationship_status}")
 
@@ -1612,25 +1686,8 @@ def _format_lightweight_response(
         state_parts.append(f"Mind: {state.mental_state}")
     if state.environment:
         state_parts.append(f"Location: {state.environment}")
-    if state.action_tag:
-        state_parts.append(f"Your action: {state.action_tag}")
     if state_parts:
         lines.append("Your state: " + " | ".join(state_parts))
-
-    # ── Body state — physical metrics that show change over time ──
-    body_parts = []
-    if state.fatigue is not None:
-        body_parts.append(f"fatigue:{state.fatigue:.0%}")
-    if state.warmth is not None:
-        body_parts.append(f"warmth:{state.warmth:.0%}")
-    if state.arousal is not None:
-        body_parts.append(f"arousal:{state.arousal:.0%}")
-    if state.heart_rate is not None:
-        body_parts.append(f"HR:{state.heart_rate:.0%}")
-    if state.pain is not None:
-        body_parts.append(f"pain:{state.pain:.0%}")
-    if body_parts:
-        lines.append("Your body: " + " · ".join(body_parts))
 
     # ── Emotion trend — how your feelings have changed ──
     if emotion_history and len(emotion_history) >= 2:
