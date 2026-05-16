@@ -442,7 +442,7 @@ def register_chat_routes(mcp) -> None:
                 return JSONResponse({"content": content, "path": filepath, "format": "text"})
             if fmt in ("base64", "image"):
                 if fmt == "image":
-                    # Use sandbox_image preprocessing (PIL resize + magic byte detection)
+                    # Use read_image preprocessing (PIL resize + magic byte detection)
                     img_data = await session.read_image(filepath)
                     # Return as inline image viewer
                     from starlette.responses import HTMLResponse

@@ -199,8 +199,6 @@ async def _handle_mcp_dispatch(tool_name: str, ctx: AppContext, config: ChatConf
     if func is None:
         return {"status": "error", "message": f"Unknown tool: {tool_name}"}
 
-    import base64 as _b64
-
     # sandbox_files returns JSON — parse it
     if tool_name == "sandbox_files":
         result_str = await func(ctx, ctx.persona, **tool_input)
