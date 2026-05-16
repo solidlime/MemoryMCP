@@ -1957,7 +1957,9 @@ const MEMORY_TOOL_NAMES = new Set([
     // MCP tools
     'memory_create', 'memory_read', 'memory_update', 'memory_delete',
     'memory_search', 'memory_stats',
-    'get_context', 'update_context', 'item',
+    'get_context', 'update_context',
+    'item_add', 'item_remove', 'item_equip', 'item_unequip',
+    'item_update', 'item_search', 'item_history',
     'sandbox', 'sandbox_files',
     'goal_manage', 'promise_manage',
     'invoke_skill',
@@ -1980,7 +1982,9 @@ function handleMemoryToolCall(evt) {
     const icons = {
         memory_create:'💾', memory_read:'📖', memory_update:'✏️', memory_delete:'🗑️',
         memory_search:'🔍', memory_stats:'📊',
-        get_context:'📊', update_context:'🔄', item:'🎒',
+        get_context:'📊', update_context:'🔄',
+        item_add:'➕', item_remove:'➖', item_equip:'👗', item_unequip:'👋',
+        item_update:'✏️', item_search:'🔍', item_history:'📜',
         sandbox:'🔬', sandbox_files:'📁',
         goal_manage:'🎯', promise_manage:'🤝',
         invoke_skill:'🎯',
