@@ -85,8 +85,9 @@ def register_persona_routes(mcp) -> None:
 
             context_result = ctx.persona_service.get_context(persona)
             context = asdict(context_result.value) if context_result.is_ok else {}
-            if "last_conversation_time" in context and context["last_conversation_time"] is not None:
-                context["last_conversation_time"] = context["last_conversation_time"].isoformat()
+            for _dt_key in ("last_conversation_time", "last_state_update"):
+                if _dt_key in context and context[_dt_key] is not None:
+                    context[_dt_key] = context[_dt_key].isoformat()
 
             for _f in (
                 "environment",

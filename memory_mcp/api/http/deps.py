@@ -62,7 +62,7 @@ def _safe_get_context(persona: str):
 def _memory_to_dict(m) -> dict:
     """Convert a Memory dataclass to a JSON-safe dict."""
     d = asdict(m)
-    for k in ("created_at", "updated_at", "last_accessed", "last_decay", "last_recall"):
+    for k in ("created_at", "updated_at", "last_accessed", "last_decay", "last_recall", "state_snapped_at"):
         if k in d and d[k] is not None:
             d[k] = d[k].isoformat()
     if "emotion" in d:
