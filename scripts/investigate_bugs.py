@@ -45,7 +45,10 @@ def run_investigation():
 
         page = context.new_page()
         page.on("pageerror", lambda e: js_errors.append(str(e)))
-        page.on("console", lambda msg: console_errors.append(f"[{msg.type}] {msg.text}") if msg.type in ("error", "warning") else None)
+        page.on(
+            "console",
+            lambda msg: console_errors.append(f"[{msg.type}] {msg.text}") if msg.type in ("error", "warning") else None,
+        )
 
         # =====================================================================
         # 1. ルートアクセス

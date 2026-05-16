@@ -1,4 +1,5 @@
 """詳細バグ調査スクリプト。"""
+
 from pathlib import Path
 
 from playwright.sync_api import sync_playwright
@@ -59,7 +60,11 @@ with sync_playwright() as p:
     page.wait_for_timeout(2000)
     print("personas panel inner_text:", repr(page.locator("#tab-personas").inner_text()[:300]))
     print("persona-grid inner_html snippet:")
-    print(page.locator("#persona-grid").inner_html()[:1000] if page.locator("#persona-grid").count() else "(#persona-grid not found)")
+    print(
+        page.locator("#persona-grid").inner_html()[:1000]
+        if page.locator("#persona-grid").count()
+        else "(#persona-grid not found)"
+    )
     print()
 
     print("=== ネットワークエラー ===")

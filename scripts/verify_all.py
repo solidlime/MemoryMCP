@@ -1,4 +1,5 @@
 """Verify all bug fixes: modal, tooltip HTML, persona emoji, skeleton tabs"""
+
 import asyncio
 
 from playwright.async_api import async_playwright
@@ -6,6 +7,7 @@ from playwright.async_api import async_playwright
 URL = "http://nas:26262"
 PASS = "\u2705"
 FAIL = "\u274c"
+
 
 async def main():
     results = []
@@ -30,7 +32,7 @@ async def main():
             await pg.wait_for_timeout(500)
             overlay = await pg.query_selector("#mem-modal-overlay")
             has_show = await overlay.evaluate("el => el.classList.contains('show')") if overlay else False
-            display  = await overlay.evaluate("el => el.style.display") if overlay else "none"
+            display = await overlay.evaluate("el => el.style.display") if overlay else "none"
             ok = has_show and display == "flex"
             results.append((ok, "Memory modal visible on card click"))
             # close
@@ -67,13 +69,15 @@ async def main():
         has_bad_escape = "\\U0001f" in persona_html or "U0001f" in persona_html
         results.append((not has_bad_escape, "Persona emoji rendered correctly (no \\U0001f in HTML)"))
         # Check actual emoji appear
-        has_emoji = any(c in persona_html for c in ["👤","📝","💭","🔄","🗑","😊","😐"])
+        has_emoji = any(c in persona_html for c in ["👤", "📝", "💭", "🔄", "🗑", "😊", "😐"])
         results.append((has_emoji, "Persona emoji characters present in HTML"))
 
         # ── 5. Import-Export loads ─────────────────────────────────────
         await pg.click("[data-tab=import-export]")
         await pg.wait_for_timeout(2000)
-        ie_content = await pg.inner_html("#import-export-content") if await pg.query_selector("#import-export-content") else ""
+        ie_content = (
+            await pg.inner_html("#import-export-content") if await pg.query_selector("#import-export-content") else ""
+        )
         results.append((len(ie_content) > 200, "Import-Export #import-export-content has content"))
 
         # ── 6. No JS errors ────────────────────────────────────────────
@@ -82,18 +86,19 @@ async def main():
         await pg.screenshot(path="scripts/screenshots/investigation/verify_all_final.png")
         await br.close()
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("VERIFICATION RESULTS")
-    print("="*60)
+    print("=" * 60)
     all_pass = True
     for ok, msg in results:
         icon = PASS if ok else FAIL
         print(f"  {icon} {msg}")
         if not ok:
             all_pass = False
-    print("="*60)
+    print("=" * 60)
     print(f"\n{'ALL CHECKS PASSED' if all_pass else 'SOME CHECKS FAILED'}")
     return all_pass
+
 
 if __name__ == "__main__":
     asyncio.run(main())

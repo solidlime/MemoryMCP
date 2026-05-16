@@ -1,9 +1,11 @@
 """Post-fix verification: chart-emotions + memory modal"""
+
 import asyncio
 
 from playwright.async_api import async_playwright
 
 URL = "http://nas:26262"
+
 
 async def main():
     async with async_playwright() as p:
@@ -62,5 +64,6 @@ async def main():
             print(f"  {e.text}")
 
         await br.close()
+
 
 asyncio.run(main())
