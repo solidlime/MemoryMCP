@@ -76,6 +76,10 @@ MEMORY_TOOLS: list[ToolDefinition] = [
                 },
                 "content": {"type": "string", "description": "目標の内容"},
                 "importance": {"type": "number", "description": "重要度 0.0〜1.0", "default": 0.75},
+                "memory_key": {
+                    "type": "string",
+                    "description": "目標のmemory_key（achieve/cancel時に直接指定可能。省略時はcontentで検索）",
+                },
             },
             "required": ["operation", "content"],
         },
@@ -93,6 +97,10 @@ MEMORY_TOOLS: list[ToolDefinition] = [
                 },
                 "content": {"type": "string", "description": "約束の内容"},
                 "importance": {"type": "number", "description": "重要度 0.0〜1.0", "default": 0.8},
+                "memory_key": {
+                    "type": "string",
+                    "description": "約束のmemory_key（fulfill/cancel時に直接指定可能。省略時はcontentで検索）",
+                },
             },
             "required": ["operation", "content"],
         },

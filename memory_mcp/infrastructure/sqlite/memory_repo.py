@@ -99,12 +99,12 @@ class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
             logger.error("Failed to find memory %s: %s", key, e)
             return Failure(RepositoryError(str(e)))
 
-    def find_recent(self, limit: int = 10) -> Result[list[Memory], RepositoryError]:
-        """Return the most recently updated memories."""
+    def find_recent(self, limit: int = 10, offset: int = 0) -> Result[list[Memory], RepositoryError]:
+        """Return the most recently updated memories with optional pagination offset."""
         try:
             rows = self._db.execute(
-                "SELECT * FROM memories ORDER BY updated_at DESC LIMIT ?",
-                (limit,),
+                "SELECT * FROM memories ORDER BY updated_at DESC LIMIT ? OFFSET ?",
+                (limit, offset),
             ).fetchall()
             return Success([self._row_to_memory(r) for r in rows])
         except Exception as e:

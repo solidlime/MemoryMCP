@@ -35,9 +35,9 @@ class InMemoryVersionedRepository:
     def find_by_key(self, key: str) -> Result[Memory | None, RepositoryError]:
         return Success(self._store.get(key))
 
-    def find_recent(self, limit: int = 10) -> Result[list[Memory], RepositoryError]:
+    def find_recent(self, limit: int = 10, offset: int = 0) -> Result[list[Memory], RepositoryError]:
         memories = sorted(self._store.values(), key=lambda m: m.updated_at, reverse=True)
-        return Success(memories[:limit])
+        return Success(memories[offset : offset + limit])
 
     def find_by_tags(self, tags: list[str], limit: int = 10) -> Result[list[Memory], RepositoryError]:
         return Success([])

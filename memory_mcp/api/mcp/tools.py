@@ -207,8 +207,14 @@ async def _tool_memory_create(
     return f"Error: {result.error}"
 
 
-async def _tool_memory_read(ctx: AppContext, persona: str, memory_key: str | None = None) -> str:
-    """Read a memory by key, or list 10 most recent if key omitted."""
+async def _tool_memory_read(
+    ctx: AppContext,
+    persona: str,
+    memory_key: str | None = None,
+    limit: int = 10,
+    offset: int = 0,
+) -> str:
+    """Read a memory by key, or list most recent if key omitted. Use limit/offset for pagination."""
     if memory_key:
         result = ctx.memory_service.get_memory(memory_key)
         if result.is_ok:
@@ -224,9 +230,10 @@ async def _tool_memory_read(ctx: AppContext, persona: str, memory_key: str | Non
             )
         return f"Error: {result.error}"
     else:
-        result = ctx.memory_service.get_recent(10)
+        result = ctx.memory_service.get_recent(limit=limit + offset)
         if result.is_ok:
-            return "\n---\n".join(f"[{m.key}] {m.content}" for m in result.value)
+            items = result.value[offset : offset + limit]
+            return "\n---\n".join(f"[{m.key}] {m.content}" for m in items)
         return f"Error: {result.error}"
 
 
@@ -692,7 +699,12 @@ async def _tool_sandbox_files(
 
 
 async def _tool_goal_manage(
-    ctx: AppContext, persona: str, operation: str, content: str, importance: float = 0.75
+    ctx: AppContext,
+    persona: str,
+    operation: str,
+    content: str,
+    importance: float = 0.75,
+    memory_key: str | None = None,
 ) -> dict:
     if operation == "create":
         result = ctx.memory_service.create_memory(
@@ -706,13 +718,21 @@ async def _tool_goal_manage(
         return {"ok": False, "error": result.error}
     elif operation in ("achieve", "cancel"):
         new_status = "achieved" if operation == "achieve" else "cancelled"
-        tag_result = ctx.memory_service.get_by_tags(["goal", "active"])
-        if not tag_result.is_ok:
-            return {"ok": False, "error": tag_result.error}
-        candidates = tag_result.value or []
-        match = next((m for m in candidates if content.strip().lower() == m.content.strip().lower()), None)
-        if match is None:
-            return {"ok": False, "error": f"No active goal matching '{content}' found."}
+        if memory_key and memory_key.strip():
+            get_result = ctx.memory_service.get_memory(memory_key)
+            if not get_result.is_ok:
+                return {"ok": False, "error": get_result.error}
+            match = get_result.value
+            if "goal" not in match.tags or "active" not in match.tags:
+                return {"ok": False, "error": f"Memory '{memory_key}' is not an active goal."}
+        else:
+            tag_result = ctx.memory_service.get_by_tags(["goal", "active"])
+            if not tag_result.is_ok:
+                return {"ok": False, "error": tag_result.error}
+            candidates = tag_result.value or []
+            match = next((m for m in candidates if content.strip().lower() == m.content.strip().lower()), None)
+            if match is None:
+                return {"ok": False, "error": f"No active goal matching '{content}' found."}
         update_result = ctx.memory_service.update_memory(match.key, tags=["goal", new_status])
         if update_result.is_ok:
             return {"ok": True, "status": new_status, "content": match.content[:80]}
@@ -722,7 +742,12 @@ async def _tool_goal_manage(
 
 
 async def _tool_promise_manage(
-    ctx: AppContext, persona: str, operation: str, content: str, importance: float = 0.8
+    ctx: AppContext,
+    persona: str,
+    operation: str,
+    content: str,
+    importance: float = 0.8,
+    memory_key: str | None = None,
 ) -> dict:
     if operation == "create":
         result = ctx.memory_service.create_memory(
@@ -736,13 +761,21 @@ async def _tool_promise_manage(
         return {"ok": False, "error": result.error}
     elif operation in ("fulfill", "cancel"):
         new_status = "fulfilled" if operation == "fulfill" else "cancelled"
-        tag_result = ctx.memory_service.get_by_tags(["promise", "active"])
-        if not tag_result.is_ok:
-            return {"ok": False, "error": tag_result.error}
-        candidates = tag_result.value or []
-        match = next((m for m in candidates if content.strip().lower() == m.content.strip().lower()), None)
-        if match is None:
-            return {"ok": False, "error": f"No active promise matching '{content}' found."}
+        if memory_key and memory_key.strip():
+            get_result = ctx.memory_service.get_memory(memory_key)
+            if not get_result.is_ok:
+                return {"ok": False, "error": get_result.error}
+            match = get_result.value
+            if "promise" not in match.tags or "active" not in match.tags:
+                return {"ok": False, "error": f"Memory '{memory_key}' is not an active promise."}
+        else:
+            tag_result = ctx.memory_service.get_by_tags(["promise", "active"])
+            if not tag_result.is_ok:
+                return {"ok": False, "error": tag_result.error}
+            candidates = tag_result.value or []
+            match = next((m for m in candidates if content.strip().lower() == m.content.strip().lower()), None)
+            if match is None:
+                return {"ok": False, "error": f"No active promise matching '{content}' found."}
         update_result = ctx.memory_service.update_memory(match.key, tags=["promise", new_status])
         if update_result.is_ok:
             return {"ok": True, "status": new_status, "content": match.content[:80]}
@@ -881,10 +914,10 @@ def register_tools(mcp: FastMCP) -> None:
 
     # memory_read
     @mcp.tool()
-    async def memory_read(memory_key: str | None = None) -> str:
-        """Read a memory by key, or list 10 most recent if key omitted."""
+    async def memory_read(memory_key: str | None = None, limit: int = 10, offset: int = 0) -> str:
+        """Read a memory by key, or list most recent if key omitted. Use limit/offset for pagination."""
         p = _resolve_persona()
-        return await _tool_memory_read(AppContextRegistry.get(p), p, memory_key=memory_key)
+        return await _tool_memory_read(AppContextRegistry.get(p), p, memory_key=memory_key, limit=limit, offset=offset)
 
     # memory_update
     @mcp.tool()
@@ -1092,12 +1125,17 @@ def register_tools(mcp: FastMCP) -> None:
 
     # goal_manage
     @mcp.tool()
-    async def goal_manage(operation: str, content: str, importance: float = 0.75) -> str:
+    async def goal_manage(operation: str, content: str, importance: float = 0.75, memory_key: str | None = None) -> str:
         """Manage goals. operation: create (new goal), achieve (mark done), cancel (abandon).
         Goals stored as memories with tags=["goal","active/achieved/cancelled"]."""
         p = _resolve_persona()
         r = await _tool_goal_manage(
-            AppContextRegistry.get(p), p, operation=operation, content=content, importance=importance
+            AppContextRegistry.get(p),
+            p,
+            operation=operation,
+            content=content,
+            importance=importance,
+            memory_key=memory_key,
         )
         if r.get("ok"):
             if "key" in r:
@@ -1109,12 +1147,19 @@ def register_tools(mcp: FastMCP) -> None:
 
     # promise_manage
     @mcp.tool()
-    async def promise_manage(operation: str, content: str, importance: float = 0.8) -> str:
+    async def promise_manage(
+        operation: str, content: str, importance: float = 0.8, memory_key: str | None = None
+    ) -> str:
         """Manage promises. operation: create (new promise), fulfill (mark done), cancel (abandon).
         Promises stored as memories with tags=["promise","active/fulfilled/cancelled"]."""
         p = _resolve_persona()
         r = await _tool_promise_manage(
-            AppContextRegistry.get(p), p, operation=operation, content=content, importance=importance
+            AppContextRegistry.get(p),
+            p,
+            operation=operation,
+            content=content,
+            importance=importance,
+            memory_key=memory_key,
         )
         if r.get("ok"):
             if "key" in r:

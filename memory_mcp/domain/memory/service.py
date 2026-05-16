@@ -219,9 +219,9 @@ class MemoryService:
 
         return self._repo.delete(key)
 
-    def get_recent(self, limit: int = 10) -> Result[list[Memory], DomainError]:
-        """Get most recent memories."""
-        return self._repo.find_recent(limit)
+    def get_recent(self, limit: int = 10, offset: int = 0) -> Result[list[Memory], DomainError]:
+        """Get most recent memories with optional pagination offset."""
+        return self._repo.find_recent(limit=limit, offset=offset)
 
     def get_stats(self, top_n: int = 20) -> Result[dict, DomainError]:
         """Get memory statistics.
