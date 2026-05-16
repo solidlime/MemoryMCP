@@ -172,9 +172,6 @@ def render_chat_tab() -> str:
 
         /* Sticky accordion summary with animation */
         #settings-panel summary {
-            position: sticky;
-            top: 0;
-            z-index: 10;
             padding: 11px 14px;
             font-size: 0.82rem;
             font-weight: 600;
@@ -553,14 +550,43 @@ def render_chat_tab() -> str:
             display: block; max-width: 100%; border-top: 1px solid rgba(255,255,255,0.06);
             cursor: pointer;
         }
-        /* Sandbox toggle button */
-        #sandbox-toggle-btn {
-            background: rgba(96,165,250,0.1); border: 1px solid rgba(96,165,250,0.3);
-            border-radius: 8px; color: rgba(96,165,250,0.8);
-            padding: 4px 10px; font-size: 0.75rem; cursor: pointer; transition: all 0.2s;
+        /* Help icon */
+        .chat-help-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 16px; height: 16px;
+            font-size: 0.65rem;
+            border-radius: 50%;
+            background: rgba(167,139,250,0.15);
+            color: var(--accent-purple);
+            cursor: help;
+            margin-left: auto;
+            transition: all 0.2s;
+            flex-shrink: 0;
         }
-        #sandbox-toggle-btn:hover { background: rgba(96,165,250,0.2); }
-        #sandbox-toggle-btn.active { background: rgba(96,165,250,0.2); color: rgba(96,165,250,1); }
+        .chat-help-icon:hover {
+            background: rgba(167,139,250,0.3);
+            transform: scale(1.15);
+        }
+        /* Help tooltip */
+        .chat-help-tooltip {
+            position: fixed;
+            max-width: 260px;
+            padding: 10px 14px;
+            background: rgba(20,10,40,0.95);
+            border: 1px solid rgba(167,139,250,0.3);
+            border-radius: 10px;
+            font-size: 0.78rem;
+            color: var(--text-primary);
+            line-height: 1.6;
+            z-index: 9999;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .chat-help-tooltip.visible { opacity: 1; }
         </style>
         <!-- ========== CHAT TAB ========== -->
         <section id="tab-chat" class="tab-panel" role="tabpanel">
@@ -568,7 +594,6 @@ def render_chat_tab() -> str:
                 <h2 style="font-size:1.1rem; font-weight:600; color:var(--text-primary);">💬 Chat</h2>
                 <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                     <button class="mem-panel-toggle" id="memory-panel-toggle-btn" onclick="toggleMemoryPanel()" title="記憶パネルを開閉">🧠</button>
-                    <button id="sandbox-toggle-btn" onclick="openCodingAgent()" title="Coding Agent を開く">🔬 Code</button>
                     <button class="chat-sidebar-toggle" onclick="toggleSettingsPanel()" id="chat-sidebar-toggle-btn" title="設定パネルを開閉">⚙️ 設定</button>
                 </div>
             </div>
@@ -646,28 +671,25 @@ def render_chat_tab() -> str:
                     <div id="chat-status"></div>
                     <div id="chat-attachments"></div>
                     <div id="chat-input-area">
-                        <textarea id="chat-input" placeholder="メッセージを入力... (Shift+Enter で改行、Enter で送信、ファイルドロップ可)" rows="1"></textarea>
-                        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
-                            <button id="chat-voice-btn" onclick="toggleVoiceInput()" title="音声入力" style="background:none;border:1px solid var(--glass-border);border-radius:6px;color:var(--text-muted);padding:3px 8px;font-size:0.85rem;cursor:pointer;white-space:nowrap;">🎤</button>
-                            <label id="chat-web-search-label" style="display:flex;align-items:center;gap:4px;font-size:0.72rem;color:var(--text-muted);cursor:pointer;white-space:nowrap;">
-                                <input type="checkbox" id="chat-web-search" style="width:14px;height:14px;accent-color:var(--accent-blue);cursor:pointer;" />🌐 Web検索
-                            </label>
-                            <button id="chat-export-btn" onclick="exportChatHistory()" title="会話をエクスポート" style="background:none;border:1px solid var(--glass-border);border-radius:6px;color:var(--text-muted);padding:3px 8px;font-size:0.72rem;cursor:pointer;white-space:nowrap;">📥 Export</button>
+                        <textarea id="chat-input" placeholder="メッセージを入力... (Enter で送信、Shift+Enter で改行)" rows="1"></textarea>
+                        <div style="display:flex;align-items:center;gap:6px;">
+                            <button id="chat-cancel-btn" onclick="chatCancel()" style="display:none;background:none;border:1px solid rgba(248,113,113,0.4);border-radius:8px;color:#f87171;padding:6px 14px;font-size:0.8rem;cursor:pointer;">⏹ 中止</button>
+                            <button id="chat-voice-btn" onclick="toggleVoiceInput()" title="音声入力" style="background:none;border:1px solid var(--glass-border);border-radius:8px;color:var(--text-muted);padding:6px 12px;font-size:0.85rem;cursor:pointer;">🎤</button>
+                            <button id="chat-export-btn" onclick="exportChatHistory()" title="会話をエクスポート" style="background:none;border:1px solid var(--glass-border);border-radius:8px;color:var(--text-muted);padding:6px 12px;font-size:0.78rem;cursor:pointer;">📥</button>
+                            <button id="chat-send-btn" onclick="chatSend()">送信</button>
                         </div>
-                        <button id="chat-cancel-btn" onclick="chatCancel()" style="display:none;">⏹ 中止</button>
-                        <button id="chat-send-btn" onclick="chatSend()">送信 ↑</button>
                     </div>
                 </div>
                 <!-- Settings sidebar -->
                 <div id="settings-panel" class="glass" style="margin:0; border-radius:0; border-left:1px solid var(--glass-border); padding:0;">
                     <div class="settings-scroll-container">
-                        <div style="font-size:0.9rem; font-weight:600; color:var(--text-primary); padding-bottom:8px; border-bottom:1px solid rgba(167,139,250,0.2); display:flex; align-items:center; gap:8px;">
+                        <div style="position:sticky;top:0;z-index:10;background:var(--bg-primary);font-size:0.9rem;font-weight:600;color:var(--text-primary);padding-bottom:8px;border-bottom:1px solid rgba(167,139,250,0.2);display:flex;align-items:center;gap:8px;">
                             <span style="font-size:1.1rem;">⚙️</span>
                             <span>チャット設定</span>
                         </div>
                         <!-- Provider / Model / API -->
                         <details data-category="core" open>
-                            <summary>🔧 基本設定</summary>
+                            <summary>🔧 基本設定 <span class="chat-help-icon" onclick="event.stopPropagation();showHelpTooltip(event, 'core')" title="クリックで説明">❓</span></summary>
                             <div class="details-body">
                                 <div>
                                     <div class="chat-field-label">プロバイダー</div>
@@ -706,7 +728,7 @@ def render_chat_tab() -> str:
                         </details>
                         <!-- Context & System Prompt -->
                         <details data-category="context">
-                            <summary>💬 コンテキスト</summary>
+                            <summary>💬 コンテキスト <span class="chat-help-icon" onclick="event.stopPropagation();showHelpTooltip(event, 'context')" title="クリックで説明">❓</span></summary>
                             <div class="details-body">
                                 <div>
                                     <div class="chat-field-label">コンテキスト履歴 (turns)</div>
@@ -730,7 +752,7 @@ def render_chat_tab() -> str:
                         </details>
                         <!-- Memory extraction -->
                         <details data-category="memory">
-                            <summary>🧠 記憶・抽出</summary>
+                            <summary>🧠 記憶・抽出 <span class="chat-help-icon" onclick="event.stopPropagation();showHelpTooltip(event, 'memory')" title="クリックで説明">❓</span></summary>
                             <div class="details-body">
                                 <div style="display:flex;align-items:center;gap:8px;">
                                     <input type="checkbox" id="chat-auto-extract" checked
@@ -755,7 +777,7 @@ def render_chat_tab() -> str:
                         </details>
                         <!-- MCP Servers -->
                         <details data-category="tools">
-                            <summary>🔌 MCPサーバー</summary>
+                            <summary>🔌 MCPサーバー <span class="chat-help-icon" onclick="event.stopPropagation();showHelpTooltip(event, 'tools')" title="クリックで説明">❓</span></summary>
                             <div class="details-body" id="chat-mcp-section">
                                 <div>
                                     <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:4px;">Claude の mcp.json 形式で貼り付け・編集できます</div>
@@ -777,14 +799,14 @@ def render_chat_tab() -> str:
                         </details>
                         <!-- Skills -->
                         <details data-category="skills">
-                            <summary>🎯 Skills</summary>
+                            <summary>🎯 Skills <span class="chat-help-icon" onclick="event.stopPropagation();showHelpTooltip(event, 'skills')" title="クリックで説明">❓</span></summary>
                             <div class="details-body" id="chat-skills-section">
                                 <div id="chat-skills-list" style="display:flex;flex-direction:column;gap:4px;"></div>
                             </div>
                         </details>
                         <!-- Reflection -->
                         <details data-category="reflection">
-                            <summary>🔮 リフレクション</summary>
+                            <summary>🔮 リフレクション <span class="chat-help-icon" onclick="event.stopPropagation();showHelpTooltip(event, 'reflection')" title="クリックで説明">❓</span></summary>
                             <div class="details-body">
                                 <div style="display:flex;align-items:center;gap:8px;">
                                     <input type="checkbox" id="chat-reflection-enabled" checked
@@ -812,7 +834,7 @@ def render_chat_tab() -> str:
                         </details>
                         <!-- Mental Model -->
                         <details data-category="mental">
-                            <summary>🧩 メンタルモデル</summary>
+                            <summary>🧩 メンタルモデル <span class="chat-help-icon" onclick="event.stopPropagation();showHelpTooltip(event, 'mental')" title="クリックで説明">❓</span></summary>
                             <div class="details-body">
                                 <div style="display:flex;align-items:center;gap:8px;">
                                     <input type="checkbox" id="chat-mental-model-enabled" checked
@@ -828,7 +850,7 @@ def render_chat_tab() -> str:
                         </details>
                         <!-- Retrieval weights -->
                         <details data-category="weights">
-                            <summary>⚖️ 検索重み</summary>
+                            <summary>⚖️ 検索重み <span class="chat-help-icon" onclick="event.stopPropagation();showHelpTooltip(event, 'weights')" title="クリックで説明">❓</span></summary>
                             <div class="details-body">
                                 <div>
                                     <div class="chat-field-label" style="display:flex;justify-content:space-between;">
@@ -861,7 +883,7 @@ def render_chat_tab() -> str:
                         </details>
                         <!-- Housekeeping & Other -->
                         <details data-category="other">
-                            <summary>🧹 整理・その他</summary>
+                            <summary>🧹 整理・その他 <span class="chat-help-icon" onclick="event.stopPropagation();showHelpTooltip(event, 'other')" title="クリックで説明">❓</span></summary>
                             <div class="details-body">
                                 <div>
                                     <div class="chat-field-label">自動整理 閾値 (goals+promises 合計がこの数を超えたら実行)</div>
@@ -941,6 +963,54 @@ const CHAT = {
     abortController: null,  // F4: AbortController for streaming cancel
     attachments: [],  // { filename, url, workspace_path, mime_type, size }
 };
+
+const HELP_TEXTS = {
+    core: 'プロバイダー（Anthropic/OpenAI/OpenRouter）・モデル・APIキー・Temperature・MaxTokens など、LLM API への接続に必要な基本設定です。',
+    context: '会話履歴の保持数・表示数・ツール呼び出し上限・システムプロンプト など、LLM の文脈制御に関する設定です。',
+    memory: '会話からの自動記憶抽出（Mem0方式）・抽出用モデル・LLMメモリツールの利用 など、長期記憶機能の設定です。',
+    tools: '外部 MCP サーバーの接続設定（mcp.json形式）および、ツール実行結果の表示制限です。',
+    skills: '利用可能なスキルの一覧です。チェックを入れたスキルが LLM のシステムプロンプトに追加されます。',
+    reflection: '会話の振り返り（リフレクション）機能の設定です。有効にすると、一定間隔で会話内容を分析し重要な情報を自動抽出します。',
+    mental: 'ユーザーの発話パターンからメンタルモデル（性格・好み・行動傾向）を自動構築する機能の設定です。',
+    weights: '記憶検索時の「鮮度（新しさ）」「重要度」「関連性」の重みバランスを調整します。',
+    other: '自動整理・Dockerサンドボックス・デバッグモード など、その他のユーティリティ設定です。',
+};
+
+function showHelpTooltip(event, category) {
+    const existing = document.querySelector('.chat-help-tooltip');
+    if (existing) existing.remove();
+
+    const tooltip = document.createElement('div');
+    tooltip.className = 'chat-help-tooltip';
+    tooltip.textContent = HELP_TEXTS[category] || '説明はありません。';
+
+    const rect = event.target.getBoundingClientRect();
+    tooltip.style.left = (rect.right + 10) + 'px';
+    tooltip.style.top = (rect.top - 5) + 'px';
+
+    document.body.appendChild(tooltip);
+    requestAnimationFrame(() => tooltip.classList.add('visible'));
+
+    // 画面右端チェック
+    const tr = tooltip.getBoundingClientRect();
+    if (tr.right > window.innerWidth - 10) {
+        tooltip.style.left = (rect.left - tr.width - 10) + 'px';
+    }
+
+    setTimeout(() => {
+        tooltip.classList.remove('visible');
+        setTimeout(() => tooltip.remove(), 200);
+    }, 3000);
+
+    // クリックで即閉じ
+    const close = (e) => {
+        if (!tooltip.contains(e.target) && e.target !== event.target) {
+            tooltip.remove();
+            document.removeEventListener('click', close);
+        }
+    };
+    setTimeout(() => document.addEventListener('click', close), 100);
+}
 
 function loadChat() {
     if (!S.persona) return;
@@ -1897,13 +1967,6 @@ async function chatSend(retry) {
     if (!message && CHAT.attachments.length === 0) return;
     if (!message) message = '';
 
-    // Web search toggle
-    const webSearchEl = document.getElementById('chat-web-search');
-    if (webSearchEl && webSearchEl.checked && message) {
-        message = '[Web検索モード]\n以下の質問について、まずWeb検索を行い最新の情報を取得してから回答してください。\n\n' + message;
-        webSearchEl.checked = false; // one-shot
-    }
-
     const sendBtn = document.getElementById('chat-send-btn');
     const cancelBtn = document.getElementById('chat-cancel-btn');
     const statusEl = document.getElementById('chat-status');
@@ -2022,7 +2085,6 @@ async function chatSend(retry) {
                         }
                     }
                     statusEl.textContent = '🔧 ' + evt.name + ' を実行中...';
-                    sandboxHandleToolEvent(evt);
 
                 } else if (evt.type === 'tool_result') {
                     if (MEMORY_TOOL_NAMES.has(evt.name)) {
@@ -2034,7 +2096,6 @@ async function chatSend(retry) {
                         }
                     }
                     statusEl.textContent = '応答中...';
-                    sandboxHandleToolEvent(evt);
 
                 } else if (evt.type === 'memory_activity') {
                     updateMemoryPanel(evt.retrieved, evt.saved, undefined, undefined);
