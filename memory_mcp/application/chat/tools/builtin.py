@@ -5,10 +5,10 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING, Any
 
-from memory_mcp.api.mcp.tools import TOOL_DISPATCH
+from memory_mcp.api.mcp.tools import TOOL_DISPATCH, _VALID_EMOTIONS
 from memory_mcp.application.chat.tools.definitions import _MEMORY_MCP_TOOL_NAMES
 from memory_mcp.domain.search.engine import SearchQuery
-from memory_mcp.infrastructure.llm.base import LLMMessage, ToolDefinition
+from memory_mcp.infrastructure.llm.base import ToolDefinition
 from memory_mcp.infrastructure.logging.structured import get_logger
 
 if TYPE_CHECKING:
@@ -16,12 +16,6 @@ if TYPE_CHECKING:
     from memory_mcp.domain.chat_config import ChatConfig
 
 logger = get_logger(__name__)
-
-_VALID_EMOTIONS = frozenset({
-    "joy", "sadness", "anger", "fear", "surprise", "disgust", "love", "neutral",
-    "anticipation", "trust", "anxiety", "excitement", "frustration", "nostalgia",
-    "pride", "shame", "guilt", "loneliness", "contentment", "curiosity", "awe", "relief"
-})
 
 
 def filter_extra_tools(extra_tools: list[ToolDefinition]) -> list[ToolDefinition]:
@@ -121,9 +115,12 @@ async def _handle_memory_create_builtin(ctx: AppContext, config: ChatConfig, too
     emotion = tool_input.get("emotion_type", "neutral")
     if emotion not in _VALID_EMOTIONS:
         emotion = "neutral"
+    importance = float(tool_input.get("importance", 0.6))
+    if not (0.0 <= importance <= 1.0):
+        return {"status": "error", "message": "importance must be between 0.0 and 1.0"}
     result = ctx.memory_service.create_memory(
         content=tool_input.get("content", ""),
-        importance=float(tool_input.get("importance", 0.6)),
+        importance=importance,
         tags=tool_input.get("tags", []),
         emotion=emotion,
     )
@@ -259,43 +256,4 @@ async def execute_tool(ctx: AppContext, config: ChatConfig, tool_name: str, tool
         return {"status": "error", "message": str(e)}
 
 
-async def invoke_skill(ctx: AppContext, config: ChatConfig, skill_name: str, task: str) -> dict:
-    """スキルを独立コンテキストで実行する。"""
-    from memory_mcp.config.settings import get_settings
-    from memory_mcp.domain.skill import SkillRepository
-    from memory_mcp.infrastructure.llm.base import DoneEvent, TextDeltaEvent
-    from memory_mcp.infrastructure.llm.factory import get_provider
-    from memory_mcp.infrastructure.sqlite.connection import get_global_skills_db
-
-    skill_repo = SkillRepository(get_global_skills_db(get_settings().data_root))
-    skill = skill_repo.get(skill_name)
-    if not skill:
-        return {"error": f"Skill '{skill_name}' not found"}
-
-    api_key = config.get_effective_api_key()
-    if not api_key:
-        return {"error": "APIキーが設定されていません"}
-
-    try:
-        provider = get_provider(
-            config.provider, api_key, config.get_effective_model(),
-            config.get_effective_base_url(),
-        )
-    except Exception as e:
-        return {"error": f"Provider init failed: {e}"}
-
-    text = ""
-    try:
-        async for event in provider.stream(
-            messages=[LLMMessage(role="user", content=task)],
-            system=skill.content, tools=[],
-            temperature=config.temperature, max_tokens=config.max_tokens,
-        ):
-            if isinstance(event, TextDeltaEvent):
-                text += event.content
-            elif isinstance(event, DoneEvent):
-                break
-    except Exception as e:
-        return {"error": f"Skill execution failed: {e}"}
-
-    return {"result": text or "(no response)"}
+# invoke_skill is now handled via TOOL_DISPATCH → _tool_invoke_skill in tools.py

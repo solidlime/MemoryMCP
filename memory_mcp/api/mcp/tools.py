@@ -209,14 +209,26 @@ async def _tool_memory_update(
 
 
 async def _tool_memory_delete(ctx: AppContext, persona: str, memory_key: str | None = None, query: str | None = None) -> str:
-    """Delete a memory by key or search query."""
+    """Delete a memory by key, or search and delete the top match by query."""
     if not memory_key and not query:
         return "Error: memory_key or query required"
-    key = memory_key or query
-    snippet = ""
-    pre_fetch = ctx.memory_service.get_memory(key)
-    if pre_fetch.is_ok:
-        snippet = f"\nContent: 「{pre_fetch.value.content[:80]}{'...' if len(pre_fetch.value.content) > 80 else ''}」"
+
+    # If query provided without key, search first
+    key = memory_key
+    if not key and query:
+        search_result = ctx.search_engine.search(SearchQuery(text=query, top_k=1))
+        if search_result.is_ok and search_result.value:
+            m = search_result.value[0].memory
+            key = m.key
+            snippet = f"\nContent: 「{m.content[:80]}{'...' if len(m.content) > 80 else ''}」"
+        else:
+            return f"No memory found for query: {query}"
+    else:
+        snippet = ""
+        pre_fetch = ctx.memory_service.get_memory(key)
+        if pre_fetch.is_ok:
+            snippet = f"\nContent: 「{pre_fetch.value.content[:80]}{'...' if len(pre_fetch.value.content) > 80 else ''}」"
+
     result = ctx.memory_service.delete_memory(key)
     if result.is_ok:
         if ctx.vector_store:
@@ -574,7 +586,7 @@ async def _tool_goal_manage(ctx: AppContext, persona: str, operation: str, conte
         if not tag_result.is_ok:
             return f"Error: {tag_result.error}"
         candidates = tag_result.value or []
-        match = next((m for m in candidates if content.lower() in m.content.lower()), None)
+        match = next((m for m in candidates if content.strip().lower() == m.content.strip().lower()), None)
         if match is None:
             return f"No active goal matching '{content}' found."
         update_result = ctx.memory_service.update_memory(match.key, tags=["goal", new_status])
@@ -599,7 +611,7 @@ async def _tool_promise_manage(ctx: AppContext, persona: str, operation: str, co
         if not tag_result.is_ok:
             return f"Error: {tag_result.error}"
         candidates = tag_result.value or []
-        match = next((m for m in candidates if content.lower() in m.content.lower()), None)
+        match = next((m for m in candidates if content.strip().lower() == m.content.strip().lower()), None)
         if match is None:
             return f"No active promise matching '{content}' found."
         update_result = ctx.memory_service.update_memory(match.key, tags=["promise", new_status])
