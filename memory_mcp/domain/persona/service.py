@@ -3,7 +3,13 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING
 
-from memory_mcp.domain.persona.entities import EmotionRecord, PersonaState
+from memory_mcp.domain.persona.entities import (
+    BASIC_EMOTIONS,
+    EmotionRecord,
+    PersonaState,
+    compute_dominant_emotion,
+    default_emotions,
+)
 from memory_mcp.domain.shared.errors import DomainError, PersonaValidationError
 from memory_mcp.domain.shared.result import Failure, Result, Success
 from memory_mcp.domain.shared.time_utils import get_now
@@ -23,6 +29,49 @@ class PersonaService:
         """Get current persona state."""
         return self._repo.get_current_state(persona)
 
+    def update_emotions(
+        self,
+        persona: str,
+        emotions: dict[str, float],
+        trigger_key: str | None = None,
+        context: str | None = None,
+    ) -> Result[None, DomainError]:
+        """Update multi-dimensional emotions and record in history."""
+        # Normalize: clamp to 0.0-1.0, fill missing with 0.0
+        normalized: dict[str, float] = {}
+        for e in BASIC_EMOTIONS:
+            val = emotions.get(e, 0.0)
+            normalized[e] = max(0.0, min(1.0, float(val)))
+
+        # Compute dominant for backward compat
+        dominant_name, dominant_intensity = compute_dominant_emotion(normalized)
+
+        # Store multi-dimensional emotions as JSON
+        emotions_json = json.dumps(normalized)
+        result = self._repo.update_state(persona, "emotions", emotions_json)
+        if not result.is_ok:
+            return Failure(result.error)
+
+        # Update backward-compat single emotion fields
+        result = self._repo.update_state(persona, "emotion", dominant_name)
+        if not result.is_ok:
+            return Failure(result.error)
+
+        result = self._repo.update_state(persona, "emotion_intensity", str(dominant_intensity))
+        if not result.is_ok:
+            return Failure(result.error)
+
+        # Record history
+        record = EmotionRecord(
+            emotion_type=dominant_name,
+            intensity=dominant_intensity,
+            timestamp=get_now(),
+            trigger_memory_key=trigger_key,
+            context=context,
+            emotions=normalized,
+        )
+        return self._repo.add_emotion_record(persona, record)
+
     def update_emotion(
         self,
         persona: str,
@@ -31,26 +80,12 @@ class PersonaService:
         trigger_key: str | None = None,
         context: str | None = None,
     ) -> Result[None, DomainError]:
-        """Update persona emotion and record in history."""
-        emotion = normalize_emotion(emotion)
-        intensity = max(0.0, min(1.0, intensity))
-
-        state_result = self._repo.update_state(persona, "emotion", emotion)
-        if not state_result.is_ok:
-            return Failure(state_result.error)
-
-        intensity_result = self._repo.update_state(persona, "emotion_intensity", str(intensity))
-        if not intensity_result.is_ok:
-            return Failure(intensity_result.error)
-
-        record = EmotionRecord(
-            emotion_type=emotion,
-            intensity=intensity,
-            timestamp=get_now(),
-            trigger_memory_key=trigger_key,
-            context=context,
-        )
-        return self._repo.add_emotion_record(persona, record)
+        """Update persona emotion (backward compat). Delegates to update_emotions."""
+        # Convert single emotion to multi-dimensional dict
+        normalized_name = normalize_emotion(emotion)
+        emo_dict = default_emotions()
+        emo_dict[normalized_name] = max(0.0, min(1.0, intensity))
+        return self.update_emotions(persona, emo_dict, trigger_key=trigger_key, context=context)
 
     def update_physical_state(
         self,

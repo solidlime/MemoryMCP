@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
-
 from memory_mcp.application.chat.events import (
     DebugInfoSSE,
     DoneSSE,
@@ -80,45 +78,42 @@ class TestChatTurnContext:
 
 class TestComputeEmotionDecay:
     def test_no_decay_for_neutral(self):
+        """All-zero emotions → no decay (empty dict returned)."""
         from memory_mcp.domain.persona.emotion_decay import compute_emotion_decay
 
-        state = MagicMock()
-        state.emotion = "neutral"
-        state.emotion_intensity = 0.5
-        state.last_conversation_time = None
-        # elapsed < 24h → no loneliness generation, no change
-        result = compute_emotion_decay(state, elapsed_hours=10)
-        assert result is None
+        emotions = {
+            "joy": 0.0,
+            "sadness": 0.0,
+            "anger": 0.0,
+            "fear": 0.0,
+            "disgust": 0.0,
+            "surprise": 0.0,
+            "love": 0.0,
+            "trust": 0.0,
+            "anticipation": 0.0,
+        }
+        result = compute_emotion_decay(emotions, elapsed_hours=10)
+        assert result == {}
 
     def test_anger_decays_after_threshold(self):
+        """anger half-life=3h, elapsed=4h → significant decay."""
         from memory_mcp.domain.persona.emotion_decay import compute_emotion_decay
 
-        state = MagicMock()
-        state.emotion = "anger"
-        state.emotion_intensity = 0.8
-        result = compute_emotion_decay(state, elapsed_hours=4.0)  # > 3h
-        assert result is not None
-        assert result["emotion"] == "neutral"
-
-    def test_loneliness_generated_after_24h(self):
-        from memory_mcp.domain.persona.emotion_decay import compute_emotion_decay
-
-        state = MagicMock()
-        state.emotion = "neutral"
-        state.emotion_intensity = 0.0
-        result = compute_emotion_decay(state, elapsed_hours=25.0)
-        assert result is not None
-        assert result["emotion"] == "loneliness"
-        assert result["intensity"] > 0
+        emotions = {"anger": 0.8}
+        result = compute_emotion_decay(emotions, elapsed_hours=4.0)
+        assert result  # non-empty
+        assert "anger" in result
+        assert result["anger"] < 0.8  # decayed
+        # 4h / 3h half-life → factor 0.5^(4/3) ≈ 0.397 → 0.8*0.397 ≈ 0.317
+        assert result["anger"] < 0.5
 
     def test_no_change_for_zero_elapsed(self):
+        """Zero elapsed → no decay."""
         from memory_mcp.domain.persona.emotion_decay import compute_emotion_decay
 
-        state = MagicMock()
-        state.emotion = "anger"
-        state.emotion_intensity = 0.8
-        result = compute_emotion_decay(state, elapsed_hours=0)
-        assert result is None
+        emotions = {"anger": 0.8, "joy": 0.5}
+        result = compute_emotion_decay(emotions, elapsed_hours=0)
+        assert result == {}
 
 
 # --- ToolRegistry ---

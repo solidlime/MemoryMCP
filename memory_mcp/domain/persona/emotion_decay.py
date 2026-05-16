@@ -1,4 +1,4 @@
-"""EmotionDecay: 時間経過による感情の自然な変化ロジック。"""
+"""EmotionDecay: 時間経過による多次元感情の自然な変化ロジック。"""
 
 from __future__ import annotations
 
@@ -11,68 +11,43 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# 感情ごとの減衰設定: decay_hours で neutral へ。None = 減衰なし
-_EMOTION_DECAY: dict[str, dict | None] = {
-    "anger": {"decay_hours": 3.0, "to": "neutral"},
-    "fear": {"decay_hours": 6.0, "to": "neutral"},
-    "joy": {"decay_hours": 24.0, "to": "neutral"},
-    "love": {"decay_hours": 12.0, "to": "neutral"},
-    "sadness": {"decay_hours": 48.0, "to": "neutral"},
-    "excitement": {"decay_hours": 8.0, "to": "neutral"},
-    "frustration": {"decay_hours": 4.0, "to": "neutral"},
-    "anxiety": {"decay_hours": 12.0, "to": "neutral"},
-    "neutral": None,
-    "loneliness": None,  # loneliness は会話で自然消滅 (別途処理)
+# 基本9感情ごとの半減期（時間）
+# None = 減衰なし
+_EMOTION_HALF_LIFE: dict[str, float | None] = {
+    "joy": 24.0,
+    "sadness": 48.0,
+    "anger": 3.0,
+    "fear": 6.0,
+    "disgust": 4.0,
+    "surprise": 2.0,
+    "love": 12.0,
+    "trust": 36.0,
+    "anticipation": 8.0,
 }
 
-# 24時間以上放置されると loneliness が生じる
+# 24時間以上放置で loneliness 生成
 _LONELINESS_THRESHOLD_HOURS = 24.0
-_LONELINESS_INTENSITY_PER_HOUR = 0.02
-_LONELINESS_MAX_INTENSITY = 0.9
 
 
-def compute_emotion_decay(state: PersonaState, elapsed_hours: float) -> dict | None:
-    """
-    経過時間に基づいて感情の変化を計算する。
-    変化がある場合は {"emotion": ..., "intensity": ...} を返す。
-    変化なしは None を返す。
-    """
-    if elapsed_hours <= 0:
-        return None
+def compute_emotion_decay(emotions: dict[str, float], elapsed_hours: float) -> dict[str, float]:
+    """各感情次元を独立に指数減衰。変化があった次元のみ含めたdictを返す。"""
+    if elapsed_hours <= 0 or not emotions:
+        return {}
 
-    current_emotion = (state.emotion or "neutral").lower()
-    current_intensity = float(state.emotion_intensity or 0.0)
+    decayed: dict[str, float] = {}
+    for name, current in emotions.items():
+        half_life = _EMOTION_HALF_LIFE.get(name)
+        if half_life is None:
+            continue
+        if current <= 0.0:
+            continue
+        # 指数減衰: 減衰係数 = 0.5^(経過時間/半減期)
+        factor = 0.5 ** (elapsed_hours / half_life)
+        new_val = round(current * factor, 4)
+        if abs(new_val - current) > 0.005:
+            decayed[name] = max(0.0, new_val)
 
-    # loneliness 生成チェック (放置時間が閾値超え)
-    if elapsed_hours >= _LONELINESS_THRESHOLD_HOURS:
-        loneliness_intensity = min(
-            _LONELINESS_MAX_INTENSITY,
-            (elapsed_hours - _LONELINESS_THRESHOLD_HOURS) * _LONELINESS_INTENSITY_PER_HOUR + 0.3,
-        )
-        # 現在の感情が loneliness より弱い場合のみ上書き
-        if current_emotion != "loneliness" and current_intensity < loneliness_intensity:
-            return {"emotion": "loneliness", "intensity": loneliness_intensity}
-
-    # 通常の感情減衰
-    decay_cfg = _EMOTION_DECAY.get(current_emotion)
-    if decay_cfg is None:
-        return None  # neutral や loneliness は減衰設定なし
-
-    decay_hours: float = decay_cfg["decay_hours"]
-    target_emotion: str = decay_cfg["to"]
-
-    if elapsed_hours >= decay_hours:
-        # 完全に target へ移行
-        if current_emotion != target_emotion:
-            return {"emotion": target_emotion, "intensity": 0.0}
-    else:
-        # 部分的に intensity を下げる
-        ratio = elapsed_hours / decay_hours
-        new_intensity = max(0.0, current_intensity * (1.0 - ratio))
-        if abs(new_intensity - current_intensity) > 0.05:
-            return {"emotion": current_emotion, "intensity": new_intensity}
-
-    return None
+    return decayed
 
 
 async def apply_emotion_decay_if_needed(
@@ -80,13 +55,7 @@ async def apply_emotion_decay_if_needed(
     persona: str,
     state: PersonaState,
 ) -> bool:
-    """
-    PersonaState の last_conversation_time から経過時間を計算し、
-    必要であれば感情を更新して SQLite に永続化する。
-    変化があった場合は True を返す。
-
-    チャット PrepareStep と MCP get_context() の両方から呼ばれる。
-    """
+    """経過時間に基づいて多次元感情を減衰、永続化する。"""
     from memory_mcp.domain.shared.time_utils import get_now
 
     last_conv = state.last_conversation_time
@@ -96,27 +65,36 @@ async def apply_emotion_decay_if_needed(
     now = get_now()
     elapsed_hours = (now - last_conv).total_seconds() / 3600.0
 
-    updates = compute_emotion_decay(state, elapsed_hours)
-    if updates is None:
+    current_emotions = dict(state.emotions) if state.emotions else {}
+
+    # 減衰計算
+    decayed = compute_emotion_decay(current_emotions, elapsed_hours)
+
+    # Loneliness 生成チェック
+    if elapsed_hours >= _LONELINESS_THRESHOLD_HOURS:
+        max_existing = max(current_emotions.values()) if current_emotions else 0.0
+        loneliness_val = min(0.9, (elapsed_hours - _LONELINESS_THRESHOLD_HOURS) * 0.02 + 0.3)
+        if loneliness_val > max_existing:
+            decayed["loneliness"] = loneliness_val  # loneliness is NOT a basic emotion, it's added
+
+    if not decayed:
         return False
 
+    # Merge decayed values into current
+    merged = dict(current_emotions)
+    merged.update(decayed)
+
     try:
-        result = persona_service.update_emotion(
-            persona,
-            updates["emotion"],
-            updates["intensity"],
-            context=f"emotion_decay: elapsed={elapsed_hours:.1f}h",
-        )
+        result = persona_service.update_emotions(persona, merged)
         if result.is_ok:
             logger.info(
-                "EmotionDecay: %s → %s (intensity=%.2f, elapsed=%.1fh)",
-                state.emotion,
-                updates["emotion"],
-                updates["intensity"],
+                "EmotionDecay: %d dims decayed (elapsed=%.1fh): %s",
+                len(decayed),
                 elapsed_hours,
+                ", ".join(f"{k}={v:.2f}" for k, v in decayed.items()),
             )
             return True
-        logger.warning("EmotionDecay: update_emotion failed: %s", result.error)
+        logger.warning("EmotionDecay: update_emotions failed: %s", result.error)
     except Exception as e:
         logger.warning("EmotionDecay: unexpected error: %s", e)
     return False

@@ -41,11 +41,11 @@ class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
                 """
                 INSERT OR REPLACE INTO memories (
                     key, content, created_at, updated_at, tags, importance,
-                    emotion, emotion_intensity, physical_state, mental_state,
+                    emotion, emotion_intensity, emotions, physical_state, mental_state,
                     environment, relationship_status, action_tag, source_context,
                     related_keys, summary_ref, equipped_items, access_count,
                     last_accessed, privacy_level
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     memory.key,
@@ -56,6 +56,7 @@ class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
                     memory.importance,
                     memory.emotion,
                     memory.emotion_intensity,
+                    json.dumps(memory.emotions, ensure_ascii=False) if memory.emotions else None,
                     memory.physical_state,
                     memory.mental_state,
                     memory.environment,
@@ -593,6 +594,17 @@ class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
             return []
 
     @staticmethod
+    def _parse_emotions_json(value: str | None) -> dict[str, float] | None:
+        """Parse emotions JSON column. Returns None for empty/null."""
+        if not value:
+            return None
+        try:
+            raw = json.loads(value)
+            return {k: float(v) for k, v in raw.items() if isinstance(v, (int, float))}
+        except (json.JSONDecodeError, TypeError, ValueError):
+            return None
+
+    @staticmethod
     def _parse_iso_or_none(value: str | None):
         """Parse ISO datetime string or return None."""
         if not value:
@@ -611,6 +623,7 @@ class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
             importance=row["importance"] or 0.5,
             emotion=row["emotion"] or "neutral",
             emotion_intensity=row["emotion_intensity"] or 0.0,
+            emotions=self._parse_emotions_json(row["emotions"]) if "emotions" in row else None,
             tags=self._parse_json_list(row["tags"]),
             privacy_level=row["privacy_level"] or "internal",
             physical_state=row["physical_state"],

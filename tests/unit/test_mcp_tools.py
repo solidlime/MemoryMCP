@@ -545,7 +545,7 @@ class TestGetContext:
             mock_reg_cls.get.return_value = ctx
             result = await get_context()
         assert "test_persona" in result
-        assert "joy" in result
+        assert "neutral" in result
 
     @pytest.mark.asyncio
     async def test_get_context_persona_service_failure(self, registered_tools):

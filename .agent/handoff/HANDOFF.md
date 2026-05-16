@@ -1,88 +1,58 @@
-# HANDOFF - 2026-05-16
+# HANDOFF - 2026-05-16 18:02
 
 ## 完了したタスク
 
-### 🎨 WebUIダッシュボードのデザイン調整
+### 🔧 herta-memory ツールセット評価・改修
 
-#### 1. チャット設定のsticky見出し修正 (chat.py)
-- **問題**: `background: var(--bg-primary)` でガラスエフェクトパネルと浮き見えしていた
-- **解決**: `background: var(--glass-bg)` + `backdrop-filter: blur(12px)` に変更
-- **効果**: ガラスエフェクトと調和する半透明背景に
+#### 評価レポート
+全ツールの動作検証を実施し、以下の評価結果を得た：
 
-#### 2. 全タブのヘッダースタイル統一
-以下の全タブで一貫性のあるヘッダーデザインを適用：
-- `overview.py` - 📊 Overview
-- `analytics.py` - 📈 Analytics  
-- `memories.py` - 🧠 Memories
-- `knowledge_graph.py` - 🕸️ Knowledge Graph
-- `import_export.py` - 🔄 Import / Export
-- `persona.py` - 👤 Personas
-- `settings.py` - ⚙️ Settings
-- `admin.py` - 🔧 Admin
-- `timeline.py` - 📅 Timeline
-- `skills.py` - 🎯 Skills
+| 項目 | 評価 |
+|------|------|
+| 記憶の永続性 | ★★★★★ |
+| 検索精度 | ★★★★☆ |
+| body_state/emotion/speech_style/relationship | ★★★★★（全反映） |
+| sandbox (Python/ファイルI/O/画像生成) | ★★★★★ |
+| Goal/Promise管理 | ★★★☆☆（memory_key不足） |
+| memory_read操作性 | ★★★☆☆（ページネーション不在） |
 
-**統一スタイル**:
-- フォントサイズ: 1.25rem / font-weight: 700
-- アイコン付き（1.4rem）
-- 下線ボーダー（1px solid var(--glass-border)）
-- margin-bottom: 16px / padding-bottom: 12px
+#### 改修内容（commit b9b1482, 7ファイル変更）
 
-#### 3. ベースCSSの強化 (base.py)
-- `.chat-help-tooltip` - ガラスエフェクト対応ツールチップ
-- `.settings-sticky-header` - 設定パネル用stickyヘッダー
-- `.tab-panel` ヘッダー統一スタイル
+1. **goal_manage/promise_manage に memory_key 追加**
+   - `tools.py`: `_tool_goal_manage()` + `_tool_promise_manage()` + MCPラッパー
+   - `definitions.py`: LLMスキーマに `memory_key` (optional) 追加
+   - achieve/fulfill/cancel 時にcontent文字列一致ではなくキー直接参照が可能に
 
-#### 4. 構文確認
-全ファイルでPython構文チェック完了:
-```
-chat.py: OK
-overview.py: OK
-analytics.py: OK
-memories.py: OK
-knowledge_graph.py: OK
-import_export.py: OK
-persona.py: OK
-settings.py: OK
-admin.py: OK
-timeline.py: OK
-skills.py: OK
-base.py: OK
-```
+2. **memory_read に limit/offset 追加**
+   - `tools.py`: `_tool_memory_read()` + MCPラッパー
+   - `repository.py`: `find_recent` に `offset: int = 0` 
+   - `service.py`: `get_recent` に `offset: int = 0`
+   - `sqlite/memory_repo.py`: SQLに `OFFSET ?` 追加
+   - テストモック更新: `test_memory_service.py`, `test_memory_versions.py`
 
-## 技術的詳細
+3. **テスト: 全78件パス確認**
 
-### 変更されたCSS変数の使用
-- `--glass-bg`: rgba(255, 255, 255, 0.08) [ダーク] / rgba(139, 92, 246, 0.06) [ライト]
-- `--glass-border`: rgba(255, 255, 255, 0.15) [ダーク] / rgba(139, 92, 246, 0.18) [ライト]
-- `backdrop-filter: blur(12px)` でガラスエフェクト実現
-
-### ライト/ダークテーマ対応
-全変更は `html.light` セレクタで定義された変数を使用し、両テーマで破綻しない設計
+#### 発見された軽微な問題
+- `satisfaction` 感情が `neutral` に正規化される → 感情バリデーションの許容リスト確認推奨
+- `action_tag` は `update_context` で明示的に渡さないと更新されない（仕様通り）
 
 ## 次のセッションでの確認事項
 
-1. **ブラウザで視覚確認**
-   - チャット設定パネルのsticky見出しがスクロール時に適切に表示されるか
-   - 全タブのヘッダーが統一されているか
-   - ライト/ダークテーマ切り替え時の表示確認
+1. **memory_key パラメータの動作確認**
+   - MCPサーバー再起動後、goal_manage/promise_manage で memory_key 指定した操作が動作するか
 
-2. **レスポンシブ確認**
-   - モバイル表示時のヘッダー崩れがないか
+2. **感情正規化の調査**
+   - `satisfaction` → `neutral` 変換の原因特定
+   - `update_emotion` のバリデーションロジック確認
 
 ## ファイル変更一覧
 
 | ファイル | 変更内容 |
 |---------|---------|
-| `chat.py` | チャット設定sticky見出しの背景修正、ヘッダースタイル統一 |
-| `overview.py` | ヘッダースタイル統一 |
-| `analytics.py` | ヘッダースタイル統一 |
-| `memories.py` | ヘッダースタイル統一 |
-| `knowledge_graph.py` | ヘッダースタイル統一 |
-| `import_export.py` | ヘッダースタイル統一 |
-| `persona.py` | ヘッダースタイル統一 |
-| `settings.py` | ヘッダースタイル統一 |
-| `admin.py` | ヘッダースタイル統一 |
-| `timeline.py` | ヘッダースタイル統一 |
-| `skills.py` | ヘッダースタイル統一 |
-| `base.py` | ツールチップ・stickyヘッダー用CSS追加 |
+| `memory_mcp/api/mcp/tools.py` | goal_manage/promise_manage に memory_key 追加、memory_read に limit/offset 追加 |
+| `memory_mcp/application/chat/tools/definitions.py` | LLMスキーマに memory_key 追加 |
+| `memory_mcp/domain/memory/repository.py` | find_recent に offset 追加 |
+| `memory_mcp/domain/memory/service.py` | get_recent に offset 追加 |
+| `memory_mcp/infrastructure/sqlite/memory_repo.py` | SQLに OFFSET 追加 |
+| `tests/unit/test_memory_service.py` | モックシグネチャ更新 |
+| `tests/unit/test_memory_versions.py` | モックシグネチャ更新 |

@@ -19,6 +19,7 @@ class Memory:
     importance: float = 0.5
     emotion: str = "neutral"
     emotion_intensity: float = 0.0
+    emotions: dict[str, float] | None = None
     tags: list[str] = field(default_factory=list)
     privacy_level: str = "internal"
     physical_state: str | None = None

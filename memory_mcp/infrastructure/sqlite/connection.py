@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS memories (
     importance REAL DEFAULT 0.5,
     emotion TEXT DEFAULT 'neutral',
     emotion_intensity REAL DEFAULT 0.0,
+    emotions TEXT,
     physical_state TEXT,
     mental_state TEXT,
     environment TEXT,
@@ -66,6 +67,7 @@ CREATE TABLE IF NOT EXISTS emotion_history (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     emotion_type TEXT NOT NULL,
     intensity REAL DEFAULT 0.5,
+    emotions TEXT,
     timestamp TEXT NOT NULL,
     trigger_memory_key TEXT,
     context TEXT
