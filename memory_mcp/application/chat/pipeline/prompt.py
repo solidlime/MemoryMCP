@@ -57,10 +57,10 @@ class PromptBuildStep:
             parts.append(
                 "\n--- 記憶ツール使用ガイド ---\n"
                 "目標や約束に関するツール:\n"
-                "- goal_create: ユーザーが目標・計画を表明したら使う\n"
-                "- goal_achieve / goal_cancel: 目標の完了・中止を記録\n"
-                "- promise_create: 約束・コミットメントを記録\n"
-                "- promise_fulfill: 約束の履行を記録\n"
+                "- goal_manage(operation='create'): ユーザーが目標・計画を表明したら使う\n"
+                "- goal_manage(operation='achieve'/'cancel'): 目標の完了・中止を記録\n"
+                "- promise_manage(operation='create'): 約束・コミットメントを記録\n"
+                "- promise_manage(operation='fulfill'/'cancel'): 約束の履行・中止を記録\n"
                 "- context_recall: tags=['goal','active'] で現在の目標一覧を確認"
             )
 

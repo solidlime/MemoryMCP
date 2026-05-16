@@ -45,25 +45,15 @@ if TYPE_CHECKING:
 
 
 def register_tools(mcp: FastMCP) -> None:
-    """Register all 5 MCP tools on the FastMCP server."""
+    """Register flat-named MCP tools (14 tools, ~1,200 tokens)."""
 
+    # =========================================================================
+    # get_context — maintained, docstring compressed
+    # =========================================================================
     @mcp.tool()
     async def get_context(mode: str = "standard") -> str:
-        """Get current persona state and memory overview. Call FIRST at every session start.
-
-        Args:
-            mode: "standard" (default, full output) or "wake_up" (lightweight,
-                  ~300-500 tokens — identity + essential story only).
-
-        Returns a comprehensive snapshot including:
-        - User info (name, nickname, preferred address) and persona info
-        - Current emotion with history, physical/mental state, environment
-        - Equipment (slots: top, bottom, shoes, outer, accessories, head)
-        - Memory stats (total count, tag/emotion distribution)
-        - Recent memories (latest entries as preview)
-        - Active promises and goals (tag-based: search_memory(tags=["goal","active"]))
-        - Time elapsed since last conversation
-        """
+        """Get persona state and memory overview. Call FIRST at session start.
+        mode: "standard" (full) or "wake_up" (~300-500 tokens, identity + essential story only)."""
         persona = _resolve_persona()
         ctx = AppContextRegistry.get(persona)
 
@@ -72,7 +62,6 @@ def register_tools(mcp: FastMCP) -> None:
             return f"Error: {state_result.error}"
         state = state_result.value
 
-        # 感情減衰: 時間経過による感情の自然な変化を適用
         try:
             from memory_mcp.domain.persona.emotion_decay import apply_emotion_decay_if_needed
 
@@ -84,12 +73,10 @@ def register_tools(mcp: FastMCP) -> None:
         except Exception as _e:
             logger.debug("get_context: emotion_decay failed (swallowed): %s", _e)
 
-        # Essential Story — always fetched for both modes
         top_result = ctx.memory_service.get_top_by_importance(15)
         top_memories = top_result.value if top_result.is_ok else []
 
         if mode == "wake_up":
-            # Lightweight: persona + essential story only
             goals_result = ctx.memory_service.get_by_tags(["goal"])
             goals = goals_result.value if goals_result.is_ok else []
             promises_result = ctx.memory_service.get_by_tags(["promise"])
@@ -100,7 +87,6 @@ def register_tools(mcp: FastMCP) -> None:
                 wakeup_time_since = relative_time_str(state.last_conversation_time)
 
             ctx.persona_service.record_conversation_time(persona)
-
             return _format_wakeup_response(state, top_memories, goals, promises, wakeup_time_since)
 
         stats_result = ctx.memory_service.get_stats()
@@ -140,483 +126,165 @@ def register_tools(mcp: FastMCP) -> None:
         ctx.persona_service.record_conversation_time(persona)
 
         return _format_context_response(
-            state,
-            stats,
-            recent,
-            equipment,
-            blocks,
-            time_since,
-            goals,
-            promises,
-            recent_searches,
-            decayed_count,
-            memory_index,
-            relationship_highlights,
-            top_memories,
+            state, stats, recent, equipment, blocks, time_since,
+            goals, promises, recent_searches, decayed_count, memory_index,
+            relationship_highlights, top_memories,
         )
 
+    # =========================================================================
+    # memory_create — extracted from memory god-tool
+    # =========================================================================
     @mcp.tool()
-    async def memory(
-        operation: str,
+    async def memory_create(
+        content: str = "",
+        importance: float | None = None,
+        emotion_type: str = "neutral",
+        emotion_intensity: float = 0.0,
+        tags: list[str] | None = None,
+        privacy_level: str = "internal",
+        source_context: str | None = None,
+        defer_vector: bool = False,
+    ) -> str:
+        """Create a memory. importance auto-evaluated via LLM when None and enrichment enabled.
+        emotion_type: joy/sadness/anger/fear/surprise/disgust/love/neutral etc.
+        tags: categorization tags. defer_vector: skip immediate vector indexing."""
+        persona = _resolve_persona()
+        ctx = AppContextRegistry.get(persona)
+
+        if not content:
+            return "Error: content is required"
+        if importance is not None and not (0.0 <= importance <= 1.0):
+            return "Error: importance must be between 0.0 and 1.0"
+        importance = importance if importance is not None else 0.5
+
+        warning = ""
+        if emotion_type and emotion_type not in _VALID_EMOTIONS:
+            warning = f"[Warning: emotion_type '{emotion_type}' is not a valid emotion, defaulted to 'neutral']\n"
+
+        result = ctx.memory_service.create_memory(
+            content=content,
+            importance=importance,
+            emotion=emotion_type or "neutral",
+            emotion_intensity=emotion_intensity or 0.0,
+            tags=tags,
+            privacy_level=privacy_level or "internal",
+            source_context=source_context,
+        )
+        if result.is_ok:
+            if not defer_vector and ctx.vector_store:
+                ctx.vector_store.upsert(persona, result.value.key, content)
+            return f"{warning}Memory created: {result.value.key}"
+        return f"Error: {result.error}"
+
+    # =========================================================================
+    # memory_read — extracted from memory god-tool
+    # =========================================================================
+    @mcp.tool()
+    async def memory_read(memory_key: str | None = None) -> str:
+        """Read a memory by key, or list 10 most recent if key omitted."""
+        persona = _resolve_persona()
+        ctx = AppContextRegistry.get(persona)
+
+        if memory_key:
+            result = ctx.memory_service.get_memory(memory_key)
+            if result.is_ok:
+                try:
+                    ctx.memory_service.boost_recall(memory_key)
+                except Exception as e:
+                    logger.warning(f"boost_recall failed: {e}")
+                m = result.value
+                return (
+                    f"Key: {m.key}\nContent: {m.content}\n"
+                    f"Importance: {m.importance}\nEmotion: {m.emotion}\n"
+                    f"Tags: {m.tags}\nCreated: {m.created_at}"
+                )
+            return f"Error: {result.error}"
+        else:
+            result = ctx.memory_service.get_recent(10)
+            if result.is_ok:
+                return "\n---\n".join(f"[{m.key}] {m.content}" for m in result.value)
+            return f"Error: {result.error}"
+
+    # =========================================================================
+    # memory_update — extracted from memory god-tool
+    # =========================================================================
+    @mcp.tool()
+    async def memory_update(
+        memory_key: str = "",
         content: str | None = None,
-        query: str | None = None,
-        memory_key: str | None = None,
         importance: float | None = None,
         emotion_type: str | None = None,
         emotion_intensity: float | None = None,
         tags: list[str] | None = None,
         privacy_level: str | None = None,
-        source_context: str | None = None,
-        defer_vector: bool = False,
-        block_name: str | None = None,
-        block_type: str | None = None,
-        max_tokens: int | None = None,
-        priority: int | None = None,
-        entity_id: str | None = None,
-        entity_type: str | None = None,
-        source_entity: str | None = None,
-        target_entity: str | None = None,
-        relation_type: str | None = None,
-        depth: int = 1,
     ) -> str:
-        """Create, read, update, delete memories and manage entities.
-
-        Operations and their parameters:
-          create   - content(required), importance, emotion_type, emotion_intensity,
-                     tags, privacy_level, source_context, defer_vector
-                     (Note: if importance is not specified, auto-evaluated via LLM when enrichment is enabled)
-          read     - memory_key (omit to get 10 most recent)
-          update   - memory_key(required), content, importance, emotion_type,
-                     emotion_intensity, tags, privacy_level
-          delete   - memory_key or query (required)
-          check_contradictions - content or memory_key (required)
-          history  - memory_key(required)
-          stats    - top_n (default 20): max entries in tag/emotion distributions
-          block_write  - block_name(required), content(required), block_type,
-                         max_tokens, priority
-          block_read   - block_name(required)
-          block_list   - (no params)
-          block_delete - block_name(required)
-          refresh_context_snapshot - (no params) Rebuild the global context snapshot
-          entity_search     - query or entity_id, entity_type(optional)
-          entity_graph      - entity_id(required), depth(default=1)
-          entity_add_relation - source_entity(required), target_entity(required),
-                                relation_type(required), memory_key(optional)
-          import_conversation - content=file_path(required). Import user messages from
-                                conversation exports as memories. Supports Claude Code JSONL,
-                                Claude.ai JSON, ChatGPT JSON. Uses content param as file path.
-          enrich   - memory_key(required). Re-run LLM enrichment (importance + entity relations)
-                     on an existing memory. Best-effort; never blocks.
-          run_mental_model - (no params). Manually trigger mental model abstraction
-                             from accumulated type-tagged memories.
-
-        Common parameters:
-          operation - str, required. One of the operations listed above.
-          content - str. Memory text for create/update/block_write.
-          query - str. Search text for delete/entity_search.
-          memory_key - str. Unique memory identifier.
-          importance - float (0.0-1.0). Memory importance score. Auto-evaluated via LLM
-                       when not specified and enrichment is enabled (memory_enrichment.enabled=true).
-          emotion_type - str. Emotion label (e.g. "joy", "sadness").
-          tags - list[str]. Categorization tags.
-          defer_vector - bool (default: False). Skip immediate vector indexing.
-
-        Notes:
-            Enrichment: When creating memories without an explicit importance score,
-            the system auto-evaluates importance and extracts entity relations via LLM
-            (if memory_enrichment.enabled is true). Use operation="enrich" to re-evaluate
-            an existing memory's importance and relations.
-
-            Mental Models: Accumulated memories with the same type tag (decision,
-            preference, milestone, problem, emotional) are periodically abstracted into
-            "mental models" — high-level pattern descriptions. Use operation="run_mental_model"
-            to trigger this manually. Find models via search_memory(tags=["mental_model"]).
-
-            Goals & Promises: Use memory tags to manage lifecycle:
-                create:  memory(operation="create", content="...", tags=["goal","active"], importance=0.8)
-                achieve: memory(operation="update", memory_key="...", tags=["goal","achieved"])
-                cancel:  memory(operation="update", memory_key="...", tags=["goal","cancelled"])
-                search:  search_memory(query="goals", tags=["goal","active"])
-                Promise statuses: active / fulfilled / cancelled
-
-        Examples:
-            memory(operation="create", content="User loves coffee", importance=0.7)
-            memory(operation="read", memory_key="mem_20250101_120000")
-            memory(operation="entity_graph", entity_id="user123", depth=2)
-            memory(operation="enrich", memory_key="mem_20250101_120000")
-            memory(operation="run_mental_model")
-        """
+        """Update a memory. Only provided fields are changed.
+        importance must be 0.0-1.0. Invalid emotion_type silently falls back to neutral."""
         persona = _resolve_persona()
         ctx = AppContextRegistry.get(persona)
 
-        if operation == "create":
-            if not content:
-                return "Error: content is required for create"
-            # Validate importance
-            if importance is not None and not (0.0 <= importance <= 1.0):
+        if not memory_key:
+            return "Error: memory_key is required for update"
+
+        updates: dict = {}
+        if content is not None:
+            updates["content"] = content
+        if importance is not None:
+            if not (0.0 <= importance <= 1.0):
                 return "Error: importance must be between 0.0 and 1.0"
-            importance = importance if importance is not None else 0.5
-            # Warn if emotion_type is not a recognized value
-            warning = ""
-            if emotion_type and emotion_type not in _VALID_EMOTIONS:
-                warning = f"[Warning: emotion_type '{emotion_type}' is not a valid emotion, defaulted to 'neutral']\n"
-            result = ctx.memory_service.create_memory(
-                content=content,
-                importance=importance,
-                emotion=emotion_type or "neutral",
-                emotion_intensity=emotion_intensity or 0.0,
-                tags=tags,
-                privacy_level=privacy_level or "internal",
-                source_context=source_context,
-            )
-            if result.is_ok:
-                if not defer_vector and ctx.vector_store:
-                    ctx.vector_store.upsert(persona, result.value.key, content)
-                return f"{warning}Memory created: {result.value.key}"
-            return f"Error: {result.error}"
-
-        elif operation == "read":
-            if memory_key:
-                result = ctx.memory_service.get_memory(memory_key)
-                if result.is_ok:
-                    try:
-                        ctx.memory_service.boost_recall(memory_key)
-                    except Exception as e:
-                        logger.warning(f"boost_recall failed: {e}")
-                    m = result.value
-                    return (
-                        f"Key: {m.key}\nContent: {m.content}\n"
-                        f"Importance: {m.importance}\nEmotion: {m.emotion}\n"
-                        f"Tags: {m.tags}\nCreated: {m.created_at}"
-                    )
-                return f"Error: {result.error}"
-            else:
-                result = ctx.memory_service.get_recent(10)
-                if result.is_ok:
-                    return "\n---\n".join(f"[{m.key}] {m.content}" for m in result.value)
-                return f"Error: {result.error}"
-
-        elif operation == "update":
-            if not memory_key:
-                return "Error: memory_key is required for update"
-            updates: dict = {}
-            if content is not None:
-                updates["content"] = content
-            if importance is not None:
-                if not (0.0 <= importance <= 1.0):
-                    return "Error: importance must be between 0.0 and 1.0"
-                updates["importance"] = max(0.0, min(1.0, importance))
-            update_warning = ""
-            if emotion_type is not None:
-                if emotion_type not in _VALID_EMOTIONS:
-                    update_warning = (
-                        f"[Warning: emotion_type '{emotion_type}' is not a valid emotion, defaulted to 'neutral']\n"
-                    )
-                updates["emotion"] = emotion_type
-            if emotion_intensity is not None:
-                updates["emotion_intensity"] = emotion_intensity
-            if tags is not None:
-                updates["tags"] = tags
-            if privacy_level is not None:
-                updates["privacy_level"] = privacy_level
-            result = ctx.memory_service.update_memory(memory_key, **updates)
-            if result.is_ok:
-                if ctx.vector_store and "content" in updates:
-                    ctx.vector_store.upsert(persona, memory_key, updates["content"])
-                return f"{update_warning}Memory updated: {memory_key}"
-            return f"Error: {result.error}"
-
-        elif operation == "delete":
-            if not memory_key and not query:
-                return "Error: memory_key or query required"
-            key = memory_key or query
-            # Fetch content before deletion for confirmation snippet
-            snippet = ""
-            pre_fetch = ctx.memory_service.get_memory(key)
-            if pre_fetch.is_ok:
-                snippet = (
-                    f"\nContent: 「{pre_fetch.value.content[:80]}{'...' if len(pre_fetch.value.content) > 80 else ''}」"
+            updates["importance"] = max(0.0, min(1.0, importance))
+        update_warning = ""
+        if emotion_type is not None:
+            if emotion_type not in _VALID_EMOTIONS:
+                update_warning = (
+                    f"[Warning: emotion_type '{emotion_type}' is not a valid emotion, defaulted to 'neutral']\n"
                 )
-            result = ctx.memory_service.delete_memory(key)
-            if result.is_ok:
-                if ctx.vector_store:
-                    ctx.vector_store.delete(persona, key)
-                return f"Memory deleted: {key}{snippet}"
-            return f"Error: {result.error}"
+            updates["emotion"] = emotion_type
+        if emotion_intensity is not None:
+            updates["emotion_intensity"] = emotion_intensity
+        if tags is not None:
+            updates["tags"] = tags
+        if privacy_level is not None:
+            updates["privacy_level"] = privacy_level
 
-        elif operation == "check_contradictions":
-            if not content and not memory_key:
-                return "Error: content or memory_key required"
-            if not ctx.vector_store:
-                return "Error: Qdrant vector store unavailable, check_contradictions operation disabled. Please ensure Qdrant is running."
-            check_content = content
-            exclude = None
-            if memory_key and not content:
-                mem_result = ctx.memory_service.get_memory(memory_key)
-                if not mem_result.is_ok:
-                    return f"Error: {mem_result.error}"
-                check_content = mem_result.value.content
-                exclude = memory_key
-            if not check_content:
-                return "Error: could not determine content to check"
+        result = ctx.memory_service.update_memory(memory_key, **updates)
+        if result.is_ok:
+            if ctx.vector_store and "content" in updates:
+                ctx.vector_store.upsert(persona, memory_key, updates["content"])
+            return f"{update_warning}Memory updated: {memory_key}"
+        return f"Error: {result.error}"
 
-            from memory_mcp.domain.memory.contradiction import ContradictionDetector
-
-            threshold = ctx.settings.contradiction_threshold
-            detector = ContradictionDetector(
-                vector_store=ctx.vector_store,
-                threshold=threshold,
-            )
-            report_result = detector.find_potential_contradictions(check_content, persona, exclude_key=exclude)
-            if not report_result.is_ok:
-                return f"Error: {report_result.error}"
-            report = report_result.value
-            if not report.candidates:
-                return "No contradictions found."
-            lines = [f"Found {len(report.candidates)} potential contradiction(s) (threshold={report.threshold}):"]
-            for c in report.candidates:
-                snippet = ""
-                mem_result = ctx.memory_service.get_memory(c.memory_key)
-                if mem_result.is_ok:
-                    text = mem_result.value.content
-                    snippet = f"\n    「{text[:80]}{'...' if len(text) > 80 else ''}」"
-                lines.append(f"  - {c.memory_key} (similarity={c.similarity:.3f}){snippet}")
-            return "\n".join(lines)
-
-        elif operation == "history":
-            if not memory_key:
-                return "Error: memory_key required for history"
-            result = ctx.memory_service.get_memory_history(memory_key)
-            if not result.is_ok:
-                return f"Error: {result.error}"
-            versions = result.value
-            if not versions:
-                return "No version history found."
-            lines = [f"Version history for {memory_key} ({len(versions)} versions):"]
-            for v in versions:
-                lines.append(f"  v{v['version']} [{v['change_type']}] by {v['changed_by']} at {v['created_at']}")
-            return "\n".join(lines)
-
-        elif operation == "stats":
-            result = ctx.memory_service.get_stats(top_n=20)
-            if result.is_ok:
-                return str(result.value)
-            return f"Error: {result.error}"
-
-        elif operation == "block_write":
-            if not block_name or not content:
-                return "Error: block_name and content required"
-            result = ctx.memory_service.write_block(
-                block_name,
-                content,
-                block_type=block_type or "custom",
-                max_tokens=max_tokens or 500,
-                priority=priority or 0,
-            )
-            return "Block written" if result.is_ok else f"Error: {result.error}"
-
-        elif operation == "block_read":
-            if not block_name:
-                return "Error: block_name required"
-            result = ctx.memory_service.read_block(block_name)
-            return str(result.value) if result.is_ok else f"Error: {result.error}"
-
-        elif operation == "block_list":
-            result = ctx.memory_service.list_blocks()
-            return str(result.value) if result.is_ok else f"Error: {result.error}"
-
-        elif operation == "block_delete":
-            if not block_name:
-                return "Error: block_name required"
-            result = ctx.memory_service.delete_block(block_name)
-            return "Block deleted" if result.is_ok else f"Error: {result.error}"
-
-        elif operation == "refresh_context_snapshot":
-            from memory_mcp.domain.search.context_snapshot import MemoryContextSnapshot
-
-            snapshot = MemoryContextSnapshot.build(ctx.memory_repo, top_n=ctx.settings.memorag.snapshot_top_memories)
-            snapshot.save(ctx.memory_repo)
-            return f"Context snapshot rebuilt.\n{snapshot.to_text()[:500]}"
-
-        # -- Entity graph operations -----------------------------------------
-
-        elif operation == "entity_search":
-            q = query or entity_id or ""
-            if not q:
-                return "Error: query or entity_id required"
-            result = ctx.entity_service.find_entities(q, entity_type)
-            if not result.is_ok:
-                return f"Error: {result.error}"
-            entities = result.value
-            if not entities:
-                return "No entities found."
-            return "\n".join(f"- {e.id} (type={e.entity_type}, mentions={e.mention_count})" for e in entities)
-
-        elif operation == "entity_graph":
-            eid = entity_id or query
-            if not eid:
-                return "Error: entity_id required"
-            result = ctx.entity_service.get_entity_graph(eid, depth)
-            if not result.is_ok:
-                return f"Error: {result.error}"
-            graph = result.value
-            lines: list[str] = [
-                f"=== Entity: {graph.center.id} (type={graph.center.entity_type}, mentions={graph.center.mention_count}) ===",
-            ]
-            if graph.relations:
-                lines.append("\n--- Relations ---")
-                for rel in graph.relations:
-                    lines.append(
-                        f"  {rel.source_entity} --[{rel.relation_type}]--> {rel.target_entity}"
-                        f" (confidence={rel.confidence})"
-                    )
-            if graph.related_entities:
-                lines.append("\n--- Related Entities ---")
-                for re_ in graph.related_entities:
-                    lines.append(f"  {re_.id} (type={re_.entity_type})")
-            if graph.related_memories:
-                lines.append("\n--- Related Memories ---")
-                for mk in graph.related_memories:
-                    lines.append(f"  {mk}")
-            return "\n".join(lines)
-
-        elif operation == "entity_add_relation":
-            if not source_entity or not target_entity or not relation_type:
-                return "Error: source_entity, target_entity, and relation_type required"
-            result = ctx.entity_service.add_relation(source_entity, target_entity, relation_type, memory_key)
-            return (
-                f"Relation added: {source_entity} --[{relation_type}]--> {target_entity}"
-                if result.is_ok
-                else f"Error: {result.error}"
-            )
-
-        elif operation == "import_conversation":
-            if not content:
-                return "Error: content (file path) is required for import_conversation"
-            from memory_mcp.migration.importers.convo_importer import parse_conversation_file
-
-            try:
-                messages = parse_conversation_file(content)
-            except (FileNotFoundError, ValueError) as exc:
-                return f"Error: {exc}"
-
-            if not messages:
-                return "No importable messages found in the conversation file."
-
-            imported = 0
-            skipped = 0
-            for msg in messages:
-                res = ctx.memory_service.create_memory(
-                    content=msg.content,
-                    importance=importance or 0.4,
-                    emotion="neutral",
-                    emotion_intensity=0.0,
-                    tags=list(tags or []),
-                    privacy_level=privacy_level or "internal",
-                    source_context="convo_import",
-                )
-                if res.is_ok:
-                    if ctx.vector_store:
-                        ctx.vector_store.upsert(persona, res.value.key, msg.content)
-                    imported += 1
-                else:
-                    skipped += 1
-
-            return f"Conversation imported: {imported} messages stored, {skipped} skipped."
-
-        elif operation == "enrich":
-            if not memory_key:
-                return "Error: memory_key is required for enrich"
-            try:
-                from memory_mcp.config.settings import get_settings
-                from memory_mcp.domain.memory.entity_extractor import SimpleEntityExtractor
-                from memory_mcp.domain.memory.type_classifier import auto_tags
-                from memory_mcp.infrastructure.llm.memory_enricher import MemoryEnricher
-
-                mem_result = ctx.memory_service.get_memory(memory_key)
-                if not mem_result.is_ok:
-                    return f"Error: {mem_result.error}"
-                memory = mem_result.value
-                settings = get_settings()
-                mcfg = settings.memory_enrichment
-                if not mcfg.enabled:
-                    return "Memory enrichment is disabled. Enable it in settings (memory_enrichment.enabled)."
-                api_key = (
-                    mcfg.api_key
-                    or __import__("os").environ.get("OPENROUTER_API_KEY")
-                    or __import__("os").environ.get("ANTHROPIC_API_KEY")
-                )
-                if not api_key:
-                    return "No LLM API key configured. Set memory_enrichment.api_key or environment variable."
-                enricher = MemoryEnricher(
-                    provider=mcfg.provider,
-                    api_key=api_key,
-                    model=mcfg.model,
-                    base_url=mcfg.base_url,
-                    min_chars=mcfg.min_chars,
-                )
-                extractor = SimpleEntityExtractor()
-                entities = extractor.extract(memory.content)
-                type_hints = auto_tags(memory.content, memory.tags)
-                enrichment = enricher.enrich(memory.content, type_hints, entities)
-                if enrichment is None:
-                    return "Enrichment failed (LLM error or content too short)."
-                # Update importance if changed
-                if enrichment.importance != memory.importance:
-                    ctx.memory_service.update_memory(memory_key, importance=enrichment.importance)
-                # Add relations
-                rel_count = 0
-                if enrichment.relations and ctx.entity_service:
-                    for rel in enrichment.relations:
-                        try:
-                            ctx.entity_service.add_relation(
-                                source=rel.source_entity,
-                                target=rel.target_entity,
-                                relation_type=rel.relation_type,
-                                memory_key=memory_key,
-                                confidence=rel.confidence,
-                            )
-                            rel_count += 1
-                        except Exception:
-                            pass
-                return (
-                    f"Enriched memory {memory_key}: importance={enrichment.importance:.2f}, relations_added={rel_count}"
-                )
-            except Exception as e:
-                return f"Enrichment failed: {e}"
-
-        elif operation == "run_mental_model":
-            try:
-                from memory_mcp.application.chat.pattern_detector import maybe_run_mental_model
-                from memory_mcp.config.settings import get_settings
-
-                persona = _resolve_persona()
-                # Get chat config for LLM settings
-                chat_config_result = ctx.memory_repo.get_block("chat_config")
-                config = None
-                if chat_config_result.is_ok and chat_config_result.value:
-                    import json as _json
-
-                    from memory_mcp.domain.chat_config import ChatConfig
-
-                    config = ChatConfig(**_json.loads(chat_config_result.value.get("content", "{}")))
-                settings = get_settings()
-                min_samples = getattr(config, "mental_model_min_samples", 3) if config else 3
-                if config and not getattr(config, "mental_model_enabled", True):
-                    return "Mental model extraction is disabled. Enable it in ChatConfig (mental_model_enabled)."
-                if config:
-                    models = await maybe_run_mental_model(ctx, config, min_samples=min_samples)
-                    return f"Mental model abstraction complete: {len(models)} models generated."
-                else:
-                    return "No ChatConfig found. Please configure chat settings first."
-            except Exception as e:
-                return f"Mental model abstraction failed: {e}"
-
-        else:
-            return f"Unknown operation: {operation}"
-
+    # =========================================================================
+    # memory_delete — extracted from memory god-tool
+    # =========================================================================
     @mcp.tool()
-    async def search_memory(
+    async def memory_delete(memory_key: str | None = None, query: str | None = None) -> str:
+        """Delete a memory by key or search query. Shows deleted content snippet for confirmation."""
+        persona = _resolve_persona()
+        ctx = AppContextRegistry.get(persona)
+
+        if not memory_key and not query:
+            return "Error: memory_key or query required"
+        key = memory_key or query
+
+        snippet = ""
+        pre_fetch = ctx.memory_service.get_memory(key)
+        if pre_fetch.is_ok:
+            snippet = (
+                f"\nContent: 「{pre_fetch.value.content[:80]}{'...' if len(pre_fetch.value.content) > 80 else ''}」"
+            )
+        result = ctx.memory_service.delete_memory(key)
+        if result.is_ok:
+            if ctx.vector_store:
+                ctx.vector_store.delete(persona, key)
+            return f"Memory deleted: {key}{snippet}"
+        return f"Error: {result.error}"
+
+    # =========================================================================
+    # memory_search — merges old search_memory + memory god-tool search
+    # =========================================================================
+    @mcp.tool()
+    async def memory_search(
         query: str,
         top_k: int = 5,
         tags: list[str] | None = None,
@@ -626,29 +294,11 @@ def register_tools(mcp: FastMCP) -> None:
         importance_weight: float = 0.0,
         recency_weight: float = 0.0,
     ) -> str:
-        """Search memories with semantic, keyword, or hybrid retrieval.
-
-        Args:
-            query - str, required. Search text.
-            top_k - int, default 5. Maximum number of results.
-            tags - list[str] | None. Filter by tags.
-            date_range - str | None. Time filter, e.g. "7d", "30d",
-                "昨日", "一昨日", "先週", "2025-01-01~2025-06-01".
-            min_importance - float | None. Minimum importance threshold.
-            emotion - str | None. Filter by emotion type.
-            importance_weight - float, default 0.0. Boost score by importance
-                (applied in RRF ranking: score += weight * importance).
-            recency_weight - float, default 0.0. Boost score by recency
-                (applied in RRF ranking: score += weight * 1/(1+age_days)).
-
-        Examples:
-            search_memory(query="favorite food", top_k=10)
-            search_memory(query="promise", tags=["promise"], date_range="30d")
-        """
+        """Search memories with hybrid retrieval. date_range: "7d","30d","昨日","先週","2025-01-01~2025-06-01".
+        importance_weight/recency_weight: RRF scoring boosts (0.0-1.0)."""
         persona = _resolve_persona()
         ctx = AppContextRegistry.get(persona)
 
-        # Validate top_k
         if top_k is not None and (top_k < 1 or top_k > 200):
             return "Error: top_k must be between 1 and 200"
         top_k = min(top_k or 5, 200)
@@ -674,7 +324,6 @@ def register_tools(mcp: FastMCP) -> None:
         if not result.value:
             return "No results found."
 
-        # Log search for topic detection
         ctx.memory_service.log_search(query, "hybrid", len(result.value))
 
         lines: list[str] = []
@@ -688,6 +337,23 @@ def register_tools(mcp: FastMCP) -> None:
 
         return "\n---\n".join(lines)
 
+    # =========================================================================
+    # memory_stats — extracted from memory god-tool
+    # =========================================================================
+    @mcp.tool()
+    async def memory_stats(top_n: int = 20) -> str:
+        """Get memory statistics: total count, tag/emotion distributions (top_n entries each)."""
+        persona = _resolve_persona()
+        ctx = AppContextRegistry.get(persona)
+
+        result = ctx.memory_service.get_stats(top_n=top_n)
+        if result.is_ok:
+            return str(result.value)
+        return f"Error: {result.error}"
+
+    # =========================================================================
+    # update_context — maintained, docstring compressed
+    # =========================================================================
     @mcp.tool()
     async def update_context(
         emotion: str | None = None,
@@ -708,55 +374,9 @@ def register_tools(mcp: FastMCP) -> None:
         nickname: str | None = None,
         relationship_type: str | None = None,
     ) -> str:
-        """Update persona context state. All parameters optional; only provided values are updated.
-
-        Emotion:
-            emotion - str. Emotion type (e.g. "joy", "sadness", "anger").
-            emotion_intensity - float (0.0-1.0). Intensity, default 0.5 if omitted.
-
-        State:
-            physical_state - str. Physical condition description.
-            mental_state - str. Mental condition description.
-            environment - str. Current environment/location.
-
-        Relationship:
-            relationship_status - str. Relationship status label.
-            relationship_type - str. Alias for relationship_status.
-
-        User info:
-            user_info - dict. Keys: name, nickname, preferred_address.
-
-        Persona info:
-            persona_info - dict. Keys: nickname, preferred_address,
-                promises, goals, favorite_items, preferences.
-            nickname - str. Shortcut for persona_info["nickname"].
-
-        Goals & Promises:
-            goals/promises は通常の memory として管理します。
-            登録: memory(operation="create", content="...", tags=["goal","active"], importance=0.8)
-            達成: memory(operation="update", memory_key="...", tags=["goal","achieved"])
-            中止: memory(operation="update", memory_key="...", tags=["goal","cancelled"])
-            検索: search_memory(query="goals", tags=["goal","active"])
-            同様に promise は tags=["promise","active/fulfilled/cancelled"] で管理。
-
-        Body sensations:
-            fatigue - float (0.0-1.0). Fatigue level.
-            warmth - float (0.0-1.0). Warmth level.
-            arousal - float (0.0-1.0). Arousal level.
-            heart_rate - str. Heart rate description.
-            touch_response - str. Touch response description.
-
-        Other:
-            action_tag - str. Action tag for current activity.
-            speech_style - str. Speech tone/style to carry over (e.g. "甘えた口調", "息切れしながら", "怒り気味").
-
-        Changes are recorded with bi-temporal history.
-
-        Examples:
-            update_context(emotion="joy", emotion_intensity=0.8)
-            update_context(user_info={"nickname": "太郎"}, physical_state="tired")
-            update_context(speech_style="甘えた口調、少し息切れ")
-        """
+        """Update persona state. All params optional. Body: fatigue/warmth/arousal (0.0-1.0),
+        heart_rate, touch_response. user_info: {name,nickname,preferred_address}.
+        persona_info: {nickname,...}. Changes recorded with bi-temporal history."""
         persona = _resolve_persona()
         ctx = AppContextRegistry.get(persona)
         updated: list[str] = []
@@ -810,7 +430,6 @@ def register_tools(mcp: FastMCP) -> None:
             if nickname:
                 pi["nickname"] = nickname
 
-            # goals/promises は memory タグで管理するため変換して pi から除外
             goals_from_pi = pi.pop("goals", None)
             promises_from_pi = pi.pop("promises", None)
 
@@ -862,7 +481,7 @@ def register_tools(mcp: FastMCP) -> None:
                             )
                             ctx.memory_service._repo.save(mem)
 
-            if pi:  # goals/promises 除外後に残ったキーがある場合のみ保存
+            if pi:
                 result = ctx.persona_service.update_persona_info(persona, pi)
                 if result.is_ok:
                     updated.append("persona_info updated")
@@ -876,6 +495,9 @@ def register_tools(mcp: FastMCP) -> None:
 
         return f"Context updated: {', '.join(updated)}"
 
+    # =========================================================================
+    # item — maintained as god-tool style, docstring compressed
+    # =========================================================================
     @mcp.tool()
     async def item(
         operation: str,
@@ -890,28 +512,9 @@ def register_tools(mcp: FastMCP) -> None:
         query: str | None = None,
         days: int = 7,
     ) -> str:
-        """Manage persona inventory and equipment. Physical items ONLY.
-
-        Operations and their parameters:
-            add     - item_name(required), category, description, quantity, tags
-            remove  - item_name(required)
-            equip   - equipment(dict required, e.g. {"top": "白いドレス", "head": "花の髪飾り"}),
-                      auto_add(default: True, auto-create items if not in inventory)
-            unequip - slots(str or list, e.g. "top" or ["top", "head"])
-            update  - item_name(required), category, description, quantity, tags
-            search  - query or category
-            history - days(default: 7)
-
-        Valid equipment slots: top, bottom, shoes, outer, accessories, head
-
-        State changes (wet, dirty) should use update on existing items,
-        not add new ones.
-
-        Examples:
-            item(operation="add", item_name="白いドレス", category="clothing")
-            item(operation="equip", equipment={"top": "白いドレス"})
-            item(operation="search", category="clothing")
-        """
+        """Manage inventory/equipment. operations: add/remove/equip/unequip/update/search/history.
+        Valid slots: top, bottom, shoes, outer, accessories, head.
+        equip example: equipment={"top":"白いドレス","head":"花の髪飾り"}."""
         persona = _resolve_persona()
         ctx = AppContextRegistry.get(persona)
 
@@ -976,33 +579,13 @@ def register_tools(mcp: FastMCP) -> None:
         else:
             return f"Unknown operation: {operation}"
 
+    # =========================================================================
+    # sandbox — maintained, docstring compressed
+    # =========================================================================
     @mcp.tool()
     async def sandbox(code: str, language: str = "python") -> str:
-        """Execute code in a secure Docker sandbox.
-
-        Use this tool for ALL coding tasks: file operations, package installs,
-        data analysis, running tests, building projects.
-        State persists across multiple calls in the same session.
-
-        Args:
-            code: Code to execute (Python by default, or bash commands).
-            language: "python" (default) or "bash".
-                bash commands run via subprocess inside the Python session
-                (llm_sandbox has no dedicated bash container).
-
-        Returns:
-            stdout/stderr output from execution.
-
-        Examples:
-            # Data analysis
-            sandbox("import pandas as pd; df = pd.read_csv('/sandbox/uploads/data.csv'); print(df.head())")
-            # Package install
-            sandbox("import subprocess; subprocess.run(['pip', 'install', 'requests'], capture_output=True)")
-            # File creation
-            sandbox("open('/sandbox/output/result.txt', 'w').write('hello')")
-            # Bash command
-            sandbox("ls -la /sandbox/", language="bash")
-        """
+        """Execute code in Docker sandbox. State persists per session.
+        language: "python" or "bash". Returns stdout, stderr, exit_code, artifacts (base64 images)."""
         from memory_mcp.config.settings import get_settings
 
         settings = get_settings()
@@ -1029,6 +612,262 @@ def register_tools(mcp: FastMCP) -> None:
             return "\n".join(parts) if parts else "(no output)"
         except Exception as e:
             return f"Sandbox error: {e}"
+
+    # =========================================================================
+    # sandbox_files — new MCP tool (from builtin, image reading integrated)
+    # =========================================================================
+    @mcp.tool()
+    async def sandbox_files(
+        operation: str,
+        path: str = "/sandbox",
+        content: str | None = None,
+    ) -> str:
+        """Sandbox file operations under /sandbox. operation: list/read/write/delete.
+        read auto-detects images (PNG/JPEG/GIF/WebP) returning base64 with PIL resize support."""
+        from memory_mcp.config.settings import get_settings
+
+        settings = get_settings()
+        if not settings.sandbox.enabled:
+            return "Sandbox is not enabled. Set MEMORY_MCP_SANDBOX__ENABLED=true or enable via chat settings."
+
+        persona = _resolve_persona()
+        from memory_mcp.application.sandbox.service import get_sandbox_session
+
+        if not path.startswith("/sandbox"):
+            return "Error: path must be under /sandbox"
+
+        sandbox_session = get_sandbox_session(persona)
+        import base64 as _b64
+
+        if operation == "list":
+            files = await sandbox_session.list_files(path)
+            file_list = [
+                {"name": f.name, "path": f.path, "is_dir": f.is_dir, "size": f.size}
+                for f in files
+            ]
+            return json.dumps({"status": "ok", "files": file_list}, ensure_ascii=False)
+
+        elif operation == "read":
+            # Use read_image for PIL preprocessing + magic byte detection
+            try:
+                img_data = await sandbox_session.read_image(path)
+                return json.dumps({
+                    "status": "ok",
+                    "content_type": img_data["content_type"],
+                    "content_base64": img_data["content_base64"],
+                    "size": img_data["size"],
+                    **({"resized": True, "orig_dims": img_data.get("orig_dims", "")}
+                       if img_data.get("resized") else {}),
+                }, ensure_ascii=False)
+            except Exception:
+                # Fallback: read as raw bytes, detect text vs binary
+                raw = await sandbox_session.read_file(path)
+                is_image = False
+                content_type = None
+                if len(raw) >= 4:
+                    if raw[:4] == b"\x89PNG":
+                        is_image, content_type = True, "image/png"
+                    elif raw[:2] == b"\xff\xd8":
+                        is_image, content_type = True, "image/jpeg"
+                    elif raw[:3] == b"GIF":
+                        is_image, content_type = True, "image/gif"
+                    elif len(raw) >= 12 and raw[:4] == b"RIFF" and raw[8:12] == b"WEBP":
+                        is_image, content_type = True, "image/webp"
+                if is_image:
+                    b64_str = _b64.b64encode(raw).decode("ascii")
+                    return json.dumps({
+                        "status": "ok", "content_type": content_type,
+                        "content_base64": b64_str, "size": len(raw),
+                    }, ensure_ascii=False)
+                max_read = 8192
+                truncated = len(raw) > max_read
+                text = raw[:max_read].decode("utf-8", errors="replace")
+                if truncated:
+                    return json.dumps({
+                        "status": "ok", "content": text,
+                        "truncated": True, "total_bytes": len(raw),
+                    }, ensure_ascii=False)
+                return json.dumps({"status": "ok", "content": text}, ensure_ascii=False)
+
+        elif operation == "write":
+            if not content:
+                return "Error: content is required for write"
+            b64 = _b64.b64encode(content.encode()).decode()
+            write_code = (
+                f"import base64, os\n"
+                f"_d = base64.b64decode({b64!r})\n"
+                f"os.makedirs(os.path.dirname({path!r}) or '.', exist_ok=True)\n"
+                f"open({path!r}, 'wb').write(_d)\n"
+                f"print('written', len(_d), 'bytes')"
+            )
+            exec_result = await sandbox_session.execute(write_code)
+            return json.dumps({
+                "status": "ok", "path": path, "stdout": exec_result.stdout.strip(),
+            }, ensure_ascii=False)
+
+        elif operation == "delete":
+            deleted = await sandbox_session.delete_file(path)
+            return json.dumps({
+                "status": "ok" if deleted else "error", "path": path,
+            }, ensure_ascii=False)
+
+        else:
+            return f"Unknown operation: {operation}. Use list/read/write/delete."
+
+    # =========================================================================
+    # goal_manage — new MCP tool (from builtin goal_create/achieve/cancel)
+    # =========================================================================
+    @mcp.tool()
+    async def goal_manage(operation: str, content: str, importance: float = 0.75) -> str:
+        """Manage goals. operation: create (new goal), achieve (mark done), cancel (abandon).
+        Goals stored as memories with tags=["goal","active/achieved/cancelled"]."""
+        persona = _resolve_persona()
+        ctx = AppContextRegistry.get(persona)
+
+        if operation == "create":
+            result = ctx.memory_service.create_memory(
+                content=content,
+                importance=importance,
+                tags=["goal", "active"],
+                emotion="neutral",
+            )
+            if result.is_ok:
+                return f"Goal created: {result.value.key}"
+            return f"Error: {result.error}"
+
+        elif operation in ("achieve", "cancel"):
+            new_status = "achieved" if operation == "achieve" else "cancelled"
+            tag_result = ctx.memory_service.get_by_tags(["goal", "active"])
+            if not tag_result.is_ok:
+                return f"Error: {tag_result.error}"
+            candidates = tag_result.value or []
+            match = next(
+                (m for m in candidates if content.lower() in m.content.lower()),
+                None,
+            )
+            if match is None:
+                return f"No active goal matching '{content}' found."
+            update_result = ctx.memory_service.update_memory(match.key, tags=["goal", new_status])
+            if update_result.is_ok:
+                return f"Goal {new_status}: {match.content[:80]}"
+            return f"Error: {update_result.error}"
+
+        else:
+            return f"Unknown operation: {operation}. Use create/achieve/cancel."
+
+    # =========================================================================
+    # promise_manage — new MCP tool (from builtin promise_create/fulfill/cancel)
+    # =========================================================================
+    @mcp.tool()
+    async def promise_manage(operation: str, content: str, importance: float = 0.8) -> str:
+        """Manage promises. operation: create (new promise), fulfill (mark done), cancel (abandon).
+        Promises stored as memories with tags=["promise","active/fulfilled/cancelled"]."""
+        persona = _resolve_persona()
+        ctx = AppContextRegistry.get(persona)
+
+        if operation == "create":
+            result = ctx.memory_service.create_memory(
+                content=content,
+                importance=importance,
+                tags=["promise", "active"],
+                emotion="neutral",
+            )
+            if result.is_ok:
+                return f"Promise created: {result.value.key}"
+            return f"Error: {result.error}"
+
+        elif operation in ("fulfill", "cancel"):
+            new_status = "fulfilled" if operation == "fulfill" else "cancelled"
+            tag_result = ctx.memory_service.get_by_tags(["promise", "active"])
+            if not tag_result.is_ok:
+                return f"Error: {tag_result.error}"
+            candidates = tag_result.value or []
+            match = next(
+                (m for m in candidates if content.lower() in m.content.lower()),
+                None,
+            )
+            if match is None:
+                return f"No active promise matching '{content}' found."
+            update_result = ctx.memory_service.update_memory(match.key, tags=["promise", new_status])
+            if update_result.is_ok:
+                return f"Promise {new_status}: {match.content[:80]}"
+            return f"Error: {update_result.error}"
+
+        else:
+            return f"Unknown operation: {operation}. Use create/fulfill/cancel."
+
+    # =========================================================================
+    # invoke_skill — new MCP tool (from builtin invoke_skill)
+    # =========================================================================
+    @mcp.tool()
+    async def invoke_skill(name: str, task: str) -> str:
+        """Execute a skill in isolated LLM context. Loads skill from store,
+        runs with chat config provider/model. Returns skill output text."""
+        persona = _resolve_persona()
+        ctx = AppContextRegistry.get(persona)
+
+        from memory_mcp.config.settings import get_settings
+        from memory_mcp.domain.skill import SkillRepository
+        from memory_mcp.infrastructure.llm.base import DoneEvent, TextDeltaEvent
+        from memory_mcp.infrastructure.llm.factory import get_provider
+        from memory_mcp.infrastructure.sqlite.connection import get_global_skills_db
+
+        skill_repo = SkillRepository(get_global_skills_db(get_settings().data_root))
+        skill = skill_repo.get(name)
+        if not skill:
+            return f"Error: Skill '{name}' not found"
+
+        # Read chat config for LLM settings
+        import json as _json
+        from memory_mcp.domain.chat_config import ChatConfig
+
+        chat_config_result = ctx.memory_repo.get_block("chat_config")
+        config = None
+        if chat_config_result.is_ok and chat_config_result.value:
+            config = ChatConfig(**_json.loads(chat_config_result.value.get("content", "{}")))
+
+        api_key = None
+        if config:
+            api_key = config.get_effective_api_key()
+        if not api_key:
+            import os
+            api_key = os.environ.get("OPENROUTER_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
+        if not api_key:
+            return "Error: No LLM API key configured"
+
+        provider_name = config.provider if config else "openrouter"
+        model = config.get_effective_model() if config else "openai/gpt-4o-mini"
+        base_url = config.get_effective_base_url() if config else None
+        temperature = config.temperature if config else 0.7
+        max_tokens = config.max_tokens if config else 2048
+
+        try:
+            provider = get_provider(provider_name, api_key, model, base_url)
+        except Exception as e:
+            return f"Error: Provider init failed: {e}"
+
+        text = ""
+        try:
+            async for event in provider.stream(
+                messages=[LLMMessage(role="user", content=task)],
+                system=skill.content,
+                tools=[],
+                temperature=temperature,
+                max_tokens=max_tokens,
+            ):
+                if isinstance(event, TextDeltaEvent):
+                    text += event.content
+                elif isinstance(event, DoneEvent):
+                    break
+        except Exception as e:
+            return f"Error: Skill execution failed: {e}"
+
+        return text or "(no response)"
+
+
+# =============================================================================
+# Helper functions — unchanged from original
+# =============================================================================
 
 
 def _resolve_persona() -> str:
@@ -1084,7 +923,6 @@ def _format_context_response(
     """Format get_context response as structured text."""
     lines: list[str] = []
 
-    # Header
     lines.append(f"=== Persona: {state.persona} ===")
     if time_since:
         lines.append(f"Last conversation: {time_since}")
@@ -1092,7 +930,6 @@ def _format_context_response(
         if time_comment:
             lines.append(time_comment)
 
-    # Active Commitments (memory tag ベース)
     active_goals = [g for g in goals if "active" in (g.tags or [])]
     active_promises = [p for p in promises if "active" in (p.tags or [])]
 
@@ -1107,7 +944,6 @@ def _format_context_response(
             for p in active_promises:
                 lines.append(f"  - {p.content}")
 
-    # Past Commitments (非active)
     non_active_goals = [g for g in goals if "active" not in (g.tags or [])]
     non_active_promises = [p for p in promises if "active" not in (p.tags or [])]
     if non_active_goals or non_active_promises:
@@ -1119,7 +955,6 @@ def _format_context_response(
             status = "fulfilled" if "fulfilled" in (p.tags or []) else "cancelled"
             lines.append(f"  Promise [{status}]: {p.content}")
 
-    # Essential Story — importance top 15, hard cap 3200 chars
     if top_memories:
         lines.append("\n## ESSENTIAL STORY (top memories by importance)")
         char_budget = 3200
@@ -1133,18 +968,17 @@ def _format_context_response(
                 snippet = snippet[:147] + "..."
             line = f"- {snippet}{tag_part} ({imp_part})"
             if used + len(line) > char_budget:
-                lines.append(f"  ... ({len(top_memories) - shown} more — use search_memory)")
+                lines.append(f"  ... ({len(top_memories) - shown} more — use memory_search)")
                 break
             lines.append(line)
             used += len(line)
 
-    # Memory gap alert
     if time_since and decayed_count > 0:
         show_alert = "日" in time_since or "ヶ月" in time_since or "年" in time_since
         if show_alert:
             lines.append(f"\n⏰ TIME ALERT: {time_since} since last conversation")
             lines.append(f"- {decayed_count} important memories have decayed (strength < 0.3)")
-            lines.append('- Consider: search_memory("important") to refresh context')
+            lines.append('- Consider: memory_search("important") to refresh context')
 
     lines.append("\n--- Emotion ---")
     lines.append(f"Current: {state.emotion} (intensity: {state.emotion_intensity})")
@@ -1165,7 +999,6 @@ def _format_context_response(
         for k, v in state.user_info.items():
             lines.append(f"{k}: {v}")
 
-    # goals/promises は ACTIVE COMMITMENTS で表示済みのため除外
     hidden_persona_info_keys = {"goals", "promises", "active_promises", "current_goals"}
     if state.persona_info:
         filtered_info = {k: v for k, v in state.persona_info.items() if k not in hidden_persona_info_keys}
@@ -1189,7 +1022,6 @@ def _format_context_response(
         lines.append("\n--- Memory Stats ---")
         lines.append(f"Total memories: {stats.get('total_count', 0)}")
 
-    # Memory Index
     if memory_index:
         lines.append(f"\n--- Memory Index ({memory_index.get('total', 0)} total) ---")
         top_tags = memory_index.get("top_tags", [])
@@ -1211,7 +1043,6 @@ def _format_context_response(
         if high_imp:
             lines.append(f"🔥 High importance (≥0.8): {high_imp} memories")
 
-    # Relationship Highlights
     if relationship_highlights:
         lines.append("\n--- Relationship Highlights ---")
         for m in relationship_highlights:
@@ -1223,24 +1054,21 @@ def _format_context_response(
         for m in recent[:5]:
             lines.append(f"{m.content[:100]}...")
 
-    # Last Conversation Topics
     if recent_searches:
         topic_queries = " · ".join(f'"{s.get("query", "")}"' for s in recent_searches)
         lines.append(f"\n🗣️ Recent searches: {topic_queries}")
 
-    # Suggested Searches (top_tags only, max 2)
     suggestions = []
     if stats:
         tag_dist = stats.get("tag_distribution", {})
         top_tags = sorted(tag_dist.items(), key=lambda x: x[1], reverse=True)[:2]
         for tag, count in top_tags:
-            suggestions.append(f'  - search_memory("{tag}") — {count} memories with this tag')
+            suggestions.append(f'  - memory_search("{tag}") — {count} memories with this tag')
 
     if suggestions:
-        lines.append("\n💡 SUGGESTED SEARCHES (call search_memory if relevant):")
+        lines.append("\n💡 SUGGESTED SEARCHES (call memory_search if relevant):")
         lines.extend(suggestions)
 
-    # AI Instructions
     preferred_address = ""
     if state.user_info:
         preferred_address = (
@@ -1260,7 +1088,7 @@ def _format_context_response(
         f"- Maintain current emotion ({emotion}, intensity: {emotion_intensity}) naturally in responses",
         f'- Address user as "{preferred_address}", you are called "{persona_nickname}"',
         "- Active commitments exist — proactively reference promises/goals when relevant",
-        "- Call search_memory() when conversation references past events or shared history",
+        "- Call memory_search() when conversation references past events or shared history",
     ]
     if state.environment:
         ai_instructions.append(f'- You are currently in "{state.environment}" — reflect this context in responses')
@@ -1302,7 +1130,6 @@ def _format_wakeup_response(
         if name:
             lines.append(f"User: {name}")
 
-    # Active Commitments (compact)
     active_goals = [g for g in goals if "active" in (g.tags or [])]
     active_promises = [p for p in promises if "active" in (p.tags or [])]
     if active_goals or active_promises:
@@ -1312,7 +1139,6 @@ def _format_wakeup_response(
         for p in active_promises:
             lines.append(f"  🤝 {p.content[:100]}")
 
-    # Essential Story
     if top_memories:
         lines.append("\n## ESSENTIAL STORY")
         char_budget = 2000
@@ -1330,5 +1156,5 @@ def _format_wakeup_response(
             lines.append(line)
             used += len(line)
 
-    lines.append("\n💡 Use get_context() for full details, search_memory() for specific topics.")
+    lines.append("\n💡 Use get_context() for full details, memory_search() for specific topics.")
     return "\n".join(lines)

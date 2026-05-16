@@ -128,79 +128,59 @@ async def execute_tool(ctx: AppContext, config: ChatConfig, tool_name: str, tool
             task = tool_input.get("task", "")
             return await invoke_skill(ctx, config, skill_name, task)
 
-        elif tool_name == "goal_create":
-            result = ctx.memory_service.create_memory(
-                content=tool_input.get("content", ""),
-                importance=float(tool_input.get("importance", 0.75)),
-                tags=["goal", "active"],
-                emotion="neutral",
-            )
-            if result.is_ok:
-                return {"status": "ok", "key": result.value.key}
-            return {"status": "error", "message": str(result.error)}
+        elif tool_name == "goal_manage":
+            operation = tool_input.get("operation", "")
+            content = tool_input.get("content", "")
+            if operation == "create":
+                imp = float(tool_input.get("importance", 0.75))
+                result = ctx.memory_service.create_memory(
+                    content=content, importance=imp, tags=["goal", "active"], emotion="neutral",
+                )
+                if result.is_ok:
+                    return {"status": "ok", "key": result.value.key}
+                return {"status": "error", "message": str(result.error)}
+            elif operation in ("achieve", "cancel"):
+                new_status = "achieved" if operation == "achieve" else "cancelled"
+                tag_result = ctx.memory_service.get_by_tags(["goal", "active"])
+                if not tag_result.is_ok:
+                    return {"status": "error", "message": str(tag_result.error)}
+                candidates = tag_result.value or []
+                match = next((m for m in candidates if content.lower() in m.content.lower()), None)
+                if match is None:
+                    return {"status": "not_found", "query": content}
+                update_result = ctx.memory_service.update_memory(match.key, tags=["goal", new_status])
+                if update_result.is_ok:
+                    return {"status": "ok", "updated": match.content[:80]}
+                return {"status": "error", "message": str(update_result.error)}
+            else:
+                return {"status": "error", "message": f"Unknown operation: {operation}. Use create/achieve/cancel."}
 
-        elif tool_name in ("goal_achieve", "goal_cancel"):
-            target_content = tool_input.get("content", "").lower()
-            new_status = "achieved" if tool_name == "goal_achieve" else "cancelled"
-            tag_result = ctx.memory_service.get_by_tags(["goal", "active"])
-            if not tag_result.is_ok:
-                return {"status": "error", "message": str(tag_result.error)}
-            candidates = tag_result.value or []
-            match = next(
-                (m for m in candidates if target_content in m.content.lower()),
-                None,
-            )
-            if match is None:
-                return {"status": "not_found", "query": tool_input.get("content", "")}
-            update_result = ctx.memory_service.update_memory(match.key, tags=["goal", new_status])
-            if update_result.is_ok:
-                return {"status": "ok", "updated": match.content[:80]}
-            return {"status": "error", "message": str(update_result.error)}
-
-        elif tool_name == "promise_create":
-            result = ctx.memory_service.create_memory(
-                content=tool_input.get("content", ""),
-                importance=float(tool_input.get("importance", 0.8)),
-                tags=["promise", "active"],
-                emotion="neutral",
-            )
-            if result.is_ok:
-                return {"status": "ok", "key": result.value.key}
-            return {"status": "error", "message": str(result.error)}
-
-        elif tool_name == "promise_fulfill":
-            target_content = tool_input.get("content", "").lower()
-            tag_result = ctx.memory_service.get_by_tags(["promise", "active"])
-            if not tag_result.is_ok:
-                return {"status": "error", "message": str(tag_result.error)}
-            candidates = tag_result.value or []
-            match = next(
-                (m for m in candidates if target_content in m.content.lower()),
-                None,
-            )
-            if match is None:
-                return {"status": "not_found", "query": tool_input.get("content", "")}
-            update_result = ctx.memory_service.update_memory(match.key, tags=["promise", "fulfilled"])
-            if update_result.is_ok:
-                return {"status": "ok", "updated": match.content[:80]}
-            return {"status": "error", "message": str(update_result.error)}
-
-        elif tool_name == "promise_cancel":
-            target_content = tool_input.get("content", "").lower()
-            tag_result = ctx.memory_service.get_by_tags(["promise", "active"])
-            if not tag_result.is_ok:
-                return {"status": "error", "message": str(tag_result.error)}
-            candidates = tag_result.value or []
-            match = next(
-                (m for m in candidates if target_content in m.content.lower()),
-                None,
-            )
-            if match is None:
-                return {"status": "not_found", "query": tool_input.get("content", "")}
-            update_result = ctx.memory_service.update_memory(match.key, tags=["promise", "cancelled"])
-            if update_result.is_ok:
-                return {"status": "ok", "updated": match.content[:80]}
-            return {"status": "error", "message": str(update_result.error)}
+        elif tool_name == "promise_manage":
+            operation = tool_input.get("operation", "")
+            content = tool_input.get("content", "")
+            if operation == "create":
+                imp = float(tool_input.get("importance", 0.8))
+                result = ctx.memory_service.create_memory(
+                    content=content, importance=imp, tags=["promise", "active"], emotion="neutral",
+                )
+                if result.is_ok:
+                    return {"status": "ok", "key": result.value.key}
+                return {"status": "error", "message": str(result.error)}
+            elif operation in ("fulfill", "cancel"):
+                new_status = "fulfilled" if operation == "fulfill" else "cancelled"
+                tag_result = ctx.memory_service.get_by_tags(["promise", "active"])
+                if not tag_result.is_ok:
+                    return {"status": "error", "message": str(tag_result.error)}
+                candidates = tag_result.value or []
+                match = next((m for m in candidates if content.lower() in m.content.lower()), None)
+                if match is None:
+                    return {"status": "not_found", "query": content}
+                update_result = ctx.memory_service.update_memory(match.key, tags=["promise", new_status])
+                if update_result.is_ok:
+                    return {"status": "ok", "updated": match.content[:80]}
+                return {"status": "error", "message": str(update_result.error)}
+            else:
+                return {"status": "error", "message": f"Unknown operation: {operation}. Use create/fulfill/cancel."}
 
         elif tool_name == "memory_update":
             query = tool_input.get("query", "")
@@ -279,35 +259,59 @@ async def execute_tool(ctx: AppContext, config: ChatConfig, tool_name: str, tool
                     "files": [{"name": f.name, "path": f.path, "is_dir": f.is_dir, "size": f.size} for f in files],
                 }
             elif operation == "read":
-                raw = await sandbox.read_file(path)
-                # Detect binary image files by magic bytes
-                is_image = False
-                content_type = None
-                if len(raw) >= 4:
-                    if raw[:4] == b"\x89PNG":
-                        is_image, content_type = True, "image/png"
-                    elif raw[:2] == b"\xff\xd8":
-                        is_image, content_type = True, "image/jpeg"
-                    elif raw[:3] == b"GIF":
-                        is_image, content_type = True, "image/gif"
-                    elif len(raw) >= 12 and raw[:4] == b"RIFF" and raw[8:12] == b"WEBP":
-                        is_image, content_type = True, "image/webp"
-                if is_image:
-                    b64_str = base64.b64encode(raw).decode("ascii")
-                    return {
+                try:
+                    img_data = await sandbox.read_image(path)
+                    result_dict: dict = {
                         "status": "ok",
-                        "content_type": content_type,
-                        "content_base64": b64_str,
-                        "size": len(raw),
+                        "content_type": img_data["content_type"],
+                        "content_base64": img_data["content_base64"],
+                        "size": img_data["size"],
                     }
-                max_read = 8192
-                truncated = len(raw) > max_read
-                text = raw[:max_read].decode("utf-8", errors="replace")
-                read_result: dict = {"status": "ok", "content": text}
-                if truncated:
-                    read_result["truncated"] = True
-                    read_result["total_bytes"] = len(raw)
-                return read_result
+                    if img_data.get("resized"):
+                        result_dict["resized"] = True
+                        result_dict["orig_dims"] = img_data["orig_dims"]
+                        result_dict["message"] = (
+                            f"画像を {img_data['orig_dims']}({img_data['orig_size']}B) から "
+                            f"{img_data['new_dims']}({img_data['new_size']}B) にリサイズしました。"
+                            "この画像の内容を詳細に説明してください。"
+                        )
+                    else:
+                        ct = img_data["content_type"]
+                        result_dict["message"] = (
+                            f"{ct}画像（{img_data['size']}バイト）を読み取りました。"
+                            "この画像の内容を詳細に説明してください。"
+                        )
+                    return result_dict
+                except Exception:
+                    # Fallback to raw read for text files
+                    raw = await sandbox.read_file(path)
+                    is_image = False
+                    content_type = None
+                    if len(raw) >= 4:
+                        if raw[:4] == b"\x89PNG":
+                            is_image, content_type = True, "image/png"
+                        elif raw[:2] == b"\xff\xd8":
+                            is_image, content_type = True, "image/jpeg"
+                        elif raw[:3] == b"GIF":
+                            is_image, content_type = True, "image/gif"
+                        elif len(raw) >= 12 and raw[:4] == b"RIFF" and raw[8:12] == b"WEBP":
+                            is_image, content_type = True, "image/webp"
+                    if is_image:
+                        b64_str = base64.b64encode(raw).decode("ascii")
+                        return {
+                            "status": "ok",
+                            "content_type": content_type,
+                            "content_base64": b64_str,
+                            "size": len(raw),
+                        }
+                    max_read = 8192
+                    truncated = len(raw) > max_read
+                    text = raw[:max_read].decode("utf-8", errors="replace")
+                    read_result: dict = {"status": "ok", "content": text}
+                    if truncated:
+                        read_result["truncated"] = True
+                        read_result["total_bytes"] = len(raw)
+                    return read_result
             elif operation == "write":
                 content_str = tool_input.get("content", "")
                 b64 = base64.b64encode(content_str.encode()).decode()
@@ -325,46 +329,6 @@ async def execute_tool(ctx: AppContext, config: ChatConfig, tool_name: str, tool
                 return {"status": "ok" if deleted else "error", "path": path}
             else:
                 return {"status": "error", "message": f"Unknown operation: {operation}"}
-
-        elif tool_name == "sandbox_image":
-            if not getattr(config, "sandbox_enabled", False):
-                return {"status": "error", "message": "sandbox が無効です。チャット設定で有効化してください。"}
-            from memory_mcp.application.sandbox.service import get_sandbox_session
-
-            path = tool_input.get("path", "")
-            if not path.startswith("/sandbox"):
-                return {"status": "error", "message": "パスは /sandbox 配下のみ許可されています"}
-
-            sandbox = get_sandbox_session(ctx.persona)
-
-            try:
-                img_data = await sandbox.read_image(path)
-            except Exception as e:
-                return {"status": "error", "message": f"画像読み取り失敗: {e}"}
-
-            result: dict = {
-                "status": "ok",
-                "content_type": img_data["content_type"],
-                "content_base64": img_data["content_base64"],
-                "size": img_data["size"],
-            }
-            if img_data.get("resized"):
-                result["resized"] = True
-                result["orig_size"] = img_data["orig_size"]
-                result["orig_dims"] = img_data["orig_dims"]
-                result["message"] = (
-                    f"画像を {img_data['orig_dims']}({img_data['orig_size']}B) から "
-                    f"{img_data['new_dims']}({img_data['new_size']}B) にリサイズしました。"
-                    "この画像の内容を詳細に説明してください。"
-                )
-            else:
-                ct = img_data["content_type"]
-                result["message"] = (
-                    f"{ct}画像（{img_data['size']}バイト）を読み取りました。"
-                    "この画像の内容を詳細に説明してください。"
-                )
-
-            return result
 
         else:
             return {"status": "error", "message": f"Unknown tool: {tool_name}"}

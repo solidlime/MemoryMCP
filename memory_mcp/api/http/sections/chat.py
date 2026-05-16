@@ -1620,7 +1620,7 @@ async function completeGoal(key, content) {
     try {
         const resp = await api('/api/chat/' + encodeURIComponent(S.persona) + '/tool', {
             method: 'POST',
-            body: JSON.stringify({ tool: 'goal_achieve', input: { content } }),
+            body: JSON.stringify({ tool: 'goal_manage', input: { operation: 'achieve', content } }),
         });
         if (resp.status === 'ok') {
             toast('目標を達成しました: ' + (resp.updated || content), 'success');
@@ -1638,7 +1638,7 @@ async function fulfillPromise(key, content) {
     try {
         const resp = await api('/api/chat/' + encodeURIComponent(S.persona) + '/tool', {
             method: 'POST',
-            body: JSON.stringify({ tool: 'promise_fulfill', input: { content } }),
+            body: JSON.stringify({ tool: 'promise_manage', input: { operation: 'fulfill', content } }),
         });
         if (resp.status === 'ok') {
             toast('約束を遂行しました: ' + (resp.updated || content), 'success');
@@ -1902,9 +1902,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (val.startsWith('/memory ')) {
                 handleSlashCommand('memory_create', { content: val.slice(8).trim(), importance: 0.7, tags: [] });
             } else if (val.startsWith('/goal ')) {
-                handleSlashCommand('goal_create', { content: val.slice(6).trim(), importance: 0.8 });
+                handleSlashCommand('goal_manage', { operation: 'create', content: val.slice(6).trim(), importance: 0.8 });
             } else if (val.startsWith('/promise ')) {
-                handleSlashCommand('promise_create', { content: val.slice(9).trim(), importance: 0.8 });
+                handleSlashCommand('promise_manage', { operation: 'create', content: val.slice(9).trim(), importance: 0.8 });
             } else if (val.startsWith('/code ') && S.persona) {
                 handleSlashCommand('execute_code', { code: val.slice(6).trim(), language: 'python' });
             } else {
@@ -1955,13 +1955,15 @@ window.__chatPersonaWatcher = setInterval(() => {
 /* ── Memory tool filtering ── */
 const MEMORY_TOOL_NAMES = new Set([
     // MCP tools
-    'memory', 'search_memory', 'update_context', 'item', 'get_context',
-    // Builtin tools
-    'memory_create', 'memory_search', 'memory_update',
-    'context_update', 'context_recall',
-    'goal_create', 'goal_achieve', 'goal_cancel',
-    'promise_create', 'promise_fulfill', 'promise_cancel',
+    'memory_create', 'memory_read', 'memory_update', 'memory_delete',
+    'memory_search', 'memory_stats',
+    'get_context', 'update_context', 'item',
+    'sandbox', 'sandbox_files',
+    'goal_manage', 'promise_manage',
     'invoke_skill',
+    // Builtin tools
+    'context_update', 'context_recall',
+    'execute_code',
 ]);
 const FILE_OP_TOOLS = new Set(['edit', 'create', 'view', 'bash', 'powershell', 'str_replace_editor',
     'write_file', 'read_file', 'delete_file', 'list_files', 'glob', 'grep']);
@@ -1975,7 +1977,16 @@ function handleMemoryToolCall(evt) {
     const empty = el.querySelector('.memory-empty');
     if (empty) empty.remove();
     const op = evt.input?.operation || '';
-    const icons = { memory:'💾', search_memory:'🔍', update_context:'🔄', item:'🎒', get_context:'📊' };
+    const icons = {
+        memory_create:'💾', memory_read:'📖', memory_update:'✏️', memory_delete:'🗑️',
+        memory_search:'🔍', memory_stats:'📊',
+        get_context:'📊', update_context:'🔄', item:'🎒',
+        sandbox:'🔬', sandbox_files:'📁',
+        goal_manage:'🎯', promise_manage:'🤝',
+        invoke_skill:'🎯',
+        context_update:'🔄', context_recall:'📋',
+        execute_code:'▶️',
+    };
     const icon = icons[evt.name] || '🔧';
     const label = evt.name + (op ? '.' + op : '');
     const id = 'mop-' + (evt.id || (evt.name + Date.now()));

@@ -1,102 +1,127 @@
 # PLAN - やりたいこと
 
-## フロントエンド・ツール改善（2026-05-15）
-チャットWebUI・MCPツールの包括的監査に基づく改善計画。4フェーズに分割。
+## 2026-05-16 MCPツール統合 + コンテキスト最適化（ドッグフーディング後）
 
-### 🔴 Phase 1: バグ修正（即効・低工数）
-- [ ] **旧サンドボックスパネルの死にコード削除** — `chat.py` の CSS 255-416行 + JS 1665-2100行。`#sandbox-panel`, `#sandbox-terminal` 等のDOM要素は既に存在しない
-- [ ] **MEMORY_TOOL_NAMES にbuiltinツール追加** — `chat.py:1673` の Set がMCPツール5個だけで、`memory_create` 等12個不在。メモリパネルにツール結果が表示されない
-- [ ] **caAppendOutput をグローバル公開** — `coding_agent.py:426` の `_appendOutput` を `window.caAppendOutput` に。sandbox結果がCoding Agentパネルに届かない
-- [ ] **switchSandboxTab/sandboxExecuteCmd の二重定義削除** — `chat.py:1744` と `chat.py:2059` の重複
-- [ ] **promise_cancel 追加** — `goal_create/achieve/cancel` に対し promise は create/fulfill のみ。非対称
-- [ ] **sandbox_files list 空問題** — `service.py:list_files` の `entry.stat()` が単一ファイルのOSErrorでループ全体を殺す → エントリ毎try/except化（実装済み、要デプロイ）
-- [ ] **bash実行時の `!` プレフィックス自動除去** — `language="bash"` 時に `!ls` がシェルで解釈不可 → 自動strip（実装済み、要デプロイ）
+### 前提・方針決定
+- **sandbox_image → sandbox_files 統合**: read操作で拡張子自動判別。ツール数削減。
+- **ツール命名は Builtin flat スタイル**: `memory_create` > `memory(operation="create")`。LLM選択精度が段違い。
+- **エンティティグラフ・矛盾検出・メンタルモデル・会話import**: LLMツールから外す。自動処理 or WebUI Adminのみ。
+- **MCPツールのdocstring全般**: 300字キャップ。不要な説明を削る。
+- **BuiltinとMCPの統合**: 同じコードベースで両方にツール提供。flat名で統一。
 
-### 🟡 Phase 2: 設定UIの欠落（低工数）
-- [ ] **enable_memory_tools トグル追加** — チャットLLMに組み込みツールを渡すか制御不可。設定パネルにチェックボックス追加
-- [ ] **extract_max_tokens 入力欄追加** — 事実抽出のトークン制限が512固定。`auto_extract` の横に数値入力追加
-- [ ] **設定の保存ボタンをsticky footer化** — 全スクロール必須の問題
+---
 
-### 🟠 Phase 3: UX改善（中工数）
-- [ ] **設定パネルをアコーディオン化** — 10セクションが280pxサイドバーにフラットスクロール → `<details>` で折りたたみ
-- [ ] **リトライ/編集ボタン** — 最後のアシスタント応答を再生成、ユーザー入力を編集して再送
-- [ ] **スラッシュコマンド** — `/memory`, `/goal`, `/code` でクイック操作。`chat-input` のkeydown監視
-- [ ] **デバッグモードトグル** — バックエンドにあるdebugモードをUIからON/OFF
-- [ ] **Alt+1〜9ショートカットにChatタブ追加** — `base.py:866` に `'chat'` を追加
-- [ ] **温度スライダー値の初期表示修正** — `applyChatConfig()` でスライダー値を明示更新
-- [ ] **添付ファイル表示ラベル復活** — `chat.py:1462` で `CHAT.attachments` をクリアする前に数を保存
-- [ ] **console.log → console.debug** — 本番にデバッグログが露出
+## 🔴 Phase 1: ツール統合・分割（高優先・今セッション）
 
-### 🔵 Phase 4: 新機能（高工数）
-- [ ] **メモリパネルにCRUD操作** — 記憶カードをクリック→編集/削除、goal完了操作を直接UIから
-- [ ] **メモリタイムライン可視化** — 感情色付きの記憶履歴タイムライン（vis-network活用）
-- [ ] **スキルベースのシステムプロンプトテンプレート** — ドロップダウンで切替
-- [ ] **音声入力 🎤** — Web Speech API
-- [ ] **会話エクスポート** — チャットをMarkdown/JSON出力
-- [ ] **Web検索トグル** — チャット入力に「🌐 Web検索」追加
+### T001: sandbox_image → sandbox_files 統合
+- `sandbox_files(operation="read", path=...)` に画像自動検出を統合
+- PIL 読み取り + magic byte → content_base64 + content_type 返却
+- `sandbox_image` ツール定義を削除（definitions.py + builtin.py）
+- 削減: ~200 tokens
 
-### 🟣 Phase 5: ツール不整合（低〜中工数）
-- [ ] **MCP `memory` ツールの死にパラメータ削除** — `context_tags`, `description`, `status` 未使用
-- [ ] **importance検証統一** — MCP createが黙ってclamp、updateがエラー返却 → 両方エラーに統一
-- [ ] **builtin `memory_search` の結果上限を200に** — 現在10件キャップ（MCPは200）
-- [ ] **builtinの感情検証追加** — MCPは `_VALID_EMOTIONS` 21種検証、builtinはスルー
-- [ ] **`search_memory` の死に `mode` パラメータ削除**
+### T002: `memory` god-tool 分割
+現状: 1ツール・21パラメータ・18サブオペレーション (2,096 tokens)
 
-### 🟢 sandbox 追加修正（2026-05-15）
-- [x] **_cleanup_stale_sandbox_container をPython Docker SDKに** — subprocess `docker rm -f` がmemory-mcpコンテナにdocker CLI不在で無言失敗 → `docker.from_env()` に変更（実装済み、要デプロイ）
-- [ ] **sandboxコンテナ手動掃除（1回限り）** — NAS上で `sudo docker exec sandbox-docker docker rm -f sandbox-herta`
-- [ ] **NASで `docker-compose build --no-cache memory-mcp && docker-compose up -d`** — 全修正をデプロイ
+分割後（5ツール）:
+- `memory_crud` — create, read, update, delete, history, stats (6 operation)
+- `memory_block` — block_write, block_read, block_list, block_delete
+- `memory_entity` — entity_search, entity_graph, entity_add_relation
+- `memory_enrich` — enrich, check_contradictions
+- `memory_housekeep` — refresh_context_snapshot, run_mental_model, import_conversation (Admin用)
 
-## Hindsight 分析（2026-05-13）
-vectorize-io/hindsight（13.2k stars）を分析し、MemoryMCP とのギャップを特定。
+...と思ったけどこれだとツール数が増える。ユーザーの「builtinのほうが使用率高い」という観点から、**flat名の単一目的ツール群** にする方がいい。
 
-### 既に実装済み（Hindsight相当以上）
-- Semantic 検索: Qdrant + ruri-v3 ローカル埋め込み
-- Keyword 検索: SQLite LIKE
-- Graph 検索: entity_graph / entity_search / entity_add_relation
-- RRF 融合: RRFRanker（k=60）
-- Cross-encoder リランキング: RerankerModel（japanese-reranker-xsmall-v2）
-- Reflect（内省）: reflection.py（Generative Agents スタイル）
-- 矛盾検出: check_contradictions
-- セッション要約: LLMベース + 日次要約ワーカー
-- エンティティ抽出: 正規表現ベース（人物・場所）
-- 自動タイプ分類: 5タイプ（decision/preference/milestone/problem/emotional）
-- LLM連携: Anthropic / OpenAI / OpenRouter
+**最終形**（MCPツールとして直接登録）:
+```
+memory_create      — 記憶作成
+memory_read        — 記憶読み取り
+memory_update      — 記憶更新
+memory_delete      — 記憶削除
+memory_search      — 記憶検索（search_memory 統合）
+memory_stats       — 統計取得
+get_context        — コンテキスト取得（維持）
+update_context     — 状態更新（維持、docstring圧縮）
+item_add/remove/equip/unequip/search — 分割 or 維持？
+sandbox            — コード実行（ファイル操作は sandbox_files に任せる）
+sandbox_files      — ファイル操作 + 画像読み取り統合
+goal_manage        — goal作成/達成/取消（operationパラメータ）
+promise_manage     — promise作成/遂行/取消（operationパラメータ）
+invoke_skill       — スキル実行
+```
+→ 約18ツール。各docstring 300字以内。総トークン ~2,700 → ~1,200。
 
-### 改善候補（優先度順）
+### T003: goal/promise 6ツール→2ツール
+- `goal_manage(operation, content, importance)` — create/achieve/cancel
+- `promise_manage(operation, content, importance)` — create/fulfill/cancel
+- 6ツール定義削除、2ツール追加
+- 削減: ~216 tokens
 
-#### 🔴 P1: date_range 検索フィルタ統合
-- parse_date_range() は実装済みだが、実際の検索SQLに未統合
-- search_keyword() と Qdrant search() に date_range フィルタを追加
-- これだけで時系列検索が機能するようになる
+### T004: エンティティ・矛盾・メンタルモデル・import を LLM ツールから削除
+- MCPツールシグネチャから entity_*, check_contradictions, run_mental_model, import_conversation を削除
+- entity抽出は memory_create 時に自動実行（既存）
+- 矛盾検出は memory_create/update 時に自動チェック → reflection に記録
+- メンタルモデルは自動トリガー（既存）
+- 会話importは WebUI Import/Export タブのみ
 
-#### 🟠 P2: 重要度の自動評価
-- 現在 importance は手動設定のみ（デフォルト0.5）
-- 案1: LLM で自動評価（openai/anthropic API使用）
-- 案2: ヒューリスティック（単語数・感情強度・タイプなどから計算）
-- type_classifier の結果を importance 計算に活用できるかも
+---
 
-#### 🟡 P3: 関係性の自動抽出
-- エンティティ抽出はあるが、エンティティ間の関係性は手動 add_relation のみ
-- 案1: LLM で「AはBの〜」パターンを抽出
-- 案2: 日本語構文解析（係り受け）で抽出
-- Hindsight の Retain 相当の完全自動構造化を目指す
+## 🟡 Phase 2: docstring 圧縮（中優先）
 
-#### 🟢 P4: メンタルモデル / 抽象化レイヤー
-- 複数記憶からのパターン抽出・抽象化
-- 例: 「ユーザーは朝コーヒーを飲む」×3回 → 「ユーザーは朝コーヒーを飲む習慣がある」
-- 新規設計が必要。Hindsight の Mental Models を参考に
-- Reflection の延長線上にある概念
+### T005: 全ツール docstring ≤300字
+| ツール | 現状 | 目標 | 削減 |
+|--------|------|------|------|
+| memory (god) | 3,820 | 分割で消滅 | 全量 |
+| update_context | 1,892 | 300 | 1,592 |
+| item | 893 | 300 | 593 |
+| search_memory | 833 | 300 | 533 |
+| sandbox | 921 | 300 | 621 |
 
-#### その他（余裕があれば）
-- BM25 キーワード検索（現在 LIKE）
-- 感情自動分析（emotion_type 自動設定）
-- Ollama 等ローカルLLM対応
-- LongMemEval ベンチマーク参加検討
+### T006: update_context パラメータ集約
+- `fatigue`, `warmth`, `arousal`, `heart_rate`, `touch_response` → `body_state: dict`
+- `user_info`, `persona_info` は維持（構造化データのため）
+- パラメータ数: 17 → 11
 
-### MemoryMCP の独自強み（維持すべき）
-- MCP ネイティブ（REST + MCP 両対応）
-- ペルソナ管理（感情・装備・状態）
-- SQLite 軽量運用
-- LLM なしで動作可能
-- Memory Blocks / 物理アイテム管理
+---
+
+## 🟠 Phase 3: コード統合（中優先）
+
+### T007: builtin.py と MCP tools.py の統合
+- builtin.py の execute_tool() if/elif チェーンを削除
+- ToolRegistry が MCP ツール関数を直接呼ぶように変更
+- definitions.py は MCP ツールシグネチャから自動生成
+
+### T008: MCP Server のツール登録を flat 名に
+- 現在の `@mcp.tool()` 6関数 → flat 名の ~18関数に置換
+- 内部実装は同じ domain service を呼ぶ
+- 戻り値は dict 形式に統一
+
+---
+
+## 🔵 Phase 4: 自動化（低優先）
+
+### T009: sandbox 自動クリーンアップ
+- 7日以上前の `.py` ファイルを自動削除
+- `.sandbox-pip-cache/` を file tree から除外
+
+### T010: Goals/Promises 自動ハウスキーピング強化
+- 閾値を10→5に下げる
+- cancelled/achieved から30日経過したものを自動削除
+- 日次要約ワーカーに組み込み
+
+### T011: 日本語フォント対応
+- sandbox に Noto CJK フォントをプリインストール
+- matplotlib のデフォルトフォントを日本語対応に
+
+---
+
+## 🟢 NAS デプロイ（今すぐ）
+- `docker-compose build --no-cache memory-mcp && docker-compose up -d`
+- 本番に今回のWebUI修正（11ファイル・+372/-100行）を反映
+- 動作確認: http://nas:26262
+
+---
+
+## メモ
+- Builtin flat名の方がLLMのツール選択精度が高い（実績あり）
+- MCP god-tool の operation パターンはコードのDRYには良いがLLMには悪い
+- 「コードはDRY、インターフェースはflat」が最適解

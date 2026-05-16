@@ -60,71 +60,37 @@ MEMORY_TOOLS: list[ToolDefinition] = [
         },
     ),
     ToolDefinition(
-        name="goal_create",
-        description="目標を設定する。ユーザーが「〜したい」「〜を目指す」「〜するつもり」と言ったら積極的に使う。",
+        name="goal_manage",
+        description="目標の作成・達成・キャンセルを行う。operation: create（新規作成）/ achieve（達成）/ cancel（キャンセル）。",
         input_schema={
             "type": "object",
             "properties": {
-                "content": {"type": "string", "description": "目標の内容（具体的に）"},
+                "operation": {
+                    "type": "string",
+                    "enum": ["create", "achieve", "cancel"],
+                    "description": "操作種別",
+                },
+                "content": {"type": "string", "description": "目標の内容"},
                 "importance": {"type": "number", "description": "重要度 0.0〜1.0", "default": 0.75},
             },
-            "required": ["content"],
+            "required": ["operation", "content"],
         },
     ),
     ToolDefinition(
-        name="goal_achieve",
-        description="目標を達成済みにする。ユーザーが目標を達成したと言ったら使う。",
+        name="promise_manage",
+        description="約束の作成・履行・キャンセルを行う。operation: create（作成）/ fulfill（履行）/ cancel（キャンセル）。",
         input_schema={
             "type": "object",
             "properties": {
-                "content": {"type": "string", "description": "達成した目標の内容（部分一致でOK）"},
-            },
-            "required": ["content"],
-        },
-    ),
-    ToolDefinition(
-        name="goal_cancel",
-        description="目標をキャンセルする。",
-        input_schema={
-            "type": "object",
-            "properties": {
-                "content": {"type": "string", "description": "キャンセルする目標の内容（部分一致でOK）"},
-            },
-            "required": ["content"],
-        },
-    ),
-    ToolDefinition(
-        name="promise_create",
-        description="約束・コミットメントを記録する。私（ペルソナ）がユーザーに約束したこと、またはユーザーが誰かに約束したことを記録する。",
-        input_schema={
-            "type": "object",
-            "properties": {
+                "operation": {
+                    "type": "string",
+                    "enum": ["create", "fulfill", "cancel"],
+                    "description": "操作種別",
+                },
                 "content": {"type": "string", "description": "約束の内容"},
                 "importance": {"type": "number", "description": "重要度 0.0〜1.0", "default": 0.8},
             },
-            "required": ["content"],
-        },
-    ),
-    ToolDefinition(
-        name="promise_fulfill",
-        description="約束を履行済みにする。",
-        input_schema={
-            "type": "object",
-            "properties": {
-                "content": {"type": "string", "description": "履行した約束の内容（部分一致でOK）"},
-            },
-            "required": ["content"],
-        },
-    ),
-    ToolDefinition(
-        name="promise_cancel",
-        description="約束をキャンセルする。",
-        input_schema={
-            "type": "object",
-            "properties": {
-                "content": {"type": "string", "description": "キャンセルする約束の内容（部分一致でOK）"},
-            },
-            "required": ["content"],
+            "required": ["operation", "content"],
         },
     ),
     ToolDefinition(
@@ -181,7 +147,7 @@ SANDBOX_TOOLS: list[ToolDefinition] = [
         description=(
             "サンドボックスの /sandbox 配下でファイル操作を行う。"
             "operation: list（一覧）/ read（テキスト読み取り）/ write（書き込み）/ delete（削除）。"
-            "画像ファイルを読み取る場合は sandbox_image を使うこと。"
+            "画像ファイルの読み取りにも自動対応（PNG/JPEG/GIF/WebPを検出しbase64で返す）。"
         ),
         input_schema={
             "type": "object",
@@ -204,45 +170,25 @@ SANDBOX_TOOLS: list[ToolDefinition] = [
             "required": ["operation"],
         },
     ),
-    ToolDefinition(
-        name="sandbox_image",
-        description=(
-            "サンドボックス内の画像ファイルを表示して視覚的に分析するための専用ツール。"
-            "PNG/JPEG/GIF/WebP画像を読み取ると、画像が表示され内容を説明できる。"
-            "画像の内容確認・文字起こし・グラフ解釈・写真分析に必ずこのツールを使うこと。"
-            "画像ファイルを分析したい時は、sandbox_files でなくこの sandbox_image を使う。"
-        ),
-        input_schema={
-            "type": "object",
-            "properties": {
-                "path": {
-                    "type": "string",
-                    "description": "画像ファイルのパス（/sandbox 配下、例: /sandbox/photo.png）",
-                },
-            },
-            "required": ["path"],
-        },
-    ),
 ]
 
-# MCPサーバー由来の memory 系ツール名（MEMORY_TOOLS と重複するため除外対象）
+# MCPサーバー由来のツール名（MEMORY_TOOLS と重複するため除外対象）
 _MEMORY_MCP_TOOL_NAMES: frozenset[str] = frozenset(
     {
-        "memory",
-        "search_memory",
+        # MCP flat tools that overlap with builtin
+        "memory_create",
+        "memory_read",
+        "memory_update",
+        "memory_delete",
+        "memory_search",
+        "memory_stats",
         "get_context",
         "update_context",
         "item",
-        "memory_create",
-        "memory_search",
-        "context_update",
-        "goal_create",
-        "goal_achieve",
-        "goal_cancel",
-        "promise_create",
-        "promise_fulfill",
-        "promise_cancel",
-        "memory_update",
-        "context_recall",
+        "sandbox",
+        "sandbox_files",
+        "goal_manage",
+        "promise_manage",
+        "invoke_skill",
     }
 )

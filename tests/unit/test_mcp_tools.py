@@ -83,7 +83,7 @@ def registered_tools(mock_app_context):
 
 
 # ---------------------------------------------------------------------------
-# memory() — create
+# memory_create()
 # ---------------------------------------------------------------------------
 
 
@@ -93,13 +93,13 @@ class TestMemoryCreate:
         tools, ctx, registry = registered_tools
         ctx.memory_service.create_memory.return_value = Success(_mem("mem_new"))
 
-        memory = tools["memory"]
+        memory_create = tools["memory_create"]
         with (
             patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
-            result = await memory(operation="create", content="hello world")
+            result = await memory_create(content="hello world")
 
         assert "mem_new" in result
         ctx.memory_service.create_memory.assert_called_once()
@@ -107,26 +107,26 @@ class TestMemoryCreate:
     @pytest.mark.asyncio
     async def test_create_requires_content(self, registered_tools):
         tools, ctx, _ = registered_tools
-        memory = tools["memory"]
+        memory_create = tools["memory_create"]
         with (
             patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
-            result = await memory(operation="create")
+            result = await memory_create()
         assert "Error" in result
         assert "content" in result
 
     @pytest.mark.asyncio
     async def test_create_invalid_importance(self, registered_tools):
         tools, ctx, _ = registered_tools
-        memory = tools["memory"]
+        memory_create = tools["memory_create"]
         with (
             patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
-            result = await memory(operation="create", content="hi", importance=1.5)
+            result = await memory_create(content="hi", importance=1.5)
         assert "Error" in result
         assert "importance" in result
 
@@ -134,31 +134,31 @@ class TestMemoryCreate:
     async def test_create_unknown_emotion_warns(self, registered_tools):
         tools, ctx, _ = registered_tools
         ctx.memory_service.create_memory.return_value = Success(_mem("mem_x"))
-        memory = tools["memory"]
+        memory_create = tools["memory_create"]
         with (
             patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
-            result = await memory(operation="create", content="hi", emotion_type="rainbow")
+            result = await memory_create(content="hi", emotion_type="rainbow")
         assert "Warning" in result
 
     @pytest.mark.asyncio
     async def test_create_service_failure(self, registered_tools):
         tools, ctx, _ = registered_tools
         ctx.memory_service.create_memory.return_value = Failure(RepositoryError("db error"))
-        memory = tools["memory"]
+        memory_create = tools["memory_create"]
         with (
             patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
-            result = await memory(operation="create", content="hi")
+            result = await memory_create(content="hi")
         assert "Error" in result
 
 
 # ---------------------------------------------------------------------------
-# memory() — read
+# memory_read()
 # ---------------------------------------------------------------------------
 
 
@@ -169,13 +169,13 @@ class TestMemoryRead:
         m = _mem("mem_001", "stored content")
         ctx.memory_service.get_memory.return_value = Success(m)
         ctx.memory_service.boost_recall.return_value = Success(None)
-        memory = tools["memory"]
+        memory_read = tools["memory_read"]
         with (
             patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
-            result = await memory(operation="read", memory_key="mem_001")
+            result = await memory_read(memory_key="mem_001")
         assert "stored content" in result
         assert "mem_001" in result
 
@@ -183,13 +183,13 @@ class TestMemoryRead:
     async def test_read_recent_when_no_key(self, registered_tools):
         tools, ctx, _ = registered_tools
         ctx.memory_service.get_recent.return_value = Success([_mem("k1"), _mem("k2")])
-        memory = tools["memory"]
+        memory_read = tools["memory_read"]
         with (
             patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
-            result = await memory(operation="read")
+            result = await memory_read()
         assert "k1" in result
         assert "k2" in result
 
@@ -197,18 +197,18 @@ class TestMemoryRead:
     async def test_read_by_key_not_found(self, registered_tools):
         tools, ctx, _ = registered_tools
         ctx.memory_service.get_memory.return_value = Failure(RepositoryError("not found"))
-        memory = tools["memory"]
+        memory_read = tools["memory_read"]
         with (
             patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
-            result = await memory(operation="read", memory_key="missing")
+            result = await memory_read(memory_key="missing")
         assert "Error" in result
 
 
 # ---------------------------------------------------------------------------
-# memory() — delete
+# memory_delete()
 # ---------------------------------------------------------------------------
 
 
@@ -219,25 +219,25 @@ class TestMemoryDelete:
         m = _mem("mem_del")
         ctx.memory_service.get_memory.return_value = Success(m)
         ctx.memory_service.delete_memory.return_value = Success(None)
-        memory = tools["memory"]
+        memory_delete = tools["memory_delete"]
         with (
             patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
-            result = await memory(operation="delete", memory_key="mem_del")
+            result = await memory_delete(memory_key="mem_del")
         assert "deleted" in result.lower()
 
     @pytest.mark.asyncio
     async def test_delete_requires_key_or_query(self, registered_tools):
         tools, ctx, _ = registered_tools
-        memory = tools["memory"]
+        memory_delete = tools["memory_delete"]
         with (
             patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
-            result = await memory(operation="delete")
+            result = await memory_delete()
         assert "Error" in result
 
     @pytest.mark.asyncio
@@ -245,18 +245,18 @@ class TestMemoryDelete:
         tools, ctx, _ = registered_tools
         ctx.memory_service.get_memory.return_value = Failure(RepositoryError("not found"))
         ctx.memory_service.delete_memory.return_value = Failure(RepositoryError("not found"))
-        memory = tools["memory"]
+        memory_delete = tools["memory_delete"]
         with (
             patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
-            result = await memory(operation="delete", memory_key="missing")
+            result = await memory_delete(memory_key="missing")
         assert "Error" in result
 
 
 # ---------------------------------------------------------------------------
-# memory() — stats
+# memory_stats()
 # ---------------------------------------------------------------------------
 
 
@@ -265,31 +265,31 @@ class TestMemoryStats:
     async def test_stats_success(self, registered_tools):
         tools, ctx, _ = registered_tools
         ctx.memory_service.get_stats.return_value = Success({"total": 42, "by_emotion": {}})
-        memory = tools["memory"]
+        memory_stats = tools["memory_stats"]
         with (
             patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
-            result = await memory(operation="stats")
+            result = await memory_stats()
         assert "42" in result
 
     @pytest.mark.asyncio
     async def test_stats_failure(self, registered_tools):
         tools, ctx, _ = registered_tools
         ctx.memory_service.get_stats.return_value = Failure(RepositoryError("db error"))
-        memory = tools["memory"]
+        memory_stats = tools["memory_stats"]
         with (
             patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
-            result = await memory(operation="stats")
+            result = await memory_stats()
         assert "Error" in result
 
 
 # ---------------------------------------------------------------------------
-# memory() — update
+# memory_update()
 # ---------------------------------------------------------------------------
 
 
@@ -298,137 +298,47 @@ class TestMemoryUpdate:
     async def test_update_success(self, registered_tools):
         tools, ctx, _ = registered_tools
         ctx.memory_service.update_memory.return_value = Success(_mem("mem_001"))
-        memory = tools["memory"]
+        memory_update = tools["memory_update"]
         with (
             patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
-            result = await memory(operation="update", memory_key="mem_001", content="new content")
+            result = await memory_update(memory_key="mem_001", content="new content")
         assert "updated" in result.lower()
 
     @pytest.mark.asyncio
     async def test_update_requires_key(self, registered_tools):
         tools, ctx, _ = registered_tools
-        memory = tools["memory"]
+        memory_update = tools["memory_update"]
         with (
             patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
-            result = await memory(operation="update")
+            result = await memory_update()
         assert "Error" in result
         assert "memory_key" in result
 
     @pytest.mark.asyncio
     async def test_update_invalid_importance(self, registered_tools):
         tools, ctx, _ = registered_tools
-        memory = tools["memory"]
+        memory_update = tools["memory_update"]
         with (
             patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
-            result = await memory(operation="update", memory_key="k1", importance=-0.1)
+            result = await memory_update(memory_key="k1", importance=-0.1)
         assert "Error" in result
 
 
 # ---------------------------------------------------------------------------
-# memory() — block operations
+# memory_search()
 # ---------------------------------------------------------------------------
 
 
-class TestMemoryBlocks:
-    @pytest.mark.asyncio
-    async def test_block_write_success(self, registered_tools):
-        tools, ctx, _ = registered_tools
-        ctx.memory_service.write_block.return_value = Success(None)
-        memory = tools["memory"]
-        with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
-        ):
-            mock_reg_cls.get.return_value = ctx
-            result = await memory(operation="block_write", block_name="myblock", content="block content")
-        assert "written" in result.lower()
-
-    @pytest.mark.asyncio
-    async def test_block_write_missing_params(self, registered_tools):
-        tools, ctx, _ = registered_tools
-        memory = tools["memory"]
-        with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
-        ):
-            mock_reg_cls.get.return_value = ctx
-            result = await memory(operation="block_write", block_name="b")
-        assert "Error" in result
-
-    @pytest.mark.asyncio
-    async def test_block_read_success(self, registered_tools):
-        tools, ctx, _ = registered_tools
-        ctx.memory_service.read_block.return_value = Success("block data here")
-        memory = tools["memory"]
-        with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
-        ):
-            mock_reg_cls.get.return_value = ctx
-            result = await memory(operation="block_read", block_name="myblock")
-        assert "block data here" in result
-
-    @pytest.mark.asyncio
-    async def test_block_list(self, registered_tools):
-        tools, ctx, _ = registered_tools
-        ctx.memory_service.list_blocks.return_value = Success([{"block_name": "b1", "content": "data"}])
-        memory = tools["memory"]
-        with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
-        ):
-            mock_reg_cls.get.return_value = ctx
-            result = await memory(operation="block_list")
-        assert result  # should return something
-
-    @pytest.mark.asyncio
-    async def test_block_delete_success(self, registered_tools):
-        tools, ctx, _ = registered_tools
-        ctx.memory_service.delete_block.return_value = Success(None)
-        memory = tools["memory"]
-        with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
-        ):
-            mock_reg_cls.get.return_value = ctx
-            result = await memory(operation="block_delete", block_name="myblock")
-        assert "deleted" in result.lower()
-
-
-# ---------------------------------------------------------------------------
-# memory() — unknown operation
-# ---------------------------------------------------------------------------
-
-
-class TestMemoryUnknownOperation:
-    @pytest.mark.asyncio
-    async def test_unknown_operation(self, registered_tools):
-        tools, ctx, _ = registered_tools
-        memory = tools["memory"]
-        with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
-        ):
-            mock_reg_cls.get.return_value = ctx
-            result = await memory(operation="fly_to_moon")
-        assert "Unknown operation" in result
-
-
-# ---------------------------------------------------------------------------
-# search_memory()
-# ---------------------------------------------------------------------------
-
-
-class TestSearchMemory:
+class TestMemorySearch:
     @pytest.mark.asyncio
     async def test_search_returns_results(self, registered_tools):
         tools, ctx, _ = registered_tools
@@ -437,13 +347,13 @@ class TestSearchMemory:
         ctx.memory_service.log_search.return_value = Success(None)
         # search_engine._semantic should exist for the persona assignment
         ctx.search_engine._semantic = None
-        search_memory = tools["search_memory"]
+        memory_search = tools["memory_search"]
         with (
             patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
-            result = await search_memory(query="test query")
+            result = await memory_search(query="test query")
         assert "mem_abc" in result
         assert "0.750" in result
 
@@ -452,25 +362,25 @@ class TestSearchMemory:
         tools, ctx, _ = registered_tools
         ctx.search_engine.search.return_value = Success([])
         ctx.search_engine._semantic = None
-        search_memory = tools["search_memory"]
+        memory_search = tools["memory_search"]
         with (
             patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
-            result = await search_memory(query="nothing")
+            result = await memory_search(query="nothing")
         assert "No results" in result
 
     @pytest.mark.asyncio
     async def test_search_invalid_top_k(self, registered_tools):
         tools, ctx, _ = registered_tools
-        search_memory = tools["search_memory"]
+        memory_search = tools["memory_search"]
         with (
             patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
-            result = await search_memory(query="test", top_k=0)
+            result = await memory_search(query="test", top_k=0)
         assert "Error" in result
 
     @pytest.mark.asyncio
@@ -480,13 +390,13 @@ class TestSearchMemory:
 
         ctx.search_engine.search.return_value = Failure(SearchError("vector store down"))
         ctx.search_engine._semantic = None
-        search_memory = tools["search_memory"]
+        memory_search = tools["memory_search"]
         with (
             patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
-            result = await search_memory(query="test")
+            result = await memory_search(query="test")
         assert "Error" in result
 
     @pytest.mark.asyncio
@@ -495,13 +405,13 @@ class TestSearchMemory:
         ctx.search_engine.search.return_value = Success([])
         ctx.search_engine._semantic = None
         ctx.memory_service.log_search.return_value = Success(None)
-        search_memory = tools["search_memory"]
+        memory_search = tools["memory_search"]
         with (
             patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
-            await search_memory(
+            await memory_search(
                 query="test",
                 top_k=3,
                 tags=["goal"],
