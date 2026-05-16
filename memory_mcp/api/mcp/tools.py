@@ -104,19 +104,21 @@ async def _tool_get_context(ctx: AppContext, persona: str, mode: str = "") -> st
             relationship_highlights, top_memories,
         )
 
-    # Default: lightweight (active commitments + essential story only)
+    # Default: lightweight — essentials for seamless persona + conversation restoration
     goals_result = ctx.memory_service.get_by_tags(["goal"])
     goals = goals_result.value if goals_result.is_ok else []
     promises_result = ctx.memory_service.get_by_tags(["promise"])
     promises = promises_result.value if promises_result.is_ok else []
+    equip_result = ctx.equipment_service.get_equipment()
+    equipment = equip_result.value if equip_result.is_ok else {}
+    # Recent memories (last 5) for conversation continuity across sessions
+    recent_result = ctx.memory_service.get_recent(5)
+    recent = recent_result.value if recent_result.is_ok else []
     time_since = ""
     if state.last_conversation_time:
         time_since = relative_time_str(state.last_conversation_time)
-    # Quick stats for total count only (lightweight)
-    stats_result = ctx.memory_service.get_stats()
-    total_count = stats_result.value.get("total_count", "?") if stats_result.is_ok else "?"
     ctx.persona_service.record_conversation_time(persona)
-    return _format_wakeup_response(state, top_memories, goals, promises, time_since, total_count)
+    return _format_lightweight_response(state, top_memories, goals, promises, equipment, recent, time_since)
 
 
 async def _tool_memory_create(
@@ -1121,11 +1123,11 @@ def _format_context_response(
     return "\n".join(lines)
 
 
-def _format_wakeup_response(
-    state: PersonaState, top_memories: list, goals: list, promises: list, time_since: str = "",
-    total_count: int | str = "?",
+def _format_lightweight_response(
+    state: PersonaState, top_memories: list, goals: list, promises: list,
+    equipment: dict, recent: list, time_since: str = "",
 ) -> str:
-    """Lightweight context (~400-600 tokens): identity + essential story + memory count."""
+    """Lightweight context (~600-800 tokens): persona + conversation continuity."""
     lines: list[str] = []
 
     lines.append(f"=== Persona: {state.persona} ===")
@@ -1134,10 +1136,15 @@ def _format_wakeup_response(
         time_comment = _build_time_comment(time_since, state.relationship_status)
         if time_comment:
             lines.append(time_comment)
+
+    # Identity
     lines.append(f"Emotion: {state.emotion} (intensity: {state.emotion_intensity})")
     if state.speech_style:
         lines.append(f"Speech Style: {state.speech_style}")
-    lines.append(f"Memories: {total_count}")
+    if state.relationship_status:
+        lines.append(f"Relationship: {state.relationship_status}")
+
+    # User info
     if state.user_info:
         name = (
             state.user_info.get("preferred_address")
@@ -1146,6 +1153,27 @@ def _format_wakeup_response(
         )
         if name:
             lines.append(f"User: {name}")
+
+    # Physical / mental state + action
+    state_parts = []
+    if state.physical_state:
+        state_parts.append(f"Physical: {state.physical_state}")
+    if state.mental_state:
+        state_parts.append(f"Mental: {state.mental_state}")
+    if state.environment:
+        state_parts.append(f"Environment: {state.environment}")
+    if state.action_tag:
+        state_parts.append(f"Action: {state.action_tag}")
+    if state_parts:
+        lines.append("State: " + " | ".join(state_parts))
+
+    # Equipment
+    equipped = {k: v for k, v in equipment.items() if v}
+    if equipped:
+        eq_parts = [f"{slot}: {name}" for slot, name in equipped.items()]
+        lines.append("Equipment: " + ", ".join(eq_parts))
+
+    # Active commitments (compact)
     active_goals = [g for g in goals if "active" in (g.tags or [])]
     active_promises = [p for p in promises if "active" in (p.tags or [])]
     if active_goals or active_promises:
@@ -1154,6 +1182,28 @@ def _format_wakeup_response(
             lines.append(f"  🎯 {g.content[:100]}")
         for p in active_promises:
             lines.append(f"  🤝 {p.content[:100]}")
+
+    # Recent memories — conversation continuity across sessions
+    if recent:
+        lines.append("\n--- Recent ---")
+        for m in recent[:5]:
+            snippet = m.content.replace("\n", " ")
+            if len(snippet) > 100:
+                snippet = snippet[:97] + "..."
+            lines.append(f"- {snippet}")
+
+        # Synthesize current context from recent memory tags (no LLM call needed)
+        recent_tags: set[str] = set()
+        for m in recent[:8]:
+            for t in (m.tags or [])[:3]:
+                t_clean = t.strip().lower()
+                if t_clean not in ("active", "cancelled", "achieved", "fulfilled", "mental_state"):
+                    recent_tags.add(t_clean)
+        if recent_tags:
+            top_tags = sorted(recent_tags)[:6]
+            lines.append(f"📌 Current context: {', '.join(top_tags)}")
+
+    # Essential Story
     if top_memories:
         lines.append("\n## ESSENTIAL STORY")
         char_budget = 2000
@@ -1170,5 +1220,6 @@ def _format_wakeup_response(
                 break
             lines.append(line)
             used += len(line)
-    lines.append("\n💡 Use get_context() for full details, memory_search() for specific topics.")
+
+    lines.append("\n💡 Use get_context(mode=\"full\") for complete context, memory_search() for specific topics.")
     return "\n".join(lines)
