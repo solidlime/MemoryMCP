@@ -120,6 +120,10 @@ async def _build_context_section(ctx: AppContext, state) -> str:
     """get_context() 同等の充実したコンテキストサマリーを構築する。"""
     parts: list[str] = []
 
+    # 現在時刻
+    now_jst = get_now()
+    parts.append(f"現在: {now_jst.strftime('%Y年%m月%d日 %H:%M')} (JST)")
+
     last_conv = getattr(state, "last_conversation_time", None)
     if last_conv:
         time_since = relative_time_str(last_conv)
@@ -201,9 +205,13 @@ async def _build_context_section(ctx: AppContext, state) -> str:
         if active_goals or active_promises:
             commit_lines: list[str] = []
             for g in active_goals:
-                commit_lines.append(f"  🎯 [Goal] {g.content}")
+                ts = relative_time_str(g.created_at) if getattr(g, "created_at", None) else ""
+                ts_str = f" ({ts}前)" if ts else ""
+                commit_lines.append(f"  🎯 [Goal] {g.content}{ts_str}")
             for p in active_promises:
-                commit_lines.append(f"  🤝 [Promise] {p.content}")
+                ts = relative_time_str(p.created_at) if getattr(p, "created_at", None) else ""
+                ts_str = f" ({ts}前)" if ts else ""
+                commit_lines.append(f"  🤝 [Promise] {p.content}{ts_str}")
             parts.append("アクティブなコミットメント:\n" + "\n".join(commit_lines))
     except Exception as e:
         logger.debug("Failed to fetch goals/promises: %s", e)
@@ -227,6 +235,16 @@ async def _build_context_section(ctx: AppContext, state) -> str:
                 parts.append("行動パターン:\n" + "\n".join(f"  🧩 {p}" for p in patterns))
     except Exception as e:
         logger.debug("Failed to fetch mental models: %s", e)
+
+    # Session summaries（直近の会話要約）
+    try:
+        summary_result = ctx.memory_service.get_by_tags(["session_summary"])
+        if summary_result.is_ok and summary_result.value:
+            summaries = [s.content for s in summary_result.value[:2] if s.content]
+            if summaries:
+                parts.append("最近の会話要約:\n" + "\n".join(f"  📝 {s}" for s in summaries))
+    except Exception as e:
+        logger.debug("Failed to fetch session summaries: %s", e)
 
     try:
         equip_result = ctx.equipment_service.get_equipment()

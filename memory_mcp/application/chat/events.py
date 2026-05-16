@@ -110,3 +110,23 @@ class SessionSummarizedSSE:
 
     def to_sse(self) -> str:
         return _sse_encode("session_summarized", {"summary": self.summary})
+
+
+@dataclass
+class ContextUpdateSSE:
+    """Persona state changes detected during turn processing."""
+
+    update: dict  # {"emotion": "...", "mental_state": "...", "physical_state": "...", etc}
+
+    def to_sse(self) -> str:
+        return _sse_encode("context_update", {"update": self.update})
+
+
+@dataclass
+class InventoryUpdateSSE:
+    """Equipment/inventory changes detected during turn processing."""
+
+    update: dict  # {"equip": {...}, "unequip": [...], "add_items": [...], ...}
+
+    def to_sse(self) -> str:
+        return _sse_encode("inventory_update", {"update": self.update})

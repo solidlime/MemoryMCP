@@ -6,11 +6,14 @@ import asyncio
 from typing import TYPE_CHECKING
 
 from memory_mcp.application.chat.events import (
+    ContextUpdateSSE,
     DebugInfoSSE,
     DoneSSE,
+    InventoryUpdateSSE,
     MemoryActivitySSE,
     ReflectionDoneSSE,
     ReflectionStartSSE,
+    SessionSummarizedSSE,
 )
 from memory_mcp.application.chat.memory_llm import run_context_housekeeping, run_memory_llm
 from memory_mcp.application.chat.pattern_detector import maybe_run_mental_model
@@ -30,14 +33,16 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-async def _do_summarize(ctx: AppContext, config: ChatConfig, turns: list[dict]) -> None:
-    """Fire-and-forget summarization helper."""
+async def _do_summarize(ctx: AppContext, config: ChatConfig, turns: list[dict]) -> str | None:
+    """Summarization helper. Returns summary if generated."""
     try:
         summary = await summarize_and_store(ctx, config, turns)
         if summary:
             logger.info("Session summarized: %s...", summary[:50])
+        return summary
     except Exception as e:
         logger.warning("_do_summarize error: %s", e)
+        return None
 
 
 class PostProcessStep:
@@ -50,18 +55,37 @@ class PostProcessStep:
         session: SessionWindow,
         turn_ctx: ChatTurnContext,
         debug: bool = False,
-    ) -> AsyncIterator[DebugInfoSSE | DoneSSE | MemoryActivitySSE | ReflectionStartSSE | ReflectionDoneSSE]:
+    ) -> AsyncIterator[
+        DebugInfoSSE
+        | DoneSSE
+        | MemoryActivitySSE
+        | ReflectionStartSSE
+        | ReflectionDoneSSE
+        | SessionSummarizedSSE
+        | ContextUpdateSSE
+        | InventoryUpdateSSE
+    ]:
         # evict_callback を設定してからセッションにターンを追加
+        _summary_tasks: list[asyncio.Task] = []
         if getattr(config, "session_summarize", True) and getattr(config, "extract_model", ""):
 
             def _evict_cb(evicted: list[dict]) -> None:
-                asyncio.create_task(_do_summarize(ctx, config, evicted))
+                _summary_tasks.append(asyncio.create_task(_do_summarize(ctx, config, evicted)))
 
             session.evict_callback = _evict_cb
 
         now = get_now()
         session.add("user", turn_ctx.user_message, now)
         session.add("assistant", turn_ctx.full_response, get_now())
+
+        # SessionSummarizedSSE: await collected summary tasks
+        for task in _summary_tasks:
+            try:
+                summary = await task
+                if summary:
+                    yield SessionSummarizedSSE(summary=summary)
+            except Exception as e:
+                logger.warning("SessionSummarizedSSE failed: %s", e)
 
         # 最終会話時刻を記録
         try:
@@ -103,7 +127,7 @@ class PostProcessStep:
         # MemoryActivitySSE: 取得された記憶と保存された記憶・goals・promises を通知
         retrieved_for_sse = turn_ctx.memories_raw[:5]
         saved_facts = [
-            {"content": f.get("content", ""), "tags": f.get("tags", [])}
+            {"content": f.get("content", ""), "tags": f.get("tags", []), "emotion": f.get("emotion_type", "neutral")}
             for f in memory_result.get("facts", [])
             if f.get("content")
         ]
@@ -117,6 +141,20 @@ class PostProcessStep:
             goals=saved_goals,
             promises=saved_promises,
         )
+
+        # ContextUpdateSSE: notify frontend of persona state changes
+        context_update = memory_result.get("context_update")
+        if context_update:
+            non_null = {k: v for k, v in context_update.items() if v is not None}
+            if non_null:
+                yield ContextUpdateSSE(update=non_null)
+
+        # InventoryUpdateSSE: notify frontend of equipment changes
+        inventory_update = memory_result.get("inventory_update")
+        if inventory_update:
+            non_empty = {k: v for k, v in inventory_update.items() if v}
+            if non_empty:
+                yield InventoryUpdateSSE(update=non_empty)
 
         # debug_info SSE — only when debug flag is enabled
         if debug:

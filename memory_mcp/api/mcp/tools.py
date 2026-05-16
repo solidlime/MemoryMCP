@@ -9,7 +9,7 @@ from mcp.server.fastmcp import FastMCP  # noqa: TC002
 from memory_mcp.api.mcp.middleware import get_current_persona
 from memory_mcp.application.use_cases import AppContextRegistry
 from memory_mcp.domain.search.engine import SearchQuery
-from memory_mcp.domain.shared.time_utils import relative_time_str
+from memory_mcp.domain.shared.time_utils import get_now, relative_time_str
 
 logger = logging.getLogger(__name__)
 
@@ -107,9 +107,12 @@ async def _tool_get_context(ctx: AppContext, persona: str, mode: str = "") -> st
         memory_index = index_result.value if index_result.is_ok else None
         highlights_result = ctx.memory_service.get_relationship_highlights(5)
         relationship_highlights = highlights_result.value if highlights_result.is_ok else []
+        summary_result = ctx.memory_service.get_by_tags(["session_summary"])
+        session_summaries = summary_result.value if summary_result.is_ok else []
         time_since = ""
         if state.last_conversation_time:
             time_since = relative_time_str(state.last_conversation_time)
+        current_time = get_now().strftime("%Y年%m月%d日 %H:%M")
         ctx.persona_service.record_conversation_time(persona)
         return _format_context_response(
             state,
@@ -118,6 +121,7 @@ async def _tool_get_context(ctx: AppContext, persona: str, mode: str = "") -> st
             equipment,
             blocks,
             time_since,
+            current_time,
             goals,
             promises,
             recent_searches,
@@ -128,6 +132,7 @@ async def _tool_get_context(ctx: AppContext, persona: str, mode: str = "") -> st
             emotion_history,
             reflections,
             mental_models,
+            session_summaries,
         )
 
     # Default: lightweight — essentials for seamless persona + conversation restoration
@@ -147,6 +152,7 @@ async def _tool_get_context(ctx: AppContext, persona: str, mode: str = "") -> st
     time_since = ""
     if state.last_conversation_time:
         time_since = relative_time_str(state.last_conversation_time)
+    current_time = get_now().strftime("%Y年%m月%d日 %H:%M")
     ctx.persona_service.record_conversation_time(persona)
     return _format_lightweight_response(
         state,
@@ -159,6 +165,8 @@ async def _tool_get_context(ctx: AppContext, persona: str, mode: str = "") -> st
         emotion_history,
         reflections,
         mental_models,
+        None,
+        current_time,
     )
 
 
@@ -1172,8 +1180,9 @@ def _format_context_response(
     equipment: dict,
     blocks: list,
     time_since: str,
-    goals: list,
-    promises: list,
+    current_time: str = "",
+    goals: list = None,
+    promises: list = None,
     recent_searches: list | None = None,
     decayed_count: int = 0,
     memory_index: dict | None = None,
@@ -1182,9 +1191,12 @@ def _format_context_response(
     emotion_history: list | None = None,
     reflections: list | None = None,
     mental_models: list | None = None,
+    session_summaries: list | None = None,
 ) -> str:
     lines: list[str] = []
     lines.append(f"=== YOU ARE: {state.persona} (right now) ===")
+    if current_time:
+        lines.append(f"現在: {current_time} (JST)")
     if time_since:
         lines.append(f"Last active: {time_since}")
         time_comment = _build_time_comment(time_since, state.relationship_status)
@@ -1198,11 +1210,15 @@ def _format_context_response(
         if active_goals:
             lines.append("🎯 Goals:")
             for g in active_goals:
-                lines.append(f"  - {g.content}")
+                ts = relative_time_str(g.created_at) if getattr(g, "created_at", None) else ""
+                ts_str = f" ({ts}前)" if ts else ""
+                lines.append(f"  - {g.content}{ts_str}")
         if active_promises:
             lines.append("🤝 Promises:")
             for p in active_promises:
-                lines.append(f"  - {p.content}")
+                ts = relative_time_str(p.created_at) if getattr(p, "created_at", None) else ""
+                ts_str = f" ({ts}前)" if ts else ""
+                lines.append(f"  - {p.content}{ts_str}")
 
     non_active_goals = [g for g in goals if "active" not in (g.tags or [])]
     non_active_promises = [p for p in promises if "active" not in (p.tags or [])]
@@ -1401,6 +1417,13 @@ def _format_context_response(
             for p in patterns:
                 lines.append(f"  🧩 {p}")
 
+    if session_summaries:
+        summaries = [s.content for s in session_summaries[:2] if s.content]
+        if summaries:
+            lines.append("\n--- Recent Session Summaries ---")
+            for s in summaries:
+                lines.append(f"  📝 {s}")
+
     return "\n".join(lines)
 
 
@@ -1415,12 +1438,16 @@ def _format_lightweight_response(
     emotion_history: list | None = None,
     reflections: list | None = None,
     mental_models: list | None = None,
+    session_summaries: list | None = None,
+    current_time: str = "",
 ) -> str:
     """Lightweight context (~700-900 tokens): persona + conversation continuity + body state."""
     lines: list[str] = []
 
     # ── Self-referential header: "YOU ARE this persona RIGHT NOW" ──
     lines.append(f"=== YOU ARE: {state.persona} (right now) ===")
+    if current_time:
+        lines.append(f"Now: {current_time} (JST)")
     if time_since:
         lines.append(f"Last active: {time_since}")
         time_comment = _build_time_comment(time_since, state.relationship_status)
@@ -1497,9 +1524,13 @@ def _format_lightweight_response(
     if active_goals or active_promises:
         lines.append("\n⚠️ YOUR ACTIVE COMMITMENTS:")
         for g in active_goals:
-            lines.append(f"  🎯 {g.content[:100]}")
+            ts = relative_time_str(g.created_at) if getattr(g, "created_at", None) else ""
+            ts_str = f" ({ts}前)" if ts else ""
+            lines.append(f"  🎯 {g.content[:100]}{ts_str}")
         for p in active_promises:
-            lines.append(f"  🤝 {p.content[:100]}")
+            ts = relative_time_str(p.created_at) if getattr(p, "created_at", None) else ""
+            ts_str = f" ({ts}前)" if ts else ""
+            lines.append(f"  🤝 {p.content[:100]}{ts_str}")
 
     # Recent memories — conversation continuity across sessions
     if recent:
@@ -1508,7 +1539,9 @@ def _format_lightweight_response(
             snippet = m.content.replace("\n", " ")
             if len(snippet) > 100:
                 snippet = snippet[:97] + "..."
-            lines.append(f"- {snippet}")
+            ts = relative_time_str(m.created_at) if getattr(m, "created_at", None) else ""
+            ts_str = f" ({ts}前)" if ts else ""
+            lines.append(f"- {snippet}{ts_str}")
 
         # Synthesize current context from recent memory tags (no LLM call needed)
         recent_tags: set[str] = set()
