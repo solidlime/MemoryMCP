@@ -156,7 +156,9 @@ class TestGoalManage:
         assert "Goal achieved" in result
         assert "learn python" in result
         ctx.memory_service.get_memory.assert_called_once_with("goal_001")
-        ctx.memory_service.update_memory.assert_called_once_with("goal_001", tags=["goal", "achieved"])
+        ctx.memory_service.update_memory.assert_called_once_with(
+            "goal_001", importance=0.9, tags=["goal", "achieved", "archived"]
+        )
 
     @pytest.mark.asyncio
     async def test_achieve_goal_by_content(self, registered_tools):
@@ -176,7 +178,9 @@ class TestGoalManage:
         assert "Goal achieved" in result
         assert "learn python" in result
         ctx.memory_service.get_by_tags.assert_called_once_with(["goal", "active"])
-        ctx.memory_service.update_memory.assert_called_once_with("goal_001", tags=["goal", "achieved"])
+        ctx.memory_service.update_memory.assert_called_once_with(
+            "goal_001", importance=0.9, tags=["goal", "achieved", "archived"]
+        )
 
     @pytest.mark.asyncio
     async def test_achieve_goal_by_content_case_insensitive(self, registered_tools):
@@ -282,7 +286,9 @@ class TestGoalManage:
         assert "Goal cancelled" in result
         assert "learn python" in result
         ctx.memory_service.get_memory.assert_called_once_with("goal_001")
-        ctx.memory_service.update_memory.assert_called_once_with("goal_001", tags=["goal", "cancelled"])
+        ctx.memory_service.update_memory.assert_called_once_with(
+            "goal_001", importance=0.9, tags=["goal", "cancelled", "archived"]
+        )
 
     @pytest.mark.asyncio
     async def test_cancel_goal_by_content(self, registered_tools):
@@ -407,7 +413,9 @@ class TestPromiseManage:
         assert "Promise fulfilled" in result
         assert "I will help" in result
         ctx.memory_service.get_memory.assert_called_once_with("prom_001")
-        ctx.memory_service.update_memory.assert_called_once_with("prom_001", tags=["promise", "fulfilled"])
+        ctx.memory_service.update_memory.assert_called_once_with(
+            "prom_001", importance=0.9, tags=["promise", "fulfilled", "archived"]
+        )
 
     @pytest.mark.asyncio
     async def test_fulfill_promise_by_content(self, registered_tools):

@@ -712,7 +712,9 @@ async def _tool_goal_manage(
             match = next((m for m in candidates if content.strip().lower() == m.content.strip().lower()), None)
             if match is None:
                 return {"ok": False, "error": f"No active goal matching '{content}' found."}
-        update_result = ctx.memory_service.update_memory(match.key, tags=["goal", new_status])
+        new_importance = max(match.importance, 0.9)
+        new_tags = ["goal", new_status, "archived"]
+        update_result = ctx.memory_service.update_memory(match.key, importance=new_importance, tags=new_tags)
         if update_result.is_ok:
             return {"ok": True, "status": new_status, "content": match.content[:80]}
         return {"ok": False, "error": update_result.error}
@@ -755,7 +757,9 @@ async def _tool_promise_manage(
             match = next((m for m in candidates if content.strip().lower() == m.content.strip().lower()), None)
             if match is None:
                 return {"ok": False, "error": f"No active promise matching '{content}' found."}
-        update_result = ctx.memory_service.update_memory(match.key, tags=["promise", new_status])
+        new_importance = max(match.importance, 0.9)
+        new_tags = ["promise", new_status, "archived"]
+        update_result = ctx.memory_service.update_memory(match.key, importance=new_importance, tags=new_tags)
         if update_result.is_ok:
             return {"ok": True, "status": new_status, "content": match.content[:80]}
         return {"ok": False, "error": update_result.error}
@@ -1272,6 +1276,10 @@ def _format_lightweight_response(
 
     # Current state block — compact body/mind/action/speech overview
     lines.append(_format_state_block(state))
+
+    # Speech style reminder — critical for persona voice consistency
+    if state.speech_style:
+        lines.append(f"\n🗣️ REMEMBER — Your speaking style: {state.speech_style}")
 
     # State diff note if time has passed
     diff_note = _format_state_diff(time_since)
