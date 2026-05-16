@@ -4,7 +4,7 @@ Uses httpx.AsyncClient with ASGI transport against a real Starlette app
 backed by a temporary SQLite database.  Qdrant is intentionally unavailable
 so that keyword-fallback behaviour is also verified.
 
-Covers endpoints *not* already exercised by test_dashboard_e2e.py:
+Covers endpoints *not* already exercised by test_dashboard_integration.py:
   - POST /api/memories/{persona}      create memory
   - PUT  /api/memories/{persona}/{key} update memory
   - DELETE /api/memories/{persona}/{key} delete memory

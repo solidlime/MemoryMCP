@@ -460,7 +460,6 @@ python -m memory_mcp.cli stats --persona herta
 |---|---|---|
 | `ci.yml` | push / PR | テスト + Lint（ruff） |
 | `docker.yml` | タグ push | Docker イメージビルド → GHCR |
-| `e2e.yml` | 週次 + 手動 | E2E ドッグフーディングテスト |
 
 ## 技術スタック
 

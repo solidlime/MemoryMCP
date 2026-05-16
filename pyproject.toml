@@ -21,7 +21,6 @@ asyncio_mode = "auto"
 markers = [
     "unit: Unit tests (no external dependencies)",
     "integration: Integration tests (requires DB)",
-    "e2e: End-to-end dogfooding tests",
     "slow: Slow tests (embedding model loading etc)",
     "benchmark: Performance benchmark tests",
 ]

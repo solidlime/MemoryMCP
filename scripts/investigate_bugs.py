@@ -11,7 +11,7 @@ from playwright.sync_api import sync_playwright
 BASE_URL = "http://nas:26262"
 PERSONA = "herta"
 DASHBOARD_URL = BASE_URL  # dashboard は / で提供される
-SCREENSHOTS_DIR = Path(__file__).parent.parent / "tests" / "e2e" / "screenshots" / "investigation"
+SCREENSHOTS_DIR = Path(__file__).parent / "screenshots" / "investigation"
 
 TABS = [
     "overview",

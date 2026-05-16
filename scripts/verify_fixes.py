@@ -53,7 +53,7 @@ async def main():
                     print(f"  ❌ Modal NOT visible (display={display}, show={has_show})")
             else:
                 print("  ❌ #mem-modal-overlay not in DOM")
-        await pg.screenshot(path="tests/e2e/screenshots/investigation/verify_modal.png")
+        await pg.screenshot(path="scripts/screenshots/investigation/verify_modal.png")
 
         # --- JS errors ---
         real_errors = [e for e in errors if "tailwind" not in e.text]

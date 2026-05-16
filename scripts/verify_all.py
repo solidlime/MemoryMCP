@@ -46,7 +46,7 @@ async def main():
         results.append((container is not None, "Graph #graph-container preserved after skeleton"))
 
         # ── 3. Graph tooltip returns DOM element (no raw HTML) ─────────
-        await pg.screenshot(path="tests/e2e/screenshots/investigation/verify_graph_tooltip.png")
+        await pg.screenshot(path="scripts/screenshots/investigation/verify_graph_tooltip.png")
         # Hover over first visible node via JS evaluation
         tooltip_ok = await pg.evaluate("""() => {
             if (typeof buildTooltip === 'undefined') return 'no buildTooltip fn';
@@ -79,7 +79,7 @@ async def main():
         # ── 6. No JS errors ────────────────────────────────────────────
         results.append((len(js_errors) == 0, f"No JS errors ({len(js_errors)} found: {js_errors[:2]})"))
 
-        await pg.screenshot(path="tests/e2e/screenshots/investigation/verify_all_final.png")
+        await pg.screenshot(path="scripts/screenshots/investigation/verify_all_final.png")
         await br.close()
 
     print("\n" + "="*60)

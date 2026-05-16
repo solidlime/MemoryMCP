@@ -3,7 +3,7 @@ from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
-SCREENSHOTS = Path("tests/e2e/screenshots/investigation")
+SCREENSHOTS = Path("scripts/screenshots/investigation")
 SCREENSHOTS.mkdir(parents=True, exist_ok=True)
 
 with sync_playwright() as p:
