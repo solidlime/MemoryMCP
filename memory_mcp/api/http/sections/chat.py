@@ -145,8 +145,14 @@ def render_chat_tab() -> str:
             border: 1px solid var(--glass-border);
             border-radius: 10px;
             background: rgba(255,255,255,0.02);
+            transition: border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                        background 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                        box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                        transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        /* Clip rounded corners only when closed (avoids breaking sticky summary) */
+        #settings-panel details:not([open]) {
             overflow: hidden;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         #settings-panel details:not([open]):hover {
@@ -174,7 +180,9 @@ def render_chat_tab() -> str:
             background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%);
             border-bottom: 1px solid transparent;
             user-select: none;
-            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: background 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                        color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                        border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1);
             display: flex;
             align-items: center;
             gap: 8px;
@@ -206,20 +214,12 @@ def render_chat_tab() -> str:
             color: var(--text-primary);
         }
 
-        /* Animated accordion body */
+        /* Accordion body - subtle fade, no layout shift */
         #settings-panel details .details-body {
             padding: 14px;
             display: flex;
             flex-direction: column;
             gap: 12px;
-            opacity: 0;
-            transform: translateY(-8px);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        #settings-panel details[open] .details-body {
-            opacity: 1;
-            transform: translateY(0);
         }
 
         /* Category styling with accent colors */
