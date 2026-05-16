@@ -409,13 +409,16 @@ class SandboxSession:
                 # Clean up temp .py files created by llm_sandbox immediately
                 # (each run() writes code to a UUID-named temp file before execution)
                 # Pattern: 32 hex chars + .py — matches only llm_sandbox temp files
+                # Search both /sandbox and Python's temp dir (llm_sandbox may use either)
                 try:
                     cleanup_code = (
-                        "import os, re; c=0; "
-                        "for f in os.listdir('/sandbox'): "
-                        " if re.match(r'^[a-f0-9]{32}\\.py$', f, re.I): "
-                        "  try: os.remove(os.path.join('/sandbox',f)); c+=1 "
-                        "  except OSError: pass; "
+                        "import os, re, tempfile as _tf; c=0; _dirs = {'/sandbox', _tf.gettempdir()}; "
+                        "for _d in _dirs: "
+                        " if os.path.isdir(_d): "
+                        "  for f in os.listdir(_d): "
+                        "   if re.match(r'^[a-f0-9]{32}\\.py$', f, re.I): "
+                        "    try: os.remove(os.path.join(_d, f)); c+=1 "
+                        "    except OSError: pass; "
                         "print(c)"
                     )
                     cleanup_result = await asyncio.to_thread(
@@ -466,11 +469,13 @@ class SandboxSession:
                     # Clean up temp .py files (UUID-named, 32 hex chars)
                     with contextlib.suppress(Exception):
                         session.run(
-                            "import os, re; c=0; "
-                            "for f in os.listdir('/sandbox'): "
-                            " if re.match(r'^[a-f0-9]{32}\\.py$', f, re.I): "
-                            "  try: os.remove(os.path.join('/sandbox',f)); c+=1 "
-                            "  except OSError: pass; "
+                            "import os, re, tempfile as _tf; c=0; _dirs = {'/sandbox', _tf.gettempdir()}; "
+                            "for _d in _dirs: "
+                            " if os.path.isdir(_d): "
+                            "  for f in os.listdir(_d): "
+                            "   if re.match(r'^[a-f0-9]{32}\\.py$', f, re.I): "
+                            "    try: os.remove(os.path.join(_d, f)); c+=1 "
+                            "    except OSError: pass; "
                             "print(c)"
                         )
                     return ExecResult(
@@ -808,11 +813,13 @@ print(json.dumps(_tree({root!r})))
             # Clean up temp .py files before closing
             try:
                 cleanup_code = (
-                    "import os, re; c=0; "
-                    "for f in os.listdir('/sandbox'): "
-                    " if re.match(r'^[a-f0-9]{32}\\.py$', f, re.I): "
-                    "  try: os.remove(os.path.join('/sandbox',f)); c+=1 "
-                    "  except OSError: pass; "
+                    "import os, re, tempfile as _tf; c=0; _dirs = {'/sandbox', _tf.gettempdir()}; "
+                    "for _d in _dirs: "
+                    " if os.path.isdir(_d): "
+                    "  for f in os.listdir(_d): "
+                    "   if re.match(r'^[a-f0-9]{32}\\.py$', f, re.I): "
+                    "    try: os.remove(os.path.join(_d, f)); c+=1 "
+                    "    except OSError: pass; "
                     "print(c)"
                 )
                 self._python_session.run(cleanup_code)

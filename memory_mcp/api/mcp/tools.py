@@ -1164,9 +1164,12 @@ def register_tools(mcp: FastMCP) -> None:
 
     # goal_manage
     @mcp.tool()
-    async def goal_manage(operation: str, content: str, importance: float = 0.75, memory_key: str | None = None) -> str:
+    async def goal_manage(
+        operation: str, content: str = "", importance: float = 0.75, memory_key: str | None = None
+    ) -> str:
         """Manage goals. operation: create (new goal), achieve (mark done), cancel (abandon).
-        Goals stored as memories with tags=["goal","active/achieved/cancelled"]."""
+        Goals stored as memories with tags=["goal","active/achieved/cancelled"].
+        For achieve/cancel, use memory_key to specify the goal directly (content can be empty)."""
         p = _resolve_persona()
         r = await _tool_goal_manage(
             AppContextRegistry.get(p),
@@ -1187,10 +1190,11 @@ def register_tools(mcp: FastMCP) -> None:
     # promise_manage
     @mcp.tool()
     async def promise_manage(
-        operation: str, content: str, importance: float = 0.8, memory_key: str | None = None
+        operation: str, content: str = "", importance: float = 0.8, memory_key: str | None = None
     ) -> str:
         """Manage promises. operation: create (new promise), fulfill (mark done), cancel (abandon).
-        Promises stored as memories with tags=["promise","active/fulfilled/cancelled"]."""
+        Promises stored as memories with tags=["promise","active/fulfilled/cancelled"].
+        For fulfill/cancel, use memory_key to specify the promise directly (content can be empty)."""
         p = _resolve_persona()
         r = await _tool_promise_manage(
             AppContextRegistry.get(p),

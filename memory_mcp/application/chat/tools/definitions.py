@@ -64,7 +64,7 @@ MEMORY_TOOLS: list[ToolDefinition] = [
     ),
     ToolDefinition(
         name="goal_manage",
-        description="目標の作成・達成・キャンセル。ユーザーが「〜したい」「〜を目指す」と表明したら即座にcreate。達成したらachieve。operation: create/achieve/cancel。",
+        description="目標の作成・達成・キャンセル。ユーザーが「〜したい」「〜を目指す」と表明したら即座にcreate。達成したらachieve。operation: create/achieve/cancel。create時はcontent必須。achieve/cancel時はmemory_key指定可能（contentより優先）。",
         input_schema={
             "type": "object",
             "properties": {
@@ -73,19 +73,19 @@ MEMORY_TOOLS: list[ToolDefinition] = [
                     "enum": ["create", "achieve", "cancel"],
                     "description": "操作種別",
                 },
-                "content": {"type": "string", "description": "目標の内容"},
+                "content": {"type": "string", "description": "目標の内容（achieve/cancel時は省略可—memory_keyで指定）"},
                 "importance": {"type": "number", "description": "重要度 0.0〜1.0", "default": 0.75},
                 "memory_key": {
                     "type": "string",
                     "description": "目標のmemory_key（achieve/cancel時に直接指定可能。省略時はcontentで検索）",
                 },
             },
-            "required": ["operation", "content"],
+            "required": ["operation"],
         },
     ),
     ToolDefinition(
         name="promise_manage",
-        description="約束の作成・履行・キャンセル。ペルソナがユーザーに約束したことを記録。履行したらfulfill。operation: create/fulfill/cancel。",
+        description="約束の作成・履行・キャンセル。ペルソナがユーザーに約束したことを記録。履行したらfulfill。operation: create/fulfill/cancel。create時はcontent必須。fulfill/cancel時はmemory_key指定可能（contentより優先）。",
         input_schema={
             "type": "object",
             "properties": {
@@ -94,14 +94,14 @@ MEMORY_TOOLS: list[ToolDefinition] = [
                     "enum": ["create", "fulfill", "cancel"],
                     "description": "操作種別",
                 },
-                "content": {"type": "string", "description": "約束の内容"},
+                "content": {"type": "string", "description": "約束の内容（fulfill/cancel時は省略可—memory_keyで指定）"},
                 "importance": {"type": "number", "description": "重要度 0.0〜1.0", "default": 0.8},
                 "memory_key": {
                     "type": "string",
                     "description": "約束のmemory_key（fulfill/cancel時に直接指定可能。省略時はcontentで検索）",
                 },
             },
-            "required": ["operation", "content"],
+            "required": ["operation"],
         },
     ),
     ToolDefinition(
