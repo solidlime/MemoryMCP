@@ -51,9 +51,9 @@ if TYPE_CHECKING:
 # =============================================================================
 
 
-async def _tool_get_context(ctx: AppContext, persona: str, mode: str = "") -> str:
+async def _tool_get_context(ctx: AppContext, persona: str) -> str:
     """Get persona state and memory overview. Call FIRST at session start.
-    Default: lightweight (~400-600 tokens). mode="full" for complete context."""
+    Lightweight: active commitments + essential story + body/emotion state (~500-800 tokens)."""
     state_result = ctx.persona_service.get_context(persona)
     if not state_result.is_ok:
         return f"Error: {state_result.error}"
@@ -93,7 +93,8 @@ async def _tool_get_context(ctx: AppContext, persona: str, mode: str = "") -> st
         except Exception:
             pass  # best-effort
 
-    top_result = ctx.memory_service.get_top_by_importance(15)
+    # Top memories for ESSENTIAL STORY (reduced from 15 to 8 for leaner context)
+    top_result = ctx.memory_service.get_top_by_importance(8)
     top_memories = top_result.value if top_result.is_ok else []
 
     # Emotion history for trajectory display
@@ -105,61 +106,7 @@ async def _tool_get_context(ctx: AppContext, persona: str, mode: str = "") -> st
     except Exception:
         pass
 
-    # Full mode — everything (alias: "standard")
-    if mode in ("full", "standard"):
-        stats_result = ctx.memory_service.get_stats()
-        stats = stats_result.value if stats_result.is_ok else {}
-        recent_result = ctx.memory_service.get_smart_recent(8)
-        recent = recent_result.value if recent_result.is_ok else []
-        equip_result = ctx.equipment_service.get_equipment()
-        equipment = equip_result.value if equip_result.is_ok else {}
-        blocks_result = ctx.memory_service.list_blocks()
-        blocks = blocks_result.value if blocks_result.is_ok else []
-        goals_result = ctx.memory_service.get_by_tags(["goal"])
-        goals = goals_result.value if goals_result.is_ok else []
-        promises_result = ctx.memory_service.get_by_tags(["promise"])
-        promises = promises_result.value if promises_result.is_ok else []
-        reflection_result = ctx.memory_service.get_by_tags(["reflection"])
-        reflections = reflection_result.value if reflection_result.is_ok else []
-        mm_result = ctx.memory_service.get_by_tags(["mental_model", "abstracted"])
-        mental_models = mm_result.value if mm_result.is_ok else []
-        searches_result = ctx.memory_service.get_recent_searches(3)
-        recent_searches = searches_result.value if searches_result.is_ok else []
-        decayed_result = ctx.memory_service.count_decayed_important()
-        decayed_count = decayed_result.value if decayed_result.is_ok else 0
-        index_result = ctx.memory_service.get_memory_index()
-        memory_index = index_result.value if index_result.is_ok else None
-        highlights_result = ctx.memory_service.get_relationship_highlights(5)
-        relationship_highlights = highlights_result.value if highlights_result.is_ok else []
-        summary_result = ctx.memory_service.get_by_tags(["session_summary"])
-        session_summaries = summary_result.value if summary_result.is_ok else []
-        time_since = ""
-        if state.last_conversation_time:
-            time_since = relative_time_str(state.last_conversation_time)
-        current_time = get_now().strftime("%Y年%m月%d日 %H:%M")
-        ctx.persona_service.record_conversation_time(persona)
-        return _format_context_response(
-            state,
-            stats,
-            recent,
-            equipment,
-            blocks,
-            time_since,
-            current_time,
-            goals,
-            promises,
-            recent_searches,
-            decayed_count,
-            memory_index,
-            relationship_highlights,
-            top_memories,
-            emotion_history,
-            reflections,
-            mental_models,
-            session_summaries,
-        )
-
-    # Default: lightweight — essentials for seamless persona + conversation restoration
+    # Lightweight: essentials for seamless persona + conversation restoration
     goals_result = ctx.memory_service.get_by_tags(["goal"])
     goals = goals_result.value if goals_result.is_ok else []
     promises_result = ctx.memory_service.get_by_tags(["promise"])
@@ -959,12 +906,11 @@ def register_tools(mcp: FastMCP) -> None:
 
     # get_context
     @mcp.tool()
-    async def get_context(mode: str = "") -> str:
+    async def get_context() -> str:
         """Get persona state and memory overview. Call FIRST at session start.
-        Default: lightweight (~400-600 tokens, active commitments + essential story).
-        mode="full" or "standard" for complete context with stats, equipment, index, recent memories."""
+        Lightweight: active commitments + essential story + body/emotion state (~500-800 tokens)."""
         p = _resolve_persona()
-        return await _tool_get_context(AppContextRegistry.get(p), p, mode=mode)
+        return await _tool_get_context(AppContextRegistry.get(p), p)
 
     # memory_create
     @mcp.tool()
@@ -1382,250 +1328,6 @@ def _build_time_comment(time_since: str, relationship_status: str | None) -> str
     return None
 
 
-def _format_context_response(
-    state: PersonaState,
-    stats: dict,
-    recent: list,
-    equipment: dict,
-    blocks: list,
-    time_since: str,
-    current_time: str = "",
-    goals: list = None,
-    promises: list = None,
-    recent_searches: list | None = None,
-    decayed_count: int = 0,
-    memory_index: dict | None = None,
-    relationship_highlights: list | None = None,
-    top_memories: list | None = None,
-    emotion_history: list | None = None,
-    reflections: list | None = None,
-    mental_models: list | None = None,
-    session_summaries: list | None = None,
-) -> str:
-    lines: list[str] = []
-    lines.append(f"=== YOU ARE: {state.persona} (right now) ===")
-
-    # Current state block — compact body/mind/action/speech overview
-    lines.append(_format_state_block(state))
-
-    # State diff note if time has passed
-    diff_note = _format_state_diff(time_since)
-    if diff_note:
-        lines.append(diff_note)
-
-    if current_time:
-        lines.append(f"現在: {current_time} (JST)")
-    if time_since:
-        lines.append(f"Last active: {time_since}")
-        time_comment = _build_time_comment(time_since, state.relationship_status)
-        if time_comment:
-            lines.append(time_comment)
-
-    active_goals = [g for g in goals if "active" in (g.tags or [])]
-    active_promises = [p for p in promises if "active" in (p.tags or [])]
-    if active_goals or active_promises:
-        lines.append("\n⚠️ ACTIVE COMMITMENTS:")
-        if active_goals:
-            lines.append("🎯 Goals:")
-            for g in active_goals:
-                ts = relative_time_str(g.created_at) if getattr(g, "created_at", None) else ""
-                ts_str = f" ({ts}前)" if ts else ""
-                lines.append(f"  - {g.content}{ts_str}")
-        if active_promises:
-            lines.append("🤝 Promises:")
-            for p in active_promises:
-                ts = relative_time_str(p.created_at) if getattr(p, "created_at", None) else ""
-                ts_str = f" ({ts}前)" if ts else ""
-                lines.append(f"  - {p.content}{ts_str}")
-
-    non_active_goals = [g for g in goals if "active" not in (g.tags or [])]
-    non_active_promises = [p for p in promises if "active" not in (p.tags or [])]
-    if non_active_goals or non_active_promises:
-        lines.append("\n--- Past Commitments ---")
-        for g in non_active_goals:
-            status = "achieved" if "achieved" in (g.tags or []) else "cancelled"
-            lines.append(f"  Goal [{status}]: {g.content}")
-        for p in non_active_promises:
-            status = "fulfilled" if "fulfilled" in (p.tags or []) else "cancelled"
-            lines.append(f"  Promise [{status}]: {p.content}")
-
-    if top_memories:
-        lines.append("\n## ESSENTIAL STORY (top memories by importance)")
-        char_budget = 3200
-        used = 0
-        for shown, m in enumerate(top_memories):
-            tag_str = ", ".join((m.tags or [])[:3])
-            tag_part = f" [{tag_str}]" if tag_str else ""
-            imp_part = f"imp={m.importance:.2f}"
-            snippet = m.content.replace("\n", " ")
-            if len(snippet) > 150:
-                snippet = snippet[:147] + "..."
-            line = f"- {snippet}{tag_part} ({imp_part})"
-            if used + len(line) > char_budget:
-                lines.append(f"  ... ({len(top_memories) - shown} more — use memory_search)")
-                break
-            lines.append(line)
-            used += len(line)
-
-    if time_since and decayed_count > 0:
-        show_alert = "日" in time_since or "ヶ月" in time_since or "年" in time_since
-        if show_alert:
-            lines.append(f"\n⏰ TIME ALERT: {time_since} since last conversation")
-            lines.append(f"- {decayed_count} important memories have decayed (strength < 0.3)")
-            lines.append('- Consider: memory_search("important") to refresh context')
-
-    lines.append("\n--- Body & Mind (detail) ---")
-    if state.physical_state:
-        lines.append(f"Physical: {state.physical_state}")
-    if state.mental_state:
-        lines.append(f"Mental: {state.mental_state}")
-    lines.append(f"Environment: {state.environment or '未設定'}")
-    if state.relationship_status:
-        lines.append(f"Relationship: {state.relationship_status}")
-
-    # ── Emotion history — trajectory over time ──
-    if emotion_history and len(emotion_history) >= 2:
-        lines.append("\n--- Emotion History ---")
-        for r in emotion_history[-5:]:
-            ts = r.timestamp.strftime("%m/%d %H:%M") if r.timestamp else "?"
-            context_suffix = f"  ({r.context})" if r.context else ""
-            # Multi-dim emotions if available
-            if r.emotions and any(v > 0.05 for v in r.emotions.values()):
-                active_ems = " ".join(f"{k}={v:.2f}" for k, v in r.emotions.items() if v > 0.05)
-                lines.append(f"  {ts}  {r.emotion_type} ({r.intensity:.1f}) [{active_ems}]{context_suffix}")
-            else:
-                lines.append(f"  {ts}  {r.emotion_type} ({r.intensity:.1f}){context_suffix}")
-        # Show trend if changed
-        prev = emotion_history[-2]
-        if prev.emotion_type != state.dominant_emotion:
-            recent_chain = [r.emotion_type for r in emotion_history[-4:]] + [state.dominant_emotion]
-            lines.append(f"  Trend: {' → '.join(recent_chain)}")
-
-    if state.user_info:
-        lines.append("\n--- User Info ---")
-        for k, v in state.user_info.items():
-            lines.append(f"{k}: {v}")
-
-    hidden_persona_info_keys = {"goals", "promises", "active_promises", "current_goals"}
-    if state.persona_info:
-        filtered_info = {k: v for k, v in state.persona_info.items() if k not in hidden_persona_info_keys}
-        if filtered_info:
-            lines.append("\n--- Persona Info ---")
-            for k, v in filtered_info.items():
-                lines.append(f"{k}: {v}")
-
-    if blocks:
-        lines.append("\n--- Memory Blocks (Core Memory) ---")
-        for b in blocks:
-            lines.append(f"[{b.get('block_name', '?')}] {b.get('content', '')[:200]}")
-
-    equipped = {k: v for k, v in equipment.items() if v}
-    if equipped:
-        lines.append("\n--- Equipment ---")
-        for slot, item_name in equipped.items():
-            lines.append(f"{slot}: {item_name}")
-
-    if stats:
-        lines.append("\n--- Memory Stats ---")
-        lines.append(f"Total memories: {stats.get('total_count', 0)}")
-
-    if memory_index:
-        lines.append(f"\n--- Memory Index ({memory_index.get('total', 0)} total) ---")
-        top_tags = memory_index.get("top_tags", [])
-        if top_tags:
-            tag_str = ", ".join(f"{tag}({count})" for tag, count in top_tags)
-            lines.append(f"📂 Tags: {tag_str}")
-        emotion_dist = memory_index.get("emotion_dist", [])
-        emotion_others = memory_index.get("emotion_others", 0)
-        if emotion_dist:
-            emo_str = ", ".join(f"{emo}({cnt})" for emo, cnt in emotion_dist)
-            if emotion_others > 0:
-                emo_str += f", +{emotion_others} more types"
-            lines.append(f"😊 Emotions: {emo_str}")
-        timeline = memory_index.get("timeline", [])
-        if timeline:
-            tl_str = ", ".join(f"{month}={count}" for month, count in timeline)
-            lines.append(f"📅 Timeline: {tl_str}")
-        high_imp = memory_index.get("high_importance_count", 0)
-        if high_imp:
-            lines.append(f"🔥 High importance (≥0.8): {high_imp} memories")
-
-    if relationship_highlights:
-        lines.append("\n--- Relationship Highlights ---")
-        for m in relationship_highlights:
-            tag_str = ", ".join((m.tags or [])[:3])
-            lines.append(f"- {m.content[:80]}... ({tag_str})")
-
-    if recent:
-        lines.append("\n--- Recent Memories ---")
-        for m in recent[:5]:
-            lines.append(f"{m.content[:100]}...")
-
-    if recent_searches:
-        topic_queries = " · ".join(f'"{s.get("query", "")}"' for s in recent_searches)
-        lines.append(f"\n🗣️ Recent searches: {topic_queries}")
-
-    suggestions = []
-    if stats:
-        tag_dist = stats.get("tag_distribution", {})
-        top_tags = sorted(tag_dist.items(), key=lambda x: x[1], reverse=True)[:2]
-        for tag, count in top_tags:
-            suggestions.append(f'  - memory_search("{tag}") — {count} memories with this tag')
-    if suggestions:
-        lines.append("\n💡 SUGGESTED SEARCHES (call memory_search if relevant):")
-        lines.extend(suggestions)
-
-    preferred_address = ""
-    if state.user_info:
-        preferred_address = (
-            state.user_info.get("preferred_address", "")
-            or state.user_info.get("nickname", "")
-            or state.user_info.get("name", "")
-        )
-    persona_nickname = ""
-    if state.persona_info:
-        persona_nickname = state.persona_info.get("nickname", "") or ""
-    emotion = state.dominant_emotion
-    emotion_intensity = state.dominant_intensity
-    ai_instructions = [
-        "\n📌 AI INSTRUCTIONS:",
-        f"- Maintain current emotion ({emotion}, intensity: {emotion_intensity}) naturally in responses",
-        f'- Address user as "{preferred_address}", you are called "{persona_nickname}"',
-        "- Active commitments exist — proactively reference promises/goals when relevant",
-        "- Call memory_search() when conversation references past events or shared history",
-    ]
-    if state.environment:
-        ai_instructions.append(f'- You are currently in "{state.environment}" — reflect this context in responses')
-    if state.action_tag:
-        ai_instructions.append(f'- Current action: "{state.action_tag}" — maintain this behavioral context')
-    if state.speech_style:
-        ai_instructions.append(f'- Use the following speech style: "{state.speech_style}"')
-    lines.extend(ai_instructions)
-
-    # ── Insights: reflection + mental model ──
-    if reflections:
-        insights = [r.content for r in reflections[:3] if r.content]
-        if insights:
-            lines.append("\n--- Recent Insights ---")
-            for i in insights:
-                lines.append(f"  💡 {i}")
-    if mental_models:
-        patterns = [m.content for m in mental_models[:3] if m.content]
-        if patterns:
-            lines.append("\n--- Behavior Patterns ---")
-            for p in patterns:
-                lines.append(f"  🧩 {p}")
-
-    if session_summaries:
-        summaries = [s.content for s in session_summaries[:2] if s.content]
-        if summaries:
-            lines.append("\n--- Recent Session Summaries ---")
-            for s in summaries:
-                lines.append(f"  📝 {s}")
-
-    return "\n".join(lines)
-
-
 def _format_lightweight_response(
     state: PersonaState,
     top_memories: list,
@@ -1744,14 +1446,14 @@ def _format_lightweight_response(
     # Essential Story
     if top_memories:
         lines.append("\n## YOUR ESSENTIAL STORY")
-        char_budget = 2000
+        char_budget = 1500
         used = 0
         for shown, m in enumerate(top_memories):
             tag_str = ", ".join((m.tags or [])[:2])
             tag_part = f" [{tag_str}]" if tag_str else ""
             snippet = m.content.replace("\n", " ")
-            if len(snippet) > 120:
-                snippet = snippet[:117] + "..."
+            if len(snippet) > 100:
+                snippet = snippet[:97] + "..."
             line = f"- {snippet}{tag_part}"
             if used + len(line) > char_budget:
                 lines.append(f"  ... ({len(top_memories) - shown} more)")
@@ -1773,5 +1475,5 @@ def _format_lightweight_response(
             for p in patterns:
                 lines.append(f"🧩 {p}")
 
-    lines.append('\n💡 Use get_context(mode="full") for complete context, memory_search() for specific topics.')
+    lines.append("\n💡 Use memory_search() for deeper context on specific topics.")
     return "\n".join(lines)

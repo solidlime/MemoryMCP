@@ -2,7 +2,7 @@
 
 T7 test cases:
 1. JSON 保存確認       — promises/goals が list として DB に往復できること
-2. ACTIVE COMMITMENTS  — _format_context_response() に P1/P2 が現れること
+2. ACTIVE COMMITMENTS  — _format_lightweight_response() に P1/P2 が現れること
 3. 空リストでクリア    — [] で上書きすると persona_info から消えること
 4. memory_strength 初期化 — save() 直後に strength=1.0 レコードが存在すること
 5. entity 自動抽出     — 英語固有名詞が memory_entities に登録されること (best-effort)
@@ -14,7 +14,7 @@ import warnings
 
 import pytest
 
-from memory_mcp.api.mcp.tools import _format_context_response
+from memory_mcp.api.mcp.tools import _format_lightweight_response
 from memory_mcp.domain.memory.entities import Memory
 from memory_mcp.domain.memory.entity_extractor import SimpleEntityExtractor
 from memory_mcp.domain.memory.graph import EntityService
@@ -125,7 +125,8 @@ class TestPromisesJsonPersistence:
 
 
 class TestActiveCommitmentsDisplay:
-    """_format_context_response() が memory タグベースの ACTIVE COMMITMENTS を表示する。"""
+    """_format_lightweight_response() が memory タグベースの ACTIVE COMMITMENTS を表示する。
+    lightweight モードではアクティブなゴール/約束のみ表示。過去のものは get_context では非表示。"""
 
     @staticmethod
     def _state() -> PersonaState:
@@ -151,15 +152,14 @@ class TestActiveCommitmentsDisplay:
 
     @staticmethod
     def _fmt(goals: list, promises: list) -> str:
-        return _format_context_response(
+        return _format_lightweight_response(
             state=TestActiveCommitmentsDisplay._state(),
-            stats={},
-            recent=[],
-            equipment={},
-            blocks=[],
-            time_since="",
+            top_memories=[],
             goals=goals,
             promises=promises,
+            equipment={},
+            recent=[],
+            time_since="",
         )
 
     def test_promises_appear_in_output(self):
@@ -188,19 +188,17 @@ class TestActiveCommitmentsDisplay:
         output = self._fmt([], [])
         assert "ACTIVE COMMITMENTS" not in output
 
-    def test_non_active_goal_not_in_active_commitments(self):
-        """achieved goal は ACTIVE COMMITMENTS に表示されず Past Commitments に表示される。"""
+    def test_non_active_goals_not_shown(self):
+        """achieved goal は軽量モードで表示されない（active のみ表示）。"""
         output = self._fmt([self._make_goal("Done Goal", "achieved")], [])
         assert "ACTIVE COMMITMENTS" not in output
-        assert "Past Commitments" in output
-        assert "Done Goal" in output
+        assert "Done Goal" not in output
 
-    def test_non_active_promise_shows_in_past_commitments(self):
-        """fulfilled promise は Past Commitments に表示される。"""
+    def test_non_active_promises_not_shown(self):
+        """fulfilled promise は軽量モードで表示されない（active のみ表示）。"""
         output = self._fmt([], [self._make_promise("Old Promise", "fulfilled")])
         assert "ACTIVE COMMITMENTS" not in output
-        assert "Past Commitments" in output
-        assert "Old Promise" in output
+        assert "Old Promise" not in output
 
     def test_json_string_promises_are_parsed_and_displayed(self):
         """(互換テスト) Memory オブジェクトの active promise は正常に表示される。"""
