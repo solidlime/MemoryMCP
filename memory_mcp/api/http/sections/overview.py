@@ -321,8 +321,14 @@ async function loadOverview() {
             <div class="card-title">💫 Emotion &amp; State</div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                    <div style="font-size:2rem;font-weight:700;color:var(--accent-yellow);margin-bottom:4px">${esc(ctx.emotion || '--')}</div>
-                    <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:12px">Emotion${ctx.emotion_intensity != null ? ' · ' + (ctx.emotion_intensity * 100).toFixed(0) + '% intensity' : ''}</div>
+                    ${(function() {
+                        if (ctx.emotions && Object.keys(ctx.emotions).length > 0) {
+                            var top3 = Object.entries(ctx.emotions).filter(function(e) { return e[1] > 0.05; }).sort(function(a,b) { return b[1]-a[1]; }).slice(0, 3);
+                            var badges = top3.map(function(e) { return '<span style="display:inline-block;margin:2px;padding:2px 8px;border-radius:12px;background:var(--glass-bg);font-size:0.8rem">' + esc(e[0]) + ' ' + (e[1]*100).toFixed(0) + '%</span>'; }).join('');
+                            return '<div style="font-size:2rem;font-weight:700;color:var(--accent-yellow);margin-bottom:4px">' + esc(top3[0] ? top3[0][0] : (ctx.emotion || '--')) + '</div><div style="margin-bottom:12px">' + badges + '</div>';
+                        }
+                        return '<div style="font-size:2rem;font-weight:700;color:var(--accent-yellow);margin-bottom:4px">' + esc(ctx.emotion || '--') + '</div><div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:12px">Emotion' + (ctx.emotion_intensity != null ? ' · ' + (ctx.emotion_intensity * 100).toFixed(0) + '% intensity' : '') + '</div>';
+                    })()}
                     <div style="display:flex;flex-direction:column;gap:6px">
                         <div><span style="font-size:0.78rem;color:var(--text-muted)">Physical: </span><span style="font-size:0.85rem">${esc(ctx.physical_state || '--')}</span></div>
                         <div><span style="font-size:0.78rem;color:var(--text-muted)">Mental: </span><span style="font-size:0.85rem">${esc(ctx.mental_state || '--')}</span></div>

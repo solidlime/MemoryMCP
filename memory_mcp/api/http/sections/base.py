@@ -826,7 +826,13 @@ function openMemModal(mem) {
     const overlay = document.getElementById('mem-modal-overlay');
     const content = document.getElementById('mem-modal-content');
     const tags = (mem.tags || []).map(t => '<span class="badge badge-purple">' + esc(t) + '</span>').join(' ');
-    const emoHtml = mem.emotion_type ? '<span class="badge badge-pink">😊 ' + esc(mem.emotion_type) + (mem.emotion_intensity != null ? ' (' + (mem.emotion_intensity * 100).toFixed(0) + '%)' : '') + '</span>' : '';
+    var emoHtml = '';
+    if (mem.emotions && Object.keys(mem.emotions).length > 0) {
+        var topEmo = Object.entries(mem.emotions).filter(function(e) { return e[1] > 0.05; }).sort(function(a,b) { return b[1]-a[1]; }).slice(0, 2);
+        emoHtml = topEmo.map(function(e) { return '<span class="badge badge-pink">' + esc(e[0]) + ' ' + (e[1]*100).toFixed(0) + '%</span>'; }).join(' ');
+    } else if (mem.emotion_type) {
+        emoHtml = '<span class="badge badge-pink">😊 ' + esc(mem.emotion_type) + (mem.emotion_intensity != null ? ' (' + (mem.emotion_intensity * 100).toFixed(0) + '%)' : '') + '</span>';
+    }
     content.innerHTML = `
         <div class="mem-modal-header">
             <div>

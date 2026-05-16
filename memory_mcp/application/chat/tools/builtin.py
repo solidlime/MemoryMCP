@@ -64,10 +64,14 @@ async def _handle_context_update(ctx: AppContext, config: ChatConfig, tool_input
         update_kwargs["emotion"] = tool_input["emotion"]
     if "emotion_intensity" in tool_input:
         update_kwargs["emotion_intensity"] = float(tool_input["emotion_intensity"])
+    if "emotions" in tool_input and tool_input["emotions"]:
+        update_kwargs["emotions"] = tool_input["emotions"]
     if "mental_state" in tool_input:
         update_kwargs["mental_state"] = tool_input["mental_state"]
     if update_kwargs:
-        if "emotion" in update_kwargs:
+        if "emotions" in update_kwargs:
+            ctx.persona_service.update_emotions(ctx.persona, update_kwargs["emotions"])
+        elif "emotion" in update_kwargs:
             ctx.persona_service.update_emotion(
                 ctx.persona,
                 update_kwargs["emotion"],
@@ -117,18 +121,28 @@ async def _handle_execute_code(ctx: AppContext, config: ChatConfig, tool_input: 
 
 
 async def _handle_memory_create_builtin(ctx: AppContext, config: ChatConfig, tool_input: dict) -> dict:
-    emotion = tool_input.get("emotion_type", "neutral")
-    if emotion not in _VALID_EMOTIONS:
-        emotion = "neutral"
+    emotions_dict = tool_input.get("emotions")
+    if emotions_dict:
+        from memory_mcp.domain.persona.entities import compute_dominant_emotion
+
+        dominant_name, _ = compute_dominant_emotion(emotions_dict)
+        emotion = dominant_name
+    else:
+        emotion = tool_input.get("emotion_type", "neutral")
+        if emotion not in _VALID_EMOTIONS:
+            emotion = "neutral"
     importance = float(tool_input.get("importance", 0.6))
     if not (0.0 <= importance <= 1.0):
         return {"status": "error", "message": "importance must be between 0.0 and 1.0"}
-    result = ctx.memory_service.create_memory(
-        content=tool_input.get("content", ""),
-        importance=importance,
-        tags=tool_input.get("tags", []),
-        emotion=emotion,
-    )
+    kwargs: dict = {
+        "content": tool_input.get("content", ""),
+        "importance": importance,
+        "tags": tool_input.get("tags", []),
+        "emotion": emotion,
+    }
+    if emotions_dict:
+        kwargs["emotions"] = emotions_dict
+    result = ctx.memory_service.create_memory(**kwargs)
     if result.is_ok:
         return {"status": "ok", "key": result.value.key}
     return {"status": "error", "message": str(result.error)}
@@ -147,6 +161,9 @@ async def _handle_memory_search_builtin(ctx: AppContext, config: ChatConfig, too
                     "content": getattr(mem, "content", str(mem)),
                     "importance": getattr(mem, "importance", 0.5),
                     "tags": getattr(mem, "tags", []),
+                    "emotion_type": getattr(mem, "emotion", "neutral"),
+                    "emotion_intensity": getattr(mem, "emotion_intensity", 0.0),
+                    "emotions": (mem.emotions if isinstance(getattr(mem, "emotions", None), dict) else None),
                 }
             )
         return {"status": "ok", "memories": items}
