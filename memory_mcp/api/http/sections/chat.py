@@ -574,14 +574,14 @@ def render_chat_tab() -> str:
             position: fixed;
             max-width: 260px;
             padding: 10px 14px;
-            background: rgba(20,10,40,0.95);
-            border: 1px solid rgba(167,139,250,0.3);
+            background: var(--bg-primary);
+            border: 1px solid var(--glass-border);
             border-radius: 10px;
             font-size: 0.78rem;
             color: var(--text-primary);
             line-height: 1.6;
             z-index: 9999;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
             pointer-events: none;
             opacity: 0;
             transition: opacity 0.2s;
@@ -689,7 +689,7 @@ def render_chat_tab() -> str:
                         </div>
                         <!-- Provider / Model / API -->
                         <details data-category="core" open>
-                            <summary>🔧 基本設定 <span class="chat-help-icon" onclick="event.stopPropagation();showHelpTooltip(event, 'core')" title="クリックで説明">❓</span></summary>
+                            <summary>🔧 基本設定 <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'core')" title="説明を表示" onmouseleave="hideHelpTooltip()">❓</span></summary>
                             <div class="details-body">
                                 <div>
                                     <div class="chat-field-label">プロバイダー</div>
@@ -728,7 +728,7 @@ def render_chat_tab() -> str:
                         </details>
                         <!-- Context & System Prompt -->
                         <details data-category="context">
-                            <summary>💬 コンテキスト <span class="chat-help-icon" onclick="event.stopPropagation();showHelpTooltip(event, 'context')" title="クリックで説明">❓</span></summary>
+                            <summary>💬 コンテキスト <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'context')" title="説明を表示" onmouseleave="hideHelpTooltip()">❓</span></summary>
                             <div class="details-body">
                                 <div>
                                     <div class="chat-field-label">コンテキスト履歴 (turns)</div>
@@ -752,7 +752,7 @@ def render_chat_tab() -> str:
                         </details>
                         <!-- Memory extraction -->
                         <details data-category="memory">
-                            <summary>🧠 記憶・抽出 <span class="chat-help-icon" onclick="event.stopPropagation();showHelpTooltip(event, 'memory')" title="クリックで説明">❓</span></summary>
+                            <summary>🧠 記憶・抽出 <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'memory')" title="説明を表示" onmouseleave="hideHelpTooltip()">❓</span></summary>
                             <div class="details-body">
                                 <div style="display:flex;align-items:center;gap:8px;">
                                     <input type="checkbox" id="chat-auto-extract" checked
@@ -777,7 +777,7 @@ def render_chat_tab() -> str:
                         </details>
                         <!-- MCP Servers -->
                         <details data-category="tools">
-                            <summary>🔌 MCPサーバー <span class="chat-help-icon" onclick="event.stopPropagation();showHelpTooltip(event, 'tools')" title="クリックで説明">❓</span></summary>
+                            <summary>🔌 MCPサーバー <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'tools')" title="説明を表示" onmouseleave="hideHelpTooltip()">❓</span></summary>
                             <div class="details-body" id="chat-mcp-section">
                                 <div>
                                     <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:4px;">Claude の mcp.json 形式で貼り付け・編集できます</div>
@@ -799,14 +799,14 @@ def render_chat_tab() -> str:
                         </details>
                         <!-- Skills -->
                         <details data-category="skills">
-                            <summary>🎯 Skills <span class="chat-help-icon" onclick="event.stopPropagation();showHelpTooltip(event, 'skills')" title="クリックで説明">❓</span></summary>
+                            <summary>🎯 Skills <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'skills')" title="説明を表示" onmouseleave="hideHelpTooltip()">❓</span></summary>
                             <div class="details-body" id="chat-skills-section">
                                 <div id="chat-skills-list" style="display:flex;flex-direction:column;gap:4px;"></div>
                             </div>
                         </details>
                         <!-- Reflection -->
                         <details data-category="reflection">
-                            <summary>🔮 リフレクション <span class="chat-help-icon" onclick="event.stopPropagation();showHelpTooltip(event, 'reflection')" title="クリックで説明">❓</span></summary>
+                            <summary>🔮 リフレクション <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'reflection')" title="説明を表示" onmouseleave="hideHelpTooltip()">❓</span></summary>
                             <div class="details-body">
                                 <div style="display:flex;align-items:center;gap:8px;">
                                     <input type="checkbox" id="chat-reflection-enabled" checked
@@ -834,7 +834,7 @@ def render_chat_tab() -> str:
                         </details>
                         <!-- Mental Model -->
                         <details data-category="mental">
-                            <summary>🧩 メンタルモデル <span class="chat-help-icon" onclick="event.stopPropagation();showHelpTooltip(event, 'mental')" title="クリックで説明">❓</span></summary>
+                            <summary>🧩 メンタルモデル <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'mental')" title="説明を表示" onmouseleave="hideHelpTooltip()">❓</span></summary>
                             <div class="details-body">
                                 <div style="display:flex;align-items:center;gap:8px;">
                                     <input type="checkbox" id="chat-mental-model-enabled" checked
@@ -850,7 +850,7 @@ def render_chat_tab() -> str:
                         </details>
                         <!-- Retrieval weights -->
                         <details data-category="weights">
-                            <summary>⚖️ 検索重み <span class="chat-help-icon" onclick="event.stopPropagation();showHelpTooltip(event, 'weights')" title="クリックで説明">❓</span></summary>
+                            <summary>⚖️ 検索重み <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'weights')" title="説明を表示" onmouseleave="hideHelpTooltip()">❓</span></summary>
                             <div class="details-body">
                                 <div>
                                     <div class="chat-field-label" style="display:flex;justify-content:space-between;">
@@ -883,7 +883,7 @@ def render_chat_tab() -> str:
                         </details>
                         <!-- Housekeeping & Other -->
                         <details data-category="other">
-                            <summary>🧹 整理・その他 <span class="chat-help-icon" onclick="event.stopPropagation();showHelpTooltip(event, 'other')" title="クリックで説明">❓</span></summary>
+                            <summary>🧹 整理・その他 <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'other')" title="説明を表示" onmouseleave="hideHelpTooltip()">❓</span></summary>
                             <div class="details-body">
                                 <div>
                                     <div class="chat-field-label">自動整理 閾値 (goals+promises 合計がこの数を超えたら実行)</div>
@@ -996,20 +996,14 @@ function showHelpTooltip(event, category) {
     if (tr.right > window.innerWidth - 10) {
         tooltip.style.left = (rect.left - tr.width - 10) + 'px';
     }
+}
 
-    setTimeout(() => {
+function hideHelpTooltip() {
+    const tooltip = document.querySelector('.chat-help-tooltip');
+    if (tooltip) {
         tooltip.classList.remove('visible');
         setTimeout(() => tooltip.remove(), 200);
-    }, 3000);
-
-    // クリックで即閉じ
-    const close = (e) => {
-        if (!tooltip.contains(e.target) && e.target !== event.target) {
-            tooltip.remove();
-            document.removeEventListener('click', close);
-        }
-    };
-    setTimeout(() => document.addEventListener('click', close), 100);
+    }
 }
 
 function loadChat() {
