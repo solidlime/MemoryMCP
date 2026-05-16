@@ -5,6 +5,9 @@ def render_memories_tab() -> str:
     """Return the memories tab HTML section with all UI elements."""
     return """        <!-- ========== MEMORIES TAB ========== -->
         <section id="tab-memories" class="tab-panel" role="tabpanel">
+            <div style="margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--glass-border);">
+                <h2 style="font-size:1.25rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:10px;"><span style="font-size:1.4rem;">🧠</span> Memories</h2>
+            </div>
             <style>
             /* ── Tag chips with per-tag hue ── */
             .mem-tag-chip {

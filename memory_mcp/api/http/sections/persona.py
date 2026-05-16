@@ -11,11 +11,14 @@ def render_persona_tab() -> str:
     return (
         "<!-- ========== PERSONAS TAB ========== -->"
         '<section id="tab-personas" class="tab-panel" role="tabpanel">'
+        '<div style="margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--glass-border);">'
+        '<h2 style="font-size:1.25rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:10px;">'
+        '<span style="font-size:1.4rem;">\U0001f464</span> Personas</h2>'
+        '</div>'
         '<div id="personas-content">'
         # --- Header with create button ---
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">'
-        '<h2 style="font-size:1.5rem;font-weight:700;color:var(--text-primary)">'
-        "\U0001f464 Personas</h2>"
+        '<h3 style="font-size:1.1rem;font-weight:600;color:var(--text-primary)">Manage Personas</h3>'
         '<button onclick="showCreatePersona()" class="glass-btn" style="padding:8px 20px">'
         "\u2795 New Persona</button>"
         "</div>"

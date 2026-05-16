@@ -388,6 +388,25 @@ def render_head() -> str:
         ::-webkit-scrollbar-thumb:hover { background: rgba(167,139,250,0.5); }
 
         /* ============================================================
+           SETTINGS PANEL STICKY HEADER (Chat)
+           ============================================================ */
+        .settings-sticky-header {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--glass-border);
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+            margin: 0 -16px 12px;
+        }
+
+        /* ============================================================
            TOAST NOTIFICATION
            ============================================================ */
         .toast-container {
@@ -487,6 +506,44 @@ def render_head() -> str:
         /* ── Smooth card transitions ── */
         .glass {
             transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+        }
+
+        /* ============================================================
+           TOOLTIP ENHANCEMENTS
+           ============================================================ */
+        .chat-help-tooltip {
+            background: var(--glass-bg) !important;
+            backdrop-filter: blur(16px) !important;
+            -webkit-backdrop-filter: blur(16px) !important;
+            border: 1px solid var(--glass-border) !important;
+            border-radius: 10px !important;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3) !important;
+            font-size: 0.78rem !important;
+            color: var(--text-primary) !important;
+            max-width: 280px !important;
+            line-height: 1.6 !important;
+            z-index: 9999 !important;
+            padding: 12px 16px !important;
+        }
+
+        /* ============================================================
+           TAB HEADER CONSISTENCY
+           ============================================================ */
+        .tab-panel > div:first-child {
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--glass-border);
+        }
+        .tab-panel h2 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .tab-panel h2 span {
+            font-size: 1.4rem;
         }
 
         /* ── Phase 5: Mobile optimization ── */

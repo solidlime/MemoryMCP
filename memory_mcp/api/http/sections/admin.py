@@ -10,6 +10,9 @@ def render_admin_tab() -> str:
     return """
         <!-- ========== ADMIN TAB ========== -->
         <section id="tab-admin" class="tab-panel" role="tabpanel">
+            <div style="margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--glass-border);">
+                <h2 style="font-size:1.25rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:10px;"><span style="font-size:1.4rem;">🔧</span> Admin</h2>
+            </div>
             <div id="admin-content">
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div class="glass p-6"><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-text"></div></div>

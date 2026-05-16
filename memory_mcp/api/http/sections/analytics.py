@@ -5,6 +5,9 @@ def render_analytics_tab() -> str:
     """Return the analytics tab HTML section with skeleton loaders."""
     return """        <!-- ========== ANALYTICS TAB ========== -->
         <section id="tab-analytics" class="tab-panel" role="tabpanel">
+            <div style="margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--glass-border);">
+                <h2 style="font-size:1.25rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:10px;"><span style="font-size:1.4rem;">📈</span> Analytics</h2>
+            </div>
             <div id="analytics-content">
                 <div class="glass p-6 mb-6"><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-chart"></div></div>
                 <div class="glass p-6"><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-chart"></div></div>

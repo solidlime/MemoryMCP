@@ -590,8 +590,8 @@ def render_chat_tab() -> str:
         </style>
         <!-- ========== CHAT TAB ========== -->
         <section id="tab-chat" class="tab-panel" role="tabpanel">
-            <div style="position:relative; margin-bottom:12px; display:flex; align-items:center; justify-content:space-between;">
-                <h2 style="font-size:1.1rem; font-weight:600; color:var(--text-primary);">💬 Chat</h2>
+            <div style="position:relative; margin-bottom:16px; display:flex; align-items:center; justify-content:space-between; padding-bottom:12px; border-bottom:1px solid var(--glass-border);">
+                <h2 style="font-size:1.25rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:10px;"><span style="font-size:1.4rem;">💬</span> Chat</h2>
                 <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                     <button class="mem-panel-toggle" id="memory-panel-toggle-btn" onclick="toggleMemoryPanel()" title="記憶パネルを開閉">🧠</button>
                     <button class="chat-sidebar-toggle" onclick="toggleSettingsPanel()" id="chat-sidebar-toggle-btn" title="設定パネルを開閉">⚙️ 設定</button>
@@ -683,8 +683,8 @@ def render_chat_tab() -> str:
                 <!-- Settings sidebar -->
                 <div id="settings-panel" class="glass" style="margin:0; border-radius:0; border-left:1px solid var(--glass-border); padding:0;">
                     <div class="settings-scroll-container">
-                        <div style="position:sticky;top:0;z-index:10;background:var(--bg-primary);font-size:0.9rem;font-weight:600;color:var(--text-primary);padding-bottom:8px;border-bottom:1px solid rgba(167,139,250,0.2);display:flex;align-items:center;gap:8px;">
-                            <span style="font-size:1.1rem;">⚙️</span>
+                        <div style="position:sticky;top:0;z-index:10;background:var(--glass-bg);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);font-size:0.9rem;font-weight:600;color:var(--text-primary);padding:12px 0 8px;margin:0 -16px 8px;border-bottom:1px solid var(--glass-border);display:flex;align-items:center;gap:8px;box-shadow:0 2px 12px rgba(0,0,0,0.1);">
+                            <span style="font-size:1.1rem;margin-left:16px;">⚙️</span>
                             <span>チャット設定</span>
                         </div>
                         <!-- Provider / Model / API -->
