@@ -440,7 +440,7 @@ async def _tool_update_context(
     relationship_type: str | None = None,
 ) -> str:
     """Update persona state. context_note: short note on current activity for session continuity.
-    body_state: {fatigue, warmth, arousal, heart_rate, touch_response}."""
+    body_state: {fatigue, warmth, arousal, heart_rate, pain (0.0-1.0)}."""
     updated: list[str] = []
 
     # Multi-dimensional emotions (takes precedence over single emotion)
@@ -464,7 +464,7 @@ async def _tool_update_context(
     if environment is not None:
         physical_updates["environment"] = environment
     if body_state is not None:
-        for key in ("fatigue", "warmth", "arousal", "heart_rate", "touch_response"):
+        for key in ("fatigue", "warmth", "arousal", "heart_rate", "pain"):
             if key in body_state and body_state[key] is not None:
                 physical_updates[key] = str(body_state[key])
     if action_tag is not None:
@@ -1078,7 +1078,7 @@ def register_tools(mcp: FastMCP) -> None:
         relationship_type: str | None = None,
     ) -> str:
         """Update persona state. context_note: short note on current activity (session continuity).
-        body_state: {fatigue, warmth, arousal (0.0-1.0), heart_rate, touch_response}.
+        body_state: {fatigue, warmth, arousal, heart_rate, pain (0.0-1.0)}.
         user_info: {name, nickname, preferred_address}. persona_info: {nickname, ...}.
         emotions: 9基本感情dict {joy, sadness, anger, fear, disgust, surprise, love, trust, anticipation: 0.0-1.0}. Takes precedence over emotion/emotion_intensity."""
         p = _resolve_persona()
@@ -1382,7 +1382,7 @@ def _format_context_response(
 
     # ── Body state — physical metrics ──
     body_present = any(
-        v is not None for v in (state.fatigue, state.warmth, state.arousal, state.heart_rate, state.touch_response)
+        v is not None for v in (state.fatigue, state.warmth, state.arousal, state.heart_rate, state.pain)
     )
     if body_present:
         body_lines = []
@@ -1392,10 +1392,10 @@ def _format_context_response(
             body_lines.append(f"warmth: {state.warmth:.0%}")
         if state.arousal is not None:
             body_lines.append(f"arousal: {state.arousal:.0%}")
-        if state.heart_rate:
-            body_lines.append(f"heart_rate: {state.heart_rate}")
-        if state.touch_response:
-            body_lines.append(f"touch_response: {state.touch_response}")
+        if state.heart_rate is not None:
+            body_lines.append(f"heart_rate: {state.heart_rate:.0%}")
+        if state.pain is not None:
+            body_lines.append(f"pain: {state.pain:.0%}")
         lines.append("\n--- Body ---")
         lines.extend(f"  {b}" for b in body_lines)
 
@@ -1625,10 +1625,10 @@ def _format_lightweight_response(
         body_parts.append(f"warmth:{state.warmth:.0%}")
     if state.arousal is not None:
         body_parts.append(f"arousal:{state.arousal:.0%}")
-    if state.heart_rate:
-        body_parts.append(f"HR:{state.heart_rate}")
-    if state.touch_response:
-        body_parts.append(f"touch:{state.touch_response}")
+    if state.heart_rate is not None:
+        body_parts.append(f"HR:{state.heart_rate:.0%}")
+    if state.pain is not None:
+        body_parts.append(f"pain:{state.pain:.0%}")
     if body_parts:
         lines.append("Your body: " + " · ".join(body_parts))
 

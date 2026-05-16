@@ -373,8 +373,24 @@ async function loadOverview() {
                         </div>
                     </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px;font-size:0.82rem">
-                    <div><span style="color:var(--text-muted)">💓 Heart:</span> <span style="color:var(--text-secondary)">${stats.heart_rate || '--'}</span></div>
-                    <div><span style="color:var(--text-muted)">✋ Touch:</span> <span style="color:var(--text-secondary)">${stats.touch_response || '--'}</span></div>
+                    <div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+                            <span style="font-size:0.78rem;color:var(--text-muted)">💓 Heart Rate</span>
+                            <span style="font-size:0.78rem;color:var(--text-secondary);font-weight:600">${stats.heart_rate != null ? (stats.heart_rate * 100).toFixed(0) + '%' : '--'}</span>
+                        </div>
+                        <div style="height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden">
+                            <div style="height:100%;width:${stats.heart_rate != null ? (stats.heart_rate * 100).toFixed(1) : 0}%;background:linear-gradient(90deg,#ef4444,#fca5a5);border-radius:3px;transition:width 0.4s ease"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+                            <span style="font-size:0.78rem;color:var(--text-muted)">💢 Pain</span>
+                            <span style="font-size:0.78rem;color:var(--text-secondary);font-weight:600">${stats.pain != null ? (stats.pain * 100).toFixed(0) + '%' : '--'}</span>
+                        </div>
+                        <div style="height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden">
+                            <div style="height:100%;width:${stats.pain != null ? (stats.pain * 100).toFixed(1) : 0}%;background:linear-gradient(90deg,#f59e0b,#fcd34d);border-radius:3px;transition:width 0.4s ease"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

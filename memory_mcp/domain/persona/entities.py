@@ -42,8 +42,8 @@ class PersonaState:
     fatigue: float | None = None
     warmth: float | None = None
     arousal: float | None = None
-    heart_rate: str | None = None
-    touch_response: str | None = None
+    heart_rate: float | None = None
+    pain: float | None = None
     action_tag: str | None = None
     speech_style: str | None = None
     user_info: dict = field(default_factory=dict)

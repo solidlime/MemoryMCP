@@ -96,7 +96,7 @@ def register_persona_routes(mcp) -> None:
                 "warmth",
                 "arousal",
                 "heart_rate",
-                "touch_response",
+                "pain",
             ):
                 stats[_f] = context.get(_f)
 

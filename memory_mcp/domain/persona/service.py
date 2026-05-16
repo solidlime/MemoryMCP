@@ -95,7 +95,7 @@ class PersonaService:
         """Update physical/mental/environmental state fields.
 
         Accepts: physical_state, mental_state, environment, fatigue,
-        warmth, arousal, heart_rate, touch_response, action_tag.
+        warmth, arousal, heart_rate, pain, action_tag.
         Updates only non-None values.
         """
         allowed_keys = {
@@ -106,7 +106,7 @@ class PersonaService:
             "warmth",
             "arousal",
             "heart_rate",
-            "touch_response",
+            "pain",
             "action_tag",
             "speech_style",
         }

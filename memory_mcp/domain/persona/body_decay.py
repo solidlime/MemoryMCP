@@ -19,6 +19,8 @@ _BODY_DECAY_CFG = {
     "fatigue": {"target": 0.0, "half_life_hours": 4.0},
     "warmth": {"target": 0.5, "half_life_hours": 2.0},
     "arousal": {"target": 0.0, "half_life_hours": 1.5},
+    "heart_rate": {"target": 0.5, "half_life_hours": 1.0},
+    "pain": {"target": 0.0, "half_life_hours": 2.0},
 }
 
 
@@ -47,8 +49,8 @@ def compute_body_state_decay(state: PersonaState, elapsed_hours: float) -> dict[
 
     updates: dict[str, str] = {}
 
-    # fatigue, warmth, arousal のみ減衰対象（heart_rate, touch_response は減衰しない）
-    for key in ("fatigue", "warmth", "arousal"):
+    # fatigue, warmth, arousal, heart_rate, pain が減衰対象
+    for key in ("fatigue", "warmth", "arousal", "heart_rate", "pain"):
         current_raw = getattr(state, key, None)
         if current_raw is None:
             continue

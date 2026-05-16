@@ -165,6 +165,7 @@ def render_persona_js() -> str:
         "                    if (stats.fatigue != null) parts.push('🔥Fatigue:' + (stats.fatigue*100).toFixed(0) + '%'); \n"
         "                    if (stats.warmth != null) parts.push('🌸Warmth:' + (stats.warmth*100).toFixed(0) + '%'); \n"
         "                    if (stats.arousal != null) parts.push('⚡Arousal:' + (stats.arousal*100).toFixed(0) + '%'); \n"
+        "                    if (stats.pain != null && stats.pain > 0) parts.push('💢Pain:' + (stats.pain*100).toFixed(0) + '%'); \n"
         "                    return parts.length > 0 ? '<div style=\"font-size:0.78rem;color:var(--text-muted);margin-top:4px\">' + parts.join(' · ') + '</div>' : ''; \n"
         "                })()\n"
         "                + '</div>'\n"

@@ -30,6 +30,7 @@ from memory_mcp.migration.versions.v015_chat_display_housekeeping import upgrade
 from memory_mcp.migration.versions.v016_chat_sandbox import upgrade as v016_upgrade
 from memory_mcp.migration.versions.v017_chat_mental_model import upgrade as v017_upgrade
 from memory_mcp.migration.versions.v018_multi_emotions import upgrade as v018_upgrade
+from memory_mcp.migration.versions.v019_body_state_refine import upgrade as v019_upgrade
 
 ALL_MIGRATIONS: list[tuple[str, str, object]] = [
     ("001", "Initial schema", v001_upgrade),
@@ -50,4 +51,5 @@ ALL_MIGRATIONS: list[tuple[str, str, object]] = [
     ("016", "Add sandbox_enabled to chat_settings", v016_upgrade),
     ("017", "Add mental_model_enabled and mental_model_min_samples to chat_settings", v017_upgrade),
     ("018", "Add multi-dimensional emotions support", v018_upgrade),
+    ("019", "Refine body_state: heart_rate numeric, pain added", v019_upgrade),
 ]
