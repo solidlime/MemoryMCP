@@ -225,13 +225,13 @@ def render_chat_tab() -> str:
         /* Category styling with accent colors */
         #settings-panel details[data-category="core"] summary::before { color: var(--accent-purple); }
         #settings-panel details[data-category="context"] summary::before { color: var(--accent-blue); }
-        #settings-panel details[data-category="memory"] summary::before { color: #a78bfa; }
-        #settings-panel details[data-category="tools"] summary::before { color: #60a5fa; }
-        #settings-panel details[data-category="skills"] summary::before { color: #fbbf24; }
-        #settings-panel details[data-category="reflection"] summary::before { color: #c084fc; }
-        #settings-panel details[data-category="mental"] summary::before { color: #818cf8; }
-        #settings-panel details[data-category="weights"] summary::before { color: #34d399; }
-        #settings-panel details[data-category="other"] summary::before { color: #f87171; }
+        #settings-panel details[data-category="memory"] summary::before { color: var(--accent-purple); }
+        #settings-panel details[data-category="tools"] summary::before { color: var(--accent-blue); }
+        #settings-panel details[data-category="skills"] summary::before { color: var(--accent-yellow); }
+        #settings-panel details[data-category="reflection"] summary::before { color: var(--accent-pink); }
+        #settings-panel details[data-category="mental"] summary::before { color: var(--accent-blue); }
+        #settings-panel details[data-category="weights"] summary::before { color: var(--accent-green); }
+        #settings-panel details[data-category="other"] summary::before { color: var(--accent-red); }
 
         /* Enhanced field labels */
         .chat-field-label {
@@ -272,7 +272,7 @@ def render_chat_tab() -> str:
             box-shadow: 0 0 0 3px rgba(167,139,250,0.1);
         }
 
-        .chat-field-input option { background: #1a0533; }
+        .chat-field-input option { background: var(--bg-primary); }
 
         /* Range slider styling */
         input[type="range"].chat-field-input {
@@ -593,8 +593,8 @@ def render_chat_tab() -> str:
             <div style="position:relative; margin-bottom:16px; display:flex; align-items:center; justify-content:space-between; padding-bottom:12px; border-bottom:1px solid var(--glass-border);">
                 <h2 style="font-size:1.25rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:10px;"><span style="font-size:1.4rem;">💬</span> Chat</h2>
                 <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                    <button class="mem-panel-toggle" id="memory-panel-toggle-btn" onclick="toggleMemoryPanel()" title="記憶パネルを開閉">🧠</button>
-                    <button class="chat-sidebar-toggle" onclick="toggleSettingsPanel()" id="chat-sidebar-toggle-btn" title="設定パネルを開閉">⚙️ 設定</button>
+                    <button class="mem-panel-toggle" id="memory-panel-toggle-btn" onclick="toggleMemoryPanel()" title="記憶パネルを開閉" aria-label="記憶パネルの表示切替">🧠</button>
+                    <button class="chat-sidebar-toggle" onclick="toggleSettingsPanel()" id="chat-sidebar-toggle-btn" title="設定パネルを開閉" aria-label="設定パネルの表示切替">⚙️ 設定</button>
                 </div>
             </div>
             <div id="chat-layout" class="glass" style="padding:0; overflow:hidden;">
@@ -671,12 +671,12 @@ def render_chat_tab() -> str:
                     <div id="chat-status"></div>
                     <div id="chat-attachments"></div>
                     <div id="chat-input-area">
-                        <textarea id="chat-input" placeholder="メッセージを入力... (Enter で送信、Shift+Enter で改行)" rows="1"></textarea>
+                        <textarea id="chat-input" placeholder="メッセージを入力... (Enter で送信、Shift+Enter で改行)" rows="1" aria-label="チャットメッセージ入力"></textarea>
                         <div style="display:flex;align-items:center;gap:6px;">
-                            <button id="chat-cancel-btn" onclick="chatCancel()" style="display:none;background:none;border:1px solid rgba(248,113,113,0.4);border-radius:8px;color:#f87171;padding:6px 14px;font-size:0.8rem;cursor:pointer;">⏹ 中止</button>
-                            <button id="chat-voice-btn" onclick="toggleVoiceInput()" title="音声入力" style="background:none;border:1px solid var(--glass-border);border-radius:8px;color:var(--text-muted);padding:6px 12px;font-size:0.85rem;cursor:pointer;">🎤</button>
-                            <button id="chat-export-btn" onclick="exportChatHistory()" title="会話をエクスポート" style="background:none;border:1px solid var(--glass-border);border-radius:8px;color:var(--text-muted);padding:6px 12px;font-size:0.78rem;cursor:pointer;">📥</button>
-                            <button id="chat-send-btn" onclick="chatSend()">送信</button>
+                            <button id="chat-cancel-btn" onclick="chatCancel()" style="display:none;background:none;border:1px solid rgba(248,113,113,0.4);border-radius:8px;color:#f87171;padding:6px 14px;font-size:0.8rem;cursor:pointer;" aria-label="応答を停止">⏹ 中止</button>
+                            <button id="chat-voice-btn" onclick="toggleVoiceInput()" title="音声入力" style="background:none;border:1px solid var(--glass-border);border-radius:8px;color:var(--text-muted);padding:6px 12px;font-size:0.85rem;cursor:pointer;" aria-label="音声入力の切替">🎤</button>
+                            <button id="chat-export-btn" onclick="exportChatHistory()" title="会話をエクスポート" style="background:none;border:1px solid var(--glass-border);border-radius:8px;color:var(--text-muted);padding:6px 12px;font-size:0.78rem;cursor:pointer;" aria-label="会話履歴をエクスポート">📥</button>
+                            <button id="chat-send-btn" onclick="chatSend()" aria-label="メッセージを送信">送信</button>
                         </div>
                     </div>
                 </div>
@@ -907,8 +907,8 @@ def render_chat_tab() -> str:
                     </div>
                     <!-- Sticky footer buttons -->
                     <div class="settings-footer">
-                        <button class="chat-save-btn" onclick="saveChatConfig()">💾 設定を保存</button>
-                        <button class="chat-clear-btn" onclick="clearChatHistory()">🗑️ 会話をリセット</button>
+                        <button class="chat-save-btn" onclick="saveChatConfig()" aria-label="チャット設定を保存">💾 設定を保存</button>
+                        <button class="chat-clear-btn" onclick="clearChatHistory()" aria-label="会話履歴をリセット">🗑️ 会話をリセット</button>
                         <div id="chat-config-status" style="font-size:0.75rem; text-align:center; min-height:16px;"></div>
                     </div>
                 </div>
@@ -939,8 +939,8 @@ def render_chat_tab() -> str:
                         </div>
                     </div>
                     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px;">
-                        <button class="chat-clear-btn" style="width:auto;padding:6px 14px;" onclick="deleteMemCard()">削除</button>
-                        <button class="chat-save-btn" style="width:auto;padding:6px 14px;" onclick="saveMemEdit()">保存</button>
+                        <button class="chat-clear-btn" style="width:auto;padding:6px 14px;" onclick="deleteMemCard()" aria-label="メモリを削除">削除</button>
+                        <button class="chat-save-btn" style="width:auto;padding:6px 14px;" onclick="saveMemEdit()" aria-label="メモリを保存">保存</button>
                     </div>
                 </div>
             </div>
