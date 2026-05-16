@@ -463,6 +463,16 @@ class SandboxSession:
                     if libraries:
                         session.install(libraries)
                     result = session.run(code)
+                    # Clean up temp .py files (UUID-named, 32 hex chars)
+                    with contextlib.suppress(Exception):
+                        session.run(
+                            "import os, re; c=0; "
+                            "for f in os.listdir('/sandbox'): "
+                            " if re.match(r'^[a-f0-9]{32}\\.py$', f, re.I): "
+                            "  try: os.remove(os.path.join('/sandbox',f)); c+=1 "
+                            "  except OSError: pass; "
+                            "print(c)"
+                        )
                     return ExecResult(
                         stdout=getattr(result, "stdout", "") or "",
                         stderr=getattr(result, "stderr", "") or "",
@@ -795,6 +805,19 @@ print(json.dumps(_tree({root!r})))
 
     def close(self) -> None:
         if self._python_session is not None:
+            # Clean up temp .py files before closing
+            try:
+                cleanup_code = (
+                    "import os, re; c=0; "
+                    "for f in os.listdir('/sandbox'): "
+                    " if re.match(r'^[a-f0-9]{32}\\.py$', f, re.I): "
+                    "  try: os.remove(os.path.join('/sandbox',f)); c+=1 "
+                    "  except OSError: pass; "
+                    "print(c)"
+                )
+                self._python_session.run(cleanup_code)
+            except Exception:
+                pass  # cleanup is best-effort
             with contextlib.suppress(Exception):
                 self._python_session.__exit__(None, None, None)
             self._python_session = None

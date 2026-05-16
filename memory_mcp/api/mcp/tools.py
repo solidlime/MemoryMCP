@@ -9,7 +9,7 @@ from mcp.server.fastmcp import FastMCP  # noqa: TC002
 from memory_mcp.api.mcp.middleware import get_current_persona
 from memory_mcp.application.use_cases import AppContextRegistry
 from memory_mcp.domain.search.engine import SearchQuery
-from memory_mcp.domain.shared.time_utils import get_now, relative_time_str
+from memory_mcp.domain.shared.time_utils import relative_time_str
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +68,31 @@ async def _tool_get_context(ctx: AppContext, persona: str, mode: str = "") -> st
                 state = refreshed.value
     except Exception as _e:
         logger.debug("get_context: emotion_decay failed (swallowed): %s", _e)
+
+    # Apply body state decay
+    try:
+        from memory_mcp.domain.persona.body_decay import apply_body_decay_if_needed
+
+        await apply_body_decay_if_needed(ctx.persona_service, persona, state)
+        # Re-read state after body decay may have updated it
+        state_result = ctx.persona_service.get_context(persona)
+        if state_result.is_ok and state_result.value:
+            state = state_result.value
+    except Exception:
+        pass  # best-effort, don't break context formatting
+
+    # Clear stale action_tag (older than 1 hour)
+    if state.action_tag:
+        try:
+            from memory_mcp.domain.shared.time_utils import get_now
+
+            last_conv = state.last_conversation_time
+            if last_conv:
+                elapsed_hours = (get_now() - last_conv).total_seconds() / 3600.0
+                if elapsed_hours > 1.0:
+                    ctx.persona_service.update_physical_state(persona, action_tag="")
+        except Exception:
+            pass  # best-effort
 
     top_result = ctx.memory_service.get_top_by_importance(15)
     top_memories = top_result.value if top_result.is_ok else []
@@ -404,7 +429,7 @@ async def _tool_update_context(
             if key in body_state and body_state[key] is not None:
                 physical_updates[key] = str(body_state[key])
     if action_tag is not None:
-        physical_updates["action_tag"] = action_tag
+        physical_updates["action_tag"] = action_tag.strip() if action_tag.strip() else ""
     if speech_style is not None:
         physical_updates["speech_style"] = speech_style
 

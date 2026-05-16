@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import os
 from pathlib import Path
 
@@ -8,6 +9,8 @@ from mcp.server.fastmcp import FastMCP
 from memory_mcp.api.http.routes import register_http_routes
 from memory_mcp.api.mcp.middleware import PersonaMiddleware
 from memory_mcp.api.mcp.tools import register_tools
+from memory_mcp.application.sandbox.service import _sessions as sandbox_sessions
+from memory_mcp.application.sandbox.service import close_sandbox_session
 from memory_mcp.application.use_cases import AppContextRegistry
 from memory_mcp.config.settings import Settings
 from memory_mcp.infrastructure.logging.structured import get_logger, setup_logging
@@ -94,6 +97,16 @@ def create_app() -> MemoryFastMCP:
 
         snapshot_worker = ContextSnapshotWorker(settings)
         snapshot_worker.start()
+
+    # Register sandbox session cleanup on shutdown
+    import atexit
+
+    def _shutdown_sandbox_sessions() -> None:
+        for persona in list(sandbox_sessions.keys()):
+            with contextlib.suppress(Exception):
+                close_sandbox_session(persona)
+
+    atexit.register(_shutdown_sandbox_sessions)
 
     return mcp
 
