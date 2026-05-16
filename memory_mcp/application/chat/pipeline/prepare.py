@@ -208,6 +208,26 @@ async def _build_context_section(ctx: AppContext, state) -> str:
     except Exception as e:
         logger.debug("Failed to fetch goals/promises: %s", e)
 
+    # Reflection insights（直近の高次洞察）
+    try:
+        reflection_result = ctx.memory_service.get_by_tags(["reflection"])
+        if reflection_result.is_ok and reflection_result.value:
+            insights = [r.content for r in reflection_result.value[:3] if r.content]
+            if insights:
+                parts.append("最近の洞察:\n" + "\n".join(f"  💡 {i}" for i in insights))
+    except Exception as e:
+        logger.debug("Failed to fetch reflections: %s", e)
+
+    # Mental model（抽象化された行動パターン）
+    try:
+        mm_result = ctx.memory_service.get_by_tags(["mental_model", "abstracted"])
+        if mm_result.is_ok and mm_result.value:
+            patterns = [m.content for m in mm_result.value[:3] if m.content]
+            if patterns:
+                parts.append("行動パターン:\n" + "\n".join(f"  🧩 {p}" for p in patterns))
+    except Exception as e:
+        logger.debug("Failed to fetch mental models: %s", e)
+
     try:
         equip_result = ctx.equipment_service.get_equipment()
         if equip_result.is_ok:

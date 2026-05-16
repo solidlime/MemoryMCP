@@ -70,6 +70,8 @@ def register_chat_routes(mcp) -> None:
             "display_history_turns",
             "housekeeping_threshold",
             "sandbox_enabled",
+            "mental_model_enabled",
+            "mental_model_min_samples",
         ):
             if field_name in body:
                 update_data[field_name] = body[field_name]

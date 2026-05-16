@@ -13,6 +13,7 @@ from memory_mcp.application.chat.events import (
     ReflectionStartSSE,
 )
 from memory_mcp.application.chat.memory_llm import run_context_housekeeping, run_memory_llm
+from memory_mcp.application.chat.pattern_detector import maybe_run_mental_model
 from memory_mcp.application.chat.reflection import maybe_run_reflection
 from memory_mcp.application.chat.summarizer import summarize_and_store
 from memory_mcp.domain.shared.time_utils import get_now
@@ -162,3 +163,10 @@ class PostProcessStep:
                 except Exception as e:
                     logger.warning("PostProcessStep: reflection failed: %s", e)
                     yield ReflectionDoneSSE(insights=[])
+
+        # Mental Model: 蓄積されたパターンから抽象化モデルを生成
+        if getattr(config, "mental_model_enabled", True):
+            try:
+                await maybe_run_mental_model(ctx, config)
+            except Exception as e:
+                logger.warning("PostProcessStep: mental_model failed: %s", e)

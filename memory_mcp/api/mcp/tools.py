@@ -95,6 +95,10 @@ async def _tool_get_context(ctx: AppContext, persona: str, mode: str = "") -> st
         goals = goals_result.value if goals_result.is_ok else []
         promises_result = ctx.memory_service.get_by_tags(["promise"])
         promises = promises_result.value if promises_result.is_ok else []
+        reflection_result = ctx.memory_service.get_by_tags(["reflection"])
+        reflections = reflection_result.value if reflection_result.is_ok else []
+        mm_result = ctx.memory_service.get_by_tags(["mental_model", "abstracted"])
+        mental_models = mm_result.value if mm_result.is_ok else []
         searches_result = ctx.memory_service.get_recent_searches(3)
         recent_searches = searches_result.value if searches_result.is_ok else []
         decayed_result = ctx.memory_service.count_decayed_important()
@@ -122,6 +126,8 @@ async def _tool_get_context(ctx: AppContext, persona: str, mode: str = "") -> st
             relationship_highlights,
             top_memories,
             emotion_history,
+            reflections,
+            mental_models,
         )
 
     # Default: lightweight — essentials for seamless persona + conversation restoration
@@ -129,6 +135,10 @@ async def _tool_get_context(ctx: AppContext, persona: str, mode: str = "") -> st
     goals = goals_result.value if goals_result.is_ok else []
     promises_result = ctx.memory_service.get_by_tags(["promise"])
     promises = promises_result.value if promises_result.is_ok else []
+    reflection_result = ctx.memory_service.get_by_tags(["reflection"])
+    reflections = reflection_result.value if reflection_result.is_ok else []
+    mm_result = ctx.memory_service.get_by_tags(["mental_model", "abstracted"])
+    mental_models = mm_result.value if mm_result.is_ok else []
     equip_result = ctx.equipment_service.get_equipment()
     equipment = equip_result.value if equip_result.is_ok else {}
     # Recent memories (last 5) for conversation continuity across sessions
@@ -139,7 +149,16 @@ async def _tool_get_context(ctx: AppContext, persona: str, mode: str = "") -> st
         time_since = relative_time_str(state.last_conversation_time)
     ctx.persona_service.record_conversation_time(persona)
     return _format_lightweight_response(
-        state, top_memories, goals, promises, equipment, recent, time_since, emotion_history
+        state,
+        top_memories,
+        goals,
+        promises,
+        equipment,
+        recent,
+        time_since,
+        emotion_history,
+        reflections,
+        mental_models,
     )
 
 
@@ -1161,6 +1180,8 @@ def _format_context_response(
     relationship_highlights: list | None = None,
     top_memories: list | None = None,
     emotion_history: list | None = None,
+    reflections: list | None = None,
+    mental_models: list | None = None,
 ) -> str:
     lines: list[str] = []
     lines.append(f"=== YOU ARE: {state.persona} (right now) ===")
@@ -1365,6 +1386,21 @@ def _format_context_response(
     if state.speech_style:
         ai_instructions.append(f'- Use the following speech style: "{state.speech_style}"')
     lines.extend(ai_instructions)
+
+    # ── Insights: reflection + mental model ──
+    if reflections:
+        insights = [r.content for r in reflections[:3] if r.content]
+        if insights:
+            lines.append("\n--- Recent Insights ---")
+            for i in insights:
+                lines.append(f"  💡 {i}")
+    if mental_models:
+        patterns = [m.content for m in mental_models[:3] if m.content]
+        if patterns:
+            lines.append("\n--- Behavior Patterns ---")
+            for p in patterns:
+                lines.append(f"  🧩 {p}")
+
     return "\n".join(lines)
 
 
@@ -1377,6 +1413,8 @@ def _format_lightweight_response(
     recent: list,
     time_since: str = "",
     emotion_history: list | None = None,
+    reflections: list | None = None,
+    mental_models: list | None = None,
 ) -> str:
     """Lightweight context (~700-900 tokens): persona + conversation continuity + body state."""
     lines: list[str] = []
@@ -1500,6 +1538,20 @@ def _format_lightweight_response(
                 break
             lines.append(line)
             used += len(line)
+
+    # ── Insights: reflection + mental model ──
+    if reflections:
+        insights = [r.content for r in reflections[:2] if r.content]
+        if insights:
+            lines.append("\n--- Recent Insights ---")
+            for i in insights:
+                lines.append(f"💡 {i}")
+    if mental_models:
+        patterns = [m.content for m in mental_models[:2] if m.content]
+        if patterns:
+            lines.append("\n--- Behavior Patterns ---")
+            for p in patterns:
+                lines.append(f"🧩 {p}")
 
     lines.append('\n💡 Use get_context(mode="full") for complete context, memory_search() for specific topics.')
     return "\n".join(lines)
