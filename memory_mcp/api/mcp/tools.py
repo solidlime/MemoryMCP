@@ -50,8 +50,9 @@ if TYPE_CHECKING:
 # =============================================================================
 
 
-async def _tool_get_context(ctx: AppContext, persona: str, mode: str = "standard") -> str:
-    """Get persona state and memory overview. Call FIRST at session start."""
+async def _tool_get_context(ctx: AppContext, persona: str, mode: str = "") -> str:
+    """Get persona state and memory overview. Call FIRST at session start.
+    Default: lightweight (~400-600 tokens). mode="full" for complete context."""
     state_result = ctx.persona_service.get_context(persona)
     if not state_result.is_ok:
         return f"Error: {state_result.error}"
@@ -71,46 +72,51 @@ async def _tool_get_context(ctx: AppContext, persona: str, mode: str = "standard
     top_result = ctx.memory_service.get_top_by_importance(15)
     top_memories = top_result.value if top_result.is_ok else []
 
-    if mode == "wake_up":
+    # Full mode — everything (alias: "standard")
+    if mode in ("full", "standard"):
+        stats_result = ctx.memory_service.get_stats()
+        stats = stats_result.value if stats_result.is_ok else {}
+        recent_result = ctx.memory_service.get_smart_recent(8)
+        recent = recent_result.value if recent_result.is_ok else []
+        equip_result = ctx.equipment_service.get_equipment()
+        equipment = equip_result.value if equip_result.is_ok else {}
+        blocks_result = ctx.memory_service.list_blocks()
+        blocks = blocks_result.value if blocks_result.is_ok else []
         goals_result = ctx.memory_service.get_by_tags(["goal"])
         goals = goals_result.value if goals_result.is_ok else []
         promises_result = ctx.memory_service.get_by_tags(["promise"])
         promises = promises_result.value if promises_result.is_ok else []
-        wakeup_time_since = ""
+        searches_result = ctx.memory_service.get_recent_searches(3)
+        recent_searches = searches_result.value if searches_result.is_ok else []
+        decayed_result = ctx.memory_service.count_decayed_important()
+        decayed_count = decayed_result.value if decayed_result.is_ok else 0
+        index_result = ctx.memory_service.get_memory_index()
+        memory_index = index_result.value if index_result.is_ok else None
+        highlights_result = ctx.memory_service.get_relationship_highlights(5)
+        relationship_highlights = highlights_result.value if highlights_result.is_ok else []
+        time_since = ""
         if state.last_conversation_time:
-            wakeup_time_since = relative_time_str(state.last_conversation_time)
+            time_since = relative_time_str(state.last_conversation_time)
         ctx.persona_service.record_conversation_time(persona)
-        return _format_wakeup_response(state, top_memories, goals, promises, wakeup_time_since)
+        return _format_context_response(
+            state, stats, recent, equipment, blocks, time_since,
+            goals, promises, recent_searches, decayed_count, memory_index,
+            relationship_highlights, top_memories,
+        )
 
-    stats_result = ctx.memory_service.get_stats()
-    stats = stats_result.value if stats_result.is_ok else {}
-    recent_result = ctx.memory_service.get_smart_recent(8)
-    recent = recent_result.value if recent_result.is_ok else []
-    equip_result = ctx.equipment_service.get_equipment()
-    equipment = equip_result.value if equip_result.is_ok else {}
-    blocks_result = ctx.memory_service.list_blocks()
-    blocks = blocks_result.value if blocks_result.is_ok else []
+    # Default: lightweight (active commitments + essential story only)
     goals_result = ctx.memory_service.get_by_tags(["goal"])
     goals = goals_result.value if goals_result.is_ok else []
     promises_result = ctx.memory_service.get_by_tags(["promise"])
     promises = promises_result.value if promises_result.is_ok else []
-    searches_result = ctx.memory_service.get_recent_searches(3)
-    recent_searches = searches_result.value if searches_result.is_ok else []
-    decayed_result = ctx.memory_service.count_decayed_important()
-    decayed_count = decayed_result.value if decayed_result.is_ok else 0
-    index_result = ctx.memory_service.get_memory_index()
-    memory_index = index_result.value if index_result.is_ok else None
-    highlights_result = ctx.memory_service.get_relationship_highlights(5)
-    relationship_highlights = highlights_result.value if highlights_result.is_ok else []
     time_since = ""
     if state.last_conversation_time:
         time_since = relative_time_str(state.last_conversation_time)
+    # Quick stats for total count only (lightweight)
+    stats_result = ctx.memory_service.get_stats()
+    total_count = stats_result.value.get("total_count", "?") if stats_result.is_ok else "?"
     ctx.persona_service.record_conversation_time(persona)
-    return _format_context_response(
-        state, stats, recent, equipment, blocks, time_since,
-        goals, promises, recent_searches, decayed_count, memory_index,
-        relationship_highlights, top_memories,
-    )
+    return _format_wakeup_response(state, top_memories, goals, promises, time_since, total_count)
 
 
 async def _tool_memory_create(
@@ -708,9 +714,10 @@ def register_tools(mcp: FastMCP) -> None:
 
     # get_context
     @mcp.tool()
-    async def get_context(mode: str = "standard") -> str:
+    async def get_context(mode: str = "") -> str:
         """Get persona state and memory overview. Call FIRST at session start.
-        mode: "standard" (full) or "wake_up" (~300-500 tokens, identity + essential story only)."""
+        Default: lightweight (~400-600 tokens, active commitments + essential story).
+        mode="full" or "standard" for complete context with stats, equipment, index, recent memories."""
         p = _resolve_persona()
         return await _tool_get_context(AppContextRegistry.get(p), p, mode=mode)
 
@@ -1116,9 +1123,12 @@ def _format_context_response(
 
 def _format_wakeup_response(
     state: PersonaState, top_memories: list, goals: list, promises: list, time_since: str = "",
+    total_count: int | str = "?",
 ) -> str:
+    """Lightweight context (~400-600 tokens): identity + essential story + memory count."""
     lines: list[str] = []
-    lines.append(f"=== Persona: {state.persona} (wake_up mode) ===")
+
+    lines.append(f"=== Persona: {state.persona} ===")
     if time_since:
         lines.append(f"Last conversation: {time_since}")
         time_comment = _build_time_comment(time_since, state.relationship_status)
@@ -1127,6 +1137,7 @@ def _format_wakeup_response(
     lines.append(f"Emotion: {state.emotion} (intensity: {state.emotion_intensity})")
     if state.speech_style:
         lines.append(f"Speech Style: {state.speech_style}")
+    lines.append(f"Memories: {total_count}")
     if state.user_info:
         name = (
             state.user_info.get("preferred_address")
