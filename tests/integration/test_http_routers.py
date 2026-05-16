@@ -20,6 +20,7 @@ from unittest.mock import patch
 import httpx
 import pytest
 
+from memory_mcp.api.http.sections.base import render_utilities_js
 from memory_mcp.application.use_cases import AppContextRegistry
 from memory_mcp.config.runtime_config import RuntimeConfigManager
 from memory_mcp.main import create_app
@@ -685,3 +686,22 @@ class TestItemEndpoints:
             headers={"content-type": "application/json"},
         )
         assert resp.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# Dashboard state restoration helpers (moved from test_dashboard_state_restore)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.integration
+class TestDashboardStateRestoration:
+    """Regression tests for dashboard state restoration helpers."""
+
+    def test_dashboard_uses_consistent_persona_storage_helpers(self):
+        """Persona persistence should use shared helpers instead of split localStorage keys."""
+        js = render_utilities_js()
+
+        assert "function getStoredPersona()" in js
+        assert "function setStoredPersona(persona)" in js
+        assert "localStorage.setItem('selected_persona'" in js
+        assert "localStorage.setItem('mmcp-persona'" in js

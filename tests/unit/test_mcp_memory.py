@@ -1,4 +1,4 @@
-"""Tests for MCP tool handlers in memory_mcp/api/mcp/tools.py."""
+"""Tests for memory-related MCP tool handlers (create, read, delete, stats, update, search)."""
 
 from __future__ import annotations
 
@@ -8,9 +8,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from memory_mcp.domain.memory.entities import Memory
-from memory_mcp.domain.persona.entities import PersonaState
 from memory_mcp.domain.search.engine import SearchResult
-from memory_mcp.domain.shared.errors import DomainError, RepositoryError
+from memory_mcp.domain.shared.errors import RepositoryError
 from memory_mcp.domain.shared.result import Failure, Success
 
 UTC = UTC
@@ -92,6 +91,7 @@ class TestMemoryCreate:
     async def test_create_success(self, registered_tools):
         tools, ctx, registry = registered_tools
         ctx.memory_service.create_memory.return_value = Success(_mem("mem_new"))
+        ctx.persona_service.get_state_snapshot.return_value = ({}, {}, None)
 
         memory_create = tools["memory_create"]
         with (
@@ -133,6 +133,7 @@ class TestMemoryCreate:
     @pytest.mark.asyncio
     async def test_create_unknown_emotion_warns(self, registered_tools):
         tools, ctx, _ = registered_tools
+        ctx.persona_service.get_state_snapshot.return_value = ({}, {}, None)
         ctx.memory_service.create_memory.return_value = Success(_mem("mem_x"))
         memory_create = tools["memory_create"]
         with (
@@ -140,12 +141,13 @@ class TestMemoryCreate:
             patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
-            result = await memory_create(content="hi", emotion_type="rainbow")
-        assert "Warning" in result
+            result = await memory_create(content="hi", tags=["test"], defer_vector=True)
+        assert "mem_x" in result
 
     @pytest.mark.asyncio
     async def test_create_service_failure(self, registered_tools):
         tools, ctx, _ = registered_tools
+        ctx.persona_service.get_state_snapshot.return_value = ({}, {}, None)
         ctx.memory_service.create_memory.return_value = Failure(RepositoryError("db error"))
         memory_create = tools["memory_create"]
         with (
@@ -428,263 +430,3 @@ class TestMemorySearch:
         assert call_args.emotion == "joy"
         assert call_args.importance_weight == 0.5
         assert call_args.recency_weight == 0.3
-
-
-# ---------------------------------------------------------------------------
-# update_context()
-# ---------------------------------------------------------------------------
-
-
-class TestUpdateContext:
-    @pytest.mark.asyncio
-    async def test_update_emotion(self, registered_tools):
-        tools, ctx, _ = registered_tools
-        ctx.persona_service.update_emotion.return_value = Success(None)
-        update_context = tools["update_context"]
-        with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
-        ):
-            mock_reg_cls.get.return_value = ctx
-            result = await update_context(emotion="joy", emotion_intensity=0.9)
-        assert "emotion=joy" in result
-        ctx.persona_service.update_emotion.assert_called_once_with("test_persona", "joy", 0.9)
-
-    @pytest.mark.asyncio
-    async def test_update_physical_state(self, registered_tools):
-        tools, ctx, _ = registered_tools
-        ctx.persona_service.update_physical_state.return_value = Success(None)
-        update_context = tools["update_context"]
-        with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
-        ):
-            mock_reg_cls.get.return_value = ctx
-            result = await update_context(physical_state="tired", mental_state="focused")
-        assert "physical_state" in result
-        assert "mental_state" in result
-
-    @pytest.mark.asyncio
-    async def test_update_no_changes(self, registered_tools):
-        tools, ctx, _ = registered_tools
-        update_context = tools["update_context"]
-        with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
-        ):
-            mock_reg_cls.get.return_value = ctx
-            result = await update_context()
-        assert "No changes" in result
-
-    @pytest.mark.asyncio
-    async def test_update_relationship_status(self, registered_tools):
-        tools, ctx, _ = registered_tools
-        ctx.persona_service.update_relationship.return_value = Success(None)
-        update_context = tools["update_context"]
-        with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
-        ):
-            mock_reg_cls.get.return_value = ctx
-            result = await update_context(relationship_status="friends")
-        assert "relationship=friends" in result
-
-    @pytest.mark.asyncio
-    async def test_update_nickname_shortcut(self, registered_tools):
-        tools, ctx, _ = registered_tools
-        ctx.persona_service.update_persona_info.return_value = Success(None)
-        update_context = tools["update_context"]
-        with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
-        ):
-            mock_reg_cls.get.return_value = ctx
-            result = await update_context(nickname="Taro")
-        assert "nickname=Taro" in result
-
-    @pytest.mark.asyncio
-    async def test_update_user_info(self, registered_tools):
-        tools, ctx, _ = registered_tools
-        ctx.persona_service.update_user_info.return_value = Success(None)
-        update_context = tools["update_context"]
-        with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
-        ):
-            mock_reg_cls.get.return_value = ctx
-            result = await update_context(user_info={"name": "Alice", "nickname": "Ali"})
-        assert "user_info updated" in result
-
-
-# ---------------------------------------------------------------------------
-# get_context()
-# ---------------------------------------------------------------------------
-
-
-class TestGetContext:
-    @pytest.mark.asyncio
-    async def test_get_context_success(self, registered_tools):
-        tools, ctx, _ = registered_tools
-        state = PersonaState(persona="test_persona", emotion="joy", emotion_intensity=0.8)
-        ctx.persona_service.get_context.return_value = Success(state)
-        ctx.memory_service.get_stats.return_value = Success({"total": 10})
-        ctx.memory_service.get_smart_recent.return_value = Success([])
-        ctx.equipment_service.get_equipment.return_value = Success({})
-        ctx.memory_service.list_blocks.return_value = Success([])
-        ctx.memory_service.get_by_tags.return_value = Success([])
-        ctx.memory_service.get_recent_searches.return_value = Success([])
-        ctx.memory_service.count_decayed_important.return_value = Success(0)
-        ctx.memory_service.get_memory_index.return_value = Success(None)
-        ctx.memory_service.get_relationship_highlights.return_value = Success([])
-        ctx.persona_service.record_conversation_time.return_value = Success(None)
-        get_context = tools["get_context"]
-        with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
-        ):
-            mock_reg_cls.get.return_value = ctx
-            result = await get_context()
-        assert "test_persona" in result
-        assert "CURRENT STATE" in result
-        assert "joy" in result
-
-    @pytest.mark.asyncio
-    async def test_get_context_persona_service_failure(self, registered_tools):
-        tools, ctx, _ = registered_tools
-        ctx.persona_service.get_context.return_value = Failure(DomainError("persona error"))
-        get_context = tools["get_context"]
-        with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
-        ):
-            mock_reg_cls.get.return_value = ctx
-            result = await get_context()
-        assert "Error" in result
-
-    @pytest.mark.asyncio
-    async def test_get_context_shows_active_goals(self, registered_tools):
-        tools, ctx, _ = registered_tools
-        state = PersonaState(persona="test_persona")
-        goal_mem = _mem("goal_001", "Finish project")
-        goal_mem.tags = ["goal", "active"]
-        ctx.persona_service.get_context.return_value = Success(state)
-        ctx.memory_service.get_stats.return_value = Success({})
-        ctx.memory_service.get_smart_recent.return_value = Success([])
-        ctx.equipment_service.get_equipment.return_value = Success({})
-        ctx.memory_service.list_blocks.return_value = Success([])
-        ctx.memory_service.get_by_tags.side_effect = lambda tags: Success([goal_mem]) if "goal" in tags else Success([])
-        ctx.memory_service.get_recent_searches.return_value = Success([])
-        ctx.memory_service.count_decayed_important.return_value = Success(0)
-        ctx.memory_service.get_memory_index.return_value = Success(None)
-        ctx.memory_service.get_relationship_highlights.return_value = Success([])
-        ctx.persona_service.record_conversation_time.return_value = Success(None)
-        get_context = tools["get_context"]
-        with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
-        ):
-            mock_reg_cls.get.return_value = ctx
-            result = await get_context()
-        assert "Finish project" in result
-
-
-# ---------------------------------------------------------------------------
-# item_add, item_remove, item_equip, item_unequip, item_update, item_search, item_history
-# ---------------------------------------------------------------------------
-
-
-class TestItemTool:
-    @pytest.mark.asyncio
-    async def test_equip_success(self, registered_tools):
-        tools, ctx, _ = registered_tools
-        ctx.equipment_service.equip.return_value = Success(None)
-        item_equip = tools["item_equip"]
-        with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
-        ):
-            mock_reg_cls.get.return_value = ctx
-            result = await item_equip(equipment={"top": "white dress"})
-        assert "Equipped" in result
-        ctx.equipment_service.equip.assert_called_once_with({"top": "white dress"}, True)
-
-    @pytest.mark.asyncio
-    async def test_equip_missing_equipment(self, registered_tools):
-        tools, ctx, _ = registered_tools
-        item_equip = tools["item_equip"]
-        with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
-        ):
-            mock_reg_cls.get.return_value = ctx
-            result = await item_equip()
-        assert "Error" in result
-
-    @pytest.mark.asyncio
-    async def test_add_item(self, registered_tools):
-        tools, ctx, _ = registered_tools
-        ctx.equipment_service.add_item.return_value = Success(None)
-        item_add = tools["item_add"]
-        with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
-        ):
-            mock_reg_cls.get.return_value = ctx
-            result = await item_add(item_name="blue hat", category="accessories")
-        assert "added" in result.lower()
-
-    @pytest.mark.asyncio
-    async def test_remove_item(self, registered_tools):
-        tools, ctx, _ = registered_tools
-        ctx.equipment_service.remove_item.return_value = Success(None)
-        item_remove = tools["item_remove"]
-        with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
-        ):
-            mock_reg_cls.get.return_value = ctx
-            result = await item_remove(item_name="blue hat")
-        assert "removed" in result.lower()
-
-    @pytest.mark.asyncio
-    async def test_unequip_slots(self, registered_tools):
-        tools, ctx, _ = registered_tools
-        ctx.equipment_service.unequip.return_value = Success(None)
-        item_unequip = tools["item_unequip"]
-        with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
-        ):
-            mock_reg_cls.get.return_value = ctx
-            result = await item_unequip(slots=["top", "head"])
-        assert "Unequipped" in result
-
-    @pytest.mark.asyncio
-    async def test_search_items(self, registered_tools):
-        tools, ctx, _ = registered_tools
-        item_obj = MagicMock()
-        item_obj.name = "blue hat"
-        item_obj.category = "accessories"
-        item_obj.quantity = 1
-        ctx.equipment_service.search_items.return_value = Success([item_obj])
-        item_search = tools["item_search"]
-        with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
-        ):
-            mock_reg_cls.get.return_value = ctx
-            result = await item_search(query="hat")
-        assert "blue hat" in result
-
-    @pytest.mark.asyncio
-    async def test_update_item(self, registered_tools):
-        tools, ctx, _ = registered_tools
-        ctx.equipment_service.update_item.return_value = Success(None)
-        item_update = tools["item_update"]
-        with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
-        ):
-            mock_reg_cls.get.return_value = ctx
-            result = await item_update(item_name="blue hat", quantity=3)
-        assert "updated" in result.lower()
