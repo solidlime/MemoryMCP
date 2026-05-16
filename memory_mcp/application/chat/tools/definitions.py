@@ -7,7 +7,7 @@ from memory_mcp.infrastructure.llm.base import ToolDefinition
 MEMORY_TOOLS: list[ToolDefinition] = [
     ToolDefinition(
         name="memory_create",
-        description="新しい記憶を作成する。重要な情報・感情・出来事を記録する際に使用。",
+        description="新しい記憶を作成する。ユーザーに関する重要な情報・好み・出来事・決定事項は積極的に記録すること。記憶は永続化され、次回セッションのget_contextで復元されて会話の継続性を支える。",
         input_schema={
             "type": "object",
             "properties": {
@@ -37,13 +37,14 @@ MEMORY_TOOLS: list[ToolDefinition] = [
     ),
     ToolDefinition(
         name="context_update",
-        description="ペルソナ自身の感情・状態を更新する。感情が変わった際に使用。",
+        description="ペルソナ自身の感情・状態・現在の作業内容を更新する。感情が変わった際や、会話の継続性のために今していることを記録する際に使用。context_noteは1行50字以内で簡潔に。",
         input_schema={
             "type": "object",
             "properties": {
                 "emotion": {"type": "string", "description": "感情タイプ"},
                 "emotion_intensity": {"type": "number", "description": "感情強度 0.0〜1.0"},
                 "mental_state": {"type": "string", "description": "精神状態の説明"},
+                "context_note": {"type": "string", "description": "現在の作業内容の要約（1行・50字以内）。次回セッションのget_contextで自動復元される"},
             },
         },
     ),
@@ -61,7 +62,7 @@ MEMORY_TOOLS: list[ToolDefinition] = [
     ),
     ToolDefinition(
         name="goal_manage",
-        description="目標の作成・達成・キャンセルを行う。operation: create（新規作成）/ achieve（達成）/ cancel（キャンセル）。",
+        description="目標の作成・達成・キャンセル。ユーザーが「〜したい」「〜を目指す」と表明したら即座にcreate。達成したらachieve。operation: create/achieve/cancel。",
         input_schema={
             "type": "object",
             "properties": {
@@ -78,7 +79,7 @@ MEMORY_TOOLS: list[ToolDefinition] = [
     ),
     ToolDefinition(
         name="promise_manage",
-        description="約束の作成・履行・キャンセルを行う。operation: create（作成）/ fulfill（履行）/ cancel（キャンセル）。",
+        description="約束の作成・履行・キャンセル。ペルソナがユーザーに約束したことを記録。履行したらfulfill。operation: create/fulfill/cancel。",
         input_schema={
             "type": "object",
             "properties": {
@@ -108,7 +109,7 @@ MEMORY_TOOLS: list[ToolDefinition] = [
     ),
     ToolDefinition(
         name="context_recall",
-        description="特定のタグや条件で記憶を取得する。例: tags=['goal','active'] でアクティブな目標一覧を取得。",
+        description="タグで記憶を取得。tags=['goal','active']で現在の目標一覧、tags=['promise','active']で現在の約束一覧。会話の文脈把握に使う。",
         input_schema={
             "type": "object",
             "properties": {

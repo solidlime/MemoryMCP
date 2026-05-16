@@ -76,6 +76,9 @@ async def _handle_context_update(ctx: AppContext, config: ChatConfig, tool_input
             ctx.persona_service.update_physical_state(
                 ctx.persona, mental_state=update_kwargs["mental_state"],
             )
+    # context_note: session continuity — persists in persona_info, displayed in get_context
+    if "context_note" in tool_input and tool_input["context_note"]:
+        ctx.persona_service.update_persona_info(ctx.persona, {"context_note": tool_input["context_note"]})
     return {"status": "ok"}
 
 

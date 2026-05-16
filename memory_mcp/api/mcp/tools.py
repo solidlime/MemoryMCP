@@ -742,7 +742,8 @@ def register_tools(mcp: FastMCP) -> None:
         emotion_intensity: float = 0.0, tags: list[str] | None = None,
         privacy_level: str = "internal", source_context: str | None = None, defer_vector: bool = False,
     ) -> str:
-        """Create a memory. importance auto-evaluated via LLM when None and enrichment enabled.
+        """Create a memory. Use to record important user facts, preferences, events.
+        importance auto-evaluated via LLM when None and enrichment enabled.
         emotion_type: joy/sadness/anger/fear/surprise/disgust/love/neutral etc.
         tags: categorization tags. defer_vector: skip immediate vector indexing."""
         p = _resolve_persona()
@@ -786,7 +787,8 @@ def register_tools(mcp: FastMCP) -> None:
         min_importance: float | None = None, emotion: str | None = None,
         importance_weight: float = 0.0, recency_weight: float = 0.0,
     ) -> str:
-        """Search memories with hybrid retrieval. date_range: "7d","30d","昨日","先週","2025-01-01~2025-06-01".
+        """Search memories with hybrid retrieval. Use when conversation references past events
+        or you need context about the user. date_range: "7d","30d","昨日".
         importance_weight/recency_weight: RRF scoring boosts (0.0-1.0)."""
         p = _resolve_persona()
         return await _tool_memory_search(AppContextRegistry.get(p), p, query=query, top_k=top_k, tags=tags,

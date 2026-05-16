@@ -71,3 +71,44 @@
 - [x] F032: 827 passed, 7 skipped（全ユニットテスト）
 
 ## 全タスク完了 ✅ (29/29)
+
+---
+
+## 2026-05-16: MCPツール統合 + コンテキスト最適化（本セッション）
+
+### 🔴 Phase 1: ツール統合・分割
+- [x] T001: sandbox_image → sandbox_files 統合（画像読取統合、sandbox_image削除）
+- [x] T002: MCPツール flat名再編（memory god-tool → 20 flat単一目的ツール）
+- [x] T003: goal/promise 6→2 builtinツール（operationパラメータ付き統合）
+- [x] T004: entity/contradictions/mental_model/import を LLMツールから削除
+
+### 🟡 Phase 2: docstring圧縮 + パラメータ集約
+- [x] T005: 全ツール docstring ≤300字（Phase1で完了）
+- [x] T006: update_context body_state集約（fatigue/warmth/arousal/heart_rate/touch_response → dict）
+- [x] T006b: item god-tool → 7 flatツール分割（add/remove/equip/unequip/update/search/history）
+
+### 🟠 Phase 3: コード統合
+- [x] T007: builtin.py と MCP tools.py 統合（if/elif→dispatch dict）
+- [x] T008: MCP Server ツール登録を flat 名に（20ツール直接登録）
+
+### 🔵 会話継続 + コンテキスト最適化
+- [x] T009: get_context デフォルト軽量化（~600-800 tokens, -90%）
+- [x] T010: context_note 追加（update_context + get_context 自動表示）
+- [x] T011: 直近記憶 + タグ自動合成による current context 表示
+- [x] T012: AGENTS.md セッション継続ガイド追加
+
+### 🟣 コード品質改善
+- [x] T013: コードレビュー反映（_VALID_EMOTIONS重複除去、importance検証、goal完全一致）
+- [x] T014: コア関数 str→dict 化（共有4関数）
+- [x] T015: builtin _parse_tool_str 削除
+- [x] T016: invoke_skill 重複除去（builtin側の死にコード削除）
+- [x] T017: memory_delete query→検索→削除に改善
+
+### テスト結果
+- [x] T018: 821 passed, 7 skipped（全ユニットテスト）
+
+### 成果
+- MCPツール: 6 god-tool → 20 flat単一目的
+- トークン削減: ~7,085 → ~600 (-91%)
+- 総コミット: 12 commits
+- 純減: ~500 lines
