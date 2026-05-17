@@ -25,7 +25,6 @@ class Memory:
     mental_state: str | None = None
     environment: str | None = None
     relationship_status: str | None = None
-    action_tag: str | None = None
     source_context: str | None = None
     related_keys: list[str] = field(default_factory=list)
     summary_ref: str | None = None

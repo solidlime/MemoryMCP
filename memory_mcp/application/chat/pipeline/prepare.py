@@ -172,6 +172,19 @@ async def _build_context_section(ctx: AppContext, state) -> str:
     if getattr(state, "emotion", None):
         intensity = getattr(state, "emotion_intensity", 0.5)
         parts.append(f"感情: {state.emotion} (強度: {intensity:.1f})")
+    # Emotion trend (how feelings have changed)
+    try:
+        eh_result = ctx.persona_service.get_emotion_history(state.persona, limit=5)
+        if eh_result.is_ok and eh_result.value:
+            recent_emotions = eh_result.value
+            if len(recent_emotions) >= 2:
+                prev = recent_emotions[-2]
+                if prev.emotion_type != state.emotion:
+                    trend = " → ".join(r.emotion_type for r in recent_emotions[-4:])
+                    trend += f" → {state.emotion}"
+                    parts.append(f"感情推移: {trend}")
+    except Exception:
+        pass
     # Show body state if available
     body_parts: list[str] = []
     for key, label in [

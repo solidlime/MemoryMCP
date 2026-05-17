@@ -91,7 +91,6 @@ def register_persona_routes(mcp) -> None:
 
             for _f in (
                 "environment",
-                "action_tag",
                 "speech_style",
                 "fatigue",
                 "warmth",

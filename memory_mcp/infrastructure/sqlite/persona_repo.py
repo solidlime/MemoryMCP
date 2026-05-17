@@ -79,7 +79,6 @@ class SQLitePersonaRepository:
                     arousal=_safe_float(state_map.get("arousal")),
                     heart_rate=_safe_float(state_map.get("heart_rate")),
                     pain=_safe_float(state_map.get("pain")),
-                    action_tag=state_map.get("action_tag"),
                     speech_style=state_map.get("speech_style"),
                     user_info=user_info,
                     persona_info=persona_info,

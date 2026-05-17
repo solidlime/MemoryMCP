@@ -20,7 +20,6 @@ class PersonaState:
     arousal: float | None = None
     heart_rate: float | None = None
     pain: float | None = None
-    action_tag: str | None = None
     speech_style: str | None = None
     user_info: dict = field(default_factory=dict)
     persona_info: dict = field(default_factory=dict)

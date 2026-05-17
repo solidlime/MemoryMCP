@@ -42,10 +42,10 @@ class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
                 INSERT OR REPLACE INTO memories (
                     key, content, created_at, updated_at, tags, importance,
                     emotion, emotion_intensity, physical_state, mental_state,
-                    environment, relationship_status, action_tag, source_context,
+                    environment, relationship_status, source_context,
                     related_keys, summary_ref, equipped_items, access_count,
                     last_accessed, privacy_level, body_state, state_snapped_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     memory.key,
@@ -60,7 +60,6 @@ class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
                     memory.mental_state,
                     memory.environment,
                     memory.relationship_status,
-                    memory.action_tag,
                     memory.source_context,
                     json.dumps(memory.related_keys, ensure_ascii=False),
                     memory.summary_ref,
@@ -630,7 +629,6 @@ class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
             mental_state=row["mental_state"],
             environment=row["environment"],
             relationship_status=row["relationship_status"],
-            action_tag=row["action_tag"],
             source_context=row["source_context"],
             related_keys=self._parse_json_list(row["related_keys"]),
             summary_ref=row["summary_ref"],

@@ -356,7 +356,6 @@ async function loadOverview() {
                         <div><span style="font-size:0.78rem;color:var(--text-muted)">Physical: </span><span style="font-size:0.85rem">${esc(ctx.physical_state || '--')}</span></div>
                         <div><span style="font-size:0.78rem;color:var(--text-muted)">Mental: </span><span style="font-size:0.85rem">${esc(ctx.mental_state || '--')}</span></div>
                         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-size:0.78rem;color:var(--text-muted);min-width:78px">🌍 Env:</span>${stats.environment ? '<span class="badge badge-blue">' + esc(stats.environment) + '</span>' : '<span style="color:var(--text-muted);font-size:0.82rem">--</span>'}</div>
-                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-size:0.78rem;color:var(--text-muted);min-width:78px">🎬 Action:</span>${stats.action_tag ? '<span class="badge badge-green">' + esc(stats.action_tag) + '</span>' : '<span style="color:var(--text-muted);font-size:0.82rem">--</span>'}</div>
                         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-size:0.78rem;color:var(--text-muted);min-width:78px">💬 Speech:</span>${stats.speech_style ? '<span class="badge badge-purple">' + esc(stats.speech_style) + '</span>' : '<span style="color:var(--text-muted);font-size:0.82rem">--</span>'}</div>
                     </div>
                 </div>

@@ -81,17 +81,6 @@ async def _tool_get_context(ctx: AppContext, persona: str) -> str:
     except Exception:
         pass  # best-effort, don't break context formatting
 
-    # Clear stale action_tag (older than 1 hour)
-    if state.action_tag:
-        try:
-            last_conv = state.last_conversation_time
-            if last_conv:
-                elapsed_hours = (get_now() - last_conv).total_seconds() / 3600.0
-                if elapsed_hours > 1.0:
-                    ctx.persona_service.update_physical_state(persona, action_tag="")
-        except Exception:
-            pass  # best-effort
-
     # Top memories for ESSENTIAL STORY (reduced from 15 to 8 for leaner context)
     top_result = ctx.memory_service.get_top_by_importance(8)
     top_memories = top_result.value if top_result.is_ok else []
@@ -114,6 +103,9 @@ async def _tool_get_context(ctx: AppContext, persona: str) -> str:
     reflections = reflection_result.value if reflection_result.is_ok else []
     mm_result = ctx.memory_service.get_by_tags(["mental_model", "abstracted"])
     mental_models = mm_result.value if mm_result.is_ok else []
+    # Session summaries — conversation continuity
+    ss_result = ctx.memory_service.get_by_tags(["session_summary"])
+    session_summaries = ss_result.value if ss_result.is_ok else []
     equip_result = ctx.equipment_service.get_equipment()
     equipment = equip_result.value if equip_result.is_ok else {}
     # Recent memories (last 5) for conversation continuity across sessions
@@ -135,7 +127,7 @@ async def _tool_get_context(ctx: AppContext, persona: str) -> str:
         emotion_history,
         reflections,
         mental_models,
-        None,
+        session_summaries,
         current_time,
     )
 
@@ -354,7 +346,6 @@ async def _tool_update_context(
     environment: str | None = None,
     relationship_status: str | None = None,
     body_state: dict | None = None,
-    action_tag: str | None = None,
     speech_style: str | None = None,
     context_note: str | None = None,
     user_info: dict | None = None,
@@ -382,8 +373,6 @@ async def _tool_update_context(
         for key in ("fatigue", "warmth", "arousal", "heart_rate", "pain"):
             if key in body_state and body_state[key] is not None:
                 physical_updates[key] = str(body_state[key])
-    if action_tag is not None:
-        physical_updates["action_tag"] = action_tag.strip() if action_tag.strip() else ""
     if speech_style is not None:
         physical_updates["speech_style"] = speech_style
 
@@ -980,7 +969,6 @@ def register_tools(mcp: FastMCP) -> None:
         environment: str | None = None,
         relationship_status: str | None = None,
         body_state: dict | None = None,
-        action_tag: str | None = None,
         speech_style: str | None = None,
         context_note: str | None = None,
         user_info: dict | None = None,
@@ -1002,7 +990,6 @@ def register_tools(mcp: FastMCP) -> None:
             environment=environment,
             relationship_status=relationship_status,
             body_state=body_state,
-            action_tag=action_tag,
             speech_style=speech_style,
             context_note=context_note,
             user_info=user_info,
@@ -1195,9 +1182,11 @@ def _format_state_block(state: PersonaState) -> str:
     if state.emotion:
         lines.append(f"  Mind  : {state.emotion}:{state.emotion_intensity:.2f}")
 
-    # Action line
-    if state.action_tag:
-        lines.append(f"  Action: {state.action_tag}")
+    # Physical / mental state (text descriptions)
+    if state.physical_state:
+        lines.append(f"  Physical: {state.physical_state}")
+    if state.mental_state:
+        lines.append(f"  Mental  : {state.mental_state}")
 
     # Speech line
     if state.speech_style:
@@ -1404,6 +1393,12 @@ def _format_lightweight_response(
             lines.append("\n--- Behavior Patterns ---")
             for p in patterns:
                 lines.append(f"🧩 {p}")
+    if session_summaries:
+        summaries = [s.content for s in (session_summaries or [])[:2] if s.content]
+        if summaries:
+            lines.append("\n--- Recent Summaries ---")
+            for s in summaries:
+                lines.append(f"📝 {s}")
 
     lines.append("\n💡 Use memory_search() for deeper context on specific topics.")
     return "\n".join(lines)
