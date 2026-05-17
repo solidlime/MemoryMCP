@@ -23,6 +23,7 @@ def render_head() -> str:
     <script src="https://unpkg.com/vis-timeline/standalone/umd/vis-timeline-graph2d.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         /* ============================================================
            ROOT VARIABLES & THEMING
@@ -228,6 +229,92 @@ def render_head() -> str:
             background: rgba(167,139,250,0.15);
             border-color: rgba(167,139,250,0.3);
             box-shadow: 0 0 20px rgba(167,139,250,0.1);
+        }
+
+        /* ── More dropdown ── */
+        .tab-more {
+            position: relative;
+        }
+        .tab-more-dropdown {
+            display: none;
+            position: absolute;
+            top: 100%; right: 0;
+            margin-top: 4px;
+            min-width: 200px;
+            background: rgba(26,5,51,0.95);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 6px;
+            z-index: 100;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        }
+        html.light .tab-more-dropdown {
+            background: rgba(255,255,255,0.95);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+        }
+        .tab-more-dropdown.show { display: block; }
+        .tab-more-dropdown .tab-btn {
+            display: block;
+            width: 100%;
+            text-align: left;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+        }
+        .tab-more-dropdown .tab-btn svg {
+            width: 16px; height: 16px;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+        .tab-btn svg {
+            width: 18px; height: 18px;
+            vertical-align: middle;
+            margin-right: 4px;
+        }
+
+        /* ── More dropdown ── */
+        .tab-more {
+            position: relative;
+        }
+        .tab-more-dropdown {
+            display: none;
+            position: absolute;
+            top: 100%; right: 0;
+            margin-top: 4px;
+            min-width: 200px;
+            background: rgba(26,5,51,0.95);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 6px;
+            z-index: 100;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        }
+        html.light .tab-more-dropdown {
+            background: rgba(255,255,255,0.95);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+        }
+        .tab-more-dropdown.show { display: block; }
+        .tab-more-dropdown .tab-btn {
+            display: block;
+            width: 100%;
+            text-align: left;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+        }
+        .tab-more-dropdown .tab-btn svg {
+            width: 16px; height: 16px;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+        .tab-btn svg {
+            width: 18px; height: 18px;
+            vertical-align: middle;
+            margin-right: 4px;
         }
 
         /* ============================================================
@@ -548,9 +635,11 @@ def render_head() -> str:
 
         /* ── Phase 5: Mobile optimization ── */
         @media (max-width: 640px) {
-            .tab-bar { flex-wrap: wrap; }
-            .tab-bar .tab-btn { flex: 1 1 auto; min-width: 0; font-size: 0.75rem; padding: 8px 6px; gap: 2px; }
-            .mobile-toggle { display: flex !important; }
+            .tab-bar { flex-wrap: nowrap; overflow-x: auto; gap: 2px; padding: 6px 8px; }
+            .tab-bar .tab-btn { flex: 0 0 auto; min-width: 0; font-size: 0.75rem; padding: 8px 10px; }
+            .tab-bar .tab-btn svg { width: 14px; height: 14px; margin-right: 2px; }
+            .tab-more-dropdown { right: auto; left: 0; min-width: 180px; }
+            .mobile-toggle { display: none !important; }
             .grid { grid-template-columns: 1fr !important; }
             .stat-value { font-size: 1.5rem !important; }
             .mem-modal-overlay { padding: 8px; }
@@ -573,38 +662,44 @@ def render_head() -> str:
 def render_nav(tabs: list[dict]) -> str:
     """Build ``<nav class="tab-bar">`` dynamically from *tabs*.
 
-    Each element in *tabs* is ``{"id": "...", "icon": "...", "label": "..."}``.
+    Each element in *tabs* is ``{"id": "...", "lucide": "...", "label": "..."}``.
+    First 4 tabs are shown directly; remaining go into a "More" dropdown.
     The first tab is marked active.
     """
-    buttons: list[str] = []
-    for i, tab in enumerate(tabs):
-        if i == 0:
-            cls = "tab-btn active"
-            sel = "true"
-        else:
-            cls = "tab-btn"
-            sel = "false"
-        buttons.append(
-            '<button class="'
-            + cls
-            + '" data-tab="'
-            + tab["id"]
-            + '" role="tab" aria-selected="'
-            + sel
-            + '">'
-            + tab["icon"]
-            + " "
-            + tab["label"]
-            + "</button>"
+    main_tabs = tabs[:4]
+    more_tabs = tabs[4:]
+
+    def _tab_btn(tab: dict, active: bool, extra_cls: str = "") -> str:
+        cls = f"tab-btn{' active' if active else ''}{' ' + extra_cls if extra_cls else ''}"
+        sel = "true" if active else "false"
+        icon_html = f'<i data-lucide="{tab["lucide"]}"></i>' if tab.get("lucide") else tab.get("icon", "")
+        return (
+            f'<button class="{cls}" data-tab="{tab["id"]}" '
+            f'role="tab" aria-selected="{sel}">'
+            f"{icon_html} {tab['label']}</button>"
         )
+
+    buttons = [_tab_btn(t, i == 0) for i, t in enumerate(main_tabs)]
+
+    more_html = ""
+    if more_tabs:
+        more_items = [_tab_btn(t, False) for t in more_tabs]
+        more_html = (
+            '<div class="tab-more">'
+            '<button class="tab-btn" onclick="event.stopPropagation();'
+            "var dd=this.parentElement.querySelector('.tab-more-dropdown');"
+            "dd.classList.toggle('show');\" "
+            'aria-label="More tabs">'
+            '<i data-lucide="ellipsis"></i> More</button>'
+            f'<div class="tab-more-dropdown">{"".join(more_items)}</div>'
+            "</div>"
+        )
+
     return (
-        '    <nav class="tab-bar" role="tablist">\n'
-        '        <button class="mobile-toggle" onclick="toggleMobileNav()" '
-        'aria-label="Toggle navigation" '
-        'style="display:none;align-items:center;gap:4px;padding:8px 12px;'
-        "background:none;border:1px solid rgba(255,255,255,0.2);border-radius:8px;"
-        'color:rgba(255,255,255,0.7);cursor:pointer;font-size:0.9rem;">'
-        "☰ Menu</button>\n        " + "\n        ".join(buttons) + "\n    </nav>"
+        '    <nav class="tab-bar" role="tablist">\n        '
+        + "\n        ".join(buttons)
+        + ("\n        " + more_html if more_html else "")
+        + "\n    </nav>"
     )
 
 
@@ -673,11 +768,11 @@ const BODY_BAR_COLORS = {
 };
 
 const BODY_LABELS = {
-    fatigue: '🔥 Fatigue',
-    warmth: '🌸 Warmth',
-    arousal: '⚡ Arousal',
-    heart_rate: '💓 Heart',
-    pain: '💢 Pain'
+    fatigue: '<i data-lucide=&quot;flame&quot;></i> Fatigue',
+    warmth: '<i data-lucide=&quot;flower&quot;></i> Warmth',
+    arousal: '<i data-lucide=&quot;zap&quot;></i> Arousal',
+    heart_rate: '<i data-lucide=&quot;heart-pulse&quot;></i> Heart',
+    pain: '<i data-lucide=&quot;activity&quot;></i> Pain'
 };
 
 function renderBodyStateBars(bodyState) {
@@ -834,7 +929,7 @@ function skeletonCard() {
     return '<div class="glass p-6"><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-text" style="width:80%"></div><div class="skeleton skeleton-text" style="width:60%"></div></div>';
 }
 function errorCard(msg) {
-    return '<div class="glass p-6 text-center" style="color:var(--accent-red)"><p style="font-size:1.2rem;margin-bottom:8px">⚠️</p><p>' + esc(msg) + '</p></div>';
+    return '<div class="glass p-6 text-center" style="color:var(--accent-red)"><p style="font-size:1.2rem;margin-bottom:8px"><i data-lucide=&quot;alert-triangle&quot;></i></p><p>' + esc(msg) + '</p></div>';
 }
 
 /* =================================================================
@@ -843,7 +938,7 @@ function errorCard(msg) {
 function applyTheme() {
     const dark = localStorage.getItem('mmcp-dark') !== 'false';
     document.documentElement.className = dark ? 'dark' : 'light';
-    document.getElementById('dark-toggle').textContent = dark ? '🌙' : '☀️';
+    document.getElementById('dark-toggle').textContent = dark ? '<i data-lucide=&quot;moon&quot;></i>' : '<i data-lucide=&quot;sun&quot;></i>';
     // Re-render charts for color update
     Object.values(S.charts).forEach(c => c.update());
 }
@@ -929,7 +1024,7 @@ function openMemModal(mem) {
     const tags = (mem.tags || []).map(t => '<span class="badge badge-purple">' + esc(t) + '</span>').join(' ');
     var emoHtml = '';
     if (mem.emotion) {
-        emoHtml = '<span class="badge badge-pink">😊 ' + esc(mem.emotion) + (mem.emotion_intensity != null ? ' (' + (mem.emotion_intensity * 100).toFixed(0) + '%)' : '') + '</span>';
+        emoHtml = '<span class="badge badge-pink"><i data-lucide=&quot;smile&quot;></i> ' + esc(mem.emotion) + (mem.emotion_intensity != null ? ' (' + (mem.emotion_intensity * 100).toFixed(0) + '%)' : '') + '</span>';
     }
     content.innerHTML = `
         <div class="mem-modal-header">
@@ -937,18 +1032,18 @@ function openMemModal(mem) {
                 <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:4px">Memory Key</div>
                 <div style="font-family:monospace;font-size:0.85rem;color:var(--accent-purple)">${esc(mem.memory_key)}</div>
             </div>
-            <button class="mem-modal-close" onclick="closeMemModal()">✕</button>
+            <button class="mem-modal-close" onclick="closeMemModal()"><i data-lucide=&quot;x&quot;></i></button>
         </div>
         <div class="mem-modal-content">${esc(mem.content)}</div>
         <div>
             ${tags || emoHtml ? `<div class="mem-modal-row"><span class="mem-modal-key">Tags/Emotion</span><span>${tags} ${emoHtml}</span></div>` : ''}
             ${mem.importance != null ? `<div class="mem-modal-row"><span class="mem-modal-key">Importance</span><span style="color:var(--accent-yellow)">${(mem.importance).toFixed(2)}</span></div>` : ''}
-            ${mem.strength != null ? `<div class="mem-modal-row"><span class="mem-modal-key">Strength</span><span style="color:var(--accent-green)">⚡${(mem.strength).toFixed(3)}</span></div>` : ''}
+            ${mem.strength != null ? `<div class="mem-modal-row"><span class="mem-modal-key">Strength</span><span style="color:var(--accent-green)"><i data-lucide=&quot;zap&quot;></i>${(mem.strength).toFixed(3)}</span></div>` : ''}
             ${mem.privacy_level ? `<div class="mem-modal-row"><span class="mem-modal-key">Privacy</span><span>${esc(mem.privacy_level)}</span></div>` : ''}
             ${mem.source_context ? `<div class="mem-modal-row"><span class="mem-modal-key">Source</span><span style="color:var(--text-muted)">${esc(mem.source_context)}</span></div>` : ''}
-            ${mem.created_at ? `<div class="mem-modal-row"><span class="mem-modal-key">Created</span><span>📅 ${relativeTime(mem.created_at)} <span style="color:var(--text-muted);font-size:0.75rem">(${new Date(mem.created_at).toLocaleString('ja-JP')})</span></span></div>` : ''}
-            ${mem.state_snapped_at && mem.state_snapped_at !== mem.created_at ? `<div class="mem-modal-row"><span class="mem-modal-key">State</span><span>📸 ${relativeTime(mem.state_snapped_at)} <span style="color:var(--text-muted);font-size:0.75rem">(${new Date(mem.state_snapped_at).toLocaleString('ja-JP')})</span></span></div>` : ''}
-            ${mem.updated_at ? `<div class="mem-modal-row"><span class="mem-modal-key">Updated</span><span>📅 ${relativeTime(mem.updated_at)}</span></div>` : ''}
+            ${mem.created_at ? `<div class="mem-modal-row"><span class="mem-modal-key">Created</span><span><i data-lucide=&quot;calendar&quot;></i> ${relativeTime(mem.created_at)} <span style="color:var(--text-muted);font-size:0.75rem">(${new Date(mem.created_at).toLocaleString('ja-JP')})</span></span></div>` : ''}
+            ${mem.state_snapped_at && mem.state_snapped_at !== mem.created_at ? `<div class="mem-modal-row"><span class="mem-modal-key">State</span><span><i data-lucide=&quot;camera&quot;></i> ${relativeTime(mem.state_snapped_at)} <span style="color:var(--text-muted);font-size:0.75rem">(${new Date(mem.state_snapped_at).toLocaleString('ja-JP')})</span></span></div>` : ''}
+            ${mem.updated_at ? `<div class="mem-modal-row"><span class="mem-modal-key">Updated</span><span><i data-lucide=&quot;calendar&quot;></i> ${relativeTime(mem.updated_at)}</span></div>` : ''}
             ${mem.body_state ? renderBodyStateBars(mem.body_state) : ''}
             ${mem.emotion ? renderEmotionBars(mem.emotion, mem.emotion_intensity) : ''}
         </div>`;
@@ -998,7 +1093,7 @@ async function init() {
         if (personas.length === 0) {
             sel.innerHTML = '<option value="">No personas found</option>';
             document.getElementById('overview-content').innerHTML =
-                '<div class="glass p-8 text-center"><div style="font-size:2rem;margin-bottom:12px">🤷</div><p style="color:var(--text-secondary)">No personas found. Create a persona to get started.</p></div>';
+                '<div class="glass p-8 text-center"><div style="font-size:2rem;margin-bottom:12px"><i data-lucide=&quot;shrug&quot;></i></div><p style="color:var(--text-secondary)">No personas found. Create a persona to get started.</p></div>';
             return;
         }
         personas.forEach(p => {
@@ -1136,6 +1231,19 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     var tablist = document.querySelector('.tab-bar');
     if (tablist) tablist.setAttribute('role', 'tablist');
+    // Initialize Lucide icons
+    if (typeof lucide !== 'undefined') { lucide.createIcons(); }
+});
+
+/* =================================================================
+   DROPDOWN CLOSE ON CLICK OUTSIDE
+   ================================================================= */
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.tab-more')) {
+        document.querySelectorAll('.tab-more-dropdown.show').forEach(function(dd) {
+            dd.classList.remove('show');
+        });
+    }
 });
 
 // Boot
@@ -1175,7 +1283,7 @@ def render_layout_shell(nav_html: str, tab_contents: str, tab_js: str, initial_p
         "         ============================================================ -->\n"
         '    <header class="app-header">\n'
         '        <div style="display:flex;align-items:center;gap:10px;">\n'
-        '            <span style="font-size:1.6rem;">🧠</span>\n'
+        '            <span style="font-size:1.6rem;"><i data-lucide=&quot;brain&quot;></i></span>\n'
         "            <h1>MemoryMCP v2.0.0 Dashboard</h1>\n"
         "        </div>\n"
         '        <div class="header-controls">\n'
@@ -1188,9 +1296,9 @@ def render_layout_shell(nav_html: str, tab_contents: str, tab_js: str, initial_p
         '                <option value="60">1min</option>\n'
         '                <option value="300">5min</option>\n'
         "            </select>\n"
-        '            <button id="refresh-btn" class="glass-btn" title="Refresh now">🔄</button>\n'
+        '            <button id="refresh-btn" class="glass-btn" title="Refresh now"><i data-lucide=&quot;refresh-cw&quot;></i></button>\n'
         '            <span id="last-update" style="font-size:0.75rem;color:var(--text-muted);white-space:nowrap;">Last: --</span>\n'
-        '            <button id="dark-toggle" class="glass-btn" title="Toggle theme">🌙</button>\n'
+        '            <button id="dark-toggle" class="glass-btn" title="Toggle theme"><i data-lucide=&quot;moon&quot;></i></button>\n'
         "        </div>\n"
         "    </header>\n"
         "\n" + nav_html + "\n"

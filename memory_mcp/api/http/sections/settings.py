@@ -23,7 +23,7 @@ def render_settings_tab() -> str:
         <!-- ========== SETTINGS TAB ========== -->
         <section id="tab-settings" class="tab-panel" role="tabpanel">
             <div style="margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--glass-border);">
-                <h2 style="font-size:1.25rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:10px;"><span style="font-size:1.4rem;">⚙️</span> Settings</h2>
+                <h2 style="font-size:1.25rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:10px;"><span style="font-size:1.4rem;"><i data-lucide="settings"></i></span> Settings</h2>
             </div>
             <div id="settings-content">
                 <div class="glass p-6"><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-text"></div><div class="skeleton skeleton-text" style="width:70%"></div></div>
@@ -68,9 +68,9 @@ const BUILTIN_PROFILES = {
 };
 
 const CATEGORY_ICONS = {
-    server: '🖥️', embedding: '🧠', reranker: '🔍', qdrant: '📦',
-    worker: '⏰', general: '⚙️', search: '🔎', persona: '👤',
-    summarization: '🤖', forgetting: '🧹'
+    server: '<i data-lucide=&quot;monitor&quot;></i>', embedding: '<i data-lucide="brain"></i>', reranker: '<i data-lucide="search"></i>', qdrant: '<i data-lucide="package"></i>',
+    worker: '<i data-lucide="alarm-clock"></i>', general: '<i data-lucide="settings"></i>', search: '<i data-lucide="search-check"></i>', persona: '<i data-lucide="user"></i>',
+    summarization: '<i data-lucide="bot"></i>', forgetting: '<i data-lucide=&quot;broom&quot;></i>'
 };
 
 async function loadSettings() {
@@ -91,9 +91,9 @@ async function loadSettings() {
 }
 
 function sourceIcon(src) {
-    if (src === 'env') return '<span class="setting-source source-env">🌐 env</span>';
-    if (src === 'override') return '<span class="setting-source source-override">📝 override</span>';
-    return '<span class="setting-source source-default">📋 default</span>';
+    if (src === 'env') return '<span class="setting-source source-env"><i data-lucide="globe"></i> env</span>';
+    if (src === 'override') return '<span class="setting-source source-override"><i data-lucide="edit-3"></i> override</span>';
+    return '<span class="setting-source source-default"><i data-lucide="clipboard-list"></i> default</span>';
 }
 
 function renderSettings(el, settings, status) {
@@ -103,8 +103,8 @@ function renderSettings(el, settings, status) {
     /* ── Profiles section ── */
     html += '<div class="glass p-4 mb-6">';
     html += '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">';
-    html += '<h3 style="font-size:1rem;font-weight:600;color:var(--text-primary)">📋 Settings Profiles</h3>';
-    html += '<button id="save-profile-btn" class="glass-btn" style="padding:6px 14px;font-size:0.8rem">💾 Save Current as Profile</button>';
+    html += '<h3 style="font-size:1rem;font-weight:600;color:var(--text-primary)"><i data-lucide="clipboard-list"></i> Settings Profiles</h3>';
+    html += '<button id="save-profile-btn" class="glass-btn" style="padding:6px 14px;font-size:0.8rem"><i data-lucide="save"></i> Save Current as Profile</button>';
     html += '</div>';
     html += '<div id="profiles-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px"></div>';
     html += '</div>';
@@ -112,9 +112,9 @@ function renderSettings(el, settings, status) {
     /* ── Search bar ── */
     html += '<div class="glass p-4 mb-6" style="position:sticky;top:120px;z-index:30">';
     html += '<div style="position:relative">';
-    html += '<span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:0.9rem">🔍</span>';
+    html += '<span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:0.9rem"><i data-lucide="search"></i></span>';
     html += '<input id="settings-search" type="text" class="glass-input" placeholder="Search settings..." style="width:100%;padding-left:38px;padding-right:36px;font-size:0.9rem" oninput="filterSettings(this.value)">';
-    html += '<button id="settings-search-clear" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.85rem;display:none">✕</button>';
+    html += '<button id="settings-search-clear" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.85rem;display:none"><i data-lucide="x"></i></button>';
     html += '</div>';
     html += '</div>';
 
@@ -125,7 +125,7 @@ function renderSettings(el, settings, status) {
         const hasFields = Object.values(fields).some(f => typeof f === 'object' && f !== null);
         if (!hasFields) continue;
 
-        const icon = CATEGORY_ICONS[cat] || '⚙️';
+        const icon = CATEGORY_ICONS[cat] || '<i data-lucide="settings"></i>';
         const catLabel = cat.charAt(0).toUpperCase() + cat.slice(1);
 
         /* Diff detection for category */
@@ -144,11 +144,11 @@ function renderSettings(el, settings, status) {
         if (catStatus && catStatus.status && catStatus.status !== 'idle') {
             const st = catStatus.status;
             if (st === 'loading' || st === 'reloading') {
-                statusHtml = '<div style="margin-top:8px"><div style="font-size:0.78rem;color:var(--accent-yellow);margin-bottom:4px">⏳ ' + esc(catStatus.message || 'Loading...') + '</div><div class="progress-wrap"><div class="progress-bar progress-indeterminate"></div></div></div>';
+                statusHtml = '<div style="margin-top:8px"><div style="font-size:0.78rem;color:var(--accent-yellow);margin-bottom:4px"><i data-lucide="clock"></i> ' + esc(catStatus.message || 'Loading...') + '</div><div class="progress-wrap"><div class="progress-bar progress-indeterminate"></div></div></div>';
             } else if (st === 'ready' || st === 'success') {
-                statusHtml = '<div style="margin-top:8px;font-size:0.78rem;color:var(--accent-green)">✅ ' + esc(catStatus.message || 'Ready') + '</div>';
+                statusHtml = '<div style="margin-top:8px;font-size:0.78rem;color:var(--accent-green)"><i data-lucide="check-circle"></i> ' + esc(catStatus.message || 'Ready') + '</div>';
             } else if (st === 'error') {
-                statusHtml = '<div style="margin-top:8px;font-size:0.78rem;color:var(--accent-red)">❌ ' + esc(catStatus.message || 'Error') + '</div>';
+                statusHtml = '<div style="margin-top:8px;font-size:0.78rem;color:var(--accent-red)"><i data-lucide="x-circle"></i> ' + esc(catStatus.message || 'Error') + '</div>';
             }
         }
 
@@ -179,7 +179,7 @@ function renderSettings(el, settings, status) {
             const desc = meta.description || '';
             const isMasked = String(val) === '***';
             const isDiff = !isMasked && defaultVal != null && String(val) !== String(defaultVal);
-            const reloadHint = hot ? '🔄 Hot-reload OK' : '🔒 Requires restart';
+            const reloadHint = hot ? '<i data-lucide="refresh-cw"></i> Hot-reload OK' : '<i data-lucide="lock"></i> Requires restart';
             const tooltipText = reloadHint + (meta.reload_time ? ' (⏱ ' + meta.reload_time + ')' : '');
             const searchText = key.replace(/_/g, ' ') + ' ' + desc + ' ' + cat;
 
@@ -196,7 +196,7 @@ function renderSettings(el, settings, status) {
             html += sourceIcon(src);
 
             /* Lock icon */
-            if (!hot) html += '<span title="Restart required" style="cursor:help">🔒</span>';
+            if (!hot) html += '<span title="Restart required" style="cursor:help"><i data-lucide="lock"></i></span>';
 
             /* Input element */
             if (key === 'log_level') {
@@ -222,7 +222,7 @@ function renderSettings(el, settings, status) {
             }
 
             /* Apply button */
-            html += '<button class="glass-btn setting-apply-btn" data-cat="' + esc(cat) + '" data-key="' + esc(key) + '" data-input="' + inputId + '" style="padding:6px 12px;font-size:0.78rem">' + (hot ? '✅ Apply' : '🔒 Apply*') + '</button>';
+            html += '<button class="glass-btn setting-apply-btn" data-cat="' + esc(cat) + '" data-key="' + esc(key) + '" data-input="' + inputId + '" style="padding:6px 12px;font-size:0.78rem">' + (hot ? '<i data-lucide="check-circle"></i> Apply' : '<i data-lucide="lock"></i> Apply*') + '</button>';
 
             /* Reset button (hidden when no diff) */
             html += '<button class="setting-reset-btn" data-cat="' + esc(cat) + '" data-key="' + esc(key) + '" style="' + (isDiff ? '' : 'display:none;') + 'padding:4px 10px;font-size:0.72rem">↩ Reset</button>';
@@ -242,17 +242,17 @@ function renderSettings(el, settings, status) {
 
     /* ── Source legend & action buttons ── */
     html += '<div class="glass p-6">';
-    html += '<div class="card-title">💾 Configuration Source Priority</div>';
+    html += '<div class="card-title"><i data-lucide="save"></i> Configuration Source Priority</div>';
     html += '<div style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:16px">';
-    html += '<span class="setting-source source-env">🌐 env</span>';
+    html += '<span class="setting-source source-env"><i data-lucide="globe"></i> env</span>';
     html += '<span style="margin:0 8px">></span>';
-    html += '<span class="setting-source source-override">📝 override</span>';
+    html += '<span class="setting-source source-override"><i data-lucide="edit-3"></i> override</span>';
     html += '<span style="margin:0 8px">></span>';
-    html += '<span class="setting-source source-default">📋 default</span>';
+    html += '<span class="setting-source source-default"><i data-lucide="clipboard-list"></i> default</span>';
     html += '</div>';
     html += '<div style="display:flex;gap:10px;flex-wrap:wrap">';
-    html += '<button id="export-config-btn" class="glass-btn-success glass-btn">📤 Export Config</button>';
-    html += '<button id="reset-config-btn" class="glass-btn-danger glass-btn">🗑️ Reset All to Defaults</button>';
+    html += '<button id="export-config-btn" class="glass-btn-success glass-btn"><i data-lucide="upload"></i> Export Config</button>';
+    html += '<button id="reset-config-btn" class="glass-btn-danger glass-btn"><i data-lucide="trash-2"></i> Reset All to Defaults</button>';
     html += '</div>';
     html += '</div>';
 
@@ -313,21 +313,21 @@ function renderSettings(el, settings, status) {
                     var errEl = btn.closest('.setting-row').querySelector('.setting-validation-error');
                     if (errEl) { errEl.textContent = result.error; errEl.style.display = 'block'; }
                     input.style.borderColor = 'var(--accent-red)';
-                    toast('❌ Validation error: ' + result.error, 'error');
+                    toast('<i data-lucide="x-circle"></i> Validation error: ' + result.error, 'error');
                     return;
                 }
             }
-            btn.textContent = '⏳';
+            btn.textContent = '<i data-lucide="clock"></i>';
             btn.disabled = true;
             try {
                 await api('/api/settings', { method: 'PUT', body: JSON.stringify({ category: cat, key: key, value: value }) });
-                toast('✅ Setting saved: ' + cat + '.' + key, 'success');
-                btn.textContent = '✅ Done';
+                toast('<i data-lucide="check-circle"></i> Setting saved: ' + cat + '.' + key, 'success');
+                btn.textContent = '<i data-lucide="check-circle"></i> Done';
                 if (cat === 'embedding' || cat === 'reranker') startStatusPoll();
                 setTimeout(function() { loadSettings(); }, 1500);
             } catch (e) {
-                toast('❌ Failed to save: ' + e.message, 'error');
-                btn.textContent = '❌ Error';
+                toast('<i data-lucide="x-circle"></i> Failed to save: ' + e.message, 'error');
+                btn.textContent = '<i data-lucide="x-circle"></i> Error';
             }
             setTimeout(function() { btn.disabled = false; }, 2000);
         };
@@ -363,7 +363,7 @@ function renderSettings(el, settings, status) {
         a.href = URL.createObjectURL(blob);
         a.download = 'memorymcp-config.json';
         a.click();
-        toast('📤 Config exported', 'success');
+        toast('<i data-lucide="upload"></i> Config exported', 'success');
     };
 
     /* Reset All button */
@@ -379,10 +379,10 @@ function renderSettings(el, settings, status) {
                     }
                 }
             }
-            toast('✅ All settings reset to defaults', 'success');
+            toast('<i data-lucide="check-circle"></i> All settings reset to defaults', 'success');
             setTimeout(function() { loadSettings(); }, 500);
         } catch (e) {
-            toast('❌ Reset failed: ' + e.message, 'error');
+            toast('<i data-lucide="x-circle"></i> Reset failed: ' + e.message, 'error');
         }
     };
 
@@ -474,10 +474,10 @@ function toggleCategory(catId) {
 async function resetField(cat, key, defaultVal) {
     try {
         await api('/api/settings', { method: 'PUT', body: JSON.stringify({ category: cat, key: key, value: defaultVal }) });
-        toast('✅ Reset ' + cat + '.' + key + ' to default', 'success');
+        toast('<i data-lucide="check-circle"></i> Reset ' + cat + '.' + key + ' to default', 'success');
         setTimeout(function() { loadSettings(); }, 800);
     } catch (e) {
-        toast('❌ Reset failed: ' + e.message, 'error');
+        toast('<i data-lucide="x-circle"></i> Reset failed: ' + e.message, 'error');
     }
 }
 
@@ -491,10 +491,10 @@ async function resetCategory(cat) {
                 await api('/api/settings', { method: 'PUT', body: JSON.stringify({ category: cat, key: key, value: meta.default_value }) });
             }
         }
-        toast('✅ Category ' + cat + ' reset to defaults', 'success');
+        toast('<i data-lucide="check-circle"></i> Category ' + cat + ' reset to defaults', 'success');
         setTimeout(function() { loadSettings(); }, 800);
     } catch (e) {
-        toast('❌ Reset failed: ' + e.message, 'error');
+        toast('<i data-lucide="x-circle"></i> Reset failed: ' + e.message, 'error');
     }
 }
 
@@ -565,7 +565,7 @@ function saveSettingsProfile() {
         }
     }
     localStorage.setItem('memorymcp_profile_' + name.trim(), JSON.stringify(profile));
-    toast('💾 Profile "' + esc(name.trim()) + '" saved', 'success');
+    toast('<i data-lucide="save"></i> Profile "' + esc(name.trim()) + '" saved', 'success');
     renderSettingsProfiles();
 }
 
@@ -579,10 +579,10 @@ async function loadSettingsProfile(name, profile) {
                 count++;
             }
         }
-        toast('✅ Loaded profile "' + esc(name) + '" (' + count + ' settings)', 'success');
+        toast('<i data-lucide="check-circle"></i> Loaded profile "' + esc(name) + '" (' + count + ' settings)', 'success');
         setTimeout(function() { loadSettings(); }, 1000);
     } catch (e) {
-        toast('❌ Failed to load profile: ' + e.message, 'error');
+        toast('<i data-lucide="x-circle"></i> Failed to load profile: ' + e.message, 'error');
     }
 }
 
@@ -600,7 +600,7 @@ function renderSettingsProfiles() {
     /* Built-in profiles */
     for (const [name] of Object.entries(BUILTIN_PROFILES)) {
         html += '<button data-profile-action="load-builtin" data-profile-name="' + esc(name) + '" class="glass-btn profile-chip" style="padding:5px 14px;font-size:0.78rem;background:linear-gradient(135deg,rgba(167,139,250,0.15),rgba(244,114,182,0.15));border-color:rgba(167,139,250,0.3)">';
-        html += '📦 ' + esc(name);
+        html += '<i data-lucide="package"></i> ' + esc(name);
         html += '</button>';
     }
     /* User profiles from localStorage */
@@ -610,9 +610,9 @@ function renderSettingsProfiles() {
             var pName = k.replace('memorymcp_profile_', '');
             html += '<div style="display:inline-flex;align-items:center;gap:0">';
             html += '<button data-profile-action="load-user" data-profile-name="' + esc(pName) + '" class="glass-btn profile-chip" style="padding:5px 14px;font-size:0.78rem;border-top-right-radius:0;border-bottom-right-radius:0">';
-            html += '👤 ' + esc(pName);
+            html += '<i data-lucide="user"></i> ' + esc(pName);
             html += '</button>';
-            html += '<button data-profile-action="delete" data-profile-name="' + esc(pName) + '" class="glass-btn glass-btn-danger" style="padding:5px 8px;font-size:0.72rem;border-top-left-radius:0;border-bottom-left-radius:0;border-left:none" title="Delete profile">✕</button>';
+            html += '<button data-profile-action="delete" data-profile-name="' + esc(pName) + '" class="glass-btn glass-btn-danger" style="padding:5px 8px;font-size:0.72rem;border-top-left-radius:0;border-bottom-left-radius:0;border-left:none" title="Delete profile"><i data-lucide="x"></i></button>';
             html += '</div>';
         }
     }

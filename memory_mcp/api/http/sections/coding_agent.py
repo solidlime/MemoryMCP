@@ -280,10 +280,10 @@ _CA_HTML = """\
 
 <div id="ca-panel">
   <div id="ca-header">
-    <span class="ca-title">⚡ Coding Agent</span>
-    <button class="ca-tab-btn ca-tab-active" data-tab="terminal">🖥️ Terminal</button>
-    <button class="ca-tab-btn" data-tab="files">📁 Files</button>
-    <button id="ca-close-btn" title="Close">✕</button>
+    <span class="ca-title"><i data-lucide=&quot;zap&quot;></i> Coding Agent</span>
+    <button class="ca-tab-btn ca-tab-active" data-tab="terminal"><i data-lucide=&quot;monitor&quot;></i> Terminal</button>
+    <button class="ca-tab-btn" data-tab="files"><i data-lucide=&quot;folder&quot;></i> Files</button>
+    <button id="ca-close-btn" title="Close"><i data-lucide=&quot;x&quot;></i></button>
   </div>
 
   <div id="ca-body">
@@ -295,7 +295,7 @@ _CA_HTML = """\
           <option value="python" selected>Python</option>
           <option value="bash">Bash</option>
         </select>
-        <button id="ca-run-btn">▶ Run</button>
+        <button id="ca-run-btn"><i data-lucide="play"></i> Run</button>
       </div>
       <textarea id="ca-code-area" spellcheck="false" placeholder="# Enter code here&#10;# Ctrl+Enter to run"></textarea>
       <div id="ca-output-area"><span class="ca-out-info">Ready.</span></div>
@@ -305,12 +305,12 @@ _CA_HTML = """\
     <!-- Files Tab -->
     <div id="ca-tab-files" class="ca-tab-pane">
       <div class="ca-files-toolbar">
-        <span>📂 Workspace files</span>
-        <button class="ca-icon-btn" id="ca-files-refresh">🔄 Reload</button>
+        <span><i data-lucide=&quot;folder-open&quot;></i> Workspace files</span>
+        <button class="ca-icon-btn" id="ca-files-refresh"><i data-lucide=&quot;refresh-cw&quot;></i> Reload</button>
       </div>
       <div id="ca-file-list"><div class="ca-empty">Loading...</div></div>
       <div class="ca-drop-zone" id="ca-drop-zone">
-        ⬆️ Drop files here to upload
+        <i data-lucide="upload"></i> Drop files here to upload
         <input type="file" id="ca-file-input" multiple style="display:none">
       </div>
     </div>
@@ -496,7 +496,7 @@ _CA_HTML = """\
     var persona = (window.S && S.persona) ? S.persona : 'default';
     fileList.innerHTML = '<div class="ca-empty">Loading...</div>';
     try {
-      var resp = await fetch('/api/chat/' + persona + '/sandbox/tree');
+      var resp = await fetch('/api/chat/' + persona + '/sandbox/files');
       var data = await resp.json();
       var files = data.files || data.tree || data || [];
       if (!Array.isArray(files) || files.length === 0) {
@@ -512,7 +512,7 @@ _CA_HTML = """\
         item.innerHTML =
           '<span class="ca-file-name" title="' + name + '">' + name + '</span>' +
           '<span class="ca-file-size">' + _fmtSize(size) + '</span>' +
-          '<button class="ca-del-btn" data-name="' + name + '" title="Delete">🗑</button>';
+          '<button class="ca-del-btn" data-name="' + name + '" title="Delete"><i data-lucide=&quot;trash-2&quot;></i></button>';
         item.querySelector('.ca-file-name').addEventListener('click', function() {
           _downloadFile(name);
         });

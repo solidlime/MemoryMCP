@@ -6,7 +6,7 @@ def render_overview_tab() -> str:
     return """        <!-- ========== OVERVIEW TAB ========== -->
         <section id="tab-overview" class="tab-panel active" role="tabpanel">
             <div style="margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--glass-border);">
-                <h2 style="font-size:1.25rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:10px;"><span style="font-size:1.4rem;">📊</span> Overview</h2>
+                <h2 style="font-size:1.25rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:10px;"><span style="font-size:1.4rem;"><i data-lucide="layout-dashboard"></i></span> Overview</h2>
             </div>
             <div id="overview-content">
                 <div class="glass p-6 mb-6"><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-text" style="width:70%"></div></div>
@@ -28,7 +28,7 @@ def render_overview_js() -> str:
 
 // --- Block CRUD helpers (global scope) ---
 function showCreateBlock() {
-    document.getElementById('block-modal-title').textContent = '\u270f\ufe0f New Block';
+    document.getElementById('block-modal-title').textContent = '<i data-lucide="pencil"></i> New Block';
     document.getElementById('block-modal-mode').value = 'create';
     document.getElementById('block-modal-name').value = '';
     document.getElementById('block-modal-name').disabled = false;
@@ -38,7 +38,7 @@ function showCreateBlock() {
 }
 
 function showEditBlock(name, content, priority) {
-    document.getElementById('block-modal-title').textContent = '\u270f\ufe0f Edit Block: ' + name;
+    document.getElementById('block-modal-title').textContent = '<i data-lucide="pencil"></i> Edit Block: ' + name;
     document.getElementById('block-modal-mode').value = 'edit';
     document.getElementById('block-modal-name').value = name;
     document.getElementById('block-modal-name').disabled = true;
@@ -169,11 +169,11 @@ async function loadOverview() {
 
         // --- Memory Type Distribution (decision/milestone/preference/problem/emotional) ---
         const MEMORY_TYPES = {
-            'decision':  {color: 'badge-blue',   icon: '🧭'},
-            'milestone': {color: 'badge-green',  icon: '🏆'},
-            'preference':{color: 'badge-purple', icon: '💜'},
-            'problem':   {color: 'badge-red',    icon: '⚠️'},
-            'emotional': {color: 'badge-pink',   icon: '💖'},
+            'decision':  {color: 'badge-blue',   icon: '<i data-lucide="compass"></i>'},
+            'milestone': {color: 'badge-green',  icon: '<i data-lucide="trophy"></i>'},
+            'preference':{color: 'badge-purple', icon: '<i data-lucide="heart"></i>'},
+            'problem':   {color: 'badge-red',    icon: '<i data-lucide="alert-triangle"></i>'},
+            'emotional': {color: 'badge-pink',   icon: '<i data-lucide="heart"></i>'},
         };
         const memTypeCounts = {};
         Object.entries(MEMORY_TYPES).forEach(([k]) => {
@@ -191,7 +191,7 @@ async function loadOverview() {
             equipHtml += '<span class="badge badge-blue" style="min-width:80px;text-align:center">' + esc(slot) + '</span>';
             if (itemName) {
                 equipHtml += '<span style="flex:1;font-size:0.85rem;color:var(--text-secondary)">' + esc(itemName) + '</span>';
-                equipHtml += '<button data-slot="' + esc(slot) + '" onclick="unequipSlot(this.dataset.slot)" style="font-size:0.72rem;padding:2px 8px;border-radius:4px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);color:var(--text-muted);cursor:pointer" title="Unequip">✕</button>';
+                equipHtml += '<button data-slot="' + esc(slot) + '" onclick="unequipSlot(this.dataset.slot)" style="font-size:0.72rem;padding:2px 8px;border-radius:4px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);color:var(--text-muted);cursor:pointer" title="Unequip"><i data-lucide="x"></i></button>';
             } else {
                 equipHtml += '<span style="flex:1;font-size:0.82rem;color:var(--text-muted);font-style:italic">empty</span>';
                 const slotItems = items.filter(it => it.name);
@@ -217,8 +217,8 @@ async function loadOverview() {
                 blocksHtml += '<span style="font-weight:600;color:var(--accent-purple);font-size:0.85rem">' + esc(name) + '</span>';
                 if (priority != null) blocksHtml += '<span class="badge badge-yellow">P' + esc(String(priority)) + '</span>';
                 blocksHtml += '<div style="display:flex;gap:6px;margin-left:auto">';
-                blocksHtml += '<button class="glass-btn" data-bname="' + esc(name) + '" data-bcontent="' + esc(content) + '" data-bpriority="' + (priority || 0) + '" onclick="var el=this;showEditBlock(el.dataset.bname,el.dataset.bcontent,parseInt(el.dataset.bpriority||0))" style="padding:3px 10px;font-size:0.75rem">\u270f\ufe0f Edit</button>';
-                blocksHtml += '<button class="glass-btn" data-bname="' + esc(name) + '" onclick="deleteBlock(this.dataset.bname)" style="padding:3px 10px;font-size:0.75rem;color:var(--accent-red)">&#128465; Delete</button>';
+                blocksHtml += '<button class="glass-btn" data-bname="' + esc(name) + '" data-bcontent="' + esc(content) + '" data-bpriority="' + (priority || 0) + '" onclick="var el=this;showEditBlock(el.dataset.bname,el.dataset.bcontent,parseInt(el.dataset.bpriority||0))" style="padding:3px 10px;font-size:0.75rem"><i data-lucide=&quot;pencil&quot;></i> Edit</button>';
+                blocksHtml += '<button class="glass-btn" data-bname="' + esc(name) + '" onclick="deleteBlock(this.dataset.bname)" style="padding:3px 10px;font-size:0.75rem;color:var(--accent-red)"><i data-lucide="trash-2"></i> Delete</button>';
                 blocksHtml += '</div>';
                 blocksHtml += '</div>';
                 if (content) blocksHtml += '<div style="font-size:0.82rem;color:var(--text-muted)">' + esc(truncate(String(content), 80)) + '</div>';
@@ -230,10 +230,10 @@ async function loadOverview() {
 
         // --- Goals & Promises ---
         function getStatusIcon(status) {
-            if (status === 'active') return '🔄';
-            if (status === 'achieved' || status === 'fulfilled') return '✅';
-            if (status === 'cancelled') return '❌';
-            return '🔄';
+            if (status === 'active') return '<i data-lucide="refresh-cw"></i>';
+            if (status === 'achieved' || status === 'fulfilled') return '<i data-lucide="check-circle"></i>';
+            if (status === 'cancelled') return '<i data-lucide="x-circle"></i>';
+            return '<i data-lucide="refresh-cw"></i>';
         }
 
         function renderGoalItems(goalItems, label) {
@@ -275,7 +275,7 @@ async function loadOverview() {
                 invHtml += '<span style="flex:1;font-size:0.85rem;color:var(--text-secondary)" title="' + esc(desc) + '">' + esc(it.name) + '</span>';
                 if (it.quantity > 1) invHtml += '<span style="font-size:0.78rem;color:var(--text-muted)">x' + it.quantity + '</span>';
                 if (truncDesc) invHtml += '<span class="badge badge-purple" title="' + esc(desc) + '">' + esc(truncDesc) + '</span>';
-                invHtml += '<button data-item="' + esc(it.name) + '" onclick="deleteItem(this.dataset.item)" style="padding:2px 8px;border-radius:4px;border:1px solid rgba(255,100,100,0.3);background:rgba(255,100,100,0.08);color:#f87171;cursor:pointer;font-size:0.78rem" title="Delete item">🗑️</button>';
+                invHtml += '<button data-item="' + esc(it.name) + '" onclick="deleteItem(this.dataset.item)" style="padding:2px 8px;border-radius:4px;border:1px solid rgba(255,100,100,0.3);background:rgba(255,100,100,0.08);color:#f87171;cursor:pointer;font-size:0.78rem" title="Delete item"><i data-lucide="trash-2"></i></button>';
                 invHtml += '</div>';
             });
             invHtml += '</div>';
@@ -301,10 +301,48 @@ async function loadOverview() {
         const dayCounts = Object.values(dayMap);
 
         // --- Render (new section order) ---
-        el.innerHTML = `
+        <!-- Profile & Relationship -->
+        <div class="glass p-6 mb-6">
+            <div class="card-title"><i data-lucide="user"></i> Profile &amp; Relationship</div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:8px;font-weight:600">Relationship</div>
+                    <div style="font-size:0.9rem;color:var(--accent-pink);font-weight:600;margin-bottom:12px">${esc(relStatus)}</div>
+                    ${ctx.last_conversation_time ? `<div style="margin-bottom:12px;display:flex;align-items:center;gap:8px"><span style="font-size:0.78rem;color:var(--text-muted)"><i data-lucide="clock"></i> Last session:</span><span class="badge badge-blue">${relativeTime(ctx.last_conversation_time)}</span></div>` : ''}
+                    <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:6px;font-weight:600">User Info</div>
+                    ${Object.entries(userInfo).length ? Object.entries(userInfo).map(([k,v]) => `<div style="display:flex;gap:8px;padding:4px 0;font-size:0.85rem"><span style="color:var(--text-muted);min-width:120px">${esc(k.replace(/_/g,' '))}</span><span style="color:var(--text-secondary)">${esc(String(v))}</span></div>`).join('') : '<span style="color:var(--text-muted)">No user info</span>'}
+                </div>
+                <div>
+                    <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:6px;font-weight:600">Persona Info</div>
+                    ${(() => { const _GOALS_KEYS = new Set(['goals','promises','active_promises','current_goals']); const filtered = Object.entries(personaInfo).filter(([k]) => !_GOALS_KEYS.has(k)); return filtered.length ? filtered.map(([k,v]) => `<div style="display:flex;gap:8px;padding:4px 0;font-size:0.85rem"><span style="color:var(--text-muted);min-width:120px">${esc(k.replace(/_/g,' '))}</span><span style="color:var(--accent-purple)">${esc(String(v))}</span></div>`).join('') : '<span style="color:var(--text-muted)">No persona info</span>'; })()}
+                </div>
+            </div>
+        </div>
+        <!-- Memory Stats -->
+        <div class="glass p-6 mb-6">
+            <div class="card-title"><i data-lucide="bar-chart-3"></i> Memory Stats</div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                <div><div class="stat-value">${stats.total_count ?? '--'}</div><div class="stat-label">Total Memories</div></div>
+                <div><div class="stat-value" style="color:var(--accent-green)">${str.avg ?? '--'}</div><div class="stat-label">Avg Strength</div></div>
+                <div><div class="stat-value" style="color:var(--accent-blue)">${stats.tagged_ratio != null ? (stats.tagged_ratio * 100).toFixed(1) + '%' : '--'}</div><div class="stat-label">Tagged</div></div>
+                <div><div class="stat-value" style="color:var(--accent-yellow)">${stats.linked_ratio != null ? (stats.linked_ratio * 100).toFixed(1) + '%' : '--'}</div><div class="stat-label">Linked</div></div>
+            </div>
+            <div style="margin-bottom:10px">
+                <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:6px">Top Tags</div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px">${topTags.length ? topTags.map(([t,c]) => '<span class="badge badge-purple">' + esc(t) + ' <span style="opacity:0.7">(' + c + ')</span></span>').join('') : '<span style="color:var(--text-muted)">--</span>'}</div>
+            </div>
+            ${hasMemTypes ? `<div style="margin-bottom:10px">
+                <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:6px">Memory Types</div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px">${Object.entries(memTypeCounts).map(([t,c]) => '<span class="badge ' + MEMORY_TYPES[t].color + '">' + MEMORY_TYPES[t].icon + ' ' + esc(t) + ' <span style="opacity:0.7">(' + c + ')</span></span>').join('')}</div>
+            </div>` : ''}
+            <div>
+                <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:6px">Top Emotions</div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px">${topEmo.length ? topEmo.map(([e,c]) => '<span class="badge badge-pink">' + esc(e) + ' <span style="opacity:0.7">(' + c + ')</span></span>').join('') : '<span style="color:var(--text-muted)">--</span>'}</div>
+            </div>
+        </div>
         <!-- Goals & Promises -->
         <div class="glass p-6 mb-6">
-            <div class="card-title">🎯 Goals & Promises</div>
+            <div class="card-title"><i data-lucide="target"></i> Goals & Promises</div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     <div style="font-size:0.8rem;font-weight:600;color:var(--accent-green);margin-bottom:8px">Goals <span style="opacity:0.6;font-weight:400">(${effectiveGoals.length}件)</span></div>
@@ -318,7 +356,7 @@ async function loadOverview() {
         </div>
         <!-- Emotion / State -->
         <div class="glass p-6 mb-6">
-            <div class="card-title">💫 Emotion &amp; State</div>
+            <div class="card-title"><i data-lucide="sparkles"></i> Emotion &amp; State</div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     ${(function() {
@@ -355,8 +393,8 @@ async function loadOverview() {
                     <div style="display:flex;flex-direction:column;gap:6px">
                         <div><span style="font-size:0.78rem;color:var(--text-muted)">Physical: </span><span style="font-size:0.85rem">${esc(ctx.physical_state || '--')}</span></div>
                         <div><span style="font-size:0.78rem;color:var(--text-muted)">Mental: </span><span style="font-size:0.85rem">${esc(ctx.mental_state || '--')}</span></div>
-                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-size:0.78rem;color:var(--text-muted);min-width:78px">🌍 Env:</span>${stats.environment ? '<span class="badge badge-blue">' + esc(stats.environment) + '</span>' : '<span style="color:var(--text-muted);font-size:0.82rem">--</span>'}</div>
-                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-size:0.78rem;color:var(--text-muted);min-width:78px">💬 Speech:</span>${stats.speech_style ? '<span class="badge badge-purple">' + esc(stats.speech_style) + '</span>' : '<span style="color:var(--text-muted);font-size:0.82rem">--</span>'}</div>
+                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-size:0.78rem;color:var(--text-muted);min-width:78px"><i data-lucide="globe"></i> Env:</span>${stats.environment ? '<span class="badge badge-blue">' + esc(stats.environment) + '</span>' : '<span style="color:var(--text-muted);font-size:0.82rem">--</span>'}</div>
+                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-size:0.78rem;color:var(--text-muted);min-width:78px"><i data-lucide="message-circle"></i> Speech:</span>${stats.speech_style ? '<span class="badge badge-purple">' + esc(stats.speech_style) + '</span>' : '<span style="color:var(--text-muted);font-size:0.82rem">--</span>'}</div>
                     </div>
                 </div>
                 <div>
@@ -369,7 +407,7 @@ async function loadOverview() {
                 <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">
                     <div>
                         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
-                            <span style="font-size:0.78rem;color:var(--text-muted)">🔥 Fatigue</span>
+                            <span style="font-size:0.78rem;color:var(--text-muted)"><i data-lucide="flame"></i> Fatigue</span>
                             <span style="font-size:0.78rem;color:var(--text-secondary);font-weight:600">${stats.fatigue != null ? (stats.fatigue * 100).toFixed(0) + '%' : '--'}</span>
                         </div>
                         <div style="height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden">
@@ -378,7 +416,7 @@ async function loadOverview() {
                     </div>
                     <div>
                         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
-                            <span style="font-size:0.78rem;color:var(--text-muted)">🌸 Warmth</span>
+                            <span style="font-size:0.78rem;color:var(--text-muted)"><i data-lucide="flower"></i> Warmth</span>
                             <span style="font-size:0.78rem;color:var(--text-secondary);font-weight:600">${stats.warmth != null ? (stats.warmth * 100).toFixed(0) + '%' : '--'}</span>
                         </div>
                         <div style="height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden">
@@ -387,7 +425,7 @@ async function loadOverview() {
                     </div>
                     <div>
                         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
-                            <span style="font-size:0.78rem;color:var(--text-muted)">⚡ Arousal</span>
+                            <span style="font-size:0.78rem;color:var(--text-muted)"><i data-lucide="zap"></i> Arousal</span>
                             <span style="font-size:0.78rem;color:var(--text-secondary);font-weight:600">${stats.arousal != null ? (stats.arousal * 100).toFixed(0) + '%' : '--'}</span>
                         </div>
                         <div style="height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden">
@@ -397,7 +435,7 @@ async function loadOverview() {
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px;font-size:0.82rem">
                     <div>
                         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
-                            <span style="font-size:0.78rem;color:var(--text-muted);min-width:85px">💓 Heart Rate</span>
+                            <span style="font-size:0.78rem;color:var(--text-muted);min-width:85px"><i data-lucide="heart-pulse"></i> Heart Rate</span>
                             <span style="font-size:0.78rem;color:var(--text-secondary);font-weight:600">${stats.heart_rate != null ? (stats.heart_rate * 100).toFixed(0) + '%' : '--'}</span>
                         </div>
                         <div style="height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden">
@@ -406,7 +444,7 @@ async function loadOverview() {
                     </div>
                     <div>
                         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
-                            <span style="font-size:0.78rem;color:var(--text-muted);min-width:85px">💢 Pain</span>
+                            <span style="font-size:0.78rem;color:var(--text-muted);min-width:85px"><i data-lucide="activity"></i> Pain</span>
                             <span style="font-size:0.78rem;color:var(--text-secondary);font-weight:600">${stats.pain != null ? (stats.pain * 100).toFixed(0) + '%' : '--'}</span>
                         </div>
                         <div style="height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden">
@@ -420,65 +458,26 @@ async function loadOverview() {
         <div class="glass p-6 mb-6">
             <div class="card-title" style="justify-content:space-between">
                 <span>&#129504; Core Memory Blocks</span>
-                <button onclick="showCreateBlock()" class="glass-btn" style="padding:4px 12px;font-size:0.78rem">&#65291; New Block</button>
+                <button onclick="showCreateBlock()" class="glass-btn" style="padding:4px 12px;font-size:0.78rem"><i data-lucide="plus"></i> New Block</button>
             </div>
             ${blocksHtml}
-        </div>
-        <!-- Profile & Relationship -->
-        <div class="glass p-6 mb-6">
-            <div class="card-title">👤 Profile &amp; Relationship</div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                    <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:8px;font-weight:600">Relationship</div>
-                    <div style="font-size:0.9rem;color:var(--accent-pink);font-weight:600;margin-bottom:12px">${esc(relStatus)}</div>
-                    ${ctx.last_conversation_time ? `<div style="margin-bottom:12px;display:flex;align-items:center;gap:8px"><span style="font-size:0.78rem;color:var(--text-muted)">🕐 Last session:</span><span class="badge badge-blue">${relativeTime(ctx.last_conversation_time)}</span></div>` : ''}
-                    <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:6px;font-weight:600">User Info</div>
-                    ${Object.entries(userInfo).length ? Object.entries(userInfo).map(([k,v]) => `<div style="display:flex;gap:8px;padding:4px 0;font-size:0.85rem"><span style="color:var(--text-muted);min-width:120px">${esc(k.replace(/_/g,' '))}</span><span style="color:var(--text-secondary)">${esc(String(v))}</span></div>`).join('') : '<span style="color:var(--text-muted)">No user info</span>'}
-                </div>
-                <div>
-                    <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:6px;font-weight:600">Persona Info</div>
-                    ${(() => { const _GOALS_KEYS = new Set(['goals','promises','active_promises','current_goals']); const filtered = Object.entries(personaInfo).filter(([k]) => !_GOALS_KEYS.has(k)); return filtered.length ? filtered.map(([k,v]) => `<div style="display:flex;gap:8px;padding:4px 0;font-size:0.85rem"><span style="color:var(--text-muted);min-width:120px">${esc(k.replace(/_/g,' '))}</span><span style="color:var(--accent-purple)">${esc(String(v))}</span></div>`).join('') : '<span style="color:var(--text-muted)">No persona info</span>'; })()}
-                </div>
-            </div>
         </div>
         <!-- Relationship Highlights (from memory tags) -->
         ${data.relationship_highlights && data.relationship_highlights.length > 0 ? `
         <div class="glass p-6 mb-6">
-            <div class="card-title">💞 Relationship Highlights</div>
+            <div class="card-title"><i data-lucide="heart"></i> Relationship Highlights</div>
             <div style="max-height:200px;overflow-y:auto">
             ${data.relationship_highlights.map(h => `
                 <div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:0.82rem;color:var(--text-secondary)">
-                    <span style="color:var(--accent-pink);margin-right:6px">💬</span>${esc(h.content || h)}
+                    <span style="color:var(--accent-pink);margin-right:6px"><i data-lucide="message-circle"></i></span>${esc(h.content || h)}
                 </div>
             `).join('')}
             </div>
         </div>` : ''}
-        <!-- Memory Stats -->
-        <div class="glass p-6 mb-6">
-            <div class="card-title">📈 Memory Stats</div>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                <div><div class="stat-value">${stats.total_count ?? '--'}</div><div class="stat-label">Total Memories</div></div>
-                <div><div class="stat-value" style="color:var(--accent-green)">${str.avg ?? '--'}</div><div class="stat-label">Avg Strength</div></div>
-                <div><div class="stat-value" style="color:var(--accent-blue)">${stats.tagged_ratio != null ? (stats.tagged_ratio * 100).toFixed(1) + '%' : '--'}</div><div class="stat-label">Tagged</div></div>
-                <div><div class="stat-value" style="color:var(--accent-yellow)">${stats.linked_ratio != null ? (stats.linked_ratio * 100).toFixed(1) + '%' : '--'}</div><div class="stat-label">Linked</div></div>
-            </div>
-            <div style="margin-bottom:10px">
-                <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:6px">Top Tags</div>
-                <div style="display:flex;flex-wrap:wrap;gap:6px">${topTags.length ? topTags.map(([t,c]) => '<span class="badge badge-purple">' + esc(t) + ' <span style="opacity:0.7">(' + c + ')</span></span>').join('') : '<span style="color:var(--text-muted)">--</span>'}</div>
-            </div>
-            ${hasMemTypes ? `<div style="margin-bottom:10px">
-                <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:6px">Memory Types</div>
-                <div style="display:flex;flex-wrap:wrap;gap:6px">${Object.entries(memTypeCounts).map(([t,c]) => '<span class="badge ' + MEMORY_TYPES[t].color + '">' + MEMORY_TYPES[t].icon + ' ' + esc(t) + ' <span style="opacity:0.7">(' + c + ')</span></span>').join('')}</div>
-            </div>` : ''}
-            <div>
-                <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:6px">Top Emotions</div>
-                <div style="display:flex;flex-wrap:wrap;gap:6px">${topEmo.length ? topEmo.map(([e,c]) => '<span class="badge badge-pink">' + esc(e) + ' <span style="opacity:0.7">(' + c + ')</span></span>').join('') : '<span style="color:var(--text-muted)">--</span>'}</div>
-            </div>
-        </div>
         <!-- Inventory -->
         <div class="glass p-6 mb-6">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-                <div class="card-title" style="margin-bottom:0">🎒 Inventory</div>
+                <div class="card-title" style="margin-bottom:0"><i data-lucide="backpack"></i> Inventory</div>
                 <button onclick="openAddItemModal()" style="padding:4px 14px;border-radius:6px;border:1px solid rgba(167,139,250,0.4);background:rgba(167,139,250,0.1);color:var(--accent-purple);cursor:pointer;font-size:0.82rem;font-weight:600">+ Add Item</button>
             </div>
             ${invHtml}
@@ -486,18 +485,18 @@ async function loadOverview() {
         <!-- Charts -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div class="glass p-6">
-                <div class="card-title">📅 7-Day Timeline</div>
+                <div class="card-title"><i data-lucide="calendar"></i> 7-Day Timeline</div>
                 <div style="height:220px;position:relative"><canvas id="chart-timeline"></canvas></div>
             </div>
             <div class="glass p-6">
-                <div class="card-title">🏷️ Tag Distribution</div>
+                <div class="card-title"><i data-lucide="tag"></i> Tag Distribution</div>
                 <div style="height:220px;position:relative"><canvas id="chart-tags"></canvas></div>
             </div>
         </div>
         <!-- Add Item Modal -->
         <div id="add-item-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:1000;align-items:center;justify-content:center">
             <div style="background:#1e1b2e;border:1px solid rgba(167,139,250,0.3);border-radius:14px;padding:28px;width:420px;max-width:92vw;box-shadow:0 24px 64px rgba(0,0,0,0.6)">
-                <div style="font-weight:700;font-size:1.05rem;margin-bottom:18px;color:var(--accent-purple)">➕ Add Inventory Item</div>
+                <div style="font-weight:700;font-size:1.05rem;margin-bottom:18px;color:var(--accent-purple)"><i data-lucide="plus"></i> Add Inventory Item</div>
                 <div style="display:flex;flex-direction:column;gap:12px">
                     <input id="new-item-name" type="text" placeholder="Item name *" style="width:100%;padding:8px 12px;border-radius:7px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.07);color:var(--text-primary);font-size:0.88rem;outline:none;box-sizing:border-box">
                     <input id="new-item-category" type="text" placeholder="Category (e.g. clothing, weapon)" style="width:100%;padding:8px 12px;border-radius:7px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.07);color:var(--text-primary);font-size:0.88rem;outline:none;box-sizing:border-box">
@@ -514,7 +513,7 @@ async function loadOverview() {
         <div id="block-edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(8px);z-index:1000;align-items:center;justify-content:center">
             <div class="glass p-6" style="max-width:500px;width:90%;border-radius:16px;max-height:80vh;overflow-y:auto">
                 <h3 style="font-size:1.2rem;font-weight:600;color:var(--text-primary);margin-bottom:16px">
-                    <span id="block-modal-title">&#9999;&#65039; New Block</span></h3>
+                    <span id="block-modal-title"><i data-lucide="pencil"></i> New Block</span></h3>
                 <input type="hidden" id="block-modal-mode" value="create">
                 <div style="margin-bottom:12px">
                     <label style="display:block;font-size:0.85rem;color:var(--text-muted);margin-bottom:4px">Block Name</label>

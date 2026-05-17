@@ -21,16 +21,16 @@ from .sections.timeline import render_timeline_js, render_timeline_tab
 def render_dashboard(persona: str | None = None) -> str:
     """Return the complete HTML string for the SPA dashboard."""
     tabs = [
-        {"id": "overview", "icon": "📊", "label": "Overview"},
-        {"id": "analytics", "icon": "📈", "label": "Analytics"},
-        {"id": "memories", "icon": "🧠", "label": "Memories"},
-        {"id": "timeline", "icon": "⏳", "label": "Timeline"},
-        {"id": "graph", "icon": "🕸️", "label": "Graph"},
-        {"id": "import-export", "icon": "📦", "label": "Import/Export"},
-        {"id": "personas", "icon": "👤", "label": "Personas"},
-        {"id": "chat", "icon": "💬", "label": "Chat"},
-        {"id": "settings", "icon": "⚙️", "label": "Settings"},
-        {"id": "admin", "icon": "🔧", "label": "Admin"},
+        {"id": "overview", "lucide": "layout-dashboard", "label": "Overview"},
+        {"id": "memories", "lucide": "brain", "label": "Memories"},
+        {"id": "chat", "lucide": "message-circle", "label": "Chat"},
+        {"id": "settings", "lucide": "settings", "label": "Settings"},
+        {"id": "analytics", "lucide": "bar-chart-3", "label": "Analytics"},
+        {"id": "timeline", "lucide": "clock", "label": "Timeline"},
+        {"id": "graph", "lucide": "share-2", "label": "Graph"},
+        {"id": "import-export", "lucide": "package", "label": "Import/Export"},
+        {"id": "personas", "lucide": "users", "label": "Personas"},
+        {"id": "admin", "lucide": "wrench", "label": "Admin"},
     ]
 
     nav_html = render_nav(tabs)

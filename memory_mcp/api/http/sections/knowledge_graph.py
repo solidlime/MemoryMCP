@@ -33,7 +33,7 @@ def render_graph_tab() -> str:
         <!-- ========== KNOWLEDGE GRAPH TAB ========== -->
         <section id="tab-graph" class="tab-panel" role="tabpanel">
             <div style="margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--glass-border);">
-                <h2 style="font-size:1.25rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:10px;"><span style="font-size:1.4rem;">🕸️</span> Knowledge Graph</h2>
+                <h2 style="font-size:1.25rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:10px;"><span style="font-size:1.4rem;"><i data-lucide="share-2"></i></span> Knowledge Graph</h2>
             </div>
           <style>
             /* Spinner animation for graph loading */
@@ -119,7 +119,7 @@ def render_graph_tab() -> str:
                 <!-- Refresh -->
                 <button id="graph-refresh-btn" class="glass-btn"
                         title="Refresh graph"
-                        style="padding:6px 14px;font-size:0.82rem">🔄 Refresh</button>
+                        style="padding:6px 14px;font-size:0.82rem"><i data-lucide="refresh-cw"></i> Refresh</button>
 
                 <!-- Stats (pushed to right) -->
                 <span id="graph-stats"
@@ -147,7 +147,7 @@ def render_graph_tab() -> str:
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
                   <h3 style="font-size:1.1rem;font-weight:600;color:var(--text-primary)">Memory Details</h3>
                   <button id="graph-panel-close" class="glass-btn"
-                          style="padding:4px 10px;font-size:0.9rem">✕</button>
+                          style="padding:4px 10px;font-size:0.9rem"><i data-lucide="x"></i></button>
                 </div>
                 <div id="graph-panel-body"></div>
               </div>
@@ -228,7 +228,7 @@ async function loadGraph() {
         renderNetwork(container, filtered.nodes, filtered.edges);
 
         if (statsEl) {
-            statsEl.textContent = filtered.nodes.length + ' nodes \u00b7 ' + filtered.edges.length + ' edges';
+            statsEl.textContent = filtered.nodes.length + ' nodes · ' + filtered.edges.length + ' edges';
         }
 
     } catch (e) {
@@ -554,7 +554,7 @@ function _graphRefilter() {
     renderNetwork(document.getElementById('graph-container'), filtered.nodes, filtered.edges);
     var statsEl = document.getElementById('graph-stats');
     if (statsEl) {
-        statsEl.textContent = filtered.nodes.length + ' nodes \\u00b7 ' + filtered.edges.length + ' edges';
+        statsEl.textContent = filtered.nodes.length + ' nodes \\· ' + filtered.edges.length + ' edges';
     }
 }
 

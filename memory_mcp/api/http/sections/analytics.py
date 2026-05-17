@@ -6,7 +6,7 @@ def render_analytics_tab() -> str:
     return """        <!-- ========== ANALYTICS TAB ========== -->
         <section id="tab-analytics" class="tab-panel" role="tabpanel">
             <div style="margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--glass-border);">
-                <h2 style="font-size:1.25rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:10px;"><span style="font-size:1.4rem;">📈</span> Analytics</h2>
+                <h2 style="font-size:1.25rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:10px;"><span style="font-size:1.4rem;"><i data-lucide="bar-chart-3"></i></span> Analytics</h2>
             </div>
             <div id="analytics-content">
                 <div class="glass p-6 mb-6"><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-chart"></div></div>
@@ -68,7 +68,7 @@ def render_analytics_js() -> str:
         el.innerHTML = `
         <div class="glass p-6 mb-6">
             <div class="card-title" style="justify-content:space-between;flex-wrap:wrap">
-                <span>💭 Emotion Timeline</span>
+                <span><i data-lucide=&quot;message-circle&quot;></i> Emotion Timeline</span>
                 <div style="display:flex;gap:6px">
                     <button class="glass-btn emo-days-btn ${days===7?'active':''}" data-days="7" style="padding:4px 12px;font-size:0.78rem">7d</button>
                     <button class="glass-btn emo-days-btn ${days===30?'active':''}" data-days="30" style="padding:4px 12px;font-size:0.78rem">30d</button>
@@ -79,7 +79,7 @@ def render_analytics_js() -> str:
             <div style="height:280px;position:relative"><canvas id="chart-emotions"></canvas></div>
         </div>
         <div class="glass p-6">
-            <div class="card-title">🧪 Memory Strength Distribution</div>
+            <div class="card-title"><i data-lucide=&quot;flask&quot;></i> Memory Strength Distribution</div>
             <div style="display:flex;gap:20px;margin-bottom:16px;flex-wrap:wrap;font-size:0.85rem">
                 <div><span style="color:var(--text-muted)">Total:</span> <span style="font-weight:600">${total}</span></div>
                 <div><span style="color:var(--text-muted)">Avg:</span> <span style="color:var(--accent-green);font-weight:600">${avgStr}</span></div>

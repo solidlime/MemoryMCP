@@ -7,9 +7,9 @@ def render_skills_tab() -> str:
     return """
         <section id="tab-skills" class="tab-panel" role="tabpanel">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--glass-border);">
-                <h2 style="font-size:1.25rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:10px;"><span style="font-size:1.4rem;">🎯</span> Skills</h2>
+                <h2 style="font-size:1.25rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:10px;"><span style="font-size:1.4rem;"><i data-lucide=&quot;target&quot;></i></span> Skills</h2>
                 <div style="display:flex;gap:8px;">
-                    <button onclick="syncSkillsFromFiles()" title="data/skills/<name>/SKILL.md をDBに同期" style="padding:6px 14px;border-radius:8px;background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.25);color:var(--accent-green);font-size:0.82rem;cursor:pointer;font-weight:600;">📂 ファイルから同期</button>
+                    <button onclick="syncSkillsFromFiles()" title="data/skills/<name>/SKILL.md をDBに同期" style="padding:6px 14px;border-radius:8px;background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.25);color:var(--accent-green);font-size:0.82rem;cursor:pointer;font-weight:600;"><i data-lucide=&quot;folder-open&quot;></i> ファイルから同期</button>
                     <button onclick="showSkillForm()" style="padding:6px 16px;border-radius:8px;background:linear-gradient(135deg,var(--accent-purple),#7c3aed);border:none;color:white;font-size:0.85rem;cursor:pointer;font-weight:600;">+ 新規スキル</button>
                 </div>
             </div>

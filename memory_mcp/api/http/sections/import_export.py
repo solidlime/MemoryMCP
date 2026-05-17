@@ -11,28 +11,28 @@ def render_import_export_tab() -> str:
         <!-- ========== IMPORT/EXPORT TAB ========== -->
         <section id="tab-import-export" class="tab-panel" role="tabpanel">
             <div style="margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--glass-border);">
-                <h2 style="font-size:1.25rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:10px;"><span style="font-size:1.4rem;">🔄</span> Import / Export</h2>
+                <h2 style="font-size:1.25rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:10px;"><span style="font-size:1.4rem;"><i data-lucide="refresh-cw"></i></span> Import / Export</h2>
             </div>
           <div id="import-export-content">
 
             <!-- Conversation File Import Section -->
             <div class="glass p-6" style="margin-bottom:24px">
-              <h3 style="font-size:1.2rem;font-weight:600;color:var(--text-primary);margin-bottom:8px">💬 Conversation Import</h3>
+              <h3 style="font-size:1.2rem;font-weight:600;color:var(--text-primary);margin-bottom:8px"><i data-lucide="message-circle"></i> Conversation Import</h3>
               <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:16px">Import user messages from a conversation export file on the server. Supports Claude Code JSONL, Claude.ai JSON, ChatGPT JSON.</p>
               <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
                 <input id="conv-import-path" type="text" class="glass-input" placeholder="/path/to/conversation.json" style="flex:1;min-width:280px;padding:8px 14px;font-size:0.88rem">
-                <button onclick="importConversation()" class="glass-btn" style="padding:8px 24px;white-space:nowrap">📥 Import</button>
+                <button onclick="importConversation()" class="glass-btn" style="padding:8px 24px;white-space:nowrap"><i data-lucide="download"></i> Import</button>
               </div>
               <div id="conv-import-result" style="display:none;margin-top:8px;font-size:0.85rem;padding:10px 14px;border-radius:8px;background:rgba(255,255,255,0.04)"></div>
             </div>
 
             <!-- Import Section -->
             <div class="glass p-6" style="margin-bottom:24px">
-              <h3 style="font-size:1.2rem;font-weight:600;color:var(--text-primary);margin-bottom:16px">📥 Import Data</h3>
+              <h3 style="font-size:1.2rem;font-weight:600;color:var(--text-primary);margin-bottom:16px"><i data-lucide="download"></i> Import Data</h3>
 
               <!-- Drag & drop zone -->
               <div id="drop-zone" style="border:2px dashed var(--glass-border);border-radius:12px;padding:48px 24px;text-align:center;cursor:pointer;transition:all 0.3s">
-                <div style="font-size:3rem;margin-bottom:12px">📁</div>
+                <div style="font-size:3rem;margin-bottom:12px"><i data-lucide="folder"></i></div>
                 <p style="color:var(--text-muted)">Drag &amp; drop a ZIP file here, or click to select</p>
                 <p style="font-size:0.85rem;color:var(--text-muted);opacity:0.6;margin-top:8px">Supports v1 and v2 MemoryMCP data formats</p>
                 <input type="file" id="import-file" accept=".zip" style="display:none">
@@ -54,13 +54,13 @@ def render_import_export_tab() -> str:
 
             <!-- Export Section -->
             <div class="glass p-6">
-              <h3 style="font-size:1.2rem;font-weight:600;color:var(--text-primary);margin-bottom:16px">📤 Export Data</h3>
+              <h3 style="font-size:1.2rem;font-weight:600;color:var(--text-primary);margin-bottom:16px"><i data-lucide="upload"></i> Export Data</h3>
               <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
                 <select id="export-format" class="glass-input" style="padding:8px 16px;min-width:180px">
                   <option value="zip">ZIP Archive (full backup)</option>
                   <option value="json">JSON (memories only)</option>
                 </select>
-                <button onclick="exportData()" class="glass-btn" style="padding:8px 24px">⬇️ Download</button>
+                <button onclick="exportData()" class="glass-btn" style="padding:8px 24px"><i data-lucide="download"></i> Download</button>
               </div>
               <div id="export-preview" style="margin-top:16px;font-size:0.85rem;color:var(--text-muted)">
                 Loading export info...
@@ -99,11 +99,11 @@ async function importConversation() {
             body: JSON.stringify({file_path: filePath})
         });
         resultEl.style.color = 'var(--accent-green)';
-        resultEl.textContent = '✅ Imported ' + (resp.imported || 0) + ' messages' + (resp.skipped ? ' (' + resp.skipped + ' skipped)' : '') + '.';
+        resultEl.textContent = '<i data-lucide="check-circle"></i> Imported ' + (resp.imported || 0) + ' messages' + (resp.skipped ? ' (' + resp.skipped + ' skipped)' : '') + '.';
         toast('Conversation imported successfully', 'success');
     } catch (e) {
         resultEl.style.color = 'var(--accent-red)';
-        resultEl.textContent = '❌ ' + (e.message || 'Import failed');
+        resultEl.textContent = '<i data-lucide="x-circle"></i> ' + (e.message || 'Import failed');
     }
 }
 

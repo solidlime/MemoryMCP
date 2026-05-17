@@ -591,20 +591,20 @@ def render_chat_tab() -> str:
         <!-- ========== CHAT TAB ========== -->
         <section id="tab-chat" class="tab-panel" role="tabpanel">
             <div style="position:relative; margin-bottom:16px; display:flex; align-items:center; justify-content:space-between; padding-bottom:12px; border-bottom:1px solid var(--glass-border);">
-                <h2 style="font-size:1.25rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:10px;"><span style="font-size:1.4rem;">💬</span> Chat</h2>
+                <h2 style="font-size:1.25rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:10px;"><span style="font-size:1.4rem;"><i data-lucide="message-circle"></i></span> Chat</h2>
                 <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                    <button class="mem-panel-toggle" id="memory-panel-toggle-btn" onclick="toggleMemoryPanel()" title="記憶パネルを開閉" aria-label="記憶パネルの表示切替">🧠</button>
-                    <button class="chat-sidebar-toggle" onclick="toggleSettingsPanel()" id="chat-sidebar-toggle-btn" title="設定パネルを開閉" aria-label="設定パネルの表示切替">⚙️ 設定</button>
+                    <button class="mem-panel-toggle" id="memory-panel-toggle-btn" onclick="toggleMemoryPanel()" title="記憶パネルを開閉" aria-label="記憶パネルの表示切替"><i data-lucide="brain"></i></button>
+                    <button class="chat-sidebar-toggle" onclick="toggleSettingsPanel()" id="chat-sidebar-toggle-btn" title="設定パネルを開閉" aria-label="設定パネルの表示切替"><i data-lucide="settings"></i> 設定</button>
                 </div>
             </div>
             <div id="chat-layout" class="glass" style="padding:0; overflow:hidden;">
                 <!-- Memory activity panel (left) -->
                 <div id="memory-panel">
-                    <div class="memory-panel-title">🧠 記憶活動</div>
+                    <div class="memory-panel-title"><i data-lucide="brain"></i> 記憶活動</div>
 
                     <!-- Retrieved memories -->
                     <div class="memory-panel-section">
-                        <div class="memory-section-header">📥 取得された記憶</div>
+                        <div class="memory-section-header"><i data-lucide="download"></i> 取得された記憶</div>
                         <div id="memory-retrieved-list">
                             <div class="memory-empty">チャット中に自動更新されます</div>
                         </div>
@@ -612,7 +612,7 @@ def render_chat_tab() -> str:
 
                     <!-- Saved memories -->
                     <div class="memory-panel-section">
-                        <div class="memory-section-header">💾 保存された記憶</div>
+                        <div class="memory-section-header"><i data-lucide="save"></i> 保存された記憶</div>
                         <div id="memory-saved-list">
                             <div class="memory-empty">チャット中に自動更新されます</div>
                         </div>
@@ -620,7 +620,7 @@ def render_chat_tab() -> str:
 
                     <!-- Reflection -->
                     <div class="memory-panel-section">
-                        <div class="memory-section-header" id="reflection-header">✨ リフレクション</div>
+                        <div class="memory-section-header" id="reflection-header"><i data-lucide=&quot;sparkles&quot;></i> リフレクション</div>
                         <div id="memory-reflection-list">
                             <div class="memory-empty">リフレクション洞察がここに表示されます</div>
                         </div>
@@ -628,7 +628,7 @@ def render_chat_tab() -> str:
 
                     <!-- Active goals -->
                     <div class="memory-panel-section">
-                        <div class="memory-section-header">🎯 アクティブな目標</div>
+                        <div class="memory-section-header"><i data-lucide="target"></i> アクティブな目標</div>
                         <div id="memory-goals-list">
                             <div class="memory-empty">チャット中に自動更新されます</div>
                         </div>
@@ -636,7 +636,7 @@ def render_chat_tab() -> str:
 
                     <!-- Active promises -->
                     <div class="memory-panel-section">
-                        <div class="memory-section-header">🤝 アクティブな約束</div>
+                        <div class="memory-section-header"><i data-lucide="handshake"></i> アクティブな約束</div>
                         <div id="memory-promises-list">
                             <div class="memory-empty">チャット中に自動更新されます</div>
                         </div>
@@ -644,7 +644,7 @@ def render_chat_tab() -> str:
 
                     <!-- Memory operation log -->
                     <div class="memory-panel-section">
-                        <div class="memory-section-header">🔧 操作ログ</div>
+                        <div class="memory-section-header"><i data-lucide="wrench"></i> 操作ログ</div>
                         <div id="memory-tool-ops-list">
                             <div class="memory-empty">LLMの記憶操作がここに表示されます</div>
                         </div>
@@ -652,7 +652,7 @@ def render_chat_tab() -> str:
 
                     <!-- Equipment -->
                     <div class="memory-panel-section">
-                        <div class="memory-section-header">🎒 装備</div>
+                        <div class="memory-section-header"><i data-lucide="backpack"></i> 装備</div>
                         <div id="memory-equipment-list">
                             <div class="memory-empty">装備情報がここに表示されます</div>
                         </div>
@@ -663,7 +663,7 @@ def render_chat_tab() -> str:
                 <div id="chat-main">
                     <div id="chat-messages">
                         <div class="chat-welcome" id="chat-welcome">
-                            <div class="chat-welcome-icon">💬</div>
+                            <div class="chat-welcome-icon"><i data-lucide="message-circle"></i></div>
                             <p>チャットを開始するには下のテキストボックスにメッセージを入力してください。</p>
                             <p style="font-size:0.78rem; opacity:0.7;">右の設定パネルでAPIキーとプロバイダーを設定してください。</p>
                         </div>
@@ -673,9 +673,9 @@ def render_chat_tab() -> str:
                     <div id="chat-input-area">
                         <textarea id="chat-input" placeholder="メッセージを入力... (Enter で送信、Shift+Enter で改行)" rows="1" aria-label="チャットメッセージ入力"></textarea>
                         <div style="display:flex;align-items:center;gap:6px;">
-                            <button id="chat-cancel-btn" onclick="chatCancel()" style="display:none;background:none;border:1px solid rgba(248,113,113,0.4);border-radius:8px;color:#f87171;padding:6px 14px;font-size:0.8rem;cursor:pointer;" aria-label="応答を停止">⏹ 中止</button>
-                            <button id="chat-voice-btn" onclick="toggleVoiceInput()" title="音声入力" style="background:none;border:1px solid var(--glass-border);border-radius:8px;color:var(--text-muted);padding:6px 12px;font-size:0.85rem;cursor:pointer;" aria-label="音声入力の切替">🎤</button>
-                            <button id="chat-export-btn" onclick="exportChatHistory()" title="会話をエクスポート" style="background:none;border:1px solid var(--glass-border);border-radius:8px;color:var(--text-muted);padding:6px 12px;font-size:0.78rem;cursor:pointer;" aria-label="会話履歴をエクスポート">📥</button>
+                            <button id="chat-cancel-btn" onclick="chatCancel()" style="display:none;background:none;border:1px solid rgba(248,113,113,0.4);border-radius:8px;color:#f87171;padding:6px 14px;font-size:0.8rem;cursor:pointer;" aria-label="応答を停止"><i data-lucide="stop-circle"></i> 中止</button>
+                            <button id="chat-voice-btn" onclick="toggleVoiceInput()" title="音声入力" style="background:none;border:1px solid var(--glass-border);border-radius:8px;color:var(--text-muted);padding:6px 12px;font-size:0.85rem;cursor:pointer;" aria-label="音声入力の切替"><i data-lucide=&quot;mic&quot;></i></button>
+                            <button id="chat-export-btn" onclick="exportChatHistory()" title="会話をエクスポート" style="background:none;border:1px solid var(--glass-border);border-radius:8px;color:var(--text-muted);padding:6px 12px;font-size:0.78rem;cursor:pointer;" aria-label="会話履歴をエクスポート"><i data-lucide="download"></i></button>
                             <button id="chat-send-btn" onclick="chatSend()" aria-label="メッセージを送信">送信</button>
                         </div>
                     </div>
@@ -684,12 +684,12 @@ def render_chat_tab() -> str:
                 <div id="settings-panel" class="glass" style="margin:0; border-radius:0; border-left:1px solid var(--glass-border); padding:0;">
                     <div class="settings-scroll-container">
                         <div style="position:sticky;top:0;z-index:10;background:var(--glass-bg);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);font-size:0.9rem;font-weight:600;color:var(--text-primary);padding:12px 0 8px;margin:0 -16px 8px;border-bottom:1px solid var(--glass-border);display:flex;align-items:center;gap:8px;box-shadow:0 2px 12px rgba(0,0,0,0.1);">
-                            <span style="font-size:1.1rem;margin-left:16px;">⚙️</span>
+                            <span style="font-size:1.1rem;margin-left:16px;"><i data-lucide="settings"></i></span>
                             <span>チャット設定</span>
                         </div>
                         <!-- Provider / Model / API -->
                         <details data-category="core" open>
-                            <summary>🔧 基本設定 <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'core')" title="説明を表示" onmouseleave="hideHelpTooltip()">❓</span></summary>
+                            <summary><i data-lucide="wrench"></i> 基本設定 <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'core')" title="説明を表示" onmouseleave="hideHelpTooltip()"><i data-lucide=&quot;help-circle&quot;></i></span></summary>
                             <div class="details-body">
                                 <div>
                                     <div class="chat-field-label">プロバイダー</div>
@@ -728,7 +728,7 @@ def render_chat_tab() -> str:
                         </details>
                         <!-- Context & System Prompt -->
                         <details data-category="context">
-                            <summary>💬 コンテキスト <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'context')" title="説明を表示" onmouseleave="hideHelpTooltip()">❓</span></summary>
+                            <summary><i data-lucide="message-circle"></i> コンテキスト <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'context')" title="説明を表示" onmouseleave="hideHelpTooltip()"><i data-lucide=&quot;help-circle&quot;></i></span></summary>
                             <div class="details-body">
                                 <div>
                                     <div class="chat-field-label">コンテキスト履歴 (turns)</div>
@@ -752,7 +752,7 @@ def render_chat_tab() -> str:
                         </details>
                         <!-- Memory extraction -->
                         <details data-category="memory">
-                            <summary>🧠 記憶・抽出 <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'memory')" title="説明を表示" onmouseleave="hideHelpTooltip()">❓</span></summary>
+                            <summary><i data-lucide="brain"></i> 記憶・抽出 <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'memory')" title="説明を表示" onmouseleave="hideHelpTooltip()"><i data-lucide=&quot;help-circle&quot;></i></span></summary>
                             <div class="details-body">
                                 <div style="display:flex;align-items:center;gap:8px;">
                                     <input type="checkbox" id="chat-auto-extract" checked
@@ -777,7 +777,7 @@ def render_chat_tab() -> str:
                         </details>
                         <!-- MCP Servers -->
                         <details data-category="tools">
-                            <summary>🔌 MCPサーバー <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'tools')" title="説明を表示" onmouseleave="hideHelpTooltip()">❓</span></summary>
+                            <summary><i data-lucide="battery-charging"></i> MCPサーバー <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'tools')" title="説明を表示" onmouseleave="hideHelpTooltip()"><i data-lucide=&quot;help-circle&quot;></i></span></summary>
                             <div class="details-body" id="chat-mcp-section">
                                 <div>
                                     <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:4px;">Claude の mcp.json 形式で貼り付け・編集できます</div>
@@ -799,14 +799,14 @@ def render_chat_tab() -> str:
                         </details>
                         <!-- Skills -->
                         <details data-category="skills">
-                            <summary>🎯 Skills <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'skills')" title="説明を表示" onmouseleave="hideHelpTooltip()">❓</span></summary>
+                            <summary><i data-lucide="target"></i> Skills <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'skills')" title="説明を表示" onmouseleave="hideHelpTooltip()"><i data-lucide=&quot;help-circle&quot;></i></span></summary>
                             <div class="details-body" id="chat-skills-section">
                                 <div id="chat-skills-list" style="display:flex;flex-direction:column;gap:4px;"></div>
                             </div>
                         </details>
                         <!-- Reflection -->
                         <details data-category="reflection">
-                            <summary>🔮 リフレクション <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'reflection')" title="説明を表示" onmouseleave="hideHelpTooltip()">❓</span></summary>
+                            <summary><i data-lucide="crystal-ball"></i> リフレクション <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'reflection')" title="説明を表示" onmouseleave="hideHelpTooltip()"><i data-lucide=&quot;help-circle&quot;></i></span></summary>
                             <div class="details-body">
                                 <div style="display:flex;align-items:center;gap:8px;">
                                     <input type="checkbox" id="chat-reflection-enabled" checked
@@ -834,7 +834,7 @@ def render_chat_tab() -> str:
                         </details>
                         <!-- Mental Model -->
                         <details data-category="mental">
-                            <summary>🧩 メンタルモデル <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'mental')" title="説明を表示" onmouseleave="hideHelpTooltip()">❓</span></summary>
+                            <summary><i data-lucide=&quot;puzzle&quot;></i> メンタルモデル <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'mental')" title="説明を表示" onmouseleave="hideHelpTooltip()"><i data-lucide=&quot;help-circle&quot;></i></span></summary>
                             <div class="details-body">
                                 <div style="display:flex;align-items:center;gap:8px;">
                                     <input type="checkbox" id="chat-mental-model-enabled" checked
@@ -850,7 +850,7 @@ def render_chat_tab() -> str:
                         </details>
                         <!-- Retrieval weights -->
                         <details data-category="weights">
-                            <summary>⚖️ 検索重み <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'weights')" title="説明を表示" onmouseleave="hideHelpTooltip()">❓</span></summary>
+                            <summary><i data-lucide=&quot;scale&quot;></i> 検索重み <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'weights')" title="説明を表示" onmouseleave="hideHelpTooltip()"><i data-lucide=&quot;help-circle&quot;></i></span></summary>
                             <div class="details-body">
                                 <div>
                                     <div class="chat-field-label" style="display:flex;justify-content:space-between;">
@@ -883,13 +883,13 @@ def render_chat_tab() -> str:
                         </details>
                         <!-- Housekeeping & Other -->
                         <details data-category="other">
-                            <summary>🧹 整理・その他 <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'other')" title="説明を表示" onmouseleave="hideHelpTooltip()">❓</span></summary>
+                            <summary><i data-lucide=&quot;broom&quot;></i> 整理・その他 <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'other')" title="説明を表示" onmouseleave="hideHelpTooltip()"><i data-lucide=&quot;help-circle&quot;></i></span></summary>
                             <div class="details-body">
                                 <div>
                                     <div class="chat-field-label">自動整理 閾値 (goals+promises 合計がこの数を超えたら実行)</div>
                                     <input type="number" id="chat-housekeeping-threshold" class="chat-field-input" min="1" max="100" value="10" />
                                 </div>
-                                <button class="chat-clear-btn" style="margin-top:4px;" onclick="runHousekeeping()">🧹 今すぐ整理</button>
+                                <button class="chat-clear-btn" style="margin-top:4px;" onclick="runHousekeeping()"><i data-lucide=&quot;broom&quot;></i> 今すぐ整理</button>
                                 <div id="chat-housekeeping-status" style="font-size:0.75rem; text-align:center; min-height:16px;"></div>
                                 <div style="border-top:1px solid var(--glass-border);padding-top:8px;display:flex;align-items:center;gap:8px;">
                                     <input type="checkbox" id="chat-sandbox-enabled"
@@ -900,15 +900,15 @@ def render_chat_tab() -> str:
                                 <div style="display:flex;align-items:center;gap:8px;">
                                     <input type="checkbox" id="chat-debug-mode"
                                         style="width:15px;height:15px;accent-color:var(--accent-purple);cursor:pointer;" />
-                                    <label for="chat-debug-mode" class="chat-field-label" style="margin:0;cursor:pointer;">🐛 デバッグモード</label>
+                                    <label for="chat-debug-mode" class="chat-field-label" style="margin:0;cursor:pointer;"><i data-lucide=&quot;bug&quot;></i> デバッグモード</label>
                                 </div>
                             </div>
                         </details>
                     </div>
                     <!-- Sticky footer buttons -->
                     <div class="settings-footer">
-                        <button class="chat-save-btn" onclick="saveChatConfig()" aria-label="チャット設定を保存">💾 設定を保存</button>
-                        <button class="chat-clear-btn" onclick="clearChatHistory()" aria-label="会話履歴をリセット">🗑️ 会話をリセット</button>
+                        <button class="chat-save-btn" onclick="saveChatConfig()" aria-label="チャット設定を保存"><i data-lucide="save"></i> 設定を保存</button>
+                        <button class="chat-clear-btn" onclick="clearChatHistory()" aria-label="会話履歴をリセット"><i data-lucide="trash-2"></i> 会話をリセット</button>
                         <div id="chat-config-status" style="font-size:0.75rem; text-align:center; min-height:16px;"></div>
                     </div>
                 </div>
@@ -1108,9 +1108,9 @@ function applyChatConfig(cfg) {
     const statusEl = document.getElementById('chat-config-status');
     if (statusEl) {
         if (cfg.is_configured) {
-            statusEl.innerHTML = '<span style="color:var(--accent-green)">✓ APIキー設定済み</span>';
+            statusEl.innerHTML = '<span style="color:var(--accent-green)"><i data-lucide=&quot;check&quot;></i> APIキー設定済み</span>';
         } else {
-            statusEl.innerHTML = '<span style="color:var(--accent-yellow)">⚠ APIキー未設定</span>';
+            statusEl.innerHTML = '<span style="color:var(--accent-yellow)"><i data-lucide=&quot;alert-triangle&quot;></i> APIキー未設定</span>';
         }
     }
 }
@@ -1262,11 +1262,11 @@ function toggleSettingsPanel() {
         sidebar.style.width = '360px';
         sidebar.style.display = 'flex';
         sidebar.classList.remove('collapsed');
-        if (btn) btn.textContent = '⚙️ 設定';
+        if (btn) btn.textContent = '<i data-lucide="settings"></i> 設定';
     } else {
         sidebar.style.width = '0';
         sidebar.classList.add('collapsed');
-        if (btn) btn.textContent = '⚙️';
+        if (btn) btn.textContent = '<i data-lucide="settings"></i>';
     }
 }
 
@@ -1358,7 +1358,7 @@ function updateMemoryPanel(retrieved, saved, goals, promises) {
                 goalsList.innerHTML = goals.map(g => {
                     const key = g.key || '';
                     return '<div class="memory-item-card" data-key="' + escAttr(key) + '" data-content="' + escAttr(g.content || '') + '" data-importance="' + (g.importance || 0.75) + '" data-tags="' + escAttr((g.tags || []).join(',')) + '" onclick="openMemEdit(this)">' +
-                        '🎯 ' + esc((g.content || '').substring(0, 80)) +
+                        '<i data-lucide="target"></i> ' + esc((g.content || '').substring(0, 80)) +
                         '<div class="mem-actions"><button class="mem-action-btn done" onclick="event.stopPropagation();completeGoal(\'' + escAttr(key) + '\',\'' + escAttr((g.content || '').substring(0, 50)) + '\')">完了</button><button class="mem-action-btn del" onclick="event.stopPropagation();deleteMemCard(\'' + escAttr(key) + '\')">削除</button></div>' +
                         '</div>';
                 }).join('');
@@ -1374,7 +1374,7 @@ function updateMemoryPanel(retrieved, saved, goals, promises) {
                 promisesList.innerHTML = promises.map(p => {
                     const key = p.key || '';
                     return '<div class="memory-item-card" data-key="' + escAttr(key) + '" data-content="' + escAttr(p.content || '') + '" data-importance="' + (p.importance || 0.8) + '" data-tags="' + escAttr((p.tags || []).join(',')) + '" onclick="openMemEdit(this)">' +
-                        '🤝 ' + esc((p.content || '').substring(0, 80)) +
+                        '<i data-lucide="handshake"></i> ' + esc((p.content || '').substring(0, 80)) +
                         '<div class="mem-actions"><button class="mem-action-btn done" onclick="event.stopPropagation();fulfillPromise(\'' + escAttr(key) + '\',\'' + escAttr((p.content || '').substring(0, 50)) + '\')">遂行</button><button class="mem-action-btn del" onclick="event.stopPropagation();deleteMemCard(\'' + escAttr(key) + '\')">削除</button></div>' +
                         '</div>';
                 }).join('');
@@ -1385,14 +1385,14 @@ function updateMemoryPanel(retrieved, saved, goals, promises) {
 
 function showReflectionStart() {
     const header = document.getElementById('reflection-header');
-    if (header) header.textContent = '✨ リフレクション (実行中...)';
+    if (header) header.textContent = '<i data-lucide=&quot;sparkles&quot;></i> リフレクション (実行中...)';
     const list = document.getElementById('memory-reflection-list');
     if (list) list.innerHTML = '<div class="memory-empty" style="color:var(--accent-purple);">分析中...</div>';
 }
 
 function updateReflectionPanel(insights) {
     const header = document.getElementById('reflection-header');
-    if (header) header.textContent = '✨ リフレクション';
+    if (header) header.textContent = '<i data-lucide=&quot;sparkles&quot;></i> リフレクション';
     const list = document.getElementById('memory-reflection-list');
     if (!list) return;
     if (!insights || insights.length === 0) {
@@ -1407,7 +1407,7 @@ function updateReflectionPanel(insights) {
 function showSessionSummarized(summary) {
     const statusEl = document.getElementById('chat-status');
     if (statusEl) {
-        statusEl.textContent = '📝 セッションを要約しました';
+        statusEl.textContent = '<i data-lucide="edit-3"></i> セッションを要約しました';
         setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 3000);
     }
 }
@@ -1417,7 +1417,7 @@ function clearChatHistory() {
     const container = document.getElementById('chat-messages');
     container.innerHTML = `
         <div class="chat-welcome" id="chat-welcome">
-            <div class="chat-welcome-icon">💬</div>
+            <div class="chat-welcome-icon"><i data-lucide="message-circle"></i></div>
             <p>チャットを開始するには下のテキストボックスにメッセージを入力してください。</p>
         </div>`;
     // Delete server-side session (F3)
@@ -1471,7 +1471,7 @@ function appendChatMessage(role, content, timeStr, isMarkdown) {
     if (role === 'user') {
         const editBtn = document.createElement('button');
         editBtn.className = 'chat-msg-action-btn edit';
-        editBtn.textContent = '✏️ 編集';
+        editBtn.textContent = '<i data-lucide="pencil"></i> 編集';
         editBtn.onclick = () => {
             const inputEl = document.getElementById('chat-input');
             if (inputEl) {
@@ -1484,12 +1484,12 @@ function appendChatMessage(role, content, timeStr, isMarkdown) {
     } else if (role === 'assistant') {
         const retryBtn = document.createElement('button');
         retryBtn.className = 'chat-msg-action-btn retry';
-        retryBtn.textContent = '🔄 再生成';
+        retryBtn.textContent = '<i data-lucide="refresh-cw"></i> 再生成';
         retryBtn.onclick = () => { chatSend(true); };
         actions.appendChild(retryBtn);
         const copyBtn = document.createElement('button');
         copyBtn.className = 'chat-msg-action-btn';
-        copyBtn.textContent = '📋';
+        copyBtn.textContent = '<i data-lucide="clipboard-list"></i>';
         copyBtn.title = 'コピー';
         copyBtn.onclick = () => {
             navigator.clipboard.writeText(content).then(() => toast('コピーしました', 'success'));
@@ -1541,7 +1541,7 @@ async function restoreChatHistory() {
     CHAT.messages = [];
     container.innerHTML = `
         <div class="chat-welcome" id="chat-welcome">
-            <div class="chat-welcome-icon">💬</div>
+            <div class="chat-welcome-icon"><i data-lucide="message-circle"></i></div>
             <p>チャットを開始するには下のテキストボックスにメッセージを入力してください。</p>
         </div>`;
     try {
@@ -1609,7 +1609,7 @@ function exportChatHistory() {
     lines.push('> エクスポート日時: ' + new Date().toISOString());
     lines.push('');
     bubbles.forEach(msg => {
-        const role = msg.classList.contains('user') ? '**👤 ユーザー**' : '**🤖 アシスタント**';
+        const role = msg.classList.contains('user') ? '**<i data-lucide="user"></i> ユーザー**' : '**<i data-lucide="bot"></i> アシスタント**';
         const bubble = msg.querySelector('.chat-bubble');
         const time = msg.querySelector('.chat-time')?.textContent || '';
         const content = bubble ? bubble.textContent : '';
@@ -1642,14 +1642,14 @@ function toggleVoiceInput() {
     if (_voiceRecognition) {
         _voiceRecognition.stop();
         _voiceRecognition = null;
-        if (btn) { btn.textContent = '🎤'; btn.style.color = ''; }
+        if (btn) { btn.textContent = '<i data-lucide=&quot;mic&quot;></i>'; btn.style.color = ''; }
         return;
     }
     _voiceRecognition = new SpeechRecognition();
     _voiceRecognition.lang = 'ja-JP';
     _voiceRecognition.interimResults = false;
     _voiceRecognition.continuous = false;
-    if (btn) { btn.textContent = '🔴'; btn.style.color = 'var(--accent-red)'; }
+    if (btn) { btn.textContent = '<i data-lucide="circle-dot"></i>'; btn.style.color = 'var(--accent-red)'; }
     _voiceRecognition.onresult = (event) => {
         const transcript = event.results[0][0].transcript;
         const inputEl = document.getElementById('chat-input');
@@ -1658,15 +1658,15 @@ function toggleVoiceInput() {
             inputEl.dispatchEvent(new Event('input'));
         }
         _voiceRecognition = null;
-        if (btn) { btn.textContent = '🎤'; btn.style.color = ''; }
+        if (btn) { btn.textContent = '<i data-lucide=&quot;mic&quot;></i>'; btn.style.color = ''; }
     };
     _voiceRecognition.onerror = () => {
         toast('音声認識エラー', 'error');
         _voiceRecognition = null;
-        if (btn) { btn.textContent = '🎤'; btn.style.color = ''; }
+        if (btn) { btn.textContent = '<i data-lucide=&quot;mic&quot;></i>'; btn.style.color = ''; }
     };
     _voiceRecognition.onend = () => {
-        if (btn) { btn.textContent = '🎤'; btn.style.color = ''; }
+        if (btn) { btn.textContent = '<i data-lucide=&quot;mic&quot;></i>'; btn.style.color = ''; }
     };
     _voiceRecognition.start();
 }
@@ -1681,7 +1681,7 @@ function appendToolEvent(eventType, data) {
         let inputStr;
         try { inputStr = JSON.stringify(data.input, null, 2); } catch (e) { inputStr = String(data.input); }
         div.innerHTML =
-            '<details><summary>🔧 <strong>' + esc(data.name) + '</strong>' +
+            '<details><summary><i data-lucide="wrench"></i> <strong>' + esc(data.name) + '</strong>' +
             '<span class="chat-tool-status">実行中...</span></summary>' +
             '<pre class="chat-tool-detail">' + esc(inputStr) + '</pre></details>';
         container.appendChild(div);
@@ -1698,7 +1698,7 @@ function appendToolEvent(eventType, data) {
         const callDiv = data.id ? container.querySelector('[data-tool-id="' + CSS.escape(data.id) + '"]') : null;
         if (callDiv) {
             const statusEl = callDiv.querySelector('.chat-tool-status');
-            if (statusEl) statusEl.textContent = ' ✓ 完了';
+            if (statusEl) statusEl.textContent = ' <i data-lucide=&quot;check&quot;></i> 完了';
             const details = callDiv.querySelector('details');
             if (details) {
                 const resultPre = document.createElement('pre');
@@ -1711,7 +1711,7 @@ function appendToolEvent(eventType, data) {
             const div = document.createElement('div');
             div.className = 'chat-tool-result';
             div.innerHTML =
-                '<details><summary>✓ <strong>' + esc(data.name) + '</strong></summary>' +
+                '<details><summary><i data-lucide=&quot;check&quot;></i> <strong>' + esc(data.name) + '</strong></summary>' +
                 '<pre class="chat-tool-detail chat-tool-result-content">' + esc(resultStr) + '</pre></details>';
             container.appendChild(div);
             container.scrollTop = container.scrollHeight;
@@ -1780,7 +1780,7 @@ function renderAttachmentBadge(att) {
     } else {
         const icon = document.createElement('span');
         const ext = att.filename.split('.').pop().toLowerCase();
-        icon.textContent = ext === 'pdf' ? '📕' : (ext === 'zip' || ext === 'tar' || ext === 'gz' ? '📦' : '📄');
+        icon.textContent = ext === 'pdf' ? '<i data-lucide=&quot;book&quot;></i>' : (ext === 'zip' || ext === 'tar' || ext === 'gz' ? '<i data-lucide="package"></i>' : '<i data-lucide="file-text"></i>');
         badge.appendChild(icon);
     }
 
@@ -1791,7 +1791,7 @@ function renderAttachmentBadge(att) {
 
     const removeBtn = document.createElement('button');
     removeBtn.className = 'attach-remove';
-    removeBtn.textContent = '✕';
+    removeBtn.textContent = '<i data-lucide="x"></i>';
     removeBtn.onclick = () => {
         CHAT.attachments = CHAT.attachments.filter(a => a.filename !== att.filename);
         badge.remove();
@@ -1939,13 +1939,13 @@ async function handleSlashCommand(toolName, toolInput) {
         });
         removeTypingIndicator();
         const resultMsg = resp.status === 'ok'
-            ? '✓ ' + (resp.key ? '作成: ' + resp.key : resp.updated ? '更新: ' + resp.updated : '実行完了')
-            : '✗ ' + (resp.message || resp.error || 'エラー');
+            ? '<i data-lucide=&quot;check&quot;></i> ' + (resp.key ? '作成: ' + resp.key : resp.updated ? '更新: ' + resp.updated : '実行完了')
+            : '<i data-lucide=&quot;x&quot;></i> ' + (resp.message || resp.error || 'エラー');
         appendChatMessage('assistant', resultMsg, new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }));
         if (resp.status === 'ok') toast(resultMsg, 'success');
     } catch (ex) {
         removeTypingIndicator();
-        appendChatMessage('assistant', '✗ コマンド実行失敗: ' + ex.message,
+        appendChatMessage('assistant', '<i data-lucide=&quot;x&quot;></i> コマンド実行失敗: ' + ex.message,
             new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }));
         toast('コマンド失敗: ' + ex.message, 'error');
     }
@@ -2008,7 +2008,7 @@ async function chatSend(retry) {
     if (attArea) attArea.innerHTML = '';
 
     // Show user message with filename display
-    const displayMsg = rawInput || (attNames.length > 0 ? '📎 ' + attNames.join(', ') : '');
+    const displayMsg = rawInput || (attNames.length > 0 ? '<i data-lucide=&quot;paperclip&quot;></i> ' + attNames.join(', ') : '');
     const timeStr = new Date().toLocaleTimeString('ja-JP', {hour:'2-digit',minute:'2-digit'});
     appendChatMessage('user', displayMsg, timeStr);
     showTypingIndicator();
@@ -2086,7 +2086,7 @@ async function chatSend(retry) {
                             appendToolEvent('tool_call', evt);
                         }
                     }
-                    statusEl.textContent = '🔧 ' + evt.name + ' を実行中...';
+                    statusEl.textContent = '<i data-lucide="wrench"></i> ' + evt.name + ' を実行中...';
 
                 } else if (evt.type === 'tool_result') {
                     if (MEMORY_TOOL_NAMES.has(evt.name)) {
@@ -2243,18 +2243,18 @@ function handleMemoryToolCall(evt) {
     if (empty) empty.remove();
     const op = evt.input?.operation || '';
     const icons = {
-        memory_create:'💾', memory_read:'📖', memory_update:'✏️', memory_delete:'🗑️',
-        memory_search:'🔍', memory_stats:'📊',
-        get_context:'📊', update_context:'🔄',
-        item_add:'➕', item_remove:'➖', item_equip:'👗', item_unequip:'👋',
-        item_update:'✏️', item_search:'🔍', item_history:'📜',
-        sandbox:'🔬', sandbox_files:'📁',
-        goal_manage:'🎯', promise_manage:'🤝',
-        invoke_skill:'🎯',
-        context_update:'🔄', context_recall:'📋',
-        execute_code:'▶️',
+        memory_create:'<i data-lucide="save"></i>', memory_read:'<i data-lucide=&quot;book-open&quot;></i>', memory_update:'<i data-lucide="pencil"></i>', memory_delete:'<i data-lucide="trash-2"></i>',
+        memory_search:'<i data-lucide="search"></i>', memory_stats:'<i data-lucide="layout-dashboard"></i>',
+        get_context:'<i data-lucide="layout-dashboard"></i>', update_context:'<i data-lucide="refresh-cw"></i>',
+        item_add:'<i data-lucide="plus"></i>', item_remove:'<i data-lucide=&quot;minus&quot;></i>', item_equip:'<i data-lucide=&quot;shirt&quot;></i>', item_unequip:'<i data-lucide=&quot;wave&quot;></i>',
+        item_update:'<i data-lucide="pencil"></i>', item_search:'<i data-lucide="search"></i>', item_history:'<i data-lucide=&quot;scroll&quot;></i>',
+        sandbox:'<i data-lucide="microscope"></i>', sandbox_files:'<i data-lucide="folder"></i>',
+        goal_manage:'<i data-lucide="target"></i>', promise_manage:'<i data-lucide="handshake"></i>',
+        invoke_skill:'<i data-lucide="target"></i>',
+        context_update:'<i data-lucide="refresh-cw"></i>', context_recall:'<i data-lucide="clipboard-list"></i>',
+        execute_code:'▶',
     };
-    const icon = icons[evt.name] || '🔧';
+    const icon = icons[evt.name] || '<i data-lucide="wrench"></i>';
     const label = evt.name + (op ? '.' + op : '');
     const id = 'mop-' + (evt.id || (evt.name + Date.now()));
     const card = document.createElement('div');
@@ -2287,10 +2287,10 @@ function handleMemoryToolResult(evt) {
 }
 
 function handleFileToolCall(evt) {
-    const icons = { edit:'✏️', create:'📝', view:'👁️', bash:'⚙️', powershell:'⚙️',
-        str_replace_editor:'✏️', delete_file:'🗑️', list_files:'📂',
-        write_file:'📝', read_file:'👁️', glob:'🔍', grep:'🔍' };
-    const icon = icons[evt.name] || '🔧';
+    const icons = { edit:'<i data-lucide="pencil"></i>', create:'<i data-lucide="edit-3"></i>', view:'<i data-lucide=&quot;eye&quot;></i>', bash:'<i data-lucide="settings"></i>', powershell:'<i data-lucide="settings"></i>',
+        str_replace_editor:'<i data-lucide="pencil"></i>', delete_file:'<i data-lucide="trash-2"></i>', list_files:'<i data-lucide="folder-open"></i>',
+        write_file:'<i data-lucide="edit-3"></i>', read_file:'<i data-lucide=&quot;eye&quot;></i>', glob:'<i data-lucide="search"></i>', grep:'<i data-lucide="search"></i>' };
+    const icon = icons[evt.name] || '<i data-lucide="wrench"></i>';
     const detail = evt.input?.path || evt.input?.file_path || evt.input?.command ||
         evt.input?.pattern || evt.input?.glob || '';
     sandboxLog(icon + ' ' + evt.name + (detail ? ': ' + String(detail).substring(0, 60) : ''), 'system');
@@ -2346,7 +2346,7 @@ async function sandboxRunBlock(code, language, resultEl, runBtn) {
         return;
     }
     runBtn.disabled = true;
-    runBtn.textContent = '⏳';
+    runBtn.textContent = '<i data-lucide="clock"></i>';
     resultEl.className = 'hljs-run-result running';
     resultEl.textContent = '実行中...';
     resultEl.style.display = 'block';
@@ -2405,14 +2405,14 @@ function renderCodeBlock(lang, code) {
     const uid = 'codeblock-' + Math.random().toString(36).slice(2);
     const runBtnHtml = runnable
         ? '<button class="hljs-run-btn" id="runbtn-' + uid + '" onclick="sandboxRunBlock(' +
-          JSON.stringify(code) + ', ' + JSON.stringify(lang || 'python') + ', document.getElementById(\'result-' + uid + '\'), this)">▶ Run</button>'
+          JSON.stringify(code) + ', ' + JSON.stringify(lang || 'python') + ', document.getElementById(\'result-' + uid + '\'), this)"><i data-lucide="play"></i> Run</button>'
         : '';
 
     return '<div class="hljs-block-wrapper">' +
         '<div class="hljs-block-header">' +
             '<span class="hljs-lang-badge">' + esc(lang || '') + '</span>' +
             '<div class="hljs-block-actions">' +
-                '<button class="hljs-copy-btn" onclick="navigator.clipboard.writeText(' + JSON.stringify(code) + ').then(()=>toast(\'コピーしました\',\'success\'))">📋 Copy</button>' +
+                '<button class="hljs-copy-btn" onclick="navigator.clipboard.writeText(' + JSON.stringify(code) + ').then(()=>toast(\'コピーしました\',\'success\'))"><i data-lucide="clipboard-list"></i> Copy</button>' +
                 runBtnHtml +
             '</div>' +
         '</div>' +

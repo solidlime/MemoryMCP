@@ -28,7 +28,7 @@ def render_timeline_tab() -> str:
     return r"""
         <section id="tab-timeline" class="tab-panel" role="tabpanel">
             <div style="margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--glass-border);">
-                <h2 style="font-size:1.25rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:10px;"><span style="font-size:1.4rem;">📅</span> Timeline</h2>
+                <h2 style="font-size:1.25rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:10px;"><span style="font-size:1.4rem;"><i data-lucide="calendar"></i></span> Timeline</h2>
             </div>
             <style>
                 #tab-timeline .tl-toolbar {
@@ -115,8 +115,8 @@ def render_timeline_tab() -> str:
             </style>
 
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-                <h2 style="font-size:1.1rem;font-weight:600;color:var(--text-primary);">⏳ Memory Timeline</h2>
-                <button onclick="loadTimeline()" style="background:none;border:1px solid var(--glass-border);border-radius:6px;color:var(--text-muted);padding:4px 10px;cursor:pointer;font-size:0.75rem;">🔄 更新</button>
+                <h2 style="font-size:1.1rem;font-weight:600;color:var(--text-primary);"><i data-lucide="clock"></i> Memory Timeline</h2>
+                <button onclick="loadTimeline()" style="background:none;border:1px solid var(--glass-border);border-radius:6px;color:var(--text-muted);padding:4px 10px;cursor:pointer;font-size:0.75rem;"><i data-lucide="refresh-cw"></i> 更新</button>
             </div>
 
             <div class="tl-toolbar">
@@ -131,7 +131,7 @@ def render_timeline_tab() -> str:
             <div id="tl-legend"></div>
 
             <div id="tl-detail-panel">
-                <button class="tl-detail-close" onclick="closeTimelineDetail()">✕</button>
+                <button class="tl-detail-close" onclick="closeTimelineDetail()"><i data-lucide="x"></i></button>
                 <div class="tl-detail-label">内容</div>
                 <div class="tl-detail-content" id="tl-detail-content"></div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
@@ -153,27 +153,27 @@ def render_timeline_js() -> str:
    MEMORY TIMELINE
    ================================================================= */
 const TL_EMOTION_COLORS = {
-    joy:         { bg: 'rgba(251,191,36,0.15)',  border: '#FBBF24', emoji: '😊' },
-    sadness:     { bg: 'rgba(96,165,250,0.15)',  border: '#60A5FA', emoji: '😢' },
-    anger:       { bg: 'rgba(248,113,113,0.15)', border: '#F87171', emoji: '😠' },
-    love:        { bg: 'rgba(244,114,182,0.15)', border: '#F472B6', emoji: '❤️' },
-    fear:        { bg: 'rgba(167,139,250,0.15)', border: '#A78BFA', emoji: '😨' },
-    surprise:    { bg: 'rgba(52,211,153,0.15)',  border: '#34D399', emoji: '😲' },
-    neutral:     { bg: 'rgba(156,163,175,0.15)', border: '#9CA3AF', emoji: '😐' },
-    excitement:  { bg: 'rgba(245,158,11,0.15)',  border: '#F59E0B', emoji: '🤩' },
-    pride:       { bg: 'rgba(129,140,248,0.15)', border: '#818CF8', emoji: '🦚' },
-    shame:       { bg: 'rgba(251,113,133,0.15)', border: '#FB7185', emoji: '😳' },
-    curiosity:   { bg: 'rgba(45,212,191,0.15)',  border: '#2DD4BF', emoji: '🤔' },
-    anxiety:     { bg: 'rgba(248,113,113,0.12)', border: '#F87171', emoji: '😰' },
-    frustration: { bg: 'rgba(251,146,60,0.15)',  border: '#FB923C', emoji: '😤' },
-    nostalgia:   { bg: 'rgba(167,139,250,0.12)', border: '#A78BFA', emoji: '🌅' },
-    trust:       { bg: 'rgba(52,211,153,0.12)',  border: '#34D399', emoji: '🤝' },
-    loneliness:  { bg: 'rgba(148,163,184,0.15)', border: '#94A3B8', emoji: '😔' },
-    contentment: { bg: 'rgba(134,239,172,0.15)', border: '#86EFAC', emoji: '😌' },
-    awe:         { bg: 'rgba(192,132,252,0.15)', border: '#C084FC', emoji: '🌌' },
-    relief:      { bg: 'rgba(110,231,183,0.15)', border: '#6EE7B7', emoji: '😮‍💨' },
-    disgust:     { bg: 'rgba(163,230,53,0.15)',  border: '#A3E635', emoji: '🤢' },
-    guilt:       { bg: 'rgba(252,165,165,0.15)', border: '#FCA5A5', emoji: '😞' },
+    joy:         { bg: 'rgba(251,191,36,0.15)',  border: '#FBBF24', emoji: '<i data-lucide="smile"></i>' },
+    sadness:     { bg: 'rgba(96,165,250,0.15)',  border: '#60A5FA', emoji: '<i data-lucide="frown"></i>' },
+    anger:       { bg: 'rgba(248,113,113,0.15)', border: '#F87171', emoji: '<i data-lucide="angry"></i>' },
+    love:        { bg: 'rgba(244,114,182,0.15)', border: '#F472B6', emoji: '<i data-lucide="heart"></i>' },
+    fear:        { bg: 'rgba(167,139,250,0.15)', border: '#A78BFA', emoji: '<i data-lucide="fear"></i>' },
+    surprise:    { bg: 'rgba(52,211,153,0.15)',  border: '#34D399', emoji: '<i data-lucide="surprise"></i>' },
+    neutral:     { bg: 'rgba(156,163,175,0.15)', border: '#9CA3AF', emoji: '<i data-lucide="meh"></i>' },
+    excitement:  { bg: 'rgba(245,158,11,0.15)',  border: '#F59E0B', emoji: '<i data-lucide="star"></i>' },
+    pride:       { bg: 'rgba(129,140,248,0.15)', border: '#818CF8', emoji: '<i data-lucide="feather"></i>' },
+    shame:       { bg: 'rgba(251,113,133,0.15)', border: '#FB7185', emoji: '<i data-lucide="flushed"></i>' },
+    curiosity:   { bg: 'rgba(45,212,191,0.15)',  border: '#2DD4BF', emoji: '<i data-lucide="brain-circuit"></i>' },
+    anxiety:     { bg: 'rgba(248,113,113,0.12)', border: '#F87171', emoji: '<i data-lucide="anxiety"></i>' },
+    frustration: { bg: 'rgba(251,146,60,0.15)',  border: '#FB923C', emoji: '<i data-lucide="frustration"></i>' },
+    nostalgia:   { bg: 'rgba(167,139,250,0.12)', border: '#A78BFA', emoji: '<i data-lucide="sunrise"></i>' },
+    trust:       { bg: 'rgba(52,211,153,0.12)',  border: '#34D399', emoji: '<i data-lucide="handshake"></i>' },
+    loneliness:  { bg: 'rgba(148,163,184,0.15)', border: '#94A3B8', emoji: '<i data-lucide="frown"></i>' },
+    contentment: { bg: 'rgba(134,239,172,0.15)', border: '#86EFAC', emoji: '<i data-lucide="smile-plus"></i>' },
+    awe:         { bg: 'rgba(192,132,252,0.15)', border: '#C084FC', emoji: '<i data-lucide=&quot;milky-way&quot;></i>' },
+    relief:      { bg: 'rgba(110,231,183,0.15)', border: '#6EE7B7', emoji: '<i data-lucide=&quot;surprised&quot;></i><i data-lucide=&quot;wind&quot;></i>' },
+    disgust:     { bg: 'rgba(163,230,53,0.15)',  border: '#A3E635', emoji: '<i data-lucide=&quot;dizzy&quot;></i>' },
+    guilt:       { bg: 'rgba(252,165,165,0.15)', border: '#FCA5A5', emoji: '<i data-lucide="disappointed"></i>' },
 };
 
 function getEmotionStyle(emotion) {
@@ -308,7 +308,7 @@ function showTimelineDetail(mem) {
     var bodyHtml = '';
     if (mem.body_state) {
         var bodyKeys = ['fatigue','warmth','arousal','heart_rate','pain'];
-        var bodyLabels = {fatigue:'🔥 Fatigue',warmth:'🌸 Warmth',arousal:'⚡ Arousal',heart_rate:'💓 Heart',pain:'💢 Pain'};
+        var bodyLabels = {fatigue:'<i data-lucide="flame"></i> Fatigue',warmth:'<i data-lucide="flower"></i> Warmth',arousal:'<i data-lucide="zap"></i> Arousal',heart_rate:'<i data-lucide="heart-pulse"></i> Heart',pain:'<i data-lucide="activity"></i> Pain'};
         var bodyColors = {fatigue:'linear-gradient(90deg,#f87171,#fca5a5)',warmth:'linear-gradient(90deg,#f9a8d4,#fda4af)',arousal:'linear-gradient(90deg,#a78bfa,#c4b5fd)',heart_rate:'linear-gradient(90deg,#ef4444,#fca5a5)',pain:'linear-gradient(90deg,#f59e0b,#fcd34d)'};
         var hasBody = bodyKeys.some(function(k){ return mem.body_state[k] != null; });
         if (hasBody) {
