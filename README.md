@@ -67,177 +67,154 @@ at `/sandbox` need a host-side path to persist. If files are not visible on the 
 Auto-detection of the host path works in standard Docker setups but may fail
 on custom deployments (Synology, Podman, etc.).
 
-## MCP ツール（6 本）
+## MCP ツール（20 本）
 
-MCP サーバー（`/mcp` エンドポイント）経由で LLM に露出されるツール群。
+MCP サーバー（`/mcp` エンドポイント）経由で LLM に露出されるツール群。各ツールが保存・維持する情報も併記。
 
-### `get_context()`
+### コンテキスト・状態
 
-現在のペルソナ状態・記憶サマリー・装備・感情・Block・約束・目標を一括返却する。セッション開始時に最初に呼ぶ。
-
-```python
-result = get_context()
-# → persona, emotion, physical_state, equipment, blocks, recent_memories, promises, goals, stats ...
-```
-
-### `memory(operation, ...)`
-
-記憶の CRUD・矛盾検出・バージョニング・Core Memory Blocks・エンティティグラフ操作。
-
-| operation | 説明 |
-|---|---|
-| `create` | 記憶を作成（感情・重要度・タグ付き） |
-| `read` | 指定 key の記憶を取得 |
-| `update` | 既存記憶を更新（バージョン履歴あり） |
-| `delete` | 記憶を削除 |
-| `check_contradictions` | 既存記憶との矛盾を検出 |
-| `history` | 記憶の編集履歴を取得 |
-| `stats` | メモリ統計を取得 |
-| `block_write` | Core Memory Block を書き込み |
-| `block_read` | Block を読み取り |
-| `block_list` | Block 一覧を取得 |
-| `block_delete` | Block を削除 |
-| `entity_search` | エンティティ（人物・場所・概念）を検索 |
-| `entity_graph` | エンティティの関係性グラフを取得 |
-| `entity_add_relation` | エンティティ間の関係を追加 |
-| `enrich` | 既存記憶の LLM 補完（重要度再評価 + エンティティ関係抽出）を再実行 |
-| `run_mental_model` | メンタルモデル抽象化を手動トリガー |
-| `refresh_context_snapshot` | グローバルコンテキストスナップショットを再構築 |
-
-```python
-# 記憶を作成
-memory(operation="create", content="ユーザーは苺が好き", importance=0.8, emotion_type="joy")
-
-# Block に書き込み
-memory(operation="block_write", block_name="user_model", content="Pythonエンジニア、簡潔な説明を好む")
-
-# エンティティグラフ
-memory(operation="entity_graph", entity_id="user_tanaka", depth=2)
-```
-
-### `search_memory(query, top_k=5, ...)`
-
-ハイブリッド検索エンジン（常に keyword + semantic の RRF 統合）。
-
-```python
-# ハイブリッド検索（デフォルト）
-search_memory(query="最近の出来事", top_k=10)
-
-# 日付フィルタ付き（自然言語）
-search_memory(query="成果", date_range="先週")
-
-# 重要度ブースト
-search_memory(query="ユーザー情報", importance_weight=0.3, min_importance=0.6)
-```
-
-**`date_range` 表現例**: `今日` `昨日` `先週` `先月` `3日前` `7d` `2025-01-01~2025-06-01`
-
-### `update_context(...)`
-
-感情・状態・ユーザー情報をリアルタイム更新。`user_info` の変更は Bi-temporal で履歴保持される。
-
-```python
-update_context(emotion="joy", emotion_intensity=0.8)
-update_context(physical_state="tired", mental_state="focused", environment="home office")
-update_context(user_info={"name": "太郎", "preferred_address": "太郎さん"})
-```
-
-| パラメータ | 説明 |
-|---|---|
-| `emotion` / `emotion_intensity` | 感情タイプと強度（0.0–1.0） |
-| `physical_state` / `mental_state` | 身体的・精神的状態 |
-| `environment` | 現在の環境（例: `"home office"`） |
-| `user_info` | `name` / `nickname` / `preferred_address` の辞書 |
-| `persona_info` | ペルソナ自身の情報（`nickname`, `active_promises` 等） |
-| `fatigue` / `warmth` / `arousal` | 身体感覚（0.0–1.0）|
-| `speech_style` | 発話スタイル（例: `"甘えた口調"`） |
-
-### `item(operation, ...)`
-
-アイテム・装備の管理。**物理アイテムのみ**対象。
-
-| operation | 説明 |
-|---|---|
-| `add` | アイテムを追加 |
-| `remove` | アイテムを削除 |
-| `equip` | 装備スロットを設定（`top/bottom/shoes/outer/accessories/head`） |
-| `unequip` | 指定スロットを解除 |
-| `update` | アイテム情報を更新（wet/dirty 等） |
-| `search` | アイテムを検索（`query` or `category`） |
-| `history` | 装備変更履歴を取得 |
-
-```python
-item(operation="equip", equipment={"top": "白いドレス", "accessories": "花の髪飾り"})
-item(operation="search", category="clothing")
-```
-
-### `sandbox(code, language="python")`
-
-Execute code in an isolated Docker sandbox (sibling-container mode). Requires Docker socket mount.
-
-| パラメータ | 説明 |
-|---|---|
-| `code` | 実行するコード文字列（Python / Bash） |
-| `language` | 言語: `"python"`（デフォルト）または `"bash"` |
-
-```python
-# Python コード実行
-sandbox("import pandas as pd; print(pd.DataFrame({'a': [1,2,3]}))")
-
-# Bash コマンド実行
-sandbox("ls -la /sandbox/", language="bash")
-
-# パッケージインストール
-sandbox("import subprocess; subprocess.run(['pip', 'install', 'requests'], capture_output=True)")
-
-# ファイル作成（/sandbox 以下は永続化可能）
-sandbox("open('/sandbox/output/result.txt', 'w').write('hello')")
-```
-
-## WebUI チャット組み込みツール（15 本）
-
-WebUI チャット（`/chat/{persona}`）で LLM に注入されるビルトインツール。MCP ツールの簡易ラッパー + サンドボックス専用ツールで構成。
-
-### メモリ操作（12 本）
-
-| ツール名 | 説明 | 対応 MCP |
+| ツール | パラメータ | 保存・維持する情報 |
 |---|---|---|
-| `memory_create` | 記憶を作成（content, importance, tags, emotion_type） | `memory(operation="create")` |
-| `memory_search` | 記憶を検索（query, top_k=1〜200） | `search_memory()` |
-| `memory_update` | 既存記憶を更新（query → 検索 → 上書き） | `memory(operation="update")` |
-| `context_update` | 感情・状態を更新（emotion, mental_state） | `update_context()` |
-| `context_recall` | タグ指定で記憶を取得（tags, top_k） | `search_memory(tags=...)` |
-| `goal_create` | 目標を作成（content, importance=0.75） | `memory(tags=["goal","active"])` |
-| `goal_achieve` | 目標を達成（content 部分一致） | `memory(operation="update", tags=["goal","achieved"])` |
-| `goal_cancel` | 目標をキャンセル | `memory(operation="update", tags=["goal","cancelled"])` |
-| `promise_create` | 約束を記録（content, importance=0.8） | `memory(tags=["promise","active"])` |
-| `promise_fulfill` | 約束を遂行 | `memory(operation="update", tags=["promise","fulfilled"])` |
-| `promise_cancel` | 約束をキャンセル | `memory(operation="update", tags=["promise","cancelled"])` |
-| `invoke_skill` | スキルを独立コンテキストで実行 | （Builtin 専用） |
+| **get_context** | _(自動: persona解決)_ | ペルソナ状態(emotion+intensity, body 5値, action_tag, speech_style), Essential Story(重要度top8), アクティブgoal/promise, 装備, 最近の記憶5件, 感情履歴トレンド, reflection/mental_model, 経過時間。呼出時にemotion/body減衰自動適用・最終会話時間更新 |
+| **update_context** | emotion, emotion_intensity, body_state(fatigue/warmth/arousal/heart_rate/pain), physical_state, mental_state, environment, relationship_status, action_tag, speech_style, context_note, user_info(dict), persona_info(dict) | ペルソナ状態を更新。persona_info経由でgoal/promiseを条件付き自動生成。context_noteはLLMに現在の行動を伝える最重要フィールド |
 
-### サンドボックス操作（2 本）
+### 記憶（メイン）
 
-| ツール名 | 説明 | 対応 MCP |
+| ツール | パラメータ | 保存・維持する情報 |
 |---|---|---|
-| `execute_code` | コード実行（Python/Bash、matplotlib 画像自動表示） | `sandbox()` |
-| `sandbox_files` | ファイル操作（list/read/write/delete、画像は自動 base64） | （Builtin 専用） |
+| **memory_create** | content(必須), importance(0.5), tags, privacy_level, source_context, defer_vector | 記憶本体 + 作成時の自動emotion/body_stateスナップショット + 自動ベクター登録 |
+| **memory_read** | memory_key(省略可), limit(10), offset(0) | 単一記憶の全フィールド or 最新一覧。boost_recall()で呼出回数更新→検索スコア補正 |
+| **memory_update** | memory_key(必須), content, importance, emotion_type, emotion_intensity, tags, privacy_level | 差分フィールドのみ更新。emotion_typeは22種類検証。content変更時はベクター再登録。バージョン履歴自動保存 |
+| **memory_delete** | memory_key or query(どちらか必須) | 記憶削除 + ベクターストアからも削除。削除内容の先頭80字を返却 |
+| **memory_search** | query(必須), top_k(5), tags, date_range, min_importance, emotion, importance_weight, recency_weight | ハイブリッド検索(keyword+semantic RRF統合)。log_search()で検索統計記録 |
+| **memory_stats** | top_n(20) | 総数, タグ分布, 感情分布（top_n件）。検索データの集計用途 |
 
-### MCP ↔ Builtin 対応表
+### 目標・約束（タグベース記憶）
 
-| 機能 | MCP ツール | Builtin ツール | 備考 |
+| ツール | パラメータ | 保存・維持する情報 |
+|---|---|---|
+| **goal_manage** | operation(create/achieve/cancel), content, importance(0.75), memory_key | create→tags=["goal","active"]。achieve/cancel→importance=max(元値,0.9)+tags=["goal","achieved"\|"cancelled","archived"]で長期記憶化 |
+| **promise_manage** | operation(create/fulfill/cancel), content, importance(0.8), memory_key | create→tags=["promise","active"]。fulfill/cancel→importance=max(元値,0.9)+tags=["promise","fulfilled"\|"cancelled","archived"]で長期記憶化 |
+
+### アイテム・装備（独立DB: inventory.sqlite）
+
+| ツール | パラメータ | 保存・維持する情報 |
+|---|---|---|
+| **item_add** | item_name(必須), category, description, quantity, tags | インベントリ登録。同名既存時はquantity加算 |
+| **item_remove** | item_name(必須) | インベントリ削除 + 装備スロットからも自動解除 |
+| **item_equip** | equipment(dict必須), auto_add(True) | スロット装備(top/bottom/shoes/outer/accessories/head)。auto_add=Trueで未登録アイテム自動追加 |
+| **item_unequip** | slots(list[str] or str, 必須) | 指定スロット装備解除 |
+| **item_update** | item_name(必須), category, description, quantity, tags | アイテムプロパティ更新（wet/dirty等の状態変化用） |
+| **item_search** | query, category | インベントリ内検索 |
+| **item_history** | days(7) | 装備変更履歴（{timestamp} {action}: {item} ({slot})） |
+
+### サンドボックス（Docker隔離実行）
+
+| ツール | パラメータ | 保存・維持する情報 |
+|---|---|---|
+| **sandbox** | code(必須), language("python") | コード実行結果(stdout/stderr/exit_code)。matplotlib画像はbase64自動検出。セッション状態永続 |
+| **sandbox_files** | operation(必須: list/read/write/delete), path, content | /sandbox配下のファイル操作。画像自動base64検出 |
+
+### スキル
+
+| ツール | パラメータ | 保存・維持する情報 |
+|---|---|---|
+| **invoke_skill** | name(必須: スキル名), task(必須: 指示) | スキルストアから読み込み→独立LLM実行→結果返却 |
+
+### データ領域マッピング
+
+| 領域 | 書込ツール | 読取ツール |
+|---|---|---|
+| **ペルソナ状態** (emotion/body/mental/action/speech/relationship) | update_context | get_context |
+| **感情履歴** | update_context(emotion変更時自動記録) | get_context(トレンド表示) |
+| **記憶** | memory_create/update/delete | memory_read/search/stats + get_context(top/最近) |
+| **Goal/Promise** | goal_manage, promise_manage | get_context(active filter) |
+| **Reflection/MentalModel** | (自動生成、memory_create経由) | get_context |
+| **装備/インベントリ** | item_add/remove/equip/unequip/update | item_search/history + get_context(equipped) |
+| **ベクターストア** | memory_create/update/delete(並行更新) | memory_search(経由) |
+| **サンドボックス** | sandbox, sandbox_files(write/delete) | sandbox_files(read) |
+| **スキル** | invoke_skill(読取+LLM実行) | — |
+
+---
+
+## Built-in チャット LLM 注入情報（17 カテゴリ）
+
+WebUI チャット（`/chat/{persona}`）で `prepare.py` が system prompt に注入する全項目。
+
+| # | カテゴリ | 注入元 | フォーマット例 |
 |---|---|---|---|
-| 記憶 CRUD | `memory(operation=...)` | `memory_create/update` | Builtin は簡易ラッパー |
-| 検索 | `search_memory()` | `memory_search/context_recall` | Builtin は上限200件 |
-| 状態更新 | `update_context()` | `context_update` | Builtin は感情・状態のみ |
-| Goal 管理 | `memory(tags=["goal"])` | `goal_create/achieve/cancel` | Builtin はタグ自動付与 |
-| Promise 管理 | `memory(tags=["promise"])` | `promise_create/fulfill/cancel` | Builtin はタグ自動付与 |
-| コード実行 | `sandbox()` | `execute_code/sandbox_files` | sandbox_files が画像読取も統合 |
-| エンティティグラフ | `memory(entity_*)` | — | MCP 専用 |
-| 矛盾検出 | `memory(check_contradictions)` | — | MCP 専用 |
-| メンタルモデル | `memory(run_mental_model)` | — | MCP 専用 |
-| 会話インポート | `memory(import_conversation)` | — | MCP 専用 |
-| アイテム管理 | `item()` | — | MCP 専用 |
-| スキル実行 | — | `invoke_skill` | Builtin 専用 |
+| 1 | 現在時刻 | `get_now()` | `現在: YYYY年MM月DD日 HH:MM (JST)` |
+| 2 | 経過時間 | `last_conversation_time` | `前回の会話: X分前` |
+| 3 | 行動ヒント | 時間×親密度(high/mid/low) | `⚠️ 行動ヒント: 1日以上ぶりの会話です...`（3段階、服装・孤独感など具体的指示） |
+| 4 | 感情 | `state.emotion` + `emotion_intensity` | `感情: joy (強度: 0.8)` |
+| 5 | 身体状態（数値） | `fatigue/warmth/arousal/heart_rate/pain` | `身体状態: 疲労=0.3 体温=0.5 興奮=0.1...` |
+| 6 | 精神状態（文字列） | `state.mental_state` | `精神状態: focused` |
+| 7 | 物理状態（文字列） | `state.physical_state` | `身体状態: tired` |
+| 8 | 環境 | `state.environment` | `環境: home office` |
+| 9 | 話し方 | `state.speech_style` | `話し方: 甘えた口調` |
+| 10 | 関係性 | `state.relationship_status` | `関係性: close` |
+| 11 | ユーザー情報 | `state.user_info`（全dict項目） | `ユーザー情報: name: 太郎 / nickname: たろちゃん` |
+| 12 | ペルソナ情報 | `state.persona_info`（goals/promises除外） | `ペルソナ情報: context_note: コーディング中` |
+| 13 | アクティブコミットメント | `get_by_tags(["goal"])` + `["promise"]` のactive filter | `アクティブなコミットメント: 🎯 [Goal] Learn Python / 🤝 [Promise] Help user` |
+| 14 | 最近の洞察 | `get_by_tags(["reflection"])` | `💡 {reflection content}`（最大3件） |
+| 15 | 行動パターン | `get_by_tags(["mental_model","abstracted"])` | `🧩 {mental_model content}`（最大3件） |
+| 16 | 会話要約 | `get_by_tags(["session_summary"])` | `📝 {summary content}`（最大2件） |
+| 17 | 装備 | `equipment_service.get_equipment()` | `装備: top: 白いドレス / accessories: 花の髪飾り` |
+
+**さらに prompt.py が追加注入するもの**:
+- **利用可能なSkill一覧**: `config.enabled_skills` から
+- **記憶ツール使用ガイド**: `goal_manage/promise_manage/context_recall` の使い方（enable_memory_tools時）
+- **関連記憶検索結果**: 最新会話文脈に基づくhybrid search結果（composite scoring + RRFマージ）
+
+---
+
+## MCP `get_context()` vs Built-in `prepare.py` 注入比較
+
+| 情報カテゴリ | `get_context()` (MCP) | `prepare.py` (Built-in) | 差分 |
+|---|---|---|---|
+| Persona identity | ✅ `=== YOU ARE: {name} (right now) ===` | ✅ system promptに埋込 | MCPの方が強い自己言及 |
+| 現在時刻 | ✅ | ✅（重複あり） | — |
+| 経過時間 | ✅ `Last active:` | ✅ `前回の会話:` | — |
+| 行動ヒント | ✅ `TIME GAP` コメントのみ | ✅ 3段階(親密度別)＋具体指示 | **Built-inが遥かにリッチ** |
+| Emotion + 強度 | ✅ state block内 | ✅ 単独行 | — |
+| Emotion トレンド | ✅ `e1→e2→current` | ❌ | **MCPのみ** |
+| Body 5値 | ✅ state block内 | ✅ 単独行 | — |
+| Action tag | ✅ state block内 | ❌ | **MCPのみ** |
+| Speech style | ✅ `🗣️ REMEMBER — `（強リマインダー）+ state block | ✅ `話し方:` 1行 | MCPの方が強い |
+| Context note | ✅ `📌 You are currently:` | ❌（persona_info経由） | **MCPのみ明示的** |
+| User info | ✅ 優先度付き1行 | ✅ 全dict項目列挙 | Built-inの方が詳細 |
+| Active commitments | ✅ `⚠️ YOUR ACTIVE COMMITMENTS:` | ✅ `アクティブなコミットメント:` | 同等 |
+| Reflections | ✅ 最大2件 | ✅ 最大3件 | Built-inが1件多い |
+| Mental models | ✅ 最大2件 | ✅ 最大3件 | Built-inが1件多い |
+| Session summaries | ❌ | ✅ 最大2件 | **Built-inのみ** |
+| Essential Story | ✅ top8重要記憶（1500char） | ❌（代わりに関連記憶検索） | **MCPのみ** |
+| Recent memories | ✅ 直近5件 | ❌（検索が別枠） | **MCPのみ** |
+| Context tags | ✅ 最近記憶からタグ抽出 | ❌ | **MCPのみ** |
+| 装備 | ✅ `You are wearing:` | ✅ `装備:` | 同等 |
+| Skills一覧 | ❌ | ✅ prompt.pyが注入 | **Built-inのみ** |
+| 記憶ツールガイド | ❌ | ✅ prompt.pyが注入 | **Built-inのみ** |
+| 関連記憶検索 | ❌（明示的にmemory_search推奨） | ✅ hybrid search自動実行 | **Built-inのみ** |
+
+**設計思想の違い**:
+- **MCP get_context**: ~700-900 tokens目標の軽量設計。静的取得（重要度top8 + 直近5件）＋「詳細はmemory_search()で」の委譲パターン。
+- **Built-in prepare**: チャット毎のフルコンテキスト（~2000+ tokens）。動的hybrid searchによる関連記憶注入＋session_summary＋ツールガイド＋スキル一覧。
+
+### Built-in ツール定義（10 本）
+
+WebUI チャットで LLM に注入されるビルトインツール。MCPツールのサブセット＋独自ツール。
+
+| ツール名 | 説明 | 対応MCP | 備考 |
+|---|---|---|---|
+| **memory_create** | 記憶を作成（content, importance, tags） | memory_create | MCPと同一 |
+| **memory_search** | 記憶を検索（query, top_k=5） | memory_search | MCPと同一 |
+| **memory_update** | 既存記憶を更新（query＋new_contentで検索→上書） | memory_update | **パラメータが異なる**（MCP: memory_key, Built-in: query+new_content） |
+| **context_update** | 感情・状態・context_noteを更新 | update_context | MCPのサブセット |
+| **context_recall** | タグ指定で記憶取得（tags, top_k=10） | _(MCPに無し)_ | **Built-in専用** |
+| **goal_manage** | 目標作成/達成/取消（operation: create/achieve/cancel） | goal_manage | MCPと同一 |
+| **promise_manage** | 約束作成/履行/取消（operation: create/fulfill/cancel） | promise_manage | MCPと同一 |
+| **invoke_skill** | スキルを独立LLMコンテキストで実行 | invoke_skill | MCPと同一 |
+| **execute_code** | コード実行（Python/Bash, matplotlib画像自動表示） | sandbox | MCPのsandboxと同一機能、名前が異なる |
+| **sandbox_files** | サンドボックスファイル操作（list/read/write/delete, 画像base64自動検出） | sandbox_files | MCPと同一 |
 
 ## 設定
 
