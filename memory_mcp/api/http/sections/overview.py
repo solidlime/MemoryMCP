@@ -301,6 +301,7 @@ async function loadOverview() {
         const dayCounts = Object.values(dayMap);
 
         // --- Render (new section order) ---
+        el.innerHTML = `
         <!-- Profile & Relationship -->
         <div class="glass p-6 mb-6">
             <div class="card-title"><i data-lucide="user"></i> Profile &amp; Relationship</div>
