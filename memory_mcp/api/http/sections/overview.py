@@ -355,102 +355,103 @@ async function loadOverview() {
                 </div>
             </div>
         </div>
-        <!-- Emotion / State -->
+        <!-- Emotion -->
         <div class="glass p-6 mb-6">
-            <div class="card-title"><i data-lucide="sparkles"></i> Emotion &amp; State</div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                    ${(function() {
-                        var emotionColors = {
-                            joy: ['#fbbf24', '#fcd34d'],
-                            sadness: ['#60a5fa', '#93c5fd'],
-                            anger: ['#ef4444', '#fca5a5'],
-                            fear: ['#a855f7', '#c4b5fd'],
-                            disgust: ['#22c55e', '#86efac'],
-                            surprise: ['#ec4899', '#f9a8d4'],
-                            love: ['#fb7185', '#fda4af'],
-                            trust: ['#14b8a6', '#5eead4'],
-                            anticipation: ['#f97316', '#fdba74'],
-                            curiosity: ['#6366f1', '#a5b4fc'],
-                            neutral: ['#9ca3af', '#d1d5db']
-                        };
-                        if (ctx.emotion) {
-                            var colors = emotionColors[ctx.emotion] || emotionColors.neutral;
-                            var pct = (ctx.emotion_intensity || 0) * 100;
-                            pct = Math.round(pct);
-                            return '<div style="margin-bottom:12px">' +
-                                '<div style="margin-bottom:8px">' +
-                                '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">' +
-                                '<span style="font-size:0.78rem;color:var(--text-muted)">' + esc(ctx.emotion) + '</span>' +
-                                '<span style="font-size:0.78rem;color:var(--text-secondary);font-weight:600">' + pct + '%</span>' +
-                                '</div>' +
-                                '<div style="height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden">' +
-                                '<div style="height:100%;width:' + pct + '%;background:linear-gradient(90deg,' + colors[0] + ',' + colors[1] + ');border-radius:3px;transition:width 0.4s ease"></div>' +
-                                '</div>' +
-                                '</div></div>';
-                        }
-                        return '<div style="font-size:0.9rem;color:var(--text-muted);margin-bottom:12px">--</div>';
-                    })()}
-                    <div style="display:flex;flex-direction:column;gap:6px">
-                        <div><span style="font-size:0.78rem;color:var(--text-muted)">Physical: </span><span style="font-size:0.85rem">${esc(ctx.physical_state || '--')}</span></div>
-                        <div><span style="font-size:0.78rem;color:var(--text-muted)">Mental: </span><span style="font-size:0.85rem">${esc(ctx.mental_state || '--')}</span></div>
-                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-size:0.78rem;color:var(--text-muted);min-width:78px"><i data-lucide="globe"></i> Env:</span>${stats.environment ? '<span class="badge badge-blue">' + esc(stats.environment) + '</span>' : '<span style="color:var(--text-muted);font-size:0.82rem">--</span>'}</div>
-                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-size:0.78rem;color:var(--text-muted);min-width:78px"><i data-lucide="message-circle"></i> Speech:</span>${stats.speech_style ? '<span class="badge badge-purple">' + esc(stats.speech_style) + '</span>' : '<span style="color:var(--text-muted);font-size:0.82rem">--</span>'}</div>
-                    </div>
-                </div>
-                <div>
-                    <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:8px;font-weight:600">Equipment</div>
-                    ${equipHtml}
+            <div class="card-title"><i data-lucide="sparkles"></i> Emotion</div>
+            <div>
+                ${(function() {
+                    var emotionColors = {
+                        joy: ['#fbbf24', '#fcd34d'],
+                        sadness: ['#60a5fa', '#93c5fd'],
+                        anger: ['#ef4444', '#fca5a5'],
+                        fear: ['#a855f7', '#c4b5fd'],
+                        disgust: ['#22c55e', '#86efac'],
+                        surprise: ['#ec4899', '#f9a8d4'],
+                        love: ['#fb7185', '#fda4af'],
+                        trust: ['#14b8a6', '#5eead4'],
+                        anticipation: ['#f97316', '#fdba74'],
+                        curiosity: ['#6366f1', '#a5b4fc'],
+                        neutral: ['#9ca3af', '#d1d5db']
+                    };
+                    if (ctx.emotion) {
+                        var colors = emotionColors[ctx.emotion] || emotionColors.neutral;
+                        var pct = (ctx.emotion_intensity || 0) * 100;
+                        pct = Math.round(pct);
+                        return '<div style="margin-bottom:12px">' +
+                            '<div style="margin-bottom:8px">' +
+                            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">' +
+                            '<span style="font-size:0.78rem;color:var(--text-muted)">' + esc(ctx.emotion) + '</span>' +
+                            '<span style="font-size:0.78rem;color:var(--text-secondary);font-weight:600">' + pct + '%</span>' +
+                            '</div>' +
+                            '<div style="height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden">' +
+                            '<div style="height:100%;width:' + pct + '%;background:linear-gradient(90deg,' + colors[0] + ',' + colors[1] + ');border-radius:3px;transition:width 0.4s ease"></div>' +
+                            '</div>' +
+                            '</div></div>';
+                    }
+                    return '<div style="font-size:0.9rem;color:var(--text-muted);margin-bottom:12px">--</div>';
+                })()}
+                <div style="display:flex;flex-direction:column;gap:6px">
+                    <div><span style="font-size:0.78rem;color:var(--text-muted)">Physical: </span><span style="font-size:0.85rem">${esc(ctx.physical_state || '--')}</span></div>
+                    <div><span style="font-size:0.78rem;color:var(--text-muted)">Mental: </span><span style="font-size:0.85rem">${esc(ctx.mental_state || '--')}</span></div>
+                    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-size:0.78rem;color:var(--text-muted);min-width:78px"><i data-lucide="globe"></i> Env:</span>${stats.environment ? '<span class="badge badge-blue">' + esc(stats.environment) + '</span>' : '<span style="color:var(--text-muted);font-size:0.82rem">--</span>'}</div>
+                    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-size:0.78rem;color:var(--text-muted);min-width:78px"><i data-lucide="message-circle"></i> Speech:</span>${stats.speech_style ? '<span class="badge badge-purple">' + esc(stats.speech_style) + '</span>' : '<span style="color:var(--text-muted);font-size:0.82rem">--</span>'}</div>
                 </div>
             </div>
-            <div style="margin-top:16px;border-top:1px solid rgba(255,255,255,0.06);padding-top:14px">
-                <div style="font-size:0.78rem;color:var(--text-muted);font-weight:600;margin-bottom:10px">Body Sensations</div>
-                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">
-                    <div>
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
-                            <span style="font-size:0.78rem;color:var(--text-muted)"><i data-lucide="flame"></i> Fatigue</span>
-                            <span style="font-size:0.78rem;color:var(--text-secondary);font-weight:600">${stats.fatigue != null ? (stats.fatigue * 100).toFixed(0) + '%' : '--'}</span>
-                        </div>
-                        <div style="height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden">
-                            <div style="height:100%;width:${stats.fatigue != null ? (stats.fatigue * 100).toFixed(1) : 0}%;background:linear-gradient(90deg,#f87171,#fca5a5);border-radius:3px;transition:width 0.4s ease"></div>
-                        </div>
+        </div>
+        <!-- Equipment -->
+        <div class="glass p-6 mb-6">
+            <div class="card-title"><i data-lucide="shield"></i> Equipment</div>
+            ${equipHtml}
+        </div>
+        <!-- Body Sensations -->
+        <div class="glass p-6 mb-6">
+            <div class="card-title"><i data-lucide="activity"></i> Body Sensations</div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">
+                <div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+                        <span style="font-size:0.78rem;color:var(--text-muted)"><i data-lucide="flame"></i> Fatigue</span>
+                        <span style="font-size:0.78rem;color:var(--text-secondary);font-weight:600">${stats.fatigue != null ? (stats.fatigue * 100).toFixed(0) + '%' : '--'}</span>
                     </div>
-                    <div>
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
-                            <span style="font-size:0.78rem;color:var(--text-muted)"><i data-lucide="flower"></i> Warmth</span>
-                            <span style="font-size:0.78rem;color:var(--text-secondary);font-weight:600">${stats.warmth != null ? (stats.warmth * 100).toFixed(0) + '%' : '--'}</span>
-                        </div>
-                        <div style="height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden">
-                            <div style="height:100%;width:${stats.warmth != null ? (stats.warmth * 100).toFixed(1) : 0}%;background:linear-gradient(90deg,#f9a8d4,#fda4af);border-radius:3px;transition:width 0.4s ease"></div>
-                        </div>
+                    <div style="height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden">
+                        <div style="height:100%;width:${stats.fatigue != null ? (stats.fatigue * 100).toFixed(1) : 0}%;background:linear-gradient(90deg,#f87171,#fca5a5);border-radius:3px;transition:width 0.4s ease"></div>
                     </div>
-                    <div>
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
-                            <span style="font-size:0.78rem;color:var(--text-muted)"><i data-lucide="zap"></i> Arousal</span>
-                            <span style="font-size:0.78rem;color:var(--text-secondary);font-weight:600">${stats.arousal != null ? (stats.arousal * 100).toFixed(0) + '%' : '--'}</span>
-                        </div>
-                        <div style="height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden">
-                            <div style="height:100%;width:${stats.arousal != null ? (stats.arousal * 100).toFixed(1) : 0}%;background:linear-gradient(90deg,#a78bfa,#c4b5fd);border-radius:3px;transition:width 0.4s ease"></div>
-                        </div>
+                </div>
+                <div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+                        <span style="font-size:0.78rem;color:var(--text-muted)"><i data-lucide="flower"></i> Warmth</span>
+                        <span style="font-size:0.78rem;color:var(--text-secondary);font-weight:600">${stats.warmth != null ? (stats.warmth * 100).toFixed(0) + '%' : '--'}</span>
                     </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px;font-size:0.82rem">
-                    <div>
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
-                            <span style="font-size:0.78rem;color:var(--text-muted);min-width:85px"><i data-lucide="heart-pulse"></i> Heart Rate</span>
-                            <span style="font-size:0.78rem;color:var(--text-secondary);font-weight:600">${stats.heart_rate != null ? (stats.heart_rate * 100).toFixed(0) + '%' : '--'}</span>
-                        </div>
-                        <div style="height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden">
-                            <div style="height:100%;width:${stats.heart_rate != null ? (stats.heart_rate * 100).toFixed(1) : 0}%;background:linear-gradient(90deg,#ef4444,#fca5a5);border-radius:3px;transition:width 0.4s ease"></div>
-                        </div>
+                    <div style="height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden">
+                        <div style="height:100%;width:${stats.warmth != null ? (stats.warmth * 100).toFixed(1) : 0}%;background:linear-gradient(90deg,#f9a8d4,#fda4af);border-radius:3px;transition:width 0.4s ease"></div>
                     </div>
-                    <div>
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
-                            <span style="font-size:0.78rem;color:var(--text-muted);min-width:85px"><i data-lucide="activity"></i> Pain</span>
-                            <span style="font-size:0.78rem;color:var(--text-secondary);font-weight:600">${stats.pain != null ? (stats.pain * 100).toFixed(0) + '%' : '--'}</span>
-                        </div>
-                        <div style="height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden">
-                            <div style="height:100%;width:${stats.pain != null ? (stats.pain * 100).toFixed(1) : 0}%;background:linear-gradient(90deg,#f59e0b,#fcd34d);border-radius:3px;transition:width 0.4s ease"></div>
-                        </div>
+                </div>
+                <div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+                        <span style="font-size:0.78rem;color:var(--text-muted)"><i data-lucide="zap"></i> Arousal</span>
+                        <span style="font-size:0.78rem;color:var(--text-secondary);font-weight:600">${stats.arousal != null ? (stats.arousal * 100).toFixed(0) + '%' : '--'}</span>
+                    </div>
+                    <div style="height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden">
+                        <div style="height:100%;width:${stats.arousal != null ? (stats.arousal * 100).toFixed(1) : 0}%;background:linear-gradient(90deg,#a78bfa,#c4b5fd);border-radius:3px;transition:width 0.4s ease"></div>
+                    </div>
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px;font-size:0.82rem">
+                <div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+                        <span style="font-size:0.78rem;color:var(--text-muted);min-width:85px"><i data-lucide="heart-pulse"></i> Heart Rate</span>
+                        <span style="font-size:0.78rem;color:var(--text-secondary);font-weight:600">${stats.heart_rate != null ? (stats.heart_rate * 100).toFixed(0) + '%' : '--'}</span>
+                    </div>
+                    <div style="height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden">
+                        <div style="height:100%;width:${stats.heart_rate != null ? (stats.heart_rate * 100).toFixed(1) : 0}%;background:linear-gradient(90deg,#ef4444,#fca5a5);border-radius:3px;transition:width 0.4s ease"></div>
+                    </div>
+                </div>
+                <div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+                        <span style="font-size:0.78rem;color:var(--text-muted);min-width:85px"><i data-lucide="activity"></i> Pain</span>
+                        <span style="font-size:0.78rem;color:var(--text-secondary);font-weight:600">${stats.pain != null ? (stats.pain * 100).toFixed(0) + '%' : '--'}</span>
+                    </div>
+                    <div style="height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden">
+                        <div style="height:100%;width:${stats.pain != null ? (stats.pain * 100).toFixed(1) : 0}%;background:linear-gradient(90deg,#f59e0b,#fcd34d);border-radius:3px;transition:width 0.4s ease"></div>
                     </div>
                 </div>
             </div>
@@ -555,8 +556,9 @@ async function loadOverview() {
                 options: { ...chartOpts(), cutout: '60%' }
             });
         }
-        updateLastTime();
+        if (typeof lucide !== 'undefined') lucide.createIcons();
     } catch (e) {
         el.innerHTML = errorCard('Failed to load overview: ' + e.message);
+        if (typeof lucide !== 'undefined') lucide.createIcons();
     }
 }"""

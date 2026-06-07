@@ -592,7 +592,7 @@ def render_chat_tab() -> str:
         <section id="tab-chat" class="tab-panel" role="tabpanel">
             <div style="position:relative; margin-bottom:16px; display:flex; align-items:center; justify-content:space-between; padding-bottom:12px; border-bottom:1px solid var(--glass-border);">
                 <h2 style="font-size:1.25rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:10px;"><span style="font-size:1.4rem;"><i data-lucide="message-circle"></i></span> Chat</h2>
-                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
                     <button class="mem-panel-toggle" id="memory-panel-toggle-btn" onclick="toggleMemoryPanel()" title="記憶パネルを開閉" aria-label="記憶パネルの表示切替"><i data-lucide="brain"></i></button>
                     <button class="chat-sidebar-toggle" onclick="toggleSettingsPanel()" id="chat-sidebar-toggle-btn" title="設定パネルを開閉" aria-label="設定パネルの表示切替"><i data-lucide="settings"></i> 設定</button>
                 </div>
@@ -620,7 +620,7 @@ def render_chat_tab() -> str:
 
                     <!-- Reflection -->
                     <div class="memory-panel-section">
-                        <div class="memory-section-header" id="reflection-header"><i data-lucide=&quot;sparkles&quot;></i> リフレクション</div>
+                        <div class="memory-section-header" id="reflection-header"><i data-lucide="sparkles"></i> リフレクション</div>
                         <div id="memory-reflection-list">
                             <div class="memory-empty">リフレクション洞察がここに表示されます</div>
                         </div>
@@ -674,7 +674,7 @@ def render_chat_tab() -> str:
                         <textarea id="chat-input" placeholder="メッセージを入力... (Enter で送信、Shift+Enter で改行)" rows="1" aria-label="チャットメッセージ入力"></textarea>
                         <div style="display:flex;align-items:center;gap:6px;">
                             <button id="chat-cancel-btn" onclick="chatCancel()" style="display:none;background:none;border:1px solid rgba(248,113,113,0.4);border-radius:8px;color:#f87171;padding:6px 14px;font-size:0.8rem;cursor:pointer;" aria-label="応答を停止"><i data-lucide="stop-circle"></i> 中止</button>
-                            <button id="chat-voice-btn" onclick="toggleVoiceInput()" title="音声入力" style="background:none;border:1px solid var(--glass-border);border-radius:8px;color:var(--text-muted);padding:6px 12px;font-size:0.85rem;cursor:pointer;" aria-label="音声入力の切替"><i data-lucide=&quot;mic&quot;></i></button>
+                            <button id="chat-voice-btn" onclick="toggleVoiceInput()" title="音声入力" style="background:none;border:1px solid var(--glass-border);border-radius:8px;color:var(--text-muted);padding:6px 12px;font-size:0.85rem;cursor:pointer;" aria-label="音声入力の切替"><i data-lucide="mic"></i></button>
                             <button id="chat-export-btn" onclick="exportChatHistory()" title="会話をエクスポート" style="background:none;border:1px solid var(--glass-border);border-radius:8px;color:var(--text-muted);padding:6px 12px;font-size:0.78rem;cursor:pointer;" aria-label="会話履歴をエクスポート"><i data-lucide="download"></i></button>
                             <button id="chat-send-btn" onclick="chatSend()" aria-label="メッセージを送信">送信</button>
                         </div>
@@ -689,7 +689,7 @@ def render_chat_tab() -> str:
                         </div>
                         <!-- Provider / Model / API -->
                         <details data-category="core" open>
-                            <summary><i data-lucide="wrench"></i> 基本設定 <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'core')" title="説明を表示" onmouseleave="hideHelpTooltip()"><i data-lucide=&quot;help-circle&quot;></i></span></summary>
+                            <summary><i data-lucide="wrench"></i> 基本設定 <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'core')" title="説明を表示" onmouseleave="hideHelpTooltip()"><i data-lucide="help-circle"></i></span></summary>
                             <div class="details-body">
                                 <div>
                                     <div class="chat-field-label">プロバイダー</div>
@@ -728,7 +728,7 @@ def render_chat_tab() -> str:
                         </details>
                         <!-- Context & System Prompt -->
                         <details data-category="context">
-                            <summary><i data-lucide="message-circle"></i> コンテキスト <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'context')" title="説明を表示" onmouseleave="hideHelpTooltip()"><i data-lucide=&quot;help-circle&quot;></i></span></summary>
+                            <summary><i data-lucide="message-circle"></i> コンテキスト <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'context')" title="説明を表示" onmouseleave="hideHelpTooltip()"><i data-lucide="help-circle"></i></span></summary>
                             <div class="details-body">
                                 <div>
                                     <div class="chat-field-label">コンテキスト履歴 (turns)</div>
@@ -752,7 +752,7 @@ def render_chat_tab() -> str:
                         </details>
                         <!-- Memory extraction -->
                         <details data-category="memory">
-                            <summary><i data-lucide="brain"></i> 記憶・抽出 <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'memory')" title="説明を表示" onmouseleave="hideHelpTooltip()"><i data-lucide=&quot;help-circle&quot;></i></span></summary>
+                            <summary><i data-lucide="brain"></i> 記憶・抽出 <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'memory')" title="説明を表示" onmouseleave="hideHelpTooltip()"><i data-lucide="help-circle"></i></span></summary>
                             <div class="details-body">
                                 <div style="display:flex;align-items:center;gap:8px;">
                                     <input type="checkbox" id="chat-auto-extract" checked
@@ -777,7 +777,7 @@ def render_chat_tab() -> str:
                         </details>
                         <!-- MCP Servers -->
                         <details data-category="tools">
-                            <summary><i data-lucide="battery-charging"></i> MCPサーバー <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'tools')" title="説明を表示" onmouseleave="hideHelpTooltip()"><i data-lucide=&quot;help-circle&quot;></i></span></summary>
+                            <summary><i data-lucide="battery-charging"></i> MCPサーバー <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'tools')" title="説明を表示" onmouseleave="hideHelpTooltip()"><i data-lucide="help-circle"></i></span></summary>
                             <div class="details-body" id="chat-mcp-section">
                                 <div>
                                     <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:4px;">Claude の mcp.json 形式で貼り付け・編集できます</div>
@@ -799,14 +799,14 @@ def render_chat_tab() -> str:
                         </details>
                         <!-- Skills -->
                         <details data-category="skills">
-                            <summary><i data-lucide="target"></i> Skills <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'skills')" title="説明を表示" onmouseleave="hideHelpTooltip()"><i data-lucide=&quot;help-circle&quot;></i></span></summary>
+                            <summary><i data-lucide="target"></i> Skills <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'skills')" title="説明を表示" onmouseleave="hideHelpTooltip()"><i data-lucide="help-circle"></i></span></summary>
                             <div class="details-body" id="chat-skills-section">
                                 <div id="chat-skills-list" style="display:flex;flex-direction:column;gap:4px;"></div>
                             </div>
                         </details>
                         <!-- Reflection -->
                         <details data-category="reflection">
-                            <summary><i data-lucide="crystal-ball"></i> リフレクション <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'reflection')" title="説明を表示" onmouseleave="hideHelpTooltip()"><i data-lucide=&quot;help-circle&quot;></i></span></summary>
+                            <summary><i data-lucide="crystal-ball"></i> リフレクション <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'reflection')" title="説明を表示" onmouseleave="hideHelpTooltip()"><i data-lucide="help-circle"></i></span></summary>
                             <div class="details-body">
                                 <div style="display:flex;align-items:center;gap:8px;">
                                     <input type="checkbox" id="chat-reflection-enabled" checked
@@ -834,7 +834,7 @@ def render_chat_tab() -> str:
                         </details>
                         <!-- Mental Model -->
                         <details data-category="mental">
-                            <summary><i data-lucide=&quot;puzzle&quot;></i> メンタルモデル <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'mental')" title="説明を表示" onmouseleave="hideHelpTooltip()"><i data-lucide=&quot;help-circle&quot;></i></span></summary>
+                            <summary><i data-lucide="puzzle"></i> メンタルモデル <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'mental')" title="説明を表示" onmouseleave="hideHelpTooltip()"><i data-lucide="help-circle"></i></span></summary>
                             <div class="details-body">
                                 <div style="display:flex;align-items:center;gap:8px;">
                                     <input type="checkbox" id="chat-mental-model-enabled" checked
@@ -850,7 +850,7 @@ def render_chat_tab() -> str:
                         </details>
                         <!-- Retrieval weights -->
                         <details data-category="weights">
-                            <summary><i data-lucide=&quot;scale&quot;></i> 検索重み <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'weights')" title="説明を表示" onmouseleave="hideHelpTooltip()"><i data-lucide=&quot;help-circle&quot;></i></span></summary>
+                            <summary><i data-lucide="scale"></i> 検索重み <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'weights')" title="説明を表示" onmouseleave="hideHelpTooltip()"><i data-lucide="help-circle"></i></span></summary>
                             <div class="details-body">
                                 <div>
                                     <div class="chat-field-label" style="display:flex;justify-content:space-between;">
@@ -883,13 +883,13 @@ def render_chat_tab() -> str:
                         </details>
                         <!-- Housekeeping & Other -->
                         <details data-category="other">
-                            <summary><i data-lucide=&quot;broom&quot;></i> 整理・その他 <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'other')" title="説明を表示" onmouseleave="hideHelpTooltip()"><i data-lucide=&quot;help-circle&quot;></i></span></summary>
+                            <summary><i data-lucide="broom"></i> 整理・その他 <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'other')" title="説明を表示" onmouseleave="hideHelpTooltip()"><i data-lucide="help-circle"></i></span></summary>
                             <div class="details-body">
                                 <div>
                                     <div class="chat-field-label">自動整理 閾値 (goals+promises 合計がこの数を超えたら実行)</div>
                                     <input type="number" id="chat-housekeeping-threshold" class="chat-field-input" min="1" max="100" value="10" />
                                 </div>
-                                <button class="chat-clear-btn" style="margin-top:4px;" onclick="runHousekeeping()"><i data-lucide=&quot;broom&quot;></i> 今すぐ整理</button>
+                                <button class="chat-clear-btn" style="margin-top:4px;" onclick="runHousekeeping()"><i data-lucide="broom"></i> 今すぐ整理</button>
                                 <div id="chat-housekeeping-status" style="font-size:0.75rem; text-align:center; min-height:16px;"></div>
                                 <div style="border-top:1px solid var(--glass-border);padding-top:8px;display:flex;align-items:center;gap:8px;">
                                     <input type="checkbox" id="chat-sandbox-enabled"
@@ -900,7 +900,7 @@ def render_chat_tab() -> str:
                                 <div style="display:flex;align-items:center;gap:8px;">
                                     <input type="checkbox" id="chat-debug-mode"
                                         style="width:15px;height:15px;accent-color:var(--accent-purple);cursor:pointer;" />
-                                    <label for="chat-debug-mode" class="chat-field-label" style="margin:0;cursor:pointer;"><i data-lucide=&quot;bug&quot;></i> デバッグモード</label>
+                                    <label for="chat-debug-mode" class="chat-field-label" style="margin:0;cursor:pointer;"><i data-lucide="bug"></i> デバッグモード</label>
                                 </div>
                             </div>
                         </details>
@@ -1012,6 +1012,7 @@ function loadChat() {
     loadSkillsForChat();
     restoreChatHistory();
     loadChatCommitments();
+    setTimeout(() => { if (typeof lucide !== 'undefined') lucide.createIcons(); }, 100);
 }
 
 async function loadChatCommitments() {
@@ -1500,6 +1501,7 @@ function appendChatMessage(role, content, timeStr, isMarkdown) {
 
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
+    setTimeout(() => { if (typeof lucide !== 'undefined') lucide.createIcons(); }, 50);
     return div;
 }
 
@@ -1686,6 +1688,7 @@ function appendToolEvent(eventType, data) {
             '<pre class="chat-tool-detail">' + esc(inputStr) + '</pre></details>';
         container.appendChild(div);
         container.scrollTop = container.scrollHeight;
+        setTimeout(() => { if (typeof lucide !== 'undefined') lucide.createIcons(); }, 50);
         return div;
 
     } else if (eventType === 'tool_result') {
@@ -1715,6 +1718,7 @@ function appendToolEvent(eventType, data) {
                 '<pre class="chat-tool-detail chat-tool-result-content">' + esc(resultStr) + '</pre></details>';
             container.appendChild(div);
             container.scrollTop = container.scrollHeight;
+            setTimeout(() => { if (typeof lucide !== 'undefined') lucide.createIcons(); }, 50);
             return div;
         }
     }

@@ -231,86 +231,6 @@ def render_head() -> str:
             box-shadow: 0 0 20px rgba(167,139,250,0.1);
         }
 
-        /* ── More dropdown ── */
-        .tab-more {
-            position: relative;
-        }
-        .tab-more-dropdown {
-            display: none;
-            position: absolute;
-            top: 100%; right: 0;
-            margin-top: 4px;
-            min-width: 200px;
-            background: rgba(26,5,51,0.95);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid var(--glass-border);
-            border-radius: 12px;
-            padding: 6px;
-            z-index: 100;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-        }
-        html.light .tab-more-dropdown {
-            background: rgba(255,255,255,0.95);
-            box-shadow: 0 8px 32px rgba(0,0,0,0.12);
-        }
-        .tab-more-dropdown.show { display: block; }
-        .tab-more-dropdown .tab-btn {
-            display: block;
-            width: 100%;
-            text-align: left;
-            padding: 10px 16px;
-            border-radius: 8px;
-            font-size: 0.85rem;
-        }
-        .tab-more-dropdown .tab-btn svg {
-            width: 16px; height: 16px;
-            vertical-align: middle;
-            margin-right: 8px;
-        }
-        .tab-btn svg {
-            width: 18px; height: 18px;
-            vertical-align: middle;
-            margin-right: 4px;
-        }
-
-        /* ── More dropdown ── */
-        .tab-more {
-            position: relative;
-        }
-        .tab-more-dropdown {
-            display: none;
-            position: absolute;
-            top: 100%; right: 0;
-            margin-top: 4px;
-            min-width: 200px;
-            background: rgba(26,5,51,0.95);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid var(--glass-border);
-            border-radius: 12px;
-            padding: 6px;
-            z-index: 100;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-        }
-        html.light .tab-more-dropdown {
-            background: rgba(255,255,255,0.95);
-            box-shadow: 0 8px 32px rgba(0,0,0,0.12);
-        }
-        .tab-more-dropdown.show { display: block; }
-        .tab-more-dropdown .tab-btn {
-            display: block;
-            width: 100%;
-            text-align: left;
-            padding: 10px 16px;
-            border-radius: 8px;
-            font-size: 0.85rem;
-        }
-        .tab-more-dropdown .tab-btn svg {
-            width: 16px; height: 16px;
-            vertical-align: middle;
-            margin-right: 8px;
-        }
         .tab-btn svg {
             width: 18px; height: 18px;
             vertical-align: middle;
@@ -638,7 +558,6 @@ def render_head() -> str:
             .tab-bar { flex-wrap: nowrap; overflow-x: auto; gap: 2px; padding: 6px 8px; }
             .tab-bar .tab-btn { flex: 0 0 auto; min-width: 0; font-size: 0.75rem; padding: 8px 10px; }
             .tab-bar .tab-btn svg { width: 14px; height: 14px; margin-right: 2px; }
-            .tab-more-dropdown { right: auto; left: 0; min-width: 180px; }
             .mobile-toggle { display: none !important; }
             .grid { grid-template-columns: 1fr !important; }
             .stat-value { font-size: 1.5rem !important; }
@@ -663,11 +582,8 @@ def render_nav(tabs: list[dict]) -> str:
     """Build ``<nav class="tab-bar">`` dynamically from *tabs*.
 
     Each element in *tabs* is ``{"id": "...", "lucide": "...", "label": "..."}``.
-    First 4 tabs are shown directly; remaining go into a "More" dropdown.
-    The first tab is marked active.
+    All tabs are shown directly; the first tab is marked active.
     """
-    main_tabs = tabs[:4]
-    more_tabs = tabs[4:]
 
     def _tab_btn(tab: dict, active: bool, extra_cls: str = "") -> str:
         cls = f"tab-btn{' active' if active else ''}{' ' + extra_cls if extra_cls else ''}"
@@ -679,28 +595,9 @@ def render_nav(tabs: list[dict]) -> str:
             f"{icon_html} {tab['label']}</button>"
         )
 
-    buttons = [_tab_btn(t, i == 0) for i, t in enumerate(main_tabs)]
+    buttons = [_tab_btn(t, i == 0) for i, t in enumerate(tabs)]
 
-    more_html = ""
-    if more_tabs:
-        more_items = [_tab_btn(t, False) for t in more_tabs]
-        more_html = (
-            '<div class="tab-more">'
-            '<button class="tab-btn" onclick="event.stopPropagation();'
-            "var dd=this.parentElement.querySelector('.tab-more-dropdown');"
-            "dd.classList.toggle('show');\" "
-            'aria-label="More tabs">'
-            '<i data-lucide="ellipsis"></i> More</button>'
-            f'<div class="tab-more-dropdown">{"".join(more_items)}</div>'
-            "</div>"
-        )
-
-    return (
-        '    <nav class="tab-bar" role="tablist">\n        '
-        + "\n        ".join(buttons)
-        + ("\n        " + more_html if more_html else "")
-        + "\n    </nav>"
-    )
+    return '    <nav class="tab-bar" role="tablist">\n        ' + "\n        ".join(buttons) + "\n    </nav>"
 
 
 # ---------------------------------------------------------------------------
@@ -938,7 +835,8 @@ function errorCard(msg) {
 function applyTheme() {
     const dark = localStorage.getItem('mmcp-dark') !== 'false';
     document.documentElement.className = dark ? 'dark' : 'light';
-    document.getElementById('dark-toggle').textContent = dark ? '<i data-lucide=&quot;moon&quot;></i>' : '<i data-lucide=&quot;sun&quot;></i>';
+    document.getElementById('dark-toggle').innerHTML = dark ? '<i data-lucide=&quot;moon&quot;></i>' : '<i data-lucide=&quot;sun&quot;></i>';
+    if (typeof lucide !== 'undefined') lucide.createIcons();
     // Re-render charts for color update
     Object.values(S.charts).forEach(c => c.update());
 }
@@ -999,6 +897,7 @@ function switchTab(tab) {
     });
     showSkeleton(tab);
     loadTab(tab);
+    setTimeout(() => { if (typeof lucide !== 'undefined') lucide.createIcons(); }, 100);
 }
 function loadTab(tab) {
     if (!S.persona && tab !== 'settings' && tab !== 'personas') return;
@@ -1235,17 +1134,6 @@ document.addEventListener('DOMContentLoaded', function() {
     if (typeof lucide !== 'undefined') { lucide.createIcons(); }
 });
 
-/* =================================================================
-   DROPDOWN CLOSE ON CLICK OUTSIDE
-   ================================================================= */
-document.addEventListener('click', function(e) {
-    if (!e.target.closest('.tab-more')) {
-        document.querySelectorAll('.tab-more-dropdown.show').forEach(function(dd) {
-            dd.classList.remove('show');
-        });
-    }
-});
-
 // Boot
 init();"""
 
@@ -1297,7 +1185,6 @@ def render_layout_shell(nav_html: str, tab_contents: str, tab_js: str, initial_p
         '                <option value="300">5min</option>\n'
         "            </select>\n"
         '            <button id="refresh-btn" class="glass-btn" title="Refresh now"><i data-lucide=&quot;refresh-cw&quot;></i></button>\n'
-        '            <span id="last-update" style="font-size:0.75rem;color:var(--text-muted);white-space:nowrap;">Last: --</span>\n'
         '            <button id="dark-toggle" class="glass-btn" title="Toggle theme"><i data-lucide=&quot;moon&quot;></i></button>\n'
         "        </div>\n"
         "    </header>\n"
