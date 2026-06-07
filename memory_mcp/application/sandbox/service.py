@@ -222,6 +222,30 @@ def _cleanup_stale_sandbox_container(persona: str) -> None:
         logger.debug("Container cleanup skipped: %s", exc)
 
 
+def _cleanup_temp_py_files(sandbox_dir: Path) -> int:
+    """Remove UUID-named .py temp files created by llm_sandbox on the HOST side.
+    
+    Runs directly on the host filesystem (not inside the container) to avoid
+    the self-referential problem where cleanup code via session.run() creates
+    its own temp file.
+    
+    Returns count of removed files.
+    """
+    pattern = re.compile(r"^[a-f0-9]{32}\.py$", re.I)
+    removed = 0
+    if sandbox_dir.is_dir():
+        for entry in os.listdir(str(sandbox_dir)):
+            if pattern.match(entry):
+                try:
+                    os.remove(os.path.join(str(sandbox_dir), entry))
+                    removed += 1
+                except OSError:
+                    pass
+    if removed:
+        logger.info("Cleaned up %d temp .py files from %s", removed, sandbox_dir)
+    return removed
+
+
 def _build_container_configs(persona: str) -> tuple[dict, Path | None]:
     """Build container_configs dict and return (configs, sandbox_internal_path).
 
@@ -416,35 +440,13 @@ class SandboxSession:
                         if b64:
                             artifacts.append(b64)
 
-                # Clean up temp .py files created by llm_sandbox immediately
+                # Clean up temp .py files created by llm_sandbox on the HOST side
                 # (each run() writes code to a UUID-named temp file before execution)
-                # Pattern: 32 hex chars + .py — matches only llm_sandbox temp files
-                # Search both /sandbox and Python's temp dir (llm_sandbox may use either)
+                # Running cleanup directly on host avoids creating MORE temp files
                 try:
-                    cleanup_code = (
-                        "import os, re, tempfile as _tf; c=0; _dirs = {'/sandbox', _tf.gettempdir()}; "
-                        "for _d in _dirs: "
-                        " if os.path.isdir(_d): "
-                        "  for f in os.listdir(_d): "
-                        "   if re.match(r'^[a-f0-9]{32}\\.py$', f, re.I): "
-                        "    try: os.remove(os.path.join(_d, f)); c+=1 "
-                        "    except OSError: pass; "
-                        "print(c)"
-                    )
-                    cleanup_result = await asyncio.to_thread(
-                        self._python_session.run,
-                        cleanup_code,
-                    )
-                    count = (
-                        (cleanup_result.stdout or "")
-                        .replace("Python plot detection setup complete\n", "")
-                        .replace("Python plot detection setup complete", "")
-                        .strip()
-                    )
-                    if count and count != "0":
-                        logger.info("Sandbox cleanup: removed %s temp files", count)
-                    elif count == "0":
-                        logger.debug("Sandbox cleanup: no temp files to remove")
+                    from memory_mcp.config.settings import get_settings
+                    sandbox_dir = Path(get_settings().data_root) / "memory" / self.persona / "sandbox"
+                    await asyncio.to_thread(_cleanup_temp_py_files, sandbox_dir)
                 except Exception:
                     pass
 
@@ -476,18 +478,10 @@ class SandboxSession:
                     if libraries:
                         session.install(libraries)
                     result = session.run(code)
-                    # Clean up temp .py files (UUID-named, 32 hex chars)
+                    # Clean up temp .py files on the host side
+                    from memory_mcp.config.settings import get_settings
                     with contextlib.suppress(Exception):
-                        session.run(
-                            "import os, re, tempfile as _tf; c=0; _dirs = {'/sandbox', _tf.gettempdir()}; "
-                            "for _d in _dirs: "
-                            " if os.path.isdir(_d): "
-                            "  for f in os.listdir(_d): "
-                            "   if re.match(r'^[a-f0-9]{32}\\.py$', f, re.I): "
-                            "    try: os.remove(os.path.join(_d, f)); c+=1 "
-                            "    except OSError: pass; "
-                            "print(c)"
-                        )
+                        _cleanup_temp_py_files(Path(get_settings().data_root) / "memory" / self.persona / "sandbox")
                     return ExecResult(
                         stdout=getattr(result, "stdout", "") or "",
                         stderr=getattr(result, "stderr", "") or "",
@@ -820,19 +814,10 @@ print(json.dumps(_tree({root!r})))
 
     def close(self) -> None:
         if self._python_session is not None:
-            # Clean up temp .py files before closing
+            # Clean up temp .py files on the host side
             try:
-                cleanup_code = (
-                    "import os, re, tempfile as _tf; c=0; _dirs = {'/sandbox', _tf.gettempdir()}; "
-                    "for _d in _dirs: "
-                    " if os.path.isdir(_d): "
-                    "  for f in os.listdir(_d): "
-                    "   if re.match(r'^[a-f0-9]{32}\\.py$', f, re.I): "
-                    "    try: os.remove(os.path.join(_d, f)); c+=1 "
-                    "    except OSError: pass; "
-                    "print(c)"
-                )
-                self._python_session.run(cleanup_code)
+                from memory_mcp.config.settings import get_settings
+                _cleanup_temp_py_files(Path(get_settings().data_root) / "memory" / self.persona / "sandbox")
             except Exception:
                 pass  # cleanup is best-effort
             with contextlib.suppress(Exception):
