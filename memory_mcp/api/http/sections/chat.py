@@ -1263,11 +1263,11 @@ function toggleSettingsPanel() {
         sidebar.style.width = '360px';
         sidebar.style.display = 'flex';
         sidebar.classList.remove('collapsed');
-        if (btn) btn.textContent = '<i data-lucide="settings"></i> 設定';
+        if (btn) btn.innerHTML = '<i data-lucide="settings"></i> 設定';
     } else {
         sidebar.style.width = '0';
         sidebar.classList.add('collapsed');
-        if (btn) btn.textContent = '<i data-lucide="settings"></i>';
+        if (btn) btn.innerHTML = '<i data-lucide="settings"></i>';
     }
 }
 
@@ -1386,14 +1386,14 @@ function updateMemoryPanel(retrieved, saved, goals, promises) {
 
 function showReflectionStart() {
     const header = document.getElementById('reflection-header');
-    if (header) header.textContent = '<i data-lucide=&quot;sparkles&quot;></i> リフレクション (実行中...)';
+    if (header) { header.innerHTML = '<i data-lucide=&quot;sparkles&quot;></i> リフレクション (実行中...)'; if (typeof lucide !== 'undefined') lucide.createIcons(); }
     const list = document.getElementById('memory-reflection-list');
     if (list) list.innerHTML = '<div class="memory-empty" style="color:var(--accent-purple);">分析中...</div>';
 }
 
 function updateReflectionPanel(insights) {
     const header = document.getElementById('reflection-header');
-    if (header) header.textContent = '<i data-lucide=&quot;sparkles&quot;></i> リフレクション';
+    if (header) { header.innerHTML = '<i data-lucide=&quot;sparkles&quot;></i> リフレクション'; if (typeof lucide !== 'undefined') lucide.createIcons(); }
     const list = document.getElementById('memory-reflection-list');
     if (!list) return;
     if (!insights || insights.length === 0) {
@@ -1408,7 +1408,7 @@ function updateReflectionPanel(insights) {
 function showSessionSummarized(summary) {
     const statusEl = document.getElementById('chat-status');
     if (statusEl) {
-        statusEl.textContent = '<i data-lucide="edit-3"></i> セッションを要約しました';
+        statusEl.innerHTML = '<i data-lucide="edit-3"></i> セッションを要約しました';
         setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 3000);
     }
 }
@@ -1472,7 +1472,7 @@ function appendChatMessage(role, content, timeStr, isMarkdown) {
     if (role === 'user') {
         const editBtn = document.createElement('button');
         editBtn.className = 'chat-msg-action-btn edit';
-        editBtn.textContent = '<i data-lucide="pencil"></i> 編集';
+        editBtn.innerHTML = '<i data-lucide="pencil"></i> 編集';
         editBtn.onclick = () => {
             const inputEl = document.getElementById('chat-input');
             if (inputEl) {
@@ -1485,12 +1485,12 @@ function appendChatMessage(role, content, timeStr, isMarkdown) {
     } else if (role === 'assistant') {
         const retryBtn = document.createElement('button');
         retryBtn.className = 'chat-msg-action-btn retry';
-        retryBtn.textContent = '<i data-lucide="refresh-cw"></i> 再生成';
+        retryBtn.innerHTML = '<i data-lucide="refresh-cw"></i> 再生成';
         retryBtn.onclick = () => { chatSend(true); };
         actions.appendChild(retryBtn);
         const copyBtn = document.createElement('button');
         copyBtn.className = 'chat-msg-action-btn';
-        copyBtn.textContent = '<i data-lucide="clipboard-list"></i>';
+        copyBtn.innerHTML = '<i data-lucide="clipboard-list"></i>';
         copyBtn.title = 'コピー';
         copyBtn.onclick = () => {
             navigator.clipboard.writeText(content).then(() => toast('コピーしました', 'success'));
@@ -1644,14 +1644,14 @@ function toggleVoiceInput() {
     if (_voiceRecognition) {
         _voiceRecognition.stop();
         _voiceRecognition = null;
-        if (btn) { btn.textContent = '<i data-lucide=&quot;mic&quot;></i>'; btn.style.color = ''; }
+        if (btn) { btn.innerHTML = '<i data-lucide=&quot;mic&quot;></i>'; btn.style.color = ''; }
         return;
     }
     _voiceRecognition = new SpeechRecognition();
     _voiceRecognition.lang = 'ja-JP';
     _voiceRecognition.interimResults = false;
     _voiceRecognition.continuous = false;
-    if (btn) { btn.textContent = '<i data-lucide="circle-dot"></i>'; btn.style.color = 'var(--accent-red)'; }
+    if (btn) { btn.innerHTML = '<i data-lucide="circle-dot"></i>'; btn.style.color = 'var(--accent-red)'; }
     _voiceRecognition.onresult = (event) => {
         const transcript = event.results[0][0].transcript;
         const inputEl = document.getElementById('chat-input');
@@ -1660,15 +1660,15 @@ function toggleVoiceInput() {
             inputEl.dispatchEvent(new Event('input'));
         }
         _voiceRecognition = null;
-        if (btn) { btn.textContent = '<i data-lucide=&quot;mic&quot;></i>'; btn.style.color = ''; }
+        if (btn) { btn.innerHTML = '<i data-lucide=&quot;mic&quot;></i>'; btn.style.color = ''; }
     };
     _voiceRecognition.onerror = () => {
         toast('音声認識エラー', 'error');
         _voiceRecognition = null;
-        if (btn) { btn.textContent = '<i data-lucide=&quot;mic&quot;></i>'; btn.style.color = ''; }
+        if (btn) { btn.innerHTML = '<i data-lucide=&quot;mic&quot;></i>'; btn.style.color = ''; }
     };
     _voiceRecognition.onend = () => {
-        if (btn) { btn.textContent = '<i data-lucide=&quot;mic&quot;></i>'; btn.style.color = ''; }
+        if (btn) { btn.innerHTML = '<i data-lucide=&quot;mic&quot;></i>'; btn.style.color = ''; }
     };
     _voiceRecognition.start();
 }
@@ -1701,7 +1701,7 @@ function appendToolEvent(eventType, data) {
         const callDiv = data.id ? container.querySelector('[data-tool-id="' + CSS.escape(data.id) + '"]') : null;
         if (callDiv) {
             const statusEl = callDiv.querySelector('.chat-tool-status');
-            if (statusEl) statusEl.textContent = ' <i data-lucide=&quot;check&quot;></i> 完了';
+            if (statusEl) statusEl.innerHTML = ' <i data-lucide=&quot;check&quot;></i> 完了';
             const details = callDiv.querySelector('details');
             if (details) {
                 const resultPre = document.createElement('pre');
@@ -1784,7 +1784,7 @@ function renderAttachmentBadge(att) {
     } else {
         const icon = document.createElement('span');
         const ext = att.filename.split('.').pop().toLowerCase();
-        icon.textContent = ext === 'pdf' ? '<i data-lucide=&quot;book&quot;></i>' : (ext === 'zip' || ext === 'tar' || ext === 'gz' ? '<i data-lucide="package"></i>' : '<i data-lucide="file-text"></i>');
+        icon.innerHTML = ext === 'pdf' ? '<i data-lucide=&quot;book&quot;></i>' : (ext === 'zip' || ext === 'tar' || ext === 'gz' ? '<i data-lucide="package"></i>' : '<i data-lucide="file-text"></i>');
         badge.appendChild(icon);
     }
 
@@ -1795,7 +1795,7 @@ function renderAttachmentBadge(att) {
 
     const removeBtn = document.createElement('button');
     removeBtn.className = 'attach-remove';
-    removeBtn.textContent = '<i data-lucide="x"></i>';
+    removeBtn.innerHTML = '<i data-lucide="x"></i>';
     removeBtn.onclick = () => {
         CHAT.attachments = CHAT.attachments.filter(a => a.filename !== att.filename);
         badge.remove();
@@ -2090,7 +2090,7 @@ async function chatSend(retry) {
                             appendToolEvent('tool_call', evt);
                         }
                     }
-                    statusEl.textContent = '<i data-lucide="wrench"></i> ' + evt.name + ' を実行中...';
+                    statusEl.innerHTML = '<i data-lucide="wrench"></i> ' + esc(evt.name) + ' を実行中...';
 
                 } else if (evt.type === 'tool_result') {
                     if (MEMORY_TOOL_NAMES.has(evt.name)) {
@@ -2350,7 +2350,7 @@ async function sandboxRunBlock(code, language, resultEl, runBtn) {
         return;
     }
     runBtn.disabled = true;
-    runBtn.textContent = '<i data-lucide="clock"></i>';
+    runBtn.innerHTML = '<i data-lucide="clock"></i>';
     resultEl.className = 'hljs-run-result running';
     resultEl.textContent = '実行中...';
     resultEl.style.display = 'block';
