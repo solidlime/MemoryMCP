@@ -238,10 +238,15 @@ def _build_container_configs(persona: str) -> tuple[dict, Path | None]:
     # Create sandbox dir using container-internal (or local) path
     sandbox_internal = Path(settings.data_root) / "memory" / persona / "sandbox"
     sandbox_internal.mkdir(parents=True, exist_ok=True)
+    # Ensure Docker container can write to bind mount (WSL2 permission fix)
+    try:
+        os.chmod(str(sandbox_internal.resolve()), 0o777)
+    except PermissionError:
+        pass  # not fatal if we lack perms to chmod
 
     # Resolve host-side data root (needed when memory-mcp runs in a sibling container)
     host_root = settings.sandbox.host_data_root or _auto_detect_host_data_root(str(settings.data_root))
-    sandbox_mount = Path(host_root) / "memory" / persona / "sandbox" if host_root else sandbox_internal
+    sandbox_mount = Path(host_root) / "memory" / persona / "sandbox" if host_root else sandbox_internal.resolve()
 
     if not host_root:
         logger.warning(
@@ -253,6 +258,7 @@ def _build_container_configs(persona: str) -> tuple[dict, Path | None]:
 
     container_configs = {
         "name": f"sandbox-{persona}",  # predictable name for cleanup
+        "user": "1000:1000",  # match host user for WSL2 bind mount permissions
         "volumes": {
             str(sandbox_mount): {"bind": WORKSPACE, "mode": "rw"},
         },
@@ -304,6 +310,8 @@ class SandboxSession:
         try:
             self._setup_docker_env()
             container_configs, _ = _build_container_configs(self.persona)
+            from memory_mcp.config.settings import get_settings
+            sandbox_image = get_settings().sandbox.image
 
             # Remove any stale container with the same name
             _cleanup_stale_sandbox_container(self.persona)
@@ -315,6 +323,7 @@ class SandboxSession:
 
                     session = ArtifactSandboxSession(
                         lang="python",
+                        image=sandbox_image,
                         runtime_configs=container_configs,
                     )
                 except (ImportError, AttributeError):
@@ -323,6 +332,7 @@ class SandboxSession:
                     session = InteractiveSandboxSession(
                         lang="python",
                         kernel_type="ipython",
+                        image=sandbox_image,
                         runtime_configs=container_configs,
                     )
                 session.__enter__()

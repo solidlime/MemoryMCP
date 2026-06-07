@@ -126,7 +126,7 @@ _CA_HTML = """\
   border-radius: 5px;
   padding: 3px 8px;
   font-size: 11px;
-  font-family: 'Fira Code', monospace;
+  font-family: 'Fira Code', 'Noto Sans Mono CJK JP', monospace;
   cursor: pointer;
   outline: none;
 }
@@ -152,7 +152,7 @@ _CA_HTML = """\
   border: 1px solid rgba(96,165,250,0.15);
   border-radius: 6px;
   color: #e2e8f0;
-  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  font-family: 'Fira Code', 'Cascadia Code', 'Noto Sans Mono CJK JP', monospace;
   font-size: 12px;
   line-height: 1.55;
   padding: 8px 10px;
@@ -168,7 +168,7 @@ _CA_HTML = """\
   border: 1px solid rgba(96,165,250,0.10);
   border-radius: 6px;
   padding: 8px 10px;
-  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  font-family: 'Fira Code', 'Cascadia Code', 'Noto Sans Mono CJK JP', monospace;
   font-size: 11px;
   line-height: 1.6;
   white-space: pre-wrap;

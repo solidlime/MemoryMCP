@@ -510,7 +510,7 @@ def render_chat_tab() -> str:
         .chat-bubble p { margin:0.3em 0; }
         .chat-bubble ul,.chat-bubble ol { margin:0.3em 0; padding-left:1.4em; }
         .chat-bubble li { margin:0.1em 0; }
-        .chat-bubble code { background:rgba(0,0,0,0.3); border-radius:3px; padding:0.1em 0.3em; font-size:0.85em; font-family:monospace; }
+        .chat-bubble code { background:rgba(0,0,0,0.3); border-radius:3px; padding:0.1em 0.3em; font-size:0.85em; font-family:'Cascadia Code','Fira Code','Noto Sans Mono CJK JP',monospace; }
         .chat-bubble pre { background:rgba(0,0,0,0.3); border-radius:6px; padding:8px 10px; overflow-x:auto; margin:0.4em 0; }
         .chat-bubble pre code { background:none; padding:0; }
         .chat-bubble blockquote { border-left:3px solid var(--accent-purple); padding-left:8px; margin:0.3em 0; opacity:0.8; }

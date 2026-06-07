@@ -66,7 +66,7 @@ def render_head() -> str:
            ============================================================ */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            font-family: 'Segoe UI', 'Yu Gothic', 'Noto Sans JP', 'Hiragino Kaku Gothic ProN', system-ui, -apple-system, sans-serif;
             background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 50%, var(--bg-tertiary) 100%);
             color: var(--text-primary);
             min-height: 100vh;
@@ -307,7 +307,7 @@ def render_head() -> str:
         .memory-card:last-child { border-bottom: none; }
         .memory-key {
             font-size: 0.82rem; font-weight: 600; color: var(--accent-purple);
-            margin-bottom: 6px; font-family: 'Cascadia Code', 'Fira Code', monospace;
+            margin-bottom: 6px; font-family: 'Cascadia Code', 'Fira Code', 'Noto Sans Mono CJK JP', monospace;
         }
         .memory-content {
             font-size: 0.88rem; color: var(--text-secondary);

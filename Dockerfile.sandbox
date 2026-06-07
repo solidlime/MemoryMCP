@@ -1,0 +1,19 @@
+FROM python:3.11-slim-bullseye
+
+# Install system dependencies required for venv and common Python packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3-venv \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install common Python packages for sandbox use
+RUN pip install --no-cache-dir \
+    numpy pandas matplotlib scipy \
+    requests httpx \
+    pillow
+
+# Create workspace
+RUN mkdir -p /sandbox/uploads /sandbox/output
+WORKDIR /sandbox
+
+CMD ["tail", "-f", "/dev/null"]
