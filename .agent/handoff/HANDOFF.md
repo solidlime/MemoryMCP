@@ -1,60 +1,31 @@
-# HANDOFF - 2026-06-07 22:30
+# HANDOFF - 2026-06-08 23:30
 
 ## 使用ツール
-OpenCode (CLI)
+OpenCode (deepseek-v4-pro) + @designer + @fixer + @explorer + agent-browser
 
-## セッションで完了したこと
+## 現在のタスクと進捗
+- [x] MemoryMCP v2.0.0 全セットアップ完了
+- [x] ペルソナ(herta/rausraus) + メモリ19件 + チャット設定済み
+- [x] Sandbox完全動作（NumPy/Fibonacci/Bash全成功）
+- [x] アイコンraw HTMLバグ完全修正（textContent→innerHTML 全21箇所）
+- [x] コード変更コミット＆プッシュ済み（682e8ac）
+- [x] サーバー26263で起動中
 
-### 開発環境セットアップ
-- .venv作成、全依存パッケージインストール (sentence-transformers/PyTorch/transformers含む)
-- .env 開発設定 (MEMORY_MCP_DEVELOPMENT=true, PORT=26263)
-- data/memory/{herta,rausraus} ディレクトリ作成
-- Qdrant起動確認 (Docker, port 6333/26262)
-
-### テストデータ注入
-- ペルソナ作成: herta, rausraus (POST /api/personas)
-- メモリ19件注入 (POST /api/memories/herta)
-- プロフィール設定 (PUT /api/personas/herta/profile)
-
-### Sandbox修正 (WSL2+Docker権限問題)
-- **Dockerfile.sandbox**: python3-venv追加でSandbox環境構築完了
-- **settings.py**: sandbox.image='memorymcp-sandbox:latest'
-- **service.py**:
-  - sandbox_internal.resolve() → 絶対パス化
-  - container_configsに `"user": "1000:1000"` → WSL2権限問題解決
-  - sandbox_imageでカスタムイメージ使用
-- **動作確認**: print(1+1)→2, NumPy, Fibonacci, Bash 全成功
-
-### フロントエンド修正
-- base.py/chat.py/coding_agent.py: font-familyに日本語フォント追加
-
-### チャットE2Eテスト
-- agent-browserでChatタブ操作、SSEストリーミング確認
-- OpenRouter + Gemini 3 Flash で日本語応答正常
-- Sandbox直接API動作確認済み
-
-## 現在の状態
-- **サーバー**: tmux `mcpdev` セッションで起動中 (http://localhost:26263, 200 OK)
-- **Qdrant**: Docker起動中。collection未作成（初回メモリ作成時に自動作成）
-- **Sandbox**: Docker image `memorymcp-sandbox:latest` ビルド済み、ユーザー権限で正常動作
-
-## 変更ファイル
-| ファイル | 変更内容 |
-|----------|----------|
-| memory_mcp/api/http/sections/base.py | font-family 日本語追加 |
-| memory_mcp/api/http/sections/chat.py | font-family 日本語追加 |
-| memory_mcp/api/http/sections/coding_agent.py | font-family 日本語追加 |
-| memory_mcp/application/sandbox/service.py | user 1000:1000, 絶対パス, custom image |
-| memory_mcp/config/settings.py | sandbox.image 設定追加 |
-| Dockerfile.sandbox (新規) | python3-venv追加の自前イメージ |
+## 試したこと・結果
+- ✅ Lucideアイコンraw HTML修正: textContent→innerHTML + lucide.createIcons()でSVG化
+- ✅ .pycキャッシュクリア: Python Webアプリの変更反映に必須
+- ✅ Sandbox WSL2権限: Docker user="1000:1000" でバインドマウント解決
+- ✅ Sandbox tempファイル: _cleanup_temp_py_files() で直接削除
+- ✅ agent-browser + WSL2連携: wsl bash -c経由でブラウザ操作可能
+- ✅ ファイルアップロード→LLM読み取り: バイナリ→base64→テキスト抽出
 
 ## 次のセッションで最初にやること
-1. git commit & push
-2. チャットでツール呼出し (execute_code) が発動しない問題の調査（モデル側 or システム側？）
-3. sin波グラフ描画の画像レンダリング確認
+1. サーバーが落ちていたら `tmux attach -t mcpdev` で確認・再起動
+2. ブラウザで `http://localhost:26263` にアクセスして状態確認
+3. ユーザーから指示があればそれに従う
 
 ## 注意点・ブロッカー
-- Qdrant: collection未作成でもSQLiteフォールバックがあるので動作はする（エラーログは出る）
-- Matplotlib警告（/.config/matplotlib）は無害だがMPLCONFIGDIRで解決可能
-- seed.py はテストデータ注入用に作成。コミットしてなければ追加検討
-- agent-browser の `@eN` ref はPowerShellで `@` が解釈されるため引用符 `"@eN"` が必要
+- Qdrantコレクション未作成だがSQLiteフォールバックあり（本番データ投入前にQdrant設定推奨）
+- Gemini 3 Flash (OpenRouter) はツール呼出しをスキップしがち（モデル側の制約）
+- WSL2環境では `.venv/bin/python` 経由で実行すること
+- 変更後は `find . -name __pycache__ -exec rm -rf {} +` でキャッシュクリア推奨
