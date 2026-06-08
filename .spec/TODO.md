@@ -165,3 +165,22 @@
 ### 🧪 テスト
 - [ ] T001: 感情モデル変更の関連テスト修正
 - [ ] T002: 全テスト実行確認
+
+---
+
+# 画像E2E（2026-06-08）
+
+## 🔴 Phase 1: ユーザー添付画像 → LLM送信
+- [ ] IS1: `ImageAttachment` Pydanticモデル追加（`domain/chat_config.py`）
+- [ ] IS2: `chatSend()` で画像添付時、`FileReader`でBase64変換しメッセージに含める（`chat.py` JS）
+- [ ] IS3: `chat_endpoint()` のbodyに `images` フィールド追加（`routers/chat.py`）
+- [ ] IS4: `pipeline/inference.py` でユーザー添付画像を `content_parts` に変換
+
+## 🔴 Phase 2: LLM応答中の画像表示
+- [ ] IS5: `safeMarkdown()` のDOMPurify許可タグに `img` + 属性制限追加（`chat.py` JS）
+- [ ] IS6: チャットメッセージ内 `<img>` クリックでメディアビューア表示
+- [ ] IS7: 画像スタイルCSS追加（max-width, border-radius, cursor）
+
+## 🟡 Phase 3: ファイルプレビュー拡張
+- [ ] IS8: PDF添付を `<iframe>` でインラインプレビュー
+- [ ] IS9: 音声添付を `<audio controls>` で再生可能に

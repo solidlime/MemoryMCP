@@ -109,6 +109,7 @@ def register_chat_routes(mcp) -> None:
         user_message = (body.get("message") or "").strip()
         session_id = (body.get("session_id") or "default").strip()
         debug_mode = bool(body.get("debug", False))
+        images: list[dict] = body.get("images") or []
 
         if not user_message:
 
@@ -125,7 +126,7 @@ def register_chat_routes(mcp) -> None:
         service = ChatService()
 
         async def generate():
-            async for chunk in service.chat(ctx, config, session_id, user_message, debug=debug_mode):
+            async for chunk in service.chat(ctx, config, session_id, user_message, debug=debug_mode, images=images):
                 yield chunk
 
         return StreamingResponse(

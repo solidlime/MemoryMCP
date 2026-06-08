@@ -319,3 +319,24 @@ class ChatConfigRepository:
     def delete(self, persona: str) -> None:
         self._db.execute("DELETE FROM chat_settings WHERE persona = ?", (persona,))
         self._db.commit()
+
+
+class ImageAttachment(BaseModel):
+    """チャットに添付された画像。base64_data は data: URL プレフィックスなしの生Base64。"""
+
+    filename: str
+    mime_type: str  # e.g. "image/png", "image/jpeg"
+    base64_data: str  # raw base64 (without data: URL prefix)
+
+    @field_validator("base64_data")
+    @classmethod
+    def _validate_size(cls, v: str) -> str:
+        """10MB上限チェック。Base64長さ×3/4 ≒ デコード後サイズ。"""
+        max_bytes = 10 * 1024 * 1024  # 10MB
+        # 余裕をもって判定: パディング除去後の有効長
+        decoded_estimate = len(v) * 3 // 4
+        if decoded_estimate > max_bytes:
+            raise ValueError(
+                f"Image data exceeds 10MB limit (estimated {decoded_estimate} bytes > {max_bytes} bytes)"
+            )
+        return v

@@ -587,6 +587,17 @@ def render_chat_tab() -> str:
             transition: opacity 0.2s;
         }
         .chat-help-tooltip.visible { opacity: 1; }
+        /* Chat message image styles */
+        .chat-bubble img {
+            max-width: 100%;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 8px 0;
+            transition: transform 0.2s;
+        }
+        .chat-bubble img:hover {
+            transform: scale(1.02);
+        }
         </style>
         <!-- ========== CHAT TAB ========== -->
         <section id="tab-chat" class="tab-panel" role="tabpanel">
@@ -1457,6 +1468,11 @@ function appendChatMessage(role, content, timeStr, isMarkdown) {
     bubble.className = 'chat-bubble';
     if (isMarkdown && role === 'assistant') {
         bubble.innerHTML = safeMarkdown(content);
+        // メッセージ内の画像にクリックイベント追加
+        bubble.querySelectorAll('img').forEach(img => {
+            img.style.cssText = 'max-width:100%;border-radius:8px;cursor:pointer;margin:8px 0;';
+            img.addEventListener('click', () => openMediaViewer(img.src, 'image'));
+        });
     } else {
         bubble.textContent = content;
     }
@@ -1521,8 +1537,8 @@ function safeMarkdown(text) {
             let sanitized = DOMPurify.sanitize(html, {
                 ALLOWED_TAGS: ['p','strong','em','b','i','u','s','code','pre','ul','ol','li',
                                'h1','h2','h3','h4','blockquote','a','br','hr','table','thead',
-                               'tbody','tr','th','td','span'],
-                ALLOWED_ATTR: ['href','title','class'],
+                               'tbody','tr','th','td','span','img'],
+                ALLOWED_ATTR: ['href','target','rel','title','src','alt','width','height'],
             });
             // Restore code blocks (renderCodeBlock output is already escaped/safe)
             codeBlocks.forEach(function(block, idx) {
@@ -1750,6 +1766,7 @@ async function uploadAttachment(file) {
         });
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
+        data.file = file; // 元のFileオブジェクトを保持（Base64エンコード用）
         CHAT.attachments.push(data);
         renderAttachmentBadge(data);
     } catch (e) {
@@ -1766,6 +1783,7 @@ function renderAttachmentBadge(att) {
 
     const isImage = att.mime_type && att.mime_type.startsWith('image/');
     const isVideo = att.mime_type && att.mime_type.startsWith('video/');
+    const isAudio = att.mime_type && att.mime_type.startsWith('audio/');
 
     if (isImage) {
         const img = document.createElement('img');
@@ -1781,11 +1799,24 @@ function renderAttachmentBadge(att) {
         vid.muted = true;
         vid.onclick = () => openMediaViewer(att.url, 'video');
         badge.appendChild(vid);
+    } else if (isAudio) {
+        const icon = document.createElement('span');
+        icon.innerHTML = '<i data-lucide="volume-2"></i>';
+        badge.appendChild(icon);
+        badge.style.cursor = 'pointer';
+        badge.onclick = () => openMediaViewer(att.url, 'audio', att.mime_type);
     } else {
         const icon = document.createElement('span');
         const ext = att.filename.split('.').pop().toLowerCase();
-        icon.innerHTML = ext === 'pdf' ? '<i data-lucide=&quot;book&quot;></i>' : (ext === 'zip' || ext === 'tar' || ext === 'gz' ? '<i data-lucide="package"></i>' : '<i data-lucide="file-text"></i>');
-        badge.appendChild(icon);
+        if (ext === 'pdf') {
+            icon.innerHTML = '<i data-lucide="book"></i>';
+            badge.appendChild(icon);
+            badge.style.cursor = 'pointer';
+            badge.onclick = () => openMediaViewer(att.url, 'pdf');
+        } else {
+            icon.innerHTML = ext === 'zip' || ext === 'tar' || ext === 'gz' ? '<i data-lucide="package"></i>' : '<i data-lucide="file-text"></i>';
+            badge.appendChild(icon);
+        }
     }
 
     const nameSpan = document.createElement('span');
@@ -1804,7 +1835,7 @@ function renderAttachmentBadge(att) {
     area.appendChild(badge);
 }
 
-function openMediaViewer(url, type) {
+function openMediaViewer(url, type, mimeType) {
     const overlay = document.getElementById('media-viewer-overlay');
     const inner = document.getElementById('media-viewer-inner');
     if (!overlay || !inner) return;
@@ -1813,6 +1844,16 @@ function openMediaViewer(url, type) {
         const img = document.createElement('img');
         img.src = url;
         inner.appendChild(img);
+    } else if (type === 'video') {
+        const vid = document.createElement('video');
+        vid.src = url;
+        vid.controls = true;
+        vid.autoplay = true;
+        inner.appendChild(vid);
+    } else if (type === 'pdf') {
+        inner.innerHTML = '<iframe src="' + url + '" width="100%" height="80vh" style="border:none;border-radius:8px;"></iframe>';
+    } else if (type === 'audio') {
+        inner.innerHTML = '<audio controls autoplay style="max-width:90vw;"><source src="' + url + '" type="' + (mimeType || 'audio/mpeg') + '"></audio>';
     } else {
         const vid = document.createElement('video');
         vid.src = url;
@@ -1977,6 +2018,8 @@ async function chatSend(retry) {
     const cancelBtn = document.getElementById('chat-cancel-btn');
     const statusEl = document.getElementById('chat-status');
 
+    // Base64エンコードされた画像を収集
+    const images = [];
     // Append attachment references to message
     if (CHAT.attachments.length > 0) {
         const TEXT_EXTS = new Set(['txt','csv','json','py','js','ts','md','yaml','yml','toml','ini','cfg','sh','bash','html','css','xml','log','sql','rs','go','java','cpp','c','h']);
@@ -1992,8 +2035,19 @@ async function chatSend(retry) {
                 } catch (_e) {
                     attachParts.push('\n[添付ファイル: ' + att.workspace_path + ']');
                 }
-            } else if (att.mime_type && att.mime_type.startsWith('image/')) {
-                attachParts.push('\n[添付画像: ' + att.workspace_path + ']');
+            } else if (att.mime_type && att.mime_type.startsWith('image/') && att.file) {
+                // FileReaderでBase64に変換
+                const base64 = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result.split(',')[1]); // data:URLプレフィックス除去
+                    reader.onerror = () => reject(new Error('画像読込失敗'));
+                    reader.readAsDataURL(att.file);
+                });
+                images.push({
+                    filename: att.filename,
+                    mime_type: att.mime_type,
+                    base64_data: base64
+                });
             } else {
                 attachParts.push('\n[添付ファイル: ' + att.workspace_path + ']');
             }
@@ -2032,7 +2086,12 @@ async function chatSend(retry) {
         const response = await fetch('/api/chat/' + encodeURIComponent(S.persona), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message, session_id: sessionId, debug: false }),
+            body: JSON.stringify({
+                message: message,
+                session_id: sessionId,
+                images: images.length > 0 ? images : undefined,
+                debug: document.getElementById('chat-debug-mode')?.checked || false
+            }),
             signal: CHAT.abortController.signal,
         });
 
@@ -2131,6 +2190,11 @@ async function chatSend(retry) {
                     // F1: final Markdown render
                     if (assistantBubble && assistantText) {
                         assistantBubble.innerHTML = safeMarkdown(assistantText);
+                        // メッセージ内の画像にクリックイベント追加
+                        assistantBubble.querySelectorAll('img').forEach(img => {
+                            img.style.cssText = 'max-width:100%;border-radius:8px;cursor:pointer;margin:8px 0;';
+                            img.addEventListener('click', () => openMediaViewer(img.src, 'image'));
+                        });
                     }
                     statusEl.textContent = '';
                 }
@@ -2153,6 +2217,10 @@ async function chatSend(retry) {
         // Fallback: render markdown if stream ended without 'done' event
         if (assistantBubble && assistantText && assistantBubble.textContent === assistantText) {
             assistantBubble.innerHTML = safeMarkdown(assistantText);
+            assistantBubble.querySelectorAll('img').forEach(img => {
+                img.style.cssText = 'max-width:100%;border-radius:8px;cursor:pointer;margin:8px 0;';
+                img.addEventListener('click', () => openMediaViewer(img.src, 'image'));
+            });
         }
     }
 }

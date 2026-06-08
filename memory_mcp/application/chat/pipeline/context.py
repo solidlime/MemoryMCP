@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 class ChatTurnContext:
     session_id: str
     user_message: str
+    images: list[dict] = field(default_factory=list)
     # PrepareStep が埋める
     context_section: str = ""
     related_memories: str = ""

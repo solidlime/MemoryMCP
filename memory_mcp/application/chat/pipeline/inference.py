@@ -57,7 +57,21 @@ class InferenceStep:
 
         all_tools = registry.get_all_tools()
         messages = list(session_messages)
-        messages.append(LLMMessage(role="user", content=turn_ctx.user_message))
+        if turn_ctx.images:
+            parts: list[dict] = [{"type": "text", "text": turn_ctx.user_message}]
+            for img in turn_ctx.images:
+                parts.append(
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:{img['mime_type']};base64,{img['base64_data']}",
+                            "detail": "auto",
+                        },
+                    }
+                )
+            messages.append(LLMMessage(role="user", content=turn_ctx.user_message, content_parts=parts))
+        else:
+            messages.append(LLMMessage(role="user", content=turn_ctx.user_message))
 
         while turn_ctx.tool_call_count <= config.max_tool_calls:
             pending_tool_calls: list[ToolCallEvent] = []

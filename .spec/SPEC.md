@@ -741,3 +741,50 @@ MemoryRepository.save(memory)
 - **後方互換**: MCPツールの `emotions` パラメータは削除されるが、使われていなければエラーにならない（Pydanticはデフォルトで未知フィールドを無視）
 - **テスト**: 感情モデル変更に伴い関連テストの修正必須。新機能にはテスト追加
 - **優先順位**: A → B → E → D → C → G → F → H → I → J
+
+---
+
+# 画像E2E（2026-06-08）
+
+## 🔴 背景
+- ユーザーがチャットに画像を添付しても、LLMにテキストパスしか送られず画像データが届かない
+- LLMがMarkdownで画像URL/base64を出力しても、DOMPurifyが `<img>` を除去して表示されない
+- Sandbox実行結果の画像（matplotlib等）は表示されているが、LLMテキスト応答中の画像は未対応
+
+## 機能要件
+
+### S1: ユーザー添付画像 → LLM送信
+| 項目 | 内容 |
+|------|------|
+| フロント | `chatSend()` で画像添付時、`FileReader`でBase64に変換しメッセージに添付 |
+| API | `POST /api/chat/{persona}` のbodyに `images: [{filename, mime_type, base64_data}]` 追加 |
+| LLMメッセージ構築 | `pipeline/inference.py` で画像を `content_parts` に変換（既存のツール結果画像再送ロジックを流用） |
+| プロバイダ対応 | OpenAI (`openai_compat.py` L77-84) + Anthropic (`anthropic.py` L66-88) 両対応（既存コードあり） |
+
+### S2: LLMテキスト応答中の画像プレビュー
+| 項目 | 内容 |
+|------|------|
+| DOMPurify | `safeMarkdown()` の許可タグに `img` を追加。属性: `src`, `alt`, `width`, `height` |
+| Base64画像 | `data:image/...;base64,...` のインライン画像を自動検出し `<img>` で表示 |
+| URL画像 | Markdownの `![alt](url)` → `<img>` 変換はmarked.jsで対応（DOMPurifyが通過すればOK） |
+| スタイル | `max-width: 100%; border-radius: 8px; cursor: pointer;` クリックでメディアビューア表示 |
+
+### S3: 添付ファイルプレビュー拡張（PDF・音声）
+| 項目 | 内容 |
+|------|------|
+| PDF | 添付バッジクリック時、`<iframe src="..." width="100%" height="500">` でインラインプレビュー |
+| 音声 | `audio/*` MIMEタイプの添付は `<audio controls>` で再生可能に |
+
+## 変更ファイル
+| ファイル | 変更内容 |
+|----------|----------|
+| `sections/chat.py` (JS) | `chatSend()`: 画像Base64変換 + メッセージ構築変更。`safeMarkdown()`: DOMPurify許可タグ追加。添付バッジ: PDF/音声プレビュー追加。メッセージレンダリング: `<img>` クリック→メディアビューア |
+| `sections/chat.py` (CSS) | チャットメッセージ内画像・PDF iframe・音声プレイヤーのスタイル |
+| `routers/chat.py` | `chat_endpoint()`: bodyに `images` フィールド追加（`List[ImageAttachment]`） |
+| `application/chat/pipeline/inference.py` | ユーザー添付画像を `content_parts` に変換するロジック追加 |
+| `domain/chat_config.py` または 新規モデル | `ImageAttachment` Pydanticモデル追加 |
+
+## 非機能要件
+- 画像サイズ上限: 10MB（フロント・バックエンド両方で検証）
+- 対応画像形式: PNG, JPEG, GIF, WebP
+- DOMPurifyの<img>許可は最小限（src/alt/width/heightのみ、onload等のイベントハンドラは不許可）

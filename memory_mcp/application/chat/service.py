@@ -34,12 +34,13 @@ class ChatService:
         session_id: str,
         user_message: str,
         debug: bool = False,
+        images: list[dict] | None = None,
     ) -> AsyncIterator[str]:
         persona = ctx.persona
         db = ctx.connection.get_memory_db()
         session = _session_manager.get_or_create(persona, session_id, config.max_window_turns, db=db)
 
-        turn_ctx = ChatTurnContext(session_id=session_id, user_message=user_message)
+        turn_ctx = ChatTurnContext(session_id=session_id, user_message=user_message, images=images or [])
 
         # PrepareStep: pending_memory_task 待機 + EmotionDecay + コンテキスト取得
         await PrepareStep().run(ctx, session, turn_ctx, config=config)
