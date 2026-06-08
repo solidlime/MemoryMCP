@@ -8,29 +8,25 @@ MemoryMCP: 日本語特化の永続記憶 MCP サーバー。SQLite + Qdrant + E
 ### WSL2 + Docker バインドマウント権限問題（2026-06-07）
 - WSL2環境でDockerコンテナがホストのバインドマウントファイルを読めない場合、コンテナのユーザーIDをホストのUID(1000)に合わせる
 - Dockerコンテナ設定に `"user": "1000:1000"` を追加すれば解決
-- chmod 777 だけでは不十分（既存ファイルには効くが新規作成ファイルはumask制限を受ける）
 - バインドマウントのパスは必ず絶対パス（`Path.resolve()`）で指定する
 
 ### Sandbox Dockerイメージのカスタムビルド（2026-06-07）
 - ghcr.io/vndee/sandbox-python-311-bullseye が401になる場合、自前Dockerイメージをビルド
-- Dockerfile.sandbox: `FROM python:3.11-slim-bullseye` + `python3-venv`（sandbox環境構築に必要）
-- settings.py に `sandbox.image` 設定を追加して参照
-
-### フロントエンド日本語フォント（2026-06-07）
-- base.py/chat.py/coding_agent.py の font-family に `'Yu Gothic', 'Noto Sans JP'` 等の日本語フォントを明示追加
+- Dockerfile.sandbox: `FROM python:3.11-slim-bullseye` + `python3-venv`
 
 ### Lucideアイコンのraw HTMLバグ修正（2026-06-08）
-- `el.textContent = '<i data-lucide="..."></i>'` とするとHTMLタグがエスケープされ文字列として表示される
-- 正しくは `el.innerHTML = '<i data-lucide="..."></i>'` を使う
-- 修正後は lucide.createIcons() が `<i>` を自動でSVGに置換する
-- 修正箇所が約20箇所あり、アイコン表示が壊れる根本原因だった
-- `.pyc` キャッシュをクリアしないと変更が反映されない場合がある（Python Webアプリの注意点）
+- `el.textContent` はHTMLタグをエスケープする → アイコンには `el.innerHTML` を使う
+- `.pyc` キャッシュクリアしないとPython Webアプリの変更が反映されない
 
-### Sandbox テンポラリファイル管理（2026-06-08）
-- llm_sandboxのsession.run()がUUID名の.pyファイルを/sandbox/に残す
-- session.run()内部のクリーンアップコードが自己矛盾（自身もtempファイル生成する）で機能しない
-- 解決策: ホスト側で `os.remove()` を使って直接削除する `_cleanup_temp_py_files()` 関数を追加
+### 画像E2Eパイプライン（2026-06-08）
+- LLMマルチモーダル: OpenAI互換APIでは `content: [{type: "text", text: "..."}, {type: "image_url", image_url: {url: "data:..."}}]` 形式
+- 既存の content_parts 変換ロジック（inference.py L136-186）を流用し、ユーザー画像も同形式で注入
+- OpenRouter: 画像対応はモデル依存。gpt-4oは動作、Claude Sonnet 4は非対応、kimi-k2.6も未確認
+- DOMPurify: デフォルトでimgタグ除去。ALLOWED_TAGSに'img'、ALLOWED_ATTRに'src','alt'が必要
+- フロントエンド画像送信: FileReader + readAsDataURLでbase64変換 → POST bodyのimages配列に格納
+- PDFプレビュー: `<iframe>` でブラウザネイティブ表示
+- 音声プレビュー: `<audio controls>` で再生
 
 ### サーバー再起動の注意点（2026-06-08）
-- tmux kill-session -t mcpdev → sleep 2 → tmux new-session -d -s mcpdev の手順で再起動
-- 変更を反映させるには `.pyc` キャッシュ（`__pycache__/`）のクリアが必須
+- tmux kill-session -t mcpdev → sleep 2 → tmux new-session -d -s mcpdev
+- 変更反映には `.pyc` キャッシュクリアが必須
