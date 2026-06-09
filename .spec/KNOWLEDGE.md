@@ -66,3 +66,38 @@
 - showSkeleton スキップ対象（#tl-loading で自前ローディング管理）
 - ダッシュボードタブ順: overview→analytics→memories→**timeline**→graph→…→admin
 - Alt+1〜0 ショートカット（Alt+4=Timeline）
+
+---
+
+## コンテキスト圧縮実装（2026-06-09）で得た知見
+
+### アーキテクチャ
+- **パイプライン位置**: `PrepareStep → PromptBuildStep → CompressStep → InferenceStep → PostProcessStep`
+- **CompressStep は PromptBuildStep と InferenceStep の間に差し込む**。system_prompt と session_messages の両方を動的圧縮
+- **`max_window_turns` 廃止の判断**: Pydantic v2 の `@property` + `@field_validator` の名前衝突問題で断念。後方互換を保つため Pydantic field として残し（default 100、validator 1-500）、内部で `max_stored_messages` と併存
+
+### TokenCounter 設計
+- **tiktoken 優先 + CJKヒューリスティックの2段階**: 高精度が必要な時は tiktoken、それ以外は軽量ヒューリスティック
+- **ヒューリスティックの罠**: ひらがなは CJK Unicode 範囲（U+4E00-U+9FFF）に含まれない。ひらがなは U+3040-U+30FF。テストでは漢字を使う必要あり
+- **モデル別最大コンテキスト**: 全モデルを辞書にハードコード。未定義は 128K をデフォルト。OpenRouter の `provider/model` プレフィックスは `split('/', 1)[1]` で除去
+
+### 圧縮戦略
+- **3段階圧縮**: システムプロンプトトリミング→ツール結果クリア→会話履歴トランケート。前段が効けば後段スキップ
+- **システムプロンプト圧縮はLLM不要**: 単純なセクション分割＋行数制限で動作。4モード（auto/light/normal/aggressive）で記憶保持数・スキル説明長を調整
+- **ツール結果クリア**: 古い `role=tool` メッセージの content を `[cleared]` に置換。`tool_call_id` は Anthropic の validation に必要なので維持
+- **LLMベースの会話要約は未実装**: 現行はトランケートのみ。summarizer.py を再利用して後日追加可能
+
+### ChatConfig 設計
+- **Pydantic v2 の制約**: `@property` と Pydantic field は同名不可。`max_window_turns` を property 化する案は v2 で型エラー。Pydantic field として残しつつ validator 範囲を 1-500 に拡大
+- **SQLite CRUD の `len(row) > N` フォールバック**: 新カラム追加時、既存DBとの互換性を保つため `row[29] if len(row) > 29 else default` パターンを使用
+- **save() の VALUES プレースホルダー数**: 新カラム追加時、`?` の数をパラメータ数と一致させる必要あり。不一致時は SQLite が `OperationalError`
+
+### 並列ツール実行
+- **`asyncio.gather` で一括実行**: すべてのツール呼出を先に yield して UI に進行表示、その後 gather で並列実行
+- **`enable_parallel_tools` フラグ**: デバッグ用に逐次実行にもフォールバック可能。デフォルト True
+- **SSE 順序**: ToolCallSSE（全件）→ ToolResultSSE（全件）。従来の ToolCallSSE→ToolResultSSE 交互出力から変更
+
+### テスト戦略
+- **CompressStep は `config.context_max_tokens` で制御**: テストでは tiny budget（200 tokens）を設定し動作確認。get_model_max_tokens() のハードコード値（128K）に依存しないよう `context_max_tokens` を優先
+- **TokenCounter の CJK 検出**: テスト文字列は漢字（`今日天気`）を使用。ひらがなは ASCII ブランチに落ちる
+- **ChatConfig の後方互換**: `max_window_turns` の get/save 確認、property でないことの確認、model_dump に含まれないことの確認

@@ -367,10 +367,9 @@ def render_chat_tab() -> str:
             }
         }
         .chat-sidebar-toggle {
-            position: absolute; right: 16px; top: 8px;
-            background: none; border: 1px solid var(--glass-border);
-            border-radius: 8px; color: var(--text-muted); padding: 4px 10px;
-            cursor: pointer; font-size: 0.78rem; transition: all 0.2s;
+            background: none; border: 1px solid var(--glass-border); border-radius: 6px;
+            color: var(--text-muted); padding: 2px 7px; font-size: 0.7rem;
+            cursor: pointer; transition: all 0.2s; margin-left: 6px;
         }
         .chat-sidebar-toggle:hover { color: var(--text-primary); background: var(--glass-bg); }
         #chat-status { font-size: 0.75rem; color: var(--text-muted); padding: 4px 16px; min-height: 20px; }
@@ -605,7 +604,7 @@ def render_chat_tab() -> str:
                 <h2 style="font-size:1.25rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:10px;"><span style="font-size:1.4rem;"><i data-lucide="message-circle"></i></span> Chat</h2>
                 <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
                     <button class="mem-panel-toggle" id="memory-panel-toggle-btn" onclick="toggleMemoryPanel()" title="記憶パネルを開閉" aria-label="記憶パネルの表示切替"><i data-lucide="brain"></i></button>
-                    <button class="chat-sidebar-toggle" onclick="toggleSettingsPanel()" id="chat-sidebar-toggle-btn" title="設定パネルを開閉" aria-label="設定パネルの表示切替"><i data-lucide="settings"></i> 設定</button>
+                    <button class="chat-sidebar-toggle" onclick="toggleSettingsPanel()" id="chat-sidebar-toggle-btn" title="設定パネルを開閉" aria-label="設定パネルの表示切替"><i data-lucide="settings"></i></button>
                 </div>
             </div>
             <div id="chat-layout" class="glass" style="padding:0; overflow:hidden;">
@@ -744,6 +743,7 @@ def render_chat_tab() -> str:
                                 <div>
                                     <div class="chat-field-label">コンテキスト履歴 (turns)</div>
                                     <input type="number" id="chat-window-turns" class="chat-field-input" min="1" max="50" value="3" />
+                                    <div class="chat-field-hint" style="font-size:0.7rem;color:var(--text-muted);margin-top:-6px;margin-bottom:8px;">（旧設定: 保存メッセージ数に自動置換されます）</div>
                                 </div>
                                 <div>
                                     <div class="chat-field-label">表示履歴 (turns) <span style="color:var(--text-muted);font-size:0.7rem;">（ページロード時に遡る件数）</span></div>
@@ -759,6 +759,49 @@ def render_chat_tab() -> str:
                                         placeholder="（空白でデフォルト: ペルソナ名のアシスタント）"
                                         style="flex:1;resize:vertical;min-height:70px;max-height:300px;overflow-y:auto;"></textarea>
                                 </div>
+                                <!-- コンテキスト最適化 (v2.1) -->
+                                <details class="settings-subsection" style="margin-top:12px;border:1px solid var(--glass-border);border-radius:8px;padding:0 12px 12px;">
+                                  <summary style="cursor:pointer;padding:8px 0;font-weight:600;color:var(--text-primary);">🧠 コンテキスト最適化</summary>
+                                  
+                                  <label class="setting-label" for="chat-stored-msgs">保存メッセージ数</label>
+                                  <input type="number" id="chat-stored-msgs" class="setting-input" value="200" min="2" max="2000" style="width:100%;margin-bottom:8px;">
+                                  <div class="setting-hint" style="font-size:0.7rem;color:var(--text-muted);margin-top:-6px;margin-bottom:8px;">SQLiteに保存する最大メッセージ数（セッション永続化用）</div>
+                                
+                                  <label class="setting-label" for="chat-context-max-tokens">トークン上限</label>
+                                  <input type="number" id="chat-context-max-tokens" class="setting-input" value="" placeholder="自動（モデル判定）" min="1000" max="1000000" style="width:100%;margin-bottom:8px;">
+                                  <div class="setting-hint" style="font-size:0.7rem;color:var(--text-muted);margin-top:-6px;margin-bottom:8px;">空欄でモデルのコンテキストウィンドウを自動判定</div>
+                                
+                                  <label class="setting-label" for="chat-compression-threshold">圧縮閾値 <span id="threshold-display">80%</span></label>
+                                  <input type="range" id="chat-compression-threshold" min="50" max="100" value="80" style="width:100%;margin-bottom:8px;">
+                                
+                                  <label class="setting-label" for="chat-compression-mode">圧縮モード</label>
+                                  <select id="chat-compression-mode" class="setting-input" style="width:100%;margin-bottom:8px;">
+                                    <option value="auto">自動</option>
+                                    <option value="light">軽度</option>
+                                    <option value="normal">標準</option>
+                                    <option value="aggressive">強力</option>
+                                  </select>
+                                
+                                  <label class="setting-label" for="chat-keep-recent">完全保持ターン数</label>
+                                  <input type="number" id="chat-keep-recent" class="setting-input" value="2" min="1" max="20" style="width:100%;margin-bottom:8px;">
+                                
+                                  <label class="setting-label" for="chat-memory-preload">記憶プリロード数</label>
+                                  <input type="number" id="chat-memory-preload" class="setting-input" value="3" min="0" max="20" style="width:100%;margin-bottom:8px;">
+                                  <div class="setting-hint" style="font-size:0.7rem;color:var(--text-muted);margin-top:-6px;margin-bottom:8px;">systemプロンプトに含める関連記憶の数。0で全件オンデマンド検索</div>
+                                
+                                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                                    <input type="checkbox" id="chat-compress-system" checked>
+                                    <label for="chat-compress-system" style="font-size:0.78rem;">システムプロンプト圧縮</label>
+                                  </div>
+                                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                                    <input type="checkbox" id="chat-compress-history" checked>
+                                    <label for="chat-compress-history" style="font-size:0.78rem;">会話履歴圧縮</label>
+                                  </div>
+                                  <div style="display:flex;align-items:center;gap:8px;">
+                                    <input type="checkbox" id="chat-parallel-tools" checked>
+                                    <label for="chat-parallel-tools" style="font-size:0.78rem;">並列ツール実行</label>
+                                  </div>
+                                </details>
                             </div>
                         </details>
                         <!-- Memory extraction -->
@@ -1112,6 +1155,20 @@ function applyChatConfig(cfg) {
     // Housekeeping settings
     set('chat-display-history-turns', cfg.display_history_turns != null ? cfg.display_history_turns : 20);
     set('chat-housekeeping-threshold', cfg.housekeeping_threshold != null ? cfg.housekeeping_threshold : 10);
+    // Context compression settings
+    set('chat-stored-msgs', cfg.max_stored_messages ?? 200);
+    set('chat-context-max-tokens', cfg.context_max_tokens ?? '');
+    set('chat-compression-threshold', Math.round((cfg.context_compression_threshold ?? 0.8) * 100));
+    document.getElementById('threshold-display').textContent = Math.round((cfg.context_compression_threshold ?? 0.8) * 100) + '%';
+    set('chat-compression-mode', cfg.context_compression_mode || 'auto');
+    set('chat-keep-recent', cfg.context_keep_recent_turns ?? 2);
+    set('chat-memory-preload', cfg.memory_preload_count ?? 3);
+    document.getElementById('chat-compress-system').checked = cfg.context_compress_system_prompt !== false;
+    document.getElementById('chat-compress-history').checked = cfg.context_compress_history !== false;
+    document.getElementById('chat-parallel-tools').checked = cfg.enable_parallel_tools !== false;
+    document.getElementById('chat-compression-threshold').addEventListener('input', function() {
+        document.getElementById('threshold-display').textContent = this.value + '%';
+    });
     // Sandbox settings
     setChecked('chat-sandbox-enabled', cfg.sandbox_enabled === true);
     onSandboxEnabledChange();
@@ -1147,7 +1204,19 @@ async function saveChatConfig() {
         base_url: document.getElementById('chat-base-url').value.trim(),
         temperature: parseFloat(document.getElementById('chat-temperature').value),
         max_tokens: parseInt(document.getElementById('chat-max-tokens').value),
-        max_window_turns: parseInt(document.getElementById('chat-window-turns').value),
+        max_window_turns: parseInt(document.getElementById('chat-window-turns').value), // keep for backward compat
+        max_stored_messages: parseInt(document.getElementById('chat-stored-msgs').value),
+        context_max_tokens: (function() {
+            var v = parseInt(document.getElementById('chat-context-max-tokens').value);
+            return v > 0 ? v : null;
+        })(),
+        context_compression_threshold: parseFloat(document.getElementById('chat-compression-threshold').value) / 100,
+        context_compression_mode: document.getElementById('chat-compression-mode').value,
+        context_keep_recent_turns: parseInt(document.getElementById('chat-keep-recent').value),
+        context_compress_system_prompt: document.getElementById('chat-compress-system').checked,
+        context_compress_history: document.getElementById('chat-compress-history').checked,
+        memory_preload_count: parseInt(document.getElementById('chat-memory-preload').value),
+        enable_parallel_tools: document.getElementById('chat-parallel-tools').checked,
         max_tool_calls: parseInt(document.getElementById('chat-max-tool-calls')?.value || '5'),
         system_prompt: document.getElementById('chat-system-prompt').value.trim(),
         auto_extract: getChecked('chat-auto-extract'),
@@ -1268,17 +1337,14 @@ function renderSkillsList(allSkills, enabledSkills) {
 
 function toggleSettingsPanel() {
     const sidebar = document.getElementById('settings-panel');
-    const btn = document.getElementById('chat-sidebar-toggle-btn');
     CHAT.sidebarOpen = !CHAT.sidebarOpen;
     if (CHAT.sidebarOpen) {
         sidebar.style.width = '360px';
         sidebar.style.display = 'flex';
         sidebar.classList.remove('collapsed');
-        if (btn) btn.innerHTML = '<i data-lucide="settings"></i> 設定';
     } else {
         sidebar.style.width = '0';
         sidebar.classList.add('collapsed');
-        if (btn) btn.innerHTML = '<i data-lucide="settings"></i>';
     }
 }
 

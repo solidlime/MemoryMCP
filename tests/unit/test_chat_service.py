@@ -121,8 +121,10 @@ class TestChatConfig:
         assert cfg2.max_tokens == 1
 
     def test_window_turns_clamped(self):
-        cfg = ChatConfig(persona="test", max_window_turns=100)
-        assert cfg.max_window_turns == 50
+        cfg = ChatConfig(persona="test", max_window_turns=600)
+        assert cfg.max_window_turns == 500
+        cfg2 = ChatConfig(persona="test", max_window_turns=0)
+        assert cfg2.max_window_turns == 1
 
     def test_tool_calls_clamped(self):
         cfg = ChatConfig(persona="test", max_tool_calls=50)
@@ -212,7 +214,16 @@ class TestChatConfigRepository:
                 housekeeping_threshold INTEGER DEFAULT 10,
                 sandbox_enabled INTEGER DEFAULT 0,
                 mental_model_enabled INTEGER DEFAULT 1,
-                mental_model_min_samples INTEGER DEFAULT 3
+                mental_model_min_samples INTEGER DEFAULT 3,
+                max_stored_messages INTEGER DEFAULT 200,
+                context_max_tokens INTEGER,
+                context_compression_threshold REAL DEFAULT 0.8,
+                context_compression_mode TEXT DEFAULT 'auto',
+                context_keep_recent_turns INTEGER DEFAULT 2,
+                context_compress_system_prompt INTEGER DEFAULT 1,
+                context_compress_history INTEGER DEFAULT 1,
+                memory_preload_count INTEGER DEFAULT 3,
+                enable_parallel_tools INTEGER DEFAULT 1
             )
         """)
         db.execute("""

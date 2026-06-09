@@ -184,3 +184,37 @@
 ## 🟡 Phase 3: ファイルプレビュー拡張
 - [ ] IS8: PDF添付を `<iframe>` でインラインプレビュー
 - [ ] IS9: 音声添付を `<audio controls>` で再生可能に
+
+---
+
+# コンテキスト圧縮 + エージェント最適化（2026-06-09）
+
+## 🔴 Phase 1: 基盤
+- [x] C001: TokenCounter 新設（`infrastructure/llm/token_counter.py`: tiktoken + heuristic + model max context）
+- [x] C002: ChatConfig 拡張（9新規フィールド: max_stored_messages, context_max_tokens, context_compression_threshold等）
+- [x] C003: SessionWindow ストレージ上限緩和（max_turns 3→100, max_messages=200）
+
+## 🔴 Phase 2: コンテキスト圧縮
+- [x] C004: CompressStep 新設（`application/chat/pipeline/compress.py`: 3段階圧縮）
+- [x] C005: システムプロンプト圧縮（関連記憶トリミング、スキル説明短縮）
+- [x] C006: ツール結果選択的クリア（古いtool出力を [cleared] に置換）
+- [x] C007: 会話履歴トランケート（keep_recent_turns 基準の自動トランケート）
+- [x] C008: service.py パイプライン統合（PromptBuildStep → CompressStep → InferenceStep）
+- [x] C009: Migration v022（9カラム追加 ALTER TABLE）
+- [x] C010: ルーター更新（save_chat_config で9新規フィールド受付）
+
+## 🔴 Phase 3: 並列ツール実行
+- [x] C011: inference.py 並列化（for→asyncio.gather, enable_parallel_tools config）
+
+## 🔴 Phase 4: プログレッシブ・ディスクロージャー
+- [x] C012: 記憶プリロード最適化（memory_preload_count=3, 必要時ツール経由検索）
+
+## 🔴 Phase 5: WebUI
+- [x] C013: 設定パネル追加（🧠コンテキスト最適化セクション、9入力フィールド + スライダー + チェックボックス）
+- [x] C014: save/load連携（全9フィールドのapplyChatConfig/saveChatConfig対応）
+
+## 🧪 テスト
+- [x] C015: TokenCounter テスト（tiktoken/heuristic/CJK/view）
+- [x] C016: CompressStep テスト（threshold/budget/mode/messages）
+- [x] C017: ChatConfig テスト（defaults/validator/backward_compat/property）
+- [x] C018: 全テスト実行確認（878 passed, 7 skipped, 1 deselected）

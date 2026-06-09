@@ -38,8 +38,11 @@ def _cleanup_expired_sessions(db: sqlite3.Connection, persona: str, ttl_days: in
 
 
 class SessionWindow:
-    def __init__(self, max_turns: int = 3) -> None:
-        self._max_messages: int = max_turns * 2
+    def __init__(self, max_turns: int = 100, max_messages: int | None = None) -> None:
+        if max_messages is not None:
+            self._max_messages: int = max_messages
+        else:
+            self._max_messages: int = max_turns * 2
         self._messages: list[dict] = []
         self._timestamps: list[datetime] = []
         self._db: sqlite3.Connection | None = None
@@ -87,7 +90,7 @@ class SessionWindow:
             logger.warning("SessionWindow._persist failed: %s", e)
 
     @classmethod
-    def from_db(cls, db: sqlite3.Connection, persona: str, session_id: str, max_turns: int = 3) -> SessionWindow | None:
+    def from_db(cls, db: sqlite3.Connection, persona: str, session_id: str, max_turns: int = 100, max_messages: int | None = None) -> SessionWindow | None:
         """SQLiteから既存セッションをロードする。存在しなければNoneを返す。"""
         try:
             row = db.execute(
@@ -96,7 +99,7 @@ class SessionWindow:
             ).fetchone()
             if row is None:
                 return None
-            window = cls(max_turns=max_turns)
+            window = cls(max_turns=max_turns, max_messages=max_messages)
             window.attach_db(db, persona, session_id)
             messages: list[dict] = json.loads(row["messages"] if hasattr(row, "keys") else row[0])
             timestamps_raw: list[str] = json.loads(row["timestamps"] if hasattr(row, "keys") else row[1])
@@ -132,6 +135,10 @@ class SessionWindow:
                 return msg["content"]
         return None
 
+    def get_message_count(self) -> int:
+        """Return number of messages currently in the window."""
+        return len(self._messages)
+
     def __len__(self) -> int:
         return len(self._messages)
 
@@ -145,7 +152,8 @@ class SessionManager:
         self,
         persona: str,
         session_id: str,
-        max_turns: int = 3,
+        max_turns: int = 100,
+        max_messages: int | None = None,
         db: sqlite3.Connection | None = None,
     ) -> SessionWindow:
         key = (persona, session_id)
@@ -162,13 +170,13 @@ class SessionManager:
                 db.commit()
             except Exception:
                 pass
-            window = SessionWindow.from_db(db, persona, session_id, max_turns)
+            window = SessionWindow.from_db(db, persona, session_id, max_turns, max_messages)
             if window is None:
-                window = SessionWindow(max_turns=max_turns)
+                window = SessionWindow(max_turns=max_turns, max_messages=max_messages)
                 window.attach_db(db, persona, session_id)
                 _cleanup_expired_sessions(db, persona)
         else:
-            window = SessionWindow(max_turns=max_turns)
+            window = SessionWindow(max_turns=max_turns, max_messages=max_messages)
 
         self._sessions[key] = window
         return window

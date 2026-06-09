@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from memory_mcp.application.chat.pipeline.compress import CompressStep
 from memory_mcp.application.chat.pipeline.context import ChatTurnContext
 from memory_mcp.application.chat.pipeline.inference import InferenceStep
 from memory_mcp.application.chat.pipeline.post import PostProcessStep
@@ -38,7 +39,7 @@ class ChatService:
     ) -> AsyncIterator[str]:
         persona = ctx.persona
         db = ctx.connection.get_memory_db()
-        session = _session_manager.get_or_create(persona, session_id, config.max_window_turns, db=db)
+        session = _session_manager.get_or_create(persona, session_id, max_messages=config.max_stored_messages, db=db)
 
         turn_ctx = ChatTurnContext(session_id=session_id, user_message=user_message, images=images or [])
 
@@ -56,7 +57,11 @@ class ChatService:
             registry = ToolRegistry(builtin, mcp_pool)
 
             session_messages = session.get_labeled_messages()
-            async for event in InferenceStep().run(ctx, config, session_messages, turn_ctx, registry):
+
+            # CompressStep: コンテキスト圧縮（トークン予算超過時にシステムプロンプト・会話履歴を縮める）
+            messages = CompressStep().run(ctx, config, turn_ctx, session_messages)
+
+            async for event in InferenceStep().run(ctx, config, messages, turn_ctx, registry):
                 yield event.to_sse()
 
         async for post_event in PostProcessStep().run(ctx, config, session, turn_ctx, debug=debug):

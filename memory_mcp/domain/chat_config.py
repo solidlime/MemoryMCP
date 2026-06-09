@@ -42,7 +42,6 @@ class ChatConfig(BaseModel):
     system_prompt: str = ""
     temperature: float = 0.7
     max_tokens: int = 2048
-    max_window_turns: int = 3
     max_tool_calls: int = 5
     auto_extract: bool = True
     extract_model: str = ""
@@ -70,6 +69,17 @@ class ChatConfig(BaseModel):
     housekeeping_threshold: int = 10
     sandbox_enabled: bool = True
     debug_mode: bool = False
+    # === Context compression (v2.1) ===
+    max_window_turns: int = 100  # backward-compat; prefer max_stored_messages
+    max_stored_messages: int = 200
+    context_max_tokens: int | None = None  # None = auto-detect from model
+    context_compression_threshold: float = 0.8  # 0.5-1.0
+    context_compression_mode: str = "auto"  # "light" | "normal" | "aggressive"
+    context_keep_recent_turns: int = 2
+    context_compress_system_prompt: bool = True
+    context_compress_history: bool = True
+    memory_preload_count: int = 3  # 0=all, N=preload top N
+    enable_parallel_tools: bool = True
     updated_at: str | None = None
 
     @field_validator("temperature")
@@ -81,11 +91,6 @@ class ChatConfig(BaseModel):
     @classmethod
     def _clamp_max_tokens(cls, v: int) -> int:
         return max(1, min(32768, v))
-
-    @field_validator("max_window_turns")
-    @classmethod
-    def _clamp_window_turns(cls, v: int) -> int:
-        return max(1, min(50, v))
 
     @field_validator("max_tool_calls")
     @classmethod
@@ -126,6 +131,33 @@ class ChatConfig(BaseModel):
     @classmethod
     def _clamp_housekeeping_threshold(cls, v: int) -> int:
         return max(1, min(100, v))
+
+    @field_validator("max_window_turns")
+    @classmethod
+    def _clamp_window_turns(cls, v: int) -> int:
+        return max(1, min(500, v))
+
+    @field_validator("context_compression_threshold")
+    @classmethod
+    def _clamp_compression_threshold(cls, v: float) -> float:
+        return max(0.5, min(1.0, v))
+
+    @field_validator("context_compression_mode")
+    @classmethod
+    def _validate_compression_mode(cls, v: str) -> str:
+        if v not in ("auto", "light", "normal", "aggressive"):
+            return "auto"
+        return v
+
+    @field_validator("context_keep_recent_turns")
+    @classmethod
+    def _clamp_keep_recent(cls, v: int) -> int:
+        return max(1, min(20, v))
+
+    @field_validator("memory_preload_count")
+    @classmethod
+    def _clamp_preload_count(cls, v: int) -> int:
+        return max(0, min(20, v))
 
     def get_effective_api_key(self) -> str:
         """Return stored API key or fall back to environment variable."""
@@ -181,7 +213,11 @@ class ChatConfigRepository:
                 "session_summarize, "
                 "retrieval_recency_weight, retrieval_importance_weight, retrieval_relevance_weight, "
                 "display_history_turns, housekeeping_threshold, sandbox_enabled, "
-                "mental_model_enabled, mental_model_min_samples "
+                "mental_model_enabled, mental_model_min_samples, "
+                "max_stored_messages, context_max_tokens, context_compression_threshold, "
+                "context_compression_mode, context_keep_recent_turns, "
+                "context_compress_system_prompt, context_compress_history, "
+                "memory_preload_count, enable_parallel_tools "
                 "FROM chat_settings WHERE persona = ?",
                 (persona,),
             ).fetchone()
@@ -212,7 +248,7 @@ class ChatConfigRepository:
             system_prompt=row[5] or "",
             temperature=float(row[6]) if row[6] is not None else 0.7,
             max_tokens=int(row[7]) if row[7] is not None else 2048,
-            max_window_turns=int(row[8]) if row[8] is not None else 3,
+            max_window_turns=int(row[8]) if row[8] is not None else 100,
             max_tool_calls=int(row[9]) if row[9] is not None else 5,
             updated_at=row[10],
             auto_extract=bool(row[11]) if row[11] is not None else True,
@@ -233,6 +269,17 @@ class ChatConfigRepository:
             sandbox_enabled=bool(row[26]) if row[26] is not None else False,
             mental_model_enabled=bool(row[27]) if len(row) > 27 and row[27] is not None else True,
             mental_model_min_samples=int(row[28]) if len(row) > 28 and row[28] is not None else 3,
+            max_stored_messages=int(row[29]) if len(row) > 29 and row[29] is not None else (
+                max(2, int(row[8]) * 2) if row[8] is not None else 200
+            ),
+            context_max_tokens=int(row[30]) if len(row) > 30 and row[30] is not None else None,
+            context_compression_threshold=float(row[31]) if len(row) > 31 and row[31] is not None else 0.8,
+            context_compression_mode=row[32] if len(row) > 32 and row[32] else "auto",
+            context_keep_recent_turns=int(row[33]) if len(row) > 33 and row[33] is not None else 2,
+            context_compress_system_prompt=bool(row[34]) if len(row) > 34 and row[34] is not None else True,
+            context_compress_history=bool(row[35]) if len(row) > 35 and row[35] is not None else True,
+            memory_preload_count=int(row[36]) if len(row) > 36 and row[36] is not None else 3,
+            enable_parallel_tools=bool(row[37]) if len(row) > 37 and row[37] is not None else True,
         )
 
     def save(self, config: ChatConfig) -> None:
@@ -250,8 +297,12 @@ class ChatConfigRepository:
                  retrieval_recency_weight, retrieval_importance_weight, retrieval_relevance_weight,
                  display_history_turns, housekeeping_threshold, sandbox_enabled,
                  mental_model_enabled, mental_model_min_samples,
+                 max_stored_messages, context_max_tokens, context_compression_threshold,
+                 context_compression_mode, context_keep_recent_turns,
+                 context_compress_system_prompt, context_compress_history,
+                 memory_preload_count, enable_parallel_tools,
                  updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(persona) DO UPDATE SET
                 provider=excluded.provider,
                 model=excluded.model,
@@ -280,6 +331,15 @@ class ChatConfigRepository:
                 sandbox_enabled=excluded.sandbox_enabled,
                 mental_model_enabled=excluded.mental_model_enabled,
                 mental_model_min_samples=excluded.mental_model_min_samples,
+                max_stored_messages=excluded.max_stored_messages,
+                context_max_tokens=excluded.context_max_tokens,
+                context_compression_threshold=excluded.context_compression_threshold,
+                context_compression_mode=excluded.context_compression_mode,
+                context_keep_recent_turns=excluded.context_keep_recent_turns,
+                context_compress_system_prompt=excluded.context_compress_system_prompt,
+                context_compress_history=excluded.context_compress_history,
+                memory_preload_count=excluded.memory_preload_count,
+                enable_parallel_tools=excluded.enable_parallel_tools,
                 updated_at=excluded.updated_at
             """,
             (
@@ -311,6 +371,15 @@ class ChatConfigRepository:
                 int(config.sandbox_enabled),
                 int(config.mental_model_enabled),
                 config.mental_model_min_samples,
+                config.max_stored_messages,
+                config.context_max_tokens,
+                config.context_compression_threshold,
+                config.context_compression_mode,
+                config.context_keep_recent_turns,
+                int(config.context_compress_system_prompt),
+                int(config.context_compress_history),
+                config.memory_preload_count,
+                int(config.enable_parallel_tools),
                 now,
             ),
         )

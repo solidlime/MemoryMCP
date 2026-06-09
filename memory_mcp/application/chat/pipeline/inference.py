@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import TYPE_CHECKING
 
@@ -108,12 +109,23 @@ class InferenceStep:
                 )
             )
 
+            # Yield all tool call SSEs first
             for tc in pending_tool_calls:
                 yield ToolCallSSE(name=tc.tool_name, input=tc.tool_input, id=tc.tool_use_id)
 
-                tool_result = await registry.execute(ctx, config, tc.tool_name, tc.tool_input)
-                truncated = registry.truncate_result(tool_result, config.tool_result_max_chars)
+            enable_parallel = getattr(config, "enable_parallel_tools", True)
 
+            async def _exec_one(tc: ToolCallEvent):
+                result = await registry.execute(ctx, config, tc.tool_name, tc.tool_input)
+                truncated = registry.truncate_result(result, config.tool_result_max_chars)
+                return (tc, truncated, result)
+
+            if enable_parallel:
+                results = await asyncio.gather(*[_exec_one(tc) for tc in pending_tool_calls])
+            else:
+                results = [await _exec_one(tc) for tc in pending_tool_calls]
+
+            for tc, truncated, tool_result in results:
                 yield ToolResultSSE(name=tc.tool_name, result=truncated, id=tc.tool_use_id)
                 turn_ctx.tool_calls_log.append(
                     {

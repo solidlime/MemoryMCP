@@ -72,6 +72,15 @@ def register_chat_routes(mcp) -> None:
             "sandbox_enabled",
             "mental_model_enabled",
             "mental_model_min_samples",
+            "max_stored_messages",
+            "context_max_tokens",
+            "context_compression_threshold",
+            "context_compression_mode",
+            "context_keep_recent_turns",
+            "context_compress_system_prompt",
+            "context_compress_history",
+            "memory_preload_count",
+            "enable_parallel_tools",
         ):
             if field_name in body:
                 update_data[field_name] = body[field_name]

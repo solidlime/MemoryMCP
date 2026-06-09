@@ -344,8 +344,10 @@ class PrepareStep:
             # context_section 構築
             last_assistant = session.get_last_assistant_content()
             context_task = asyncio.create_task(_build_context_section(ctx, state))
+            # Progressive disclosure: only preload N memories; LLM searches for more if needed
+            preload_count = getattr(config, "memory_preload_count", 8)
             memory_task = asyncio.create_task(
-                _search_memories(ctx, turn_ctx.user_message, last_assistant, config, top_k=8)
+                _search_memories(ctx, turn_ctx.user_message, last_assistant, config, top_k=max(preload_count, 1) if preload_count > 0 else 0)
             )
             turn_ctx.context_section, (turn_ctx.related_memories, debug, memories_list) = await asyncio.gather(
                 context_task, memory_task
@@ -358,8 +360,9 @@ class PrepareStep:
             # contextなしで継続
             last_assistant = session.get_last_assistant_content()
             try:
+                preload_count = getattr(config, "memory_preload_count", 8)
                 turn_ctx.related_memories, debug, memories_list = await _search_memories(
-                    ctx, turn_ctx.user_message, last_assistant, config, top_k=8
+                    ctx, turn_ctx.user_message, last_assistant, config, top_k=max(preload_count, 1) if preload_count > 0 else 0
                 )
                 turn_ctx.memory_debug = debug
                 turn_ctx.memories_raw = debug.get("results", [])
