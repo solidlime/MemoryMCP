@@ -1063,6 +1063,7 @@ function loadChat() {
     loadSkillsForChat();
     restoreChatHistory();
     loadChatCommitments();
+    loadEquipment();
     setTimeout(() => { if (typeof lucide !== 'undefined') lucide.createIcons(); }, 100);
 }
 
@@ -1078,6 +1079,17 @@ async function loadChatCommitments() {
         }
     } catch (_e) {
         // commitments API unavailable — ignore silently
+    }
+}
+
+async function loadEquipment() {
+    if (!S.persona) return;
+    try {
+        const data = await api('/api/dashboard/' + encodeURIComponent(S.persona));
+        const equipment = data.equipment || {};
+        updateEquipmentPanel({equip: equipment});
+    } catch (_e) {
+        // dashboard API unavailable — ignore silently
     }
 }
 
@@ -1486,8 +1498,10 @@ function showSessionSummarized(summary) {
 }
 
 function showContextCompressed(evt) {
-    const pct = Math.round(evt.before_tokens / evt.budget * 100);
-    toast('🧠 コンテキスト圧縮: ' + evt.before_tokens + ' → ' + evt.after_tokens + ' tokens (' + pct + '% → ' + Math.round(evt.after_tokens / evt.budget * 100) + '%)', 'info');
+    const beforePct = Math.round(evt.before_tokens / evt.budget * 100);
+    const afterPct = Math.round(evt.after_tokens / evt.budget * 100);
+    const savings = evt.before_tokens - evt.after_tokens;
+    toast('🧠 圧縮: ' + evt.before_tokens + '→' + evt.after_tokens + ' tokens (' + beforePct + '%→' + afterPct + '% 予算比) ' + (-savings / evt.before_tokens * 100).toFixed(0) + '%削減', 'info');
 }
 
 function clearChatHistory() {
@@ -2388,7 +2402,7 @@ function updateEquipmentPanel(update) {
     const added = update.add_items || [];
 
     let html = '';
-    const entries = Object.entries(equipped);
+    const entries = Object.entries(equipped).filter(function(e){ return e[1] != null && e[1] !== ''; });
     if (entries.length > 0) {
         html += '<div style="font-size:0.75rem;font-weight:600;color:var(--text-muted);margin-bottom:4px;">装備中</div>';
         for (const [slot, item] of entries) {
