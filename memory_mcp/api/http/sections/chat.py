@@ -663,8 +663,8 @@ def render_chat_tab() -> str:
                     <!-- Equipment -->
                     <div class="memory-panel-section">
                         <div class="memory-section-header"><i data-lucide="backpack"></i> 装備</div>
-                        <div id="memory-equipment-list">
-                            <div class="memory-empty">装備情報がここに表示されます</div>
+                        <div id="memory-equipment-list" style="max-height:150px;overflow-y:auto;">
+                            <div class="memory-empty">会話中に装備変更があればここに表示されます</div>
                         </div>
                     </div>
                 </div>
@@ -1485,6 +1485,11 @@ function showSessionSummarized(summary) {
     }
 }
 
+function showContextCompressed(evt) {
+    const pct = Math.round(evt.before_tokens / evt.budget * 100);
+    toast('🧠 コンテキスト圧縮: ' + evt.before_tokens + ' → ' + evt.after_tokens + ' tokens (' + pct + '% → ' + Math.round(evt.after_tokens / evt.budget * 100) + '%)', 'info');
+}
+
 function clearChatHistory() {
     CHAT.messages = [];
     const container = document.getElementById('chat-messages');
@@ -2227,6 +2232,9 @@ async function chatSend(retry) {
                     updateMemoryPanel(evt.retrieved, evt.saved, undefined, undefined);
                     setTimeout(() => loadChatCommitments(), 300);
 
+                } else if (evt.type === 'inventory_update') {
+                    updateEquipmentPanel(evt.update);
+
                 } else if (evt.type === 'reflection_start') {
                     showReflectionStart();
 
@@ -2235,6 +2243,9 @@ async function chatSend(retry) {
 
                 } else if (evt.type === 'session_summarized') {
                     showSessionSummarized(evt.summary);
+
+                } else if (evt.type === 'context_compressed') {
+                    showContextCompressed(evt);
 
                 } else if (evt.type === 'error') {
                     removeTypingIndicator();
@@ -2366,6 +2377,38 @@ const MEMORY_TOOL_NAMES = new Set([
 const FILE_OP_TOOLS = new Set(['edit', 'create', 'view', 'bash', 'powershell', 'str_replace_editor',
     'write_file', 'read_file', 'delete_file', 'list_files', 'glob', 'grep']);
 
+function updateEquipmentPanel(update) {
+    const list = document.getElementById('memory-equipment-list');
+    if (!list) return;
+    if (!update) return;
+
+    // Build equipment display from update data
+    const equipped = update.equip || {};
+    const unequipped = update.unequip || [];
+    const added = update.add_items || [];
+
+    let html = '';
+    const entries = Object.entries(equipped);
+    if (entries.length > 0) {
+        html += '<div style="font-size:0.75rem;font-weight:600;color:var(--text-muted);margin-bottom:4px;">装備中</div>';
+        for (const [slot, item] of entries) {
+            const slotLabel = {top:'👕上', bottom:'👖下', shoes:'👟靴', outer:'🧥アウター', accessories:'💍アクセ', head:'🎩頭'}[slot] || slot;
+            html += '<div style="font-size:0.73rem;padding:2px 0;display:flex;justify-content:space-between;">' +
+                '<span>' + slotLabel + '</span><span>' + esc(String(item)) + '</span></div>';
+        }
+    }
+    if (unequipped.length > 0) {
+        html += '<div style="font-size:0.7rem;opacity:0.6;margin-top:4px;">外した: ' + unequipped.map(function(i){return esc(String(i));}).join(', ') + '</div>';
+    }
+    if (added.length > 0) {
+        html += '<div style="font-size:0.7rem;opacity:0.6;margin-top:2px;">追加: ' + added.map(function(i){return esc(String(i));}).join(', ') + '</div>';
+    }
+
+    if (html) {
+        list.innerHTML = html;
+    }
+}
+
 // Track in-flight memory ops for result pairing
 const _memOps = {};
 
@@ -2393,7 +2436,7 @@ function handleMemoryToolCall(evt) {
     const card = document.createElement('div');
     card.className = 'memory-item-card';
     card.id = id;
-    card.innerHTML = '<div class="mem-score">' + esc(icon + ' ' + label) + '</div>' +
+    card.innerHTML = '<div class="mem-score" style="cursor:pointer;" title="クリックで結果表示">' + esc(icon + ' ' + label) + '</div>' +
         '<span style="opacity:0.5;font-size:0.7rem">実行中...</span>';
     el.prepend(card);
     const cards = el.querySelectorAll('.memory-item-card');
@@ -2410,9 +2453,35 @@ function handleMemoryToolResult(evt) {
             const span = card.querySelector('span');
             if (span) span.remove();
             const resultStr = typeof evt.result === 'string' ? evt.result : JSON.stringify(evt.result);
+            const truncated = resultStr.substring(0, 100);
+            const isTruncated = resultStr.length > 100;
             const detail = document.createElement('div');
             detail.style.cssText = 'font-size:0.7rem;opacity:0.75;margin-top:2px;';
-            detail.textContent = resultStr.substring(0, 100) + (resultStr.length > 100 ? '...' : '');
+            detail.textContent = truncated + (isTruncated ? '...' : '');
+            if (isTruncated) {
+                detail.style.cursor = 'pointer';
+                detail.title = 'クリックで全文表示';
+                detail.setAttribute('data-full', resultStr);
+                detail.setAttribute('data-truncated', 'true');
+                detail.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const isTrunc = this.getAttribute('data-truncated') === 'true';
+                    if (isTrunc) {
+                        this.textContent = this.getAttribute('data-full');
+                        this.setAttribute('data-truncated', 'false');
+                        this.style.maxHeight = '200px';
+                        this.style.overflowY = 'auto';
+                        this.title = 'クリックで折りたたみ';
+                    } else {
+                        const full = this.getAttribute('data-full');
+                        this.textContent = full.substring(0, 100) + '...';
+                        this.setAttribute('data-truncated', 'true');
+                        this.style.maxHeight = '';
+                        this.style.overflowY = '';
+                        this.title = 'クリックで全文表示';
+                    }
+                });
+            }
             card.appendChild(detail);
         }
         delete _memOps[key];

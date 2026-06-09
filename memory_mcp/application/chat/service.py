@@ -60,6 +60,16 @@ class ChatService:
 
             # CompressStep: コンテキスト圧縮（トークン予算超過時にシステムプロンプト・会話履歴を縮める）
             messages = CompressStep().run(ctx, config, turn_ctx, session_messages)
+            # Notify frontend if compression occurred
+            comp_info = getattr(turn_ctx, '_compression_info', None)
+            if comp_info:
+                from memory_mcp.application.chat.events import ContextCompressedSSE
+                yield ContextCompressedSSE(
+                    before_tokens=comp_info["before_tokens"],
+                    after_tokens=comp_info["after_tokens"],
+                    budget=comp_info["budget"],
+                    mode=config.context_compression_mode,
+                ).to_sse()
 
             async for event in InferenceStep().run(ctx, config, messages, turn_ctx, registry):
                 yield event.to_sse()

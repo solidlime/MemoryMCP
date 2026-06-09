@@ -67,6 +67,7 @@ class CompressStep:
             return session_messages
 
         logger.info("CompressStep: %d/%d tokens (%.0f%%) — OVER budget, compressing...", total, budget, total * 100 / budget if budget else 0)
+        before_total = total
 
         # Stage 1: System prompt trimming
         if getattr(config, "context_compress_system_prompt", True):
@@ -104,6 +105,12 @@ class CompressStep:
 
         total = _count_system_prompt_tokens(turn_ctx.system_prompt, model) + _count_messages_tokens(messages, model)
         logger.info("CompressStep: after compression: %d tokens", total)
+        # Store compression info for SSE notification
+        turn_ctx._compression_info = {
+            "before_tokens": before_total,
+            "after_tokens": total,
+            "budget": budget,
+        }
         return list(messages)
 
     @staticmethod
