@@ -157,23 +157,23 @@ const TL_EMOTION_COLORS = {
     sadness:     { bg: 'rgba(96,165,250,0.15)',  border: '#60A5FA', emoji: '<i data-lucide="frown"></i>' },
     anger:       { bg: 'rgba(248,113,113,0.15)', border: '#F87171', emoji: '<i data-lucide="angry"></i>' },
     love:        { bg: 'rgba(244,114,182,0.15)', border: '#F472B6', emoji: '<i data-lucide="heart"></i>' },
-    fear:        { bg: 'rgba(167,139,250,0.15)', border: '#A78BFA', emoji: '<i data-lucide="fear"></i>' },
-    surprise:    { bg: 'rgba(52,211,153,0.15)',  border: '#34D399', emoji: '<i data-lucide="surprise"></i>' },
+    fear:        { bg: 'rgba(167,139,250,0.15)', border: '#A78BFA', emoji: '<i data-lucide="skull"></i>' },
+    surprise:    { bg: 'rgba(52,211,153,0.15)',  border: '#34D399', emoji: '<i data-lucide="sparkles"></i>' },
     neutral:     { bg: 'rgba(156,163,175,0.15)', border: '#9CA3AF', emoji: '<i data-lucide="meh"></i>' },
     excitement:  { bg: 'rgba(245,158,11,0.15)',  border: '#F59E0B', emoji: '<i data-lucide="star"></i>' },
     pride:       { bg: 'rgba(129,140,248,0.15)', border: '#818CF8', emoji: '<i data-lucide="feather"></i>' },
-    shame:       { bg: 'rgba(251,113,133,0.15)', border: '#FB7185', emoji: '<i data-lucide="flushed"></i>' },
+    shame:       { bg: 'rgba(251,113,133,0.15)', border: '#FB7185', emoji: '<i data-lucide="eye-off"></i>' },
     curiosity:   { bg: 'rgba(45,212,191,0.15)',  border: '#2DD4BF', emoji: '<i data-lucide="brain-circuit"></i>' },
-    anxiety:     { bg: 'rgba(248,113,113,0.12)', border: '#F87171', emoji: '<i data-lucide="anxiety"></i>' },
-    frustration: { bg: 'rgba(251,146,60,0.15)',  border: '#FB923C', emoji: '<i data-lucide="frustration"></i>' },
+    anxiety:     { bg: 'rgba(248,113,113,0.12)', border: '#F87171', emoji: '<i data-lucide="activity"></i>' },
+    frustration: { bg: 'rgba(251,146,60,0.15)',  border: '#FB923C', emoji: '<i data-lucide="alert-triangle"></i>' },
     nostalgia:   { bg: 'rgba(167,139,250,0.12)', border: '#A78BFA', emoji: '<i data-lucide="sunrise"></i>' },
     trust:       { bg: 'rgba(52,211,153,0.12)',  border: '#34D399', emoji: '<i data-lucide="handshake"></i>' },
     loneliness:  { bg: 'rgba(148,163,184,0.15)', border: '#94A3B8', emoji: '<i data-lucide="frown"></i>' },
     contentment: { bg: 'rgba(134,239,172,0.15)', border: '#86EFAC', emoji: '<i data-lucide="smile-plus"></i>' },
-    awe:         { bg: 'rgba(192,132,252,0.15)', border: '#C084FC', emoji: '<i data-lucide=&quot;milky-way&quot;></i>' },
-    relief:      { bg: 'rgba(110,231,183,0.15)', border: '#6EE7B7', emoji: '<i data-lucide=&quot;surprised&quot;></i><i data-lucide=&quot;wind&quot;></i>' },
-    disgust:     { bg: 'rgba(163,230,53,0.15)',  border: '#A3E635', emoji: '<i data-lucide=&quot;dizzy&quot;></i>' },
-    guilt:       { bg: 'rgba(252,165,165,0.15)', border: '#FCA5A5', emoji: '<i data-lucide="disappointed"></i>' },
+    awe:         { bg: 'rgba(192,132,252,0.15)', border: '#C084FC', emoji: '<i data-lucide="sun"></i>' },
+    relief:      { bg: 'rgba(110,231,183,0.15)', border: '#6EE7B7', emoji: '<i data-lucide="wind"></i>' },
+    disgust:     { bg: 'rgba(163,230,53,0.15)',  border: '#A3E635', emoji: '<i data-lucide="thumbs-down"></i>' },
+    guilt:       { bg: 'rgba(252,165,165,0.15)', border: '#FCA5A5', emoji: '<i data-lucide="heart-crack"></i>' },
 };
 
 function getEmotionStyle(emotion) {
@@ -196,6 +196,7 @@ function buildEmotionLegend() {
             sel.innerHTML += '<option value="' + emo + '">' + TL_EMOTION_COLORS[emo].emoji + ' ' + emo + '</option>';
         }
     }
+    setTimeout(() => { if (typeof lucide !== 'undefined') lucide.createIcons(); }, 50);
 }
 
 let _timeline = null;
@@ -273,6 +274,7 @@ async function loadTimeline() {
         };
 
         _timeline = new vis.Timeline(container, _timelineItems, options);
+        setTimeout(() => { if (typeof lucide !== 'undefined') lucide.createIcons(); }, 150);
 
         _timeline.on('select', function(props) {
             if (props.items.length > 0) {
@@ -335,6 +337,7 @@ function showTimelineDetail(mem) {
     document.getElementById('tl-detail-body').innerHTML = bodyHtml;
 
     panel.classList.add('open');
+    setTimeout(() => { if (typeof lucide !== 'undefined') lucide.createIcons(); }, 50);
 }
 
 function closeTimelineDetail() {

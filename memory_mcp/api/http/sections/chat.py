@@ -741,11 +741,6 @@ def render_chat_tab() -> str:
                             <summary><i data-lucide="message-circle"></i> コンテキスト <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'context')" title="説明を表示" onmouseleave="hideHelpTooltip()"><i data-lucide="help-circle"></i></span></summary>
                             <div class="details-body">
                                 <div>
-                                    <div class="chat-field-label">コンテキスト履歴 (turns)</div>
-                                    <input type="number" id="chat-window-turns" class="chat-field-input" min="1" max="50" value="3" />
-                                    <div class="chat-field-hint" style="font-size:0.7rem;color:var(--text-muted);margin-top:-6px;margin-bottom:8px;">（旧設定: 保存メッセージ数に自動置換されます）</div>
-                                </div>
-                                <div>
                                     <div class="chat-field-label">表示履歴 (turns) <span style="color:var(--text-muted);font-size:0.7rem;">（ページロード時に遡る件数）</span></div>
                                     <input type="number" id="chat-display-history-turns" class="chat-field-input" min="1" max="200" value="20" />
                                 </div>
@@ -1112,7 +1107,6 @@ function applyChatConfig(cfg) {
     set('chat-base-url', cfg.base_url || '');
     set('chat-temperature', cfg.temperature != null ? cfg.temperature : 0.7);
     set('chat-max-tokens', cfg.max_tokens || 2048);
-    set('chat-window-turns', cfg.max_window_turns || 3);
     set('chat-max-tool-calls', cfg.max_tool_calls || 5);
     set('chat-system-prompt', cfg.system_prompt || '');
     setChecked('chat-auto-extract', cfg.auto_extract !== false);
@@ -1204,7 +1198,6 @@ async function saveChatConfig() {
         base_url: document.getElementById('chat-base-url').value.trim(),
         temperature: parseFloat(document.getElementById('chat-temperature').value),
         max_tokens: parseInt(document.getElementById('chat-max-tokens').value),
-        max_window_turns: parseInt(document.getElementById('chat-window-turns').value), // keep for backward compat
         max_stored_messages: parseInt(document.getElementById('chat-stored-msgs').value),
         context_max_tokens: (function() {
             var v = parseInt(document.getElementById('chat-context-max-tokens').value);
