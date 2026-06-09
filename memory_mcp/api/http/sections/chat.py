@@ -755,46 +755,48 @@ def render_chat_tab() -> str:
                                         style="flex:1;resize:vertical;min-height:70px;max-height:300px;overflow-y:auto;"></textarea>
                                 </div>
                                 <!-- コンテキスト最適化 (v2.1) -->
-                                <details class="settings-subsection" style="margin-top:12px;border:1px solid var(--glass-border);border-radius:8px;padding:0 12px 12px;">
-                                  <summary style="cursor:pointer;padding:8px 0;font-weight:600;color:var(--text-primary);">🧠 コンテキスト最適化</summary>
+                                <details class="chat-subsection" style="margin-top:10px;padding-top:8px;border-top:1px solid var(--glass-border);">
+                                  <summary style="font-size:0.82rem;font-weight:600;color:var(--text-secondary);cursor:pointer;padding:4px 0;">🧠 コンテキスト最適化</summary>
+                                  <div style="padding-top:8px;">
                                   
-                                  <label class="setting-label" for="chat-stored-msgs">保存メッセージ数</label>
-                                  <input type="number" id="chat-stored-msgs" class="setting-input" value="200" min="2" max="2000" style="width:100%;margin-bottom:8px;">
-                                  <div class="setting-hint" style="font-size:0.7rem;color:var(--text-muted);margin-top:-6px;margin-bottom:8px;">SQLiteに保存する最大メッセージ数（セッション永続化用）</div>
-                                
-                                  <label class="setting-label" for="chat-context-max-tokens">トークン上限</label>
-                                  <input type="number" id="chat-context-max-tokens" class="setting-input" value="" placeholder="自動（モデル判定）" min="1000" max="1000000" style="width:100%;margin-bottom:8px;">
-                                  <div class="setting-hint" style="font-size:0.7rem;color:var(--text-muted);margin-top:-6px;margin-bottom:8px;">空欄でモデルのコンテキストウィンドウを自動判定</div>
-                                
-                                  <label class="setting-label" for="chat-compression-threshold">圧縮閾値 <span id="threshold-display">80%</span></label>
-                                  <input type="range" id="chat-compression-threshold" min="50" max="100" value="80" style="width:100%;margin-bottom:8px;">
-                                
-                                  <label class="setting-label" for="chat-compression-mode">圧縮モード</label>
-                                  <select id="chat-compression-mode" class="setting-input" style="width:100%;margin-bottom:8px;">
+                                  <div class="chat-field-label">保存メッセージ数</div>
+                                  <input type="number" id="chat-stored-msgs" class="chat-field-input" value="200" min="2" max="2000" />
+                                  <div class="chat-field-hint" style="font-size:0.7rem;color:var(--text-muted);margin-top:-6px;margin-bottom:8px;">SQLiteに保存する最大メッセージ数（セッション永続化用）</div>
+
+                                  <div class="chat-field-label">トークン上限</div>
+                                  <input type="number" id="chat-context-max-tokens" class="chat-field-input" value="" placeholder="自動（モデル判定）" min="1000" max="1000000" />
+                                  <div class="chat-field-hint" style="font-size:0.7rem;color:var(--text-muted);margin-top:-6px;margin-bottom:8px;">空欄でモデルのコンテキストウィンドウを自動判定</div>
+
+                                  <div class="chat-field-label">圧縮閾値 <span id="threshold-display">80%</span></div>
+                                  <input type="range" id="chat-compression-threshold" min="50" max="100" value="80" style="width:100%;margin:4px 0;" />
+
+                                  <div class="chat-field-label">圧縮モード</div>
+                                  <select id="chat-compression-mode" class="chat-field-input">
                                     <option value="auto">自動</option>
                                     <option value="light">軽度</option>
                                     <option value="normal">標準</option>
                                     <option value="aggressive">強力</option>
                                   </select>
-                                
-                                  <label class="setting-label" for="chat-keep-recent">完全保持ターン数</label>
-                                  <input type="number" id="chat-keep-recent" class="setting-input" value="2" min="1" max="20" style="width:100%;margin-bottom:8px;">
-                                
-                                  <label class="setting-label" for="chat-memory-preload">記憶プリロード数</label>
-                                  <input type="number" id="chat-memory-preload" class="setting-input" value="3" min="0" max="20" style="width:100%;margin-bottom:8px;">
-                                  <div class="setting-hint" style="font-size:0.7rem;color:var(--text-muted);margin-top:-6px;margin-bottom:8px;">systemプロンプトに含める関連記憶の数。0で全件オンデマンド検索</div>
-                                
-                                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+
+                                  <div class="chat-field-label">完全保持ターン数</div>
+                                  <input type="number" id="chat-keep-recent" class="chat-field-input" value="2" min="1" max="20" />
+
+                                  <div class="chat-field-label">記憶プリロード数</div>
+                                  <input type="number" id="chat-memory-preload" class="chat-field-input" value="3" min="0" max="20" />
+                                  <div class="chat-field-hint" style="font-size:0.7rem;color:var(--text-muted);margin-top:-6px;margin-bottom:8px;">systemプロンプトに含める関連記憶の数。0で全件オンデマンド検索</div>
+
+                                  <div style="display:flex;align-items:center;gap:8px;margin:6px 0;">
                                     <input type="checkbox" id="chat-compress-system" checked>
-                                    <label for="chat-compress-system" style="font-size:0.78rem;">システムプロンプト圧縮</label>
+                                    <label for="chat-compress-system" style="font-size:0.8rem;">システムプロンプト圧縮</label>
                                   </div>
-                                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                                  <div style="display:flex;align-items:center;gap:8px;margin:6px 0;">
                                     <input type="checkbox" id="chat-compress-history" checked>
-                                    <label for="chat-compress-history" style="font-size:0.78rem;">会話履歴圧縮</label>
+                                    <label for="chat-compress-history" style="font-size:0.8rem;">会話履歴圧縮</label>
                                   </div>
-                                  <div style="display:flex;align-items:center;gap:8px;">
+                                  <div style="display:flex;align-items:center;gap:8px;margin:6px 0;">
                                     <input type="checkbox" id="chat-parallel-tools" checked>
-                                    <label for="chat-parallel-tools" style="font-size:0.78rem;">並列ツール実行</label>
+                                    <label for="chat-parallel-tools" style="font-size:0.8rem;">並列ツール実行</label>
+                                  </div>
                                   </div>
                                 </details>
                             </div>
