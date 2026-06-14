@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from datetime import datetime
 
 import pytest
@@ -10,7 +9,6 @@ import pytest
 from memory_mcp.domain.memory.session_event import SessionEvent
 from memory_mcp.infrastructure.sqlite.connection import SQLiteConnection
 from memory_mcp.infrastructure.sqlite.session_event_repo import SessionEventRepository
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -174,7 +172,7 @@ class TestSessionEventRepository:
             summary="with metadata",
             metadata=metadata,
         )
-        row_id = repo.insert(event)
+        _ = repo.insert(event)
 
         # Read back and verify metadata is preserved
         events = repo.get_by_session("sess_meta")

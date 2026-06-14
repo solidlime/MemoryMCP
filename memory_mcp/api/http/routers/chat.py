@@ -222,10 +222,10 @@ def register_chat_routes(mcp) -> None:
     @mcp.custom_route("/api/chat/{persona}/sessions/{session_id}/rollback", methods=["POST"])
     async def rollback_chat_session(request: Request) -> JSONResponse:
         """ロールバック: keep_until インデックスまでメッセージを保持し、以降を削除。
-        
+
         Request body: {"keep_until": int}
         - keep_until=2 → インデックス 0,1 を保持、2以降を削除
-        
+
         Response: {"removed_count": N, "remaining_messages": [...],
                     "removed_user_text": "..." | null}
         """
@@ -241,13 +241,13 @@ def register_chat_routes(mcp) -> None:
             body = await request.json()
         except Exception:
             return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
-        
+
         keep_until = body.get("keep_until", 0)
         if not isinstance(keep_until, int) or keep_until < 0:
             return JSONResponse({"error": "keep_until must be non-negative integer"}, status_code=400)
 
         from memory_mcp.application.chat.service import _session_manager
-        from memory_mcp.application.chat.session_store import SessionManager
+        from memory_mcp.application.chat.session_store import SessionManager, SessionWindow
 
         key = (persona, session_id)
         window = _session_manager._sessions.get(key)

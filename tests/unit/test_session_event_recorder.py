@@ -11,7 +11,6 @@ import pytest
 from memory_mcp.application.session_event_recorder import SessionEventRecorder
 from memory_mcp.domain.memory.session_event import SessionEvent
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -53,7 +52,7 @@ class TestSessionEventRecorder:
         actual_calls = mock_event_bus.subscribe.call_args_list
         assert len(actual_calls) == len(expected_types)
 
-        for (args, _kwargs), exp_type in zip(actual_calls, expected_types):
+        for (args, _kwargs), exp_type in zip(actual_calls, expected_types, strict=True):
             assert args[0] == exp_type
             # Verify the handler is _on_event bound to this recorder instance
             assert args[1].__self__ is recorder

@@ -82,7 +82,7 @@ def register_events_routes(mcp) -> None:
                         event_type, data = await asyncio.wait_for(queue.get(), timeout=15.0)
                         payload = json.dumps(data, ensure_ascii=False, default=str)
                         yield f"event: {event_type}\ndata: {payload}\n\n"
-                    except asyncio.TimeoutError:
+                    except TimeoutError:
                         # Keepalive comment (SSE spec: lines starting with : are comments)
                         yield ": keepalive\n\n"
             except asyncio.CancelledError:

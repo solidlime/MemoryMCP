@@ -1,11 +1,15 @@
 """SessionEventRecorder: EventBus subscriber that records MCP tool calls and session events."""
 from __future__ import annotations
 
+import contextlib
 import logging
+from typing import TYPE_CHECKING
 
-from memory_mcp.application.event_bus import EventBus
 from memory_mcp.domain.memory.session_event import SessionEvent
 from memory_mcp.domain.shared.time_utils import get_now
+
+if TYPE_CHECKING:
+    from memory_mcp.application.event_bus import EventBus
 
 logger = logging.getLogger(__name__)
 
@@ -42,10 +46,8 @@ class SessionEventRecorder:
             if timestamp_str:
                 from datetime import datetime
 
-                try:
+                with contextlib.suppress(ValueError, TypeError):
                     timestamp = datetime.fromisoformat(timestamp_str)
-                except (ValueError, TypeError):
-                    pass
 
             detail = data.get("detail")
             metadata = data.get("metadata")
@@ -67,7 +69,6 @@ class SessionEventRecorder:
         """Build a human-readable summary from event data."""
         if event_type == "tool.called":
             tool_name = data.get("tool_name", "unknown")
-            params = data.get("params_summary", "")
             result = data.get("result_summary", "")
             success = data.get("success", True)
             status = "✓" if success else "✗"
