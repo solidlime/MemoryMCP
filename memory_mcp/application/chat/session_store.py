@@ -71,6 +71,21 @@ class SessionWindow:
         self._timestamps.append(ts or get_now())
         self._persist()
 
+    def truncate_to(self, message_index: int) -> list[dict]:
+        """Keep only messages up to (not including) message_index. Returns removed messages.
+
+        Example: truncate_to(2) on [m0, m1, m2, m3] → keeps [m0, m1], returns [m2, m3]
+        """
+        if message_index < 0:
+            message_index = 0
+        if message_index > len(self._messages):
+            message_index = len(self._messages)
+        removed = list(self._messages[message_index:])
+        self._messages = self._messages[:message_index]
+        self._timestamps = self._timestamps[:message_index]
+        self._persist()
+        return removed
+
     def _persist(self) -> None:
         """現在のウィンドウ状態をSQLiteにupsertする。"""
         if self._db is None or not self._persona or not self._session_id:

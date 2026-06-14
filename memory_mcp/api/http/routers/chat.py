@@ -219,6 +219,68 @@ def register_chat_routes(mcp) -> None:
         _session_manager.clear(persona, session_id)
         return JSONResponse({"deleted": True, "session_id": session_id})
 
+    @mcp.custom_route("/api/chat/{persona}/sessions/{session_id}/rollback", methods=["POST"])
+    async def rollback_chat_session(request: Request) -> JSONResponse:
+        """ロールバック: keep_until インデックスまでメッセージを保持し、以降を削除。
+        
+        Request body: {"keep_until": int}
+        - keep_until=2 → インデックス 0,1 を保持、2以降を削除
+        
+        Response: {"removed_count": N, "remaining_messages": [...],
+                    "removed_user_text": "..." | null}
+        """
+        persona = _resolve_persona_from_request(request)
+        ctx = _safe_get_context(persona)
+        if not ctx:
+            return JSONResponse({"error": "Persona not found"}, status_code=404)
+        session_id = request.path_params.get("session_id", "")
+        if not session_id:
+            return JSONResponse({"error": "session_id required"}, status_code=400)
+
+        try:
+            body = await request.json()
+        except Exception:
+            return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
+        
+        keep_until = body.get("keep_until", 0)
+        if not isinstance(keep_until, int) or keep_until < 0:
+            return JSONResponse({"error": "keep_until must be non-negative integer"}, status_code=400)
+
+        from memory_mcp.application.chat.service import _session_manager
+        from memory_mcp.application.chat.session_store import SessionManager
+
+        key = (persona, session_id)
+        window = _session_manager._sessions.get(key)
+
+        if window:
+            removed = window.truncate_to(keep_until)
+        else:
+            # Window not in memory — load from DB, truncate, persist
+            from memory_mcp.application.chat.session_store import _CHAT_SESSIONS_SCHEMA
+            db = ctx.connection.get_memory_db()
+            db.execute(_CHAT_SESSIONS_SCHEMA)
+            db.commit()
+            window = SessionWindow.from_db(db, persona, session_id)
+            if window is None:
+                return JSONResponse({"error": "Session not found"}, status_code=404)
+            removed = window.truncate_to(keep_until)
+
+        db = ctx.connection.get_memory_db()
+        remaining = SessionManager.get_messages(db, persona, session_id)
+
+        # Return the user message text that was just removed (if any) for input field population
+        removed_user_text = None
+        for msg in reversed(removed):
+            if msg["role"] == "user":
+                removed_user_text = msg["content"]
+                break
+
+        return JSONResponse({
+            "removed_count": len(removed),
+            "remaining_messages": remaining,
+            "removed_user_text": removed_user_text,
+        })
+
     @mcp.custom_route("/api/chat/{persona}/housekeeping", methods=["POST"])
     async def run_housekeeping(request: Request) -> JSONResponse:
         """コンテキスト整理: staleなgoals/promises/itemsをLLMで判定・削除する。"""

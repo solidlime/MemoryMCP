@@ -1536,14 +1536,68 @@ function getChatSessionId() {
     return sid;
 }
 
+// Rollback: undo messages from keep_until onwards, optionally auto-resend
+async function rollbackChat(keepUntil, shouldResend) {
+    if (!S.persona) return;
+    const sid = getChatSessionId();
+    
+    try {
+        const result = await api('/api/chat/' + encodeURIComponent(S.persona) + '/sessions/' + encodeURIComponent(sid) + '/rollback', {
+            method: 'POST',
+            body: JSON.stringify({ keep_until: keepUntil }),
+        });
+        
+        // Remove DOM messages from keep_until onwards
+        const container = document.getElementById('chat-messages');
+        const allMsgs = container.querySelectorAll('.chat-msg');
+        for (const msg of allMsgs) {
+            if (parseInt(msg.dataset.msgIndex) >= keepUntil) {
+                msg.remove();
+            }
+        }
+        
+        // Restore welcome if no messages left
+        if (container.querySelectorAll('.chat-msg').length === 0) {
+            container.innerHTML = `<div class="chat-welcome" id="chat-welcome">
+                <div class="chat-welcome-icon"><i data-lucide="message-circle"></i></div>
+                <p>チャットを開始するには下のテキストボックスにメッセージを入力してください。</p>
+            </div>`;
+        }
+        
+        if (result.removed_user_text) {
+            const inputEl = document.getElementById('chat-input');
+            if (inputEl) {
+                inputEl.value = result.removed_user_text;
+                inputEl.focus();
+                inputEl.dispatchEvent(new Event('input'));
+            }
+            
+            if (shouldResend) {
+                // Small delay to let the DOM settle, then auto-send
+                setTimeout(() => { chatSend(false); }, 100);
+            }
+        }
+        
+        if (result.removed_count > 0) {
+            toast('🔄 ' + result.removed_count + '件のメッセージを元に戻しました', 'info');
+        }
+    } catch (e) {
+        toast('ロールバック失敗: ' + e.message, 'error');
+    }
+}
+
 function appendChatMessage(role, content, timeStr, isMarkdown) {
     const container = document.getElementById('chat-messages');
     // Remove welcome message if present
     const welcome = container.querySelector('.chat-welcome');
     if (welcome) welcome.remove();
 
+    // Calculate message index (0-based position in session)
+    const msgIndex = container.querySelectorAll('.chat-msg').length;
+
     const div = document.createElement('div');
     div.className = 'chat-msg ' + role;
+    div.dataset.msgIndex = msgIndex;
     const bubble = document.createElement('div');
     bubble.className = 'chat-bubble';
     if (isMarkdown && role === 'assistant') {
@@ -1570,19 +1624,17 @@ function appendChatMessage(role, content, timeStr, isMarkdown) {
         editBtn.className = 'chat-msg-action-btn edit';
         editBtn.innerHTML = '<i data-lucide="pencil"></i> 編集';
         editBtn.onclick = () => {
-            const inputEl = document.getElementById('chat-input');
-            if (inputEl) {
-                inputEl.value = content;
-                inputEl.focus();
-                inputEl.dispatchEvent(new Event('input'));
-            }
+            rollbackChat(msgIndex, false);
         };
         actions.appendChild(editBtn);
     } else if (role === 'assistant') {
         const retryBtn = document.createElement('button');
         retryBtn.className = 'chat-msg-action-btn retry';
         retryBtn.innerHTML = '<i data-lucide="refresh-cw"></i> 再生成';
-        retryBtn.onclick = () => { chatSend(true); };
+        retryBtn.onclick = () => {
+            // Rollback to the paired user message (at index-1) and auto-resend
+            rollbackChat(msgIndex, true);
+        };
         actions.appendChild(retryBtn);
         const copyBtn = document.createElement('button');
         copyBtn.className = 'chat-msg-action-btn';
