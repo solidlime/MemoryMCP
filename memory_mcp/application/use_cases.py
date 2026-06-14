@@ -141,6 +141,26 @@ class AppContext:
         self._reranker: RerankerModel | None = None
         self._search_engine: SearchEngine | None = None
 
+        # EventBus
+        from memory_mcp.application.event_bus import EventBus
+
+        self.event_bus = EventBus()
+
+        # Initialize SessionEventRecorder (best-effort, don't fail startup)
+        try:
+            from memory_mcp.infrastructure.sqlite.session_event_repo import SessionEventRepository
+            from memory_mcp.application.session_event_recorder import SessionEventRecorder
+
+            self._session_event_repo = SessionEventRepository(self.connection)
+            self._session_event_recorder = SessionEventRecorder(self.event_bus, self._session_event_repo)
+            self._session_event_recorder.start()
+        except Exception as e:
+            import logging as _logging
+
+            _logging.getLogger("memory_mcp").warning("SessionEventRecorder init failed: %s", e)
+            self._session_event_repo = None
+            self._session_event_recorder = None
+
     @property
     def vector_store(self) -> QdrantVectorStore | None:
         """Lazy-init vector store. Returns None if Qdrant unavailable."""

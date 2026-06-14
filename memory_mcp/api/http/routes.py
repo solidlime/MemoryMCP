@@ -3,6 +3,7 @@ from __future__ import annotations
 from memory_mcp.api.http.routers import (
     register_admin_routes,
     register_chat_routes,
+    register_events_routes,
     register_item_routes,
     register_memory_routes,
     register_persona_routes,
@@ -20,3 +21,4 @@ def register_http_routes(mcp) -> None:
     register_admin_routes(mcp)
     register_chat_routes(mcp)
     register_skills_routes(mcp)
+    register_events_routes(mcp)

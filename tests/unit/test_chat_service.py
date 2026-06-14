@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -318,6 +318,10 @@ class TestChatService:
         """Build a minimal mock AppContext."""
         ctx = MagicMock()
         ctx.persona = "test_persona"
+
+        # event_bus (must be async mocks for ChatService event publishing)
+        ctx.event_bus = MagicMock()
+        ctx.event_bus.publish = AsyncMock()
 
         # persona_service
         state = MagicMock()

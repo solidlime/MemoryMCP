@@ -1,5 +1,506 @@
 # SPEC - 技術仕様・要件定義
 
+---
+
+# context-mode 機能移植（2026-06-12）
+
+## 概要
+[mksglu/context-mode](https://github.com/mksglu/context-mode) の分析から特定した10機能をMemoryMCPに移植。
+MCPサーバー側（6機能）とWebUIチャット側（4機能）に分割して実装。
+
+---
+
+## 🔵 M1: FTS5全文検索エンジン
+
+### 現状
+- `memory_search` のキーワード検索は SQLite `LIKE '%keyword%'` による単純部分一致
+- 日本語の表記揺れ・同義語・語幹の違いに弱い
+- 関連性スコアリングがない（全件同じスコア）
+
+### 要件
+- SQLite FTS5仮想テーブルを使った全文検索に置き換え
+- BM25による関連性スコアリング
+- トークナイザ: `porter unicode61`（英語語幹 + Unicode対応）
+- トリガーによるmemoriesテーブルとの自動同期
+- FTS5初期化失敗時は既存LIKE検索にフォールバック
+
+### 技術設計
+
+#### 新規マイグレーション v023
+```sql
+-- FTS5仮想テーブル
+CREATE VIRTUAL TABLE memories_fts USING fts5(
+    content,
+    tags,
+    title,
+    tokenize='porter unicode61',
+    content='memories',
+    content_rowid='rowid'
+);
+
+-- 既存データのインデックス化
+INSERT INTO memories_fts(rowid, content, tags, title)
+SELECT rowid, content, tags, title FROM memories;
+
+-- INSERT トリガー
+CREATE TRIGGER memories_ai AFTER INSERT ON memories BEGIN
+    INSERT INTO memories_fts(rowid, content, tags, title)
+    VALUES (new.rowid, new.content, new.tags, new.title);
+END;
+
+-- DELETE トリガー
+CREATE TRIGGER memories_ad AFTER DELETE ON memories BEGIN
+    INSERT INTO memories_fts(memories_fts, rowid, content, tags, title)
+    VALUES ('delete', old.rowid, old.content, old.tags, old.title);
+END;
+
+-- UPDATE トリガー
+CREATE TRIGGER memories_au AFTER UPDATE ON memories BEGIN
+    INSERT INTO memories_fts(memories_fts, rowid, content, tags, title)
+    VALUES ('delete', old.rowid, old.content, old.tags, old.title);
+    INSERT INTO memories_fts(rowid, content, tags, title)
+    VALUES (new.rowid, new.content, new.tags, new.title);
+END;
+```
+
+#### search_keyword() 変更
+```python
+# 新実装（FTS5）
+def search_keyword(self, query: str, limit: int = 10) -> list[dict]:
+    if not self._fts_available:
+        return self._search_keyword_like(query, limit)  # フォールバック
+    
+    # FTS5 MATCH + BM25
+    rows = self.db.execute("""
+        SELECT m.*, bm25(memories_fts) as rank
+        FROM memories m
+        JOIN memories_fts fts ON m.rowid = fts.rowid
+        WHERE memories_fts MATCH ?
+        ORDER BY rank
+        LIMIT ?
+    """, (query, limit)).fetchall()
+    return [self._row_to_dict(r) for r in rows]
+```
+
+#### FTS5有効性チェック
+```python
+@property
+def _fts_available(self) -> bool:
+    if not self.settings.fts_enabled:
+        return False
+    try:
+        self.db.execute("SELECT count(*) FROM memories_fts").fetchone()
+        return True
+    except Exception:
+        return False
+```
+
+### 日本語対応の判断
+- `porter unicode61` は英語の語幹処理（running→run）+ Unicodeの単語分割
+- 日本語はCJK文字を1文字ずつ分割するためN-gram的に動作
+- まず `unicode61` で実装し、品質評価後に `simple` tokenizer + bigram 化を検討
+- 簡易bigramが不要なら依存ゼロで済む
+
+### 変更ファイル一覧
+| ファイル | 変更内容 |
+|----------|----------|
+| `migration/versions/v023_add_fts5.py` | 新規: FTS5テーブル + triggers + データ移行 |
+| `infrastructure/sqlite/memory_repo.py` | `search_keyword()` → FTS5対応 + フォールバック |
+| `infrastructure/sqlite/connection.py` | SQLiteバージョンチェック追加（3.9.0+） |
+| `domain/search/strategies.py` | `KeywordSearchStrategy.search()` に `fts_enabled` 伝播 |
+| `config/settings.py` | `fts_enabled: bool = True` |
+| `tests/` | FTS5検索テスト、フォールバックテスト |
+
+---
+
+## 🔵 M2: 外部コンテンツ取り込み（ingest ツール）
+
+### 要件
+- URL、マークダウン、プレーンテキストをチャンク分割してメモリに保存
+- チャンクサイズ・オーバーラップは設定可能
+- フェッチは `httpx`（タイムアウト付き）
+- HTML→マークダウン変換は `html2text` ライブラリ（新規依存）
+
+### ツールシグネチャ
+```python
+@mcp.tool()
+async def ingest(
+    source: str,                              # URL or テキスト内容
+    source_type: Literal["url", "markdown", "text"] = "url",
+    chunk_size: int = 500,                    # 文字数
+    chunk_overlap: int = 50,                  # 重複文字数
+    tags: list[str] | None = None,            # 追加タグ
+    importance: float = 0.6,                  # 重要度
+) -> dict:
+    """
+    外部コンテンツを取り込み、チャンク分割してメモリに保存する。
+    
+    - source_type="url": 指定URLをフェッチしHTML→Markdown変換
+    - source_type="markdown": Markdownテキストをチャンク分割
+    - source_type="text": プレーンテキストをチャンク分割
+    
+    各チャンクは個別のメモリとして保存され、元ソースのメタデータも記録される。
+    """
+```
+
+### チャンク分割ロジック（`IngestService`）
+```python
+class IngestService:
+    async def ingest(self, source: str, source_type: str, 
+                     chunk_size: int, chunk_overlap: int,
+                     tags: list[str] | None, importance: float) -> dict:
+        # 1. ソース取得
+        if source_type == "url":
+            text = await self._fetch_url(source)  # httpx → html2text
+        else:
+            text = source
+        
+        # 2. チャンク分割（段落境界を尊重）
+        chunks = self._chunk_text(text, chunk_size, chunk_overlap)
+        
+        # 3. 各チャンクをmemory_create
+        results = []
+        for i, chunk in enumerate(chunks):
+            mem = await self.memory_service.create_memory(
+                content=chunk,
+                tags=["ingested", source_type] + (tags or []),
+                importance=importance,
+            )
+            results.append({"key": mem.key, "index": i, "preview": chunk[:80]})
+        
+        # 4. ソースメタデータをmemory_create
+        source_meta = f"source: {source}\ntype: {source_type}\nchunks: {len(chunks)}\ningested_at: {datetime.now()}"
+        await self.memory_service.create_memory(
+            content=source_meta,
+            tags=["ingested", "source_meta"],
+            importance=min(importance + 0.1, 1.0),
+        )
+        
+        return {"status": "ok", "chunks": len(chunks), "results": results}
+```
+
+### チャンク分割戦略
+```
+1. \n\n でパラグラフ分割
+2. 各パラグラフが chunk_size を超える場合:
+   a. 文境界（。！？. ! ?）でさらに分割
+   b. それでも超える場合は chunk_size で強制分割
+3. パラグラフを chunk_size に収まるようにマージ
+4. chunk_overlap 分だけ前のチャンク末尾を次のチャンク先頭に複製
+```
+
+### 変更ファイル一覧
+| ファイル | 変更内容 |
+|----------|----------|
+| `domain/memory/ingest.py` | 新規: `IngestService`, `_fetch_url()`, `_chunk_text()` |
+| `api/mcp/tools.py` | `ingest` ツール追加 |
+| `config/settings.py` | `ingest_default_chunk_size`, `ingest_default_chunk_overlap`, `ingest_fetch_timeout` |
+| `pyproject.toml` | `httpx`, `html2text` 依存追加 |
+
+---
+
+## 🔵 M3: バッチツール実行
+
+### ツールシグネチャ
+```python
+@mcp.tool()
+async def batch(
+    operations: list[dict],   # [{"tool": "memory_create", "params": {...}}, ...]
+) -> dict:
+    """
+    複数のMCPツール操作を1回の呼び出しで実行する。
+    各操作は独立して実行され、個別の成功/失敗が結果に含まれる。
+    """
+```
+
+### 戻り値
+```json
+{
+  "total": 3,
+  "succeeded": 2,
+  "failed": 1,
+  "results": [
+    {"index": 0, "status": "ok", "result": {...}},
+    {"index": 1, "status": "ok", "result": {...}},
+    {"index": 2, "status": "error", "error": "validation error: ..."}
+  ]
+}
+```
+
+### 許可ツール
+セキュリティ上、batchで実行できるツールを制限:
+- `memory_create`, `memory_read`, `memory_update`, `memory_delete`, `memory_search`
+- `get_context`, `update_context`
+- `item_*`（全7ツール）
+- `goal_manage`, `promise_manage`
+- 除外: `sandbox`, `sandbox_files`, `ingest`, `invoke_skill`（副作用が大きいため）
+
+### 変更ファイル一覧
+| ファイル | 変更内容 |
+|----------|----------|
+| `api/mcp/tools.py` | `batch` ツール追加 |
+
+---
+
+## 🔵 M4: 近接性リランキング
+
+### 要件
+- FTS5検索結果に対し、クエリ内の複数語が結果テキスト内で近い位置にあるほど高スコア
+- 既存の ChainedRanker（RRF → ForgettingCurve → TopicAffinity）チェーンに追加
+
+### ProximityRanker
+```python
+class ProximityRanker:
+    """
+    クエリ単語間の近接性に基づくリランキング。
+    
+    スコア計算:
+    - クエリを単語分割（空白・句読点）
+    - 各メモリのcontent内での全クエリ単語の出現位置を検出
+    - 最も近い2単語間の距離をベースラインに
+    - 全単語が同じパラグラフ内（<N単語）→ 1.0
+    - 全単語が離れている（>5N単語）→ 0.1
+    - 中間は線形補間
+    """
+    
+    def __init__(self, window: int = 20):
+        self.window = window
+    
+    def score(self, query: str, memory: Memory) -> float:
+        query_words = query.lower().split()
+        text = memory.content.lower()
+        
+        positions = {}
+        for word in query_words:
+            idx = text.find(word)
+            if idx == -1:
+                return 0.0
+            positions[word] = idx
+        
+        if len(positions) <= 1:
+            return 0.5  # 単一語クエリは中立
+        
+        # 最小-最大位置の距離
+        min_pos = min(positions.values())
+        max_pos = max(positions.values())
+        char_distance = max_pos - min_pos
+        
+        # 単語数換算（平均5文字/単語で近似）
+        word_distance = char_distance / 5
+        
+        if word_distance <= self.window:
+            return 1.0
+        elif word_distance >= self.window * 5:
+            return 0.1
+        else:
+            return 1.0 - (word_distance - self.window) / (self.window * 4) * 0.9
+```
+
+### ChainedRanker 変更
+```python
+# 既存
+self.chain = [RRFRanker(), ForgettingCurveRanker(), TopicAffinityRanker()]
+
+# 変更後
+self.chain = [RRFRanker(), ProximityRanker(), ForgettingCurveRanker(), TopicAffinityRanker()]
+```
+
+### 変更ファイル一覧
+| ファイル | 変更内容 |
+|----------|----------|
+| `domain/search/ranker.py` | `ProximityRanker` 追加 |
+| `domain/memory/repository.py` | Memory に `content` フィールドのアクセスがランカーから必要（既存） |
+| `config/settings.py` | `proximity_window: int = 20` |
+
+---
+
+## L2: インフラ（EventBus + SSE）
+
+### E1: EventBus 🔴
+
+#### 要件
+- MCPツール、Plugin、WebUIチャット間のpub/subイベント基盤
+- 非同期・疎結合。全コンポーネントが他の実装を知らずにイベント送受信できる
+- シングルトン（アプリ全体で1インスタンス）
+
+```python
+class EventBus:
+    def __init__(self):
+        self._subscribers: dict[str, list[Callable]] = {}
+    
+    def subscribe(self, event_type: str, handler: Callable):
+        """イベントタイプにハンドラを登録。handler(event_type, data) 形式"""
+    
+    async def publish(self, event_type: str, data: dict):
+        """イベントを発行。全サブスクライバに非同期通知。エラーはログ出力し継続"""
+```
+
+#### イベント定義
+| イベント | data schema | 発行元 | 購読者 |
+|----------|------------|--------|--------|
+| `memory.created` | `{key, persona, content_preview, tags, importance}` | MCP `memory_create` | SSE Broadcaster, SessionEventRecorder |
+| `memory.updated` | `{key, persona, content_preview, changes}` | MCP `memory_update` | SSE Broadcaster |
+| `memory.deleted` | `{key, persona, content_preview}` | MCP `memory_delete` | SSE Broadcaster |
+| `context.updated` | `{persona, emotion, emotion_intensity, body_state, context_note}` | MCP `update_context` | SSE Broadcaster |
+| `tool.called` | `{persona, tool_name, params_summary, result_summary, success}` | 全MCPツール | SessionEventRecorder |
+| `events.ingested` | `{persona, session_id, events: list[dict]}` | HTTP `POST /api/events/ingest` | SessionEventRecorder, SSE |
+| `chat.message` | `{persona, session_id, content}` | WebUI chatSend() | SessionEventRecorder |
+| `chat.llm_response` | `{persona, session_id, content, token_usage}` | WebUI InferenceStep | SessionEventRecorder |
+| `session.compact` | `{persona, session_id, before_tokens, after_tokens}` | WebUI CompressStep | SessionEventRecorder |
+| `session.started` | `{persona, session_id}` | WebUI PrepareStep | SessionEventRecorder |
+
+#### 変更ファイル
+| ファイル | 変更 |
+|----------|------|
+| `application/event_bus.py` | 新規: `EventBus` クラス |
+| `application/use_cases.py` | `AppContext.event_bus` 追加 |
+| `api/mcp/tools.py` | 全ツール関数で `event_bus.publish()` 呼出追加 |
+
+---
+
+### E2: SSEエンドポイント 🔴
+
+#### 要件
+- MCPツールやPluginからのイベントをWebUIにプッシュ通知
+- **別PCからのMCP操作もリアルタイム反映**
+
+#### エンドポイント
+```
+GET /api/events/{persona}?topics=memory,context,tool
+Accept: text/event-stream
+```
+
+#### SSEイベント形式
+```
+event: memory.created
+data: {"key": "...", "content_preview": "...", "tags": [...], "importance": 0.8, "timestamp": "..."}
+```
+
+#### 実装詳細
+- `starlette.responses.StreamingResponse` + `asyncio.Queue` で実装
+- クライアント切断時は `Queue` 削除 + サブスクライバ解除
+- トピックフィルタ: `topics` クエリパラメータでイベントタイプのプレフィックスマッチフィルタ
+
+#### WebUI JS側
+```javascript
+const es = new EventSource(`/api/events/${persona}?topics=memory,context`);
+es.addEventListener('memory.created', (e) => {
+    const mem = JSON.parse(e.data);
+    addMemoryCardToUI(mem);
+});
+es.addEventListener('context.updated', (e) => {
+    const ctx = JSON.parse(e.data);
+    updatePersonaPanel(ctx);
+});
+```
+
+#### 変更ファイル
+| ファイル | 変更 |
+|----------|------|
+| `api/http/routers/events.py` | 新規: `GET /api/events/{persona}` SSE実装 |
+| `api/http/sections/chat.py` | JS: EventSource購読 + リアルタイムUI更新 |
+
+---
+
+### E3: Plugin用HTTP取り込みAPI 🔴
+
+#### エンドポイント
+```
+POST /api/events/ingest
+Content-Type: application/json
+Authorization: Bearer {api_key}
+
+{
+  "session_id": "sess_abc123",
+  "persona": "herta",
+  "events": [
+    {
+      "type": "tool_call",
+      "timestamp": "2026-06-12T22:30:00+09:00",
+      "summary": "memory_create: パパが疲れてるのを感じた",
+      "detail": null,
+      "metadata": {"tool_name": "memory_create", "importance": 0.8}
+    }
+  ]
+}
+```
+
+#### 処理フロー
+```
+Plugin → POST /api/events/ingest
+  → APIキー検証（設定 plugin_api_key）
+  → 各イベントを SessionEvent に変換
+  → SessionEventRepository.insert(event)
+  → EventBus.publish("events.ingested", {...})
+  → 200 {status: "ok", count: N}
+```
+
+#### 変更ファイル
+| ファイル | 変更 |
+|----------|------|
+| `api/http/routers/events.py` | `POST /api/events/ingest` 追加 |
+| `config/settings.py` | `plugin_api_key: str`（Plugin認証用） |
+
+---
+
+## L3: OpenCode Plugin（TypeScript）
+
+### P1: プラグイン本体 🔴
+
+**場所**: `plugins/opencode-memory-sync/`
+
+**責務**: OpenCodeセッション中の全アクティビティを捕捉しMemoryMCPにHTTP POSTする。
+ツール定義はMCP側が持つので二重管理にならない。コード量 ~80-100行。
+
+#### フック
+| フック | HTTP送信先 |
+|--------|-----------|
+| `PreToolUse` | `POST /api/events/ingest` |
+| `PostToolUse` | 同上 |
+| `SessionStart` | 同上 |
+| `Stop` | 同上 |
+| `PreCompact` | 同上 |
+
+#### ディレクトリ構造
+```
+plugins/opencode-memory-sync/
+├── package.json       # name: opencode-memory-sync
+├── tsconfig.json
+└── src/index.ts       # ~80行のプラグイン本体
+```
+
+#### 環境変数
+| 変数 | デフォルト | 説明 |
+|------|-----------|------|
+| `MEMORY_MCP_URL` | `http://localhost:26262` | MemoryMCPサーバーURL |
+| `MEMORY_MCP_API_KEY` | 空文字 | API認証キー |
+
+---
+
+## セッションイベント記録（EventBus購読ベース）
+
+W1〜W4 の旧設計を EventBus ベースに再編:
+
+| 旧 | 新 | 説明 |
+|----|----|------|
+| W4 フックシステム | E1 `EventBus.subscribe()` | パイプライン内フックではなくpub/subに |
+| W1 セッションイベント記録 | `SessionEventRecorder`（E1購読者） | `tool.called`, `events.ingested` 等を購読 |
+| W2 セッション検索 | MCPツール `session_search` + HTTP API | 独立、E1導入後も変わらず |
+| W3 分析ダッシュボード | WebUIセクション | W1データに依存 |
+
+**SessionEvent データモデル・DBスキーマ・マイグレーション v024 は旧W1仕様をそのまま流用する。**
+
+---
+
+## 非機能要件（全体共通）
+- **後方互換**: 既存MCPツール名・シグネチャは変更しない。新規追加のみ
+- **DBマイグレーション**: v023（FTS5）, v024（session_events）。連番で競合しないよう注意
+- **設定**: 全機能はデフォルトONだが個別にOFF可能
+- **パフォーマンス**: FTS5インデックス構築は初回マイグレーション時のみ。以降はトリガーで自動
+- **テスト**: 各機能にユニットテスト必須。FTS5はSQLiteのメモリDBでテスト可能
+- **依存**: FTS5はSQLiteビルトイン。html2text, httpx のみ新規依存
+- **Plugin APIキー**: 設定 `plugin_api_key` が空の場合は認証スキップ（開発用）
+
 ## P1: date_range 検索フィルタ統合 🔴
 
 ### 現状

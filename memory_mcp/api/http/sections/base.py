@@ -779,6 +779,32 @@ function toast(msg, type='info') {
 }
 
 /* =================================================================
+   SSE REAL-TIME EVENTS
+   ================================================================= */
+function connectSSE(persona) {
+    if (S._sse) { try { S._sse.close(); } catch(_) {} }
+    const es = new EventSource('/api/events/' + encodeURIComponent(persona) + '?topics=memory,context');
+    S._sse = es;
+    
+    es.addEventListener('memory.created', function(e) {
+        try { const d = JSON.parse(e.data); toast('\ud83d\udcdd \u65b0\u3057\u3044\u8a18\u61b6: ' + (d.content_preview || '...').substring(0, 50), 'info'); } catch(_) {}
+    });
+    es.addEventListener('memory.updated', function(e) {
+        try { const d = JSON.parse(e.data); toast('\ud83d\udd04 \u8a18\u61b6\u66f4\u65b0: ' + (d.content_preview || '...').substring(0, 50), 'info'); } catch(_) {}
+    });
+    es.addEventListener('memory.deleted', function(e) {
+        try { const d = JSON.parse(e.data); toast('\ud83d\uddd1 \u8a18\u61b6\u524a\u9664: ' + (d.content_preview || '...').substring(0, 50), 'info'); } catch(_) {}
+    });
+    es.addEventListener('context.updated', function(e) {
+        toast('\ud83d\udc64 \u30b3\u30f3\u30c6\u30ad\u30b9\u30c8\u66f4\u65b0\u3055\u308c\u307e\u3057\u305f', 'info');
+    });
+    es.onerror = function() {
+        S._sse = null;
+        setTimeout(function() { if (S.persona) connectSSE(S.persona); }, 5000);
+    };
+}
+
+/* =================================================================
    API HELPER
    ================================================================= */
 async function api(path, opts={}) {
@@ -1012,6 +1038,7 @@ async function init() {
         }
         S.persona = _target;
         sel.value = _target;
+        connectSSE(_target);
         switchTab(S.tab);
     } catch (e) {
         toast('Failed to load personas: ' + e.message, 'error');
@@ -1020,6 +1047,7 @@ async function init() {
     // Event: Persona change
     document.getElementById('persona-select').onchange = (e) => {
         S.persona = e.target.value;
+        connectSSE(e.target.value);
         S.dashCache = null;
         // Reset pagination/search without losing extended properties from memories.js
         Object.assign(S.mem, { page: 1, tag: '', q: '', perPage: 20,

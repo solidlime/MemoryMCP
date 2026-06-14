@@ -55,6 +55,16 @@ async def _tool_get_context(ctx: AppContext, persona: str) -> str:
     Lightweight: active commitments + essential story + body/emotion state (~500-800 tokens)."""
     state_result = ctx.persona_service.get_context(persona)
     if not state_result.is_ok:
+        await ctx.event_bus.publish(
+            "tool.called",
+            {
+                "persona": persona,
+                "tool_name": "get_context",
+                "params_summary": f"persona={persona}",
+                "result_summary": str(state_result.error),
+                "success": False,
+            },
+        )
         return f"Error: {state_result.error}"
     state = state_result.value
 
@@ -116,7 +126,7 @@ async def _tool_get_context(ctx: AppContext, persona: str) -> str:
         time_since = relative_time_str(state.last_conversation_time)
     current_time = get_now().strftime("%Y年%m月%d日 %H:%M")
     ctx.persona_service.record_conversation_time(persona)
-    return _format_lightweight_response(
+    result_text = _format_lightweight_response(
         state,
         top_memories,
         goals,
@@ -130,6 +140,17 @@ async def _tool_get_context(ctx: AppContext, persona: str) -> str:
         session_summaries,
         current_time,
     )
+    await ctx.event_bus.publish(
+        "tool.called",
+        {
+            "persona": persona,
+            "tool_name": "get_context",
+            "params_summary": f"persona={persona}",
+            "result_summary": f"Context formatted ({len(top_memories)} memories, {len(goals)} goals, {len(promises)} promises)",
+            "success": True,
+        },
+    )
+    return result_text
 
 
 async def _tool_memory_create(
@@ -169,6 +190,13 @@ async def _tool_memory_create(
     if result.is_ok:
         if not defer_vector and ctx.vector_store:
             ctx.vector_store.upsert(persona, result.value.key, content)
+        await ctx.event_bus.publish("memory.created", {
+            "key": result.value.key,
+            "persona": persona,
+            "content_preview": content[:100],
+            "tags": tags or [],
+            "importance": importance,
+        })
         return f"Memory created: {result.value.key}"
     return f"Error: {result.error}"
 
@@ -192,17 +220,59 @@ async def _tool_memory_read(
             emotion_line = f"Emotion: {m.emotion}"
             if m.emotion_intensity:
                 emotion_line += f" (intensity: {m.emotion_intensity})"
-            return (
+            result_text = (
                 f"Key: {m.key}\nContent: {m.content}\n"
                 f"Importance: {m.importance}\n{emotion_line}\n"
                 f"Tags: {m.tags}\nCreated: {m.created_at}"
             )
+            await ctx.event_bus.publish(
+                "tool.called",
+                {
+                    "persona": persona,
+                    "tool_name": "memory_read",
+                    "params_summary": f"memory_key={memory_key}",
+                    "result_summary": f"Read memory: {m.key}",
+                    "success": True,
+                },
+            )
+            return result_text
+        await ctx.event_bus.publish(
+            "tool.called",
+            {
+                "persona": persona,
+                "tool_name": "memory_read",
+                "params_summary": f"memory_key={memory_key}",
+                "result_summary": str(result.error),
+                "success": False,
+            },
+        )
         return f"Error: {result.error}"
     else:
         result = ctx.memory_service.get_recent(limit=limit + offset)
         if result.is_ok:
             items = result.value[offset : offset + limit]
-            return "\n---\n".join(f"[{m.key}] {m.content}" for m in items)
+            result_text = "\n---\n".join(f"[{m.key}] {m.content}" for m in items)
+            await ctx.event_bus.publish(
+                "tool.called",
+                {
+                    "persona": persona,
+                    "tool_name": "memory_read",
+                    "params_summary": f"limit={limit}, offset={offset}",
+                    "result_summary": f"Listed {len(items)} recent memories",
+                    "success": True,
+                },
+            )
+            return result_text
+        await ctx.event_bus.publish(
+            "tool.called",
+            {
+                "persona": persona,
+                "tool_name": "memory_read",
+                "params_summary": f"limit={limit}, offset={offset}",
+                "result_summary": str(result.error),
+                "success": False,
+            },
+        )
         return f"Error: {result.error}"
 
 
@@ -244,6 +314,12 @@ async def _tool_memory_update(
     if result.is_ok:
         if ctx.vector_store and "content" in updates:
             ctx.vector_store.upsert(persona, memory_key, updates["content"])
+        await ctx.event_bus.publish("memory.updated", {
+            "key": memory_key,
+            "persona": persona,
+            "content_preview": (content or "...")[:100],
+            "changes": [k for k in ["content", "importance", "tags", "privacy_level"] if locals().get(k) is not None],
+        })
         return f"{update_warning}Memory updated: {memory_key}"
     return f"Error: {result.error}"
 
@@ -257,11 +333,13 @@ async def _tool_memory_delete(
 
     # If query provided without key, search first
     key = memory_key
+    content_preview = "..."
     if not key and query:
         search_result = ctx.search_engine.search(SearchQuery(text=query, top_k=1))
         if search_result.is_ok and search_result.value:
             m = search_result.value[0].memory
             key = m.key
+            content_preview = m.content[:100]
             snippet = f"\nContent: 「{m.content[:80]}{'...' if len(m.content) > 80 else ''}」"
         else:
             return f"No memory found for query: {query}"
@@ -269,6 +347,7 @@ async def _tool_memory_delete(
         snippet = ""
         pre_fetch = ctx.memory_service.get_memory(key)
         if pre_fetch.is_ok:
+            content_preview = pre_fetch.value.content[:100]
             snippet = (
                 f"\nContent: 「{pre_fetch.value.content[:80]}{'...' if len(pre_fetch.value.content) > 80 else ''}」"
             )
@@ -277,6 +356,11 @@ async def _tool_memory_delete(
     if result.is_ok:
         if ctx.vector_store:
             ctx.vector_store.delete(persona, key)
+        await ctx.event_bus.publish("memory.deleted", {
+            "key": key,
+            "persona": persona,
+            "content_preview": content_preview,
+        })
         return f"Memory deleted: {key}{snippet}"
     return f"Error: {result.error}"
 
@@ -311,8 +395,28 @@ async def _tool_memory_search(
         ctx.search_engine._semantic._persona = persona
     result = ctx.search_engine.search(search_query)
     if not result.is_ok:
+        await ctx.event_bus.publish(
+            "tool.called",
+            {
+                "persona": persona,
+                "tool_name": "memory_search",
+                "params_summary": f"query={query[:50]}, top_k={top_k}",
+                "result_summary": str(result.error),
+                "success": False,
+            },
+        )
         return f"Error: {result.error}"
     if not result.value:
+        await ctx.event_bus.publish(
+            "tool.called",
+            {
+                "persona": persona,
+                "tool_name": "memory_search",
+                "params_summary": f"query={query[:50]}, top_k={top_k}",
+                "result_summary": "No results found",
+                "success": True,
+            },
+        )
         return "No results found."
     ctx.memory_service.log_search(query, "hybrid", len(result.value))
 
@@ -325,14 +429,46 @@ async def _tool_memory_search(
             f"  {m.content}\n"
             f"  importance={m.importance} emotion={emotion_str} tags={m.tags}"
         )
-    return "\n---\n".join(lines)
+    result_text = "\n---\n".join(lines)
+    await ctx.event_bus.publish(
+        "tool.called",
+        {
+            "persona": persona,
+            "tool_name": "memory_search",
+            "params_summary": f"query={query[:50]}, top_k={top_k}",
+            "result_summary": f"Found {len(result.value)} results",
+            "success": True,
+        },
+    )
+    return result_text
 
 
 async def _tool_memory_stats(ctx: AppContext, persona: str, top_n: int = 20) -> str:
     """Get memory statistics."""
     result = ctx.memory_service.get_stats(top_n=top_n)
     if result.is_ok:
-        return str(result.value)
+        result_text = str(result.value)
+        await ctx.event_bus.publish(
+            "tool.called",
+            {
+                "persona": persona,
+                "tool_name": "memory_stats",
+                "params_summary": f"top_n={top_n}",
+                "result_summary": f"Stats retrieved ({len(result_text)} chars)",
+                "success": True,
+            },
+        )
+        return result_text
+    await ctx.event_bus.publish(
+        "tool.called",
+        {
+            "persona": persona,
+            "tool_name": "memory_stats",
+            "params_summary": f"top_n={top_n}",
+            "result_summary": str(result.error),
+            "success": False,
+        },
+    )
     return f"Error: {result.error}"
 
 
@@ -464,6 +600,13 @@ async def _tool_update_context(
 
     if not updated:
         return "No changes made (all parameters were None)"
+    await ctx.event_bus.publish("context.updated", {
+        "persona": persona,
+        "emotion": emotion,
+        "emotion_intensity": emotion_intensity,
+        "body_state": body_state,
+        "context_note": context_note,
+    })
     return f"Context updated: {', '.join(updated)}"
 
 
@@ -482,21 +625,87 @@ async def _tool_item_add(
     if not item_name:
         return "Error: item_name required"
     result = ctx.equipment_service.add_item(item_name, category, description, quantity, tags)
-    return f"Item added: {item_name}" if result.is_ok else f"Error: {result.error}"
+    if result.is_ok:
+        await ctx.event_bus.publish(
+            "tool.called",
+            {
+                "persona": persona,
+                "tool_name": "item_add",
+                "params_summary": f"item_name={item_name}, qty={quantity}",
+                "result_summary": f"Item added: {item_name}",
+                "success": True,
+            },
+        )
+        return f"Item added: {item_name}"
+    await ctx.event_bus.publish(
+        "tool.called",
+        {
+            "persona": persona,
+            "tool_name": "item_add",
+            "params_summary": f"item_name={item_name}, qty={quantity}",
+            "result_summary": str(result.error),
+            "success": False,
+        },
+    )
+    return f"Error: {result.error}"
 
 
 async def _tool_item_remove(ctx: AppContext, persona: str, item_name: str = "") -> str:
     if not item_name:
         return "Error: item_name required"
     result = ctx.equipment_service.remove_item(item_name)
-    return f"Item removed: {item_name}" if result.is_ok else f"Error: {result.error}"
+    if result.is_ok:
+        await ctx.event_bus.publish(
+            "tool.called",
+            {
+                "persona": persona,
+                "tool_name": "item_remove",
+                "params_summary": f"item_name={item_name}",
+                "result_summary": f"Item removed: {item_name}",
+                "success": True,
+            },
+        )
+        return f"Item removed: {item_name}"
+    await ctx.event_bus.publish(
+        "tool.called",
+        {
+            "persona": persona,
+            "tool_name": "item_remove",
+            "params_summary": f"item_name={item_name}",
+            "result_summary": str(result.error),
+            "success": False,
+        },
+    )
+    return f"Error: {result.error}"
 
 
 async def _tool_item_equip(ctx: AppContext, persona: str, equipment: dict | None = None, auto_add: bool = True) -> str:
     if not equipment:
         return 'Error: equipment dict required (e.g. {"top": "白いドレス"})'
     result = ctx.equipment_service.equip(equipment, auto_add)
-    return f"Equipped: {equipment}" if result.is_ok else f"Error: {result.error}"
+    if result.is_ok:
+        await ctx.event_bus.publish(
+            "tool.called",
+            {
+                "persona": persona,
+                "tool_name": "item_equip",
+                "params_summary": f"equipment={equipment}",
+                "result_summary": f"Equipped: {equipment}",
+                "success": True,
+            },
+        )
+        return f"Equipped: {equipment}"
+    await ctx.event_bus.publish(
+        "tool.called",
+        {
+            "persona": persona,
+            "tool_name": "item_equip",
+            "params_summary": f"equipment={equipment}",
+            "result_summary": str(result.error),
+            "success": False,
+        },
+    )
+    return f"Error: {result.error}"
 
 
 async def _tool_item_unequip(ctx: AppContext, persona: str, slots: list[str] | str | None = None) -> str:
@@ -504,7 +713,29 @@ async def _tool_item_unequip(ctx: AppContext, persona: str, slots: list[str] | s
     if not target_slots:
         return "Error: slots required"
     result = ctx.equipment_service.unequip(target_slots)
-    return f"Unequipped: {target_slots}" if result.is_ok else f"Error: {result.error}"
+    if result.is_ok:
+        await ctx.event_bus.publish(
+            "tool.called",
+            {
+                "persona": persona,
+                "tool_name": "item_unequip",
+                "params_summary": f"slots={target_slots}",
+                "result_summary": f"Unequipped: {target_slots}",
+                "success": True,
+            },
+        )
+        return f"Unequipped: {target_slots}"
+    await ctx.event_bus.publish(
+        "tool.called",
+        {
+            "persona": persona,
+            "tool_name": "item_unequip",
+            "params_summary": f"slots={target_slots}",
+            "result_summary": str(result.error),
+            "success": False,
+        },
+    )
+    return f"Error: {result.error}"
 
 
 async def _tool_item_update(
@@ -528,7 +759,29 @@ async def _tool_item_update(
     if tags is not None:
         updates["tags"] = tags
     result = ctx.equipment_service.update_item(item_name, **updates)
-    return f"Item updated: {item_name}" if result.is_ok else f"Error: {result.error}"
+    if result.is_ok:
+        await ctx.event_bus.publish(
+            "tool.called",
+            {
+                "persona": persona,
+                "tool_name": "item_update",
+                "params_summary": f"item_name={item_name}, updates={list(updates.keys())}",
+                "result_summary": f"Item updated: {item_name}",
+                "success": True,
+            },
+        )
+        return f"Item updated: {item_name}"
+    await ctx.event_bus.publish(
+        "tool.called",
+        {
+            "persona": persona,
+            "tool_name": "item_update",
+            "params_summary": f"item_name={item_name}, updates={list(updates.keys())}",
+            "result_summary": str(result.error),
+            "success": False,
+        },
+    )
+    return f"Error: {result.error}"
 
 
 async def _tool_item_search(
@@ -538,8 +791,39 @@ async def _tool_item_search(
     if result.is_ok:
         items = result.value
         if not items:
+            await ctx.event_bus.publish(
+                "tool.called",
+                {
+                    "persona": persona,
+                    "tool_name": "item_search",
+                    "params_summary": f"query={query}, category={category}",
+                    "result_summary": "No items found",
+                    "success": True,
+                },
+            )
             return "No items found."
-        return "\n".join(f"- {i.name} (category={i.category}, qty={i.quantity})" for i in items)
+        result_text = "\n".join(f"- {i.name} (category={i.category}, qty={i.quantity})" for i in items)
+        await ctx.event_bus.publish(
+            "tool.called",
+            {
+                "persona": persona,
+                "tool_name": "item_search",
+                "params_summary": f"query={query}, category={category}",
+                "result_summary": f"Found {len(items)} items",
+                "success": True,
+            },
+        )
+        return result_text
+    await ctx.event_bus.publish(
+        "tool.called",
+        {
+            "persona": persona,
+            "tool_name": "item_search",
+            "params_summary": f"query={query}, category={category}",
+            "result_summary": str(result.error),
+            "success": False,
+        },
+    )
     return f"Error: {result.error}"
 
 
@@ -548,8 +832,39 @@ async def _tool_item_history(ctx: AppContext, persona: str, days: int = 7) -> st
     if result.is_ok:
         history = result.value
         if not history:
+            await ctx.event_bus.publish(
+                "tool.called",
+                {
+                    "persona": persona,
+                    "tool_name": "item_history",
+                    "params_summary": f"days={days}",
+                    "result_summary": "No history found",
+                    "success": True,
+                },
+            )
             return "No history found."
-        return "\n".join(f"[{h.timestamp}] {h.action}: {h.item_name} ({h.slot})" for h in history)
+        result_text = "\n".join(f"[{h.timestamp}] {h.action}: {h.item_name} ({h.slot})" for h in history)
+        await ctx.event_bus.publish(
+            "tool.called",
+            {
+                "persona": persona,
+                "tool_name": "item_history",
+                "params_summary": f"days={days}",
+                "result_summary": f"Found {len(history)} history entries",
+                "success": True,
+            },
+        )
+        return result_text
+    await ctx.event_bus.publish(
+        "tool.called",
+        {
+            "persona": persona,
+            "tool_name": "item_history",
+            "params_summary": f"days={days}",
+            "result_summary": str(result.error),
+            "success": False,
+        },
+    )
     return f"Error: {result.error}"
 
 
@@ -561,6 +876,16 @@ async def _tool_sandbox(ctx: AppContext, persona: str, code: str, language: str 
 
     settings = get_settings()
     if not settings.sandbox.enabled:
+        await ctx.event_bus.publish(
+            "tool.called",
+            {
+                "persona": persona,
+                "tool_name": "sandbox",
+                "params_summary": f"language={language}, code={code[:50]}...",
+                "result_summary": "Sandbox is not enabled",
+                "success": False,
+            },
+        )
         return "Sandbox is not enabled."
     from memory_mcp.application.sandbox.service import get_sandbox_session
 
@@ -578,8 +903,29 @@ async def _tool_sandbox(ctx: AppContext, persona: str, code: str, language: str 
             parts.append(f"[artifacts: {len(result.artifacts)} image(s) generated]")
             for i, b64 in enumerate(result.artifacts):
                 parts.append(f"[artifact_{i}: data:image/png;base64,{b64}]")
-        return "\n".join(parts) if parts else "(no output)"
+        result_text = "\n".join(parts) if parts else "(no output)"
+        await ctx.event_bus.publish(
+            "tool.called",
+            {
+                "persona": persona,
+                "tool_name": "sandbox",
+                "params_summary": f"language={language}, code={code[:50]}...",
+                "result_summary": f"Output ({len(result_text)} chars), exit_code={result.exit_code}",
+                "success": True,
+            },
+        )
+        return result_text
     except Exception as e:
+        await ctx.event_bus.publish(
+            "tool.called",
+            {
+                "persona": persona,
+                "tool_name": "sandbox",
+                "params_summary": f"language={language}, code={code[:50]}...",
+                "result_summary": f"Sandbox error: {e}",
+                "success": False,
+            },
+        )
         return f"Sandbox error: {e}"
 
 
@@ -594,10 +940,30 @@ async def _tool_sandbox_files(
 
     settings = get_settings()
     if not settings.sandbox.enabled:
+        await ctx.event_bus.publish(
+            "tool.called",
+            {
+                "persona": persona,
+                "tool_name": "sandbox_files",
+                "params_summary": f"operation={operation}, path={path}",
+                "result_summary": "Sandbox is not enabled",
+                "success": False,
+            },
+        )
         return {"ok": False, "error": "Sandbox is not enabled."}
     from memory_mcp.application.sandbox.service import get_sandbox_session
 
     if not path.startswith("/sandbox"):
+        await ctx.event_bus.publish(
+            "tool.called",
+            {
+                "persona": persona,
+                "tool_name": "sandbox_files",
+                "params_summary": f"operation={operation}, path={path}",
+                "result_summary": "path must be under /sandbox",
+                "success": False,
+            },
+        )
         return {"ok": False, "error": "path must be under /sandbox"}
     sandbox_session = get_sandbox_session(persona)
     import base64 as _b64
@@ -605,7 +971,18 @@ async def _tool_sandbox_files(
     if operation == "list":
         files = await sandbox_session.list_files(path)
         file_list = [{"name": f.name, "path": f.path, "is_dir": f.is_dir, "size": f.size} for f in files]
-        return {"ok": True, "files": file_list}
+        result = {"ok": True, "files": file_list}
+        await ctx.event_bus.publish(
+            "tool.called",
+            {
+                "persona": persona,
+                "tool_name": "sandbox_files",
+                "params_summary": f"operation=list, path={path}",
+                "result_summary": f"Listed {len(file_list)} files",
+                "success": True,
+            },
+        )
+        return result
     elif operation == "read":
         try:
             img_data = await sandbox_session.read_image(path)
@@ -618,6 +995,16 @@ async def _tool_sandbox_files(
             if img_data.get("resized"):
                 resp["resized"] = True
                 resp["orig_dims"] = img_data.get("orig_dims", "")
+            await ctx.event_bus.publish(
+                "tool.called",
+                {
+                    "persona": persona,
+                    "tool_name": "sandbox_files",
+                    "params_summary": f"operation=read, path={path}",
+                    "result_summary": f"Read image ({img_data['size']} bytes)",
+                    "success": True,
+                },
+            )
             return resp
         except Exception:
             raw = await sandbox_session.read_file(path)
@@ -634,15 +1021,58 @@ async def _tool_sandbox_files(
                     is_image, content_type = True, "image/webp"
             if is_image:
                 b64_str = _b64.b64encode(raw).decode("ascii")
-                return {"ok": True, "content_type": content_type, "content_base64": b64_str, "size": len(raw)}
+                result = {"ok": True, "content_type": content_type, "content_base64": b64_str, "size": len(raw)}
+                await ctx.event_bus.publish(
+                    "tool.called",
+                    {
+                        "persona": persona,
+                        "tool_name": "sandbox_files",
+                        "params_summary": f"operation=read, path={path}",
+                        "result_summary": f"Read image ({len(raw)} bytes)",
+                        "success": True,
+                    },
+                )
+                return result
             max_read = 8192
             truncated = len(raw) > max_read
             text = raw[:max_read].decode("utf-8", errors="replace")
             if truncated:
-                return {"ok": True, "content": text, "truncated": True, "total_bytes": len(raw)}
-            return {"ok": True, "content": text}
+                result = {"ok": True, "content": text, "truncated": True, "total_bytes": len(raw)}
+                await ctx.event_bus.publish(
+                    "tool.called",
+                    {
+                        "persona": persona,
+                        "tool_name": "sandbox_files",
+                        "params_summary": f"operation=read, path={path}",
+                        "result_summary": f"Read file ({len(raw)} bytes, truncated)",
+                        "success": True,
+                    },
+                )
+                return result
+            result = {"ok": True, "content": text}
+            await ctx.event_bus.publish(
+                "tool.called",
+                {
+                    "persona": persona,
+                    "tool_name": "sandbox_files",
+                    "params_summary": f"operation=read, path={path}",
+                    "result_summary": f"Read file ({len(raw)} bytes)",
+                    "success": True,
+                },
+            )
+            return result
     elif operation == "write":
         if not content:
+            await ctx.event_bus.publish(
+                "tool.called",
+                {
+                    "persona": persona,
+                    "tool_name": "sandbox_files",
+                    "params_summary": f"operation=write, path={path}",
+                    "result_summary": "content is required for write",
+                    "success": False,
+                },
+            )
             return {"ok": False, "error": "content is required for write"}
         b64 = _b64.b64encode(content.encode()).decode()
         write_code = (
@@ -653,13 +1083,55 @@ async def _tool_sandbox_files(
             f"print('written', len(_d), 'bytes')"
         )
         exec_result = await sandbox_session.execute(write_code)
-        return {"ok": True, "path": path, "stdout": exec_result.stdout.strip()}
+        result = {"ok": True, "path": path, "stdout": exec_result.stdout.strip()}
+        await ctx.event_bus.publish(
+            "tool.called",
+            {
+                "persona": persona,
+                "tool_name": "sandbox_files",
+                "params_summary": f"operation=write, path={path}",
+                "result_summary": f"Wrote {len(content)} bytes to {path}",
+                "success": True,
+            },
+        )
+        return result
     elif operation == "delete":
         deleted = await sandbox_session.delete_file(path)
         if deleted:
-            return {"ok": True, "path": path}
+            result = {"ok": True, "path": path}
+            await ctx.event_bus.publish(
+                "tool.called",
+                {
+                    "persona": persona,
+                    "tool_name": "sandbox_files",
+                    "params_summary": f"operation=delete, path={path}",
+                    "result_summary": f"Deleted {path}",
+                    "success": True,
+                },
+            )
+            return result
+        await ctx.event_bus.publish(
+            "tool.called",
+            {
+                "persona": persona,
+                "tool_name": "sandbox_files",
+                "params_summary": f"operation=delete, path={path}",
+                "result_summary": f"Delete failed for {path}",
+                "success": False,
+            },
+        )
         return {"ok": False, "error": "delete failed", "path": path}
     else:
+        await ctx.event_bus.publish(
+            "tool.called",
+            {
+                "persona": persona,
+                "tool_name": "sandbox_files",
+                "params_summary": f"operation={operation}, path={path}",
+                "result_summary": f"Unknown operation: {operation}",
+                "success": False,
+            },
+        )
         return {"ok": False, "error": f"Unknown operation: {operation}. Use list/read/write/delete."}
 
 
@@ -682,32 +1154,122 @@ async def _tool_goal_manage(
             emotion="neutral",
         )
         if result.is_ok:
+            await ctx.event_bus.publish(
+                "tool.called",
+                {
+                    "persona": persona,
+                    "tool_name": "goal_manage",
+                    "params_summary": f"operation=create, content={content[:50]}",
+                    "result_summary": f"Goal created: {result.value.key}",
+                    "success": True,
+                },
+            )
             return {"ok": True, "key": result.value.key}
+        await ctx.event_bus.publish(
+            "tool.called",
+            {
+                "persona": persona,
+                "tool_name": "goal_manage",
+                "params_summary": f"operation=create, content={content[:50]}",
+                "result_summary": str(result.error),
+                "success": False,
+            },
+        )
         return {"ok": False, "error": result.error}
     elif operation in ("achieve", "cancel"):
         new_status = "achieved" if operation == "achieve" else "cancelled"
         if memory_key and memory_key.strip():
             get_result = ctx.memory_service.get_memory(memory_key)
             if not get_result.is_ok:
+                await ctx.event_bus.publish(
+                    "tool.called",
+                    {
+                        "persona": persona,
+                        "tool_name": "goal_manage",
+                        "params_summary": f"operation={operation}, memory_key={memory_key}",
+                        "result_summary": str(get_result.error),
+                        "success": False,
+                    },
+                )
                 return {"ok": False, "error": get_result.error}
             match = get_result.value
             if "goal" not in match.tags or "active" not in match.tags:
+                await ctx.event_bus.publish(
+                    "tool.called",
+                    {
+                        "persona": persona,
+                        "tool_name": "goal_manage",
+                        "params_summary": f"operation={operation}, memory_key={memory_key}",
+                        "result_summary": f"Memory '{memory_key}' is not an active goal",
+                        "success": False,
+                    },
+                )
                 return {"ok": False, "error": f"Memory '{memory_key}' is not an active goal."}
         else:
             tag_result = ctx.memory_service.get_by_tags(["goal", "active"])
             if not tag_result.is_ok:
+                await ctx.event_bus.publish(
+                    "tool.called",
+                    {
+                        "persona": persona,
+                        "tool_name": "goal_manage",
+                        "params_summary": f"operation={operation}, content={content[:50]}",
+                        "result_summary": str(tag_result.error),
+                        "success": False,
+                    },
+                )
                 return {"ok": False, "error": tag_result.error}
             candidates = tag_result.value or []
             match = next((m for m in candidates if content.strip().lower() == m.content.strip().lower()), None)
             if match is None:
+                await ctx.event_bus.publish(
+                    "tool.called",
+                    {
+                        "persona": persona,
+                        "tool_name": "goal_manage",
+                        "params_summary": f"operation={operation}, content={content[:50]}",
+                        "result_summary": f"No active goal matching '{content[:40]}' found",
+                        "success": False,
+                    },
+                )
                 return {"ok": False, "error": f"No active goal matching '{content}' found."}
         new_importance = max(match.importance, 0.9)
         new_tags = ["goal", new_status, "archived"]
         update_result = ctx.memory_service.update_memory(match.key, importance=new_importance, tags=new_tags)
         if update_result.is_ok:
+            await ctx.event_bus.publish(
+                "tool.called",
+                {
+                    "persona": persona,
+                    "tool_name": "goal_manage",
+                    "params_summary": f"operation={operation}, content={match.content[:50]}",
+                    "result_summary": f"Goal {new_status}: {match.content[:80]}",
+                    "success": True,
+                },
+            )
             return {"ok": True, "status": new_status, "content": match.content[:80]}
+        await ctx.event_bus.publish(
+            "tool.called",
+            {
+                "persona": persona,
+                "tool_name": "goal_manage",
+                "params_summary": f"operation={operation}, memory_key={match.key}",
+                "result_summary": str(update_result.error),
+                "success": False,
+            },
+        )
         return {"ok": False, "error": update_result.error}
     else:
+        await ctx.event_bus.publish(
+            "tool.called",
+            {
+                "persona": persona,
+                "tool_name": "goal_manage",
+                "params_summary": f"operation={operation}, content={content[:50]}",
+                "result_summary": f"Unknown operation: {operation}",
+                "success": False,
+            },
+        )
         return {"ok": False, "error": f"Unknown operation: {operation}. Use create/achieve/cancel."}
 
 
@@ -727,32 +1289,122 @@ async def _tool_promise_manage(
             emotion="neutral",
         )
         if result.is_ok:
+            await ctx.event_bus.publish(
+                "tool.called",
+                {
+                    "persona": persona,
+                    "tool_name": "promise_manage",
+                    "params_summary": f"operation=create, content={content[:50]}",
+                    "result_summary": f"Promise created: {result.value.key}",
+                    "success": True,
+                },
+            )
             return {"ok": True, "key": result.value.key}
+        await ctx.event_bus.publish(
+            "tool.called",
+            {
+                "persona": persona,
+                "tool_name": "promise_manage",
+                "params_summary": f"operation=create, content={content[:50]}",
+                "result_summary": str(result.error),
+                "success": False,
+            },
+        )
         return {"ok": False, "error": result.error}
     elif operation in ("fulfill", "cancel"):
         new_status = "fulfilled" if operation == "fulfill" else "cancelled"
         if memory_key and memory_key.strip():
             get_result = ctx.memory_service.get_memory(memory_key)
             if not get_result.is_ok:
+                await ctx.event_bus.publish(
+                    "tool.called",
+                    {
+                        "persona": persona,
+                        "tool_name": "promise_manage",
+                        "params_summary": f"operation={operation}, memory_key={memory_key}",
+                        "result_summary": str(get_result.error),
+                        "success": False,
+                    },
+                )
                 return {"ok": False, "error": get_result.error}
             match = get_result.value
             if "promise" not in match.tags or "active" not in match.tags:
+                await ctx.event_bus.publish(
+                    "tool.called",
+                    {
+                        "persona": persona,
+                        "tool_name": "promise_manage",
+                        "params_summary": f"operation={operation}, memory_key={memory_key}",
+                        "result_summary": f"Memory '{memory_key}' is not an active promise",
+                        "success": False,
+                    },
+                )
                 return {"ok": False, "error": f"Memory '{memory_key}' is not an active promise."}
         else:
             tag_result = ctx.memory_service.get_by_tags(["promise", "active"])
             if not tag_result.is_ok:
+                await ctx.event_bus.publish(
+                    "tool.called",
+                    {
+                        "persona": persona,
+                        "tool_name": "promise_manage",
+                        "params_summary": f"operation={operation}, content={content[:50]}",
+                        "result_summary": str(tag_result.error),
+                        "success": False,
+                    },
+                )
                 return {"ok": False, "error": tag_result.error}
             candidates = tag_result.value or []
             match = next((m for m in candidates if content.strip().lower() == m.content.strip().lower()), None)
             if match is None:
+                await ctx.event_bus.publish(
+                    "tool.called",
+                    {
+                        "persona": persona,
+                        "tool_name": "promise_manage",
+                        "params_summary": f"operation={operation}, content={content[:50]}",
+                        "result_summary": f"No active promise matching '{content[:40]}' found",
+                        "success": False,
+                    },
+                )
                 return {"ok": False, "error": f"No active promise matching '{content}' found."}
         new_importance = max(match.importance, 0.9)
         new_tags = ["promise", new_status, "archived"]
         update_result = ctx.memory_service.update_memory(match.key, importance=new_importance, tags=new_tags)
         if update_result.is_ok:
+            await ctx.event_bus.publish(
+                "tool.called",
+                {
+                    "persona": persona,
+                    "tool_name": "promise_manage",
+                    "params_summary": f"operation={operation}, content={match.content[:50]}",
+                    "result_summary": f"Promise {new_status}: {match.content[:80]}",
+                    "success": True,
+                },
+            )
             return {"ok": True, "status": new_status, "content": match.content[:80]}
+        await ctx.event_bus.publish(
+            "tool.called",
+            {
+                "persona": persona,
+                "tool_name": "promise_manage",
+                "params_summary": f"operation={operation}, memory_key={match.key}",
+                "result_summary": str(update_result.error),
+                "success": False,
+            },
+        )
         return {"ok": False, "error": update_result.error}
     else:
+        await ctx.event_bus.publish(
+            "tool.called",
+            {
+                "persona": persona,
+                "tool_name": "promise_manage",
+                "params_summary": f"operation={operation}, content={content[:50]}",
+                "result_summary": f"Unknown operation: {operation}",
+                "success": False,
+            },
+        )
         return {"ok": False, "error": f"Unknown operation: {operation}. Use create/fulfill/cancel."}
 
 
@@ -766,6 +1418,16 @@ async def _tool_invoke_skill(ctx: AppContext, persona: str, name: str, task: str
     skill_repo = SkillRepository(get_global_skills_db(get_settings().data_root))
     skill = skill_repo.get(name)
     if not skill:
+        await ctx.event_bus.publish(
+            "tool.called",
+            {
+                "persona": persona,
+                "tool_name": "invoke_skill",
+                "params_summary": f"name={name}, task={task[:50]}",
+                "result_summary": f"Skill '{name}' not found",
+                "success": False,
+            },
+        )
         return {"ok": False, "error": f"Skill '{name}' not found"}
 
     import json as _json
@@ -782,6 +1444,16 @@ async def _tool_invoke_skill(ctx: AppContext, persona: str, name: str, task: str
 
         api_key = os.environ.get("OPENROUTER_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
+        await ctx.event_bus.publish(
+            "tool.called",
+            {
+                "persona": persona,
+                "tool_name": "invoke_skill",
+                "params_summary": f"name={name}, task={task[:50]}",
+                "result_summary": "No LLM API key configured",
+                "success": False,
+            },
+        )
         return {"ok": False, "error": "No LLM API key configured"}
     provider_name = config.provider if config else "openrouter"
     model = config.get_effective_model() if config else "openai/gpt-4o-mini"
@@ -791,6 +1463,16 @@ async def _tool_invoke_skill(ctx: AppContext, persona: str, name: str, task: str
     try:
         provider = get_provider(provider_name, api_key, model, base_url)
     except Exception as e:
+        await ctx.event_bus.publish(
+            "tool.called",
+            {
+                "persona": persona,
+                "tool_name": "invoke_skill",
+                "params_summary": f"name={name}, task={task[:50]}",
+                "result_summary": f"Provider init failed: {e}",
+                "success": False,
+            },
+        )
         return {"ok": False, "error": f"Provider init failed: {e}"}
     text = ""
     try:
@@ -806,8 +1488,29 @@ async def _tool_invoke_skill(ctx: AppContext, persona: str, name: str, task: str
             elif isinstance(event, DoneEvent):
                 break
     except Exception as e:
+        await ctx.event_bus.publish(
+            "tool.called",
+            {
+                "persona": persona,
+                "tool_name": "invoke_skill",
+                "params_summary": f"name={name}, task={task[:50]}",
+                "result_summary": f"Skill execution failed: {e}",
+                "success": False,
+            },
+        )
         return {"ok": False, "error": f"Skill execution failed: {e}"}
-    return {"ok": True, "result": text or "(no response)"}
+    result = {"ok": True, "result": text or "(no response)"}
+    await ctx.event_bus.publish(
+        "tool.called",
+        {
+            "persona": persona,
+            "tool_name": "invoke_skill",
+            "params_summary": f"name={name}, task={task[:50]}",
+            "result_summary": f"Skill '{name}' executed ({len(text)} chars)",
+            "success": True,
+        },
+    )
+    return result
 
 
 # =============================================================================

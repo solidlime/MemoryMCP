@@ -38,6 +38,7 @@ from memory_mcp.migration.versions.v021_remove_multi_emotions import (
 from memory_mcp.migration.versions.v022_context_compression import (
     upgrade as v022_upgrade,
 )
+from memory_mcp.migration.versions.v024_session_events import upgrade as v024_upgrade
 
 ALL_MIGRATIONS: list[tuple[str, str, object]] = [
     ("001", "Initial schema", v001_upgrade),
@@ -62,4 +63,5 @@ ALL_MIGRATIONS: list[tuple[str, str, object]] = [
     ("020", "Add body_state and state_snapped_at to memories", v020_upgrade),
     ("021", "Remove multi-dimensional emotions support", v021_upgrade),
     ("022", "Add context compression and parallel tools columns", v022_upgrade),
+    ("024", "Add session_events table for context-mode style recording", v024_upgrade),
 ]

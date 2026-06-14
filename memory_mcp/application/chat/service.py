@@ -13,6 +13,7 @@ from memory_mcp.application.chat.pipeline.prompt import PromptBuildStep
 from memory_mcp.application.chat.session_store import SessionManager
 from memory_mcp.application.chat.tools.definitions import MEMORY_TOOLS, SANDBOX_TOOLS
 from memory_mcp.application.chat.tools.registry import ToolRegistry
+from memory_mcp.domain.shared.time_utils import get_now
 from memory_mcp.infrastructure.logging.structured import get_logger
 from memory_mcp.infrastructure.mcp_client import MCPClientPool
 
@@ -43,6 +44,14 @@ class ChatService:
 
         turn_ctx = ChatTurnContext(session_id=session_id, user_message=user_message, images=images or [])
 
+        # Publish chat.message event for server-side history
+        await ctx.event_bus.publish("chat.message", {
+            "persona": persona,
+            "session_id": session_id,
+            "content": user_message,
+            "timestamp": get_now().isoformat(),
+        })
+
         # PrepareStep: pending_memory_task 待機 + EmotionDecay + コンテキスト取得
         await PrepareStep().run(ctx, session, turn_ctx, config=config)
 
@@ -63,6 +72,14 @@ class ChatService:
             # Notify frontend if compression occurred
             comp_info = getattr(turn_ctx, '_compression_info', None)
             if comp_info:
+                # Publish compaction event
+                await ctx.event_bus.publish("session.compact", {
+                    "persona": persona,
+                    "session_id": session_id,
+                    "before_tokens": comp_info["before_tokens"],
+                    "after_tokens": comp_info["after_tokens"],
+                    "timestamp": get_now().isoformat(),
+                })
                 from memory_mcp.application.chat.events import ContextCompressedSSE
                 yield ContextCompressedSSE(
                     before_tokens=comp_info["before_tokens"],
@@ -71,8 +88,23 @@ class ChatService:
                     mode=config.context_compression_mode,
                 ).to_sse()
 
+            # Collect and stream LLM response
+            full_response = ""
             async for event in InferenceStep().run(ctx, config, messages, turn_ctx, registry):
                 yield event.to_sse()
+                # Collect text deltas for chat.llm_response event
+                from memory_mcp.application.chat.events import TextDeltaSSE
+                if isinstance(event, TextDeltaSSE):
+                    full_response += event.content
+
+            # Publish chat.llm_response event
+            if full_response:
+                await ctx.event_bus.publish("chat.llm_response", {
+                    "persona": persona,
+                    "session_id": session_id,
+                    "content": full_response,
+                    "timestamp": get_now().isoformat(),
+                })
 
         async for post_event in PostProcessStep().run(ctx, config, session, turn_ctx, debug=debug):
             yield post_event.to_sse()
