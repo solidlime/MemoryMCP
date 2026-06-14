@@ -2,18 +2,22 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import TYPE_CHECKING
+from datetime import datetime
+from typing import TYPE_CHECKING, Any
 
-from starlette.responses import StreamingResponse
+from starlette.responses import JSONResponse, StreamingResponse
 
 from memory_mcp.api.http.deps import _resolve_persona_from_request, _safe_get_context
 from memory_mcp.application.event_bus import (
     EVENT_CONTEXT_UPDATED,
+    EVENT_EVENTS_INGESTED,
     EVENT_MEMORY_CREATED,
     EVENT_MEMORY_DELETED,
     EVENT_MEMORY_UPDATED,
 )
+from memory_mcp.domain.memory.session_event import SessionEvent
 from memory_mcp.infrastructure.logging.structured import get_logger
+from memory_mcp.infrastructure.sqlite.session_event_repo import SessionEventRepository
 
 if TYPE_CHECKING:
     from starlette.requests import Request
@@ -103,3 +107,141 @@ def register_events_routes(mcp) -> None:
                 "Connection": "keep-alive",
             },
         )
+
+    # ------------------------------------------------------------------
+    # POST /api/events/ingest — Plugin用HTTP取り込みAPI
+    # ------------------------------------------------------------------
+
+    @mcp.custom_route("/api/events/ingest", methods=["POST"])
+    async def events_ingest(request: Request) -> JSONResponse:
+        """Ingest session events from external plugins via HTTP POST.
+
+        Accepts JSON body with:
+        {
+            \"session_id\": \"sess_abc\",
+            \"persona\": \"herta\",
+            \"events\": [
+                {
+                    \"type\": \"tool_call\",
+                    \"timestamp\": \"2026-06-12T22:30:00+09:00\",
+                    \"summary\": \"memory_create: remembered something\",
+                    \"detail\": null,
+                    \"metadata\": {\"tool_name\": \"memory_create\"}
+                }
+            ]
+        }
+        """
+        # 1. Parse JSON body
+        try:
+            body: dict[str, Any] = await request.json()
+        except Exception:
+            return JSONResponse({"error": "Invalid JSON"}, status_code=400)
+
+        # 2. Extract required fields
+        session_id = body.get("session_id")
+        persona = body.get("persona")
+        raw_events: list[dict[str, Any]] | None = body.get("events")
+
+        if not persona or not isinstance(persona, str):
+            return JSONResponse({"error": "Missing or invalid 'persona'"}, status_code=400)
+        if not session_id or not isinstance(session_id, str):
+            return JSONResponse({"error": "Missing or invalid 'session_id'"}, status_code=400)
+        if not isinstance(raw_events, list):
+            return JSONResponse({"error": "Missing or invalid 'events' (expected list)"}, status_code=400)
+
+        # 3. Get AppContext for the persona
+        ctx = _safe_get_context(persona)
+        if not ctx:
+            return JSONResponse({"error": "Persona not found"}, status_code=404)
+
+        # 4. API key authentication
+        api_key = ctx.settings.plugin_api_key
+        if api_key:
+            auth_header = request.headers.get("authorization", "")
+            if not auth_header.startswith("Bearer "):
+                return JSONResponse({"error": "Missing or invalid Authorization header"}, status_code=401)
+            token = auth_header.removeprefix("Bearer ").strip()
+            if token != api_key:
+                return JSONResponse({"error": "Invalid API key"}, status_code=401)
+
+        # 5. Ensure database schema exists (session_events table)
+        db = ctx.connection.get_memory_db()
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS session_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT NOT NULL,
+                persona TEXT NOT NULL,
+                event_type TEXT NOT NULL,
+                timestamp TEXT NOT NULL,
+                summary TEXT NOT NULL,
+                detail TEXT,
+                metadata_json TEXT,
+                created_at TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+        """)
+        db.execute("CREATE INDEX IF NOT EXISTS idx_session_events_session ON session_events(session_id, timestamp)")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_session_events_persona ON session_events(persona, timestamp)")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_session_events_type ON session_events(event_type, timestamp)")
+        db.commit()
+
+        # 6. Process events
+        repo = SessionEventRepository(ctx.connection)
+        inserted = 0
+        skipped = 0
+        for ev in raw_events:
+            if not isinstance(ev, dict):
+                skipped += 1
+                logger.warning("Skipping non-dict event entry in ingest for persona '%s'", persona)
+                continue
+
+            event_type = ev.get("type", "").strip()
+            summary = ev.get("summary", "").strip()
+            if not event_type or not summary:
+                skipped += 1
+                logger.warning("Skipping event with missing type/summary for session '%s'", session_id)
+                continue
+
+            # Parse timestamp (optional — defaults to now)
+            raw_ts = ev.get("timestamp")
+            if raw_ts:
+                try:
+                    timestamp = datetime.fromisoformat(raw_ts)
+                except (ValueError, TypeError):
+                    skipped += 1
+                    logger.warning("Skipping event with invalid timestamp '%s'", raw_ts)
+                    continue
+            else:
+                timestamp = datetime.now()
+
+            detail = ev.get("detail")
+            metadata = ev.get("metadata")
+
+            event = SessionEvent(
+                session_id=session_id,
+                persona=persona,
+                event_type=event_type,
+                timestamp=timestamp,
+                summary=summary,
+                detail=detail,
+                metadata=metadata,
+            )
+            try:
+                repo.insert(event)
+                inserted += 1
+            except Exception:
+                logger.exception("Failed to insert session event for persona '%s'", persona)
+                skipped += 1
+
+        # 7. Publish event via EventBus
+        try:
+            await ctx.event_bus.publish(EVENT_EVENTS_INGESTED, {
+                "persona": persona,
+                "session_id": session_id,
+                "count": inserted,
+                "skipped": skipped,
+            })
+        except Exception:
+            logger.exception("Failed to publish events.ingested event for persona '%s'", persona)
+
+        # 8. Return success response
+        return JSONResponse({"status": "ok", "count": inserted, "skipped": skipped})

@@ -14,6 +14,9 @@ EVENT_MEMORY_UPDATED = "memory.updated"
 EVENT_MEMORY_DELETED = "memory.deleted"
 EVENT_CONTEXT_UPDATED = "context.updated"
 
+# Plugin ingestion
+EVENT_EVENTS_INGESTED = "events.ingested"
+
 # Chat events
 CHAT_MESSAGE = "chat.message"
 CHAT_LLM_RESPONSE = "chat.llm_response"

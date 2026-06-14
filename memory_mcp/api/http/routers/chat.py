@@ -246,40 +246,45 @@ def register_chat_routes(mcp) -> None:
         if not isinstance(keep_until, int) or keep_until < 0:
             return JSONResponse({"error": "keep_until must be non-negative integer"}, status_code=400)
 
-        from memory_mcp.application.chat.service import _session_manager
-        from memory_mcp.application.chat.session_store import SessionManager, SessionWindow
+        try:
+            from memory_mcp.application.chat.service import _session_manager
+            from memory_mcp.application.chat.session_store import SessionManager, SessionWindow
 
-        key = (persona, session_id)
-        window = _session_manager._sessions.get(key)
+            key = (persona, session_id)
+            window = _session_manager._sessions.get(key)
 
-        if window:
-            removed = window.truncate_to(keep_until)
-        else:
-            # Window not in memory — load from DB, truncate, persist
-            from memory_mcp.application.chat.session_store import _CHAT_SESSIONS_SCHEMA
+            if window:
+                removed = window.truncate_to(keep_until)
+            else:
+                # Window not in memory — load from DB, truncate, persist
+                from memory_mcp.application.chat.session_store import _CHAT_SESSIONS_SCHEMA
+
+                db = ctx.connection.get_memory_db()
+                db.execute(_CHAT_SESSIONS_SCHEMA)
+                db.commit()
+                window = SessionWindow.from_db(db, persona, session_id)
+                if window is None:
+                    return JSONResponse({"error": "Session not found"}, status_code=404)
+                removed = window.truncate_to(keep_until)
+
             db = ctx.connection.get_memory_db()
-            db.execute(_CHAT_SESSIONS_SCHEMA)
-            db.commit()
-            window = SessionWindow.from_db(db, persona, session_id)
-            if window is None:
-                return JSONResponse({"error": "Session not found"}, status_code=404)
-            removed = window.truncate_to(keep_until)
+            remaining = SessionManager.get_messages(db, persona, session_id)
 
-        db = ctx.connection.get_memory_db()
-        remaining = SessionManager.get_messages(db, persona, session_id)
+            # Return the user message text that was just removed (if any) for input field population
+            removed_user_text = None
+            for msg in reversed(removed):
+                if msg["role"] == "user":
+                    removed_user_text = msg["content"]
+                    break
 
-        # Return the user message text that was just removed (if any) for input field population
-        removed_user_text = None
-        for msg in reversed(removed):
-            if msg["role"] == "user":
-                removed_user_text = msg["content"]
-                break
-
-        return JSONResponse({
-            "removed_count": len(removed),
-            "remaining_messages": remaining,
-            "removed_user_text": removed_user_text,
-        })
+            return JSONResponse({
+                "removed_count": len(removed),
+                "remaining_messages": remaining,
+                "removed_user_text": removed_user_text,
+            })
+        except Exception as e:
+            logger.exception("rollback_chat_session failed: %s", e)
+            return JSONResponse({"error": str(e)}, status_code=500)
 
     @mcp.custom_route("/api/chat/{persona}/housekeeping", methods=["POST"])
     async def run_housekeeping(request: Request) -> JSONResponse:

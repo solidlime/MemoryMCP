@@ -121,6 +121,7 @@ class Settings(BaseSettings):
     )
 
     server: ServerConfig = ServerConfig()
+    plugin_api_key: str = ""  # empty = no auth (dev mode)
     embedding: EmbeddingConfig = EmbeddingConfig()
     reranker: RerankerConfig = RerankerConfig()
     qdrant: QdrantConfig = QdrantConfig()
