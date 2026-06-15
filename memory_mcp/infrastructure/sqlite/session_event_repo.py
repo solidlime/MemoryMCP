@@ -76,6 +76,46 @@ class SessionEventRepository:
         return [self._row_to_event(r) for r in rows]
 
     # ------------------------------------------------------------------
+    # Paginated query
+    # ------------------------------------------------------------------
+
+    def get_by_persona_paginated(
+        self,
+        persona: str,
+        limit: int = 50,
+        offset: int = 0,
+        event_type: str | None = None,
+        order: str = "desc",
+    ) -> tuple[list[SessionEvent], int]:
+        """Get paginated events for a persona, with optional event_type filter.
+
+        Returns ``(events, total_count)``. *order* must be ``"asc"`` or ``"desc"``.
+        """
+        direction = "ASC" if order == "asc" else "DESC"
+
+        if event_type:
+            where_clause = "WHERE persona = ? AND event_type = ?"
+            params = (persona, event_type)
+        else:
+            where_clause = "WHERE persona = ?"
+            params = (persona,)
+
+        # Total count
+        count_row = self._db.execute(
+            f"SELECT COUNT(*) FROM session_events {where_clause}",
+            params,
+        ).fetchone()
+        total = count_row[0] if count_row else 0
+
+        # Paginated rows
+        rows = self._db.execute(
+            f"SELECT * FROM session_events {where_clause} ORDER BY timestamp {direction} LIMIT ? OFFSET ?",
+            (*params, limit, offset),
+        ).fetchall()
+
+        return [self._row_to_event(r) for r in rows], total
+
+    # ------------------------------------------------------------------
     # Delete
     # ------------------------------------------------------------------
 

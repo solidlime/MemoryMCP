@@ -5,6 +5,7 @@ analytics, settings, and administration. Each tab is defined in
 its own module under ``sections/``.
 """
 
+from .sections.activity import render_activity_js, render_activity_tab
 from .sections.admin import render_admin_js, render_admin_tab
 from .sections.analytics import render_analytics_js, render_analytics_tab
 from .sections.base import render_layout_shell, render_nav
@@ -24,6 +25,7 @@ def render_dashboard(persona: str | None = None) -> str:
         {"id": "overview", "lucide": "layout-dashboard", "label": "Overview"},
         {"id": "memories", "lucide": "brain", "label": "Memories"},
         {"id": "chat", "lucide": "message-circle", "label": "Chat"},
+        {"id": "activity", "lucide": "activity", "label": "Activity"},
         {"id": "settings", "lucide": "settings", "label": "Settings"},
         {"id": "analytics", "lucide": "bar-chart-3", "label": "Analytics"},
         {"id": "timeline", "lucide": "clock", "label": "Timeline"},
@@ -45,6 +47,7 @@ def render_dashboard(persona: str | None = None) -> str:
             render_import_export_tab(),
             render_persona_tab(),
             render_chat_tab(),
+            render_activity_tab(),
             render_settings_tab(),
             render_admin_tab(),
         ]
@@ -62,6 +65,7 @@ def render_dashboard(persona: str | None = None) -> str:
                 render_import_export_js(),
                 render_persona_js(),
                 render_chat_js(),
+                render_activity_js(),
                 render_settings_js(),
                 render_admin_js(),
             ],

@@ -11,7 +11,7 @@ class SessionEvent:
 
     session_id: str
     persona: str
-    event_type: str  # 'tool_call', 'chat_message', 'llm_response', 'session_start', 'session_compact', 'generic'
+    event_type: str  # 'tool.called', 'chat.message', 'chat.llm_response', 'session.started', 'session.compact', 'events.ingested'
     summary: str  # human-readable one-liner (e.g., "memory_create: パパが疲れている")
     timestamp: datetime = field(default_factory=datetime.now)
     detail: str | None = None  # optional longer detail

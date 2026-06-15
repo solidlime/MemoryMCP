@@ -8,6 +8,7 @@ from memory_mcp.api.http.routers import (
     register_memory_routes,
     register_persona_routes,
     register_search_routes,
+    register_session_events_routes,
     register_skills_routes,
 )
 
@@ -22,3 +23,4 @@ def register_http_routes(mcp) -> None:
     register_chat_routes(mcp)
     register_skills_routes(mcp)
     register_events_routes(mcp)
+    register_session_events_routes(mcp)

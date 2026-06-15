@@ -936,6 +936,7 @@ function loadTab(tab) {
         case 'personas': loadPersonas(); break;
         case 'settings': loadSettings(); break;
         case 'chat': loadChat(); break;
+        case 'activity': loadActivity(true); break;
         case 'admin': loadAdmin(); break;
     }
 }
