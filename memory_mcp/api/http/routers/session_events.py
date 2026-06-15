@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from memory_mcp.application.use_cases import AppContextRegistry
 from memory_mcp.infrastructure.sqlite.session_event_repo import SessionEventRepository
+from starlette.responses import JSONResponse
 
 if TYPE_CHECKING:
     from starlette.requests import Request
@@ -39,8 +40,6 @@ def register_session_events_routes(mcp) -> None:
 
         ctx = AppContextRegistry.get(persona)
         if ctx is None:
-            from starlette.responses import JSONResponse
-
             return JSONResponse({"error": "persona not found"}, status_code=404)
 
         repo = SessionEventRepository(ctx.connection)
@@ -52,7 +51,7 @@ def register_session_events_routes(mcp) -> None:
             order=order,
         )
 
-        return {
+        return JSONResponse({
             "events": [
                 {
                     "id": e.id,
@@ -67,4 +66,4 @@ def register_session_events_routes(mcp) -> None:
             ],
             "total": total,
             "has_more": offset + limit < total,
-        }
+        })
