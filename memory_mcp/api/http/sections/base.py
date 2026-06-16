@@ -902,7 +902,7 @@ function showSkeleton(tabId) {
        inner elements (#graph-loading, #persona-grid, #export-preview, #chat-messages, #tl-loading).
        Replacing their innerHTML would destroy those elements and cause
        silent failures in the corresponding load functions. */
-    if (tabId === 'graph' || tabId === 'import-export' || tabId === 'personas' || tabId === 'chat' || tabId === 'timeline') return;
+    if (tabId === 'graph' || tabId === 'import-export' || tabId === 'personas' || tabId === 'chat' || tabId === 'timeline' || tabId === 'activity') return;
     const content = container.querySelector('[id$="-content"]') || container;
     content.innerHTML = skeletons[tabId] || '<div class="skeleton skeleton-card glass"></div>';
 }

@@ -199,6 +199,9 @@ const ACT_PLATFORM_ICONS = {
 async function loadActivity(reset = false) {
     if (reset) { ACT.offset = 0; ACT.sessions = {}; }
 
+    const feed = document.getElementById('act-feed');
+    if (!feed) return;
+
     const typeEl = document.getElementById('act-filter-type');
     const orderEl = document.getElementById('act-filter-order');
     ACT.filterType = typeEl ? typeEl.value : '';
@@ -216,11 +219,11 @@ async function loadActivity(reset = false) {
         if (reset) {
             ACT.offset = 0;
             ACT.sessions = {};
-            document.getElementById('act-feed').innerHTML = '';
+            feed.innerHTML = '';
         }
 
         if (events.length === 0 && ACT.offset === 0) {
-            document.getElementById('act-feed').innerHTML =
+            feed.innerHTML =
                 '<div class="act-empty"><i data-lucide=&quot;inbox&quot;></i><p>No activity yet. Events will appear here as you use MemoryMCP.</p></div>';
             if (typeof lucide !== 'undefined') lucide.createIcons();
             return;
@@ -252,7 +255,7 @@ async function loadActivity(reset = false) {
                 loadMoreEl.className = 'act-load-more';
                 loadMoreEl.textContent = 'Load more...';
                 loadMoreEl.onclick = () => loadActivity(false);
-                document.getElementById('act-feed').appendChild(loadMoreEl);
+                feed.appendChild(loadMoreEl);
             }
         } else if (loadMoreEl) {
             loadMoreEl.remove();
@@ -260,13 +263,14 @@ async function loadActivity(reset = false) {
 
         if (typeof lucide !== 'undefined') lucide.createIcons();
     } catch (e) {
-        document.getElementById('act-feed').innerHTML =
+        feed.innerHTML =
             '<div class="act-empty"><i data-lucide=&quot;alert-triangle&quot;></i><p>Failed to load: ' + esc(e.message) + '</p></div>';
     }
 }
 
 function renderActivityFeed() {
     const feed = document.getElementById('act-feed');
+    if (!feed) return;
     // Remove old load-more button before re-rendering
     const oldBtn = document.getElementById('act-load-more');
     if (oldBtn) oldBtn.remove();
