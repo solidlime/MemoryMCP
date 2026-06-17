@@ -11,6 +11,8 @@ from memory_mcp.application.chat.events import (
     DoneSSE,
     InventoryUpdateSSE,
     MemoryActivitySSE,
+    MentalModelDoneSSE,
+    MentalModelStartSSE,
     ReflectionDoneSSE,
     ReflectionStartSSE,
     SessionSummarizedSSE,
@@ -59,6 +61,8 @@ class PostProcessStep:
         DebugInfoSSE
         | DoneSSE
         | MemoryActivitySSE
+        | MentalModelStartSSE
+        | MentalModelDoneSSE
         | ReflectionStartSSE
         | ReflectionDoneSSE
         | SessionSummarizedSSE
@@ -67,7 +71,7 @@ class PostProcessStep:
     ]:
         # evict_callback を設定してからセッションにターンを追加
         _summary_tasks: list[asyncio.Task] = []
-        if getattr(config, "session_summarize", True) and getattr(config, "extract_model", ""):
+        if getattr(config, "session_summarize", True):
 
             def _evict_cb(evicted: list[dict]) -> None:
                 _summary_tasks.append(asyncio.create_task(_do_summarize(ctx, config, evicted)))
@@ -190,7 +194,7 @@ class PostProcessStep:
         if getattr(config, "reflection_enabled", True):
             importance_sum = (
                 sum(float(f.get("importance", 0.6)) for f in memory_result.get("facts", []))
-                + len(turn_ctx.tool_calls_log) * 0.3
+                + len(turn_ctx.tool_calls_log) * 0.1
             )
             threshold = getattr(config, "reflection_threshold", 1.0)
             if importance_sum >= threshold:
@@ -204,7 +208,9 @@ class PostProcessStep:
 
         # Mental Model: 蓄積されたパターンから抽象化モデルを生成
         if getattr(config, "mental_model_enabled", True):
+            yield MentalModelStartSSE(message="メンタルモデル抽象化を開始...")
             try:
                 await maybe_run_mental_model(ctx, config)
+                yield MentalModelDoneSSE(message="メンタルモデル抽象化が完了しました")
             except Exception as e:
                 logger.warning("PostProcessStep: mental_model failed: %s", e)

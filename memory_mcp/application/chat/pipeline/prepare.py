@@ -116,9 +116,19 @@ async def _search_memories(
     return "\n".join(lines), {"queries": queries, "results": debug_results}, memories_list
 
 
-async def _build_context_section(ctx: AppContext, state) -> str:
-    """get_context() 同等の充実したコンテキストサマリーを構築する。"""
+async def _build_context_section(
+    ctx: AppContext,
+    state,
+    turn_ctx: ChatTurnContext | None = None,
+    compress_mode: str = "auto",
+) -> str:
+    """get_context() 同等の充実したコンテキストサマリーを構築する。
+
+    compress_mode が "light"/"normal"/"aggressive" の場合は、
+    重いセクション（reflection insight, mental model, session summary, emotion history）をスキップする。
+    """
     parts: list[str] = []
+    _is_light = compress_mode in ("light", "normal", "aggressive")
 
     # 現在時刻
     now_jst = get_now()
@@ -172,19 +182,20 @@ async def _build_context_section(ctx: AppContext, state) -> str:
     if getattr(state, "emotion", None):
         intensity = getattr(state, "emotion_intensity", 0.5)
         parts.append(f"感情: {state.emotion} (強度: {intensity:.1f})")
-    # Emotion trend (how feelings have changed)
-    try:
-        eh_result = ctx.persona_service.get_emotion_history(state.persona, limit=5)
-        if eh_result.is_ok and eh_result.value:
-            recent_emotions = eh_result.value
-            if len(recent_emotions) >= 2:
-                prev = recent_emotions[-2]
-                if prev.emotion_type != state.emotion:
-                    trend = " → ".join(r.emotion_type for r in recent_emotions[-4:])
-                    trend += f" → {state.emotion}"
-                    parts.append(f"感情推移: {trend}")
-    except Exception:
-        pass
+    # Emotion trend (how feelings have changed) — skip in light mode
+    if not _is_light:
+        try:
+            eh_result = ctx.persona_service.get_emotion_history(state.persona, limit=5)
+            if eh_result.is_ok and eh_result.value:
+                recent_emotions = eh_result.value
+                if len(recent_emotions) >= 2:
+                    prev = recent_emotions[-2]
+                    if prev.emotion_type != state.emotion:
+                        trend = " → ".join(r.emotion_type for r in recent_emotions[-4:])
+                        trend += f" → {state.emotion}"
+                        parts.append(f"感情推移: {trend}")
+        except Exception:
+            pass
     # Show body state if available
     body_parts: list[str] = []
     for key, label in [
@@ -197,12 +208,13 @@ async def _build_context_section(ctx: AppContext, state) -> str:
         val = getattr(state, key, None)
         if val is not None:
             body_parts.append(f"{label}={val:.1f}")
+    physical_text = getattr(state, "physical_state", None)
+    if physical_text:
+        body_parts.append(physical_text)
     if body_parts:
-        parts.append("身体状態: " + " ".join(body_parts))
+        parts.append("身体状態: " + ", ".join(body_parts))
     if getattr(state, "mental_state", None):
         parts.append(f"精神状態: {state.mental_state}")
-    if getattr(state, "physical_state", None):
-        parts.append(f"身体状態: {state.physical_state}")
     if getattr(state, "environment", None):
         parts.append(f"環境: {state.environment}")
     if getattr(state, "speech_style", None):
@@ -229,6 +241,9 @@ async def _build_context_section(ctx: AppContext, state) -> str:
         promises_result = ctx.memory_service.get_by_tags(["promise"])
         promises = promises_result.value if promises_result.is_ok else []
         active_promises = [p for p in promises if "active" in (p.tags or [])]
+        if turn_ctx is not None:
+            turn_ctx.cached_active_goals = active_goals
+            turn_ctx.cached_active_promises = active_promises
         if active_goals or active_promises:
             commit_lines: list[str] = []
             for g in active_goals:
@@ -243,35 +258,38 @@ async def _build_context_section(ctx: AppContext, state) -> str:
     except Exception as e:
         logger.debug("Failed to fetch goals/promises: %s", e)
 
-    # Reflection insights（直近の高次洞察）
-    try:
-        reflection_result = ctx.memory_service.get_by_tags(["reflection"])
-        if reflection_result.is_ok and reflection_result.value:
-            insights = [r.content for r in reflection_result.value[:3] if r.content]
-            if insights:
-                parts.append("最近の洞察:\n" + "\n".join(f"  💡 {i}" for i in insights))
-    except Exception as e:
-        logger.debug("Failed to fetch reflections: %s", e)
+    # Reflection insights（直近の高次洞察）— skip in light mode
+    if not _is_light:
+        try:
+            reflection_result = ctx.memory_service.get_by_tags(["reflection"])
+            if reflection_result.is_ok and reflection_result.value:
+                insights = [r.content for r in reflection_result.value[:3] if r.content]
+                if insights:
+                    parts.append("最近の洞察:\n" + "\n".join(f"  💡 {i}" for i in insights))
+        except Exception as e:
+            logger.debug("Failed to fetch reflections: %s", e)
 
-    # Mental model（抽象化された行動パターン）
-    try:
-        mm_result = ctx.memory_service.get_by_tags(["mental_model", "abstracted"])
-        if mm_result.is_ok and mm_result.value:
-            patterns = [m.content for m in mm_result.value[:3] if m.content]
-            if patterns:
-                parts.append("行動パターン:\n" + "\n".join(f"  🧩 {p}" for p in patterns))
-    except Exception as e:
-        logger.debug("Failed to fetch mental models: %s", e)
+    # Mental model（抽象化された行動パターン）— skip in light mode
+    if not _is_light:
+        try:
+            mm_result = ctx.memory_service.get_by_tags(["mental_model", "abstracted"])
+            if mm_result.is_ok and mm_result.value:
+                patterns = [m.content for m in mm_result.value[:3] if m.content]
+                if patterns:
+                    parts.append("行動パターン:\n" + "\n".join(f"  🧩 {p}" for p in patterns))
+        except Exception as e:
+            logger.debug("Failed to fetch mental models: %s", e)
 
-    # Session summaries（直近の会話要約）
-    try:
-        summary_result = ctx.memory_service.get_by_tags(["session_summary"])
-        if summary_result.is_ok and summary_result.value:
-            summaries = [s.content for s in summary_result.value[:2] if s.content]
-            if summaries:
-                parts.append("最近の会話要約:\n" + "\n".join(f"  📝 {s}" for s in summaries))
-    except Exception as e:
-        logger.debug("Failed to fetch session summaries: %s", e)
+    # Session summaries（直近の会話要約）— skip in light mode
+    if not _is_light:
+        try:
+            summary_result = ctx.memory_service.get_by_tags(["session_summary"])
+            if summary_result.is_ok and summary_result.value:
+                summaries = [s.content for s in summary_result.value[:2] if s.content]
+                if summaries:
+                    parts.append("最近の会話要約:\n" + "\n".join(f"  📝 {s}" for s in summaries))
+        except Exception as e:
+            logger.debug("Failed to fetch session summaries: %s", e)
 
     try:
         equip_result = ctx.equipment_service.get_equipment()
@@ -343,9 +361,9 @@ class PrepareStep:
 
             # context_section 構築
             last_assistant = session.get_last_assistant_content()
-            context_task = asyncio.create_task(_build_context_section(ctx, state))
+            context_task = asyncio.create_task(_build_context_section(ctx, state, turn_ctx, compress_mode=config.context_compression_mode))
             # Progressive disclosure: only preload N memories; LLM searches for more if needed
-            preload_count = getattr(config, "memory_preload_count", 8)
+            preload_count = getattr(config, "memory_preload_count", 3)
             memory_task = asyncio.create_task(
                 _search_memories(ctx, turn_ctx.user_message, last_assistant, config, top_k=max(preload_count, 1) if preload_count > 0 else 0)
             )
@@ -360,7 +378,7 @@ class PrepareStep:
             # contextなしで継続
             last_assistant = session.get_last_assistant_content()
             try:
-                preload_count = getattr(config, "memory_preload_count", 8)
+                preload_count = getattr(config, "memory_preload_count", 3)
                 turn_ctx.related_memories, debug, memories_list = await _search_memories(
                     ctx, turn_ctx.user_message, last_assistant, config, top_k=max(preload_count, 1) if preload_count > 0 else 0
                 )

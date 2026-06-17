@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from memory_mcp.application.chat.tools.builtin import execute_tool, filter_extra_tools, truncate_tool_result
+from memory_mcp.domain.shared.time_utils import get_now
 from memory_mcp.infrastructure.logging.structured import get_logger
 
 if TYPE_CHECKING:
@@ -52,10 +53,30 @@ class ToolRegistry:
             if self.is_mcp_tool(tool_name):
                 if self._mcp_pool is None:
                     return {"status": "error", "message": "MCP pool not available"}
-                return await self._mcp_pool.call_tool(tool_name, tool_input)
-            return await execute_tool(ctx, config, tool_name, tool_input)
+                result = await self._mcp_pool.call_tool(tool_name, tool_input)
+            else:
+                result = await execute_tool(ctx, config, tool_name, tool_input)
+
+            # Publish tool.called event on success
+            if hasattr(ctx, "event_bus") and ctx.event_bus is not None:
+                await ctx.event_bus.publish("tool.called", {
+                    "tool_name": tool_name,
+                    "params_summary": str(tool_input)[:200],
+                    "success": True,
+                    "timestamp": get_now().isoformat(),
+                })
+            return result
         except Exception as e:
             logger.exception("ToolRegistry.execute failed: %s", tool_name)
+            # Publish tool.called event on failure
+            if hasattr(ctx, "event_bus") and ctx.event_bus is not None:
+                await ctx.event_bus.publish("tool.called", {
+                    "tool_name": tool_name,
+                    "params_summary": str(tool_input)[:200],
+                    "success": False,
+                    "error": str(e),
+                    "timestamp": get_now().isoformat(),
+                })
             return {"status": "error", "message": str(e)}
 
     def truncate_result(self, result: dict, max_chars: int) -> dict:

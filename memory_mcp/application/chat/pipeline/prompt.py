@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from memory_mcp.domain.shared.time_utils import get_now
 from memory_mcp.infrastructure.logging.structured import get_logger
 
 if TYPE_CHECKING:
@@ -18,6 +17,9 @@ logger = get_logger(__name__)
 class PromptBuildStep:
     """systemプロンプトを組み立てる。"""
 
+    def __init__(self) -> None:
+        self._skills_cache: dict[frozenset, tuple[list[str], list[dict]]] = {}
+
     def run(
         self,
         ctx: AppContext,
@@ -26,11 +28,9 @@ class PromptBuildStep:
     ) -> None:
         """ChatTurnContext.system_prompt を設定する。同期メソッド。"""
         persona = ctx.persona
-        now = get_now()
-        jst_now = now.strftime("%Y-%m-%d %H:%M JST")
 
         base_system = config.system_prompt or f"あなたは{persona}という名前のアシスタントです。"
-        parts = [base_system, f"\n現在時刻: {jst_now}"]
+        parts = [base_system]
 
         if turn_ctx.context_section:
             parts.append(f"\n--- ペルソナ状態・コンテキスト ---\n{turn_ctx.context_section}")
@@ -39,19 +39,24 @@ class PromptBuildStep:
 
         skills_raw: list[dict] = []
         if config.enabled_skills:
-            try:
-                from memory_mcp.config.settings import get_settings
-                from memory_mcp.domain.skill import SkillRepository
-                from memory_mcp.infrastructure.sqlite.connection import get_global_skills_db
+            cache_key = frozenset(config.enabled_skills)
+            if cache_key not in self._skills_cache:
+                try:
+                    from memory_mcp.config.settings import get_settings
+                    from memory_mcp.domain.skill import SkillRepository
+                    from memory_mcp.infrastructure.sqlite.connection import get_global_skills_db
 
-                skill_repo = SkillRepository(get_global_skills_db(get_settings().data_root))
-                skills = [skill_repo.get(n) for n in config.enabled_skills]
-                skill_lines = [f"- {s.name}: {s.description}" for s in skills if s]
-                skills_raw = [s.model_dump() for s in skills if s]
-                if skill_lines:
-                    parts.append("\n--- 利用可能なSkill ---\n" + "\n".join(skill_lines))
-            except Exception as e:
-                logger.warning("PromptBuildStep: skills load failed: %s", e)
+                    skill_repo = SkillRepository(get_global_skills_db(get_settings().data_root))
+                    skills = [skill_repo.get(n) for n in config.enabled_skills]
+                    skill_lines = [f"- {s.name}: {s.description}" for s in skills if s]
+                    _skills_raw = [s.model_dump() for s in skills if s]
+                    self._skills_cache[cache_key] = (skill_lines, _skills_raw)
+                except Exception as e:
+                    logger.warning("PromptBuildStep: skills load failed: %s", e)
+                    self._skills_cache[cache_key] = ([], [])
+            skill_lines, skills_raw = self._skills_cache[cache_key]
+            if skill_lines:
+                parts.append("\n--- 利用可能なSkill ---\n" + "\n".join(skill_lines))
 
         if config.enable_memory_tools:
             parts.append(

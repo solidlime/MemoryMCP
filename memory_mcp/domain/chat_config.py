@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import warnings
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, field_validator
@@ -81,6 +82,15 @@ class ChatConfig(BaseModel):
     memory_preload_count: int = 3  # 0=all, N=preload top N
     enable_parallel_tools: bool = True
     updated_at: str | None = None
+
+    def model_post_init(self, __context) -> None:
+        """Post-init hook: emit deprecation warnings for legacy fields."""
+        if self.max_window_turns is not None:
+            warnings.warn(
+                "max_window_turns is deprecated, use max_stored_messages instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
     @field_validator("temperature")
     @classmethod

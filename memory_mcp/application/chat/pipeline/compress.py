@@ -16,16 +16,6 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-def _count_system_prompt_tokens(prompt: str, model: str) -> int:
-    counter = TokenCounter(model)
-    return counter.count(prompt)
-
-
-def _count_messages_tokens(messages: list[LLMMessage], model: str) -> int:
-    counter = TokenCounter(model)
-    return counter.count_messages(messages, "")
-
-
 class CompressStep:
     """トークン予算を超えたらシステムプロンプト・会話履歴を動的圧縮する。
 
@@ -52,8 +42,9 @@ class CompressStep:
             圧縮後のメッセージリスト（変更不要ならそのまま返す）
         """
         model = config.get_effective_model()
-        total = _count_system_prompt_tokens(turn_ctx.system_prompt, model) + _count_messages_tokens(
-            session_messages, model
+        counter = TokenCounter(model)
+        total = counter.count(turn_ctx.system_prompt) + counter.count_messages(
+            session_messages, ""
         )
 
         if config.context_max_tokens is not None:
@@ -81,8 +72,8 @@ class CompressStep:
             )
 
         # Re-check
-        total = _count_system_prompt_tokens(turn_ctx.system_prompt, model) + _count_messages_tokens(
-            session_messages, model
+        total = counter.count(turn_ctx.system_prompt) + counter.count_messages(
+            session_messages, ""
         )
         if total <= budget:
             return session_messages
@@ -94,7 +85,7 @@ class CompressStep:
             messages = session_messages
 
         # Re-check
-        total = _count_system_prompt_tokens(turn_ctx.system_prompt, model) + _count_messages_tokens(messages, model)
+        total = counter.count(turn_ctx.system_prompt) + counter.count_messages(messages, "")
         if total <= budget:
             return list(messages)
 
@@ -103,7 +94,7 @@ class CompressStep:
             keep_recent = getattr(config, "context_keep_recent_turns", 2)
             messages = self._truncate_old_messages(list(messages), keep_recent)
 
-        total = _count_system_prompt_tokens(turn_ctx.system_prompt, model) + _count_messages_tokens(messages, model)
+        total = counter.count(turn_ctx.system_prompt) + counter.count_messages(messages, "")
         logger.info("CompressStep: after compression: %d tokens", total)
         # Store compression info for SSE notification
         turn_ctx._compression_info = {
@@ -140,7 +131,7 @@ class CompressStep:
             if "関連記憶" in sec[:10]:
                 lines = sec.split("\n")
                 header = lines[0]
-                memory_lines = [l for l in lines[1:] if l.strip().startswith("- ")]
+                memory_lines = [line for line in lines[1:] if line.strip().startswith("- ")]
                 if len(memory_lines) > limit:
                     # Keep only the top-N memory lines
                     kept = memory_lines[:limit]

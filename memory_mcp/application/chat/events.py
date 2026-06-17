@@ -105,6 +105,22 @@ class ReflectionDoneSSE:
 
 
 @dataclass
+class MentalModelStartSSE:
+    message: str = ""
+
+    def to_sse(self) -> str:
+        return _sse_encode("mental_model_start", {"message": self.message})
+
+
+@dataclass
+class MentalModelDoneSSE:
+    message: str = ""
+
+    def to_sse(self) -> str:
+        return _sse_encode("mental_model_done", {"message": self.message})
+
+
+@dataclass
 class SessionSummarizedSSE:
     summary: str
 
