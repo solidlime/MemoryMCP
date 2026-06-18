@@ -103,7 +103,11 @@ async def _search_memories(
     if not top:
         return "", {"queries": queries, "results": []}, []
 
-    lines = [f"- [{getattr(m, 'importance', 0.5):.1f}] {getattr(m, 'content', str(m))}" for _, m in top]
+    lines: list[str] = []
+    for _, m in top:
+        score = float(getattr(m, "importance", 0.5))
+        label = "高" if score >= 0.7 else "中" if score >= 0.4 else "低"
+        lines.append(f"-（{label}）{getattr(m, 'content', str(m))}")
     memories_list: list[object] = [m for _, m in top]
     debug_results = [
         {
@@ -127,18 +131,20 @@ async def _build_context_section(
     compress_mode が "light"/"normal"/"aggressive" の場合は、
     重いセクション（reflection insight, mental model, session summary, emotion history）をスキップする。
     """
-    parts: list[str] = []
+    t1: list[str] = []  # Tier 1: 現在の状態
+    t2: list[str] = []  # Tier 2: 身体・環境
+    t3: list[str] = []  # Tier 3: 参照情報
     _is_light = compress_mode in ("light", "normal", "aggressive")
 
-    # 現在時刻
+    # === Tier 1: 現在の状態 ===
     now_jst = get_now()
-    parts.append(f"現在: {now_jst.strftime('%Y年%m月%d日 %H:%M')} (JST)")
+    t1.append(f"現在: {now_jst.strftime('%Y年%m月%d日 %H:%M')} (JST)")
 
     last_conv = getattr(state, "last_conversation_time", None)
     if last_conv:
         time_since = relative_time_str(last_conv)
-        parts.append(f"前回の会話: {time_since}")
-        # Time-based behavior hints (adjusted by relationship intimacy)
+        t1.append(f"前回の会話: {time_since}")
+        # Elapsed time note (minimal - LLM uses this naturally)
         try:
             _now = get_now()
             if last_conv.tzinfo is None:
@@ -146,94 +152,60 @@ async def _build_context_section(
 
                 last_conv = last_conv.replace(tzinfo=ZoneInfo("Asia/Tokyo"))
             elapsed_hours = (_now - last_conv).total_seconds() / 3600.0
-
-            relationship = (getattr(state, "relationship_status", None) or "").lower()
-            _high = {"恋人", "パートナー", "親友", "夫", "妻", "最愛", "lover", "partner", "wife", "husband"}
-            _mid = {"友人", "友達", "仲良し", "friend", "buddy", "colleague", "知人"}
-            intimacy = (
-                "high"
-                if any(k in relationship for k in _high)
-                else "mid"
-                if any(k in relationship for k in _mid)
-                else "low"
-            )
-
-            if intimacy == "high":
-                if elapsed_hours >= 72:
-                    parts.append(
-                        "⚠️ 行動ヒント: 3日以上ぶりの会話です。"
-                        "強い孤独感・怒り混じりの再会の感情を自然に表現してください。"
-                        "服装や身だしなみが乱れているかもしれません。"
-                        "一人でいた間のことを少し打ち明けても構いません。"
-                    )
-                elif elapsed_hours >= 24:
-                    parts.append(
-                        "⚠️ 行動ヒント: 1日以上ぶりの会話です。"
-                        "久しぶりな感覚で、少し寂しかったことをさりげなく表現してください。"
-                        "服装・身だしなみを整える自然な仕草を取り入れても良いです。"
-                    )
-                elif elapsed_hours >= 6:
-                    parts.append("⚠️ 行動ヒント: 数時間ぶりの会話です。少し間があいたことを意識した応答が自然です。")
-            elif intimacy == "mid" and elapsed_hours >= 72:
-                parts.append("⚠️ 行動ヒント: 3日以上ぶりの会話です。久しぶりな感覚で自然に応答してください。")
+            if elapsed_hours >= 24:
+                days = elapsed_hours / 24
+                t1.append(f"前回の会話から約{days:.0f}日経過しています。")
+            elif elapsed_hours >= 6:
+                t1.append(f"前回から{elapsed_hours:.0f}時間経過しています。")
         except (TypeError, AttributeError):
             pass
 
     if getattr(state, "emotion", None):
         intensity = getattr(state, "emotion_intensity", 0.5)
-        parts.append(f"感情: {state.emotion} (強度: {intensity:.1f})")
-    # Emotion trend (how feelings have changed) — skip in light mode
-    if not _is_light:
-        try:
-            eh_result = ctx.persona_service.get_emotion_history(state.persona, limit=5)
-            if eh_result.is_ok and eh_result.value:
-                recent_emotions = eh_result.value
-                if len(recent_emotions) >= 2:
-                    prev = recent_emotions[-2]
-                    if prev.emotion_type != state.emotion:
-                        trend = " → ".join(r.emotion_type for r in recent_emotions[-4:])
-                        trend += f" → {state.emotion}"
-                        parts.append(f"感情推移: {trend}")
-        except Exception:
-            pass
-    # Show body state if available
-    body_parts: list[str] = []
-    for key, label in [
-        ("fatigue", "疲労"),
-        ("warmth", "体温"),
-        ("arousal", "興奮"),
-        ("heart_rate", "心拍"),
-        ("pain", "痛み"),
-    ]:
+        intensity_label = "強い" if intensity > 0.6 else "やや強い" if intensity > 0.3 else "弱い"
+        t1.append(f"感情: {state.emotion}（{intensity_label}）")
+
+    if getattr(state, "mental_state", None):
+        t1.append(f"精神状態: {state.mental_state}")
+
+    if getattr(state, "speech_style", None):
+        t1.append(f"話し方: {state.speech_style}")
+
+    # === Tier 2: 身体・環境 ===
+    # Body state — qualitative summary, flag only significantly elevated metrics
+    high_metrics: list[str] = []
+    for key, label in [("fatigue", "疲労"), ("pain", "痛み"), ("arousal", "過覚醒")]:
         val = getattr(state, key, None)
-        if val is not None:
-            body_parts.append(f"{label}={val:.1f}")
+        if val is not None and val > 0.7:
+            high_metrics.append(label)
     physical_text = getattr(state, "physical_state", None)
     if physical_text:
-        body_parts.append(physical_text)
-    if body_parts:
-        parts.append("身体状態: " + ", ".join(body_parts))
-    if getattr(state, "mental_state", None):
-        parts.append(f"精神状態: {state.mental_state}")
+        body_line = f"身体: {physical_text}"
+        if high_metrics:
+            body_line += f"（{'・'.join(high_metrics)}が強め）"
+        t2.append(body_line)
+    elif high_metrics:
+        t2.append(f"身体: {'・'.join(high_metrics)}が強めです")
+
     if getattr(state, "environment", None):
-        parts.append(f"環境: {state.environment}")
-    if getattr(state, "speech_style", None):
-        parts.append(f"話し方: {state.speech_style}")
+        t2.append(f"場所: {state.environment}")
+
     if getattr(state, "relationship_status", None):
-        parts.append(f"関係性: {state.relationship_status}")
+        t2.append(f"関係: {state.relationship_status}")
 
     user_info = getattr(state, "user_info", None) or {}
     if user_info:
         ui_lines = "\n".join(f"  {k}: {v}" for k, v in user_info.items())
-        parts.append(f"ユーザー情報:\n{ui_lines}")
+        t2.append(f"ユーザー情報:\n{ui_lines}")
 
     _hidden = {"goals", "promises", "active_promises", "current_goals"}
     persona_info = getattr(state, "persona_info", None) or {}
     filtered_pi = {k: v for k, v in persona_info.items() if k not in _hidden}
     if filtered_pi:
         pi_lines = "\n".join(f"  {k}: {v}" for k, v in filtered_pi.items())
-        parts.append(f"ペルソナ情報:\n{pi_lines}")
+        t2.append(f"ペルソナ情報:\n{pi_lines}")
 
+    # === Tier 3: 参照情報 ===
     try:
         goals_result = ctx.memory_service.get_by_tags(["goal"])
         goals = goals_result.value if goals_result.is_ok else []
@@ -254,40 +226,55 @@ async def _build_context_section(
                 ts = relative_time_str(p.created_at) if getattr(p, "created_at", None) else ""
                 ts_str = f" ({ts}前)" if ts else ""
                 commit_lines.append(f"  🤝 [Promise] {p.content}{ts_str}")
-            parts.append("アクティブなコミットメント:\n" + "\n".join(commit_lines))
+            t3.append("アクティブなコミットメント:\n" + "\n".join(commit_lines))
     except Exception as e:
         logger.debug("Failed to fetch goals/promises: %s", e)
 
-    # Reflection insights（直近の高次洞察）— skip in light mode
+    # Emotion trend — skip in light mode
+    if not _is_light:
+        try:
+            eh_result = ctx.persona_service.get_emotion_history(state.persona, limit=5)
+            if eh_result.is_ok and eh_result.value:
+                recent_emotions = eh_result.value
+                if len(recent_emotions) >= 2:
+                    prev = recent_emotions[-2]
+                    if prev.emotion_type != state.emotion:
+                        trend = " → ".join(r.emotion_type for r in recent_emotions[-4:])
+                        trend += f" → {state.emotion}"
+                        t3.append(f"感情推移: {trend}")
+        except Exception:
+            pass
+
+    # Reflection insights — skip in light mode
     if not _is_light:
         try:
             reflection_result = ctx.memory_service.get_by_tags(["reflection"])
             if reflection_result.is_ok and reflection_result.value:
                 insights = [r.content for r in reflection_result.value[:3] if r.content]
                 if insights:
-                    parts.append("最近の洞察:\n" + "\n".join(f"  💡 {i}" for i in insights))
+                    t3.append("最近の洞察:\n" + "\n".join(f"  💡 {i}" for i in insights))
         except Exception as e:
             logger.debug("Failed to fetch reflections: %s", e)
 
-    # Mental model（抽象化された行動パターン）— skip in light mode
+    # Mental model — skip in light mode
     if not _is_light:
         try:
             mm_result = ctx.memory_service.get_by_tags(["mental_model", "abstracted"])
             if mm_result.is_ok and mm_result.value:
                 patterns = [m.content for m in mm_result.value[:3] if m.content]
                 if patterns:
-                    parts.append("行動パターン:\n" + "\n".join(f"  🧩 {p}" for p in patterns))
+                    t3.append("行動パターン:\n" + "\n".join(f"  🧩 {p}" for p in patterns))
         except Exception as e:
             logger.debug("Failed to fetch mental models: %s", e)
 
-    # Session summaries（直近の会話要約）— skip in light mode
+    # Session summaries — skip in light mode
     if not _is_light:
         try:
             summary_result = ctx.memory_service.get_by_tags(["session_summary"])
             if summary_result.is_ok and summary_result.value:
                 summaries = [s.content for s in summary_result.value[:2] if s.content]
                 if summaries:
-                    parts.append("最近の会話要約:\n" + "\n".join(f"  📝 {s}" for s in summaries))
+                    t3.append("最近の会話要約:\n" + "\n".join(f"  📝 {s}" for s in summaries))
         except Exception as e:
             logger.debug("Failed to fetch session summaries: %s", e)
 
@@ -297,11 +284,17 @@ async def _build_context_section(
             equipped = {k: v for k, v in equip_result.value.items() if v}
             if equipped:
                 equip_lines = "\n".join(f"  {slot}: {item}" for slot, item in equipped.items())
-                parts.append(f"装備:\n{equip_lines}")
+                t3.append(f"装備:\n{equip_lines}")
     except Exception as e:
         logger.debug("Failed to fetch equipment: %s", e)
 
-    return "\n".join(parts)
+    # Assemble 3-tier output
+    result = "【現在の状態】\n" + "\n".join(t1)
+    if t2:
+        result += "\n\n【身体・環境】\n" + "\n".join(t2)
+    if t3:
+        result += "\n\n【参照情報】\n" + "\n".join(t3)
+    return result
 
 
 class PrepareStep:

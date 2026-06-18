@@ -18,7 +18,7 @@ class PromptBuildStep:
     """systemプロンプトを組み立てる。"""
 
     def __init__(self) -> None:
-        self._skills_cache: dict[frozenset, tuple[list[str], list[dict]]] = {}
+        pass
 
     def run(
         self,
@@ -39,35 +39,19 @@ class PromptBuildStep:
 
         skills_raw: list[dict] = []
         if config.enabled_skills:
-            cache_key = frozenset(config.enabled_skills)
-            if cache_key not in self._skills_cache:
-                try:
-                    from memory_mcp.config.settings import get_settings
-                    from memory_mcp.domain.skill import SkillRepository
-                    from memory_mcp.infrastructure.sqlite.connection import get_global_skills_db
+            try:
+                from memory_mcp.config.settings import get_settings
+                from memory_mcp.domain.skill import SkillRepository
+                from memory_mcp.infrastructure.sqlite.connection import get_global_skills_db
 
-                    skill_repo = SkillRepository(get_global_skills_db(get_settings().data_root))
-                    skills = [skill_repo.get(n) for n in config.enabled_skills]
-                    skill_lines = [f"- {s.name}: {s.description}" for s in skills if s]
-                    _skills_raw = [s.model_dump() for s in skills if s]
-                    self._skills_cache[cache_key] = (skill_lines, _skills_raw)
-                except Exception as e:
-                    logger.warning("PromptBuildStep: skills load failed: %s", e)
-                    self._skills_cache[cache_key] = ([], [])
-            skill_lines, skills_raw = self._skills_cache[cache_key]
-            if skill_lines:
-                parts.append("\n--- 利用可能なSkill ---\n" + "\n".join(skill_lines))
-
-        if config.enable_memory_tools:
-            parts.append(
-                "\n--- 記憶ツール使用ガイド ---\n"
-                "目標や約束に関するツール:\n"
-                "- goal_manage(operation='create'): ユーザーが目標・計画を表明したら使う\n"
-                "- goal_manage(operation='achieve'/'cancel'): 目標の完了・中止を記録\n"
-                "- promise_manage(operation='create'): 約束・コミットメントを記録\n"
-                "- promise_manage(operation='fulfill'/'cancel'): 約束の履行・中止を記録\n"
-                "- context_recall: tags=['goal','active'] で現在の目標一覧を確認"
-            )
+                skill_repo = SkillRepository(get_global_skills_db(get_settings().data_root))
+                skills = [skill_repo.get(n) for n in config.enabled_skills]
+                skill_lines = [f"- {s.name}: {s.description}" for s in skills if s]
+                skills_raw = [s.model_dump() for s in skills if s]
+                if skill_lines:
+                    parts.append("\n--- 利用可能なSkill ---\n" + "\n".join(skill_lines))
+            except Exception as e:
+                logger.warning("PromptBuildStep: skills load failed: %s", e)
 
         turn_ctx.system_prompt = "\n".join(parts)
         turn_ctx.skills_raw = skills_raw

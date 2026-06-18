@@ -91,19 +91,17 @@ def register_skills_routes(mcp) -> None:
         existing = repo.get(name)
         if not existing:
             return JSONResponse({"error": "Skill not found"}, status_code=404)
-        repo.delete(name)
-        # Also delete from filesystem to prevent re-import by syncSkillsFromFiles()
-        fs_deleted = False
-        try:
-            from memory_mcp.config.settings import get_settings
+        # 1. FS削除（先にやることでsync復活を防止）
+        from memory_mcp.config.settings import get_settings
 
-            skill_dir = Path(get_settings().skills_dir) / name
-            if skill_dir.exists():
-                shutil.rmtree(skill_dir)
-                fs_deleted = True
-        except Exception:
-            pass  # Non-critical: DB deletion succeeded
-        return JSONResponse({"status": "deleted", "filesystem": fs_deleted})
+        skill_dir = Path(get_settings().skills_dir) / name
+        if skill_dir.exists():
+            shutil.rmtree(skill_dir)
+
+        # 2. DB削除
+        repo.delete(name)
+
+        return JSONResponse({"status": "deleted"})
 
     @mcp.custom_route("/api/skills/sync", methods=["POST"])
     async def sync_skills(request: Request) -> JSONResponse:
