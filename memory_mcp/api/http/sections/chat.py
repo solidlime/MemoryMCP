@@ -1704,7 +1704,28 @@ async function restoreChatHistory() {
         container.innerHTML = '';
         for (const msg of msgs) {
             appendChatMessage(msg.role, msg.content, msg.time, msg.role === 'assistant');
+            // Render tool calls if present (persist across reload)
+            if (msg.tool_calls && msg.tool_calls.length > 0) {
+                const container = document.getElementById('chat-messages');
+                for (const tc of msg.tool_calls) {
+                    const div = document.createElement('div');
+                    div.className = 'chat-tool-call done';
+                    let inputStr;
+                    try { inputStr = JSON.stringify(tc.input, null, 2); } catch (e) { inputStr = String(tc.input); }
+                    let resultStr;
+                    try {
+                        resultStr = typeof tc.result === 'object' ? JSON.stringify(tc.result, null, 2) : String(tc.result);
+                    } catch (e) { resultStr = String(tc.result); }
+                    div.innerHTML =
+                        '<details><summary><i data-lucide="wrench"></i> <strong>' + esc(tc.name) + '</strong>' +
+                        '<span class="chat-tool-status"> <i data-lucide="check"></i> 完了</span></summary>' +
+                        '<pre class="chat-tool-detail">' + esc(inputStr) + '</pre>' +
+                        '<pre class="chat-tool-detail chat-tool-result-content">' + esc(resultStr) + '</pre></details>';
+                    container.appendChild(div);
+                }
+            }
         }
+        setTimeout(() => { if (typeof lucide !== 'undefined') lucide.createIcons(); }, 50);
     } catch (_e) {
         // Session not found or API unavailable — start fresh
     }

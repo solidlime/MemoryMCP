@@ -57,7 +57,7 @@ class SessionWindow:
         self._persona = persona
         self._session_id = session_id
 
-    def add(self, role: str, content: str, ts: datetime | None = None) -> None:
+    def add(self, role: str, content: str, ts: datetime | None = None, tool_calls: list[dict] | None = None) -> None:
         if len(self._messages) >= self._max_messages:
             # 溢れるメッセージを evict_callback に通知してから削除
             overflow = len(self._messages) - self._max_messages + 1
@@ -67,7 +67,10 @@ class SessionWindow:
                     self.evict_callback(evicted)
             self._messages = self._messages[overflow:]
             self._timestamps = self._timestamps[overflow:]
-        self._messages.append({"role": role, "content": content})
+        msg: dict[str, object] = {"role": role, "content": content}
+        if tool_calls:
+            msg["tool_calls"] = tool_calls
+        self._messages.append(msg)
         self._timestamps.append(ts or get_now())
         self._persist()
 
@@ -219,7 +222,10 @@ class SessionManager:
                     time_label = dt.strftime("%H:%M")
                 except ValueError:
                     time_label = ""
-                result.append({"role": msg["role"], "content": msg["content"], "time": time_label})
+                entry: dict[str, object] = {"role": msg["role"], "content": msg["content"], "time": time_label}
+                if msg.get("tool_calls"):
+                    entry["tool_calls"] = msg["tool_calls"]
+                result.append(entry)
             return result
         except Exception as e:
             logger.warning("SessionManager.get_messages failed: %s", e)

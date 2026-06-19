@@ -122,6 +122,8 @@ class Settings(BaseSettings):
 
     server: ServerConfig = ServerConfig()
     plugin_api_key: str = ""  # empty = no auth (dev mode)
+    # Agent-browser settings
+    agent_browser_path: str = ""  # Custom path to agent-browser binary (empty = auto-detect)
     embedding: EmbeddingConfig = EmbeddingConfig()
     reranker: RerankerConfig = RerankerConfig()
     qdrant: QdrantConfig = QdrantConfig()

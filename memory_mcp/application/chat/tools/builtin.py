@@ -160,45 +160,125 @@ async def _handle_memory_search_builtin(ctx: AppContext, config: ChatConfig, too
 
 
 async def _handle_web_search(ctx: AppContext, config: ChatConfig, tool_input: dict) -> dict:
-    """Web search via DuckDuckGo Instant Answer API (free, no API key)."""
-    import urllib.parse
-    import urllib.request
+    """Real web search using agent-browser + DuckDuckGo."""
+    import asyncio
+    import json as _json
 
-    query = str(tool_input.get("query", "")).strip()
+    query = (tool_input.get("query") or "").strip()
     if not query:
-        return {"status": "error", "message": "検索クエリが空です"}
+        return {"status": "error", "message": "query is required"}
+
+    max_results = min(int(tool_input.get("max_results", 5)), 10)
+
+    # Find agent-browser binary
+    agent_bin = _find_agent_browser()
+    if not agent_bin:
+        return {
+            "status": "error",
+            "message": (
+                "agent-browser not found. Install it:\n"
+                "  npm install -g agent-browser\n"
+                "  agent-browser install\n"
+                "Or set AGENT_BROWSER_PATH env var."
+            ),
+        }
 
     try:
-        encoded = urllib.parse.quote(query)
-        url = f"https://api.duckduckgo.com/?q={encoded}&format=json&no_html=1&skip_disambig=1"
-        req = urllib.request.Request(url, headers={"User-Agent": "MemoryMCP/2.0"})
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            data = json.loads(resp.read().decode())
+        # 1. Navigate to DuckDuckGo search
+        proc = await asyncio.create_subprocess_exec(
+            agent_bin,
+            "open",
+            f"https://duckduckgo.com/?q={query}",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        await asyncio.wait_for(proc.communicate(), timeout=15)
 
-        result = {}
-        if data.get("AbstractText"):
-            result["abstract"] = data["AbstractText"]
-            result["source"] = data.get("AbstractSource", "DuckDuckGo")
-        if data.get("RelatedTopics"):
-            result["related"] = [
-                t.get("Text", "") for t in data["RelatedTopics"][:5]
-                if t.get("Text")
-            ]
-        if data.get("Results"):
-            result["results"] = [
-                {"title": r.get("Text", ""), "url": r.get("FirstURL", "")}
-                for r in data["Results"][:3]
-            ]
+        # 2. Wait for results
+        proc = await asyncio.create_subprocess_exec(
+            agent_bin,
+            "wait",
+            "--load",
+            "networkidle",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        await asyncio.wait_for(proc.communicate(), timeout=15)
 
-        if not result:
-            return {"status": "ok", "message": f"'{query}' の検索結果はありませんでした"}
+        # 3. Extract results via JavaScript
+        js_code = f"""JSON.stringify(
+            Array.from(document.querySelectorAll('article[data-testid="result"]'))
+                .slice(0, {max_results})
+                .map(r => ({{
+                    title: (r.querySelector('h2') || r.querySelector('a[data-testid="result-title-a"]'))?.textContent?.trim() || '',
+                    url: r.querySelector('a[data-testid="result-title-a"]')?.href || '',
+                    snippet: (r.querySelector('span[data-testid="result-snippet"]') || r.querySelector('.result__snippet'))?.textContent?.trim() || ''
+                }}))
+        )"""
 
-        result["status"] = "ok"
-        result["query"] = query
-        return result
+        proc = await asyncio.create_subprocess_exec(
+            agent_bin,
+            "eval",
+            "--stdin",
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await asyncio.wait_for(
+            proc.communicate(input=js_code.encode()), timeout=15
+        )
+
+        if proc.returncode != 0:
+            return {
+                "status": "error",
+                "message": f"Search extraction failed: {stderr.decode()[:200]}",
+            }
+
+        try:
+            results = _json.loads(stdout.decode())
+        except _json.JSONDecodeError:
+            return {"status": "error", "message": "Failed to parse search results"}
+
+        if not results:
+            return {"status": "ok", "results": [], "message": "No results found"}
+
+        return {
+            "status": "ok",
+            "query": query,
+            "results": results,
+            "count": len(results),
+        }
+    except TimeoutError:
+        return {"status": "error", "message": "Search timed out (15s limit)"}
     except Exception as e:
-        logger.warning("web_search failed: %s", e)
-        return {"status": "error", "message": f"検索に失敗しました: {e}"}
+        return {"status": "error", "message": f"Search failed: {str(e)[:200]}"}
+
+
+def _find_agent_browser() -> str | None:
+    """Find agent-browser binary. Checks env var, data dir, PATH."""
+    import os
+    import shutil
+
+    # 1. Explicit env var
+    path = os.environ.get("AGENT_BROWSER_PATH")
+    if path and os.path.isfile(path):
+        return path
+
+    # 2. Host-mounted data directory
+    candidates = [
+        "data/agent-browser/bin/agent-browser",
+        os.path.expanduser("~/.local/nodejs/bin/agent-browser"),
+    ]
+    for c in candidates:
+        if os.path.isfile(c):
+            return c
+
+    # 3. PATH
+    found = shutil.which("agent-browser")
+    if found:
+        return found
+
+    return None
 
 
 async def _handle_memory_update_builtin(ctx: AppContext, config: ChatConfig, tool_input: dict) -> dict:
