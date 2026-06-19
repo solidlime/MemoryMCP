@@ -159,6 +159,48 @@ async def _handle_memory_search_builtin(ctx: AppContext, config: ChatConfig, too
     return {"status": "error", "message": str(result.error)}
 
 
+async def _handle_web_search(ctx: AppContext, config: ChatConfig, tool_input: dict) -> dict:
+    """Web search via DuckDuckGo Instant Answer API (free, no API key)."""
+    import urllib.parse
+    import urllib.request
+
+    query = str(tool_input.get("query", "")).strip()
+    if not query:
+        return {"status": "error", "message": "検索クエリが空です"}
+
+    try:
+        encoded = urllib.parse.quote(query)
+        url = f"https://api.duckduckgo.com/?q={encoded}&format=json&no_html=1&skip_disambig=1"
+        req = urllib.request.Request(url, headers={"User-Agent": "MemoryMCP/2.0"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode())
+
+        result = {}
+        if data.get("AbstractText"):
+            result["abstract"] = data["AbstractText"]
+            result["source"] = data.get("AbstractSource", "DuckDuckGo")
+        if data.get("RelatedTopics"):
+            result["related"] = [
+                t.get("Text", "") for t in data["RelatedTopics"][:5]
+                if t.get("Text")
+            ]
+        if data.get("Results"):
+            result["results"] = [
+                {"title": r.get("Text", ""), "url": r.get("FirstURL", "")}
+                for r in data["Results"][:3]
+            ]
+
+        if not result:
+            return {"status": "ok", "message": f"'{query}' の検索結果はありませんでした"}
+
+        result["status"] = "ok"
+        result["query"] = query
+        return result
+    except Exception as e:
+        logger.warning("web_search failed: %s", e)
+        return {"status": "error", "message": f"検索に失敗しました: {e}"}
+
+
 async def _handle_memory_update_builtin(ctx: AppContext, config: ChatConfig, tool_input: dict) -> dict:
     query = tool_input.get("query", "")
     new_content = tool_input.get("new_content", "")
@@ -223,6 +265,7 @@ _BUILTIN_DISPATCH: dict[str, Any] = {
     "memory_create": _handle_memory_create_builtin,
     "memory_search": _handle_memory_search_builtin,
     "memory_update": _handle_memory_update_builtin,
+    "web_search": _handle_web_search,
 }
 
 _MCP_SHARED_TOOLS = frozenset(

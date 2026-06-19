@@ -124,6 +124,17 @@ MEMORY_TOOLS: list[ToolDefinition] = [
             },
         },
     ),
+    ToolDefinition(
+        name="web_search",
+        description="インターネット検索を行う。最新情報、ニュース、技術的な質問、事実確認などに使用。結果はJSON形式で返される（Abstract: 要約, RelatedTopics: 関連トピック, Results: 検索結果）。",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "検索クエリ（日本語可）"},
+            },
+            "required": ["query"],
+        },
+    ),
 ]
 
 SANDBOX_TOOLS: list[ToolDefinition] = [
@@ -203,5 +214,6 @@ _MEMORY_MCP_TOOL_NAMES: frozenset[str] = frozenset(
         "goal_manage",
         "promise_manage",
         "invoke_skill",
+        "web_search",
     }
 )

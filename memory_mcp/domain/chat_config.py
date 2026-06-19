@@ -48,8 +48,10 @@ class ChatConfig(BaseModel):
     extract_model: str = ""
     extract_max_tokens: int = 512
     tool_result_max_chars: int = 4000
-    mcp_servers: list[dict] = []
-    enabled_skills: list[str] = []
+    mcp_servers: list[dict] = [
+        {"name": "memory-mcp", "command": "python", "args": ["-m", "memory_mcp.main"], "env": {}, "_comment": "MemoryMCP自体をMCPサーバーとして接続（全20ツール利用可）。削除・編集可。"}
+    ]
+    enabled_skills: list[str] = ["websearch"]
     enable_memory_tools: bool = True
     # Generative Agents-style reflection
     reflection_enabled: bool = True
