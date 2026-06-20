@@ -10,7 +10,7 @@ from memory_mcp.domain.persona.entities import (
 from memory_mcp.domain.shared.errors import DomainError, PersonaValidationError
 from memory_mcp.domain.shared.result import Failure, Result, Success
 from memory_mcp.domain.shared.time_utils import get_now
-from memory_mcp.domain.value_objects import normalize_emotion
+from memory_mcp.domain.value_objects import normalize_emotion, normalize_importance
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -38,7 +38,7 @@ class PersonaService:
     ) -> Result[None, DomainError]:
         """Update persona emotion and record in history."""
         normalized_name = normalize_emotion(emotion)
-        clamped = max(0.0, min(1.0, float(intensity)))
+        clamped = normalize_importance(float(intensity))
 
         result = self._repo.update_state(persona, "emotion", normalized_name)
         if not result.is_ok:

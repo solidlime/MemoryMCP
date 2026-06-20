@@ -85,7 +85,7 @@ class TestPersonaResolution:
     """_resolve_persona_from_request: Bearer token / X-Persona header / path param."""
 
     async def test_path_param_resolves_persona(self, client):
-        resp = await client.get(f"/api/stats/{PERSONA}")
+        resp = await client.get(f"/api/dashboard/{PERSONA}")
         assert resp.status_code == 200
 
     async def test_bearer_token_accepted(self, client):
@@ -100,7 +100,7 @@ class TestPersonaResolution:
     async def test_path_param_overrides_header(self, client):
         """Path parameter takes priority over X-Persona header."""
         resp = await client.get(
-            f"/api/stats/{PERSONA}",
+            f"/api/dashboard/{PERSONA}",
             headers={"X-Persona": "other_persona"},
         )
         assert resp.status_code == 200
@@ -163,16 +163,16 @@ class TestBlocksEndpoints:
 
 
 # ---------------------------------------------------------------------------
-# memory.py — recent endpoint
+# memory.py — recent endpoint (replaced by /api/observations with mode=recent)
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.integration
-class TestRecentEndpoint:
-    """GET /api/recent/{persona}."""
+class TestObservationsRecentEndpoint:
+    """GET /api/observations/{persona}?mode=recent replaces /api/recent/{persona}."""
 
     async def test_recent_empty(self, client):
-        resp = await client.get(f"/api/recent/{PERSONA}")
+        resp = await client.get(f"/api/observations/{PERSONA}?mode=recent")
         assert resp.status_code == 200
         data = resp.json()
         assert "memories" in data
@@ -180,27 +180,27 @@ class TestRecentEndpoint:
 
     async def test_recent_includes_created_memory(self, client):
         await client.post(f"/api/memories/{PERSONA}", json={"content": "recent test"})
-        resp = await client.get(f"/api/recent/{PERSONA}")
+        resp = await client.get(f"/api/observations/{PERSONA}?mode=recent")
         assert resp.status_code == 200
         assert len(resp.json()["memories"]) >= 1
 
-    async def test_recent_limit_param(self, client):
+    async def test_recent_per_page_param(self, client):
         for i in range(5):
             await client.post(f"/api/memories/{PERSONA}", json={"content": f"mem {i}"})
-        resp = await client.get(f"/api/recent/{PERSONA}?limit=2")
+        resp = await client.get(f"/api/observations/{PERSONA}?mode=recent&per_page=2")
         assert resp.status_code == 200
         assert len(resp.json()["memories"]) <= 2
 
-    async def test_recent_invalid_limit_type(self, client):
-        resp = await client.get(f"/api/recent/{PERSONA}?limit=abc")
+    async def test_recent_invalid_per_page_type(self, client):
+        resp = await client.get(f"/api/observations/{PERSONA}?mode=recent&per_page=abc")
         assert resp.status_code == 400
 
-    async def test_recent_limit_too_large(self, client):
-        resp = await client.get(f"/api/recent/{PERSONA}?limit=9999")
+    async def test_recent_per_page_too_large(self, client):
+        resp = await client.get(f"/api/observations/{PERSONA}?mode=recent&per_page=9999")
         assert resp.status_code == 400
 
-    async def test_recent_limit_zero(self, client):
-        resp = await client.get(f"/api/recent/{PERSONA}?limit=0")
+    async def test_recent_per_page_zero(self, client):
+        resp = await client.get(f"/api/observations/{PERSONA}?mode=recent&per_page=0")
         assert resp.status_code == 400
 
 

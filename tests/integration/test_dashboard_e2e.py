@@ -285,8 +285,8 @@ async def test_dashboard_data_with_memories(seeded_client):
 
 @pytest.mark.asyncio
 async def test_recent_memories(seeded_client):
-    """E5: GET /api/recent/{persona}?limit=5 → at most 5 memories."""
-    resp = await seeded_client.get("/api/recent/testpersona?limit=5")
+    """E5: GET /api/observations/{persona}?mode=recent&per_page=5 → at most 5 memories."""
+    resp = await seeded_client.get("/api/observations/testpersona?mode=recent&per_page=5")
     assert resp.status_code == 200
     data = resp.json()
     assert data["persona"] == "testpersona"

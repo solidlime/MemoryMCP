@@ -186,8 +186,8 @@ class SessionManager:
             try:
                 db.execute(_CHAT_SESSIONS_SCHEMA)
                 db.commit()
-            except Exception:
-                pass
+            except Exception as _e:
+                logger.warning("SessionStore: failed to init DB schema: %s", _e)
             window = SessionWindow.from_db(db, persona, session_id, max_turns, max_messages)
             if window is None:
                 window = SessionWindow(max_turns=max_turns, max_messages=max_messages)

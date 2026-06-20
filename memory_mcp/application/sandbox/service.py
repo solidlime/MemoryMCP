@@ -224,11 +224,11 @@ def _cleanup_stale_sandbox_container(persona: str) -> None:
 
 def _cleanup_temp_py_files(sandbox_dir: Path) -> int:
     """Remove UUID-named .py temp files created by llm_sandbox on the HOST side.
-    
+
     Runs directly on the host filesystem (not inside the container) to avoid
     the self-referential problem where cleanup code via session.run() creates
     its own temp file.
-    
+
     Returns count of removed files.
     """
     pattern = re.compile(r"^[a-f0-9]{32}\.py$", re.I)
@@ -263,10 +263,8 @@ def _build_container_configs(persona: str) -> tuple[dict, Path | None]:
     sandbox_internal = Path(settings.data_root) / "memory" / persona / "sandbox"
     sandbox_internal.mkdir(parents=True, exist_ok=True)
     # Ensure Docker container can write to bind mount (WSL2 permission fix)
-    try:
-        os.chmod(str(sandbox_internal.resolve()), 0o777)
-    except PermissionError:
-        pass  # not fatal if we lack perms to chmod
+    with contextlib.suppress(PermissionError):
+        os.chmod(str(sandbox_internal.resolve()), 0o777)  # not fatal if we lack perms
 
     # Resolve host-side data root (needed when memory-mcp runs in a sibling container)
     host_root = settings.sandbox.host_data_root or _auto_detect_host_data_root(str(settings.data_root))

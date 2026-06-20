@@ -186,28 +186,29 @@ class TestMemoryCRUDHttp:
 
 
 # ---------------------------------------------------------------------------
-# H2: GET /api/stats/{persona}
+# H2: GET /api/dashboard/{persona} (replaces /api/stats/{persona})
 # ---------------------------------------------------------------------------
 
 
 class TestStatsEndpoint:
-    """GET /api/stats/{persona} returns memory count statistics."""
+    """GET /api/dashboard/{persona} returns stats nested under 'stats' key."""
 
     async def test_stats_empty_persona(self, client):
-        resp = await client.get(f"/api/stats/{PERSONA}")
+        resp = await client.get(f"/api/dashboard/{PERSONA}")
         assert resp.status_code == 200
         data = resp.json()
-        assert "total_count" in data or "stats" in data  # either top-level or nested
+        assert "stats" in data
+        assert "total_count" in data["stats"]
 
     async def test_stats_increase_after_create(self, client):
         """Stats total_count reflects newly created memories."""
-        before = await client.get(f"/api/stats/{PERSONA}")
+        before = await client.get(f"/api/dashboard/{PERSONA}")
         before_count = _extract_count(before.json())
 
         for i in range(3):
             await client.post(f"/api/memories/{PERSONA}", json={"content": f"統計テスト記憶{i}"})
 
-        after = await client.get(f"/api/stats/{PERSONA}")
+        after = await client.get(f"/api/dashboard/{PERSONA}")
         after_count = _extract_count(after.json())
         assert after_count == before_count + 3
 
@@ -217,14 +218,14 @@ class TestStatsEndpoint:
             f"/api/memories/{PERSONA}",
             json={"content": "分布テスト", "tags": ["stats_tag"], "emotion_type": "joy"},
         )
-        resp = await client.get(f"/api/stats/{PERSONA}")
+        resp = await client.get(f"/api/dashboard/{PERSONA}")
         assert resp.status_code == 200
         data = resp.json()
-        assert "tag_distribution" in data
-        assert "emotion_distribution" in data
-        assert isinstance(data["tag_distribution"], dict)
-        assert isinstance(data["emotion_distribution"], dict)
-        assert data["tag_distribution"].get("stats_tag", 0) >= 1
+        assert "tag_distribution" in data["stats"]
+        assert "emotion_distribution" in data["stats"]
+        assert isinstance(data["stats"]["tag_distribution"], dict)
+        assert isinstance(data["stats"]["emotion_distribution"], dict)
+        assert data["stats"]["tag_distribution"].get("stats_tag", 0) >= 1
 
     async def test_stats_top_n_note_when_many_tags(self, client):
         """P1: 21個以上のユニークタグがあると tag_distribution_note が現れる（デフォルト top_n=20）。"""
@@ -233,20 +234,16 @@ class TestStatsEndpoint:
                 f"/api/memories/{PERSONA}",
                 json={"content": f"tag test {i}", "tags": [f"unique_tag_{i:02d}"]},
             )
-        resp = await client.get(f"/api/stats/{PERSONA}")
+        resp = await client.get(f"/api/dashboard/{PERSONA}")
         assert resp.status_code == 200
         data = resp.json()
-        assert "tag_distribution_note" in data
-        assert len(data["tag_distribution"]) == 20
+        assert "tag_distribution_note" in data["stats"]
+        assert len(data["stats"]["tag_distribution"]) == 20
 
 
 def _extract_count(data: dict) -> int:
-    """Extract total_count from stats response (handles flat or nested)."""
-    if "total_count" in data:
-        return data["total_count"]
-    if "stats" in data and "total_count" in data["stats"]:
-        return data["stats"]["total_count"]
-    return 0
+    """Extract total_count from dashboard response (nested under 'stats')."""
+    return data.get("stats", {}).get("total_count", 0)
 
 
 # ---------------------------------------------------------------------------

@@ -71,17 +71,17 @@ class TokenCounter:
         if self._has_tiktoken and self._encoder:
             try:
                 return len(self._encoder.encode(text))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("tiktoken encode failed, falling back to heuristic: %s", e)
         return self._heuristic_count(text)
 
     def count_messages(self, messages: list, system_prompt: str = "") -> int:
         """Count tokens across messages + system_prompt.
-        
+
         Args:
             messages: List of LLMMessage objects with 'content' attribute
             system_prompt: System prompt string
-            
+
         Returns:
             Total estimated token count
         """
@@ -99,7 +99,7 @@ class TokenCounter:
     @staticmethod
     def _heuristic_count(text: str) -> int:
         """Simple heuristic: Japanese ~1 char/token, English ~4 chars/token.
-        
+
         This is a conservative estimate that slightly overcounts for safety.
         """
         if not text:
@@ -118,10 +118,10 @@ class TokenCounter:
     @staticmethod
     def get_model_max_tokens(model: str) -> int:
         """Get the context window size for a model name.
-        
+
         Args:
             model: Model name string (e.g., 'claude-opus-4-5', 'gpt-4o', 'openai/gpt-4o')
-            
+
         Returns:
             Max tokens for the model, defaulting to 128000 for unknown models.
         """

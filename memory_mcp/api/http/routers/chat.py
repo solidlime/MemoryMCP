@@ -757,33 +757,6 @@ def register_chat_routes(mcp) -> None:
         except Exception as e:
             return JSONResponse({"error": str(e)}, status_code=500)
 
-    # DEPRECATED: Use /api/chat/{persona}/sandbox/files?recursive=true instead
-    @mcp.custom_route("/api/chat/{persona}/sandbox/tree", methods=["GET"])
-    async def sandbox_file_tree(request: Request) -> JSONResponse:
-        """サンドボックスの再帰ファイルツリーを返す。?root=... でルートを指定（デフォルト /sandbox）。"""
-        persona = _resolve_persona_from_request(request)
-        ctx = _safe_get_context(persona)
-        if not ctx:
-            return JSONResponse({"error": "Persona not found"}, status_code=404)
-        from memory_mcp.domain.chat_config import ChatConfigRepository
-
-        chat_cfg = ChatConfigRepository(ctx.connection.get_memory_db()).get(persona)
-        if not chat_cfg.sandbox_enabled:
-            return JSONResponse({"error": "Sandbox not enabled for this persona"}, status_code=400)
-
-        root = request.query_params.get("root", "/sandbox")
-        if not root.startswith("/sandbox"):
-            return JSONResponse({"error": "root must be under /sandbox"}, status_code=400)
-
-        from memory_mcp.application.sandbox.service import get_sandbox_session
-
-        session = get_sandbox_session(persona)
-        try:
-            tree = await session.get_file_tree(root)
-            return JSONResponse({"tree": tree, "root": root})
-        except Exception as e:
-            return JSONResponse({"error": str(e)}, status_code=500)
-
     @mcp.custom_route("/api/chat/{persona}/tool", methods=["POST"])
     async def execute_chat_tool(request: Request) -> JSONResponse:
         """Execute a builtin memory tool directly (for slash commands)."""

@@ -48,18 +48,6 @@ def register_persona_routes(mcp) -> None:
             personas = []
         return JSONResponse({"personas": personas})
 
-    # DEPRECATED: Use /api/dashboard/{persona} instead (includes stats + more)
-    @mcp.custom_route("/api/stats/{persona}", methods=["GET"])
-    async def persona_stats(request: Request) -> JSONResponse:
-        persona = _resolve_persona_from_request(request)
-        ctx = _safe_get_context(persona)
-        if ctx is None:
-            return JSONResponse({"error": f"Persona '{persona}' not found"}, status_code=404)
-        stats = ctx.memory_service.get_stats()
-        if stats.is_ok:
-            return JSONResponse({"deprecated": True, "message": "Use /api/dashboard/{persona} instead", **stats.value})
-        return JSONResponse({"error": str(stats.error)})
-
     @mcp.custom_route("/", methods=["GET"])
     async def dashboard_page(request: Request) -> HTMLResponse:
         from memory_mcp.api.http.dashboard import render_dashboard

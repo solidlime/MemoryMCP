@@ -47,8 +47,8 @@ def _get_last_abstraction_at(ctx: AppContext, type_tag: str) -> datetime | None:
             ts_str = mem.content.split(":", 1)[1].strip()
             try:
                 return datetime.fromisoformat(ts_str)
-            except ValueError:
-                pass
+            except ValueError as _e:
+                logger.debug("PatternDetector: failed to parse timestamp '%s': %s", ts_str, _e)
     return None
 
 
@@ -94,8 +94,8 @@ def _parse_models(text: str) -> list[str]:
         if isinstance(result, dict):
             models = result.get("models", [])
             return [s for s in models if isinstance(s, str) and s.strip()]
-    except Exception:
-        pass
+    except Exception as _e:
+        logger.debug("PatternDetector: failed to parse models from LLM output: %s", _e)
     return []
 
 

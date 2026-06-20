@@ -15,7 +15,7 @@ from memory_mcp.domain.shared.errors import (
 )
 from memory_mcp.domain.shared.result import Failure, Result, Success
 from memory_mcp.domain.shared.time_utils import generate_memory_key, get_now
-from memory_mcp.domain.value_objects import normalize_emotion
+from memory_mcp.domain.value_objects import normalize_emotion, normalize_importance
 
 if TYPE_CHECKING:
     from memory_mcp.domain.memory.repository import MemoryRepository
@@ -80,9 +80,9 @@ class MemoryService:
             content=content.strip(),
             created_at=now,
             updated_at=now,
-            importance=max(0.0, min(1.0, importance)),
+            importance=normalize_importance(importance),
             emotion=emotion,
-            emotion_intensity=max(0.0, min(1.0, emotion_intensity)),
+            emotion_intensity=normalize_importance(emotion_intensity),
             tags=tags or [],
             privacy_level=privacy_level,
             source_context=source_context,
@@ -130,7 +130,7 @@ class MemoryService:
                 if enrichment is not None:
                     # Update importance if auto-evaluated differently
                     if enrichment.importance != 0.5:
-                        clamped = max(0.0, min(1.0, enrichment.importance))
+                        clamped = normalize_importance(enrichment.importance)
                         memory.importance = clamped
                         with contextlib.suppress(Exception):
                             self._repo.update(key, importance=clamped)

@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from pydantic import BaseModel, field_validator
 
 from memory_mcp.domain.shared.time_utils import format_iso, get_now
+from memory_mcp.domain.value_objects import normalize_importance
 
 if TYPE_CHECKING:
     import sqlite3
@@ -132,7 +133,7 @@ class ChatConfig(BaseModel):
     @field_validator("retrieval_recency_weight", "retrieval_importance_weight", "retrieval_relevance_weight")
     @classmethod
     def _clamp_retrieval_weights(cls, v: float) -> float:
-        return max(0.0, min(1.0, v))
+        return normalize_importance(v)
 
     @field_validator("display_history_turns")
     @classmethod

@@ -185,8 +185,8 @@ def _parse_memory_llm_result(text: str) -> dict:
                 "context_update": {},
                 "inventory_update": {},
             }
-    except Exception:
-        pass
+    except Exception as _e:
+        logger.debug("MemoryLLM: failed to parse LLM output: %s", _e)
     return {}
 
 
@@ -241,8 +241,8 @@ async def _build_memory_llm_context(ctx: AppContext) -> tuple[str, str, str]:
             for item in items_result.value[:10]:
                 desc = f" ({item.description})" if getattr(item, "description", None) else ""
                 inv_lines.append(f"  - {item.name}{desc}")
-    except Exception:
-        pass
+    except Exception as _e:
+        logger.debug("MemoryLLM: failed to build context inventory: %s", _e)
     inventory_str = "\n".join(inv_lines)
 
     return "\n".join(lines), commitments_str, inventory_str
@@ -466,15 +466,15 @@ async def run_context_housekeeping(ctx: AppContext, config: ChatConfig) -> dict:
         goal_result = ctx.memory_service.get_by_tags(["goal", "active"])
         if goal_result.is_ok and goal_result.value:
             goals_list = [{"key": m.key, "content": m.content[:100]} for m in goal_result.value[:20]]
-    except Exception:
-        pass
+    except Exception as _e:
+        logger.debug("Housekeeping: failed to load goals: %s", _e)
 
     try:
         promise_result = ctx.memory_service.get_by_tags(["promise", "active"])
         if promise_result.is_ok and promise_result.value:
             promises_list = [{"key": m.key, "content": m.content[:100]} for m in promise_result.value[:20]]
-    except Exception:
-        pass
+    except Exception as _e:
+        logger.debug("Housekeeping: failed to load promises: %s", _e)
 
     inv_lines: list[str] = []
     try:
@@ -483,8 +483,8 @@ async def run_context_housekeeping(ctx: AppContext, config: ChatConfig) -> dict:
             for item in items_result.value[:20]:
                 desc = f" ({item.description})" if getattr(item, "description", None) else ""
                 inv_lines.append(f"  - {item.name}{desc}")
-    except Exception:
-        pass
+    except Exception as _e:
+        logger.debug("Housekeeping: failed to load inventory: %s", _e)
 
     goals_str = "\n".join(f"  - key={g['key']}: {g['content']}" for g in goals_list) or "(なし)"
     promises_str = "\n".join(f"  - key={p['key']}: {p['content']}" for p in promises_list) or "(なし)"

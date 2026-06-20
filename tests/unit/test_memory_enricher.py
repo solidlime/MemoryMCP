@@ -7,9 +7,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from memory_mcp.api.mcp.tools import _VALID_EMOTIONS
 from memory_mcp.domain.memory.enrichment import EnrichmentResult, RelationCandidate
-from memory_mcp.domain.value_objects import normalize_emotion
+from memory_mcp.domain.value_objects import _VALID_EMOTIONS, normalize_emotion
 from memory_mcp.infrastructure.llm.base import DoneEvent, TextDeltaEvent
 from memory_mcp.infrastructure.llm.memory_enricher import MemoryEnricher
 

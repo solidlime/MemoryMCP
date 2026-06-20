@@ -758,7 +758,7 @@ def render_chat_tab() -> str:
                                 <details class="chat-subsection" style="margin-top:10px;padding-top:8px;border-top:1px solid var(--glass-border);">
                                   <summary style="font-size:0.82rem;font-weight:600;color:var(--text-secondary);cursor:pointer;padding:4px 0;">🧠 コンテキスト最適化</summary>
                                   <div style="padding-top:8px;">
-                                  
+
                                   <div class="chat-field-label">保存メッセージ数</div>
                                   <input type="number" id="chat-stored-msgs" class="chat-field-input" value="200" min="2" max="2000" />
                                   <div class="chat-field-hint" style="font-size:0.7rem;color:var(--text-muted);margin-top:-6px;margin-bottom:8px;">SQLiteに保存する最大メッセージ数（セッション永続化用）</div>
@@ -1542,13 +1542,13 @@ function getChatSessionId() {
 async function rollbackChat(keepUntil, shouldResend) {
     if (!S.persona) return;
     const sid = getChatSessionId();
-    
+
     try {
         const result = await api('/api/chat/' + encodeURIComponent(S.persona) + '/sessions/' + encodeURIComponent(sid) + '/rollback', {
             method: 'POST',
             body: JSON.stringify({ keep_until: keepUntil }),
         });
-        
+
         // Remove DOM messages from keep_until onwards
         const container = document.getElementById('chat-messages');
         const allMsgs = container.querySelectorAll('.chat-msg');
@@ -1557,7 +1557,7 @@ async function rollbackChat(keepUntil, shouldResend) {
                 msg.remove();
             }
         }
-        
+
         // Restore welcome if no messages left
         if (container.querySelectorAll('.chat-msg').length === 0) {
             container.innerHTML = `<div class="chat-welcome" id="chat-welcome">
@@ -1565,7 +1565,7 @@ async function rollbackChat(keepUntil, shouldResend) {
                 <p>チャットを開始するには下のテキストボックスにメッセージを入力してください。</p>
             </div>`;
         }
-        
+
         if (result.removed_user_text) {
             const inputEl = document.getElementById('chat-input');
             if (inputEl) {
@@ -1573,13 +1573,13 @@ async function rollbackChat(keepUntil, shouldResend) {
                 inputEl.focus();
                 inputEl.dispatchEvent(new Event('input'));
             }
-            
+
             if (shouldResend) {
                 // Small delay to let the DOM settle, then auto-send
                 setTimeout(() => { chatSend(false); }, 100);
             }
         }
-        
+
         if (result.removed_count > 0) {
             toast('🔄 ' + result.removed_count + '件のメッセージを元に戻しました', 'info');
         }

@@ -8,6 +8,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from memory_mcp.domain.memory.enrichment import EnrichmentResult, RelationCandidate
+from memory_mcp.domain.value_objects import normalize_importance
 from memory_mcp.infrastructure.llm.factory import get_provider
 
 if TYPE_CHECKING:
@@ -167,7 +168,7 @@ class MemoryEnricher:
         importance = data.get("importance", 0.5)
         if not isinstance(importance, (int, float)):
             importance = 0.5
-        importance = max(0.0, min(1.0, float(importance)))
+        importance = normalize_importance(float(importance))
 
         # Extract relations
         relations: list[RelationCandidate] = []
@@ -182,7 +183,7 @@ class MemoryEnricher:
                 confidence = rel.get("confidence", 1.0)
                 if not isinstance(confidence, (int, float)):
                     confidence = 1.0
-                confidence = max(0.0, min(1.0, float(confidence)))
+                confidence = normalize_importance(float(confidence))
 
                 if source and target and rtype in _VALID_RELATION_TYPES:
                     relations.append(

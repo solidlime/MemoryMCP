@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from memory_mcp.domain.value_objects import normalize_importance
+
 ALLOWED_EMOTIONS: list[str] = [
     "neutral",
     "joy",
@@ -51,7 +53,7 @@ class Importance:
     value: float
 
     def __post_init__(self) -> None:
-        clamped = max(0.0, min(1.0, self.value))
+        clamped = normalize_importance(self.value)
         if clamped != self.value:
             object.__setattr__(self, "value", clamped)
 

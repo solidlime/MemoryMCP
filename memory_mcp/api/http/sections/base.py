@@ -785,7 +785,7 @@ function connectSSE(persona) {
     if (S._sse) { try { S._sse.close(); } catch(_) {} }
     const es = new EventSource('/api/events/' + encodeURIComponent(persona) + '?topics=memory,context');
     S._sse = es;
-    
+
     es.addEventListener('memory.created', function(e) {
         try { const d = JSON.parse(e.data); toast('\ud83d\udcdd \u65b0\u3057\u3044\u8a18\u61b6: ' + (d.content_preview || '...').substring(0, 50), 'info'); } catch(_) {}
     });

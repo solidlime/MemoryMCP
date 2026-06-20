@@ -5,7 +5,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from memory_mcp.domain.search.engine import SearchQuery
-from memory_mcp.domain.value_objects import _VALID_EMOTIONS
+from memory_mcp.domain.value_objects import _VALID_EMOTIONS, normalize_importance
 
 logger = logging.getLogger(__name__)
 
@@ -156,7 +156,7 @@ async def _tool_memory_update(
     if importance is not None:
         if not (0.0 <= importance <= 1.0):
             return "Error: importance must be between 0.0 and 1.0"
-        updates["importance"] = max(0.0, min(1.0, importance))
+        updates["importance"] = normalize_importance(importance)
     update_warning = ""
     if emotion_type is not None:
         if emotion_type not in _VALID_EMOTIONS:

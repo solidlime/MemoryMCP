@@ -157,8 +157,8 @@ async def _build_context_section(
                 t1.append(f"前回の会話から約{days:.0f}日経過しています。")
             elif elapsed_hours >= 6:
                 t1.append(f"前回から{elapsed_hours:.0f}時間経過しています。")
-        except (TypeError, AttributeError):
-            pass
+        except (TypeError, AttributeError) as e:
+            logger.debug("Failed to compute elapsed time: %s", e)
 
     if getattr(state, "emotion", None):
         intensity = getattr(state, "emotion_intensity", 0.5)
@@ -242,8 +242,8 @@ async def _build_context_section(
                         trend = " → ".join(r.emotion_type for r in recent_emotions[-4:])
                         trend += f" → {state.emotion}"
                         t3.append(f"感情推移: {trend}")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed to build emotion trend: %s", e)
 
     # Reflection insights — skip in light mode
     if not _is_light:

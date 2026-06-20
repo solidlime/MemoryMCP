@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 from typing import TYPE_CHECKING
 
@@ -18,6 +19,8 @@ from memory_mcp.infrastructure.sqlite.entity_repo import SQLiteEntityRepository
 from memory_mcp.infrastructure.sqlite.equipment_repo import SQLiteEquipmentRepository
 from memory_mcp.infrastructure.sqlite.memory_repo import SQLiteMemoryRepository
 from memory_mcp.infrastructure.sqlite.persona_repo import SQLitePersonaRepository
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from memory_mcp.config.settings import Settings
@@ -171,8 +174,8 @@ class AppContext:
                     emb = self.embedding_model
                     self._vector_store = QdrantVectorStore(mgr, emb, self.settings.qdrant.collection_prefix)
                     self._vector_store.ensure_collection(self.persona)
-            except Exception:
-                pass
+            except Exception as _e:
+                logger.debug("VectorStore init failed (Qdrant unavailable?): %s", _e)
         return self._vector_store
 
     @property
