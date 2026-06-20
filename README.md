@@ -280,11 +280,15 @@ Clean Architecture + DDD に基づくレイヤー構成：
 ```
 ┌───────────────────────────────────────────────────────────┐
 │                      API Layer                            │
-│   api/mcp/  ── 6 つの MCP ツール                          │
-│   api/http/ ── Web ダッシュボード + REST API + 15 ビルトインツール │
+│   api/mcp/  ── 20 MCP ツール (7カテゴリファイル)           │
+│   api/http/ ── Web ダッシュボード + REST API + SSE        │
+│   api/http/routers/ ── 10 HTTP ルーター                   │
+│   api/http/sections/ ── 15 画面のWebUIテンプレート         │
 ├───────────────────────────────────────────────────────────┤
 │                  Application Layer                        │
-│   application/  ── UseCases（ビジネスフロー制御）          │
+│   application/chat/   ── チャットサービス + 10 ビルトインツール │
+│   application/sandbox/── Dockerサンドボックスコード実行     │
+│   application/workers/── バックグラウンド要約・Reflection    │
 ├───────────────────────────────────────────────────────────┤
 │                    Domain Layer                           │
 │   domain/memory/     ── Memory, MemoryStrength, Search    │
@@ -293,9 +297,10 @@ Clean Architecture + DDD に基づくレイヤー構成：
 │   domain/search/     ── SearchEngine, Ranker, Strategies  │
 ├───────────────────────────────────────────────────────────┤
 │                 Infrastructure Layer                      │
-│   infrastructure/sqlite/     ── SQLite Repository 実装    │
+│   infrastructure/sqlite/     ── 8リポジトリ (SQLite/WAL) │
 │   infrastructure/qdrant/     ── ベクトルストア             │
 │   infrastructure/embedding/  ── 埋め込みモデル            │
+│   infrastructure/llm/        ── LLMクライアント抽象        │
 └───────────────────────────────────────────────────────────┘
 ```
 
@@ -305,12 +310,22 @@ Clean Architecture + DDD に基づくレイヤー構成：
 memory_mcp/
 ├── main.py              # エントリポイント（FastMCP + HTTP）
 ├── config/settings.py   # Pydantic BaseSettings
-├── domain/              # ビジネスロジック
-│   ├── skill.py              # Skills system
-│   └── shared/
-│       └── time_utils.py     # 日付範囲パース、時刻ユーティリティ
-├── infrastructure/      # SQLite / Qdrant / Embedding
-├── application/         # UseCases
+├── domain/              # ビジネスロジック（レイヤー分離）
+│   ├── memory/          # Memory 集約（Entity, Service, Value Objects）
+│   ├── persona/         # Persona 状態管理・履歴
+│   ├── equipment/       # アイテム・装備システム
+│   ├── search/          # SearchEngine, Hybrid Search, Strategies
+│   ├── shared/          # 共有ユーティリティ（time_utils, value_objects）
+│   └── skill.py         # Skills system
+├── infrastructure/      # SQLite / Qdrant / Embedding / LLM
+│   ├── sqlite/          # 8 Repository 実装 (memory, persona, chat, skill, etc.)
+│   ├── qdrant/          # ベクトルストアコレクション管理
+│   ├── embedding/       # 埋め込みモデルローダー (sentence-transformers)
+│   ├── llm/             # LLM クライアント抽象 (Anthropic/OpenAI)
+│   ├── logging/         # structlog 設定
+│   └── mcp_client/      # 外部 MCP クライアント接続
+├── application/         # UseCases / アプリケーション層
+│   ├── use_cases.py     # コアユースケース
 │   ├── chat/            # チャットサブパッケージ
 │   │   ├── service.py             # ChatService（SSEストリーミング）
 │   │   ├── session_store.py       # セッション管理（SQLite永続化）
@@ -318,13 +333,50 @@ memory_mcp/
 │   │   ├── pattern_detector.py    # メンタルモデル抽象化
 │   │   ├── summarizer.py          # セッション要約（LLM）
 │   │   └── tools/                 # 組み込みツール定義・実行
-│   │       ├── definitions.py     # 15 ツールのスキーマ定義
-│   │       └── builtin.py         # ツール実装
+│   │       ├── definitions.py     # 10 ツールのスキーマ定義
+│   │       └── builtin.py         # ツール実装（TOOL_DISPATCH）
 │   ├── sandbox/          # Sandbox コード実行（Docker sibling-container）
-│   └── chat_service.py   # 後方互換 re-export
-├── api/mcp/             # MCP ツール 6 本
-├── api/http/            # Web ダッシュボード + REST API
-└── migration/           # スキーママイグレーション
+│   └── workers/          # バックグラウンドワーカー（要約・Reflection・MentalModel）
+├── api/                 # API 層
+│   ├── mcp/             # MCP サーバー（20 ツール、7カテゴリファイル）
+│   │   ├── tools.py              # TOOL_DISPATCH + @mcp.tool() ラッパー
+│   │   ├── _tools_memory.py      # memory_create/read/update/delete/search/stats
+│   │   ├── _tools_persona.py     # get_context / update_context
+│   │   ├── _tools_item.py        # item_add/remove/update/search/equip/unequip/history
+│   │   ├── _tools_sandbox.py     # sandbox / sandbox_files
+│   │   ├── _tools_goal.py        # goal_manage / promise_manage
+│   │   ├── _tools_skill.py       # invoke_skill
+│   │   ├── _tools_helpers.py     # 共通ヘルパー・バリデーション
+│   │   └── middleware.py         # Persona 解決ミドルウェア
+│   └── http/            # Web ダッシュボード + REST API
+│       ├── routes.py            # ルート集約
+│       ├── routers/             # 10 HTTP ルーター
+│       │   ├── memory.py        # 記憶CRUD API
+│       │   ├── search.py        # 検索API
+│       │   ├── chat.py          # チャットAPI (+SSE)
+│       │   ├── persona.py       # ペルソナAPI
+│       │   ├── skills.py        # スキル管理API
+│       │   ├── events.py        # SSE イベント購読
+│       │   ├── session_events.py# セッションイベント履歴
+│       │   ├── items.py         # TODO: アイテムAPI (未実装)
+│       │   └── admin.py         # 管理API
+│       └── sections/            # 15 WebUI 画面（HTMLテンプレート）
+│           ├── base.py          # 共通基底・JSユーティリティ
+│           ├── chat.py          # チャット画面 (2557行、最重量)
+│           ├── memories.py      # 記憶一覧 (1081行)
+│           ├── knowledge_graph.py# ナレッジグラフ画面
+│           ├── coding_agent.py  # コーディングエージェント画面
+│           ├── overview.py      # 概要ダッシュボード
+│           ├── settings.py      # 設定画面
+│           ├── skills.py        # スキル管理画面
+│           ├── activity.py      # アクティビティタイムライン
+│           ├── sandbox.py       # サンドボックス画面
+│           └── ...              # その他
+├── migration/           # データ移行・マイグレーション
+│   ├── versions/        # 24 DBマイグレーションファイル
+│   ├── importers/       # インポーター（legacy, ZIP）
+│   └── exporters/       # エクスポーター
+└── cli/                 # CLI ツール
 ```
 
 ### データディレクトリ
