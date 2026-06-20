@@ -148,8 +148,8 @@ class AppContext:
 
         # Initialize SessionEventRecorder (best-effort, don't fail startup)
         try:
-            from memory_mcp.infrastructure.sqlite.session_event_repo import SessionEventRepository
             from memory_mcp.application.session_event_recorder import SessionEventRecorder
+            from memory_mcp.infrastructure.sqlite.session_event_repo import SessionEventRepository
 
             self._session_event_repo = SessionEventRepository(self.connection)
             self._session_event_recorder = SessionEventRecorder(self.event_bus, self._session_event_repo)

@@ -1,22 +1,13 @@
 """Auto-generated from tools.py split — _tools_sandbox.py."""
 from __future__ import annotations
 
-import json
 import logging
-from typing import TYPE_CHECKING, Any
-
-from mcp.server.fastmcp import FastMCP  # noqa: TC002
-
-from memory_mcp.api.mcp.middleware import get_current_persona
-from memory_mcp.application.use_cases import AppContextRegistry
-from memory_mcp.domain.search.engine import SearchQuery
-from memory_mcp.domain.shared.time_utils import get_now, relative_time_str
+from typing import TYPE_CHECKING
 
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from memory_mcp.application.use_cases import AppContext
-    from memory_mcp.domain.persona.entities import PersonaState
 
 
 async def _tool_sandbox(ctx: AppContext, persona: str, code: str, language: str = "python") -> str:

@@ -129,7 +129,7 @@ class TokenCounter:
         # Strip provider prefix for OpenRouter (e.g., 'openai/gpt-4o' → 'gpt-4o')
         if '/' in model_lower:
             model_lower = model_lower.split('/', 1)[1]
-        
+
         for key, max_tokens in sorted(MODEL_MAX_CONTEXT.items(), key=lambda x: -len(x[0])):
             if key in model_lower:
                 return max_tokens

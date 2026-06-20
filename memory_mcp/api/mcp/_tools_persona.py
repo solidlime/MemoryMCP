@@ -3,23 +3,18 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
-from mcp.server.fastmcp import FastMCP  # noqa: TC002
-
-from memory_mcp.api.mcp.middleware import get_current_persona
-from memory_mcp.application.use_cases import AppContextRegistry
-from memory_mcp.domain.search.engine import SearchQuery
 from memory_mcp.domain.shared.time_utils import get_now, relative_time_str
 
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from memory_mcp.application.use_cases import AppContext
-    from memory_mcp.domain.persona.entities import PersonaState
 
 
 from memory_mcp.api.mcp._tools_helpers import _format_lightweight_response  # noqa: E402
+
 
 async def _tool_get_context(ctx: AppContext, persona: str) -> str:
     """Get persona state and memory overview. Call FIRST at session start.

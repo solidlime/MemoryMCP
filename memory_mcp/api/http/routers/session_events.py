@@ -5,9 +5,10 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+from starlette.responses import JSONResponse
+
 from memory_mcp.application.use_cases import AppContextRegistry
 from memory_mcp.infrastructure.sqlite.session_event_repo import SessionEventRepository
-from starlette.responses import JSONResponse
 
 if TYPE_CHECKING:
     from starlette.requests import Request

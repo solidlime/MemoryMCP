@@ -1,4 +1,5 @@
-import requests, sys
+
+import requests
 
 BASE = "http://localhost:26263"
 

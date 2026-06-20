@@ -2,47 +2,16 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from mcp.server.fastmcp import FastMCP  # noqa: TC002
 
 from memory_mcp.api.mcp.middleware import get_current_persona
 from memory_mcp.application.use_cases import AppContextRegistry
-from memory_mcp.domain.search.engine import SearchQuery
-from memory_mcp.domain.shared.time_utils import get_now, relative_time_str
 
 logger = logging.getLogger(__name__)
 
-_VALID_EMOTIONS = frozenset(
-    {
-        "joy",
-        "sadness",
-        "anger",
-        "fear",
-        "surprise",
-        "disgust",
-        "love",
-        "neutral",
-        "anticipation",
-        "trust",
-        "anxiety",
-        "excitement",
-        "frustration",
-        "nostalgia",
-        "pride",
-        "shame",
-        "guilt",
-        "loneliness",
-        "contentment",
-        "curiosity",
-        "awe",
-        "relief",
-    }
-)
 
-if TYPE_CHECKING:
-    from memory_mcp.application.use_cases import AppContext
-    from memory_mcp.domain.persona.entities import PersonaState
 
 
 # =============================================================================
@@ -51,35 +20,34 @@ if TYPE_CHECKING:
 
 
 # ── Re-export core implementations from sub-modules ──
+from memory_mcp.api.mcp._tools_goal import _tool_goal_manage, _tool_promise_manage  # noqa: E402, F401
 from memory_mcp.api.mcp._tools_helpers import (  # noqa: E402, F401
+    _build_time_comment,
     _format_lightweight_response,
     _format_state_block,
     _format_state_diff,
     _parse_days_from_relative,
-    _build_time_comment,
+)
+from memory_mcp.api.mcp._tools_item import (  # noqa: E402, F401
+    _tool_item_add,
+    _tool_item_equip,
+    _tool_item_history,
+    _tool_item_remove,
+    _tool_item_search,
+    _tool_item_unequip,
+    _tool_item_update,
 )
 from memory_mcp.api.mcp._tools_memory import (  # noqa: E402, F401
     _tool_memory_create,
-    _tool_memory_read,
-    _tool_memory_update,
     _tool_memory_delete,
+    _tool_memory_read,
     _tool_memory_search,
     _tool_memory_stats,
+    _tool_memory_update,
 )
 from memory_mcp.api.mcp._tools_persona import _tool_get_context, _tool_update_context  # noqa: E402, F401
-from memory_mcp.api.mcp._tools_item import (  # noqa: E402, F401
-    _tool_item_add,
-    _tool_item_remove,
-    _tool_item_equip,
-    _tool_item_unequip,
-    _tool_item_update,
-    _tool_item_search,
-    _tool_item_history,
-)
 from memory_mcp.api.mcp._tools_sandbox import _tool_sandbox, _tool_sandbox_files  # noqa: E402, F401
-from memory_mcp.api.mcp._tools_goal import _tool_goal_manage, _tool_promise_manage  # noqa: E402, F401
 from memory_mcp.api.mcp._tools_skill import _tool_invoke_skill  # noqa: E402, F401
-
 
 # =============================================================================
 # Dispatch table — maps tool name → (core_function, docstring)
