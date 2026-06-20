@@ -17,6 +17,7 @@ from memory_mcp.application.sandbox.service import ExecResult, SandboxFileInfo
 @pytest.fixture
 def mock_app_context():
     ctx = MagicMock()
+    ctx.event_bus = AsyncMock()
     return ctx
 
 

@@ -2,7 +2,64 @@
 
 ---
 
-# context-mode 機能移植（2026-06-12）
+# コードベース健全化リファクタリング（2026-06-20）
+
+## 🔴 P0: 巨大ファイル分割
+
+### P0-1: `mcp/tools.py` (1953行) → カテゴリ分割
+22ツールを責務別に複数ファイルへ:
+| 新ファイル | ツール | 行数見込 |
+|---|---|---|
+| `api/mcp/_tools_memory.py` | memory_create/read/update/delete/search | ~300 |
+| `api/mcp/_tools_persona.py` | get_context, update_context | ~200 |
+| `api/mcp/_tools_item.py` | item_add/remove/update/search/equip/unequip/history | ~300 |
+| `api/mcp/_tools_goal.py` | goal_manage, promise_manage | ~200 |
+| `api/mcp/_tools_sandbox.py` | sandbox, sandbox_files | ~200 |
+| `api/mcp/_tools_skill.py` | invoke_skill | ~100 |
+| `api/mcp/tools.py` | TOOL_DISPATCH, 再エクスポート, 定数 | ~200 |
+
+ツールシグネチャ・MCPデコレータは変更不可（後方互換）。
+
+### P0-2: `sections/chat.py` (2557行) → 軽量分割
+CSS/JS/HTMLがPython文字列リテラル内に混在。本格的なビルドシステム導入は後日として、今回の範囲:
+- 死にコード・重複CSS/JSを削除
+- コメント整理
+- W293（空白行末尾スペース）修正
+
+## 🟠 P1: 重複コード共通化
+
+### P1-1: `importance` バリデーション統一
+`max(0.0, min(1.0, importance))` が4箇所に分散 → `normalize_importance()` を抽出
+
+### P1-2: `emotion` / `emotion_type` フィールド名統一
+API境界で `emotion_type` と内部 `emotion` の変換が各所で手動実装。
+Pydanticモデルで一元管理するか、単一フィールド名に統一。
+
+### P1-3: `_VALID_EMOTIONS` を domain 層へ移動
+現在 `api/mcp/tools.py` に定義（レイヤー違反）→ `domain/value_objects.py` へ
+
+## 🟡 P2: 軽量クリーンアップ
+
+### P2-1: `except: pass` → `logger.warning`（12箇所）
+エラー握り潰しをログ出力に変更。特に深刻な3箇所を優先。
+
+### P2-2: DEPRECATEDエンドポイント整理（3箇所）
+- `GET /api/sandbox/files` (chat.py:760)
+- `GET /api/observations/{persona}` (memory.py:69)
+- `GET /api/personas` (persona.py:51)
+
+### P2-3: ruff全19件修正
+- W293 ×11: 空白行末尾スペース
+- I001 ×2: import順序
+- SIM105 ×1: contextlib.suppress に置換
+- その他 ×5
+
+## 🟢 P3: ドキュメント刷新
+- PLAN.md / SPEC.md / TODO.md / KNOWLEDGE.md / MEMORY.md / HANDOFF.md / README.md
+
+---
+
+# context-mode 機能移植（2026-06-12・完了）
 
 ## 概要
 [mksglu/context-mode](https://github.com/mksglu/context-mode) の分析から特定した10機能をMemoryMCPに移植。

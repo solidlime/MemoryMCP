@@ -1,6 +1,29 @@
 # PLAN - やりたいこと
 
-## 2026-06-12: context-mode 機能移植（本セッション）
+## 2026-06-20: コードベース健全化（本セッション）
+
+### 背景
+context-mode移植はL2(EventBus+SSE)+L3(Plugin)まで完了。残るL1(FTS5等)は後日。
+コードが肥大化・複雑化してきたので、今のうちに全コードベースの健全化（リファクタリング）を実施したい。
+
+### やること
+- 巨大ファイルの分割（chat.py 2557行, tools.py 1953行）
+- 重複コードの共通化（importanceバリデーション, emotion/emotion_type統一）
+- 握り潰しエラーのログ出力化（except:pass → logger.warning）
+- 死にコード・DEPRECATED削除
+- ruff全件修正（既存19件含む）
+- ドキュメント棚卸し（SPEC/PLAN/TODO/KNOWLEDGE/MEMORY/HANDOFF/README）
+
+### やらないこと（今回）
+- FTS5全文検索（M1）
+- ingest/batch/doctor/upgrade ツール（M2-M6）
+- 大規模UIリプレース
+- web_searchブラウザテスト（WSL不安定）
+- テスト再構築（R4）
+
+---
+
+## 2026-06-12: context-mode 機能移植（完了）
 
 ### 背景
 [mksglu/context-mode](https://github.com/mksglu/context-mode)（17.2k★）を分析し、MemoryMCPに移植価値のある機能を特定。

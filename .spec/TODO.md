@@ -1,83 +1,48 @@
-# TODO - context-mode 機能移植（2026-06-12）
+# TODO - コードベース健全化リファクタリング（2026-06-20）
 
-## L2: インフラ（EventBus + SSE）🔴 最優先
+## P0: 巨大ファイル分割 🔴
 
-### E1: EventBus ✅ 完了
-- [x] E1-1: `application/event_bus.py` 新規 — `EventBus` クラス（pub/sub）
-- [x] E1-2: `api/mcp/tools.py` — 4ツールに `event_bus.publish()` 追加（memory_create/update/delete + update_context）
-- [x] E1-3: EventBus ユニットテスト（7テストパス）
+### P0-1: tools.py 分割
+- [x] P0-1a: `_tools_memory.py` — memory_create/read/update/delete/search
+- [x] P0-1b: `_tools_persona.py` — get_context, update_context
+- [x] P0-1c: `_tools_item.py` — item_add/remove/update/search/equip/unequip/history
+- [x] P0-1d: `_tools_goal.py` — goal_manage, promise_manage
+- [x] P0-1e: `_tools_sandbox.py` — sandbox, sandbox_files
+- [x] P0-1f: `_tools_skill.py` — invoke_skill
+- [x] P0-1g: `tools.py` をTOOL_DISPATCH + 再エクスポートに縮小
 
-### E2: SSEエンドポイント ✅ 完了
-- [x] E2-1: `api/http/routers/events.py` 新規 — `GET /api/events/{persona}` SSEエンドポイント
-- [x] E2-2: `api/http/sections/base.py` — init関数にEventSource接続 + トースト通知追加
-- [x] E2-3: SSE ユニットテスト（3テストパス、TestSSEBridge）
-- [x] 🐶 ドッグフーディング: MCP→EventBus→SSEパイプラインE2E確認済み
+### P0-2: chat.py 軽量クリーンアップ
+- [ ] P0-2a: 死にコード・重複CSS/JS削除
+- [ ] P0-2b: W293空白行スペース修正（7箇所）
 
-### E3: Plugin用HTTP取り込みAPI
-- [ ] E3-1: `api/http/routers/events.py` — `POST /api/events/ingest` エンドポイント
-- [ ] E3-2: 取り込み→EventBus連携テスト
+## P1: 重複コード共通化 🟠
 
----
+- [ ] P1-1: `normalize_importance()` 抽出 → 全呼出箇所置換
+- [ ] P1-2: `emotion`/`emotion_type` フィールド名統一
+- [ ] P1-3: `_VALID_EMOTIONS` を domain 層へ移動
 
-## L1: MCPサーバー拡張 🔴
+## P2: 軽量クリーンアップ 🟡
 
-### M1: FTS5全文検索
-- [ ] M1-1: マイグレーション v023 作成（memories_fts + triggers + 全既存データ再インデックス）
-- [ ] M1-2: `infrastructure/sqlite/memory_repo.py` — `search_keyword()` → FTS5 MATCH + bm25
-- [ ] M1-3: `domain/search/strategies.py` — `fts_enabled` パラメータ追加
-- [ ] M1-4: `config/settings.py` — `fts_enabled: bool = True`
-- [ ] M1-5: FTS5 ユニットテスト（MATCH, bm25, フォールバック, 日本語）
+- [ ] P2-1: `except: pass` → `logger.warning`（12箇所）
+- [ ] P2-2: DEPRECATEDエンドポイント整理（3箇所）
+- [ ] P2-3: ruff全19件修正
 
-### M2: 外部コンテンツ取り込み
-- [ ] M2-1: `domain/memory/ingest.py` 新規 — `IngestService`
-- [ ] M2-2: `api/mcp/tools.py` — `ingest` ツール追加
-- [ ] M2-3: `config/settings.py` — ingest関連設定
-- [ ] M2-4: `pyproject.toml` — httpx, html2text 依存追加
-- [ ] M2-5: ingest ユニットテスト（URL/markdown/text, チャンク分割）
+## P3: ドキュメント刷新 🟢
 
-### M3: バッチツール実行
-- [ ] M3-1: `api/mcp/tools.py` — `batch` ツール追加
-- [ ] M3-2: batch ユニットテスト（複数操作、エラーハンドリング、許可制限）
+- [ ] P3-1: SPEC.md 棚卸し（古い計画を details 折りたたみ）
+- [ ] P3-2: PLAN.md 更新完了
+- [ ] P3-3: TODO.md（本ファイル）
+- [ ] P3-4: KNOWLEDGE.md 更新
+- [ ] P3-5: MEMORY.md アーカイブ＋再生成
+- [ ] P3-6: HANDOFF.md 生成
+- [ ] P3-7: README.md 刷新
 
-### M4: 近接性リランキング（M1完了後）
-- [ ] M4-1: `domain/search/ranker.py` — `ProximityRanker` 追加
-- [ ] M4-2: `domain/search/ranker.py` — `ChainedRanker` チェーンに追加
-- [ ] M4-3: `config/settings.py` — `proximity_window`
-- [ ] M4-4: 近接性 ユニットテスト
+## 後回しタスク 📋
 
-### M5+M6: upgrade + doctor（低優先・後回し）
-- [ ] M5-1: `api/mcp/tools.py` — `upgrade` ツール
-- [ ] M6-1: `api/mcp/tools.py` — `doctor` ツール
+- [ ] web_search ブラウザ動作テスト（WSL Chromeライブラリ不足→ `sudo apt install libnspr4 libnss3 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libpango-1.0-0 libasound2` で対応）
 
----
+## 最終確認 🧪
 
-## L3: OpenCode Plugin 🔴
-
-### P1: プラグイン本体（E3完了後）
-- [ ] P1-1: `plugins/opencode-memory-sync/` ディレクトリ作成
-- [ ] P1-2: `package.json` + `tsconfig.json` セットアップ
-- [ ] P1-3: プラグイン本体実装（PreToolUse/PostToolUse/SessionStart/Stop/PreCompact）
-- [ ] P1-4: `POST /api/events/ingest` へのHTTP送信ロジック
-- [ ] P1-5: 動作確認（OpenCodeで読み込んでMemoryMCP WebUIにイベントが届くか）
-
----
-
-## 🧪 最終確認
-- [ ] T001: 全ユニットテスト実行
-- [ ] T002: CI パス確認
-- [ ] T003: SPEC.md / KNOWLEDGE.md / MEMORY.md 更新
-
-## 依存グラフ
-```
-E1 ──┬── E2 ── WebUI SSE受信
-     ├── E3 ── P1 (Plugin)
-     │
-M1 ──┼── 独立
-     │   └── M4
-M2 ──┤
-M3 ──┤
-     │
-M5+M6（後回し）
-```
-
-## 並列実行: E1+M1+M2+M3 が同時着手可
+- [ ] T-final: ruff check → 0 errors
+- [ ] T-final: pytest → 全pass確認
+- [ ] T-final: git commit + push

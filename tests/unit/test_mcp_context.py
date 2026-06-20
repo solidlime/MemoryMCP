@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -42,6 +42,7 @@ def mock_app_context():
     ctx.search_engine = MagicMock()
     ctx.persona_service = MagicMock()
     ctx.entity_service = MagicMock()
+    ctx.event_bus = AsyncMock()
     ctx.vector_store = None  # no Qdrant by default
     ctx.settings = MagicMock()
     ctx.settings.contradiction_threshold = 0.85

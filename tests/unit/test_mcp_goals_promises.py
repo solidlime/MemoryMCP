@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -35,6 +35,7 @@ def mock_app_context():
     ctx = MagicMock()
     ctx.memory_service = MagicMock()
     ctx.persona_service = MagicMock()
+    ctx.event_bus = AsyncMock()
     return ctx
 
 
