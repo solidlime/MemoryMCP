@@ -206,15 +206,15 @@ async def _handle_web_search(ctx: AppContext, config: ChatConfig, tool_input: di
         await asyncio.wait_for(proc.communicate(), timeout=15)
 
         # 3. Extract results via JavaScript
-        js_code = f"""JSON.stringify(
-            Array.from(document.querySelectorAll('article[data-testid="result"]'))
+        # Note: agent-browser eval auto-serialises return values via JSON.stringify,
+        # so we must NOT call JSON.stringify() ourselves (double-encoding bug).
+        js_code = f"""Array.from(document.querySelectorAll('article[data-testid="result"]'))
                 .slice(0, {max_results})
                 .map(r => ({{
                     title: (r.querySelector('h2') || r.querySelector('a[data-testid="result-title-a"]'))?.textContent?.trim() || '',
                     url: r.querySelector('a[data-testid="result-title-a"]')?.href || '',
                     snippet: (r.querySelector('span[data-testid="result-snippet"]') || r.querySelector('.result__snippet'))?.textContent?.trim() || ''
-                }}))
-        )"""
+                }}))"""
 
         proc = await asyncio.create_subprocess_exec(
             agent_bin,
@@ -239,7 +239,7 @@ async def _handle_web_search(ctx: AppContext, config: ChatConfig, tool_input: di
         except _json.JSONDecodeError:
             return {"status": "error", "message": "Failed to parse search results"}
 
-        if not results:
+        if not results or not isinstance(results, list):
             return {"status": "ok", "results": [], "message": "No results found"}
 
         return {
