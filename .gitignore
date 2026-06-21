@@ -39,10 +39,11 @@ Thumbs.db
 output/
 logs/
 
-# Data runtime (but keep zip files)
+# Data runtime (but keep zip files and bundled skills)
 data/*/
 data/_tmp/
 !data/*.zip
+!data/skills/
 
 # Serena local files
 .serena/
