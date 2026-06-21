@@ -171,12 +171,15 @@ async def _handle_browser(
         return {"status": "error", "message": "action is required"}
 
     # ── Locate agent-browser binary ──
-    agent_bin = _find_agent_browser()
+    agent_bin = _find_agent_browser(ctx.settings if hasattr(ctx, 'settings') else None)
     if not agent_bin:
         return {
             "status": "error",
             "message": (
-                "agent-browser not found. Install it:\n  npm install -g agent-browser\n  agent-browser install"
+                "agent-browser not found. Install it:\n"
+                "  npm install -g agent-browser\n"
+                "  agent-browser install\n\n"
+                "Or set MEMORY_MCP_AGENT_BROWSER_PATH=/path/to/agent-browser in .env"
             ),
         }
 
@@ -319,15 +322,22 @@ async def _handle_search(
     searxng_url = getattr(config, "searxng_url", "http://nas:11111")
     search_url = f"{searxng_url}/search?q={urllib.parse.quote(query)}&format=json&language=ja"
 
-    try:
-        import httpx
+    import httpx
 
+    try:
         async with httpx.AsyncClient(timeout=15.0) as client:
             resp = await client.get(search_url)
             resp.raise_for_status()
             data = resp.json()
+    except httpx.TimeoutException:
+        return {"status": "error", "message": "SearXNG search timed out (15s)"}
+    except httpx.ConnectError as e:
+        return {"status": "error", "message": f"SearXNG connection failed: {searxng_url}"}
+    except httpx.HTTPStatusError as e:
+        return {"status": "error", "message": f"SearXNG returned HTTP {e.response.status_code}"}
     except Exception as e:
-        return {"status": "error", "message": f"SearXNG search failed: {str(e)[:200]}"}
+        error_msg = str(e)[:200] if str(e) else type(e).__name__
+        return {"status": "error", "message": f"SearXNG search failed: {error_msg}"}
 
     raw_results = data.get("results", [])
     results = []
@@ -341,27 +351,36 @@ async def _handle_search(
     return {"status": "ok", "query": query, "results": results, "count": len(results)}
 
 
-def _find_agent_browser() -> str | None:
-    """Find agent-browser binary. Checks env var, data dir, PATH."""
+def _find_agent_browser(settings=None) -> str | None:
+    """Find agent-browser binary. Checks Settings, env, data dir, PATH."""
     import os
     import shutil
 
-    # 1. Explicit env var
+    from memory_mcp.config.settings import get_settings
+
+    s = settings or get_settings()
+
+    # 1. Settings.agent_browser_path (env: MEMORY_MCP_AGENT_BROWSER_PATH)
+    if s.agent_browser_path and os.path.isfile(s.agent_browser_path):
+        return s.agent_browser_path
+
+    # 2. Legacy AGENT_BROWSER_PATH (no prefix)
     path = os.environ.get("AGENT_BROWSER_PATH")
     if path and os.path.isfile(path):
         return path
 
-    # 2. Host-mounted data directory
+    # 3. Data volume paths (Docker)
+    data_root = os.environ.get("MEMORY_MCP_DATA_ROOT", "/opt/memory-mcp/data")
     candidates = [
-        "data/agent-browser/bin/agent-browser",
+        os.path.join(data_root, "agent-browser/bin/agent-browser"),
         os.path.expanduser("~/.local/nodejs/bin/agent-browser"),
     ]
     for c in candidates:
         if os.path.isfile(c):
             return c
 
-    # 3. PATH
-    found = shutil.which("agent-browser")
+    # 4. PATH
+    found = shutil.which("agent-browser") or shutil.which("agent-browser.cmd")
     if found:
         return found
 

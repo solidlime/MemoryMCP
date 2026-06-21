@@ -44,6 +44,8 @@ services:
       MEMORY_MCP_SANDBOX__ENABLED: "true"
       # Explicitly empty so .env cannot accidentally override with a stale DinD host.
       MEMORY_MCP_SANDBOX__DOCKER_HOST: ""
+      # agent-browser installed to data volume by entrypoint script
+      MEMORY_MCP_AGENT_BROWSER_PATH: /opt/memory-mcp/data/agent-browser/bin/agent-browser
       # HOST_DATA_ROOT: normally auto-detected from this container's own volume mounts.
       # Set manually only if auto-detection fails (e.g. on Synology, custom Docker setups).
       # Example: MEMORY_MCP_SANDBOX__HOST_DATA_ROOT: /volume1/docker/memory-mcp/data

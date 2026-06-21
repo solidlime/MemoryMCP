@@ -72,6 +72,13 @@ COPY pyproject.toml ${APP_HOME}/
 # Create data directory under APP_HOME
 RUN mkdir -p ${APP_HOME}/data
 
+# Copy agent-browser setup script for first-run installation
+COPY scripts/setup_agent_browser.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/setup_agent_browser.sh
+
+# Copy sandbox Dockerfile for on-demand image building
+COPY Dockerfile.sandbox ${APP_HOME}/
+
 # Expose FastMCP HTTP port
 EXPOSE 26262
 
@@ -79,7 +86,8 @@ EXPOSE 26262
 HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
     CMD curl -f http://localhost:26262/health || exit 1
 
-# Run the MCP server (v2: package entrypoint)
+# Run agent-browser setup on startup, then launch the MCP server
+ENTRYPOINT ["/usr/local/bin/setup_agent_browser.sh"]
 CMD ["python", "-m", "memory_mcp.main"]
 
 # Notes:

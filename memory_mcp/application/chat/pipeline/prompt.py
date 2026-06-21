@@ -46,7 +46,15 @@ class PromptBuildStep:
 
                 skill_repo = SkillRepository(get_global_skills_db(get_settings().data_root))
                 skills = [skill_repo.get(n) for n in config.enabled_skills]
-                skill_lines = [f"- {s.name}: {s.description}" for s in skills if s]
+                skill_lines = []
+                for s in skills:
+                    if not s:
+                        continue
+                    line = f"- {s.name}: {s.description}"
+                    if s.content and len(s.content) < 500:
+                        content_preview = s.content.strip().split('\n')[0][:200]
+                        line += f"\n  {content_preview}"
+                    skill_lines.append(line)
                 skills_raw = [s.model_dump() for s in skills if s]
                 if skill_lines:
                     parts.append("\n--- 利用可能なSkill ---\n" + "\n".join(skill_lines))

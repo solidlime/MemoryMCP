@@ -201,6 +201,44 @@ def _verify_sandbox_mounts(session: object, container_configs: dict, persona: st
         logger.debug("Sandbox mount verification skipped: %s", exc)
 
 
+def _ensure_sandbox_image(image_name: str, dockerfile_name: str) -> None:
+    """Build sandbox image if not present locally.
+
+    Uses APP_HOME (or fallback CWD) as the build context so that
+    Dockerfile.sandbox (copied into the image at build time) can be found.
+    """
+    import docker
+
+    client = docker.from_env()
+
+    try:
+        client.images.get(image_name)
+        logger.debug("Sandbox image %s already exists", image_name)
+        return
+    except docker.errors.ImageNotFound:
+        pass
+
+    build_path = os.environ.get("APP_HOME", ".")
+    dockerfile_path = os.path.join(build_path, dockerfile_name)
+    logger.info(
+        "Building sandbox image %s from %s (context=%s)...",
+        image_name,
+        dockerfile_path,
+        build_path,
+    )
+    try:
+        client.images.build(
+            path=build_path,
+            dockerfile=dockerfile_name,
+            tag=image_name,
+            rm=True,
+        )
+        logger.info("Sandbox image %s built successfully", image_name)
+    except Exception as e:
+        logger.error("Failed to build sandbox image %s: %s", image_name, e)
+        raise
+
+
 def _cleanup_stale_sandbox_container(persona: str) -> None:
     """Remove any existing Docker container with the sandbox name for this persona.
 
@@ -338,6 +376,9 @@ class SandboxSession:
 
             # Remove any stale container with the same name
             _cleanup_stale_sandbox_container(self.persona)
+
+            # Ensure sandbox image exists (build if not present locally)
+            _ensure_sandbox_image(sandbox_image, "Dockerfile.sandbox")
 
             # Try ArtifactSandboxSession first (matplotlib/plot support)
             def _start_session():
