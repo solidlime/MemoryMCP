@@ -306,6 +306,39 @@ async def _handle_browser(ctx: AppContext, config: ChatConfig, tool_input: dict)
         return {"status": "error", "message": f"browser {action} failed: {str(e)[:200]}"}
 
 
+async def _handle_search(ctx: AppContext, config: ChatConfig, tool_input: dict) -> dict:
+    """Execute a web search via SearXNG meta-search engine."""
+    import urllib.parse
+
+    query = (tool_input.get("query") or "").strip()
+    if not query:
+        return {"status": "error", "message": "query is required"}
+
+    searxng_url = getattr(config, "searxng_url", "http://nas:11111")
+    search_url = f"{searxng_url}/search?q={urllib.parse.quote(query)}&format=json&language=ja"
+
+    try:
+        import httpx
+
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get(search_url)
+            resp.raise_for_status()
+            data = resp.json()
+    except Exception as e:
+        return {"status": "error", "message": f"SearXNG search failed: {str(e)[:200]}"}
+
+    raw_results = data.get("results", [])
+    results = []
+    for r in raw_results[:10]:
+        title = (r.get("title") or "").strip()
+        url = (r.get("url") or "").strip()
+        content = (r.get("content") or "").strip()
+        if title or content:
+            results.append({"title": title, "url": url, "content": content})
+
+    return {"status": "ok", "query": query, "results": results, "count": len(results)}
+
+
 def _find_agent_browser() -> str | None:
     """Find agent-browser binary. Checks env var, data dir, PATH."""
     import os
@@ -398,6 +431,7 @@ _BUILTIN_DISPATCH: dict[str, Any] = {
     "memory_search": _handle_memory_search_builtin,
     "memory_update": _handle_memory_update_builtin,
     "browser": _handle_browser,
+    "search": _handle_search,
 }
 
 _MCP_SHARED_TOOLS = frozenset(

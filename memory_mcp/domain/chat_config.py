@@ -52,7 +52,8 @@ class ChatConfig(BaseModel):
     mcp_servers: list[dict] = [
         {"name": "memory-mcp", "command": "python", "args": ["-m", "memory_mcp.main"], "env": {}, "_comment": "MemoryMCP自体をMCPサーバーとして接続（全20ツール利用可）。削除・編集可。"}
     ]
-    enabled_skills: list[str] = ["browser"]
+    enabled_skills: list[str] = ["browser", "search"]
+    searxng_url: str = "http://nas:11111"
     enable_memory_tools: bool = True
     # Generative Agents-style reflection
     reflection_enabled: bool = True
@@ -230,7 +231,7 @@ class ChatConfigRepository:
                 "max_stored_messages, context_max_tokens, context_compression_threshold, "
                 "context_compression_mode, context_keep_recent_turns, "
                 "context_compress_system_prompt, context_compress_history, "
-                "memory_preload_count, enable_parallel_tools "
+                "memory_preload_count, enable_parallel_tools, searxng_url "
                 "FROM chat_settings WHERE persona = ?",
                 (persona,),
             ).fetchone()
@@ -293,6 +294,7 @@ class ChatConfigRepository:
             context_compress_history=bool(row[35]) if len(row) > 35 and row[35] is not None else True,
             memory_preload_count=int(row[36]) if len(row) > 36 and row[36] is not None else 3,
             enable_parallel_tools=bool(row[37]) if len(row) > 37 and row[37] is not None else True,
+            searxng_url=row[38] if len(row) > 38 and row[38] else "http://nas:11111",
         )
 
     def save(self, config: ChatConfig) -> None:
@@ -312,10 +314,10 @@ class ChatConfigRepository:
                  mental_model_enabled, mental_model_min_samples,
                  max_stored_messages, context_max_tokens, context_compression_threshold,
                  context_compression_mode, context_keep_recent_turns,
-                 context_compress_system_prompt, context_compress_history,
-                 memory_preload_count, enable_parallel_tools,
-                 updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                  context_compress_system_prompt, context_compress_history,
+                  memory_preload_count, enable_parallel_tools,
+                  searxng_url, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(persona) DO UPDATE SET
                 provider=excluded.provider,
                 model=excluded.model,
@@ -351,9 +353,10 @@ class ChatConfigRepository:
                 context_keep_recent_turns=excluded.context_keep_recent_turns,
                 context_compress_system_prompt=excluded.context_compress_system_prompt,
                 context_compress_history=excluded.context_compress_history,
-                memory_preload_count=excluded.memory_preload_count,
-                enable_parallel_tools=excluded.enable_parallel_tools,
-                updated_at=excluded.updated_at
+                 memory_preload_count=excluded.memory_preload_count,
+                 enable_parallel_tools=excluded.enable_parallel_tools,
+                 searxng_url=excluded.searxng_url,
+                 updated_at=excluded.updated_at
             """,
             (
                 config.persona,
@@ -393,6 +396,7 @@ class ChatConfigRepository:
                 int(config.context_compress_history),
                 config.memory_preload_count,
                 int(config.enable_parallel_tools),
+                config.searxng_url,
                 now,
             ),
         )

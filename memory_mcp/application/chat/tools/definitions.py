@@ -167,6 +167,17 @@ MEMORY_TOOLS: list[ToolDefinition] = [
             "required": ["action"],
         },
     ),
+    ToolDefinition(
+        name="search",
+        description="SearXNGメタサーチエンジンでWeb検索を行う。Google/Bing/DuckDuckGo等の結果を集約。最新情報や事実確認に使用。",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "検索クエリ（日本語可）"},
+            },
+            "required": ["query"],
+        },
+    ),
 ]
 
 SANDBOX_TOOLS: list[ToolDefinition] = [

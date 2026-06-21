@@ -130,6 +130,11 @@ def render_chat_tab() -> str:
                                     <div class="chat-field-label">APIキー</div>
                                     <input type="password" id="chat-api-key" class="chat-field-input" placeholder="sk-..." autocomplete="off" />
                                 </div>
+                                <div>
+                                    <div class="chat-field-label">SearXNG URL</div>
+                                    <input type="text" id="chat-searxng-url" class="chat-field-input" placeholder="http://nas:11111" />
+                                    <div class="chat-field-hint" style="font-size:0.7rem;color:var(--text-muted);margin-top:2px;">検索に使用するSearXNGメタサーチエンジンのURL</div>
+                                </div>
                                 <div id="chat-base-url-row">
                                     <div class="chat-field-label">Base URL <span style="color:var(--text-muted);font-size:0.7rem;">（任意）</span></div>
                                     <input type="text" id="chat-base-url" class="chat-field-input" placeholder="https://openrouter.ai/api/v1" />

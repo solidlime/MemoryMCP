@@ -81,6 +81,7 @@ def register_chat_routes(mcp) -> None:
             "context_compress_history",
             "memory_preload_count",
             "enable_parallel_tools",
+            "searxng_url",
         ):
             if field_name in body:
                 update_data[field_name] = body[field_name]
