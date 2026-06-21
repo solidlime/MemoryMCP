@@ -1,42 +1,30 @@
-# HANDOFF - 2026-06-20 21:00
+# HANDOFF - 2026-06-21 13:50
 
 ## 使用ツール
 OpenCode (deepseek-v4-pro)
 
 ## 現在のタスクと進捗
-- [x] P0-1: tools.py 分割 (2107→431行、7ファイルに分割)
-- [x] P0-2: ruff全件クリーン (E402, W293, SIM105)
-- [x] P1-1: normalize_importance() 統一 (4呼出箇所)
-- [x] P1-2: emotion/emotion_type 全層統一 (domain/API/MCP/JS + テスト)
-- [x] P1-3: _VALID_EMOTIONS を domain/value_objects.py へ移動
-- [x] P2-1: except:pass 3箇所 → logger.debug
-- [x] P2-2: DEPRECATED endpoint 3件削除 (+テスト修正)
-- [x] P3-1: SPEC.md 棚卸し（古い計画を details 折りたたみ）
-- [x] P3-4: KNOWLEDGE.md 更新
-- [x] P3-5: MEMORY.md アーカイブ＋再生成
-- [x] P3-6: HANDOFF.md 生成
-- [x] P3-7: README.md 刷新（アーキテクチャ図・ディレクトリ構成を最新化）
-- [ ] P0-2a: chat.py CSS/JS分離（要デザイナー）
-- [ ] ブラウザ動作テスト（web_search）
+- [x] P0-1: tools.py 分割 (全7ファイル + dispatch縮小)
+- [x] P0-2a: chat.py CSS/JS分離 (2714→417行、CSS/JSをstatic/に抽出)
+- [x] P0-2b: W293 ruff修正
+- [x] P1-1〜P1-3: 重複コード共通化
+- [x] P2-1〜P2-3: 軽量クリーンアップ
+- [x] P3-1〜P3-7: ドキュメント刷新
+- [x] ブラウザLLMチャットテスト (herta / gemma-4-31b-it)
+- [x] MCPツール動作確認 + sandbox無効化問題特定
+- [x] git commit + push (全て完了)
+
+**全P0〜P3タスク + ブラウザテスト 完了 🎉**
 
 ## 試したこと・結果
-- ✅ tools.py分割: _split_tools.pyスクリプトで自動分割。テストfixtureにevent_bus追加が必要だった
-- ✅ ruff --fix: W293自動修正。E402は use_cases.py の `logger = getLogger()` 位置修正必要
-- ✅ SIM105: contextlib.suppress(PermissionError) で解決
-- ✅ emotion_type統一: Pydantic v2 で `Field(alias="emotion_type")` + `populate_by_name=True` 必須
-- ✅ @fixer委譲: DEPRECATED endpoint削除＋テスト修正、emotion_type→emotion API変更、フロントエンドJS更新
-- ✅ SPEC.md棚卸し: sed で details タグ挿入（subtaskタイムアウト回避）
-- ❌ test_settings.py::test_full_defaults は既存バグ（環境変数 LOG_LEVEL=DEBUG でアサーション失敗）
-
-## 次のセッションで最初にやること
-1. P0-2a: chat.py CSS/JS分離（要デザイナー）
-2. ブラウザ動作テスト（web_search）
-3. git push（まだの変更があれば）
+- ✅ chat.py CSS/JS分離: Python transform スクリプトで抽出。render_chat_tab()に`<link>`、render_chat_js()に`<script src>`埋込み
+- ✅ 静的ファイルサーブ: main.py に `_mount_static_files()` 追加、`/static/{filepath:path}` ルート
+- ✅ テスト更新: `render_chat_js()` → `_read_chat_js()` (static/chat.js読込) に全JSテスト切替
+- ✅ ruff: 0 errors, pytest: 1085 pass (既存1 fail: test_settings)
+- ✅ git push: SSHリモート `git@github.com:solidlime/MemoryMCP.git` に変更
 
 ## 注意点・ブロッカー
-- tools.py は TOOL_DISPATCH + @mcp.tool() ラッパーのみ。新ツール追加時は _tools_*.py に実装して tools.py でインポート＋ラップ
-- _VALID_EMOTIONS は domain/value_objects.py から import（tools.py にはもうない）
-- normalize_importance は value_objects.py で定義済み。新規コードでは必ず使うこと
-- Pydantic v2: Field(alias=...) 使う時は populate_by_name=True を忘れずに
+- sandbox グローバル無効化: Windows環境変数 `MEMORY_MCP_SANDBOX__ENABLED=false` が設定されている。MCPツール経由のsandboxが全てブロックされる。直接APIでは動作
+- 静的ファイル追加時は `memory_mcp/api/http/static/` に配置し、テンプレートでは `/static/ファイル名` で参照
 - ruff check → 0 errors を維持
-- テストは1085 pass、1 fail（test_settings 既存バグ）
+- テストは1085 pass、1 fail (test_settings 既存バグ)

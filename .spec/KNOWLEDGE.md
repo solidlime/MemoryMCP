@@ -136,3 +136,31 @@
 - **フロントエンドJS**: sections/ 配下4ファイル（memories, timeline, knowledge_graph, analytics）の全 `emotion_type` → `emotion`
 - **テスト**: Pydantic v2 では `Field(alias=...)` はデフォルトで canonical 名を受け付けないため `populate_by_name=True` が必須。テストのAPIリクエストで `emotion_type`→`emotion` に変更したらこの問題が表面化
 - **学習**: 全層統一には (1)DBカラム (2)domain entity (3)API input/output model (4)MCPパラメータ (5)フロントエンドJS (6)テスト の6層を漏れなく変更する必要がある。後方互換が不要なら alias なしの単純リネームがベスト
+
+---
+
+## chat.py CSS/JS 静的ファイル分離（2026-06-21）
+
+### 抽出戦略
+- chat.py の `<style>` (13-600行) と JS (1003-2714行) を Python 文字列から static/ に抽出
+- Python のヒアドキュメント編集は行数が多すぎるため不可 → WSL内でPythonスクリプトで文字列操作
+- PowerShell のヒアドキュメント制約: `<link` がリダイレクト演算子として解釈 → `write` ツールで `.py` 保存→WSLで実行
+- 結果: 2714行 → 417行 (82%削減)
+
+### 静的ファイルサーブ
+- FastMCP は `mount()` 非対応 → `mcp.custom_route("/static/{filepath:path}")` で自作
+- パストラバーサル対策: `os.path.normpath` + `..` チェック
+- テスト互換性: `mcp.streamable_http_app()` のフローを壊さない。`create_app()` の戻り値型維持
+
+### テスト移行
+- `render_chat_js()` がJSコードを返さなくなった（`<script src>` のみ）
+- → `_read_chat_js()` ヘルパーで `static/chat.js` を直接読込
+- E402: 関数定義の後に import を置くと ruff エラー → import 群の後に関数定義を移動
+- pytest: 46 pass (test_chat_service.py)、1085 pass (全体)
+
+### ブラウザテスト知見
+- agent-browser: PowerShell環境では `@eN` をシングルクォートでエスケープ必須
+- `wait --load` はデーモン破壊リスク → `wait N` (ms) + `snapshot` のポーリング方式
+- sandbox グローバル無効化: `MEMORY_MCP_SANDBOX__ENABLED=false` がWindows環境変数で設定
+- WSL内コマンド: `wsl -d Ubuntu -- bash -c "..."` でPowerShell→WSLブリッジ
+- 複雑なJSONはWSL内で一時ファイル→curl が安全

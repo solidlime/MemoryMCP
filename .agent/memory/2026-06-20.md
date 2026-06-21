@@ -15,6 +15,12 @@ MemoryMCP: 日本語特化の永続記憶 MCP サーバー。SQLite + Qdrant + E
 - SIM105: `try/except PermissionError: pass` → `contextlib.suppress(PermissionError)` でruffクリーン
 - ruff --fix: W293（空白行スペース）は自動修正可能。E402（import位置）は手動修正または --unsafe-fixes が必要
 
+### emotion_type → emotion 全層統一（2026-06-20）
+- _VALID_EMOTIONS(22)とALLOWED_EMOTIONS(22)の不一致8感情を解消→_EMOTION_KEYWORD_MAPに吸収し25感情に統一
+- Pydantic v2で `Field(alias="emotion_type")` + `populate_by_name=True` 必須（canonical名も受け付けるために）
+- 6層の修正箇所: DB schema→domain entity→API model→MCP param→LLM prompt→frontend JS。全層漏れなく変更しないと不整合
+- 変換ロジック削除: `_memory_to_dict()` の pop 変換や `updates["emotion_type"]→"emotion"` の手動変換を全削除
+
 ### EventBus + SSE + SessionEvent リアルタイムイベント基盤（2026-06-17）
 - EventBus: asyncio Queueベースのpub/sub。全20 MCPツールにtool.calledイベント追加済み
 - SSE: GET /api/events/{persona}?topics=memory,context
