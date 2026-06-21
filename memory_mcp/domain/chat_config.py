@@ -2,16 +2,13 @@ from __future__ import annotations
 
 import json
 import os
+import sqlite3
 import warnings
-from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, field_validator
 
 from memory_mcp.domain.shared.time_utils import format_iso, get_now
 from memory_mcp.domain.value_objects import normalize_importance
-
-if TYPE_CHECKING:
-    import sqlite3
 
 # Environment variable names for API keys per provider
 _ENV_API_KEYS: dict[str, str] = {
@@ -305,6 +302,14 @@ class ChatConfigRepository:
 
     def save(self, config: ChatConfig) -> None:
         """Insert or replace config for persona."""
+        # Ensure searxng_url column exists (for test environments without migrations)
+        try:
+            self._db.execute("SELECT searxng_url FROM chat_settings LIMIT 0")
+        except sqlite3.OperationalError:
+            self._db.execute(
+                "ALTER TABLE chat_settings ADD COLUMN searxng_url TEXT DEFAULT 'http://nas:11111'"
+            )
+
         now = format_iso(get_now())
         self._db.execute(
             """
