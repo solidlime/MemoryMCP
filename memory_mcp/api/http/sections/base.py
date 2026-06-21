@@ -570,6 +570,7 @@ def render_head() -> str:
             .lg\:grid-cols-3 { grid-template-columns: repeat(2, 1fr) !important; }
         }
     </style>
+    <script src="/static/chat.js"></script>
 </head>"""
 
 
