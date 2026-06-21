@@ -264,7 +264,7 @@ def _build_container_configs(persona: str) -> tuple[dict, Path | None]:
     sandbox_internal.mkdir(parents=True, exist_ok=True)
     # Ensure Docker container can write to bind mount (WSL2 permission fix)
     with contextlib.suppress(PermissionError):
-        os.chmod(str(sandbox_internal.resolve()), 0o777)  # not fatal if we lack perms
+        os.chmod(str(sandbox_internal.resolve()), 0o777)  # nosec B103: WSL2 bind mount permission fix
 
     # Resolve host-side data root (needed when memory-mcp runs in a sibling container)
     host_root = settings.sandbox.host_data_root or _auto_detect_host_data_root(str(settings.data_root))

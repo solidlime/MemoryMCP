@@ -102,14 +102,14 @@ class SessionEventRepository:
 
         # Total count
         count_row = self._db.execute(
-            f"SELECT COUNT(*) FROM session_events {where_clause}",
+            f"SELECT COUNT(*) FROM session_events {where_clause}",  # nosec B608: internally-built clause
             params,
         ).fetchone()
         total = count_row[0] if count_row else 0
 
         # Paginated rows
         rows = self._db.execute(
-            f"SELECT * FROM session_events {where_clause} ORDER BY timestamp {direction} LIMIT ? OFFSET ?",
+            f"SELECT * FROM session_events {where_clause} ORDER BY timestamp {direction} LIMIT ? OFFSET ?",  # nosec B608: internally-built clause
             (*params, limit, offset),
         ).fetchall()
 
