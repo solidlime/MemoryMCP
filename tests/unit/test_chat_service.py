@@ -1,15 +1,23 @@
 from __future__ import annotations
 
 from datetime import datetime
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from memory_mcp.api.http.sections.chat import render_chat_js, render_chat_tab
+from memory_mcp.api.http.sections.chat import render_chat_tab
 from memory_mcp.application.chat.events import _sse_encode as _sse
 from memory_mcp.application.chat_service import SessionManager, SessionWindow
 from memory_mcp.domain.chat_config import ChatConfig, ChatConfigRepository
 from memory_mcp.infrastructure.llm.base import DoneEvent, TextDeltaEvent, ToolCallEvent
+
+_CHAT_JS_PATH = Path(__file__).resolve().parent.parent.parent / "memory_mcp" / "api" / "http" / "static" / "chat.js"
+
+
+def _read_chat_js() -> str:
+    """Read the extracted chat.js static file (formerly inline in render_chat_js)."""
+    return _CHAT_JS_PATH.read_text(encoding="utf-8")
 
 # ─────────────────────────────────────────────────────────────
 # SessionWindow tests
@@ -491,7 +499,7 @@ def test_chat_tab_renders_memory_panel_support_sections():
 
 def test_chat_js_has_single_panel_toggle_definitions():
     """Legacy duplicate handlers should not override the panel toggles."""
-    js = render_chat_js()
+    js = _read_chat_js()
 
     assert js.count("function toggleMemoryPanel()") == 1
     assert js.count("function toggleSettingsPanel()") == 1
@@ -500,7 +508,7 @@ def test_chat_js_has_single_panel_toggle_definitions():
 
 def test_chat_js_supports_terminal_history_and_scoped_execute_endpoint():
     """Sandbox terminal history was moved to Coding Agent panel. Chat tab JS should retain the persona-scoped sandbox execute API reference."""
-    js = render_chat_js()
+    js = _read_chat_js()
 
     assert "/api/chat/' + encodeURIComponent(S.persona) + '/sandbox/execute" in js
 
@@ -523,27 +531,27 @@ def test_chat_tab_renders_sandbox_install_ui():
 
 def test_chat_js_has_sandbox_install_and_reset_functions():
     """Sandbox install/reset functions were moved to Coding Agent panel. Chat tab JS should retain sandboxRunBlock."""
-    js = render_chat_js()
+    js = _read_chat_js()
 
     assert "function sandboxRunBlock(" in js
 
 
 def test_chat_js_has_sandbox_run_block_function():
     """JS should define sandboxRunBlock for code block execution."""
-    js = render_chat_js()
+    js = _read_chat_js()
 
     assert "function sandboxRunBlock(" in js
 
 
 def test_chat_js_uses_install_endpoint():
     """Sandbox install was moved to Coding Agent. Check that sandbox execute endpoint remains."""
-    js = render_chat_js()
+    js = _read_chat_js()
 
     assert "/sandbox/execute" in js
 
 
 def test_chat_js_uses_reset_endpoint():
     """Sandbox reset was moved to Coding Agent. sandboxRunBlock should be present."""
-    js = render_chat_js()
+    js = _read_chat_js()
 
     assert "function sandboxRunBlock(" in js

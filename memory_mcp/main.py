@@ -3,8 +3,12 @@ from __future__ import annotations
 import contextlib
 import os
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from mcp.server.fastmcp import FastMCP
+
+if TYPE_CHECKING:
+    from starlette.requests import Request
 
 from memory_mcp.api.http.routes import register_http_routes
 from memory_mcp.api.mcp.middleware import PersonaMiddleware
@@ -28,6 +32,29 @@ class MemoryFastMCP(FastMCP):
         app = super().sse_app(mount_path)
         app.add_middleware(PersonaMiddleware)
         return app
+
+
+def _mount_static_files(mcp: MemoryFastMCP) -> None:
+    """Mount /static/ route for dashboard CSS/JS assets."""
+    import mimetypes
+
+    from starlette.responses import FileResponse, Response
+
+    static_dir = Path(__file__).resolve().parent / "api" / "http" / "static"
+
+    @mcp.custom_route("/static/{filepath:path}", methods=["GET", "HEAD"])
+    async def serve_static(request: Request):  # noqa: F821
+        filepath = request.path_params.get("filepath", "").lstrip("/")
+        safe_path = os.path.normpath(filepath).replace("\\", "/").lstrip("/")
+        if ".." in safe_path.split("/"):
+            return Response("Forbidden", status_code=403)
+
+        full_path = static_dir / safe_path
+        if not full_path.is_file():
+            return Response("Not Found", status_code=404)
+
+        mime_type, _ = mimetypes.guess_type(str(full_path))
+        return FileResponse(str(full_path), media_type=mime_type or "application/octet-stream")
 
 
 def create_app() -> MemoryFastMCP:
@@ -70,6 +97,9 @@ def create_app() -> MemoryFastMCP:
 
     register_tools(mcp)
     register_http_routes(mcp)
+
+    # Mount static files for dashboard CSS/JS
+    _mount_static_files(mcp)
 
     # Auto-sync skills from filesystem at startup
     try:
