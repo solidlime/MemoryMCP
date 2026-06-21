@@ -306,9 +306,7 @@ class ChatConfigRepository:
         try:
             self._db.execute("SELECT searxng_url FROM chat_settings LIMIT 0")
         except sqlite3.OperationalError:
-            self._db.execute(
-                "ALTER TABLE chat_settings ADD COLUMN searxng_url TEXT DEFAULT 'http://nas:11111'"
-            )
+            self._db.execute("ALTER TABLE chat_settings ADD COLUMN searxng_url TEXT DEFAULT 'http://nas:11111'")
 
         now = format_iso(get_now())
         self._db.execute(
