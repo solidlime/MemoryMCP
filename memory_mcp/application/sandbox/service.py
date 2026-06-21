@@ -25,16 +25,6 @@ _SOCKET_CANDIDATES: dict[str, list[str]] = {
     ],
 }
 
-# llm-sandbox language → image tag name mapping
-_LANG_IMAGE_TAGS: dict[str, str] = {
-    "python": "python-311-bullseye",
-    "javascript": "node-22-bullseye",
-    "java": "java-21-bullseye",
-    "cpp": "cpp-bullseye",
-    "go": "go-1.21-bullseye",
-    "r": "r-4.3-bullseye",
-}
-
 
 def _resolve_docker_host(explicit_host: str, docker_sock_override: str) -> str:
     """Return the DOCKER_HOST value to use, or empty string to keep current env."""

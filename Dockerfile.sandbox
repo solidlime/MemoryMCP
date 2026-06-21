@@ -1,16 +1,19 @@
-FROM python:3.11-slim-bullseye
+# llm-sandbox 公式 python311.Dockerfile に準拠
+FROM python:3.11-bullseye
 
-# Install system dependencies required for venv and common Python packages
+# Install system dependencies (llm-sandbox標準 + venv/git追加)
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
     python3-venv \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Install common Python packages for sandbox use
+# Install Python packages (llm-sandbox標準セット + 追加)
 RUN pip install --no-cache-dir \
-    numpy pandas matplotlib scipy \
-    requests httpx \
-    pillow
+    numpy pandas matplotlib pillow \
+    seaborn scikit-learn scipy scikit-image plotly \
+    requests httpx
 
 # Create workspace
 RUN mkdir -p /sandbox/uploads /sandbox/output
