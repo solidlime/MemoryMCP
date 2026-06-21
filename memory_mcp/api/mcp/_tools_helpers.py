@@ -161,8 +161,8 @@ def _format_lightweight_response(
     if emotion_history and len(emotion_history) >= 2:
         recent_emotions = emotion_history[-5:]
         prev_emotion = recent_emotions[-2]
-        if prev_emotion.emotion_type != state.emotion:
-            trend = " → ".join(r.emotion_type for r in recent_emotions[-4:])
+        if prev_emotion.emotion != state.emotion:
+            trend = " → ".join(r.emotion for r in recent_emotions[-4:])
             trend += f" → {state.emotion}"
             lines.append(f"Your emotion trend: {trend}")
 

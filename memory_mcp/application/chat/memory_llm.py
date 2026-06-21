@@ -39,7 +39,7 @@ _MEMORY_LLM_PROMPT = """\
 JSONのみ。コメント不要。不要なフィールドは省略可。
 {{
   "facts": [
-    {{"content": "記憶すべき事実", "importance": 0.7, "tags": ["preference"], "emotion_type": "neutral"}}
+    {{"content": "記憶すべき事実", "importance": 0.7, "tags": ["preference"], "emotion": "neutral"}}
   ],
   "goals": [
     {{"action": "create", "content": "新規目標"}},
@@ -290,7 +290,7 @@ async def run_memory_llm(ctx: AppContext, config: ChatConfig, payload: dict) -> 
                 content=content,
                 importance=float(fact.get("importance", 0.6)),
                 tags=fact.get("tags", ["auto_extract"]),
-                emotion=fact.get("emotion_type", "neutral"),
+                emotion=fact.get("emotion", "neutral"),
             )
         if facts:
             logger.info("MemoryLLM: processed %d facts for persona=%s", len(facts), persona)

@@ -6,51 +6,42 @@ MemoryMCP: 日本語特化の永続記憶 MCP サーバー。SQLite + Qdrant + E
 
 ## 学習した知識・教訓
 
-### EventBus + SSE + SessionEvent リアルタイムイベント基盤（2026-06-17）
-- EventBus: asyncio Queueベースのpub/sub。MCPツールのtool.called、チャットイベント、Plugin取り込みを統一的に購読可能
-- SSE: GET /api/events/{persona}?topics=memory,context → EventSource接続でWebUIにトースト通知
-- SessionEvent: domain/memory/session_event.py ドメインモデル + SQLite永続化 + マイグレーションv024
-- SessionEventRecorder: EventBus購読→SessionEvent変換→Repository永続化の自動パイプライン
-- POST /api/events/ingest: Plugin用HTTP取り込み。APIキー認証（空=開発モードでスキップ）
-- **全20 MCPツールにsuccess/error両パスでtool.calledイベント追加済み**
+### コードベース健全化リファクタリング（2026-06-20）
+- tools.py 分割: TOOL_DISPATCH + @mcp.tool() ラッパーのみ残す（2107→431行）、7カテゴリファイルに分割。テストでは `event_bus = AsyncMock()` が必要
+- `normalize_importance()` 統一: `max(0.0,min(1.0))` 5箇所→value_objects.pyに集約。Pydantic field_validator内でも使用可
+- `_VALID_EMOTIONS`: API層のtools.py→domain/value_objects.pyに移動。テストのimportパスを修正忘れずに
+- DEPRECATED endpoint削除: 3件削除。テストのアサーションを新レスポンス形式に合わせる（dashboardはstatsがネスト）
+- E402修正: `logger = getLogger()` が import より前に来るとruffエラー→import群の後に移動
+- SIM105: `try/except PermissionError: pass` → `contextlib.suppress(PermissionError)` でruffクリーン
+- ruff --fix: W293（空白行スペース）は自動修正可能。E402（import位置）は手動修正または --unsafe-fixes が必要
 
-### Activityタブ（セッション履歴タイムライン）（2026-06-17）
-- カスタム縦型タイムライン採用（vis-timeline不適：離散イベントのグループ化にオーバースペック）
-- offset-basedページネーション（SQLiteローカルDB、数千件規模で十分）
-- タブ名 `activity`（`clock`既存Timelineタブとの混乱回避）
-- metadata.platform 規約: webui / opencode / mcp / plugin → フロントでバッジ表示
-- showSkeletonとの衝突: Activityタブのact-feedを破壊→除外リストに追加で解決
+### EventBus + SSE + SessionEvent リアルタイムイベント基盤（2026-06-17）
+- EventBus: asyncio Queueベースのpub/sub。全20 MCPツールにtool.calledイベント追加済み
+- SSE: GET /api/events/{persona}?topics=memory,context
+- SessionEventRecorder: EventBus→SessionEvent→Repository永続化の自動パイプライン
+
+### Activityタブ（2026-06-17）
+- カスタム縦型タイムライン。offset-basedページネーション。タブ名 `activity`
+- metadata.platform 規約: webui / opencode / mcp / plugin → バッジ表示
 
 ### ブラウザ自動テスト（2026-06-17）
-- agent-browser + Chrome CDP でWebUI操作可能
-- WSL環境: node v22.12.0、~/.local/nodejs/bin/ にインストール
-- WSL PATH: ~/.bashrc に `export PATH=$HOME/.local/nodejs/bin:$PATH` が必要
-- agent-browser: `npm i -g agent-browser` → `agent-browser install`（Chrome自動ダウンロード）
-- WSL Chrome: ライブラリ不足時は `sudo apt install libnspr4 libnss3 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libpango-1.0-0 libasound2` 必要
+- agent-browser + Chrome CDP。WSLではライブラリ `sudo apt install libnspr4 libnss3 ...` が必要
 
 ### コミットワークフロー（2026-06-17）
-- HTTPSリモートに切り替えるとWSL内から直接git push可能（SSH鍵不要）
-- 操作: `git remote set-url origin https://github.com/solidlime/MemoryMCP.git`
+- HTTPSリモート: `git remote set-url origin https://github.com/solidlime/MemoryMCP.git` でWSL内直接push可能
 
 ### Chat ロールバック（2026-06-17）
-- SessionWindow.truncate_to(index) で指定インデックス以降を削除 → SQLiteに_persist()
 - POST /api/chat/{persona}/sessions/{session_id}/rollback {keep_until: N}
-- 存在しないセッション: 500→404修正（try-exceptラップ）
+- 存在しないセッションは404を返す（500→404修正）
 
 ### WSL2 + Docker バインドマウント権限問題（2026-06-07）
-- WSL2環境でDockerコンテナがホストのファイルを読めない場合、UID合わせ
-- バインドマウントのパスは絶対パス指定
-
-### Sandbox Dockerイメージ（2026-06-07）
-- 自前Dockerfile: `FROM python:3.11-slim-bullseye`
+- uid合わせ。絶対パス指定。自前Dockerfile: `FROM python:3.11-slim-bullseye`
 
 ### Lucideアイコンのraw HTMLバグ（2026-06-08）
-- `el.textContent` はHTMLエスケープ。アイコンには `el.innerHTML` 使用
+- `el.innerHTML` 使用（`el.textContent` はHTMLエスケープ）
 
 ### 画像E2Eパイプライン（2026-06-08）
-- OpenAI互換: `content: [{type: text}, {type: image_url}]` 形式
-- DOMPurify: imgタグ除去防止にALLOWED_TAGS+ALLOWED_ATTR追加
+- OpenAI互換: `content: [{type: text}, {type: image_url}]`。DOMPurify: img許可設定追加
 
 ### サーバー再起動（2026-06-08）
-- tmux kill-session → sleep 2 → tmux new-session
-- .pycキャッシュクリア必須
+- tmux kill-session → sleep 2 → tmux new-session。.pycキャッシュクリア必須

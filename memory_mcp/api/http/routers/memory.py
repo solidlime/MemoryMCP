@@ -181,7 +181,7 @@ def register_memory_routes(mcp) -> None:
             result = ctx.memory_service.create_memory(
                 content=body.content,
                 importance=body.importance,
-                emotion=body.emotion_type,
+                emotion=body.emotion,
                 emotion_intensity=body.emotion_intensity,
                 tags=body.tags,
                 privacy_level=body.privacy_level,
@@ -223,8 +223,6 @@ def register_memory_routes(mcp) -> None:
             updates = body.model_dump(exclude_none=True)
             if not updates:
                 return JSONResponse({"error": "No valid fields to update"}, status_code=400)
-            if "emotion_type" in updates:
-                updates["emotion"] = updates.pop("emotion_type")
             result = ctx.memory_service.update_memory(key, **updates)
             if not result.is_ok:
                 return JSONResponse({"error": str(result.error)}, status_code=404)

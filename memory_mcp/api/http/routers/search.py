@@ -96,7 +96,7 @@ def register_search_routes(mcp) -> None:
                 date_str = record.timestamp.strftime("%Y-%m-%d") if record.timestamp else "unknown"
                 grouped[date_str].append(
                     {
-                        "emotion_type": record.emotion_type,
+                        "emotion": record.emotion,
                         "intensity": record.intensity,
                         "timestamp": record.timestamp.isoformat() if record.timestamp else None,
                         "trigger_memory_key": record.trigger_memory_key,
@@ -138,7 +138,7 @@ def register_search_routes(mcp) -> None:
                         "key": mem.key,
                         "content": mem.content[:100] if mem.content else "",
                         "tags": mem.tags or [],
-                        "emotion_type": mem.emotion,
+                        "emotion": mem.emotion,
                         "emotion_intensity": mem.emotion_intensity,
                         "importance": mem.importance,
                     }

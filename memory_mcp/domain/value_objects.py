@@ -97,6 +97,9 @@ _EMOTION_KEYWORD_MAP: dict[str, list[str]] = {
     ],
     "awe": ["awe", "awestruck", "reverence", "畏敬", "すごい", "圧倒される"],
     "relief": ["relief", "relieved", "unburdened", "安堵", "ほっとする", "安心した"],
+    "envy": ["envy", "envious", "jealous", "jealousy", "妬み", "嫉妬", "羨ましい"],
+    "gratitude": ["gratitude", "grateful", "thankful", "appreciative", "感謝", "ありがたい", "恩"],
+    "contempt": ["contempt", "contemptuous", "scorn", "disdain", "軽蔑", "蔑み", "見下す"],
 }
 
 

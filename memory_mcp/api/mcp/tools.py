@@ -135,13 +135,13 @@ def register_tools(mcp: FastMCP) -> None:
         memory_key: str = "",
         content: str | None = None,
         importance: float | None = None,
-        emotion_type: str | None = None,
+        emotion: str | None = None,
         emotion_intensity: float | None = None,
         tags: list[str] | None = None,
         privacy_level: str | None = None,
     ) -> str:
         """Update a memory. Only provided fields are changed.
-        importance must be 0.0-1.0. Invalid emotion_type silently falls back to neutral."""
+        importance must be 0.0-1.0. Invalid emotion silently falls back to neutral."""
         p = _resolve_persona()
         return await _tool_memory_update(
             AppContextRegistry.get(p),
@@ -149,7 +149,7 @@ def register_tools(mcp: FastMCP) -> None:
             memory_key=memory_key,
             content=content,
             importance=importance,
-            emotion_type=emotion_type,
+            emotion=emotion,
             emotion_intensity=emotion_intensity,
             tags=tags,
             privacy_level=privacy_level,

@@ -12,7 +12,7 @@ API consumed:
 Response shape:
     {
         "persona": "xxx",
-        "nodes": [{ "key", "content", "tags", "emotion_type", "importance" }],
+        "nodes": [{ "key", "content", "tags", "emotion", "importance" }],
         "edges": [{ "source", "target", "type", "tag?" }],
         "node_count": int,
         "edge_count": int
@@ -247,7 +247,7 @@ function populateGraphFilters(nodes) {
     var emotionSet = new Set();
     nodes.forEach(function(n) {
         (n.tags || []).forEach(function(t) { tagSet.add(t); });
-        if (n.emotion_type) emotionSet.add(n.emotion_type);
+        if (n.emotion) emotionSet.add(n.emotion);
     });
 
     var tagFilter = document.getElementById('graph-tag-filter');
@@ -274,7 +274,7 @@ function buildVisData(nodes, edges) {
     var fontColor = _graphFontColor();
 
     var visNodes = nodes.map(function(n) {
-        var emoColor = EMOTION_COLORS[n.emotion_type] || '#94a3b8';
+        var emoColor = EMOTION_COLORS[n.emotion] || '#94a3b8';
         var sz = 10 + (n.importance || 0.5) * 30;
         return {
             id: n.key,
@@ -323,8 +323,8 @@ function buildTooltip(n) {
     if (n.tags && n.tags.length) {
         h += '<div style="margin-bottom:4px;color:#94a3b8">&#127991; ' + n.tags.map(function(t) { return esc(t); }).join(', ') + '</div>';
     }
-    if (n.emotion_type) {
-        h += '<div style="margin-bottom:4px;color:#94a3b8">&#128173; ' + esc(n.emotion_type) + '</div>';
+    if (n.emotion) {
+        h += '<div style="margin-bottom:4px;color:#94a3b8">&#128173; ' + esc(n.emotion) + '</div>';
     }
     h += '<div style="color:#94a3b8">&#11088; Importance: ' + ((n.importance || 0) * 100).toFixed(0) + '%</div>';
     el.innerHTML = h;
@@ -348,7 +348,7 @@ function applyGraphFilters(visNodes, visEdges) {
         });
     }
     if (selectedEmo) {
-        filtered = filtered.filter(function(n) { return n._data.emotion_type === selectedEmo; });
+        filtered = filtered.filter(function(n) { return n._data.emotion === selectedEmo; });
     }
 
     var visibleIds = new Set(filtered.map(function(n) { return n.id; }));
@@ -447,7 +447,7 @@ function renderNetwork(container, nodes, edges) {
                     memory_key:  d.key,
                     content:     d.content,
                     tags:        d.tags,
-                    emotion_type: d.emotion_type,
+                    emotion: d.emotion,
                     importance:  d.importance
                 });
             }
@@ -471,7 +471,7 @@ function openGraphDetailPanel(data) {
         return '<span class="badge badge-purple">' + esc(t) + '</span>';
     }).join(' ');
 
-    var emoColor = EMOTION_COLORS[data.emotion_type] || '#94a3b8';
+    var emoColor = EMOTION_COLORS[data.emotion] || '#94a3b8';
 
     var html = '';
     /* Key */
@@ -495,12 +495,12 @@ function openGraphDetailPanel(data) {
     }
 
     /* Emotion */
-    if (data.emotion_type) {
+    if (data.emotion) {
         html += '<div style="margin-bottom:16px">';
         html += '  <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:4px">Emotion</div>';
         html += '  <div style="display:flex;align-items:center;gap:6px">';
         html += '    <span style="width:10px;height:10px;border-radius:50%;background:' + emoColor + ';display:inline-block"></span>';
-        html += '    <span style="color:var(--text-secondary)">' + esc(data.emotion_type) + '</span>';
+        html += '    <span style="color:var(--text-secondary)">' + esc(data.emotion) + '</span>';
         html += '  </div>';
         html += '</div>';
     }

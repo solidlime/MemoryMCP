@@ -54,7 +54,7 @@ class PersonaService:
 
         # Record history
         record = EmotionRecord(
-            emotion_type=normalized_name,
+            emotion=normalized_name,
             intensity=clamped,
             timestamp=now,
             trigger_memory_key=trigger_key,

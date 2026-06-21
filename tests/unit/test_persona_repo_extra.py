@@ -66,29 +66,29 @@ class TestGetEmotionHistoryByDays:
         assert result.unwrap() == []
 
     def test_returns_recent_emotions(self, persona_repo):
-        record = EmotionRecord(emotion_type="joy", intensity=0.8, timestamp=get_now())
+        record = EmotionRecord(emotion="joy", intensity=0.8, timestamp=get_now())
         persona_repo.add_emotion_record(PERSONA, record)
 
         result = persona_repo.get_emotion_history_by_days(PERSONA, days=7)
         assert result.is_ok
         assert len(result.unwrap()) == 1
-        assert result.unwrap()[0].emotion_type == "joy"
+        assert result.unwrap()[0].emotion == "joy"
 
     def test_ascending_order(self, persona_repo):
         from datetime import timedelta
 
         t1 = get_now() - timedelta(hours=5)
         t2 = get_now() - timedelta(hours=1)
-        persona_repo.add_emotion_record(PERSONA, EmotionRecord(emotion_type="sadness", intensity=0.5, timestamp=t2))
-        persona_repo.add_emotion_record(PERSONA, EmotionRecord(emotion_type="joy", intensity=0.9, timestamp=t1))
+        persona_repo.add_emotion_record(PERSONA, EmotionRecord(emotion="sadness", intensity=0.5, timestamp=t2))
+        persona_repo.add_emotion_record(PERSONA, EmotionRecord(emotion="joy", intensity=0.9, timestamp=t1))
 
         result = persona_repo.get_emotion_history_by_days(PERSONA, days=1)
         assert result.is_ok
         records = result.unwrap()
         assert len(records) == 2
         # Ascending order: oldest first
-        assert records[0].emotion_type == "joy"
-        assert records[1].emotion_type == "sadness"
+        assert records[0].emotion == "joy"
+        assert records[1].emotion == "sadness"
 
 
 class TestGetCurrentStateWithBodyFields:

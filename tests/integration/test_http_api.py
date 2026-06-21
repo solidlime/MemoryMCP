@@ -175,13 +175,13 @@ class TestMemoryCRUDHttp:
             f"/api/memories/{PERSONA}",
             json={
                 "content": "感情付き記憶テスト",
-                "emotion_type": "curiosity",
+                "emotion": "curiosity",
                 "emotion_intensity": 0.75,
             },
         )
         assert resp.status_code == 201
         mem = resp.json()["memory"]
-        assert mem.get("emotion_type") == "curiosity" or mem.get("emotion") == "curiosity"
+        assert mem.get("emotion") == "curiosity"
         assert mem["emotion_intensity"] == 0.75
 
 
@@ -216,7 +216,7 @@ class TestStatsEndpoint:
         """P1: stats レスポンスに tag_distribution と emotion_distribution が含まれる。"""
         await client.post(
             f"/api/memories/{PERSONA}",
-            json={"content": "分布テスト", "tags": ["stats_tag"], "emotion_type": "joy"},
+            json={"content": "分布テスト", "tags": ["stats_tag"], "emotion": "joy"},
         )
         resp = await client.get(f"/api/dashboard/{PERSONA}")
         assert resp.status_code == 200

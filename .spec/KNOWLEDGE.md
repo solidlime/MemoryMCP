@@ -101,3 +101,28 @@
 - **CompressStep は `config.context_max_tokens` で制御**: テストでは tiny budget（200 tokens）を設定し動作確認。get_model_max_tokens() のハードコード値（128K）に依存しないよう `context_max_tokens` を優先
 - **TokenCounter の CJK 検出**: テスト文字列は漢字（`今日天気`）を使用。ひらがなは ASCII ブランチに落ちる
 - **ChatConfig の後方互換**: `max_window_turns` の get/save 確認、property でないことの確認、model_dump に含まれないことの確認
+
+---
+
+## コードベース健全化リファクタリング（2026-06-20）
+
+### tools.py 分割
+- `_split_tools.py` スクリプトで自動分割。7ファイル（_tools_memory/persona/item/sandbox/goal/skill/helpers）に分割
+- tools.py は TOOL_DISPATCH + @mcp.tool() ラッパー + _resolve_persona のみを残す（2107→431行）
+- テストの mock_app_context に `event_bus = AsyncMock()` が必要（_tools_memory が EventBus を使用するため）
+
+### normalize_importance 統一
+- `max(0.0, min(1.0, ...))` が5箇所に散在 → `normalize_importance()` で統一（value_objects.py）
+- 呼出元: memory_enricher, domain/memory/service, domain/chat_config, domain/persona/service
+- chat_config.py の Pydantic field_validator 内でも問題なく使用可能
+
+### DEPRECATED endpoint 削除
+- `/api/stats/{persona}` → `/api/dashboard/{persona}`（stats は `data["stats"]` にネスト）
+- `/api/recent/{persona}` → `/api/observations/{persona}?mode=recent&per_page=N`
+- `/api/chat/{persona}/sandbox/tree` → `/api/chat/{persona}/sandbox/files?recursive=true`
+- テストのアサーションを新レスポンス形式に合わせて修正必要（特に dashboard のネスト構造）
+
+### ruff クリーンアップ
+- `use_cases.py` の E402: `logger = getLogger()` が import より前に来ていた → import 群の後に移動
+- `sandbox/service.py` の SIM105: `try/except PermissionError: pass` → `contextlib.suppress(PermissionError)`
+- W293（空白行スペース）は `ruff --fix` で自動修正可能

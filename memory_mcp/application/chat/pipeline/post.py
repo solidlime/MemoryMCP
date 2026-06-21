@@ -131,7 +131,7 @@ class PostProcessStep:
         # MemoryActivitySSE: 取得された記憶と保存された記憶・goals・promises を通知
         retrieved_for_sse = turn_ctx.memories_raw[:5]
         saved_facts = [
-            {"content": f.get("content", ""), "tags": f.get("tags", []), "emotion": f.get("emotion_type", "neutral")}
+            {"content": f.get("content", ""), "tags": f.get("tags", []), "emotion": f.get("emotion", "neutral")}
             for f in memory_result.get("facts", [])
             if f.get("content")
         ]

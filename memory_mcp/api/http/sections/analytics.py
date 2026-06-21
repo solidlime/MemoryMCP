@@ -33,11 +33,11 @@ def render_analytics_js() -> str:
         const history = emoData.history || {};
         const dates = Object.keys(history).sort();
         const emotionTypes = new Set();
-        dates.forEach(d => (history[d] || []).forEach(r => emotionTypes.add(r.emotion_type)));
+        dates.forEach(d => (history[d] || []).forEach(r => emotionTypes.add(r.emotion)));
         const datasets = [];
         [...emotionTypes].forEach((etype, i) => {
             const data = dates.map(d => {
-                const records = (history[d] || []).filter(r => r.emotion_type === etype);
+                const records = (history[d] || []).filter(r => r.emotion === etype);
                 return records.length ? records.reduce((s,r) => s + (r.intensity || 0.5), 0) / records.length : null;
             });
             datasets.push({

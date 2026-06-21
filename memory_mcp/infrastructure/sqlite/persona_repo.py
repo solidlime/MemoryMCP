@@ -160,7 +160,7 @@ class SQLitePersonaRepository:
                 VALUES (?, ?, ?, ?, ?)
                 """,
                 (
-                    record.emotion_type,
+                    record.emotion,
                     record.intensity,
                     format_iso(record.timestamp) if record.timestamp else now,
                     record.trigger_memory_key,
@@ -168,7 +168,7 @@ class SQLitePersonaRepository:
                 ),
             )
             self._db.commit()
-            logger.info("Emotion record added: %s (%.1f)", record.emotion_type, record.intensity)
+            logger.info("Emotion record added: %s (%.1f)", record.emotion, record.intensity)
             return Success(None)
         except Exception as e:
             logger.error("Failed to add emotion record: %s", e)
@@ -290,7 +290,7 @@ class SQLitePersonaRepository:
     def _row_to_emotion_record(row) -> EmotionRecord:
         return EmotionRecord(
             id=row["id"],
-            emotion_type=row["emotion_type"],
+            emotion=row["emotion_type"],
             intensity=row["intensity"] or 0.5,
             timestamp=parse_iso(row["timestamp"]),
             trigger_memory_key=row["trigger_memory_key"],

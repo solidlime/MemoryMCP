@@ -229,7 +229,7 @@ async function loadTimeline() {
         }
 
         // Filter client-side
-        if (emotion) allMemories = allMemories.filter(m => m.emotion_type === emotion);
+        if (emotion) allMemories = allMemories.filter(m => m.emotion === emotion);
         if (tag) allMemories = allMemories.filter(m => (m.tags || []).some(t => t.toLowerCase().includes(tag.toLowerCase())));
         if (minImp > 0) allMemories = allMemories.filter(m => (m.importance || 0) >= minImp);
 
@@ -240,7 +240,7 @@ async function loadTimeline() {
         if (_timeline) { _timeline.destroy(); _timeline = null; }
 
         const items = allMemories.map((m, i) => {
-            const style = getEmotionStyle(m.emotion_type || 'neutral');
+            const style = getEmotionStyle(m.emotion || 'neutral');
             const content = (m.content || '').substring(0, 100);
             const imp = m.importance != null ? m.importance : 0.5;
             return {
@@ -250,7 +250,7 @@ async function loadTimeline() {
                 title: '<div style="max-width:300px;white-space:normal;font-size:0.78rem;line-height:1.4;">' +
                        esc(m.content || '') + '</div>' +
                        '<div style="font-size:0.68rem;color:var(--text-muted);margin-top:4px;">' +
-                       (style.emoji + ' ' + (m.emotion_type || 'neutral') + ' · imp:' + imp.toFixed(2)) + '</div>',
+                       (style.emoji + ' ' + (m.emotion || 'neutral') + ' · imp:' + imp.toFixed(2)) + '</div>',
                 style: 'background:' + style.bg + ';border-color:' + style.border + ';' +
                        'font-size:' + (0.65 + imp * 0.2) + 'rem;',
             };
@@ -299,8 +299,8 @@ function showTimelineDetail(mem) {
     const panel = document.getElementById('tl-detail-panel');
     if (!panel) return;
     document.getElementById('tl-detail-content').textContent = mem.content || '';
-    const style = getEmotionStyle(mem.emotion_type || 'neutral');
-    document.getElementById('tl-detail-emotion').innerHTML = style.emoji + ' ' + (mem.emotion_type || 'neutral');
+    const style = getEmotionStyle(mem.emotion || 'neutral');
+    document.getElementById('tl-detail-emotion').innerHTML = style.emoji + ' ' + (mem.emotion || 'neutral');
     document.getElementById('tl-detail-importance').textContent = (mem.importance != null ? mem.importance.toFixed(2) : '0.50');
     document.getElementById('tl-detail-time').textContent = mem.created_at
         ? new Date(mem.created_at).toLocaleString('ja-JP') : '—';

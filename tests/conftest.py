@@ -44,7 +44,7 @@ def sample_memory_data():
     return {
         "content": "テスト用の記憶データです。ユーザーはラーメンが好き。",
         "importance": 0.7,
-        "emotion_type": "joy",
+        "emotion": "joy",
         "emotion_intensity": 0.8,
         "context_tags": ["food", "preference"],
     }

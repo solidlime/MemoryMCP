@@ -238,8 +238,8 @@ async def _build_context_section(
                 recent_emotions = eh_result.value
                 if len(recent_emotions) >= 2:
                     prev = recent_emotions[-2]
-                    if prev.emotion_type != state.emotion:
-                        trend = " → ".join(r.emotion_type for r in recent_emotions[-4:])
+                    if prev.emotion != state.emotion:
+                        trend = " → ".join(r.emotion for r in recent_emotions[-4:])
                         trend += f" → {state.emotion}"
                         t3.append(f"感情推移: {trend}")
         except Exception as e:

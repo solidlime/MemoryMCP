@@ -3,32 +3,9 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from memory_mcp.domain.value_objects import normalize_importance
+from memory_mcp.domain.value_objects import _VALID_EMOTIONS, normalize_importance
 
-ALLOWED_EMOTIONS: list[str] = [
-    "neutral",
-    "joy",
-    "sadness",
-    "anger",
-    "fear",
-    "surprise",
-    "disgust",
-    "trust",
-    "anticipation",
-    "love",
-    "nostalgia",
-    "curiosity",
-    "pride",
-    "shame",
-    "guilt",
-    "envy",
-    "gratitude",
-    "awe",
-    "contempt",
-    "anxiety",
-    "excitement",
-    "calm",
-]
+ALLOWED_EMOTIONS: list[str] = list(_VALID_EMOTIONS)
 
 ALLOWED_PRIVACY_LEVELS: list[str] = ["internal", "shared", "secret"]
 

@@ -44,7 +44,7 @@ class EmotionRecord:
     """Emotion history event."""
 
     id: int | None = None
-    emotion_type: str = "neutral"
+    emotion: str = "neutral"
     intensity: float = 0.5
     timestamp: datetime = field(default_factory=datetime.now)
     trigger_memory_key: str | None = None

@@ -151,7 +151,7 @@ async def _handle_memory_search_builtin(ctx: AppContext, config: ChatConfig, too
                     "content": getattr(mem, "content", str(mem)),
                     "importance": getattr(mem, "importance", 0.5),
                     "tags": getattr(mem, "tags", []),
-                    "emotion_type": getattr(mem, "emotion", "neutral"),
+                    "emotion": getattr(mem, "emotion", "neutral"),
                     "emotion_intensity": getattr(mem, "emotion_intensity", 0.0),
                 }
             )

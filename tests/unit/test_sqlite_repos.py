@@ -208,13 +208,13 @@ class TestSQLitePersonaRepo:
         assert len(history.unwrap()) == 2
 
     def test_add_and_get_emotion_history(self, persona_repo: SQLitePersonaRepository):
-        record = EmotionRecord(emotion_type="joy", intensity=0.8, timestamp=get_now(), context="good news")
+        record = EmotionRecord(emotion="joy", intensity=0.8, timestamp=get_now(), context="good news")
         persona_repo.add_emotion_record(PERSONA, record)
         result = persona_repo.get_emotion_history(PERSONA)
         assert result.is_ok
         records = result.unwrap()
         assert len(records) == 1
-        assert records[0].emotion_type == "joy"
+        assert records[0].emotion == "joy"
         assert records[0].context == "good news"
 
     def test_user_info(self, persona_repo: SQLitePersonaRepository):

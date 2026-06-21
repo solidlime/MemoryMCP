@@ -342,7 +342,7 @@ async def test_emotion_timeline(seeded_client):
     # Each record has correct structure
     for _date, records in data["history"].items():
         for rec in records:
-            assert "emotion_type" in rec
+            assert "emotion" in rec
             assert "intensity" in rec
             assert "timestamp" in rec
 

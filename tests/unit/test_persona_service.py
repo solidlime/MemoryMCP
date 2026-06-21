@@ -149,7 +149,7 @@ class TestUpdateEmotion:
         service.update_emotion(PERSONA, "sadness", 0.6, context="rain")
         records = repo._emotions[PERSONA]
         assert len(records) == 1
-        assert records[0].emotion_type == "sadness"
+        assert records[0].emotion == "sadness"
         assert records[0].context == "rain"
 
     def test_clamps_intensity(self, service: PersonaService, repo: InMemoryPersonaRepository):

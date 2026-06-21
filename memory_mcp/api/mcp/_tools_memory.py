@@ -142,7 +142,7 @@ async def _tool_memory_update(
     memory_key: str = "",
     content: str | None = None,
     importance: float | None = None,
-    emotion_type: str | None = None,
+    emotion: str | None = None,
     emotion_intensity: float | None = None,
     tags: list[str] | None = None,
     privacy_level: str | None = None,
@@ -158,12 +158,12 @@ async def _tool_memory_update(
             return "Error: importance must be between 0.0 and 1.0"
         updates["importance"] = normalize_importance(importance)
     update_warning = ""
-    if emotion_type is not None:
-        if emotion_type not in _VALID_EMOTIONS:
+    if emotion is not None:
+        if emotion not in _VALID_EMOTIONS:
             update_warning = (
-                f"[Warning: emotion_type '{emotion_type}' is not a valid emotion, defaulted to 'neutral']\n"
+                f"[Warning: emotion '{emotion}' is not a valid emotion, defaulted to 'neutral']\n"
             )
-        updates["emotion"] = emotion_type
+        updates["emotion"] = emotion
     if emotion_intensity is not None:
         updates["emotion_intensity"] = emotion_intensity
     if tags is not None:

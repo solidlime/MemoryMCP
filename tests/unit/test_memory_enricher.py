@@ -346,8 +346,8 @@ def test_normalize_emotion(input_text, expected):
 class TestValidEmotionsConstant:
     """P2: tools.py の _VALID_EMOTIONS — emotion warning の条件ゲート。"""
 
-    def test_has_22_emotions(self):
-        assert len(_VALID_EMOTIONS) == 22
+    def test_has_25_emotions(self):
+        assert len(_VALID_EMOTIONS) == 25
 
     def test_all_canonical_emotions_present(self):
         expected = {
@@ -373,6 +373,9 @@ class TestValidEmotionsConstant:
             "curiosity",
             "awe",
             "relief",
+            "envy",
+            "gratitude",
+            "contempt",
         }
         assert expected == _VALID_EMOTIONS
 
@@ -383,16 +386,16 @@ class TestValidEmotionsConstant:
         assert "unknown_emotion" not in _VALID_EMOTIONS
 
     def test_warning_condition_for_invalid_emotion(self):
-        """無効な emotion_type は warning を生成する条件（not in _VALID_EMOTIONS）。"""
+        """無効な emotion は warning を生成する条件（not in _VALID_EMOTIONS）。"""
         invalid = "totally_invalid_emotion"
         assert invalid not in _VALID_EMOTIONS
         # warning メッセージフォーマットの確認
-        warning = f"[Warning: emotion_type '{invalid}' is not a valid emotion, defaulted to 'neutral']\n"
-        assert warning.startswith("[Warning: emotion_type '")
+        warning = f"[Warning: emotion '{invalid}' is not a valid emotion, defaulted to 'neutral']\n"
+        assert warning.startswith("[Warning: emotion '")
         assert "defaulted to 'neutral'" in warning
         assert warning.endswith("]\n")
 
     def test_no_warning_for_valid_emotion(self):
-        """有効な emotion_type は _VALID_EMOTIONS に含まれる → warning なし。"""
+        """有効な emotion は _VALID_EMOTIONS に含まれる → warning なし。"""
         for valid in _VALID_EMOTIONS:
             assert valid in _VALID_EMOTIONS  # tautology, but documents intent

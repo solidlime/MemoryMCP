@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import asdict
 from typing import TYPE_CHECKING
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from memory_mcp.api.mcp.middleware import _PERSONA_PATTERN, resolve_persona_from_headers  # noqa: F401
 from memory_mcp.application.use_cases import AppContextRegistry
@@ -16,9 +16,10 @@ logger = get_logger(__name__)
 
 
 class CreateMemoryRequest(BaseModel):
+    model_config = {"populate_by_name": True}
     content: str
     importance: float = 0.5
-    emotion_type: str = "neutral"
+    emotion: str = Field(default="neutral", alias="emotion_type")
     emotion_intensity: float = 0.0
     tags: list[str] | None = None
     privacy_level: str = "internal"
@@ -27,9 +28,10 @@ class CreateMemoryRequest(BaseModel):
 
 
 class UpdateMemoryRequest(BaseModel):
+    model_config = {"populate_by_name": True}
     content: str | None = None
     importance: float | None = None
-    emotion_type: str | None = None
+    emotion: str | None = Field(default=None, alias="emotion_type")
     emotion_intensity: float | None = None
     tags: list[str] | None = None
     privacy_level: str | None = None
@@ -65,8 +67,6 @@ def _memory_to_dict(m) -> dict:
     for k in ("created_at", "updated_at", "last_accessed", "last_decay", "last_recall", "state_snapped_at"):
         if k in d and d[k] is not None:
             d[k] = d[k].isoformat()
-    if "emotion" in d:
-        d["emotion_type"] = d.pop("emotion")
     return d
 
 
