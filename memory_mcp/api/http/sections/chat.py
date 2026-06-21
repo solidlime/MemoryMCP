@@ -418,7 +418,7 @@ def render_chat_tab() -> str:
 
 def render_chat_js() -> str:
     """Return the JavaScript for the chat tab.
-    
+
     The actual JS is loaded via <script src="/static/chat.js"> in render_head().
     This function exists for dashboard.py's tab_js assembly compatibility.
     """
