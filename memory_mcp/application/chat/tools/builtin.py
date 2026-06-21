@@ -159,7 +159,7 @@ async def _handle_memory_search_builtin(ctx: AppContext, config: ChatConfig, too
     return {"status": "error", "message": str(result.error)}
 
 
-async def _handle_browser(ctx: AppContext, config: ChatConfig, tool_input: dict) -> dict:
+async def _handle_browser(ctx: AppContext, config: ChatConfig, tool_input: dict) -> dict:  # pragma: no cover - external process
     """Execute agent-browser commands safely via subprocess."""
     import asyncio
     import json as _json
@@ -304,7 +304,7 @@ async def _handle_browser(ctx: AppContext, config: ChatConfig, tool_input: dict)
         return {"status": "error", "message": f"browser {action} failed: {str(e)[:200]}"}
 
 
-async def _handle_search(ctx: AppContext, config: ChatConfig, tool_input: dict) -> dict:
+async def _handle_search(ctx: AppContext, config: ChatConfig, tool_input: dict) -> dict:  # pragma: no cover - external HTTP
     """Execute a web search via SearXNG meta-search engine."""
     import urllib.parse
 

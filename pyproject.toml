@@ -27,7 +27,7 @@ markers = [
 
 [tool.coverage.run]
 source = ["memory_mcp"]
-omit = ["tests/*", "*/migrations/*"]
+omit = ["tests/*", "*/migration/*"]
 
 [tool.coverage.report]
 show_missing = true

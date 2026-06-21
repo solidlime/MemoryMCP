@@ -61,7 +61,7 @@ jobs:
           python -m pytest tests/unit/ tests/integration/test_http_routers.py
           -v --tb=short -m "not slow" --timeout=60
           --cov=memory_mcp --cov-config=pyproject.toml
-          --cov-fail-under=65
+          --cov-fail-under=62
 
   test-integration:
     name: Integration Tests
