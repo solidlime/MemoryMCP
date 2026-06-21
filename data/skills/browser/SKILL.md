@@ -1,12 +1,13 @@
 ---
-name: agent-browser
-description: agent-browser CLI を使ったWebブラウザ自動操作。検索、ページ遷移、フォーム入力、データ抽出、スクリーンショット。web_search ツールでDuckDuckGo検索も可能。
+name: browser
+description: browser ツールでWebブラウザを直接操作。検索エンジンは Brave Search (search.brave.com) または Mojeek (mojeek.com) を使うこと。Google・DuckDuckGoはブロックされるので絶対に使わない。web_searchツールは存在しない。
 ---
 
-# agent-browser
+# browser スキル
 
-ブラウザ自動化 CLI（Chrome/CDP、Playwright/Puppeteer非依存）。
-アクセシビリティツリーのスナップショット + `@eN` リファレンスでページ操作を行います。
+**重要**: ウェブ検索するときは必ず `browser` ツールで **Brave Search** (`https://search.brave.com/search?q=クエリ`) を使うこと。GoogleやDuckDuckGoはbotをCAPTCHAでブロックするので使わない。`web_search` という名前のツールは存在しない。
+
+ブラウザ自動化 CLI（Chrome/CDP）。スナップショット + `@eN` リファレンスでページ操作。
 
 ## コアループ
 
@@ -107,9 +108,35 @@ agent-browser network requests    # リクエスト一覧
 - **fill/type が効かない**: `focus @eN` → `keyboard inserttext "text"` を試す。
 - **複雑なJS**: 必ず `eval --stdin` + ヒアドキュメントで。インライン `eval "..."` はクォート問題が起きやすい。
 
-## 利用可能なツール
+## browser ツール
 
-- **`web_search`**: DuckDuckGoでWeb検索。結果はタイトル・URL・スニペットの配列。
+`browser` ツールで agent-browser コマンドを直接実行できます。以下のアクションが利用可能：
+
+| アクション | 説明 | 例 |
+|-----------|------|-----|
+| `open` | URLを開く | `browser(action="open", url="https://google.com")` |
+| `snapshot` | ページ構造を取得 | `browser(action="snapshot", interactive=true)` |
+| `click` | 要素をクリック | `browser(action="click", ref="@e3")` |
+| `fill` | テキスト入力 | `browser(action="fill", ref="@e2", value="検索語")` |
+| `press` | キー押下 | `browser(action="press", key="Enter")` |
+| `get` | 情報取得 | `browser(action="get", what="text", ref="@e5")` |
+| `wait` | 待機 | `browser(action="wait", until="text", value="結果")` |
+| `scroll` | スクロール | `browser(action="scroll", direction="down", amount=300)` |
+| `close` | ブラウザ終了 | `browser(action="close")` |
+
+**検索ワークフロー例（Brave Search推奨）**:
+```
+browser(action="open", url="https://search.brave.com/search?q=MemoryMCP")
+→ browser(action="wait", until="load")
+→ browser(action="snapshot", interactive=true, selector=".snippet")
+→ (結果を読んでユーザーに要約)
+```
+
+推奨検索エンジン: Brave Search (`search.brave.com`)、Mojeek (`mojeek.com`)。
+※Google・DuckDuckGo は自動アクセスをCAPTCHAでブロックするため避けること。
+
+## 他の利用可能なツール
+
 - **`sandbox_files`**: サンドボックス内のファイル操作（読込・書込・一覧・削除）。
 - **`sandbox_execute`**: サンドボックス内で Python/Bash コード実行。
 

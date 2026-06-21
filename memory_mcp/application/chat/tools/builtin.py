@@ -159,18 +159,16 @@ async def _handle_memory_search_builtin(ctx: AppContext, config: ChatConfig, too
     return {"status": "error", "message": str(result.error)}
 
 
-async def _handle_web_search(ctx: AppContext, config: ChatConfig, tool_input: dict) -> dict:
-    """Real web search using agent-browser + DuckDuckGo."""
+async def _handle_browser(ctx: AppContext, config: ChatConfig, tool_input: dict) -> dict:
+    """Execute agent-browser commands safely via subprocess."""
     import asyncio
     import json as _json
 
-    query = (tool_input.get("query") or "").strip()
-    if not query:
-        return {"status": "error", "message": "query is required"}
+    action = (tool_input.get("action") or "").strip()
+    if not action:
+        return {"status": "error", "message": "action is required"}
 
-    max_results = min(int(tool_input.get("max_results", 5)), 10)
-
-    # Find agent-browser binary
+    # ── Locate agent-browser binary ──
     agent_bin = _find_agent_browser()
     if not agent_bin:
         return {
@@ -178,80 +176,134 @@ async def _handle_web_search(ctx: AppContext, config: ChatConfig, tool_input: di
             "message": (
                 "agent-browser not found. Install it:\n"
                 "  npm install -g agent-browser\n"
-                "  agent-browser install\n"
-                "Or set AGENT_BROWSER_PATH env var."
+                "  agent-browser install"
             ),
         }
 
+    # ── Build command args from action ──
+    args: list[str] = [agent_bin]
+
     try:
-        # 1. Navigate to DuckDuckGo search
+        if action == "open":
+            url = (tool_input.get("url") or "").strip()
+            if not url:
+                return {"status": "error", "message": "url is required for open"}
+            if not url.startswith(("http://", "https://")):
+                return {"status": "error", "message": "url must start with http:// or https://"}
+            args.extend(["open", url])
+
+        elif action == "snapshot":
+            interactive = tool_input.get("interactive", True)
+            args.append("snapshot")
+            if interactive:
+                args.append("-i")
+            if tool_input.get("compact"):
+                args.append("-c")
+            selector = (tool_input.get("selector") or "").strip()
+            if selector:
+                args.extend(["-s", selector])
+            args.append("--json")
+
+        elif action == "click":
+            ref = (tool_input.get("ref") or "").strip()
+            if not ref:
+                return {"status": "error", "message": "ref is required for click"}
+            args.extend(["click", ref])
+
+        elif action == "fill":
+            ref = (tool_input.get("ref") or "").strip()
+            value = tool_input.get("value", "")
+            if not ref:
+                return {"status": "error", "message": "ref is required for fill"}
+            args.extend(["fill", ref, str(value)])
+
+        elif action == "press":
+            key = (tool_input.get("key") or "").strip()
+            if not key:
+                return {"status": "error", "message": "key is required for press"}
+            args.extend(["press", key])
+
+        elif action == "get":
+            what = (tool_input.get("what") or "").strip()
+            if not what:
+                return {"status": "error", "message": "what is required for get"}
+            if what == "count":
+                selector = (tool_input.get("selector") or "").strip()
+                if not selector:
+                    return {"status": "error", "message": "selector is required for get count"}
+                args.extend(["get", "count", selector])
+            elif what in ("title", "url"):
+                args.extend(["get", what])
+            else:
+                ref = (tool_input.get("ref") or "").strip()
+                if not ref:
+                    return {"status": "error", "message": f"ref is required for get {what}"}
+                args.extend(["get", what, ref])
+
+        elif action == "wait":
+            until = (tool_input.get("until") or "").strip()
+            value = (tool_input.get("value") or "").strip()
+            if not until:
+                return {"status": "error", "message": "until is required for wait"}
+            if until == "text":
+                if not value:
+                    return {"status": "error", "message": "value is required for wait text"}
+                args.extend(["wait", "--text", value])
+            elif until == "url":
+                if not value:
+                    return {"status": "error", "message": "value is required for wait url"}
+                args.extend(["wait", "--url", value])
+            elif until == "load":
+                args.extend(["wait", "--load", "networkidle"])
+            else:
+                return {"status": "error", "message": f"Unknown wait until: {until}"}
+
+        elif action == "scroll":
+            direction = (tool_input.get("direction") or "down").strip()
+            amount = max(1, min(int(tool_input.get("amount", 300)), 5000))
+            args.extend(["scroll", direction, str(amount)])
+
+        elif action == "close":
+            args.append("close")
+
+        else:
+            return {"status": "error", "message": f"Unknown action: {action}"}
+
+        # ── Execute ──
+        timeout = 30  # seconds
         proc = await asyncio.create_subprocess_exec(
-            agent_bin,
-            "open",
-            f"https://duckduckgo.com/?q={query}",
+            *args,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        await asyncio.wait_for(proc.communicate(), timeout=15)
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
 
-        # 2. Wait for results
-        proc = await asyncio.create_subprocess_exec(
-            agent_bin,
-            "wait",
-            "--load",
-            "networkidle",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        await asyncio.wait_for(proc.communicate(), timeout=15)
+        out_text = stdout.decode(errors="replace").strip()
+        err_text = stderr.decode(errors="replace").strip()
 
-        # 3. Extract results via JavaScript
-        # Note: agent-browser eval auto-serialises return values via JSON.stringify,
-        # so we must NOT call JSON.stringify() ourselves (double-encoding bug).
-        js_code = f"""Array.from(document.querySelectorAll('article[data-testid="result"]'))
-                .slice(0, {max_results})
-                .map(r => ({{
-                    title: (r.querySelector('h2') || r.querySelector('a[data-testid="result-title-a"]'))?.textContent?.trim() || '',
-                    url: r.querySelector('a[data-testid="result-title-a"]')?.href || '',
-                    snippet: (r.querySelector('span[data-testid="result-snippet"]') || r.querySelector('.result__snippet'))?.textContent?.trim() || ''
-                }}))"""
-
-        proc = await asyncio.create_subprocess_exec(
-            agent_bin,
-            "eval",
-            "--stdin",
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout, stderr = await asyncio.wait_for(
-            proc.communicate(input=js_code.encode()), timeout=15
-        )
+        # Try parsing stdout as JSON (snapshot --json returns JSON)
+        result: dict = {"status": "ok", "action": action}
+        if action == "snapshot" and out_text:
+            try:
+                result["page"] = _json.loads(out_text)
+            except _json.JSONDecodeError:
+                result["text"] = out_text[:5000]
+        elif action == "get":
+            result["value"] = out_text[:5000]
+        else:
+            result["output"] = out_text[:5000]
 
         if proc.returncode != 0:
-            return {
-                "status": "error",
-                "message": f"Search extraction failed: {stderr.decode()[:200]}",
-            }
+            result["status"] = "error"
+            result["message"] = err_text[:500] or f"exit code {proc.returncode}"
+            result["stderr"] = err_text[:500]
 
-        try:
-            results = _json.loads(stdout.decode())
-        except _json.JSONDecodeError:
-            return {"status": "error", "message": "Failed to parse search results"}
+        return result
 
-        if not results or not isinstance(results, list):
-            return {"status": "ok", "results": [], "message": "No results found"}
-
-        return {
-            "status": "ok",
-            "query": query,
-            "results": results,
-            "count": len(results),
-        }
     except TimeoutError:
-        return {"status": "error", "message": "Search timed out (15s limit)"}
+        return {"status": "error", "message": f"browser {action} timed out (30s limit)"}
     except Exception as e:
-        return {"status": "error", "message": f"Search failed: {str(e)[:200]}"}
+        return {"status": "error", "message": f"browser {action} failed: {str(e)[:200]}"}
 
 
 def _find_agent_browser() -> str | None:
@@ -345,7 +397,7 @@ _BUILTIN_DISPATCH: dict[str, Any] = {
     "memory_create": _handle_memory_create_builtin,
     "memory_search": _handle_memory_search_builtin,
     "memory_update": _handle_memory_update_builtin,
-    "web_search": _handle_web_search,
+    "browser": _handle_browser,
 }
 
 _MCP_SHARED_TOOLS = frozenset(

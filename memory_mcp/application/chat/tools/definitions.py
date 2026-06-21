@@ -125,14 +125,46 @@ MEMORY_TOOLS: list[ToolDefinition] = [
         },
     ),
     ToolDefinition(
-        name="web_search",
-        description="インターネット検索を行う。最新情報、ニュース、技術的な質問、事実確認などに使用。結果はJSON形式で返される（Abstract: 要約, RelatedTopics: 関連トピック, Results: 検索結果）。",
+        name="browser",
+        description=(
+            "Webブラウザを直接操作する。agent-browser CLI 経由でページ遷移・検索・"
+            "フォーム入力・データ抽出・スクリーンショット等が可能。"
+            "action で操作を指定し、必要なパラメータを渡す。"
+            "ページを開いたら必ず snapshot で構造を確認し、@eN リファレンスで操作すること。"
+            "ページ変化後は必ず再 snapshot すること。"
+        ),
         input_schema={
             "type": "object",
             "properties": {
-                "query": {"type": "string", "description": "検索クエリ（日本語可）"},
+                "action": {
+                    "type": "string",
+                    "description": (
+                        "操作種別。open(URLを開く) / snapshot(ページ構造取得) / "
+                        "click(要素クリック) / fill(テキスト入力) / press(キー押下) / "
+                        "get(情報取得) / wait(待機) / scroll(スクロール) / close(終了)"
+                    ),
+                    "enum": ["open", "snapshot", "click", "fill", "press", "get", "wait", "scroll", "close"],
+                },
+                "url": {"type": "string", "description": "open 時に指定（完全なURL）"},
+                "ref": {"type": "string", "description": "操作対象の @eN リファレンス（snapshot で確認）"},
+                "value": {"type": "string", "description": "fill 時の入力文字列 / wait 時の待機テキスト"},
+                "key": {"type": "string", "description": "press 時のキー（Enter / Escape / Tab 等）"},
+                "what": {"type": "string", "description": "get 時の取得対象（text / html / attr / title / url / count）"},
+                "selector": {"type": "string", "description": "snapshot のCSSセレクタスコープ / get count 時のセレクタ"},
+                "until": {
+                    "type": "string",
+                    "description": "wait の待機条件",
+                    "enum": ["text", "url", "load"],
+                },
+                "direction": {
+                    "type": "string",
+                    "description": "scroll 方向",
+                    "enum": ["up", "down", "left", "right"],
+                },
+                "amount": {"type": "integer", "description": "scroll 量（px, デフォルト300）", "default": 300},
+                "interactive": {"type": "boolean", "description": "snapshot: 操作要素のみにするか", "default": True},
             },
-            "required": ["query"],
+            "required": ["action"],
         },
     ),
 ]
