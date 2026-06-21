@@ -19,6 +19,7 @@ def _read_chat_js() -> str:
     """Read the extracted chat.js static file (formerly inline in render_chat_js)."""
     return _CHAT_JS_PATH.read_text(encoding="utf-8")
 
+
 # ─────────────────────────────────────────────────────────────
 # SessionWindow tests
 # ─────────────────────────────────────────────────────────────

@@ -48,7 +48,14 @@ class TestSessionEventRecorder:
         """Verify subscribe called for each event type."""
         recorder.start()
 
-        expected_types = ["tool.called", "events.ingested", "chat.message", "chat.llm_response", "session.started", "session.compact"]
+        expected_types = [
+            "tool.called",
+            "events.ingested",
+            "chat.message",
+            "chat.llm_response",
+            "session.started",
+            "session.compact",
+        ]
         actual_calls = mock_event_bus.subscribe.call_args_list
         assert len(actual_calls) == len(expected_types)
 
@@ -164,33 +171,45 @@ class TestSessionEventRecorder:
     def test_build_summary_tool_called(self, recorder):
         """Verify _build_summary for tool.called events."""
         # Success case
-        summary = recorder._build_summary("tool.called", {
-            "tool_name": "memory_search",
-            "result_summary": "found 3 results",
-            "success": True,
-        })
+        summary = recorder._build_summary(
+            "tool.called",
+            {
+                "tool_name": "memory_search",
+                "result_summary": "found 3 results",
+                "success": True,
+            },
+        )
         assert summary == "memory_search: ✓ found 3 results"
 
         # Failure case
-        summary = recorder._build_summary("tool.called", {
-            "tool_name": "memory_search",
-            "result_summary": "timeout",
-            "success": False,
-        })
+        summary = recorder._build_summary(
+            "tool.called",
+            {
+                "tool_name": "memory_search",
+                "result_summary": "timeout",
+                "success": False,
+            },
+        )
         assert summary == "memory_search: ✗ timeout"
 
         # No result
-        summary = recorder._build_summary("tool.called", {
-            "tool_name": "memory_search",
-            "success": True,
-        })
+        summary = recorder._build_summary(
+            "tool.called",
+            {
+                "tool_name": "memory_search",
+                "success": True,
+            },
+        )
         assert summary == "memory_search: ✓"
 
     def test_build_summary_events_ingested(self, recorder):
         """Verify _build_summary for events.ingested."""
-        summary = recorder._build_summary("events.ingested", {
-            "events": [{"type": "a"}, {"type": "b"}, {"type": "c"}],
-        })
+        summary = recorder._build_summary(
+            "events.ingested",
+            {
+                "events": [{"type": "a"}, {"type": "b"}, {"type": "c"}],
+            },
+        )
         assert summary == "Plugin ingested 3 events"
 
         # Empty events list
@@ -204,45 +223,63 @@ class TestSessionEventRecorder:
 
     def test_build_summary_chat_message(self, recorder):
         """Verify _build_summary for chat.message."""
-        summary = recorder._build_summary("chat.message", {
-            "content": "Hello, how are you?",
-        })
+        summary = recorder._build_summary(
+            "chat.message",
+            {
+                "content": "Hello, how are you?",
+            },
+        )
         assert summary == "💬 Hello, how are you?"
 
         # Long content truncated
         long_content = "A" * 200
-        summary = recorder._build_summary("chat.message", {
-            "content": long_content,
-        })
+        summary = recorder._build_summary(
+            "chat.message",
+            {
+                "content": long_content,
+            },
+        )
         assert summary == "💬 " + "A" * 100
         assert len(summary) == 102  # emoji (1) + space (1) + 100 chars
 
     def test_build_summary_chat_llm_response(self, recorder):
         """Verify _build_summary for chat.llm_response."""
-        summary = recorder._build_summary("chat.llm_response", {
-            "content": "I am fine, thank you!",
-        })
+        summary = recorder._build_summary(
+            "chat.llm_response",
+            {
+                "content": "I am fine, thank you!",
+            },
+        )
         assert summary == "🤖 I am fine, thank you!"
 
         # Long content truncated
-        summary = recorder._build_summary("chat.llm_response", {
-            "content": "B" * 150,
-        })
+        summary = recorder._build_summary(
+            "chat.llm_response",
+            {
+                "content": "B" * 150,
+            },
+        )
         assert summary == "🤖 " + "B" * 100
 
     def test_build_summary_session_compact(self, recorder):
         """Verify _build_summary for session.compact."""
-        summary = recorder._build_summary("session.compact", {
-            "before_tokens": 5000,
-            "after_tokens": 2000,
-        })
+        summary = recorder._build_summary(
+            "session.compact",
+            {
+                "before_tokens": 5000,
+                "after_tokens": 2000,
+            },
+        )
         assert summary == "📦 Compressed: 5000→2000 tokens"
 
     def test_build_summary_session_started(self, recorder):
         """Verify _build_summary for session.started."""
-        summary = recorder._build_summary("session.started", {
-            "session_id": "sess_abc",
-        })
+        summary = recorder._build_summary(
+            "session.started",
+            {
+                "session_id": "sess_abc",
+            },
+        )
         assert summary == "▶ Session started: sess_abc"
 
     def test_on_event_inserts_chat_message(self, recorder, mock_repo):

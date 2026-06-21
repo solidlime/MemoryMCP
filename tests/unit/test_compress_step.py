@@ -110,7 +110,7 @@ class TestTokenCounter:
             assert count >= 1, f"Count for '{text[:20]}...' was {count}, expected >= 1"
             # At maximum, reasonable upper bound (shouldn't exceed char count for CJK,
             # and shouldn't exceed char_count/2 for ASCII)
-            if any('\u4e00' <= c <= '\u9fff' for c in text[:1]):
+            if any("\u4e00" <= c <= "\u9fff" for c in text[:1]):
                 # CJK text: 1 char ≈ 1 token
                 assert count <= len(text) * 3, f"CJK count {count} too high for {len(text)} chars"
             else:
