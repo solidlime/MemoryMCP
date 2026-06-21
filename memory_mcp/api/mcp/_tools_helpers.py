@@ -1,4 +1,5 @@
 """Auto-generated from tools.py split — _tools_helpers.py."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -248,5 +249,3 @@ def _format_lightweight_response(
 
     lines.append("\n💡 Use memory_search() for deeper context on specific topics.")
     return "\n".join(lines)
-
-

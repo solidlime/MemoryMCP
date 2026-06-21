@@ -59,24 +59,30 @@ class ToolRegistry:
 
             # Publish tool.called event on success
             if hasattr(ctx, "event_bus") and ctx.event_bus is not None:
-                await ctx.event_bus.publish("tool.called", {
-                    "tool_name": tool_name,
-                    "params_summary": str(tool_input)[:200],
-                    "success": True,
-                    "timestamp": get_now().isoformat(),
-                })
+                await ctx.event_bus.publish(
+                    "tool.called",
+                    {
+                        "tool_name": tool_name,
+                        "params_summary": str(tool_input)[:200],
+                        "success": True,
+                        "timestamp": get_now().isoformat(),
+                    },
+                )
             return result
         except Exception as e:
             logger.exception("ToolRegistry.execute failed: %s", tool_name)
             # Publish tool.called event on failure
             if hasattr(ctx, "event_bus") and ctx.event_bus is not None:
-                await ctx.event_bus.publish("tool.called", {
-                    "tool_name": tool_name,
-                    "params_summary": str(tool_input)[:200],
-                    "success": False,
-                    "error": str(e),
-                    "timestamp": get_now().isoformat(),
-                })
+                await ctx.event_bus.publish(
+                    "tool.called",
+                    {
+                        "tool_name": tool_name,
+                        "params_summary": str(tool_input)[:200],
+                        "success": False,
+                        "error": str(e),
+                        "timestamp": get_now().isoformat(),
+                    },
+                )
             return {"status": "error", "message": str(e)}
 
     def truncate_result(self, result: dict, max_chars: int) -> dict:

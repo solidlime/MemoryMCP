@@ -278,11 +278,13 @@ def register_chat_routes(mcp) -> None:
                     removed_user_text = msg["content"]
                     break
 
-            return JSONResponse({
-                "removed_count": len(removed),
-                "remaining_messages": remaining,
-                "removed_user_text": removed_user_text,
-            })
+            return JSONResponse(
+                {
+                    "removed_count": len(removed),
+                    "remaining_messages": remaining,
+                    "removed_user_text": removed_user_text,
+                }
+            )
         except Exception as e:
             logger.exception("rollback_chat_session failed: %s", e)
             return JSONResponse({"error": str(e)}, status_code=500)

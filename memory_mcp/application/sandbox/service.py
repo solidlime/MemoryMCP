@@ -333,6 +333,7 @@ class SandboxSession:
             self._setup_docker_env()
             container_configs, _ = _build_container_configs(self.persona)
             from memory_mcp.config.settings import get_settings
+
             sandbox_image = get_settings().sandbox.image
 
             # Remove any stale container with the same name
@@ -443,6 +444,7 @@ class SandboxSession:
                 # Running cleanup directly on host avoids creating MORE temp files
                 try:
                     from memory_mcp.config.settings import get_settings
+
                     sandbox_dir = Path(get_settings().data_root) / "memory" / self.persona / "sandbox"
                     await asyncio.to_thread(_cleanup_temp_py_files, sandbox_dir)
                 except Exception:
@@ -478,6 +480,7 @@ class SandboxSession:
                     result = session.run(code)
                     # Clean up temp .py files on the host side
                     from memory_mcp.config.settings import get_settings
+
                     with contextlib.suppress(Exception):
                         _cleanup_temp_py_files(Path(get_settings().data_root) / "memory" / self.persona / "sandbox")
                     return ExecResult(
@@ -815,6 +818,7 @@ print(json.dumps(_tree({root!r})))
             # Clean up temp .py files on the host side
             try:
                 from memory_mcp.config.settings import get_settings
+
                 _cleanup_temp_py_files(Path(get_settings().data_root) / "memory" / self.persona / "sandbox")
             except Exception:
                 pass  # cleanup is best-effort

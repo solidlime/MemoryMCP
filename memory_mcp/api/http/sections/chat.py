@@ -419,4 +419,3 @@ def render_chat_tab() -> str:
 def render_chat_js() -> str:
     """Return the JavaScript for the chat tab."""
     return '<script src="/static/chat.js"></script>'
-

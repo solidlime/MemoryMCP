@@ -1,4 +1,5 @@
 """Auto-generated from tools.py split — _tools_skill.py."""
+
 from __future__ import annotations
 
 import logging
@@ -113,5 +114,3 @@ async def _tool_invoke_skill(ctx: AppContext, persona: str, name: str, task: str
         },
     )
     return result
-
-

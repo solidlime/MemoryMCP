@@ -174,9 +174,7 @@ async def _handle_browser(ctx: AppContext, config: ChatConfig, tool_input: dict)
         return {
             "status": "error",
             "message": (
-                "agent-browser not found. Install it:\n"
-                "  npm install -g agent-browser\n"
-                "  agent-browser install"
+                "agent-browser not found. Install it:\n  npm install -g agent-browser\n  agent-browser install"
             ),
         }
 

@@ -12,8 +12,6 @@ from memory_mcp.application.use_cases import AppContextRegistry
 logger = logging.getLogger(__name__)
 
 
-
-
 # =============================================================================
 # Core tool implementations — shared between MCP and builtin
 # =============================================================================
@@ -393,7 +391,5 @@ def register_tools(mcp: FastMCP) -> None:
         return f"Error: {r.get('error', 'unknown')}"
 
 
-
 def _resolve_persona() -> str:
     return get_current_persona()
-

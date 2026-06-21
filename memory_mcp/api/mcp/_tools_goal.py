@@ -1,4 +1,5 @@
 """Auto-generated from tools.py split — _tools_goal.py."""
+
 from __future__ import annotations
 
 import logging
@@ -278,5 +279,3 @@ async def _tool_promise_manage(
             },
         )
         return {"ok": False, "error": f"Unknown operation: {operation}. Use create/fulfill/cancel."}
-
-

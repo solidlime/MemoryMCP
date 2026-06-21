@@ -50,7 +50,13 @@ class ChatConfig(BaseModel):
     extract_max_tokens: int = 512
     tool_result_max_chars: int = 4000
     mcp_servers: list[dict] = [
-        {"name": "memory-mcp", "command": "python", "args": ["-m", "memory_mcp.main"], "env": {}, "_comment": "MemoryMCP自体をMCPサーバーとして接続（全20ツール利用可）。削除・編集可。"}
+        {
+            "name": "memory-mcp",
+            "command": "python",
+            "args": ["-m", "memory_mcp.main"],
+            "env": {},
+            "_comment": "MemoryMCP自体をMCPサーバーとして接続（全20ツール利用可）。削除・編集可。",
+        }
     ]
     enabled_skills: list[str] = ["browser", "search"]
     searxng_url: str = "http://nas:11111"
@@ -283,9 +289,9 @@ class ChatConfigRepository:
             sandbox_enabled=bool(row[26]) if row[26] is not None else False,
             mental_model_enabled=bool(row[27]) if len(row) > 27 and row[27] is not None else True,
             mental_model_min_samples=int(row[28]) if len(row) > 28 and row[28] is not None else 3,
-            max_stored_messages=int(row[29]) if len(row) > 29 and row[29] is not None else (
-                max(2, int(row[8]) * 2) if row[8] is not None else 200
-            ),
+            max_stored_messages=int(row[29])
+            if len(row) > 29 and row[29] is not None
+            else (max(2, int(row[8]) * 2) if row[8] is not None else 200),
             context_max_tokens=int(row[30]) if len(row) > 30 and row[30] is not None else None,
             context_compression_threshold=float(row[31]) if len(row) > 31 and row[31] is not None else 0.8,
             context_compression_mode=row[32] if len(row) > 32 and row[32] else "auto",
@@ -422,7 +428,5 @@ class ImageAttachment(BaseModel):
         # 余裕をもって判定: パディング除去後の有効長
         decoded_estimate = len(v) * 3 // 4
         if decoded_estimate > max_bytes:
-            raise ValueError(
-                f"Image data exceeds 10MB limit (estimated {decoded_estimate} bytes > {max_bytes} bytes)"
-            )
+            raise ValueError(f"Image data exceeds 10MB limit (estimated {decoded_estimate} bytes > {max_bytes} bytes)")
         return v

@@ -80,7 +80,12 @@ class PostProcessStep:
 
         now = get_now()
         session.add("user", turn_ctx.user_message, now)
-        session.add("assistant", turn_ctx.full_response, get_now(), tool_calls=turn_ctx.tool_calls_log if turn_ctx.tool_calls_log else None)
+        session.add(
+            "assistant",
+            turn_ctx.full_response,
+            get_now(),
+            tool_calls=turn_ctx.tool_calls_log if turn_ctx.tool_calls_log else None,
+        )
 
         # SessionSummarizedSSE: await collected summary tasks
         for task in _summary_tasks:

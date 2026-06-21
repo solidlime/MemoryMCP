@@ -354,11 +354,19 @@ class PrepareStep:
 
             # context_section 構築
             last_assistant = session.get_last_assistant_content()
-            context_task = asyncio.create_task(_build_context_section(ctx, state, turn_ctx, compress_mode=config.context_compression_mode))
+            context_task = asyncio.create_task(
+                _build_context_section(ctx, state, turn_ctx, compress_mode=config.context_compression_mode)
+            )
             # Progressive disclosure: only preload N memories; LLM searches for more if needed
             preload_count = getattr(config, "memory_preload_count", 3)
             memory_task = asyncio.create_task(
-                _search_memories(ctx, turn_ctx.user_message, last_assistant, config, top_k=max(preload_count, 1) if preload_count > 0 else 0)
+                _search_memories(
+                    ctx,
+                    turn_ctx.user_message,
+                    last_assistant,
+                    config,
+                    top_k=max(preload_count, 1) if preload_count > 0 else 0,
+                )
             )
             turn_ctx.context_section, (turn_ctx.related_memories, debug, memories_list) = await asyncio.gather(
                 context_task, memory_task
@@ -373,7 +381,11 @@ class PrepareStep:
             try:
                 preload_count = getattr(config, "memory_preload_count", 3)
                 turn_ctx.related_memories, debug, memories_list = await _search_memories(
-                    ctx, turn_ctx.user_message, last_assistant, config, top_k=max(preload_count, 1) if preload_count > 0 else 0
+                    ctx,
+                    turn_ctx.user_message,
+                    last_assistant,
+                    config,
+                    top_k=max(preload_count, 1) if preload_count > 0 else 0,
                 )
                 turn_ctx.memory_debug = debug
                 turn_ctx.memories_raw = debug.get("results", [])

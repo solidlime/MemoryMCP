@@ -1,4 +1,5 @@
 """Auto-generated from tools.py split — _tools_sandbox.py."""
+
 from __future__ import annotations
 
 import logging
@@ -275,5 +276,3 @@ async def _tool_sandbox_files(
 
 
 # --- Goal/Promise tools ---
-
-

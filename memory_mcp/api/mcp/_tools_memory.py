@@ -1,4 +1,5 @@
 """Auto-generated from tools.py split — _tools_memory.py."""
+
 from __future__ import annotations
 
 import logging
@@ -50,13 +51,16 @@ async def _tool_memory_create(
     if result.is_ok:
         if not defer_vector and ctx.vector_store:
             ctx.vector_store.upsert(persona, result.value.key, content)
-        await ctx.event_bus.publish("memory.created", {
-            "key": result.value.key,
-            "persona": persona,
-            "content_preview": content[:100],
-            "tags": tags or [],
-            "importance": importance,
-        })
+        await ctx.event_bus.publish(
+            "memory.created",
+            {
+                "key": result.value.key,
+                "persona": persona,
+                "content_preview": content[:100],
+                "tags": tags or [],
+                "importance": importance,
+            },
+        )
         return f"Memory created: {result.value.key}"
     return f"Error: {result.error}"
 
@@ -160,9 +164,7 @@ async def _tool_memory_update(
     update_warning = ""
     if emotion is not None:
         if emotion not in _VALID_EMOTIONS:
-            update_warning = (
-                f"[Warning: emotion '{emotion}' is not a valid emotion, defaulted to 'neutral']\n"
-            )
+            update_warning = f"[Warning: emotion '{emotion}' is not a valid emotion, defaulted to 'neutral']\n"
         updates["emotion"] = emotion
     if emotion_intensity is not None:
         updates["emotion_intensity"] = emotion_intensity
@@ -174,12 +176,17 @@ async def _tool_memory_update(
     if result.is_ok:
         if ctx.vector_store and "content" in updates:
             ctx.vector_store.upsert(persona, memory_key, updates["content"])
-        await ctx.event_bus.publish("memory.updated", {
-            "key": memory_key,
-            "persona": persona,
-            "content_preview": (content or "...")[:100],
-            "changes": [k for k in ["content", "importance", "tags", "privacy_level"] if locals().get(k) is not None],
-        })
+        await ctx.event_bus.publish(
+            "memory.updated",
+            {
+                "key": memory_key,
+                "persona": persona,
+                "content_preview": (content or "...")[:100],
+                "changes": [
+                    k for k in ["content", "importance", "tags", "privacy_level"] if locals().get(k) is not None
+                ],
+            },
+        )
         return f"{update_warning}Memory updated: {memory_key}"
     return f"Error: {result.error}"
 
@@ -216,11 +223,14 @@ async def _tool_memory_delete(
     if result.is_ok:
         if ctx.vector_store:
             ctx.vector_store.delete(persona, key)
-        await ctx.event_bus.publish("memory.deleted", {
-            "key": key,
-            "persona": persona,
-            "content_preview": content_preview,
-        })
+        await ctx.event_bus.publish(
+            "memory.deleted",
+            {
+                "key": key,
+                "persona": persona,
+                "content_preview": content_preview,
+            },
+        )
         return f"Memory deleted: {key}{snippet}"
     return f"Error: {result.error}"
 
@@ -330,5 +340,3 @@ async def _tool_memory_stats(ctx: AppContext, persona: str, top_n: int = 20) -> 
         },
     )
     return f"Error: {result.error}"
-
-

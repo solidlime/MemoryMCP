@@ -158,9 +158,12 @@ class ContextCompressedSSE:
     mode: str  # "light"|"normal"|"aggressive" — which compression stage applied
 
     def to_sse(self) -> str:
-        return _sse_encode("context_compressed", {
-            "before_tokens": self.before_tokens,
-            "after_tokens": self.after_tokens,
-            "budget": self.budget,
-            "mode": self.mode,
-        })
+        return _sse_encode(
+            "context_compressed",
+            {
+                "before_tokens": self.before_tokens,
+                "after_tokens": self.after_tokens,
+                "budget": self.budget,
+                "mode": self.mode,
+            },
+        )

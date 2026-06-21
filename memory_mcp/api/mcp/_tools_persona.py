@@ -1,4 +1,5 @@
 """Auto-generated from tools.py split — _tools_persona.py."""
+
 from __future__ import annotations
 
 import json
@@ -247,16 +248,17 @@ async def _tool_update_context(
 
     if not updated:
         return "No changes made (all parameters were None)"
-    await ctx.event_bus.publish("context.updated", {
-        "persona": persona,
-        "emotion": emotion,
-        "emotion_intensity": emotion_intensity,
-        "body_state": body_state,
-        "context_note": context_note,
-    })
+    await ctx.event_bus.publish(
+        "context.updated",
+        {
+            "persona": persona,
+            "emotion": emotion,
+            "emotion_intensity": emotion_intensity,
+            "body_state": body_state,
+            "context_note": context_note,
+        },
+    )
     return f"Context updated: {', '.join(updated)}"
 
 
 # --- Item tools ---
-
-

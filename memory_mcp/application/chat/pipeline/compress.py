@@ -43,9 +43,7 @@ class CompressStep:
         """
         model = config.get_effective_model()
         counter = TokenCounter(model)
-        total = counter.count(turn_ctx.system_prompt) + counter.count_messages(
-            session_messages, ""
-        )
+        total = counter.count(turn_ctx.system_prompt) + counter.count_messages(session_messages, "")
 
         if config.context_max_tokens is not None:
             model_max = config.context_max_tokens
@@ -54,27 +52,34 @@ class CompressStep:
         budget = int(model_max * config.context_compression_threshold)
 
         if total <= budget:
-            logger.debug("CompressStep: %d/%d tokens (%.0f%%) — within budget, skip", total, budget, total * 100 / budget if budget else 0)
+            logger.debug(
+                "CompressStep: %d/%d tokens (%.0f%%) — within budget, skip",
+                total,
+                budget,
+                total * 100 / budget if budget else 0,
+            )
             return session_messages
 
-        logger.info("CompressStep: %d/%d tokens (%.0f%%) — OVER budget, compressing...", total, budget, total * 100 / budget if budget else 0)
+        logger.info(
+            "CompressStep: %d/%d tokens (%.0f%%) — OVER budget, compressing...",
+            total,
+            budget,
+            total * 100 / budget if budget else 0,
+        )
         before_total = total
 
         # Stage 1: System prompt trimming
         if getattr(config, "context_compress_system_prompt", True):
             old_len = len(turn_ctx.system_prompt)
-            turn_ctx.system_prompt = self._trim_system_prompt(
-                turn_ctx.system_prompt, config.context_compression_mode
-            )
+            turn_ctx.system_prompt = self._trim_system_prompt(turn_ctx.system_prompt, config.context_compression_mode)
             logger.debug(
                 "CompressStep: system prompt trimmed %d → %d chars",
-                old_len, len(turn_ctx.system_prompt),
+                old_len,
+                len(turn_ctx.system_prompt),
             )
 
         # Re-check
-        total = counter.count(turn_ctx.system_prompt) + counter.count_messages(
-            session_messages, ""
-        )
+        total = counter.count(turn_ctx.system_prompt) + counter.count_messages(session_messages, "")
         if total <= budget:
             return session_messages
 
@@ -117,10 +122,10 @@ class CompressStep:
 
         # Limits per mode (how many memory lines to keep)
         mode_limits = {
-            "light": 8,       # Keep most
-            "normal": 4,      # Moderate
+            "light": 8,  # Keep most
+            "normal": 4,  # Moderate
             "aggressive": 2,  # Minimal
-            "auto": 4,        # Default: normal
+            "auto": 4,  # Default: normal
         }
         limit = mode_limits.get(mode, mode_limits["auto"])
 
@@ -231,7 +236,8 @@ class CompressStep:
         if truncated_count:
             logger.debug(
                 "CompressStep: truncated %d old messages (kept %d recent turns)",
-                truncated_count, keep_recent_turns,
+                truncated_count,
+                keep_recent_turns,
             )
 
         return result

@@ -24,12 +24,14 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
-_ALL_EVENT_TYPES = frozenset({
-    EVENT_MEMORY_CREATED,
-    EVENT_MEMORY_UPDATED,
-    EVENT_MEMORY_DELETED,
-    EVENT_CONTEXT_UPDATED,
-})
+_ALL_EVENT_TYPES = frozenset(
+    {
+        EVENT_MEMORY_CREATED,
+        EVENT_MEMORY_UPDATED,
+        EVENT_MEMORY_DELETED,
+        EVENT_CONTEXT_UPDATED,
+    }
+)
 
 
 def register_events_routes(mcp) -> None:
@@ -46,8 +48,10 @@ def register_events_routes(mcp) -> None:
         persona = _resolve_persona_from_request(request)
         ctx = _safe_get_context(persona)
         if not ctx:
+
             async def not_found():
                 yield f"event: error\ndata: {json.dumps({'message': 'Persona not found'})}\n\n"
+
             return StreamingResponse(not_found(), media_type="text/event-stream")
 
         # Parse topic filter
@@ -57,8 +61,7 @@ def register_events_routes(mcp) -> None:
         # Determine which event types to subscribe to
         if topic_prefixes:
             subscribed_events = {
-                et for et in _ALL_EVENT_TYPES
-                if any(et.startswith(tp) or et == tp for tp in topic_prefixes)
+                et for et in _ALL_EVENT_TYPES if any(et.startswith(tp) or et == tp for tp in topic_prefixes)
             }
         else:
             subscribed_events = set(_ALL_EVENT_TYPES)
@@ -234,12 +237,15 @@ def register_events_routes(mcp) -> None:
 
         # 7. Publish event via EventBus
         try:
-            await ctx.event_bus.publish(EVENT_EVENTS_INGESTED, {
-                "persona": persona,
-                "session_id": session_id,
-                "count": inserted,
-                "skipped": skipped,
-            })
+            await ctx.event_bus.publish(
+                EVENT_EVENTS_INGESTED,
+                {
+                    "persona": persona,
+                    "session_id": session_id,
+                    "count": inserted,
+                    "skipped": skipped,
+                },
+            )
         except Exception:
             logger.exception("Failed to publish events.ingested event for persona '%s'", persona)
 

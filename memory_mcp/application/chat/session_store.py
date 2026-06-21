@@ -108,7 +108,14 @@ class SessionWindow:
             logger.warning("SessionWindow._persist failed: %s", e)
 
     @classmethod
-    def from_db(cls, db: sqlite3.Connection, persona: str, session_id: str, max_turns: int = 100, max_messages: int | None = None) -> SessionWindow | None:
+    def from_db(
+        cls,
+        db: sqlite3.Connection,
+        persona: str,
+        session_id: str,
+        max_turns: int = 100,
+        max_messages: int | None = None,
+    ) -> SessionWindow | None:
         """SQLiteから既存セッションをロードする。存在しなければNoneを返す。"""
         try:
             row = db.execute(

@@ -1,4 +1,5 @@
 """Auto-generated from tools.py split — _tools_item.py."""
+
 from __future__ import annotations
 
 import logging
@@ -266,5 +267,3 @@ async def _tool_item_history(ctx: AppContext, persona: str, days: int = 7) -> st
 
 
 # --- Sandbox tools ---
-
-

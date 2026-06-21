@@ -1,4 +1,5 @@
 """SessionEventRecorder: EventBus subscriber that records MCP tool calls and session events."""
+
 from __future__ import annotations
 
 import contextlib

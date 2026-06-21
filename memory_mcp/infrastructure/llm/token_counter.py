@@ -108,7 +108,7 @@ class TokenCounter:
         cjk_count = 0
         ascii_count = 0
         for ch in text:
-            if '\u4e00' <= ch <= '\u9fff' or '\u3040' <= ch <= '\u30ff' or '\u3400' <= ch <= '\u4dbf':
+            if "\u4e00" <= ch <= "\u9fff" or "\u3040" <= ch <= "\u30ff" or "\u3400" <= ch <= "\u4dbf":
                 cjk_count += 1
             else:
                 ascii_count += 1
@@ -127,8 +127,8 @@ class TokenCounter:
         """
         model_lower = model.lower()
         # Strip provider prefix for OpenRouter (e.g., 'openai/gpt-4o' → 'gpt-4o')
-        if '/' in model_lower:
-            model_lower = model_lower.split('/', 1)[1]
+        if "/" in model_lower:
+            model_lower = model_lower.split("/", 1)[1]
 
         for key, max_tokens in sorted(MODEL_MAX_CONTEXT.items(), key=lambda x: -len(x[0])):
             if key in model_lower:

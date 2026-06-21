@@ -149,8 +149,14 @@ MEMORY_TOOLS: list[ToolDefinition] = [
                 "ref": {"type": "string", "description": "操作対象の @eN リファレンス（snapshot で確認）"},
                 "value": {"type": "string", "description": "fill 時の入力文字列 / wait 時の待機テキスト"},
                 "key": {"type": "string", "description": "press 時のキー（Enter / Escape / Tab 等）"},
-                "what": {"type": "string", "description": "get 時の取得対象（text / html / attr / title / url / count）"},
-                "selector": {"type": "string", "description": "snapshot のCSSセレクタスコープ / get count 時のセレクタ"},
+                "what": {
+                    "type": "string",
+                    "description": "get 時の取得対象（text / html / attr / title / url / count）",
+                },
+                "selector": {
+                    "type": "string",
+                    "description": "snapshot のCSSセレクタスコープ / get count 時のセレクタ",
+                },
                 "until": {
                     "type": "string",
                     "description": "wait の待機条件",

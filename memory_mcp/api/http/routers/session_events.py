@@ -52,19 +52,21 @@ def register_session_events_routes(mcp) -> None:
             order=order,
         )
 
-        return JSONResponse({
-            "events": [
-                {
-                    "id": e.id,
-                    "session_id": e.session_id,
-                    "event_type": e.event_type,
-                    "timestamp": e.timestamp.isoformat(),
-                    "summary": e.summary,
-                    "detail": e.detail,
-                    "metadata": e.metadata,
-                }
-                for e in events
-            ],
-            "total": total,
-            "has_more": offset + limit < total,
-        })
+        return JSONResponse(
+            {
+                "events": [
+                    {
+                        "id": e.id,
+                        "session_id": e.session_id,
+                        "event_type": e.event_type,
+                        "timestamp": e.timestamp.isoformat(),
+                        "summary": e.summary,
+                        "detail": e.detail,
+                        "metadata": e.metadata,
+                    }
+                    for e in events
+                ],
+                "total": total,
+                "has_more": offset + limit < total,
+            }
+        )
