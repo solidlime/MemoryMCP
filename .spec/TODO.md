@@ -18,7 +18,7 @@
 ## P1: 重複コード共通化 🟠
 
 - [x] P1-1: `normalize_importance()` 抽出 → 全呼出箇所置換（4ファイル）
-- [ ] P1-2: `emotion`/`emotion_type` フィールド名統一（後回し・複雑）
+- [x] P1-2: `emotion`/`emotion_type` フィールド名統一 (domain/API/JS/MCP全層、25 tests更新)
 - [x] P1-3: `_VALID_EMOTIONS` を domain 層へ移動
 
 ## P2: 軽量クリーンアップ 🟡
@@ -29,19 +29,19 @@
 
 ## P3: ドキュメント刷新 🟢
 
-- [ ] P3-1: SPEC.md 棚卸し（古い計画を details 折りたたみ）
-- [ ] P3-2: PLAN.md 更新完了
+- [x] P3-1: SPEC.md 棚卸し（古い計画を details 折りたたみ）
+- [x] P3-2: PLAN.md 更新完了
 - [x] P3-3: TODO.md（本ファイル）
-- [ ] P3-4: KNOWLEDGE.md 更新
-- [ ] P3-5: MEMORY.md アーカイブ＋再生成
-- [ ] P3-6: HANDOFF.md 生成
-- [ ] P3-7: README.md 刷新
+- [x] P3-4: KNOWLEDGE.md 更新
+- [x] P3-5: MEMORY.md アーカイブ＋再生成
+- [x] P3-6: HANDOFF.md 生成
+- [x] P3-7: README.md 刷新（アーキテクチャ図・ディレクトリ構成を最新に更新）
 
 ## 後回しタスク 📋
 
 - [ ] web_search ブラウザ動作テスト（WSL Chromeライブラリ不足）
 - [ ] P0-2a: chat.py 死にコード・CSS/JS分離（要デザイナー）
-- [ ] P1-2: emotion/emotion_type フィールド名統一
+- [x] P1-2: emotion/emotion_type フィールド名統一
 
 ## 最終確認 🧪
 

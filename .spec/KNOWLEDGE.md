@@ -126,3 +126,13 @@
 - `use_cases.py` の E402: `logger = getLogger()` が import より前に来ていた → import 群の後に移動
 - `sandbox/service.py` の SIM105: `try/except PermissionError: pass` → `contextlib.suppress(PermissionError)`
 - W293（空白行スペース）は `ruff --fix` で自動修正可能
+
+### emotion_type → emotion 全層統一
+- **DB不一致**: `memories.emotion` と `emotion_history.emotion_type` でカラム名が異なっていた（emotion_history側はDBマイグレーション未着手で後回し）
+- **バリデーション不一致**: `_VALID_EMOTIONS`（22感情）と `ALLOWED_EMOTIONS`（22感情）が8感情で不一致。`_EMOTION_KEYWORD_MAP` に envy/gratitude/contempt を追加し25感情に統一。`ALLOWED_EMOTIONS` は `_VALID_EMOTIONS` から派生するよう修正
+- **ドメイン層**: `EmotionRecord.emotion_type` → `emotion` にリネーム（entity + repo + service 全参照更新）
+- **API後方互換**: Pydanticモデルで `Field(alias="emotion_type")` + `populate_by_name=True` を設定し、`emotion` と `emotion_type` 両方の入力を受け付ける
+- **変換ロジック削除**: HTTP/MCP/LLMの全レイヤーに散在していた `emotion_type`→`emotion` 手動変換（10箇所以上）を削除
+- **フロントエンドJS**: sections/ 配下4ファイル（memories, timeline, knowledge_graph, analytics）の全 `emotion_type` → `emotion`
+- **テスト**: Pydantic v2 では `Field(alias=...)` はデフォルトで canonical 名を受け付けないため `populate_by_name=True` が必須。テストのAPIリクエストで `emotion_type`→`emotion` に変更したらこの問題が表面化
+- **学習**: 全層統一には (1)DBカラム (2)domain entity (3)API input/output model (4)MCPパラメータ (5)フロントエンドJS (6)テスト の6層を漏れなく変更する必要がある。後方互換が不要なら alias なしの単純リネームがベスト

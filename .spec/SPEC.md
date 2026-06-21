@@ -58,6 +58,7 @@ Pydanticモデルで一元管理するか、単一フィールド名に統一。
 - PLAN.md / SPEC.md / TODO.md / KNOWLEDGE.md / MEMORY.md / HANDOFF.md / README.md
 
 ---
+<details><summary>📦 古い計画アーカイブ（折りたたみ）</summary>
 
 # context-mode 機能移植（2026-06-12・完了）
 
@@ -1346,3 +1347,5 @@ MemoryRepository.save(memory)
 - 画像サイズ上限: 10MB（フロント・バックエンド両方で検証）
 - 対応画像形式: PNG, JPEG, GIF, WebP
 - DOMPurifyの<img>許可は最小限（src/alt/width/heightのみ、onload等のイベントハンドラは不許可）
+
+</details>
