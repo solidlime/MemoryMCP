@@ -52,7 +52,7 @@ class PromptBuildStep:
                         continue
                     line = f"- {s.name}: {s.description}"
                     if s.content and len(s.content) < 500:
-                        content_preview = s.content.strip().split('\n')[0][:200]
+                        content_preview = s.content.strip().split("\n")[0][:200]
                         line += f"\n  {content_preview}"
                     skill_lines.append(line)
                 skills_raw = [s.model_dump() for s in skills if s]

@@ -171,7 +171,7 @@ async def _handle_browser(
         return {"status": "error", "message": "action is required"}
 
     # ── Locate agent-browser binary ──
-    agent_bin = _find_agent_browser(ctx.settings if hasattr(ctx, 'settings') else None)
+    agent_bin = _find_agent_browser(ctx.settings if hasattr(ctx, "settings") else None)
     if not agent_bin:
         return {
             "status": "error",
@@ -331,10 +331,10 @@ async def _handle_search(
             data = resp.json()
     except httpx.TimeoutException:
         return {"status": "error", "message": "SearXNG search timed out (15s)"}
-    except httpx.ConnectError as e:
+    except httpx.ConnectError:
         return {"status": "error", "message": f"SearXNG connection failed: {searxng_url}"}
-    except httpx.HTTPStatusError as e:
-        return {"status": "error", "message": f"SearXNG returned HTTP {e.response.status_code}"}
+    except httpx.HTTPStatusError as exc:
+        return {"status": "error", "message": f"SearXNG returned HTTP {exc.response.status_code}"}
     except Exception as e:
         error_msg = str(e)[:200] if str(e) else type(e).__name__
         return {"status": "error", "message": f"SearXNG search failed: {error_msg}"}
