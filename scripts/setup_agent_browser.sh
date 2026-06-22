@@ -7,7 +7,7 @@ export PATH="$AGENT_DIR/bin:$PATH"
 
 if command -v agent-browser &>/dev/null; then
     echo "[agent-browser] Already available: $(agent-browser --version)"
-    exit 0
+    exec "$@"
 fi
 
 echo "[agent-browser] Installing to $AGENT_DIR..."
