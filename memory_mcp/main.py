@@ -128,6 +128,25 @@ def create_app() -> MemoryFastMCP:
         snapshot_worker = ContextSnapshotWorker(settings)
         snapshot_worker.start()
 
+    # Pre-warm sandbox Docker image in background to avoid blocking the
+    # first sandbox request with a long image pull/build (~500MB download).
+    if settings.sandbox.enabled:
+        import threading
+
+        def _prewarm_sandbox() -> None:
+            try:
+                from memory_mcp.application.sandbox.service import _ensure_sandbox_image
+
+                logger.info("Pre-warming sandbox image %s in background...", settings.sandbox.image)
+                _ensure_sandbox_image(settings.sandbox.image, "Dockerfile.sandbox")
+                logger.info("Sandbox image pre-warm complete: %s", settings.sandbox.image)
+            except Exception:
+                logger.warning(
+                    "Sandbox pre-warm failed (will retry on first use): %s", settings.sandbox.image, exc_info=True
+                )
+
+        threading.Thread(target=_prewarm_sandbox, daemon=True, name="sandbox-prewarm").start()
+
     # Register sandbox session cleanup on shutdown
     import atexit
 

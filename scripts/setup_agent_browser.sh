@@ -31,10 +31,16 @@ if [ ! -L "$HOME/.agent-browser" ]; then
     ln -sfn "$AGENT_HOME" "$HOME/.agent-browser"
 fi
 
-# ── Step 3: Ensure Chrome is installed (idempotent) ──
-echo "[agent-browser] Ensuring Chrome is available..."
-"$AGENT_BROWSER" install 2>&1 | tail -5
+# ── Step 3: Ensure Chrome is installed (idempotent, background) ──
+# Run Chrome install in background with low CPU/IO priority to avoid
+# starving the MCP server during first-time setup (~200MB download).
+AGENT_LOG="$DATA_ROOT/agent-browser-install.log"
+echo "[agent-browser] Chrome install starting in background (log: $AGENT_LOG)..."
+nice -n 19 ionice -c 3 "$AGENT_BROWSER" install > "$AGENT_LOG" 2>&1 &
+# Record PID so server can poll readiness if needed
+echo $! > /tmp/agent-browser-install.pid
 
-echo "[agent-browser] Setup complete: $($AGENT_BROWSER --version)"
+echo "[agent-browser] Server starting (Chrome will be ready shortly)..."
+echo "[agent-browser] version: $($AGENT_BROWSER --version)"
 
 exec "$@"

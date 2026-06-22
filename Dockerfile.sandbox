@@ -1,5 +1,6 @@
 # llm-sandbox 公式 python311.Dockerfile に準拠
-FROM python:3.11-bullseye
+# slim-bullseye: ~50MB vs ~350MB for full bullseye — much faster first pull
+FROM python:3.11-slim-bullseye
 
 # Install system dependencies (llm-sandbox標準 + venv/git追加)
 RUN apt-get update && apt-get install -y --no-install-recommends \
