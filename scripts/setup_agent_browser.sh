@@ -1,6 +1,6 @@
 #!/bin/bash
 # Setup agent-browser for MemoryMCP (run at container startup)
-set -e
+set -eo pipefail
 
 AGENT_DIR="${AGENT_BROWSER_DIR:-/opt/memory-mcp/data/agent-browser}"
 AGENT_BROWSER="$AGENT_DIR/bin/agent-browser"
@@ -14,6 +14,8 @@ if AGENT_VERSION=$("$AGENT_BROWSER" --version 2>/dev/null) && [ -n "$AGENT_VERSI
     echo "[agent-browser] CLI already available: $AGENT_VERSION"
 else
     echo "[agent-browser] Installing CLI to $AGENT_DIR (stale/missing binary)..."
+    # Wipe any stale host-installed files that npm refuses to overwrite
+    rm -rf "$AGENT_DIR"
     mkdir -p "$AGENT_DIR"
     npm install -g agent-browser --prefix "$AGENT_DIR" 2>&1 | tail -3
     AGENT_VERSION=$("$AGENT_BROWSER" --version 2>/dev/null)
