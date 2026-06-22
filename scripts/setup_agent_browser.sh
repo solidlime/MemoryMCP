@@ -4,7 +4,9 @@ set -eo pipefail
 
 AGENT_DIR="${AGENT_BROWSER_DIR:-/opt/memory-mcp/data/agent-browser}"
 AGENT_BROWSER="$AGENT_DIR/bin/agent-browser"
-DATA_ROOT="${MEMORY_MCP_DATA_ROOT:-/opt/memory-mcp/data}"
+# Resolve to absolute path (MEMORY_MCP_DATA_ROOT may be relative like ./data,
+# which breaks symlink resolution when $HOME is /root)
+DATA_ROOT=$(realpath "${MEMORY_MCP_DATA_ROOT:-/opt/memory-mcp/data}" 2>/dev/null || echo "/opt/memory-mcp/data")
 export PATH="$AGENT_DIR/bin:$PATH"
 
 # ── Step 1: Install agent-browser CLI ──
@@ -36,8 +38,21 @@ if [ ! -L "$HOME/.agent-browser" ]; then
     ln -sfn "$AGENT_HOME" "$HOME/.agent-browser"
 fi
 
-# ── Step 3: Ensure Chrome is installed (idempotent, background) ──
-# Run Chrome install in background with low CPU/IO priority to avoid
+# ── Step 3: Install Chrome system dependencies ──
+# Chrome headless needs GTK/X11 libs. The python:3.12-slim base image
+# doesn't include them. Run synchronously so Chrome is usable immediately.
+echo "[agent-browser] Installing Chrome system dependencies..."
+apt-get update -qq 2>/dev/null
+apt-get install -y -qq --no-install-recommends \
+    libcairo2 libgtk-3-0 libpango-1.0-0 libpangocairo-1.0-0 \
+    libatk1.0-0t64 libatk-bridge2.0-0t64 libcups2t64 libdrm2 \
+    libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 \
+    libgbm1 libasound2t64 libnss3 libnspr4 libdbus-1-3 \
+    libfontconfig1 libfreetype6 2>/dev/null
+echo "[agent-browser] Chrome dependencies installed."
+
+# ── Step 4: Ensure Chrome browser is installed (idempotent, background) ──
+# Run Chrome download in background with low CPU/IO priority to avoid
 # starving the MCP server during first-time setup (~200MB download).
 AGENT_LOG="$DATA_ROOT/agent-browser-install.log"
 echo "[agent-browser] Chrome install starting in background (log: $AGENT_LOG)..."
