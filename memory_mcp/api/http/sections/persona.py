@@ -144,7 +144,7 @@ def render_persona_js() -> str:
         "                ? '<span style=\"font-size:0.75rem;background:var(--accent);color:white;padding:2px 8px;border-radius:9999px;margin-left:8px\">Active</span>'\n"
         "                : '';\n"
         "            var switchBtn = !isActive\n"
-        "                ? '<button onclick=\"switchPersonaTo(\\'' + esc(name) + '\\')\" class=\"glass-btn\" style=\"padding:6px 14px;font-size:0.85rem\"><i data-lucide=\"refresh-cw\"></i> Switch</button>'\n"
+        '                ? \'<button onclick="switchPersonaTo(\\\'\' + esc(name) + \'\\\')" class="glass-btn" style="padding:6px 14px;font-size:0.85rem"><i data-lucide="refresh-cw"></i> Switch</button>\'\n'
         "                : '';\n"
         "            var deleteStyle = name === 'default'\n"
         "                ? 'padding:6px 14px;font-size:0.85rem;opacity:0.5;cursor:not-allowed'\n"

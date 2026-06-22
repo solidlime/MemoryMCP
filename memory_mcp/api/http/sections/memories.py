@@ -898,7 +898,7 @@ def render_memories_js() -> str:
         "        var chip = document.createElement('span');\n"
         "        chip.className = 'tag-chip-edit';\n"
         "        chip.style.cssText = '--chip-hue:' + hue;\n"
-        "        chip.innerHTML = esc(tag) + ' <span class=\"tag-chip-remove\" data-tidx=\"' + idx + '\"><i data-lucide=\"x\"></i></span>';\n"
+        '        chip.innerHTML = esc(tag) + \' <span class="tag-chip-remove" data-tidx="\' + idx + \'"><i data-lucide="x"></i></span>\';\n'
         "        wrap.insertBefore(chip, inp);\n"
         "    });\n"
         "    /* Bind remove buttons */\n"

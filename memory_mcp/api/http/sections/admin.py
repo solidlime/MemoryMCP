@@ -81,7 +81,7 @@ def render_admin_js() -> str:
         '            statusEl.innerHTML = \'<div class="progress-wrap"><div class="progress-bar progress-indeterminate"></div></div>\';\n'
         "            try {\n"
         "                await api('/api/admin/rebuild/' + encodeURIComponent(S.persona), { method: 'POST' });\n"
-        "                statusEl.innerHTML = '<span style=\"color:var(--accent-green)\"><i data-lucide=\"check-circle\"></i> Rebuild started successfully</span>';\n"
+        '                statusEl.innerHTML = \'<span style="color:var(--accent-green)"><i data-lucide="check-circle"></i> Rebuild started successfully</span>\';\n'
         "                toast('Vector rebuild initiated', 'success');\n"
         "            } catch (e) {\n"
         "                statusEl.innerHTML = '<span style=\"color:var(--accent-red)\"><i data-lucide=\"x-circle\"></i> ' + esc(e.message) + '</span>';\n"
