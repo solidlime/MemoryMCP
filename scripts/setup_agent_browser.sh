@@ -8,13 +8,16 @@ DATA_ROOT="${MEMORY_MCP_DATA_ROOT:-/opt/memory-mcp/data}"
 export PATH="$AGENT_DIR/bin:$PATH"
 
 # ── Step 1: Install agent-browser CLI ──
-if command -v agent-browser &>/dev/null; then
-    echo "[agent-browser] CLI already available: $(agent-browser --version)"
+# Verify the binary actually works (not just exists — host-installed binaries
+# may reference node paths from nvm that don't exist in the container).
+if AGENT_VERSION=$("$AGENT_BROWSER" --version 2>/dev/null) && [ -n "$AGENT_VERSION" ]; then
+    echo "[agent-browser] CLI already available: $AGENT_VERSION"
 else
-    echo "[agent-browser] Installing CLI to $AGENT_DIR..."
+    echo "[agent-browser] Installing CLI to $AGENT_DIR (stale/missing binary)..."
     mkdir -p "$AGENT_DIR"
     npm install -g agent-browser --prefix "$AGENT_DIR" 2>&1 | tail -3
-    echo "[agent-browser] CLI installed: $($AGENT_BROWSER --version)"
+    AGENT_VERSION=$("$AGENT_BROWSER" --version 2>/dev/null)
+    echo "[agent-browser] CLI installed: $AGENT_VERSION"
 fi
 
 # ── Step 2: Persist Chrome cache to volume via symlink ──
