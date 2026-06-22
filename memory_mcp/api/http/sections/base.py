@@ -666,11 +666,11 @@ const BODY_BAR_COLORS = {
 };
 
 const BODY_LABELS = {
-    fatigue: '<i data-lucide=&quot;flame&quot;></i> Fatigue',
-    warmth: '<i data-lucide=&quot;flower&quot;></i> Warmth',
-    arousal: '<i data-lucide=&quot;zap&quot;></i> Arousal',
-    heart_rate: '<i data-lucide=&quot;heart-pulse&quot;></i> Heart',
-    pain: '<i data-lucide=&quot;activity&quot;></i> Pain'
+    fatigue: '<i data-lucide="flame"></i> Fatigue',
+    warmth: '<i data-lucide="flower"></i> Warmth',
+    arousal: '<i data-lucide="zap"></i> Arousal',
+    heart_rate: '<i data-lucide="heart-pulse"></i> Heart',
+    pain: '<i data-lucide="activity"></i> Pain'
 };
 
 function renderBodyStateBars(bodyState) {
@@ -853,7 +853,7 @@ function skeletonCard() {
     return '<div class="glass p-6"><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-text" style="width:80%"></div><div class="skeleton skeleton-text" style="width:60%"></div></div>';
 }
 function errorCard(msg) {
-    return '<div class="glass p-6 text-center" style="color:var(--accent-red)"><p style="font-size:1.2rem;margin-bottom:8px"><i data-lucide=&quot;alert-triangle&quot;></i></p><p>' + esc(msg) + '</p></div>';
+    return '<div class="glass p-6 text-center" style="color:var(--accent-red)"><p style="font-size:1.2rem;margin-bottom:8px"><i data-lucide="alert-triangle"></i></p><p>' + esc(msg) + '</p></div>';
 }
 
 /* =================================================================
@@ -862,7 +862,7 @@ function errorCard(msg) {
 function applyTheme() {
     const dark = localStorage.getItem('mmcp-dark') !== 'false';
     document.documentElement.className = dark ? 'dark' : 'light';
-    document.getElementById('dark-toggle').innerHTML = dark ? '<i data-lucide=&quot;moon&quot;></i>' : '<i data-lucide=&quot;sun&quot;></i>';
+    document.getElementById('dark-toggle').innerHTML = dark ? '<i data-lucide="moon"></i>' : '<i data-lucide="sun"></i>';
     if (typeof lucide !== 'undefined') lucide.createIcons();
     // Re-render charts for color update
     Object.values(S.charts).forEach(c => c.update());
@@ -951,7 +951,7 @@ function openMemModal(mem) {
     const tags = (mem.tags || []).map(t => '<span class="badge badge-purple">' + esc(t) + '</span>').join(' ');
     var emoHtml = '';
     if (mem.emotion) {
-        emoHtml = '<span class="badge badge-pink"><i data-lucide=&quot;smile&quot;></i> ' + esc(mem.emotion) + (mem.emotion_intensity != null ? ' (' + (mem.emotion_intensity * 100).toFixed(0) + '%)' : '') + '</span>';
+        emoHtml = '<span class="badge badge-pink"><i data-lucide="smile"></i> ' + esc(mem.emotion) + (mem.emotion_intensity != null ? ' (' + (mem.emotion_intensity * 100).toFixed(0) + '%)' : '') + '</span>';
     }
     content.innerHTML = `
         <div class="mem-modal-header">
@@ -959,18 +959,18 @@ function openMemModal(mem) {
                 <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:4px">Memory Key</div>
                 <div style="font-family:monospace;font-size:0.85rem;color:var(--accent-purple)">${esc(mem.memory_key)}</div>
             </div>
-            <button class="mem-modal-close" onclick="closeMemModal()"><i data-lucide=&quot;x&quot;></i></button>
+            <button class="mem-modal-close" onclick="closeMemModal()"><i data-lucide="x"></i></button>
         </div>
         <div class="mem-modal-content">${esc(mem.content)}</div>
         <div>
             ${tags || emoHtml ? `<div class="mem-modal-row"><span class="mem-modal-key">Tags/Emotion</span><span>${tags} ${emoHtml}</span></div>` : ''}
             ${mem.importance != null ? `<div class="mem-modal-row"><span class="mem-modal-key">Importance</span><span style="color:var(--accent-yellow)">${(mem.importance).toFixed(2)}</span></div>` : ''}
-            ${mem.strength != null ? `<div class="mem-modal-row"><span class="mem-modal-key">Strength</span><span style="color:var(--accent-green)"><i data-lucide=&quot;zap&quot;></i>${(mem.strength).toFixed(3)}</span></div>` : ''}
+            ${mem.strength != null ? `<div class="mem-modal-row"><span class="mem-modal-key">Strength</span><span style="color:var(--accent-green)"><i data-lucide="zap"></i>${(mem.strength).toFixed(3)}</span></div>` : ''}
             ${mem.privacy_level ? `<div class="mem-modal-row"><span class="mem-modal-key">Privacy</span><span>${esc(mem.privacy_level)}</span></div>` : ''}
             ${mem.source_context ? `<div class="mem-modal-row"><span class="mem-modal-key">Source</span><span style="color:var(--text-muted)">${esc(mem.source_context)}</span></div>` : ''}
-            ${mem.created_at ? `<div class="mem-modal-row"><span class="mem-modal-key">Created</span><span><i data-lucide=&quot;calendar&quot;></i> ${relativeTime(mem.created_at)} <span style="color:var(--text-muted);font-size:0.75rem">(${new Date(mem.created_at).toLocaleString('ja-JP')})</span></span></div>` : ''}
-            ${mem.state_snapped_at && mem.state_snapped_at !== mem.created_at ? `<div class="mem-modal-row"><span class="mem-modal-key">State</span><span><i data-lucide=&quot;camera&quot;></i> ${relativeTime(mem.state_snapped_at)} <span style="color:var(--text-muted);font-size:0.75rem">(${new Date(mem.state_snapped_at).toLocaleString('ja-JP')})</span></span></div>` : ''}
-            ${mem.updated_at ? `<div class="mem-modal-row"><span class="mem-modal-key">Updated</span><span><i data-lucide=&quot;calendar&quot;></i> ${relativeTime(mem.updated_at)}</span></div>` : ''}
+            ${mem.created_at ? `<div class="mem-modal-row"><span class="mem-modal-key">Created</span><span><i data-lucide="calendar"></i> ${relativeTime(mem.created_at)} <span style="color:var(--text-muted);font-size:0.75rem">(${new Date(mem.created_at).toLocaleString('ja-JP')})</span></span></div>` : ''}
+            ${mem.state_snapped_at && mem.state_snapped_at !== mem.created_at ? `<div class="mem-modal-row"><span class="mem-modal-key">State</span><span><i data-lucide="camera"></i> ${relativeTime(mem.state_snapped_at)} <span style="color:var(--text-muted);font-size:0.75rem">(${new Date(mem.state_snapped_at).toLocaleString('ja-JP')})</span></span></div>` : ''}
+            ${mem.updated_at ? `<div class="mem-modal-row"><span class="mem-modal-key">Updated</span><span><i data-lucide="calendar"></i> ${relativeTime(mem.updated_at)}</span></div>` : ''}
             ${mem.body_state ? renderBodyStateBars(mem.body_state) : ''}
             ${mem.emotion ? renderEmotionBars(mem.emotion, mem.emotion_intensity) : ''}
         </div>`;
@@ -1020,7 +1020,7 @@ async function init() {
         if (personas.length === 0) {
             sel.innerHTML = '<option value="">No personas found</option>';
             document.getElementById('overview-content').innerHTML =
-                '<div class="glass p-8 text-center"><div style="font-size:2rem;margin-bottom:12px"><i data-lucide=&quot;shrug&quot;></i></div><p style="color:var(--text-secondary)">No personas found. Create a persona to get started.</p></div>';
+                '<div class="glass p-8 text-center"><div style="font-size:2rem;margin-bottom:12px"><i data-lucide="shrug"></i></div><p style="color:var(--text-secondary)">No personas found. Create a persona to get started.</p></div>';
             return;
         }
         personas.forEach(p => {
@@ -1201,7 +1201,7 @@ def render_layout_shell(nav_html: str, tab_contents: str, tab_js: str, initial_p
         "         ============================================================ -->\n"
         '    <header class="app-header">\n'
         '        <div style="display:flex;align-items:center;gap:10px;">\n'
-        '            <span style="font-size:1.6rem;"><i data-lucide=&quot;brain&quot;></i></span>\n'
+        '            <span style="font-size:1.6rem;"><i data-lucide="brain"></i></span>\n'
         "            <h1>MemoryMCP v2.0.0 Dashboard</h1>\n"
         "        </div>\n"
         '        <div class="header-controls">\n'
@@ -1214,8 +1214,8 @@ def render_layout_shell(nav_html: str, tab_contents: str, tab_js: str, initial_p
         '                <option value="60">1min</option>\n'
         '                <option value="300">5min</option>\n'
         "            </select>\n"
-        '            <button id="refresh-btn" class="glass-btn" title="Refresh now"><i data-lucide=&quot;refresh-cw&quot;></i></button>\n'
-        '            <button id="dark-toggle" class="glass-btn" title="Toggle theme"><i data-lucide=&quot;moon&quot;></i></button>\n'
+        '            <button id="refresh-btn" class="glass-btn" title="Refresh now"><i data-lucide="refresh-cw"></i></button>\n'
+        '            <button id="dark-toggle" class="glass-btn" title="Toggle theme"><i data-lucide="moon"></i></button>\n'
         "        </div>\n"
         "    </header>\n"
         "\n" + nav_html + "\n"

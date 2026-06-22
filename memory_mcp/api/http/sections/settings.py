@@ -68,9 +68,9 @@ const BUILTIN_PROFILES = {
 };
 
 const CATEGORY_ICONS = {
-    server: '<i data-lucide=&quot;monitor&quot;></i>', embedding: '<i data-lucide="brain"></i>', reranker: '<i data-lucide="search"></i>', qdrant: '<i data-lucide="package"></i>',
+    server: '<i data-lucide="monitor"></i>', embedding: '<i data-lucide="brain"></i>', reranker: '<i data-lucide="search"></i>', qdrant: '<i data-lucide="package"></i>',
     worker: '<i data-lucide="alarm-clock"></i>', general: '<i data-lucide="settings"></i>', search: '<i data-lucide="search-check"></i>', persona: '<i data-lucide="user"></i>',
-    summarization: '<i data-lucide="bot"></i>', forgetting: '<i data-lucide=&quot;broom&quot;></i>'
+    summarization: '<i data-lucide="bot"></i>', forgetting: '<i data-lucide="broom"></i>'
 };
 
 async function loadSettings() {

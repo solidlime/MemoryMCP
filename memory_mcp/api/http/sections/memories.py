@@ -6,7 +6,7 @@ def render_memories_tab() -> str:
     return """        <!-- ========== MEMORIES TAB ========== -->
         <section id="tab-memories" class="tab-panel" role="tabpanel">
             <div style="margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--glass-border);">
-                <h2 style="font-size:1.25rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:10px;"><span style="font-size:1.4rem;"><i data-lucide=&quot;brain&quot;></i></span> Memories</h2>
+                <h2 style="font-size:1.25rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:10px;"><span style="font-size:1.4rem;"><i data-lucide="brain"></i></span> Memories</h2>
             </div>
             <style>
             /* ── Tag chips with per-tag hue ── */
@@ -224,28 +224,28 @@ def render_memories_tab() -> str:
                         <label class="form-label">Emotion Type</label>
                         <select id="edit-emotion" class="glass-input" style="width:100%">
                             <option value="">None</option>
-                            <option value="joy"><i data-lucide=&quot;smile&quot;></i> Joy</option>
-                            <option value="sadness"><i data-lucide=&quot;frown&quot;></i> Sadness</option>
-                            <option value="anger"><i data-lucide=&quot;angry&quot;></i> Anger</option>
-                            <option value="fear"><i data-lucide=&quot;fear&quot;></i> Fear</option>
-                            <option value="surprise"><i data-lucide=&quot;fear&quot;></i> Surprise</option>
+                            <option value="joy"><i data-lucide="smile"></i> Joy</option>
+                            <option value="sadness"><i data-lucide="frown"></i> Sadness</option>
+                            <option value="anger"><i data-lucide="angry"></i> Anger</option>
+                            <option value="fear"><i data-lucide="fear"></i> Fear</option>
+                            <option value="surprise"><i data-lucide="fear"></i> Surprise</option>
                             <option value="disgust">&#129326; Disgust</option>
                             <option value="love">&#10084; Love</option>
-                            <option value="neutral"><i data-lucide=&quot;meh&quot;></i> Neutral</option>
+                            <option value="neutral"><i data-lucide="meh"></i> Neutral</option>
                             <option value="anticipation">&#129300; Anticipation</option>
                             <option value="trust">&#129309; Trust</option>
-                            <option value="anxiety"><i data-lucide=&quot;fear&quot;></i> Anxiety</option>
+                            <option value="anxiety"><i data-lucide="fear"></i> Anxiety</option>
                             <option value="excitement">&#127881; Excitement</option>
-                            <option value="frustration"><i data-lucide=&quot;frown&quot;></i> Frustration</option>
+                            <option value="frustration"><i data-lucide="frown"></i> Frustration</option>
                             <option value="nostalgia">&#127749; Nostalgia</option>
                             <option value="pride">&#129412; Pride</option>
-                            <option value="shame"><i data-lucide=&quot;frown&quot;></i> Shame</option>
-                            <option value="guilt"><i data-lucide=&quot;frown&quot;></i> Guilt</option>
+                            <option value="shame"><i data-lucide="frown"></i> Shame</option>
+                            <option value="guilt"><i data-lucide="frown"></i> Guilt</option>
                             <option value="loneliness">&#128148; Loneliness</option>
-                            <option value="contentment"><i data-lucide=&quot;smile&quot;></i> Contentment</option>
-                            <option value="curiosity"><i data-lucide=&quot;search-check&quot;></i> Curiosity</option>
-                            <option value="awe"><i data-lucide=&quot;frown&quot;></i> Awe</option>
-                            <option value="relief"><i data-lucide=&quot;smile-plus&quot;></i> Relief</option>
+                            <option value="contentment"><i data-lucide="smile"></i> Contentment</option>
+                            <option value="curiosity"><i data-lucide="search-check"></i> Curiosity</option>
+                            <option value="awe"><i data-lucide="frown"></i> Awe</option>
+                            <option value="relief"><i data-lucide="smile-plus"></i> Relief</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -258,7 +258,7 @@ def render_memories_tab() -> str:
                     <input type="hidden" id="edit-memory-key" value="">
                     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
                         <button class="glass-btn" onclick="closeEditModal()">Cancel</button>
-                        <button class="glass-btn glass-btn-success" onclick="saveMemory()"><i data-lucide=&quot;save&quot;></i> Save</button>
+                        <button class="glass-btn glass-btn-success" onclick="saveMemory()"><i data-lucide="save"></i> Save</button>
                     </div>
                 </div>
             </div>
@@ -396,8 +396,8 @@ def render_memories_js() -> str:
         "    html += '<div style=\"display:flex;gap:8px;flex-wrap:wrap;align-items:center\">';\n"
         '    html += \'<input id="mem-search" type="text" class="glass-input" style="flex:1;min-width:200px" placeholder="Search memories..." value="\' + esc(S.mem.q) + \'">\';\n'
         "    html += '<select id=\"mem-tag\" class=\"glass-input\">' + tagOptions + '</select>';\n"
-        '    html += \'<button id="mem-search-btn" class="glass-btn"><i data-lucide=&quot;search&quot;></i> Search</button>\';\n'
-        '    html += \'<button id="adv-search-toggle" class="glass-btn" style="font-size:0.8rem"><i data-lucide=&quot;search&quot;></i> Advanced</button>\';\n'
+        '    html += \'<button id="mem-search-btn" class="glass-btn"><i data-lucide="search"></i> Search</button>\';\n'
+        '    html += \'<button id="adv-search-toggle" class="glass-btn" style="font-size:0.8rem"><i data-lucide="search"></i> Advanced</button>\';\n'
         "    html += '</div>';\n"
         "\n"
         "    /* ── Advanced search panel ── */\n"
@@ -470,7 +470,7 @@ def render_memories_js() -> str:
         "    html += '<button id=\"mem-select-toggle\" class=\"glass-btn\" style=\"font-size:0.82rem\">' + (selMode ? '&#9745; Select ON' : '&#9744; Select') + '</button>';\n"
         "    html += '<div class=\"mem-toolbar-spacer\"></div>';\n"
         '    html += \'<select id="mem-sort" class="glass-input mem-sort-select">\';\n'
-        "    var sortOpts = [['date_desc','Newest First'],['date_asc','Oldest First'],['imp_desc','Importance <i data-lucide=&quot;arrow-down&quot;></i>'],['str_desc','Strength <i data-lucide=&quot;arrow-down&quot;></i>'],['updated_desc','Recently Updated']];\n"
+        "    var sortOpts = [['date_desc','Newest First'],['date_asc','Oldest First'],['imp_desc','Importance <i data-lucide=\"arrow-down\"></i>'],['str_desc','Strength <i data-lucide=\"arrow-down\"></i>'],['updated_desc','Recently Updated']];\n"
         "    for (var si = 0; si < sortOpts.length; si++) {\n"
         "        html += '<option value=\"' + sortOpts[si][0] + '\"' + (S.mem.sort === sortOpts[si][0] ? ' selected' : '') + '>' + sortOpts[si][1] + '</option>';\n"
         "    }\n"
@@ -486,7 +486,7 @@ def render_memories_js() -> str:
         '    html += \'<button id="batch-select-all" class="glass-btn" style="font-size:0.78rem">Select All</button>\';\n'
         '    html += \'<button id="batch-deselect" class="glass-btn" style="font-size:0.78rem">Deselect All</button>\';\n'
         "    html += '<div class=\"mem-toolbar-spacer\"></div>';\n"
-        '    html += \'<button id="batch-delete" class="glass-btn glass-btn-danger" style="font-size:0.78rem"><i data-lucide=&quot;trash-2&quot;></i> Delete Selected (<span id="batch-count">\' + S.mem.selected.size + \'</span>)</button>\';\n'
+        '    html += \'<button id="batch-delete" class="glass-btn glass-btn-danger" style="font-size:0.78rem"><i data-lucide="trash-2"></i> Delete Selected (<span id="batch-count">\' + S.mem.selected.size + \'</span>)</button>\';\n'
         "    html += '</div>';\n"
         "\n"
         "    /* ── Memory items ── */\n"
@@ -537,7 +537,7 @@ def render_memories_js() -> str:
         "            var emoColor = EMOTION_COLORS[m.emotion] || '#94a3b8';\n"
         "            var emoHtml = m.emotion ? '<span class=\\\"badge\\\" style=\\\"background:' + emoColor + '22;color:' + emoColor + ';border:1px solid ' + emoColor + '44\\\">' + esc(m.emotion) + (m.emotion_intensity != null ? '(' + m.emotion_intensity.toFixed(1) + ')' : '') + '</span>' : '';\n"
         "            var emotionBadgesHtml = renderEmotionBadges(m.emotion, m.emotion_intensity);\n"
-        "            var strHtml = m.strength != null ? '<span style=\\\"color:var(--accent-yellow)\\\"><i data-lucide=&quot;zap&quot;></i>' + m.strength.toFixed(2) + '</span>' : '';\n"
+        "            var strHtml = m.strength != null ? '<span style=\\\"color:var(--accent-yellow)\\\"><i data-lucide=\"zap\"></i>' + m.strength.toFixed(2) + '</span>' : '';\n"
         "            var timeHtml = m.created_at ? '<span>\\uD83D\\uDCC5 ' + relativeTime(m.created_at) + '</span>' : '';\n"
         "            var scoreHtml = m._score != null ? '<span class=\\\"badge badge-green\\\">Score: ' + m._score.toFixed(3) + '</span>' : '';\n"
         "            /* Compact body state for card view */\n"
@@ -570,9 +570,9 @@ def render_memories_js() -> str:
         "    /* ── Pagination ── */\n"
         "    if (!isSearch && totalPages > 0) {\n"
         "        html += '<div style=\"display:flex;justify-content:center;align-items:center;gap:12px;margin-top:16px\">';\n"
-        "        html += '<button class=\"glass-btn mem-page-btn\" data-page=\"' + (S.mem.page - 1) + '\"' + (S.mem.page <= 1 ? ' disabled style=\"opacity:0.4;pointer-events:none\"' : '') + '><i data-lucide=&quot;chevron-left&quot;></i> Prev</button>';\n"
+        "        html += '<button class=\"glass-btn mem-page-btn\" data-page=\"' + (S.mem.page - 1) + '\"' + (S.mem.page <= 1 ? ' disabled style=\"opacity:0.4;pointer-events:none\"' : '') + '><i data-lucide=\"chevron-left\"></i> Prev</button>';\n"
         "        html += '<span style=\"font-size:0.85rem;color:var(--text-muted)\">Page ' + S.mem.page + ' of ' + totalPages + ' (' + totalCount + ' total)</span>';\n"
-        "        html += '<button class=\"glass-btn mem-page-btn\" data-page=\"' + (S.mem.page + 1) + '\"' + (S.mem.page >= totalPages ? ' disabled style=\"opacity:0.4;pointer-events:none\"' : '') + '>Next <i data-lucide=&quot;chevron-right&quot;></i></button>';\n"
+        "        html += '<button class=\"glass-btn mem-page-btn\" data-page=\"' + (S.mem.page + 1) + '\"' + (S.mem.page >= totalPages ? ' disabled style=\"opacity:0.4;pointer-events:none\"' : '') + '>Next <i data-lucide=\"chevron-right\"></i></button>';\n"
         "        html += '</div>';\n"
         "    }\n"
         "    el.innerHTML = html;\n"
@@ -761,7 +761,7 @@ def render_memories_js() -> str:
         "    h += '<button class=\"copy-btn\" onclick=\"navigator.clipboard.writeText(\\'' + esc(mem.memory_key).replace(/'/g,'\\\\\\'')"
         " + '\\');toast(\\'Key copied!\\',\\'info\\')\" title=\"Copy key\">\\uD83D\\uDCCB</button>';\n"
         "    h += '</div></div>';\n"
-        '    h += \'<button class="mem-modal-close" onclick="closeMemModal()"><i data-lucide=&quot;x&quot;></i></button>\';\n'
+        '    h += \'<button class="mem-modal-close" onclick="closeMemModal()"><i data-lucide="x"></i></button>\';\n'
         "    h += '</div>';\n"
         "\n"
         "    /* Full content */\n"
@@ -820,7 +820,7 @@ def render_memories_js() -> str:
         "    /* Body State */\n"
         "    if (mem.body_state) {\n"
         "        var bodyKeys = ['fatigue','warmth','arousal','heart_rate','pain'];\n"
-        "        var bodyLabels = {fatigue:'<i data-lucide=&quot;flame&quot;></i> Fatigue',warmth:'<i data-lucide=&quot;flower&quot;></i> Warmth',arousal:'<i data-lucide=&quot;zap&quot;></i> Arousal',heart_rate:'<i data-lucide=&quot;heart-pulse&quot;></i> Heart',pain:'<i data-lucide=&quot;activity&quot;></i> Pain'};\n"
+        "        var bodyLabels = {fatigue:'<i data-lucide=\"flame\"></i> Fatigue',warmth:'<i data-lucide=\"flower\"></i> Warmth',arousal:'<i data-lucide=\"zap\"></i> Arousal',heart_rate:'<i data-lucide=\"heart-pulse\"></i> Heart',pain:'<i data-lucide=\"activity\"></i> Pain'};\n"
         "        var bodyColors = {fatigue:'linear-gradient(90deg,#f87171,#fca5a5)',warmth:'linear-gradient(90deg,#f9a8d4,#fda4af)',arousal:'linear-gradient(90deg,#a78bfa,#c4b5fd)',heart_rate:'linear-gradient(90deg,#ef4444,#fca5a5)',pain:'linear-gradient(90deg,#f59e0b,#fcd34d)'};\n"
         "        var hasBody = bodyKeys.some(function(k){ return mem.body_state[k] != null; });\n"
         "        if (hasBody) {\n"
@@ -855,7 +855,7 @@ def render_memories_js() -> str:
         "\n"
         "    /* State snapped at (if different from created) */\n"
         "    if (mem.state_snapped_at && mem.state_snapped_at !== mem.created_at) {\n"
-        '        h += \'<div class="mem-modal-row"><span class="mem-modal-key">State</span><span><i data-lucide=&quot;camera-off&quot;></i> \' + relativeTime(mem.state_snapped_at)'
+        '        h += \'<div class="mem-modal-row"><span class="mem-modal-key">State</span><span><i data-lucide="camera-off"></i> \' + relativeTime(mem.state_snapped_at)'
         " + ' <span style=\"color:var(--text-muted);font-size:0.75rem\">(' + new Date(mem.state_snapped_at).toLocaleString() + ')</span></span></div>';\n"
         "    }\n"
         "\n"
@@ -898,7 +898,7 @@ def render_memories_js() -> str:
         "        var chip = document.createElement('span');\n"
         "        chip.className = 'tag-chip-edit';\n"
         "        chip.style.cssText = '--chip-hue:' + hue;\n"
-        "        chip.innerHTML = esc(tag) + ' <span class=\"tag-chip-remove\" data-tidx=\"' + idx + '\"><i data-lucide=&quot;x&quot;></i></span>';\n"
+        "        chip.innerHTML = esc(tag) + ' <span class=\"tag-chip-remove\" data-tidx=\"' + idx + '\"><i data-lucide=\"x\"></i></span>';\n"
         "        wrap.insertBefore(chip, inp);\n"
         "    });\n"
         "    /* Bind remove buttons */\n"

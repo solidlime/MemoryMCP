@@ -280,10 +280,10 @@ _CA_HTML = """\
 
 <div id="ca-panel">
   <div id="ca-header">
-    <span class="ca-title"><i data-lucide=&quot;zap&quot;></i> Coding Agent</span>
-    <button class="ca-tab-btn ca-tab-active" data-tab="terminal"><i data-lucide=&quot;monitor&quot;></i> Terminal</button>
-    <button class="ca-tab-btn" data-tab="files"><i data-lucide=&quot;folder&quot;></i> Files</button>
-    <button id="ca-close-btn" title="Close"><i data-lucide=&quot;x&quot;></i></button>
+    <span class="ca-title"><i data-lucide="zap"></i> Coding Agent</span>
+    <button class="ca-tab-btn ca-tab-active" data-tab="terminal"><i data-lucide="monitor"></i> Terminal</button>
+    <button class="ca-tab-btn" data-tab="files"><i data-lucide="folder"></i> Files</button>
+    <button id="ca-close-btn" title="Close"><i data-lucide="x"></i></button>
   </div>
 
   <div id="ca-body">
@@ -305,8 +305,8 @@ _CA_HTML = """\
     <!-- Files Tab -->
     <div id="ca-tab-files" class="ca-tab-pane">
       <div class="ca-files-toolbar">
-        <span><i data-lucide=&quot;folder-open&quot;></i> Workspace files</span>
-        <button class="ca-icon-btn" id="ca-files-refresh"><i data-lucide=&quot;refresh-cw&quot;></i> Reload</button>
+        <span><i data-lucide="folder-open"></i> Workspace files</span>
+        <button class="ca-icon-btn" id="ca-files-refresh"><i data-lucide="refresh-cw"></i> Reload</button>
       </div>
       <div id="ca-file-list"><div class="ca-empty">Loading...</div></div>
       <div class="ca-drop-zone" id="ca-drop-zone">
@@ -512,7 +512,7 @@ _CA_HTML = """\
         item.innerHTML =
           '<span class="ca-file-name" title="' + name + '">' + name + '</span>' +
           '<span class="ca-file-size">' + _fmtSize(size) + '</span>' +
-          '<button class="ca-del-btn" data-name="' + name + '" title="Delete"><i data-lucide=&quot;trash-2&quot;></i></button>';
+          '<button class="ca-del-btn" data-name="' + name + '" title="Delete"><i data-lucide="trash-2"></i></button>';
         item.querySelector('.ca-file-name').addEventListener('click', function() {
           _downloadFile(name);
         });

@@ -217,7 +217,7 @@ async function loadOverview() {
                 blocksHtml += '<span style="font-weight:600;color:var(--accent-purple);font-size:0.85rem">' + esc(name) + '</span>';
                 if (priority != null) blocksHtml += '<span class="badge badge-yellow">P' + esc(String(priority)) + '</span>';
                 blocksHtml += '<div style="display:flex;gap:6px;margin-left:auto">';
-                blocksHtml += '<button class="glass-btn" data-bname="' + esc(name) + '" data-bcontent="' + esc(content) + '" data-bpriority="' + (priority || 0) + '" onclick="var el=this;showEditBlock(el.dataset.bname,el.dataset.bcontent,parseInt(el.dataset.bpriority||0))" style="padding:3px 10px;font-size:0.75rem"><i data-lucide=&quot;pencil&quot;></i> Edit</button>';
+                blocksHtml += '<button class="glass-btn" data-bname="' + esc(name) + '" data-bcontent="' + esc(content) + '" data-bpriority="' + (priority || 0) + '" onclick="var el=this;showEditBlock(el.dataset.bname,el.dataset.bcontent,parseInt(el.dataset.bpriority||0))" style="padding:3px 10px;font-size:0.75rem"><i data-lucide="pencil"></i> Edit</button>';
                 blocksHtml += '<button class="glass-btn" data-bname="' + esc(name) + '" onclick="deleteBlock(this.dataset.bname)" style="padding:3px 10px;font-size:0.75rem;color:var(--accent-red)"><i data-lucide="trash-2"></i> Delete</button>';
                 blocksHtml += '</div>';
                 blocksHtml += '</div>';

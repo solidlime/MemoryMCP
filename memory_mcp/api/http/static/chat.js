@@ -185,9 +185,9 @@ function applyChatConfig(cfg) {
     const statusEl = document.getElementById('chat-config-status');
     if (statusEl) {
         if (cfg.is_configured) {
-            statusEl.innerHTML = '<span style="color:var(--accent-green)"><i data-lucide=&quot;check&quot;></i> APIキー設定済み</span>';
+            statusEl.innerHTML = '<span style="color:var(--accent-green)"><i data-lucide="check"></i> APIキー設定済み</span>';
         } else {
-            statusEl.innerHTML = '<span style="color:var(--accent-yellow)"><i data-lucide=&quot;alert-triangle&quot;></i> APIキー未設定</span>';
+            statusEl.innerHTML = '<span style="color:var(--accent-yellow)"><i data-lucide="alert-triangle"></i> APIキー未設定</span>';
         }
     }
 }
@@ -471,14 +471,14 @@ function updateMemoryPanel(retrieved, saved, goals, promises) {
 
 function showReflectionStart() {
     const header = document.getElementById('reflection-header');
-    if (header) { header.innerHTML = '<i data-lucide=&quot;sparkles&quot;></i> リフレクション (実行中...)'; if (typeof lucide !== 'undefined') lucide.createIcons(); }
+    if (header) { header.innerHTML = '<i data-lucide="sparkles"></i> リフレクション (実行中...)'; if (typeof lucide !== 'undefined') lucide.createIcons(); }
     const list = document.getElementById('memory-reflection-list');
     if (list) list.innerHTML = '<div class="memory-empty" style="color:var(--accent-purple);">分析中...</div>';
 }
 
 function updateReflectionPanel(insights) {
     const header = document.getElementById('reflection-header');
-    if (header) { header.innerHTML = '<i data-lucide=&quot;sparkles&quot;></i> リフレクション'; if (typeof lucide !== 'undefined') lucide.createIcons(); }
+    if (header) { header.innerHTML = '<i data-lucide="sparkles"></i> リフレクション'; if (typeof lucide !== 'undefined') lucide.createIcons(); }
     const list = document.getElementById('memory-reflection-list');
     if (!list) return;
     if (!insights || insights.length === 0) {
@@ -814,7 +814,7 @@ function toggleVoiceInput() {
     if (_voiceRecognition) {
         _voiceRecognition.stop();
         _voiceRecognition = null;
-        if (btn) { btn.innerHTML = '<i data-lucide=&quot;mic&quot;></i>'; btn.style.color = ''; }
+        if (btn) { btn.innerHTML = '<i data-lucide="mic"></i>'; btn.style.color = ''; }
         return;
     }
     _voiceRecognition = new SpeechRecognition();
@@ -830,15 +830,15 @@ function toggleVoiceInput() {
             inputEl.dispatchEvent(new Event('input'));
         }
         _voiceRecognition = null;
-        if (btn) { btn.innerHTML = '<i data-lucide=&quot;mic&quot;></i>'; btn.style.color = ''; }
+        if (btn) { btn.innerHTML = '<i data-lucide="mic"></i>'; btn.style.color = ''; }
     };
     _voiceRecognition.onerror = () => {
         toast('音声認識エラー', 'error');
         _voiceRecognition = null;
-        if (btn) { btn.innerHTML = '<i data-lucide=&quot;mic&quot;></i>'; btn.style.color = ''; }
+        if (btn) { btn.innerHTML = '<i data-lucide="mic"></i>'; btn.style.color = ''; }
     };
     _voiceRecognition.onend = () => {
-        if (btn) { btn.innerHTML = '<i data-lucide=&quot;mic&quot;></i>'; btn.style.color = ''; }
+        if (btn) { btn.innerHTML = '<i data-lucide="mic"></i>'; btn.style.color = ''; }
     };
     _voiceRecognition.start();
 }
@@ -871,7 +871,7 @@ function appendToolEvent(eventType, data) {
         const callDiv = data.id ? container.querySelector('[data-tool-id="' + CSS.escape(data.id) + '"]') : null;
         if (callDiv) {
             const statusEl = callDiv.querySelector('.chat-tool-status');
-            if (statusEl) statusEl.innerHTML = ' <i data-lucide=&quot;check&quot;></i> 完了';
+            if (statusEl) statusEl.innerHTML = ' <i data-lucide="check"></i> 完了';
             const details = callDiv.querySelector('details');
             if (details) {
                 const resultPre = document.createElement('pre');
@@ -884,7 +884,7 @@ function appendToolEvent(eventType, data) {
             const div = document.createElement('div');
             div.className = 'chat-tool-result';
             div.innerHTML =
-                '<details><summary><i data-lucide=&quot;check&quot;></i> <strong>' + esc(data.name) + '</strong></summary>' +
+                '<details><summary><i data-lucide="check"></i> <strong>' + esc(data.name) + '</strong></summary>' +
                 '<pre class="chat-tool-detail chat-tool-result-content">' + esc(resultStr) + '</pre></details>';
             container.appendChild(div);
             container.scrollTop = container.scrollHeight;
@@ -1138,13 +1138,13 @@ async function handleSlashCommand(toolName, toolInput) {
         });
         removeTypingIndicator();
         const resultMsg = resp.status === 'ok'
-            ? '<i data-lucide=&quot;check&quot;></i> ' + (resp.key ? '作成: ' + resp.key : resp.updated ? '更新: ' + resp.updated : '実行完了')
-            : '<i data-lucide=&quot;x&quot;></i> ' + (resp.message || resp.error || 'エラー');
+            ? '<i data-lucide="check"></i> ' + (resp.key ? '作成: ' + resp.key : resp.updated ? '更新: ' + resp.updated : '実行完了')
+            : '<i data-lucide="x"></i> ' + (resp.message || resp.error || 'エラー');
         appendChatMessage('assistant', resultMsg, new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }));
         if (resp.status === 'ok') toast(resultMsg, 'success');
     } catch (ex) {
         removeTypingIndicator();
-        appendChatMessage('assistant', '<i data-lucide=&quot;x&quot;></i> コマンド実行失敗: ' + ex.message,
+        appendChatMessage('assistant', '<i data-lucide="x"></i> コマンド実行失敗: ' + ex.message,
             new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }));
         toast('コマンド失敗: ' + ex.message, 'error');
     }
@@ -1220,7 +1220,7 @@ async function chatSend(retry) {
     if (attArea) attArea.innerHTML = '';
 
     // Show user message with filename display
-    const displayMsg = rawInput || (attNames.length > 0 ? '<i data-lucide=&quot;paperclip&quot;></i> ' + attNames.join(', ') : '');
+    const displayMsg = rawInput || (attNames.length > 0 ? '<i data-lucide="paperclip"></i> ' + attNames.join(', ') : '');
     const timeStr = new Date().toLocaleTimeString('ja-JP', {hour:'2-digit',minute:'2-digit'});
     appendChatMessage('user', displayMsg, timeStr);
     showTypingIndicator();
@@ -1507,11 +1507,11 @@ function handleMemoryToolCall(evt) {
     if (empty) empty.remove();
     const op = evt.input?.operation || '';
     const icons = {
-        memory_create:'<i data-lucide="save"></i>', memory_read:'<i data-lucide=&quot;book-open&quot;></i>', memory_update:'<i data-lucide="pencil"></i>', memory_delete:'<i data-lucide="trash-2"></i>',
+        memory_create:'<i data-lucide="save"></i>', memory_read:'<i data-lucide="book-open"></i>', memory_update:'<i data-lucide="pencil"></i>', memory_delete:'<i data-lucide="trash-2"></i>',
         memory_search:'<i data-lucide="search"></i>', memory_stats:'<i data-lucide="layout-dashboard"></i>',
         get_context:'<i data-lucide="layout-dashboard"></i>', update_context:'<i data-lucide="refresh-cw"></i>',
-        item_add:'<i data-lucide="plus"></i>', item_remove:'<i data-lucide=&quot;minus&quot;></i>', item_equip:'<i data-lucide=&quot;shirt&quot;></i>', item_unequip:'<i data-lucide=&quot;wave&quot;></i>',
-        item_update:'<i data-lucide="pencil"></i>', item_search:'<i data-lucide="search"></i>', item_history:'<i data-lucide=&quot;scroll&quot;></i>',
+        item_add:'<i data-lucide="plus"></i>', item_remove:'<i data-lucide="minus"></i>', item_equip:'<i data-lucide="shirt"></i>', item_unequip:'<i data-lucide="wave"></i>',
+        item_update:'<i data-lucide="pencil"></i>', item_search:'<i data-lucide="search"></i>', item_history:'<i data-lucide="scroll"></i>',
         sandbox:'<i data-lucide="microscope"></i>', sandbox_files:'<i data-lucide="folder"></i>',
         goal_manage:'<i data-lucide="target"></i>', promise_manage:'<i data-lucide="handshake"></i>',
         invoke_skill:'<i data-lucide="target"></i>',
@@ -1577,9 +1577,9 @@ function handleMemoryToolResult(evt) {
 }
 
 function handleFileToolCall(evt) {
-    const icons = { edit:'<i data-lucide="pencil"></i>', create:'<i data-lucide="edit-3"></i>', view:'<i data-lucide=&quot;eye&quot;></i>', bash:'<i data-lucide="settings"></i>', powershell:'<i data-lucide="settings"></i>',
+    const icons = { edit:'<i data-lucide="pencil"></i>', create:'<i data-lucide="edit-3"></i>', view:'<i data-lucide="eye"></i>', bash:'<i data-lucide="settings"></i>', powershell:'<i data-lucide="settings"></i>',
         str_replace_editor:'<i data-lucide="pencil"></i>', delete_file:'<i data-lucide="trash-2"></i>', list_files:'<i data-lucide="folder-open"></i>',
-        write_file:'<i data-lucide="edit-3"></i>', read_file:'<i data-lucide=&quot;eye&quot;></i>', glob:'<i data-lucide="search"></i>', grep:'<i data-lucide="search"></i>' };
+        write_file:'<i data-lucide="edit-3"></i>', read_file:'<i data-lucide="eye"></i>', glob:'<i data-lucide="search"></i>', grep:'<i data-lucide="search"></i>' };
     const icon = icons[evt.name] || '<i data-lucide="wrench"></i>';
     const detail = evt.input?.path || evt.input?.file_path || evt.input?.command ||
         evt.input?.pattern || evt.input?.glob || '';

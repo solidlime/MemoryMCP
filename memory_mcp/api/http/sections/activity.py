@@ -172,12 +172,12 @@ const ACT = {
 };
 
 const ACT_ICONS = {
-    'tool.called':        '<i data-lucide=&quot;wrench&quot;></i>',
-    'chat.message':       '<i data-lucide=&quot;message-square&quot;></i>',
-    'chat.llm_response':  '<i data-lucide=&quot;bot&quot;></i>',
-    'session.started':    '<i data-lucide=&quot;play&quot;></i>',
-    'session.compact':    '<i data-lucide=&quot;shrink&quot;></i>',
-    'events.ingested':    '<i data-lucide=&quot;upload&quot;></i>',
+    'tool.called':        '<i data-lucide="wrench"></i>',
+    'chat.message':       '<i data-lucide="message-square"></i>',
+    'chat.llm_response':  '<i data-lucide="bot"></i>',
+    'session.started':    '<i data-lucide="play"></i>',
+    'session.compact':    '<i data-lucide="shrink"></i>',
+    'events.ingested':    '<i data-lucide="upload"></i>',
 };
 
 const ACT_LABELS = {
@@ -190,10 +190,10 @@ const ACT_LABELS = {
 };
 
 const ACT_PLATFORM_ICONS = {
-    'webui':    '<i data-lucide=&quot;globe&quot;></i>',
-    'opencode': '<i data-lucide=&quot;terminal&quot;></i>',
-    'mcp':      '<i data-lucide=&quot;plug&quot;></i>',
-    'plugin':   '<i data-lucide=&quot;puzzle&quot;></i>',
+    'webui':    '<i data-lucide="globe"></i>',
+    'opencode': '<i data-lucide="terminal"></i>',
+    'mcp':      '<i data-lucide="plug"></i>',
+    'plugin':   '<i data-lucide="puzzle"></i>',
 };
 
 async function loadActivity(reset = false) {
@@ -224,7 +224,7 @@ async function loadActivity(reset = false) {
 
         if (events.length === 0 && ACT.offset === 0) {
             feed.innerHTML =
-                '<div class="act-empty"><i data-lucide=&quot;inbox&quot;></i><p>No activity yet. Events will appear here as you use MemoryMCP.</p></div>';
+                '<div class="act-empty"><i data-lucide="inbox"></i><p>No activity yet. Events will appear here as you use MemoryMCP.</p></div>';
             if (typeof lucide !== 'undefined') lucide.createIcons();
             return;
         }
@@ -264,7 +264,7 @@ async function loadActivity(reset = false) {
         if (typeof lucide !== 'undefined') lucide.createIcons();
     } catch (e) {
         feed.innerHTML =
-            '<div class="act-empty"><i data-lucide=&quot;alert-triangle&quot;></i><p>Failed to load: ' + esc(e.message) + '</p></div>';
+            '<div class="act-empty"><i data-lucide="alert-triangle"></i><p>Failed to load: ' + esc(e.message) + '</p></div>';
     }
 }
 
@@ -312,7 +312,7 @@ function renderActivityFeed() {
                 : a.timestamp.localeCompare(b.timestamp);
         });
         for (const ev of sorted) {
-            const icon = ACT_ICONS[ev.event_type] || '<i data-lucide=&quot;circle&quot;></i>';
+            const icon = ACT_ICONS[ev.event_type] || '<i data-lucide="circle"></i>';
             const label = ACT_LABELS[ev.event_type] || ev.event_type;
             const hasDetail = ev.detail && ev.detail.length > 0;
             html += '<div class="act-event type-' + esc(ev.event_type) + '"';
@@ -351,7 +351,7 @@ function toggleActivitySession(sid) {
                 : a.timestamp.localeCompare(b.timestamp));
             let h = '';
             for (const ev of sorted) {
-                const icon = ACT_ICONS[ev.event_type] || '<i data-lucide=&quot;circle&quot;></i>';
+                const icon = ACT_ICONS[ev.event_type] || '<i data-lucide="circle"></i>';
                 const label = ACT_LABELS[ev.event_type] || ev.event_type;
                 const hasDetail = ev.detail && ev.detail.length > 0;
                 h += '<div class="act-event type-' + esc(ev.event_type) + '"';
