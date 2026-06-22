@@ -308,7 +308,10 @@ def _build_container_configs(persona: str) -> tuple[dict, Path | None]:
 
     container_configs = {
         "name": f"sandbox-{persona}",  # predictable name for cleanup
-        "user": "1000:1000",  # match host user for WSL2 bind mount permissions
+        # Run as root inside the sandbox — WSL2 bind mounts do not reliably
+        # support chown, causing EACCES when UID 1000 tries to read root-owned
+        # temp files created by llm_sandbox (0o600). Security is still enforced
+        # via cap_drop ALL + no-new-privileges below.
         "volumes": {
             str(sandbox_mount): {"bind": WORKSPACE, "mode": "rw"},
         },
