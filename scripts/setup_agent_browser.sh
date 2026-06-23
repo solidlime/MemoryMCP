@@ -56,7 +56,18 @@ echo "[agent-browser] Chrome dependencies installed."
 # starving the MCP server during first-time setup (~200MB download).
 AGENT_LOG="$DATA_ROOT/agent-browser-install.log"
 echo "[agent-browser] Chrome install starting in background (log: $AGENT_LOG)..."
-nice -n 19 ionice -c 3 "$AGENT_BROWSER" install > "$AGENT_LOG" 2>&1 &
+(
+    nice -n 19 ionice -c 3 "$AGENT_BROWSER" install
+    # Clean up old Chrome versions (keep only the latest)
+    CHROME_DIR="$AGENT_HOME/browsers"
+    if [ -d "$CHROME_DIR" ]; then
+        OLD=$(ls -1dt "$CHROME_DIR"/chrome-* 2>/dev/null | tail -n +2)
+        if [ -n "$OLD" ]; then
+            echo "[agent-browser] Removing old Chrome: $OLD" >> "$AGENT_LOG"
+            rm -rf $OLD
+        fi
+    fi
+) >> "$AGENT_LOG" 2>&1 &
 # Record PID so server can poll readiness if needed
 echo $! > /tmp/agent-browser-install.pid
 
