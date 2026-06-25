@@ -51,3 +51,4 @@ tmp-screenshots/
 
 # Node modules (plugins)
 node_modules/
+.opencode/

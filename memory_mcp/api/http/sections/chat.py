@@ -65,14 +65,6 @@ def render_chat_tab() -> str:
                         </div>
                     </div>
 
-                    <!-- Memory operation log -->
-                    <div class="memory-panel-section">
-                        <div class="memory-section-header"><i data-lucide="wrench"></i> 操作ログ</div>
-                        <div id="memory-tool-ops-list">
-                            <div class="memory-empty">LLMの記憶操作がここに表示されます</div>
-                        </div>
-                    </div>
-
                     <!-- Equipment -->
                     <div class="memory-panel-section">
                         <div class="memory-section-header"><i data-lucide="backpack"></i> 装備</div>

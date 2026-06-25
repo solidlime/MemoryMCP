@@ -490,12 +490,11 @@ def test_chat_tab_renders_all_toggle_panels():
 
 
 def test_chat_tab_renders_memory_panel_support_sections():
-    """The memory sidebar should expose recent memories, equipment, and tool operations."""
+    """The memory sidebar should expose recent memories and equipment."""
     html = render_chat_tab()
 
     assert 'id="memory-saved-list"' in html
     assert 'id="memory-equipment-list"' in html
-    assert 'id="memory-tool-ops-list"' in html
 
 
 def test_chat_js_has_single_panel_toggle_definitions():

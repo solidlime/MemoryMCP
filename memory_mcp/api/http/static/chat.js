@@ -1293,26 +1293,18 @@ async function chatSend(retry) {
                     document.getElementById('chat-messages').scrollTop = document.getElementById('chat-messages').scrollHeight;
 
                 } else if (evt.type === 'tool_call') {
-                    if (MEMORY_TOOL_NAMES.has(evt.name)) {
-                        handleMemoryToolCall(evt);
+                    const sbEnabled = document.getElementById('chat-sandbox-enabled')?.checked;
+                    if (FILE_OP_TOOLS.has(evt.name) && sbEnabled) {
+                        handleFileToolCall(evt);
                     } else {
-                        const sbEnabled = document.getElementById('chat-sandbox-enabled')?.checked;
-                        if (FILE_OP_TOOLS.has(evt.name) && sbEnabled) {
-                            handleFileToolCall(evt);
-                        } else {
-                            appendToolEvent('tool_call', evt);
-                        }
+                        appendToolEvent('tool_call', evt);
                     }
                     statusEl.innerHTML = '<i data-lucide="wrench"></i> ' + esc(evt.name) + ' を実行中...';
 
                 } else if (evt.type === 'tool_result') {
-                    if (MEMORY_TOOL_NAMES.has(evt.name)) {
-                        handleMemoryToolResult(evt);
-                    } else {
-                        const sbEnabled = document.getElementById('chat-sandbox-enabled')?.checked;
-                        if (!FILE_OP_TOOLS.has(evt.name) || !sbEnabled) {
-                            appendToolEvent('tool_result', evt);
-                        }
+                    const sbEnabled = document.getElementById('chat-sandbox-enabled')?.checked;
+                    if (!FILE_OP_TOOLS.has(evt.name) || !sbEnabled) {
+                        appendToolEvent('tool_result', evt);
                     }
                     statusEl.textContent = '応答中...';
 
@@ -1447,21 +1439,6 @@ window.__chatPersonaWatcher = setInterval(() => {
     }
 }, 500);
 
-/* ── Memory tool filtering ── */
-const MEMORY_TOOL_NAMES = new Set([
-    // MCP tools
-    'memory_create', 'memory_read', 'memory_update', 'memory_delete',
-    'memory_search', 'memory_stats',
-    'get_context', 'update_context',
-    'item_add', 'item_remove', 'item_equip', 'item_unequip',
-    'item_update', 'item_search', 'item_history',
-    'sandbox', 'sandbox_files',
-    'goal_manage', 'promise_manage',
-    'invoke_skill',
-    // Builtin tools
-    'context_update', 'context_recall',
-    'execute_code',
-]);
 const FILE_OP_TOOLS = new Set(['edit', 'create', 'view', 'bash', 'powershell', 'str_replace_editor',
     'write_file', 'read_file', 'delete_file', 'list_files', 'glob', 'grep']);
 
@@ -1494,85 +1471,6 @@ function updateEquipmentPanel(update) {
 
     if (html) {
         list.innerHTML = html;
-    }
-}
-
-// Track in-flight memory ops for result pairing
-const _memOps = {};
-
-function handleMemoryToolCall(evt) {
-    const el = document.getElementById('memory-tool-ops-list');
-    if (!el) return;
-    const empty = el.querySelector('.memory-empty');
-    if (empty) empty.remove();
-    const op = evt.input?.operation || '';
-    const icons = {
-        memory_create:'<i data-lucide="save"></i>', memory_read:'<i data-lucide="book-open"></i>', memory_update:'<i data-lucide="pencil"></i>', memory_delete:'<i data-lucide="trash-2"></i>',
-        memory_search:'<i data-lucide="search"></i>', memory_stats:'<i data-lucide="layout-dashboard"></i>',
-        get_context:'<i data-lucide="layout-dashboard"></i>', update_context:'<i data-lucide="refresh-cw"></i>',
-        item_add:'<i data-lucide="plus"></i>', item_remove:'<i data-lucide="minus"></i>', item_equip:'<i data-lucide="shirt"></i>', item_unequip:'<i data-lucide="wave"></i>',
-        item_update:'<i data-lucide="pencil"></i>', item_search:'<i data-lucide="search"></i>', item_history:'<i data-lucide="scroll"></i>',
-        sandbox:'<i data-lucide="microscope"></i>', sandbox_files:'<i data-lucide="folder"></i>',
-        goal_manage:'<i data-lucide="target"></i>', promise_manage:'<i data-lucide="handshake"></i>',
-        invoke_skill:'<i data-lucide="target"></i>',
-        context_update:'<i data-lucide="refresh-cw"></i>', context_recall:'<i data-lucide="clipboard-list"></i>',
-        execute_code:'▶',
-    };
-    const icon = icons[evt.name] || '<i data-lucide="wrench"></i>';
-    const label = evt.name + (op ? '.' + op : '');
-    const id = 'mop-' + (evt.id || (evt.name + Date.now()));
-    const card = document.createElement('div');
-    card.className = 'memory-item-card';
-    card.id = id;
-    card.innerHTML = '<div class="mem-score" style="cursor:pointer;" title="クリックで結果表示">' + esc(icon + ' ' + label) + '</div>' +
-        '<span style="opacity:0.5;font-size:0.7rem">実行中...</span>';
-    el.prepend(card);
-    const cards = el.querySelectorAll('.memory-item-card');
-    if (cards.length > 8) cards[cards.length - 1].remove();
-    _memOps[evt.id || label] = id;
-}
-
-function handleMemoryToolResult(evt) {
-    const key = evt.id || (evt.name + (evt.input?.operation || ''));
-    const cardId = _memOps[key];
-    if (cardId) {
-        const card = document.getElementById(cardId);
-        if (card) {
-            const span = card.querySelector('span');
-            if (span) span.remove();
-            const resultStr = typeof evt.result === 'string' ? evt.result : JSON.stringify(evt.result);
-            const truncated = resultStr.substring(0, 100);
-            const isTruncated = resultStr.length > 100;
-            const detail = document.createElement('div');
-            detail.style.cssText = 'font-size:0.7rem;opacity:0.75;margin-top:2px;';
-            detail.textContent = truncated + (isTruncated ? '...' : '');
-            if (isTruncated) {
-                detail.style.cursor = 'pointer';
-                detail.title = 'クリックで全文表示';
-                detail.setAttribute('data-full', resultStr);
-                detail.setAttribute('data-truncated', 'true');
-                detail.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    const isTrunc = this.getAttribute('data-truncated') === 'true';
-                    if (isTrunc) {
-                        this.textContent = this.getAttribute('data-full');
-                        this.setAttribute('data-truncated', 'false');
-                        this.style.maxHeight = '200px';
-                        this.style.overflowY = 'auto';
-                        this.title = 'クリックで折りたたみ';
-                    } else {
-                        const full = this.getAttribute('data-full');
-                        this.textContent = full.substring(0, 100) + '...';
-                        this.setAttribute('data-truncated', 'true');
-                        this.style.maxHeight = '';
-                        this.style.overflowY = '';
-                        this.title = 'クリックで全文表示';
-                    }
-                });
-            }
-            card.appendChild(detail);
-        }
-        delete _memOps[key];
     }
 }
 
