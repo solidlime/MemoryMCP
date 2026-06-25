@@ -442,6 +442,196 @@ async def _handle_mcp_dispatch(tool_name: str, ctx: AppContext, config: ChatConf
     return {"status": "error", "message": result.get("error", "unknown")}
 
 
+# ── Image generation ──
+
+
+async def _handle_image_generate(ctx: AppContext, config: ChatConfig, tool_input: dict) -> dict:
+    """DALL-E 3またはStable Diffusionで画像を生成する"""
+    if not getattr(config, "image_gen_enabled", False):
+        return {"status": "error", "message": "画像生成が無効です。チャット設定で有効化してください。"}
+
+    prompt = str(tool_input.get("prompt", "")).strip()
+    if not prompt:
+        return {"status": "error", "message": "プロンプトが指定されていません"}
+
+    size = str(tool_input.get("size", "1024x1024"))
+    quality = str(tool_input.get("quality", "standard"))
+    n = max(1, min(4, int(tool_input.get("n", 1))))
+    provider_arg = str(tool_input.get("provider", "auto"))
+
+    provider_name = getattr(config, "image_gen_provider", "openai") if provider_arg == "auto" else provider_arg
+
+    try:
+        # 開始イベントを送信
+        if hasattr(ctx, "event_bus") and ctx.event_bus is not None:
+            await ctx.event_bus.publish(
+                "sse_event",
+                {"type": "image_gen_start", "provider": provider_name, "prompt": prompt[:100], "n": n},
+            )
+
+        # プロバイダ選択
+        if provider_name == "openai":
+            from memory_mcp.infrastructure.image_gen.dalle import DalleProvider
+
+            model = getattr(config, "image_gen_dalle_model", "dall-e-3")
+            provider = DalleProvider(model=model)
+        elif provider_name == "stability":
+            from memory_mcp.infrastructure.image_gen.stability import StabilityProvider
+
+            stability_url = getattr(config, "image_gen_stability_url", "")
+            if not stability_url:
+                return {"status": "error", "message": "Stable DiffusionのURLが設定されていません"}
+            provider = StabilityProvider(api_url=stability_url)
+        else:
+            return {"status": "error", "message": f"未対応のプロバイダです: {provider_name}"}
+
+        generated = await provider.generate(prompt=prompt, size=size, quality=quality, n=n)
+
+        # 結果を構築
+        images_data = [
+            {
+                "base64": img.base64,
+                "revised_prompt": img.revised_prompt,
+                "size": img.size,
+            }
+            for img in generated
+        ]
+
+        # 結果イベントを送信
+        if hasattr(ctx, "event_bus") and ctx.event_bus is not None:
+            await ctx.event_bus.publish(
+                "sse_event",
+                {"type": "image_gen_result", "images": images_data, "provider": provider_name},
+            )
+
+        # サマリーを返す（base64が大きくなるため全文はimagesに入れる）
+        summary = f"{len(generated)}枚の画像を生成しました"
+        if generated and generated[0].revised_prompt != prompt:
+            summary += f"\n改訂プロンプト: {generated[0].revised_prompt}"
+
+        return {
+            "status": "success",
+            "message": summary,
+            "images": images_data,
+        }
+
+    except Exception as e:
+        return {"status": "error", "message": f"画像生成に失敗しました: {str(e)}"}
+
+
+# ── PDF reading ──
+
+
+async def _handle_read_pdf(ctx: AppContext, config: ChatConfig, tool_input: dict) -> dict:
+    """PDFファイルを解析してテキスト・テーブル・画像を抽出する"""
+    path = str(tool_input.get("path", "")).strip()
+    if not path:
+        return {"status": "error", "message": "PDFのパスが指定されていません"}
+
+    try:
+        import base64
+        from pathlib import Path
+
+        import fitz  # PyMuPDF
+
+        pdf_path = Path(path)
+        if not pdf_path.exists():
+            return {"status": "error", "message": f"ファイルが見つかりません: {path}"}
+        if pdf_path.suffix.lower() != ".pdf":
+            return {"status": "error", "message": "PDFファイルではありません"}
+
+        # ファイルサイズチェック (50MB上限)
+        if pdf_path.stat().st_size > 50 * 1024 * 1024:
+            return {"status": "error", "message": "PDFファイルが大きすぎます (上限: 50MB)"}
+
+        doc = fitz.open(str(pdf_path))
+        num_pages = len(doc)
+
+        # テキスト抽出 (上限100,000文字)
+        all_text_parts = []
+        total_chars = 0
+        text_limit = 100000
+
+        for page in doc:
+            text = page.get_text()
+            if total_chars + len(text) > text_limit:
+                remaining = text_limit - total_chars
+                if remaining > 0:
+                    all_text_parts.append(text[:remaining])
+                all_text_parts.append("\n\n[テキストが上限に達したため切り捨てられました]")
+                break
+            all_text_parts.append(text)
+            total_chars += len(text)
+
+        full_text = "\n".join(all_text_parts)
+
+        # テーブル抽出 (pdfplumber)
+        tables = []
+        try:
+            import pdfplumber
+
+            with pdfplumber.open(str(pdf_path)) as pdf:
+                for i, page in enumerate(pdf.pages):
+                    page_tables = page.extract_tables()
+                    for table in page_tables:
+                        if table and len(table) > 0:
+                            headers = [str(h) if h else "" for h in table[0]]
+                            rows = (
+                                [[str(c) if c else "" for c in row] for row in table[1:]]
+                                if len(table) > 1
+                                else []
+                            )
+                            tables.append(
+                                {
+                                    "page": i + 1,
+                                    "headers": headers,
+                                    "rows": rows[:50],  # 最大50行まで
+                                }
+                            )
+        except Exception:
+            pass  # pdfplumberが使えなくてもテキスト抽出は成功させる
+
+        # 埋め込み画像抽出 (最大5枚、1MB/枚上限)
+        images = []
+        for page_num in range(num_pages):
+            if len(images) >= 5:
+                break
+            page = doc[page_num]
+            image_list = page.get_images(full=True)
+            for img_info in image_list:
+                if len(images) >= 5:
+                    break
+                xref = img_info[0]
+                base_image = doc.extract_image(xref)
+                image_bytes = base_image["image"]
+                if len(image_bytes) > 1_000_000:  # 1MB上限
+                    continue
+                images.append(
+                    {
+                        "page": page_num + 1,
+                        "base64": base64.b64encode(image_bytes).decode("utf-8"),
+                        "mime_type": f"image/{base_image['ext']}",
+                    }
+                )
+
+        doc.close()
+
+        return {
+            "status": "success",
+            "filename": pdf_path.name,
+            "pages": num_pages,
+            "text": full_text,
+            "tables": tables,
+            "images": images,
+        }
+
+    except ImportError as e:
+        missing = str(e).split("'")[1] if "'" in str(e) else str(e)
+        return {"status": "error", "message": f"PDFライブラリが不足しています: {missing}。pip install PyMuPDF pdfplumber を実行してください"}
+    except Exception as e:
+        return {"status": "error", "message": f"PDFの解析に失敗しました: {str(e)}"}
+
+
 # ── Handler dispatch table (replaces if/elif chain) ──
 
 _BUILTIN_DISPATCH: dict[str, Any] = {
@@ -453,6 +643,8 @@ _BUILTIN_DISPATCH: dict[str, Any] = {
     "memory_update": _handle_memory_update_builtin,
     "browser": _handle_browser,
     "search": _handle_search,
+    "image_generate": _handle_image_generate,
+    "read_pdf": _handle_read_pdf,
 }
 
 _MCP_SHARED_TOOLS = frozenset(

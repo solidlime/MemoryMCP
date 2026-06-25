@@ -40,6 +40,7 @@ from memory_mcp.migration.versions.v022_context_compression import (
 )
 from memory_mcp.migration.versions.v024_session_events import upgrade as v024_upgrade
 from memory_mcp.migration.versions.v025_searxng_url import upgrade as v025_upgrade
+from memory_mcp.migration.versions.v026_image_gen import upgrade as v026_upgrade
 
 ALL_MIGRATIONS: list[tuple[str, str, object]] = [
     ("001", "Initial schema", v001_upgrade),
@@ -66,4 +67,5 @@ ALL_MIGRATIONS: list[tuple[str, str, object]] = [
     ("022", "Add context compression and parallel tools columns", v022_upgrade),
     ("024", "Add session_events table for context-mode style recording", v024_upgrade),
     ("025", "Add searxng_url column to chat_settings", v025_upgrade),
+    ("026", "Add image_gen columns to chat_settings", v026_upgrade),
 ]

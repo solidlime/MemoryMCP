@@ -57,6 +57,11 @@ class ChatConfig(BaseModel):
     ]
     enabled_skills: list[str] = ["browser", "search"]
     searxng_url: str = "http://nas:11111"
+    # 画像生成
+    image_gen_enabled: bool = False
+    image_gen_provider: str = "openai"  # "openai" | "stability"
+    image_gen_dalle_model: str = "dall-e-3"  # "dall-e-2" | "dall-e-3"
+    image_gen_stability_url: str = ""  # SD WebUI APIエンドポイント
     enable_memory_tools: bool = True
     # Generative Agents-style reflection
     reflection_enabled: bool = True
@@ -234,7 +239,8 @@ class ChatConfigRepository:
                 "max_stored_messages, context_max_tokens, context_compression_threshold, "
                 "context_compression_mode, context_keep_recent_turns, "
                 "context_compress_system_prompt, context_compress_history, "
-                "memory_preload_count, enable_parallel_tools, searxng_url "
+                "memory_preload_count, enable_parallel_tools, searxng_url, "
+                "image_gen_enabled, image_gen_provider, image_gen_dalle_model, image_gen_stability_url "
                 "FROM chat_settings WHERE persona = ?",
                 (persona,),
             ).fetchone()
@@ -248,12 +254,17 @@ class ChatConfigRepository:
                 "reflection_enabled, reflection_threshold, reflection_min_interval_hours, "
                 "session_summarize, "
                 "retrieval_recency_weight, retrieval_importance_weight, retrieval_relevance_weight, "
-                "display_history_turns, housekeeping_threshold, sandbox_enabled "
+                "display_history_turns, housekeeping_threshold, sandbox_enabled, "
+                "mental_model_enabled, mental_model_min_samples, "
+                "max_stored_messages, context_max_tokens, context_compression_threshold, "
+                "context_compression_mode, context_keep_recent_turns, "
+                "context_compress_system_prompt, context_compress_history, "
+                "memory_preload_count, enable_parallel_tools, searxng_url "
                 "FROM chat_settings WHERE persona = ?",
                 (persona,),
             ).fetchone()
             if row is not None:
-                row = (*row, None, None)
+                row = (*row, 0, "openai", "dall-e-3", "")
         if row is None:
             return ChatConfig(persona=persona)
         return ChatConfig(
@@ -298,15 +309,26 @@ class ChatConfigRepository:
             memory_preload_count=int(row[36]) if len(row) > 36 and row[36] is not None else 3,
             enable_parallel_tools=bool(row[37]) if len(row) > 37 and row[37] is not None else True,
             searxng_url=row[38] if len(row) > 38 and row[38] else "http://nas:11111",
+            image_gen_enabled=bool(row[39]) if len(row) > 39 and row[39] is not None else False,
+            image_gen_provider=row[40] if len(row) > 40 and row[40] else "openai",
+            image_gen_dalle_model=row[41] if len(row) > 41 and row[41] else "dall-e-3",
+            image_gen_stability_url=row[42] if len(row) > 42 and row[42] else "",
         )
 
     def save(self, config: ChatConfig) -> None:
         """Insert or replace config for persona."""
-        # Ensure searxng_url column exists (for test environments without migrations)
-        try:
-            self._db.execute("SELECT searxng_url FROM chat_settings LIMIT 0")
-        except sqlite3.OperationalError:
-            self._db.execute("ALTER TABLE chat_settings ADD COLUMN searxng_url TEXT DEFAULT 'http://nas:11111'")
+        # Ensure newer columns exist (for test environments without migrations)
+        for col, col_type, default in (
+            ("searxng_url", "TEXT", "'http://nas:11111'"),
+            ("image_gen_enabled", "BOOLEAN", "0"),
+            ("image_gen_provider", "TEXT", "'openai'"),
+            ("image_gen_dalle_model", "TEXT", "'dall-e-3'"),
+            ("image_gen_stability_url", "TEXT", "''"),
+        ):
+            try:
+                self._db.execute(f"SELECT {col} FROM chat_settings LIMIT 0")
+            except sqlite3.OperationalError:
+                self._db.execute(f"ALTER TABLE chat_settings ADD COLUMN {col} {col_type} DEFAULT {default}")
 
         now = format_iso(get_now())
         self._db.execute(
@@ -325,8 +347,10 @@ class ChatConfigRepository:
                  context_compression_mode, context_keep_recent_turns,
                   context_compress_system_prompt, context_compress_history,
                   memory_preload_count, enable_parallel_tools,
-                  searxng_url, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                  searxng_url,
+                  image_gen_enabled, image_gen_provider, image_gen_dalle_model, image_gen_stability_url,
+                  updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(persona) DO UPDATE SET
                 provider=excluded.provider,
                 model=excluded.model,
@@ -365,6 +389,10 @@ class ChatConfigRepository:
                  memory_preload_count=excluded.memory_preload_count,
                  enable_parallel_tools=excluded.enable_parallel_tools,
                  searxng_url=excluded.searxng_url,
+                 image_gen_enabled=excluded.image_gen_enabled,
+                 image_gen_provider=excluded.image_gen_provider,
+                 image_gen_dalle_model=excluded.image_gen_dalle_model,
+                 image_gen_stability_url=excluded.image_gen_stability_url,
                  updated_at=excluded.updated_at
             """,
             (
@@ -406,6 +434,10 @@ class ChatConfigRepository:
                 config.memory_preload_count,
                 int(config.enable_parallel_tools),
                 config.searxng_url,
+                int(config.image_gen_enabled),
+                config.image_gen_provider,
+                config.image_gen_dalle_model,
+                config.image_gen_stability_url,
                 now,
             ),
         )

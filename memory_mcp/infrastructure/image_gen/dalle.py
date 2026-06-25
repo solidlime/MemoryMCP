@@ -1,0 +1,56 @@
+from __future__ import annotations
+
+import base64
+
+import httpx
+
+from .base import GeneratedImage, ImageGenProvider
+
+
+class DalleProvider(ImageGenProvider):
+    def __init__(self, model: str = "dall-e-3") -> None:
+        self._model = model
+
+    @property
+    def provider_name(self) -> str:
+        return "openai"
+
+    async def generate(
+        self,
+        prompt: str,
+        size: str = "1024x1024",
+        quality: str = "standard",
+        n: int = 1,
+    ) -> list[GeneratedImage]:
+        from openai import AsyncOpenAI
+
+        client = AsyncOpenAI()  # 環境変数 OPENAI_API_KEY から自動読み取り
+
+        # DALL-E 2 は quality パラメータ非対応
+        kwargs: dict = {"model": self._model, "prompt": prompt, "size": size, "n": n}
+        if self._model not in ("dall-e-2",):
+            kwargs["quality"] = quality
+
+        response = await client.images.generate(**kwargs)
+
+        images: list[GeneratedImage] = []
+        async with httpx.AsyncClient() as http:
+            for item in response.data:
+                if item.url:
+                    # URLから画像をダウンロードしてbase64化
+                    resp = await http.get(item.url)
+                    resp.raise_for_status()
+                    img_base64 = base64.b64encode(resp.content).decode("utf-8")
+                elif item.b64_json:
+                    img_base64 = item.b64_json
+                else:
+                    continue
+
+                images.append(
+                    GeneratedImage(
+                        base64=img_base64,
+                        revised_prompt=item.revised_prompt if hasattr(item, "revised_prompt") else prompt,
+                        size=size,
+                    )
+                )
+        return images

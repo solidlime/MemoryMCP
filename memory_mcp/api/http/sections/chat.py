@@ -127,6 +127,40 @@ def render_chat_tab() -> str:
                                     <input type="text" id="chat-searxng-url" class="chat-field-input" placeholder="http://nas:11111" />
                                     <div class="chat-field-hint" style="font-size:0.7rem;color:var(--text-muted);margin-top:2px;">検索に使用するSearXNGメタサーチエンジンのURL</div>
                                 </div>
+                                <!-- 画像生成設定 -->
+                                <div class="chat-config-section">
+                                    <h4 style="font-size:0.82rem;font-weight:600;color:var(--text-secondary);margin:8px 0 4px;display:flex;align-items:center;gap:6px;"><i data-lucide="image"></i> 画像生成</h4>
+                                    <div class="chat-config-row" style="display:flex;align-items:center;gap:8px;margin:4px 0;">
+                                        <label class="chat-config-label" style="display:flex;align-items:center;gap:6px;font-size:0.8rem;color:var(--text-secondary);cursor:pointer;">
+                                            <input type="checkbox" id="chat-image-gen-enabled" class="chat-config-checkbox" style="width:15px;height:15px;accent-color:var(--accent-purple);cursor:pointer;" />
+                                            <span>画像生成を有効にする</span>
+                                        </label>
+                                    </div>
+                                    <div id="chat-image-gen-options" style="display:none;">
+                                        <div class="chat-config-row" style="margin-bottom:6px;">
+                                            <div class="chat-field-label">プロバイダ:</div>
+                                            <select id="chat-image-gen-provider" class="chat-field-input">
+                                                <option value="openai">OpenAI (DALL-E)</option>
+                                                <option value="stability">Stable Diffusion</option>
+                                            </select>
+                                        </div>
+                                        <div id="chat-image-gen-dalle-options">
+                                            <div class="chat-config-row" style="margin-bottom:6px;">
+                                                <div class="chat-field-label">DALL-E モデル:</div>
+                                                <select id="chat-image-gen-dalle-model" class="chat-field-input">
+                                                    <option value="dall-e-3">DALL-E 3</option>
+                                                    <option value="dall-e-2">DALL-E 2</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div id="chat-image-gen-stability-options" style="display:none;">
+                                            <div class="chat-config-row" style="margin-bottom:6px;">
+                                                <div class="chat-field-label">SD WebUI URL:</div>
+                                                <input type="text" id="chat-image-gen-stability-url" class="chat-field-input" placeholder="http://localhost:7860" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                                 <div id="chat-base-url-row">
                                     <div class="chat-field-label">Base URL <span style="color:var(--text-muted);font-size:0.7rem;">（任意）</span></div>
                                     <input type="text" id="chat-base-url" class="chat-field-input" placeholder="https://openrouter.ai/api/v1" />

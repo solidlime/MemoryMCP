@@ -167,3 +167,34 @@ class ContextCompressedSSE:
                 "mode": self.mode,
             },
         )
+
+
+@dataclass
+class ImageGenStartSSE:
+    """画像生成開始イベント"""
+
+    provider: str  # "openai" | "stability"
+    prompt: str  # 生成プロンプト（先頭100文字）
+    n: int  # 生成枚数
+    type: str = "image_gen_start"
+
+    def to_sse(self) -> str:
+        return _sse_encode(
+            "image_gen_start",
+            {"provider": self.provider, "prompt": self.prompt, "n": self.n},
+        )
+
+
+@dataclass
+class ImageGenResultSSE:
+    """画像生成結果イベント"""
+
+    images: list  # [{base64: str, revised_prompt: str, size: str}]
+    provider: str  # "openai" | "stability"
+    type: str = "image_gen_result"
+
+    def to_sse(self) -> str:
+        return _sse_encode(
+            "image_gen_result",
+            {"images": self.images, "provider": self.provider},
+        )

@@ -190,6 +190,35 @@ function applyChatConfig(cfg) {
             statusEl.innerHTML = '<span style="color:var(--accent-yellow)"><i data-lucide="alert-triangle"></i> APIキー未設定</span>';
         }
     }
+
+    // 画像生成設定
+    const igEnabled = document.getElementById('chat-image-gen-enabled');
+    const igProvider = document.getElementById('chat-image-gen-provider');
+    const igDalleModel = document.getElementById('chat-image-gen-dalle-model');
+    const igStabilityUrl = document.getElementById('chat-image-gen-stability-url');
+    const igOptions = document.getElementById('chat-image-gen-options');
+    const igDalleOptions = document.getElementById('chat-image-gen-dalle-options');
+    const igStabilityOptions = document.getElementById('chat-image-gen-stability-options');
+
+    if (igEnabled) igEnabled.checked = cfg.image_gen_enabled || false;
+    if (igProvider) igProvider.value = cfg.image_gen_provider || 'openai';
+    if (igDalleModel) igDalleModel.value = cfg.image_gen_dalle_model || 'dall-e-3';
+    if (igStabilityUrl) igStabilityUrl.value = cfg.image_gen_stability_url || '';
+
+    // 表示切替
+    function updateImageGenUI() {
+        if (!igOptions) return;
+        const enabled = igEnabled && igEnabled.checked;
+        igOptions.style.display = enabled ? '' : 'none';
+        if (igProvider && igDalleOptions && igStabilityOptions) {
+            const prov = igProvider.value;
+            igDalleOptions.style.display = prov === 'openai' ? '' : 'none';
+            igStabilityOptions.style.display = prov === 'stability' ? '' : 'none';
+        }
+    }
+    if (igEnabled) igEnabled.addEventListener('change', updateImageGenUI);
+    if (igProvider) igProvider.addEventListener('change', updateImageGenUI);
+    updateImageGenUI();
 }
 
 function onChatProviderChange() {
@@ -247,6 +276,11 @@ async function saveChatConfig() {
         mental_model_enabled: getChecked('chat-mental-model-enabled'),
         mental_model_min_samples: parseInt(document.getElementById('chat-mental-model-min-samples')?.value || '3'),
         debug_mode: getChecked('chat-debug-mode'),
+        // 画像生成設定
+        image_gen_enabled: document.getElementById('chat-image-gen-enabled') ? document.getElementById('chat-image-gen-enabled').checked : false,
+        image_gen_provider: document.getElementById('chat-image-gen-provider') ? document.getElementById('chat-image-gen-provider').value : 'openai',
+        image_gen_dalle_model: document.getElementById('chat-image-gen-dalle-model') ? document.getElementById('chat-image-gen-dalle-model').value : 'dall-e-3',
+        image_gen_stability_url: document.getElementById('chat-image-gen-stability-url') ? document.getElementById('chat-image-gen-stability-url').value.trim() : '',
     };
     try {
         const cfg = await api('/api/chat/' + encodeURIComponent(S.persona) + '/config', {
@@ -1327,6 +1361,12 @@ async function chatSend(retry) {
                 } else if (evt.type === 'context_compressed') {
                     showContextCompressed(evt);
 
+                } else if (evt.type === 'image_gen_start') {
+                    showImageGenSpinner(evt);
+
+                } else if (evt.type === 'image_gen_result') {
+                    showImageGenResult(evt);
+
                 } else if (evt.type === 'error') {
                     removeTypingIndicator();
                     toast('エラー: ' + evt.message, 'error');
@@ -1573,6 +1613,91 @@ async function sandboxRunBlock(code, language, resultEl, runBtn) {
         runBtn.disabled = false;
         runBtn.textContent = '▶ Run';
     }
+}
+
+/* ── Image Generation ── */
+let _imageGenSpinnerId = null;
+
+function showImageGenSpinner(evt) {
+    const container = findChatLogContainer();
+    if (!container) return;
+
+    const spinner = document.createElement('div');
+    spinner.className = 'chat-image-gen-spinner';
+    spinner.innerHTML = '<div class="spinner"></div> ';
+    spinner.innerHTML += '画像を生成中... (' + esc(evt.provider) + ', ' + evt.n + '枚)';
+
+    _imageGenSpinnerId = 'image-gen-spinner-' + Date.now();
+    spinner.id = _imageGenSpinnerId;
+    container.appendChild(spinner);
+
+    scrollToBottom(container);
+}
+
+function showImageGenResult(evt) {
+    const container = findChatLogContainer();
+    if (!container) return;
+
+    // スピナーを削除
+    if (_imageGenSpinnerId) {
+        const spinner = document.getElementById(_imageGenSpinnerId);
+        if (spinner) spinner.remove();
+        _imageGenSpinnerId = null;
+    }
+
+    if (!evt.images || !evt.images.length) return;
+
+    evt.images.forEach(function(img) {
+        const card = document.createElement('div');
+        card.className = 'chat-image-gen-card';
+
+        const imgEl = document.createElement('img');
+        imgEl.src = 'data:image/png;base64,' + img.base64;
+        imgEl.alt = img.revised_prompt || '生成画像';
+        imgEl.title = img.revised_prompt || '';
+        imgEl.onclick = function() {
+            if (typeof openMediaViewer === 'function') {
+                openMediaViewer(imgEl.src, 'image');
+            } else {
+                window.open(imgEl.src, '_blank');
+            }
+        };
+
+        const meta = document.createElement('div');
+        meta.className = 'image-gen-meta';
+
+        // 改訂プロンプトがあれば表示（先頭80文字）
+        const rp = img.revised_prompt || '';
+        if (rp) {
+            const promptSpan = document.createElement('span');
+            promptSpan.textContent = rp.length > 80 ? rp.substring(0, 80) + '...' : rp;
+            promptSpan.style.fontStyle = 'italic';
+            meta.appendChild(promptSpan);
+        }
+
+        const sizeSpan = document.createElement('span');
+        sizeSpan.textContent = evt.provider + ' · ' + (img.size || '');
+        meta.appendChild(sizeSpan);
+
+        card.appendChild(imgEl);
+        card.appendChild(meta);
+        container.appendChild(card);
+    });
+
+    scrollToBottom(container);
+}
+
+function findChatLogContainer() {
+    const chatLog = document.getElementById('chat-messages');
+    if (chatLog) {
+        return chatLog;
+    }
+    return document.getElementById('chat-log');
+}
+
+function scrollToBottom(container) {
+    if (!container) return;
+    container.scrollTop = container.scrollHeight;
 }
 
 /* ── Markdown code block rendering with syntax highlighting ── */

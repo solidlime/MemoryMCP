@@ -584,3 +584,50 @@
         .chat-bubble img:hover {
             transform: scale(1.02);
         }
+
+/* ===== Image Generation ===== */
+.chat-image-gen-card {
+    margin: 8px 0;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--bg-secondary);
+}
+.chat-image-gen-card img {
+    width: 100%;
+    max-width: 512px;
+    display: block;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+.chat-image-gen-card img:hover {
+    opacity: 0.9;
+}
+.chat-image-gen-card .image-gen-meta {
+    padding: 6px 10px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.chat-image-gen-spinner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+.chat-image-gen-spinner .spinner {
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--border-color);
+    border-top: 2px solid var(--accent-color, #6366f1);
+    border-radius: 50%;
+    animation: gen-spin 0.8s linear infinite;
+}
+@keyframes gen-spin {
+    to { transform: rotate(360deg); }
+}

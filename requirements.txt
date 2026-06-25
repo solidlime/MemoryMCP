@@ -42,3 +42,7 @@ llm-sandbox[docker]>=0.3.0
 
 # Docker SDK (sandbox sibling-container detection)
 docker>=7.0.0
+
+# PDF/Document Parsing (read_pdf tool)
+PyMuPDF>=1.24.0
+pdfplumber>=0.11.0
