@@ -5,7 +5,7 @@ from pathlib import Path
 
 def render_coding_agent_panel() -> str:
     """Return HTML+CSS+JS for the Coding Agent floating panel."""
-    return _CA_HTML
+    return _CA_HTML + "\n<script>\n" + _JS + "\n</script>"
 
 
 def render_coding_agent_css() -> str:
