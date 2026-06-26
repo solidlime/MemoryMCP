@@ -12,6 +12,7 @@ from memory_mcp.application.chat.pattern_detector import (
     _TYPE_TAGS,
     _get_last_abstraction_at,
     _has_new_memories_since,
+    _parse_models,
     _store_last_abstraction_at,
     maybe_run_mental_model,
 )
@@ -411,3 +412,189 @@ class TestMaybeRunMentalModel:
             if call[1].get("tags") == [_MENTAL_MODEL_META_TAG]
         ]
         assert len(meta_calls) == 5
+
+    async def test_get_by_tags_empty_skips_type(self):
+        """When get_by_tags returns empty result for a type tag, that type is skipped."""
+        ctx = _make_mock_ctx()
+        config = _make_mock_config()
+
+        # Only _meta returns empty; other types return not enough (1 memory)
+        mapping: dict[str, list[Memory]] = {"_meta": []}
+        now = datetime.now()
+        for tag in _TYPE_TAGS:
+            mapping[tag] = [_make_memory(f"{tag}_1", "content", created_at=now)]
+        # Override 'decision' to return failure (not .is_ok)
+        ctx.memory_service.get_by_tags.side_effect = None
+
+        def side_effect(tags):
+            if tags == [_MENTAL_MODEL_META_TAG]:
+                return Success([])
+            if tags == ["decision"]:
+                from memory_mcp.domain.shared.errors import SearchError
+                from memory_mcp.domain.shared.result import Failure
+
+                return Failure(SearchError("db error"))
+            return Success(mapping.get(tags[0], []))
+
+        ctx.memory_service.get_by_tags.side_effect = side_effect
+
+        result = await maybe_run_mental_model(ctx, config)
+        assert result == []
+
+    async def test_llm_stream_exception_handled(self):
+        """When LLM stream raises an exception, it should be caught and skipped."""
+        ctx = _make_mock_ctx()
+        config = _make_mock_config()
+
+        now = datetime.now()
+        decision_mems = [
+            _make_memory(
+                f"dec_{i}",
+                f"decision content {i}",
+                tags=["decision"],
+                created_at=now - timedelta(hours=i),
+                importance=0.7,
+            )
+            for i in range(3)
+        ]
+        mapping: dict[str, list[Memory]] = {"_meta": []}
+        for tag in _TYPE_TAGS:
+            if tag == "decision":
+                mapping[tag] = decision_mems
+            else:
+                mapping[tag] = [_make_memory(f"{tag}_1", f"{tag} content", created_at=now)]
+        _set_get_by_tags(ctx, mapping)
+
+        mock_provider = AsyncMock()
+
+        async def failing_stream(**kwargs):
+            raise RuntimeError("LLM stream failure")
+            yield  # pragma: no cover
+
+        mock_provider.stream = failing_stream
+
+        with patch("memory_mcp.application.chat.pattern_detector.get_provider", return_value=mock_provider):
+            result = await maybe_run_mental_model(ctx, config)
+        assert result == []
+
+    async def test_no_models_parsed_skips_type(self):
+        """When LLM returns empty/unparseable models, the type is skipped."""
+        ctx = _make_mock_ctx()
+        config = _make_mock_config()
+
+        now = datetime.now()
+        decision_mems = [
+            _make_memory(
+                f"dec_{i}",
+                f"decision content {i}",
+                tags=["decision"],
+                created_at=now - timedelta(hours=i),
+                importance=0.7,
+            )
+            for i in range(3)
+        ]
+        mapping: dict[str, list[Memory]] = {"_meta": []}
+        for tag in _TYPE_TAGS:
+            if tag == "decision":
+                mapping[tag] = decision_mems
+            else:
+                mapping[tag] = [_make_memory(f"{tag}_1", f"{tag} content", created_at=now)]
+        _set_get_by_tags(ctx, mapping)
+
+        mock_provider = AsyncMock()
+
+        async def empty_stream(**kwargs):
+            yield TextDeltaEvent(content="invalid non-json text")
+            yield DoneEvent()
+
+        mock_provider.stream = empty_stream
+
+        with patch("memory_mcp.application.chat.pattern_detector.get_provider", return_value=mock_provider):
+            result = await maybe_run_mental_model(ctx, config)
+        assert result == []
+
+    async def test_outer_exception_on_create_memory(self):
+        """When create_memory raises, the outer exception handler catches it."""
+        ctx = _make_mock_ctx()
+        config = _make_mock_config(api_key="test-key", model="gpt-4o")
+
+        now = datetime.now()
+        decision_mems = [
+            _make_memory(
+                f"dec_{i}",
+                f"decision content {i}",
+                tags=["decision"],
+                created_at=now - timedelta(hours=i),
+                importance=0.7,
+            )
+            for i in range(3)
+        ]
+        mapping: dict[str, list[Memory]] = {"_meta": []}
+        for tag in _TYPE_TAGS:
+            if tag == "decision":
+                mapping[tag] = decision_mems
+            else:
+                mapping[tag] = [_make_memory(f"{tag}_1", f"{tag} content", created_at=now)]
+        _set_get_by_tags(ctx, mapping)
+
+        # Make create_memory raise to trigger outer exception handler
+        ctx.memory_service.create_memory.side_effect = RuntimeError("create failed")
+
+        mock_provider = AsyncMock()
+
+        async def ok_stream(**kwargs):
+            yield TextDeltaEvent(content='{"models": ["pattern1"]}')
+            yield DoneEvent()
+
+        mock_provider.stream = ok_stream
+
+        with patch("memory_mcp.application.chat.pattern_detector.get_provider", return_value=mock_provider):
+            result = await maybe_run_mental_model(ctx, config)
+        # Exception is caught, type is skipped, result should be empty
+        assert result == []
+
+
+# ──────────────────────────────────────────────
+# Tests for _parse_models
+# ──────────────────────────────────────────────
+
+
+class TestParseModels:
+    """Tests for _parse_models()."""
+
+    def test_empty_text_returns_empty_list(self):
+        assert _parse_models("") == []
+
+    def test_whitespace_text_returns_empty_list(self):
+        assert _parse_models("   ") == []
+
+    def test_valid_json(self):
+        result = _parse_models('{"models": ["model1", "model2"]}')
+        assert result == ["model1", "model2"]
+
+    def test_json_with_empty_models(self):
+        result = _parse_models('{"models": []}')
+        assert result == []
+
+    def test_json_with_non_string_items(self):
+        result = _parse_models('{"models": ["valid", 123, null]}')
+        assert result == ["valid"]
+
+    def test_markdown_code_block(self):
+        text = '```json\n{"models": ["m1", "m2"]}\n```'
+        result = _parse_models(text)
+        assert result == ["m1", "m2"]
+
+    def test_markdown_code_block_trailing_backticks_on_last_line(self):
+        """JSON code block where last line is just '```' works."""
+        text = '```\n{"models": ["m1"]}\n```'
+        result = _parse_models(text)
+        assert result == ["m1"]
+
+    def test_invalid_json_returns_empty(self):
+        result = _parse_models("not json at all")
+        assert result == []
+
+    def test_parse_non_dict_json(self):
+        result = _parse_models('["list", "not", "dict"]')
+        assert result == []

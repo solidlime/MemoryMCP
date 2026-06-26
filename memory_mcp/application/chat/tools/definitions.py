@@ -192,35 +192,35 @@ MEMORY_TOOLS: list[ToolDefinition] = [
             "properties": {
                 "prompt": {
                     "type": "string",
-                    "description": "Detailed image generation prompt. Describe what you want to create in detail. For Japanese prompts, describe visually what should appear."
+                    "description": "Detailed image generation prompt. Describe what you want to create in detail. For Japanese prompts, describe visually what should appear.",
                 },
                 "size": {
                     "type": "string",
                     "enum": ["1024x1024", "1792x1024", "1024x1792", "512x512", "768x768"],
                     "description": "Image size. Default 1024x1024. For DALL-E: 1024x1024, 1792x1024 (landscape), 1024x1792 (portrait). For SD: any size supported by the server.",
-                    "default": "1024x1024"
+                    "default": "1024x1024",
                 },
                 "quality": {
                     "type": "string",
                     "enum": ["standard", "hd"],
                     "description": "Image quality. Only used with DALL-E 3. 'hd' for higher detail.",
-                    "default": "standard"
+                    "default": "standard",
                 },
                 "n": {
                     "type": "integer",
                     "description": "Number of images to generate (1-4). Default 1.",
                     "minimum": 1,
                     "maximum": 4,
-                    "default": 1
+                    "default": 1,
                 },
                 "provider": {
                     "type": "string",
                     "enum": ["openai", "stability", "auto"],
                     "description": "Image generation provider. 'auto' uses the default configured provider.",
-                    "default": "auto"
-                }
+                    "default": "auto",
+                },
             },
-            "required": ["prompt"]
+            "required": ["prompt"],
         },
     ),
     ToolDefinition(
@@ -231,10 +231,10 @@ MEMORY_TOOLS: list[ToolDefinition] = [
             "properties": {
                 "path": {
                     "type": "string",
-                    "description": "Path to the PDF file in the workspace (e.g. 'workspace/projects/document.pdf')"
+                    "description": "Path to the PDF file in the workspace (e.g. 'workspace/projects/document.pdf')",
                 }
             },
-            "required": ["path"]
+            "required": ["path"],
         },
     ),
 ]

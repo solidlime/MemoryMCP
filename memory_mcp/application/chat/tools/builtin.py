@@ -576,11 +576,7 @@ async def _handle_read_pdf(ctx: AppContext, config: ChatConfig, tool_input: dict
                     for table in page_tables:
                         if table and len(table) > 0:
                             headers = [str(h) if h else "" for h in table[0]]
-                            rows = (
-                                [[str(c) if c else "" for c in row] for row in table[1:]]
-                                if len(table) > 1
-                                else []
-                            )
+                            rows = [[str(c) if c else "" for c in row] for row in table[1:]] if len(table) > 1 else []
                             tables.append(
                                 {
                                     "page": i + 1,
@@ -627,7 +623,10 @@ async def _handle_read_pdf(ctx: AppContext, config: ChatConfig, tool_input: dict
 
     except ImportError as e:
         missing = str(e).split("'")[1] if "'" in str(e) else str(e)
-        return {"status": "error", "message": f"PDFライブラリが不足しています: {missing}。pip install PyMuPDF pdfplumber を実行してください"}
+        return {
+            "status": "error",
+            "message": f"PDFライブラリが不足しています: {missing}。pip install PyMuPDF pdfplumber を実行してください",
+        }
     except Exception as e:
         return {"status": "error", "message": f"PDFの解析に失敗しました: {str(e)}"}
 

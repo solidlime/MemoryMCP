@@ -1,137 +1,117 @@
-# SPEC: マルチモーダルLLM対応
+# SPEC: コード健全化 2026-06-26
 
-## 1. 画像生成ツール
+## 1. sections/ のHTML外出し（最優先）
 
-### 1.1 概要
-チャット内でLLMが `image_generate` ツールを呼び出し、DALL-E 3 または自前 Stable Diffusion サーバー経由で画像を生成。生成画像はbase64で返却されチャットログ内に表示。
+### 1.1 現状
+`memory_mcp/api/http/sections/` の10ファイル（計6,986行）は、各Pythonクラス内でJinja2テンプレート文字列をハードコードし `self.render_section()` でレンダリングしている。HTML/CSS変更のたびにPythonコード修正が必要で、保守性が低い。
 
-### 1.2 プロバイダ対応
-| プロバイダ | 実装 | API |
-|---|---|---|
-| OpenAI (DALL-E 3) | `infrastructure/image_gen/dalle.py` | `openai.images.generate()` |
-| Stability (SD WebUI) | `infrastructure/image_gen/stability.py` | `POST /sdapi/v1/txt2img` |
+### 1.2 目標
+- テンプレート文字列を `memory_mcp/templates/` 配下の `.html.j2` ファイルに抽出
+- Python側はデータ準備（ビジネスロジック）のみ担当し、レンダリングは `self.render_template("template.html.j2", **context)` に委譲
+- 既存の `render_section()` パターンとの互換性を保つ
 
-共通インターフェース: `infrastructure/image_gen/base.py` — `ImageGenProvider` 抽象クラス
+### 1.3 対象ファイル（優先度順）
+| # | ファイル | 現行数 | 目標行数 | 抽出テンプレート |
+|---|---|---|---|---|
+| 1 | `base.py` | 1,238 | ~400 | `base.html.j2` (共通レイアウト) |
+| 2 | `memories.py` | 1,101 | ~350 | `memories.html.j2` |
+| 3 | `settings.py` | 645 | ~250 | `settings.html.j2` |
+| 4 | `coding_agent.py` | 634 | ~250 | `coding_agent.html.j2` |
+| 5 | `knowledge_graph.py` | 606 | ~250 | `knowledge_graph.html.j2` |
+| 6 | `overview.py` | 564 | ~200 | `overview.html.j2` |
+| 7 | `chat.py` | 451 | ~150 | `chat.html.j2` |
+| 8 | `activity.py` | 378 | ~150 | `activity.html.j2` |
+| 9 | `timeline.py` | 361 | ~150 | `timeline.html.j2` |
 
-### 1.3 ツール定義
-```python
-# ツール名: image_generate
-# パラメータ:
-#   prompt: str (必須) — 生成プロンプト
-#   size: str = "1024x1024" — 画像サイズ (DALL-E: 1024x1024/1792x1024/1024x1792, SD: 任意)
-#   quality: str = "standard" — DALL-Eのみ "standard"|"hd"
-#   n: int = 1 — 生成枚数 (1-4)
-#   provider: str = "auto" — "openai"|"stability"|"auto" (auto=設定に従う)
-# 戻り値: {images: [{base64: str, revised_prompt: str, size: str}], provider: str}
+### 1.4 制約
+- 既存の全テスト（1,094件）がパスし続けること
+- WebUIの表示・動作が変わらないこと
+- テンプレートの読み込みは `render_section()` ベースクラスメソッドで透過的に行う
+- テンプレートパス: `memory_mcp/templates/sections/{name}.html.j2`
+
+### 1.5 テンプレート構造
 ```
-
-### 1.4 ChatConfig 追加フィールド
-```python
-image_gen_enabled: bool = False
-image_gen_provider: str = "openai"  # "openai" | "stability"
-image_gen_dalle_model: str = "dall-e-3"  # "dall-e-3" | "dall-e-2"
-image_gen_stability_url: str = ""  # SD WebUI API エンドポイント (例: http://localhost:7860)
+memory_mcp/templates/
+├── sections/
+│   ├── base.html.j2          # 共通レイアウト（ヘッダー・ナビ・フッター）
+│   ├── memories.html.j2      # メモリー一覧・詳細
+│   ├── settings.html.j2      # 設定画面
+│   ├── coding_agent.html.j2  # コーディングエージェント
+│   ├── knowledge_graph.html.j2
+│   ├── overview.html.j2
+│   ├── chat.html.j2
+│   ├── activity.html.j2
+│   └── timeline.html.j2
+├── partials/
+│   ├── modal.html.j2         # 共通モーダル
+│   ├── pagination.html.j2    # ページネーション
+│   └── ...
 ```
-
-### 1.5 SSEイベント
-| イベント | type | 内容 |
-|---|---|---|
-| 生成開始 | `image_gen_start` | `{provider: str, prompt: str, n: int}` |
-| 生成完了 | `image_gen_result` | `{images: [{base64, revised_prompt}], provider: str}` |
-
-### 1.6 フロントエンド表示
-- チャットログ内に生成画像を `<img>` で表示
-- クリックでメディアビューア展開
-- 生成中はプレースホルダー（スピナー）表示
-
-### 1.7 チャット設定UI
-- 基本設定アコーディオン内に「画像生成」セクション追加
-- 有効/無効トグル
-- プロバイダ選択（OpenAI / Stability）
-- DALL-E モデル選択（dalle_enabled時）
-- SD URL入力（stability_enabled時）
 
 ---
 
-## 2. PDF/ドキュメント解析
+## 2. TODO.md 棚卸し
 
-### 2.1 概要
-チャットに添付されたPDFをLLMが `read_pdf` ツールで解析。テキスト・テーブル・埋め込み画像を抽出し構造化データとして返却。
+### 2.1 現状
+`.spec/TODO.md` の全タスクが `[ ]`（未チェック）。実装済みの画像生成・PDF解析タスクも未チェックのまま。
 
-### 2.2 ツール定義
-```python
-# ツール名: read_pdf
-# パラメータ:
-#   path: str (必須) — ワークスペース内のPDFパス
-# 戻り値:
-#   {
-#     filename: str,
-#     pages: int,
-#     text: str,  # 全ページテキスト
-#     tables: [{page: int, headers: [str], rows: [[str]]}],
-#     images: [{page: int, base64: str, mime_type: str}]  # 最大5枚まで
-#   }
-```
-
-### 2.3 実装
-- `memory_mcp/application/chat/tools/builtin.py` に `_handle_read_pdf()` 追加
-- `definitions.py` の `_BUILTIN_DISPATCH` に登録
-- 依存ライブラリ: `PyMuPDF` (fitz), `pdfplumber`
-- テキスト: fitz でページ単位抽出
-- テーブル: pdfplumber で抽出（構造化）
-- 画像: fitz で埋め込み画像を抽出（最大5枚、1MB/枚上限）
-
-### 2.4 フロー
-1. ユーザーがPDFをドラッグ＆ドロップ → 添付バッジ表示（既存機能）
-2. `chatSend()` がファイルをアップロード → サーバーがワークスペースに保存
-3. メッセージに `[添付ファイル: workspace/path/to/file.pdf]` が含まれる
-4. LLMが `read_pdf(path="workspace/path/to/file.pdf")` を呼び出す
-5. 抽出結果をLLMが処理 → 応答を生成
-
-### 2.5 制限
-- ファイルサイズ上限: 50MB（ChatConfigに追加）
-- 抽出テキスト上限: 100,000文字（超えた場合はtruncate）
-- 画像抽出上限: 5枚, 1枚あたり1MB
+### 2.2 やること
+- フェーズ1（画像生成基盤）: 全サブタスク → `[x]` に
+- フェーズ2（PDF解析）: 全サブタスク → `[x]` に
+- フェーズ3（テスト・検証）:
+  - `3.1.1 test_image_gen_providers.py` → `[x]`
+  - `3.1.2 test_read_pdf.py` → `[x]`
+  - `3.1.3 test_chat_service.py` → 確認して更新
+  - 3.2, 3.3, 3.4 は実装状況を確認して更新
+- 新セクション「コード健全化」をTODO末尾に追加
 
 ---
 
-## 3. 共通事項
+## 3. カバレッジ 62% → 70%
 
-### 3.1 実装ファイル構成
+### 3.1 方針
+- まず現在のカバレッジレポートを取得し、未カバーのホットスポットを特定
+- `api/http/sections/` はテンプレート外出し後のためスキップ
+- `application/` と `domain/` レイヤーを中心にテスト追加
+- テストしやすい純粋関数・バリデーションロジックを優先
+
+### 3.2 制約
+- 既存テストを壊さない
+- モック可能な外部依存はモックする
+
+---
+
+## 4. pre-commit/lefthook 統一
+
+### 4.1 現状
+- `.pre-commit-config.yaml`: ruff lint + ruff format
+- `lefthook.yml`: ruff format + ruff check（同一内容）
+
+### 4.2 決定
+- **lefthook に統一する**（シンプル・Node.js不要・CIとの親和性）
+- `.pre-commit-config.yaml` を削除
+- 必要に応じて `.git/hooks/pre-commit` の既存シンボリックリンク/コピーをクリーンアップ
+
+---
+
+## 5. Dependabot ブランチ整理
+
+### 5.1 現状
+リモートに10本の放置 dependabot ブランチ:
 ```
-memory_mcp/
-├── infrastructure/
-│   └── image_gen/          # 新規
-│       ├── __init__.py
-│       ├── base.py          # ImageGenProvider 抽象クラス
-│       ├── dalle.py         # DALL-E 3 実装
-│       ├── stability.py     # SD WebUI 実装
-│       └── factory.py       # get_image_gen_provider()
-├── application/
-│   └── chat/
-│       ├── events.py        # +ImageGenStartSSE, ImageGenResultSSE
-│       ├── tools/
-│       │   ├── definitions.py   # +image_generate, +read_pdf
-│       │   └── builtin.py       # +_handle_image_generate(), +_handle_read_pdf()
-│       └── chat_service.py
-├── domain/
-│   └── chat_config.py      # +image_gen フィールド, +pdf_max_size
-├── api/
-│   └── http/
-│       ├── sections/chat.py # +画像生成設定UI
-│       ├── static/chat.js   # +image_gen イベントハンドリング, +生成画像表示
-│       └── static/chat.css  # +生成画像スタイル
-└── tests/
-    └── unit/
-        ├── test_image_gen_providers.py  # 新規
-        ├── test_read_pdf.py             # 新規
-        └── test_chat_service.py         # 更新
+dependabot/github_actions/actions/checkout-7
+dependabot/github_actions/codecov/codecov-action-7
+dependabot/github_actions/docker/build-push-action-7
+dependabot/github_actions/docker/login-action-4
+dependabot/github_actions/docker/metadata-action-6
+dependabot/pip/dev-dependencies-a63b452107
+dependabot/pip/ml-dependencies-a7024e8e54
+dependabot/pip/numpy-gte-2.4.4
+dependabot/pip/pydantic-settings-gte-2.14.1
+dependabot/pip/sentencepiece-gte-0.2.1
 ```
 
-### 3.2 依存パッケージ（requirements.txt 追加）
-- `PyMuPDF>=1.24.0` — PDF解析
-- `pdfplumber>=0.11.0` — テーブル抽出
-- `openai>=1.30.0` — DALL-E API（既存の可能性あり）
-
-### 3.3 DBマイグレーション
-- chat_config テーブルに image_gen 系カラム追加（新規マイグレーションファイル v026）
+### 5.2 やること
+- CIパス可能なものはマージ
+- コンフリクト・テスト失敗するものはクローズ
+- ローカルでは `git push origin --delete <branch>` で削除

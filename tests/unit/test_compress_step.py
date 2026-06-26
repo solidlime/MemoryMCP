@@ -327,6 +327,202 @@ class TestCompressStep:
         assistant_count = sum(1 for m in result if m.role == "assistant")
         assert user_count > 0 and assistant_count > 0, "Must have both user and assistant messages"
 
+    def test_no_trim_when_single_section(self):
+        """System prompt with no section markers returns unchanged."""
+        from memory_mcp.application.chat.pipeline.compress import CompressStep
+
+        prompt = "Simple prompt without any section markers"
+        result = CompressStep._trim_system_prompt(prompt, "aggressive")
+        assert result == prompt
+
+    def test_stage1_alone_brings_under_budget(self):
+        """After stage 1 (system prompt trim), if already under budget, return session_messages unchanged."""
+        from memory_mcp.application.chat.pipeline.compress import CompressStep
+
+        config = _make_chat_config(
+            context_max_tokens=10000,  # Moderate budget
+            context_compression_mode="aggressive",  # Will trim aggressively
+        )
+        ctx = _dummy_app_context()
+        tctx = _dummy_turn_ctx(_long_system_prompt(num_memories=5))
+        msgs = _long_messages(num_pairs=1)  # Small messages
+
+        # Should still under budget after stage 1, but before stage 2
+        # If compression mode aggressively trims...
+        result = CompressStep().run(ctx, config, tctx, msgs)
+        # Should work without error
+        assert isinstance(result, list)
+
+    def test_context_compress_history_false(self):
+        """When context_compress_history=False, messages should not be cleared/truncated."""
+        from memory_mcp.application.chat.pipeline.compress import CompressStep
+
+        config = _make_chat_config(
+            context_max_tokens=1,  # Always over budget
+            context_compress_history=False,  # Skip history compression
+            context_compress_system_prompt=True,
+        )
+        ctx = _dummy_app_context()
+        tctx = _dummy_turn_ctx(_long_system_prompt(num_memories=20))
+        msgs = _messages_with_tool_results()
+
+        result = CompressStep().run(ctx, config, tctx, msgs)
+        # Messages should still have tool results (not cleared)
+        tool_msgs = [m for m in result if m.role == "tool"]
+        assert len(tool_msgs) == 8  # All preserved because history compress is off
+        # But tool results right at the end should be fine
+
+    def test_compress_history_true_clears_tool_results(self):
+        """When context_compress_history=True and over budget, tool results get cleared."""
+        from memory_mcp.application.chat.pipeline.compress import CompressStep
+
+        config = _make_chat_config(
+            context_max_tokens=1,  # Always over budget
+            context_compress_history=True,
+            context_compress_system_prompt=True,
+        )
+        ctx = _dummy_app_context()
+        tctx = _dummy_turn_ctx(_long_system_prompt(num_memories=20))
+        msgs = _messages_with_tool_results()
+
+        result = CompressStep().run(ctx, config, tctx, msgs)
+        # Some tool results should be cleared
+        cleared = [m for m in result if m.role == "tool" and "cleared" in (m.content or "")]
+        assert len(cleared) >= 1
+
+    def test_trim_system_prompt_skill_section_truncated(self):
+        """Long skill descriptions should be truncated."""
+        from memory_mcp.application.chat.pipeline.compress import CompressStep
+
+        # Build prompt with long skill section
+        lines = [
+            "あなたはテストアシスタントです。",
+            "--- 関連記憶 ---",
+            "- [0.5] テスト記憶1",
+            "- [0.3] テスト記憶2",
+            "--- 利用可能なSkill ---",
+            "- skill_a: " + "x" * 700,  # Long description
+        ]
+        prompt = "\n".join(lines)
+        result = CompressStep._trim_system_prompt(prompt, "aggressive")
+        # Should be truncated (skill section > 600 chars)
+        assert len(result) < len(prompt) or "..." in result
+
+    def test_clear_tool_results_with_few_assistant_msgs(self):
+        """When there are <= 3 assistant messages, no clearing happens."""
+        from memory_mcp.application.chat.pipeline.compress import CompressStep
+
+        msgs = [
+            LLMMessage(role="user", content="Hello"),
+            LLMMessage(role="assistant", content="Hi!", tool_calls=[{"id": "call_1"}]),
+            LLMMessage(role="tool", content="result data", tool_call_id="call_1"),
+            LLMMessage(role="user", content="Next"),
+            LLMMessage(role="assistant", content="Sure!"),
+        ]
+        result = CompressStep._clear_old_tool_results(msgs)
+        assert len(result) == len(msgs)
+        # No tool messages should be cleared
+        for msg in result:
+            if msg.role == "tool":
+                assert "cleared" not in (msg.content or "")
+
+    def test_truncate_old_messages_short_content(self):
+        """Messages with content <= 300 chars should not be truncated."""
+        from memory_mcp.application.chat.pipeline.compress import CompressStep
+
+        msgs = [
+            LLMMessage(role="user", content="Short user message"),
+            LLMMessage(role="assistant", content="Short response"),
+            LLMMessage(role="user", content="Another short"),
+            LLMMessage(role="assistant", content="Another response"),
+        ]
+        # keep_recent_turns=1 → keep last 2 messages intact
+        result = CompressStep._truncate_old_messages(msgs, keep_recent_turns=1)
+        # First 2 should not be truncated (content already short)
+        for msg in result[:2]:
+            if msg.role in ("user", "assistant"):
+                assert not (msg.content or "").startswith("[旧]"), (
+                    f"Short message should not be truncated: {msg.content}"
+                )
+
+    def test_truncate_old_messages_within_keep_count(self):
+        """When total messages <= keep_recent_turns*2, no truncation."""
+        from memory_mcp.application.chat.pipeline.compress import CompressStep
+
+        msgs = [
+            LLMMessage(role="user", content="Short"),
+            LLMMessage(role="assistant", content="Response"),
+        ]
+        result = CompressStep._truncate_old_messages(msgs, keep_recent_turns=5)
+        assert len(result) == len(msgs)
+        for msg in result:
+            assert not (msg.content or "").startswith("[旧]")
+
+    def test_stage2_under_budget_after_clear(self):
+        """After clearing tool results (stage 2), if under budget, return messages."""
+        from memory_mcp.application.chat.pipeline.compress import CompressStep
+
+        config = _make_chat_config(
+            context_max_tokens=2000,  # Moderate budget: clear may be enough
+            context_compress_history=True,
+            context_compress_system_prompt=True,
+        )
+        ctx = _dummy_app_context()
+        tctx = _dummy_turn_ctx(_long_system_prompt(num_memories=2))  # Small prompt
+        msgs = _messages_with_tool_results()  # 24 messages with tool results
+
+        result = CompressStep().run(ctx, config, tctx, msgs)
+        assert isinstance(result, list)
+
+    def test_return_after_stage1_trim_only(self):
+        """System prompt trim alone brings under budget → return session_messages (line 84)."""
+        from memory_mcp.application.chat.pipeline.compress import CompressStep
+
+        config = _make_chat_config(
+            context_compression_mode="aggressive",
+            context_compress_system_prompt=True,
+            context_compress_history=True,
+        )
+        # Budget 3000: under initial (4553+3=4556) but above post-trim (554+3=557)
+        config.context_max_tokens = 3000
+        config.context_compression_threshold = 1.0
+
+        ctx = _dummy_app_context()
+        tctx = _dummy_turn_ctx(_long_system_prompt(num_memories=50))
+        msgs = [
+            LLMMessage(role="user", content="Hello"),
+            LLMMessage(role="assistant", content="Hi there"),
+        ]
+
+        result = CompressStep().run(ctx, config, tctx, msgs)
+        assert isinstance(result, list)
+        # Messages should NOT be truncated (stage 1 alone did the job)
+        for msg in result:
+            if msg.role in ("user", "assistant"):
+                assert not (msg.content or "").startswith("[旧]"), (
+                    "Messages should not be truncated after stage 1 alone"
+                )
+
+    def test_return_after_stage2_clear_only(self):
+        """Tool result clearing brings under budget → return messages (line 95)."""
+        from memory_mcp.application.chat.pipeline.compress import CompressStep
+
+        config = _make_chat_config(
+            context_compression_mode="aggressive",
+            context_compress_system_prompt=True,
+            context_compress_history=True,
+        )
+        # Budget 2800: under stage 1 total (554+2472=3026) but above stage 2 (≈2538)
+        config.context_max_tokens = 2800
+        config.context_compression_threshold = 1.0
+
+        ctx = _dummy_app_context()
+        tctx = _dummy_turn_ctx(_long_system_prompt(num_memories=50))
+        msgs = _messages_with_tool_results()
+
+        result = CompressStep().run(ctx, config, tctx, msgs)
+        assert isinstance(result, list)
+
 
 # ──────────────────────────────────────────────
 # Dogfooding: end-to-end conversation flow

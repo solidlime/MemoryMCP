@@ -1,28 +1,30 @@
-# PLAN: マルチモーダルLLM対応
+# PLAN: コード健全化 2026-06-26
 
 ## 背景
-MemoryMCPのチャット機能は画像入力（Vision）対応済みだが、画像生成・PDF解析が未対応。
-ユーザーは以下のマルチモーダル拡張を希望。
+プロジェクト評価の結果、以下の技術的負債を解消すべきと判断。
+優先度順に5つのタスクを潰す。
 
-## 要件サマリー
+## タスク一覧（優先度順）
 
-### 1. 画像生成ツール
-- DALL-E 3 と Stable Diffusion 両方をサポート
-- プロバイダ設定で切り替え可能
-- チャットツールとして実装（LLMが必要に応じて `image_generate` を呼ぶ）
-- ヘルタの表情を会話内容に沿って生成できるように（LLMがプロンプトを生成→画像出力）
-- 生成画像はチャットログ内に表示
+### 1. sections/ のHTML外出し
+- `memory_mcp/api/http/sections/` の全10ファイル（計6,986行）からHTMLテンプレート文字列を抽出
+- Jinja2 `.html` テンプレートファイルとして `templates/` に外出し
+- Pythonファイルはロジックのみ残し、レンダリングは `render_template()` に委譲
+- まず `base.py` (1,238行) と `memories.py` (1,101行) の2大巨頭から着手
 
-### 2. PDF/ドキュメント解析
-- テキスト抽出 + テーブル構造 + 埋め込み画像も抽出
-- 添付されたPDFをLLMが解析できるように
-- ツールとして実装（LLMが `read_pdf` 等を呼んで内容を取得）
+### 2. TODO.md 棚卸し
+- マルチモーダルLLM対応の全タスク（画像生成+PDF解析）は実装済み → チェックマーク
+- 残タスク（UI改善・ブラウザテスト）は未実施ならそのまま残す
+- TODO管理が現実を反映するように
 
-## 優先度
-1. 画像生成（DALL-E → SDの順）
-2. PDF解析
+### 3. カバレッジ 62% → 70% 引き上げ
+- 現在のカバレッジ不足箇所を特定
+- テスト追加で70%到達を目指す
 
-## 技術スタック候補
-- DALL-E: openai パッケージ（既存のOpenAICompatProviderと共用？別ツール化？）
-- Stable Diffusion: Replicate / Stability AI API / HuggingFace Inference
-- PDF: PyMuPDF (fitz) + pdfplumber（テーブル用）
+### 4. pre-commit/lefthook 統一
+- 現在両方で ruff を実行する二重管理状態
+- lefthook に統一し、pre-commit を削除
+
+### 5. 放置 Dependabot ブランチ整理
+- 10本の放置リモートブランチをマージ or クローズ
+- 自動マージ可能なものは取り込み、それ以外はクローズ

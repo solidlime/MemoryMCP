@@ -55,8 +55,7 @@ async def test_dalle_generate_multiple():
     """DALL-E 3で複数枚生成"""
     mock_response = MagicMock()
     mock_response.data = [
-        MagicMock(url=f"https://example.com/image{i}.png", revised_prompt=f"prompt{i}")
-        for i in range(3)
+        MagicMock(url=f"https://example.com/image{i}.png", revised_prompt=f"prompt{i}") for i in range(3)
     ]
 
     with patch("openai.AsyncOpenAI") as mock_client_class:
