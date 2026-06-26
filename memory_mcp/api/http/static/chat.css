@@ -1,5 +1,5 @@
         /* ── Chat tab styles ── */
-        #chat-layout { display: flex; gap: 16px; height: calc(100vh - 200px); min-height: 500px; }
+        #chat-layout { display: flex; gap: 16px; height: calc(100vh - var(--header-height) - var(--tabbar-height) - 48px); min-height: 500px; }
         #chat-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
         #chat-messages {
             flex: 1; overflow-y: auto; padding: 16px; display: flex;
@@ -10,7 +10,7 @@
             display: flex; gap: 10px; align-items: flex-end;
         }
         #chat-input {
-            flex: 1; background: rgba(255,255,255,0.06); border: 1px solid var(--glass-border);
+            flex: 1; background: var(--glass-bg-subtle); border: 1px solid var(--glass-border);
             border-radius: 12px; padding: 12px 14px; color: var(--text-primary);
             font-size: 0.9rem; resize: none; min-height: 44px; max-height: 160px;
             font-family: inherit; outline: none; line-height: 1.5;
@@ -33,6 +33,7 @@
         .chat-bubble {
             padding: 10px 14px; border-radius: 14px; font-size: 0.9rem; line-height: 1.6;
             white-space: pre-wrap; word-break: break-word;
+            max-width: min(85%, 720px);
         }
         .chat-msg.user .chat-bubble {
             background: linear-gradient(135deg, rgba(167,139,250,0.25), rgba(124,58,237,0.2));
@@ -134,7 +135,7 @@
             flex-shrink: 0;
             border: 1px solid var(--glass-border);
             border-radius: 10px;
-            background: rgba(255,255,255,0.02);
+            background: var(--glass-bg-faint);
             transition: border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
                         background 0.3s cubic-bezier(0.4, 0, 0.2, 1),
                         box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
@@ -147,7 +148,7 @@
 
         #settings-panel details:not([open]):hover {
             border-color: rgba(167,139,250,0.2);
-            background: rgba(255,255,255,0.04);
+            background: var(--glass-bg-light);
             transform: translateX(2px);
         }
 
@@ -164,7 +165,7 @@
             font-weight: 600;
             color: var(--text-secondary);
             cursor: pointer;
-            background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%);
+            background: linear-gradient(135deg, var(--glass-bg-subtle) 0%, var(--glass-bg-faint) 100%);
             border-bottom: 1px solid transparent;
             user-select: none;
             transition: background 0.25s cubic-bezier(0.4, 0, 0.2, 1),
@@ -236,7 +237,7 @@
         /* Enhanced inputs */
         .chat-field-input {
             width: 100%;
-            background: rgba(255,255,255,0.04);
+            background: var(--glass-bg-light);
             border: 1px solid var(--glass-border);
             border-radius: 8px;
             padding: 9px 11px;
@@ -250,7 +251,7 @@
 
         .chat-field-input:hover {
             border-color: rgba(167,139,250,0.25);
-            background: rgba(255,255,255,0.06);
+            background: var(--glass-bg-subtle);
         }
 
         .chat-field-input:focus {
@@ -283,7 +284,7 @@
             flex-direction: column;
             gap: 10px;
             z-index: 20;
-            border-top: 1px solid rgba(255,255,255,0.06);
+            border-top: 1px solid var(--glass-bg-subtle);
             margin-top: auto;
         }
 
@@ -344,9 +345,9 @@
                 bottom: 0;
                 z-index: 1000;
                 background: var(--bg-primary);
+                transition: transform 0.3s ease;
             }
             #settings-panel.collapsed {
-                width: 0;
                 transform: translateX(100%);
             }
             #settings-panel .settings-scroll-container {
@@ -367,11 +368,30 @@
         }
         .chat-welcome-icon { font-size: 3rem; opacity: 0.5; }
         .chat-welcome p { font-size: 0.9rem; max-width: 300px; }
+        .chat-welcome-hint { font-size: 0.78rem; opacity: 0.7; margin-top: 4px; }
+        .chat-welcome-link {
+            color: var(--accent-purple); text-decoration: none; font-weight: 600;
+            transition: opacity 0.2s;
+        }
+        .chat-welcome-link:hover { opacity: 0.8; text-decoration: underline; }
+        .chat-welcome-commands {
+            display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;
+            margin-top: 12px; max-width: 360px;
+        }
+        .chat-welcome-cmd {
+            font-size: 0.72rem; padding: 3px 8px; border-radius: 6px;
+            background: rgba(167,139,250,0.1); border: 1px solid rgba(167,139,250,0.2);
+            color: var(--accent-purple); font-family: 'Cascadia Code', monospace;
+            cursor: pointer; transition: all 0.15s;
+        }
+        .chat-welcome-cmd:hover {
+            background: rgba(167,139,250,0.2); border-color: rgba(167,139,250,0.4);
+        }
         /* Memory activity panel */
         #memory-panel {
             width: 260px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px;
             overflow-y: auto; padding: 14px;
-            background: rgba(255,255,255,0.03); border-right: 1px solid var(--glass-border);
+            background: var(--glass-bg-faint); border-right: 1px solid var(--glass-border);
         }
         .memory-panel-title {
             font-size: 0.82rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px;
@@ -379,15 +399,15 @@
         .memory-section-header {
             font-size: 0.75rem; font-weight: 600; color: var(--text-muted);
             text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px;
-            padding-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.06);
+            padding-bottom: 4px; border-bottom: 1px solid var(--glass-bg-subtle);
         }
         .memory-item-card {
-            background: rgba(255,255,255,0.04); border: 1px solid var(--glass-border);
+            background: var(--glass-bg-light); border: 1px solid var(--glass-border);
             border-radius: 8px; padding: 7px 9px; font-size: 0.74rem;
             color: var(--text-secondary); line-height: 1.4; margin-bottom: 5px;
             word-break: break-word; cursor: pointer; transition: all 0.2s;
         }
-        .memory-item-card:hover { background: rgba(255,255,255,0.07); border-color: rgba(167,139,250,0.25); }
+        .memory-item-card:hover { background: var(--glass-bg-subtle); border-color: rgba(167,139,250,0.25); }
         .memory-item-card .mem-score {
             font-size: 0.68rem; color: var(--accent-purple); margin-bottom: 3px;
             font-weight: 600;
@@ -417,7 +437,7 @@
         }
         #mem-edit-modal .mem-edit-label { font-size: 0.78rem; color: var(--text-muted); }
         #mem-edit-modal textarea, #mem-edit-modal input {
-            width: 100%; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border);
+            width: 100%; background: var(--glass-bg); border: 1px solid var(--glass-border);
             border-radius: 8px; padding: 8px 10px; color: var(--text-primary);
             font-size: 0.85rem; font-family: inherit; outline: none; box-sizing: border-box;
         }
@@ -438,6 +458,11 @@
         @media (max-width: 900px) {
             #memory-panel { display: none; }
         }
+        @media (min-width: 900px) and (max-width: 1100px) {
+            #chat-layout { gap: 8px; }
+            #settings-panel { width: 300px; }
+            #memory-panel { width: 220px; padding: 10px; }
+        }
 
         #chat-cancel-btn {
             background: rgba(248,113,113,0.12); border: 1px solid rgba(248,113,113,0.3);
@@ -453,7 +478,7 @@
         #chat-attachments:empty { display: none; }
         .chat-attachment-badge {
             display: flex; align-items: center; gap: 5px;
-            background: rgba(255,255,255,0.07); border: 1px solid var(--glass-border);
+            background: var(--glass-bg-subtle); border: 1px solid var(--glass-border);
             border-radius: 8px; padding: 4px 8px; font-size: 0.78rem; color: var(--text-secondary);
             max-width: 180px; cursor: default;
         }
@@ -504,36 +529,36 @@
         /* Code block Run button styles */
         .hljs-block-wrapper {
             position: relative; margin: 0.5em 0; border-radius: 8px; overflow: hidden;
-            border: 1px solid rgba(255,255,255,0.1);
+            border: 1px solid var(--glass-border);
         }
         .hljs-block-header {
             display: flex; align-items: center; justify-content: space-between;
             padding: 4px 8px; background: rgba(0,0,0,0.3); font-size: 0.72rem;
-            border-bottom: 1px solid rgba(255,255,255,0.08);
+            border-bottom: 1px solid var(--glass-bg);
         }
         .hljs-lang-badge {
             color: rgba(96,165,250,0.8); font-family: monospace; font-weight: 600;
         }
         .hljs-block-actions { display: flex; gap: 4px; }
         .hljs-copy-btn, .hljs-run-btn {
-            background: none; border: 1px solid rgba(255,255,255,0.15);
+            background: none; border: 1px solid var(--glass-border);
             border-radius: 4px; color: var(--text-muted); padding: 2px 7px;
             font-size: 0.68rem; cursor: pointer; transition: all 0.15s;
         }
-        .hljs-copy-btn:hover { border-color: rgba(255,255,255,0.35); color: var(--text-primary); }
+        .hljs-copy-btn:hover { border-color: var(--glass-border); color: var(--text-primary); }
         .hljs-run-btn { border-color: rgba(52,211,153,0.3); color: rgba(52,211,153,0.8); }
         .hljs-run-btn:hover { border-color: rgba(52,211,153,0.7); background: rgba(52,211,153,0.08); color: rgba(52,211,153,1); }
         .hljs-run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
         .hljs-run-result {
             padding: 6px 10px; background: rgba(0,0,0,0.4); font-size: 0.76rem;
             font-family: monospace; white-space: pre-wrap; word-break: break-all;
-            border-top: 1px solid rgba(255,255,255,0.06); max-height: 200px; overflow-y: auto;
+            border-top: 1px solid var(--glass-bg-subtle); max-height: 200px; overflow-y: auto;
         }
         .hljs-run-result.stdout { color: #85e89d; }
         .hljs-run-result.stderr { color: #f97583; }
         .hljs-run-result.running { color: rgba(96,165,250,0.7); font-style: italic; }
         .hljs-artifact-img {
-            display: block; max-width: 100%; border-top: 1px solid rgba(255,255,255,0.06);
+            display: block; max-width: 100%; border-top: 1px solid var(--glass-bg-subtle);
             cursor: pointer;
         }
         /* Help icon */
@@ -555,24 +580,7 @@
             background: rgba(167,139,250,0.3);
             transform: scale(1.15);
         }
-        /* Help tooltip */
-        .chat-help-tooltip {
-            position: fixed;
-            max-width: 260px;
-            padding: 10px 14px;
-            background: var(--bg-primary);
-            border: 1px solid var(--glass-border);
-            border-radius: 10px;
-            font-size: 0.78rem;
-            color: var(--text-primary);
-            line-height: 1.6;
-            z-index: 9999;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.2s;
-        }
-        .chat-help-tooltip.visible { opacity: 1; }
+        /* Help tooltip (defined in base.css) */
         /* Chat message image styles */
         .chat-bubble img {
             max-width: 100%;
@@ -588,7 +596,7 @@
 /* ===== Image Generation ===== */
 .chat-image-gen-card {
     margin: 8px 0;
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--glass-border);
     border-radius: 8px;
     overflow: hidden;
     background: var(--bg-secondary);
@@ -607,7 +615,7 @@
     padding: 6px 10px;
     font-size: 0.75rem;
     color: var(--text-muted);
-    border-top: 1px solid var(--border-color);
+    border-top: 1px solid var(--glass-border);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -623,7 +631,7 @@
 .chat-image-gen-spinner .spinner {
     width: 18px;
     height: 18px;
-    border: 2px solid var(--border-color);
+    border: 2px solid var(--glass-border);
     border-top: 2px solid var(--accent-color, #6366f1);
     border-radius: 50%;
     animation: gen-spin 0.8s linear infinite;

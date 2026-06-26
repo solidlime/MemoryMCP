@@ -118,7 +118,7 @@ imports_block = [
     "    _tool_item_history,\n",
     ")\n",
     "from memory_mcp.api.mcp._tools_sandbox import _tool_sandbox, _tool_sandbox_files  # noqa: E402, F401\n",
-    "from memory_mcp.api.mcp._tools_goal import _tool_goal_manage, _tool_promise_manage  # noqa: E402, F401\n",
+    "from memory_mcp.api.mcp._tools_goal import _tool_goal_manage  # noqa: E402, F401\n",
     "from memory_mcp.api.mcp._tools_skill import _tool_invoke_skill  # noqa: E402, F401\n",
     "\n",
 ]

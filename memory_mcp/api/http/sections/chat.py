@@ -80,7 +80,18 @@ def render_chat_tab() -> str:
                         <div class="chat-welcome" id="chat-welcome">
                             <div class="chat-welcome-icon"><i data-lucide="message-circle"></i></div>
                             <p>チャットを開始するには下のテキストボックスにメッセージを入力してください。</p>
-                            <p style="font-size:0.78rem; opacity:0.7;">右の設定パネルでAPIキーとプロバイダーを設定してください。</p>
+                            <p class="chat-welcome-hint">APIキーとプロバイダーを設定してください。<br><a href="#" onclick="toggleSettingsPanel();return false;" class="chat-welcome-link">⚙️ 設定パネルを開く</a></p>
+                            <div class="chat-welcome-commands">
+                                <span class="chat-welcome-cmd">/memory</span>
+                                <span class="chat-welcome-cmd">/goal</span>
+                                <span class="chat-welcome-cmd">/code</span>
+                                <span class="chat-welcome-cmd">/help</span>
+                                <span class="chat-welcome-cmd">/search</span>
+                                <span class="chat-welcome-cmd">/browser</span>
+                                <span class="chat-welcome-cmd">/image</span>
+                                <span class="chat-welcome-cmd">/sandbox</span>
+                                <span class="chat-welcome-cmd">/invoke_skill</span>
+                            </div>
                         </div>
                     </div>
                     <div id="chat-status"></div>
@@ -88,9 +99,9 @@ def render_chat_tab() -> str:
                     <div id="chat-input-area">
                         <textarea id="chat-input" placeholder="メッセージを入力... (Enter で送信、Shift+Enter で改行)" rows="1" aria-label="チャットメッセージ入力"></textarea>
                         <div style="display:flex;align-items:center;gap:6px;">
-                            <button id="chat-cancel-btn" onclick="chatCancel()" style="display:none;background:none;border:1px solid rgba(248,113,113,0.4);border-radius:8px;color:#f87171;padding:6px 14px;font-size:0.8rem;cursor:pointer;" aria-label="応答を停止"><i data-lucide="stop-circle"></i> 中止</button>
-                            <button id="chat-voice-btn" onclick="toggleVoiceInput()" title="音声入力" style="background:none;border:1px solid var(--glass-border);border-radius:8px;color:var(--text-muted);padding:6px 12px;font-size:0.85rem;cursor:pointer;" aria-label="音声入力の切替"><i data-lucide="mic"></i></button>
-                            <button id="chat-export-btn" onclick="exportChatHistory()" title="会話をエクスポート" style="background:none;border:1px solid var(--glass-border);border-radius:8px;color:var(--text-muted);padding:6px 12px;font-size:0.78rem;cursor:pointer;" aria-label="会話履歴をエクスポート"><i data-lucide="download"></i></button>
+                            <button id="chat-cancel-btn" class="chat-stop-btn" onclick="chatCancel()" style="display:none" aria-label="応答を停止"><i data-lucide="stop-circle"></i> 中止</button>
+                            <button id="chat-voice-btn" class="chat-action-btn" onclick="toggleVoiceInput()" title="音声入力" aria-label="音声入力の切替"><i data-lucide="mic"></i></button>
+                            <button id="chat-export-btn" class="chat-action-btn" onclick="exportChatHistory()" title="会話をエクスポート" aria-label="会話履歴をエクスポート"><i data-lucide="download"></i></button>
                             <button id="chat-send-btn" onclick="chatSend()" aria-label="メッセージを送信">送信</button>
                         </div>
                     </div>

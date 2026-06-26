@@ -42,7 +42,7 @@ def render_persona_tab() -> str:
         '<div style="display:flex;gap:12px;justify-content:flex-end">'
         '<button onclick="hideCreatePersona()" class="glass-btn" style="padding:8px 20px">Cancel</button>'
         '<button onclick="createPersona()" class="glass-btn" '
-        'style="padding:8px 20px;background:var(--accent);color:white">Create</button>'
+        'style="padding:8px 20px;background:var(--accent-purple);color:white">Create</button>'
         "</div>"
         "</div>"
         "</div>"
@@ -89,7 +89,7 @@ def render_persona_tab() -> str:
         '<div style="display:flex;gap:12px;justify-content:flex-end;margin-top:20px">'
         '<button onclick="hideEditProfile()" class="glass-btn" style="padding:8px 20px">Cancel</button>'
         '<button onclick="saveProfile()" class="glass-btn" '
-        'style="padding:8px 20px;background:var(--accent);color:white">Save</button>'
+        'style="padding:8px 20px;background:var(--accent-purple);color:white">Save</button>'
         "</div>"
         "</div>"
         "</div>"
@@ -138,10 +138,10 @@ def render_persona_js() -> str:
         "            var emotionIntensity = ctx.emotion_intensity != null ? ctx.emotion_intensity : 0;\n"
         "            var emoji = emotionEmoji[emotion] || '<i data-lucide=\"meh\"></i>';\n"
         "            var activeBorder = isActive\n"
-        "                ? 'border:2px solid var(--accent);box-shadow:0 0 20px rgba(168,85,247,0.3)'\n"
+        "                ? 'border:2px solid var(--accent-purple);box-shadow:0 0 20px rgba(168,85,247,0.3)'\n"
         "                : 'border:1px solid var(--glass-border)';\n"
         "            var activeBadge = isActive\n"
-        "                ? '<span style=\"font-size:0.75rem;background:var(--accent);color:white;padding:2px 8px;border-radius:9999px;margin-left:8px\">Active</span>'\n"
+        "                ? '<span style=\"font-size:0.75rem;background:var(--accent-purple);color:white;padding:2px 8px;border-radius:9999px;margin-left:8px\">Active</span>'\n"
         "                : '';\n"
         "            var switchBtn = !isActive\n"
         '                ? \'<button onclick="switchPersonaTo(\\\'\' + esc(name) + \'\\\')" class="glass-btn" style="padding:6px 14px;font-size:0.85rem"><i data-lucide="refresh-cw"></i> Switch</button>\'\n'
@@ -150,7 +150,7 @@ def render_persona_js() -> str:
         "                ? 'padding:6px 14px;font-size:0.85rem;opacity:0.5;cursor:not-allowed'\n"
         "                : 'padding:6px 14px;font-size:0.85rem';\n"
         "            var deleteDisabled = name === 'default' ? ' disabled' : '';\n"
-        "            html += '<div class=\"glass p-5\" style=\"border-radius:12px;' + activeBorder + '\">'\n"
+        "            html += '<div class=\"glass glass-hoverable p-5\" style=\"border-radius:12px;' + activeBorder + '\">'\n"
         "                + '<div style=\"display:flex;justify-content:space-between;align-items:center;margin-bottom:12px\">'\n"
         "                + '<div style=\"font-size:1.1rem;font-weight:600;color:var(--text-primary)\">'\n"
         "                + '<i data-lucide=\"user\"></i> ' + esc(name) + activeBadge\n"
@@ -287,14 +287,15 @@ def render_persona_js() -> str:
         "        toast('Cannot delete the active persona. Switch first.', 'error');\n"
         "        return;\n"
         "    }\n"
-        "    if (!confirm('Are you sure you want to delete persona \"' + name + '\"?\\nAll memories will be permanently lost.')) return;\n"
-        "    try {\n"
-        "        await api('/api/personas/' + encodeURIComponent(name), { method: 'DELETE' });\n"
-        "        toast('Persona \"' + name + '\" deleted', 'success');\n"
-        "        loadPersonas();\n"
-        "    } catch (e) {\n"
-        "        toast('Failed to delete persona: ' + e.message, 'error');\n"
-        "    }\n"
+        "    showConfirm('Are you sure you want to delete persona \\\"' + name + '\\\"?\\\\nAll memories will be permanently lost.', async function() {\n"
+        "        try {\n"
+        "            await api('/api/personas/' + encodeURIComponent(name), { method: 'DELETE' });\n"
+        "            toast('Persona \"' + name + '\" deleted', 'success');\n"
+        "            loadPersonas();\n"
+        "        } catch (e) {\n"
+        "            toast('Failed to delete persona: ' + e.message, 'error');\n"
+        "        }\n"
+        "    });\n"
         "}\n"
         "\n"
         "// --- Switch Persona ---\n"

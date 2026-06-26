@@ -64,7 +64,10 @@ async function loadActivity(reset = false) {
 
         if (events.length === 0 && ACT.offset === 0) {
             feed.innerHTML =
-                '<div class="act-empty"><i data-lucide="inbox"></i><p>No activity yet. Events will appear here as you use MemoryMCP.</p></div>';
+                '<div class="empty-state">' +
+                '<div class="empty-state-icon"><i data-lucide="activity"></i></div>' +
+                '<div class="empty-state-text">まだアクティビティがありません。<br>記憶を作成・更新するとここに表示されます。</div>' +
+                '</div>';
             if (typeof lucide !== 'undefined') lucide.createIcons();
             return;
         }
@@ -104,7 +107,10 @@ async function loadActivity(reset = false) {
         if (typeof lucide !== 'undefined') lucide.createIcons();
     } catch (e) {
         feed.innerHTML =
-            '<div class="act-empty"><i data-lucide="alert-triangle"></i><p>Failed to load: ' + esc(e.message) + '</p></div>';
+            '<div class="empty-state">' +
+            '<div class="empty-state-icon"><i data-lucide="alert-triangle"></i></div>' +
+            '<div class="empty-state-text">Failed to load: ' + esc(e.message) + '</div>' +
+            '</div>';
     }
 }
 

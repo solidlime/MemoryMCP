@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 # ── Re-export core implementations from sub-modules ──
-from memory_mcp.api.mcp._tools_goal import _tool_goal_manage, _tool_promise_manage  # noqa: E402, F401
+from memory_mcp.api.mcp._tools_goal import _tool_goal_manage  # noqa: E402, F401
 from memory_mcp.api.mcp._tools_helpers import (  # noqa: E402, F401
     _build_time_comment,
     _format_lightweight_response,
@@ -70,7 +70,6 @@ TOOL_DISPATCH: dict[str, Any] = {
     "sandbox": _tool_sandbox,
     "sandbox_files": _tool_sandbox_files,
     "goal_manage": _tool_goal_manage,
-    "promise_manage": _tool_promise_manage,
     "invoke_skill": _tool_invoke_skill,
 }
 
@@ -99,10 +98,12 @@ def register_tools(mcp: FastMCP) -> None:
         privacy_level: str = "internal",
         source_context: str | None = None,
         defer_vector: bool = False,
+        skip_duplicate_check: bool = False,
     ) -> str:
         """Create a memory. Use to record important user facts, preferences, events.
         importance auto-evaluated via LLM when None and enrichment enabled.
         tags: categorization tags. defer_vector: skip immediate vector indexing.
+        skip_duplicate_check: skip semantic duplicate detection.
 
         **Important**: Call context_update/update_context *before* memory_create
         if your emotional or physical state has changed. The system automatically
@@ -118,6 +119,7 @@ def register_tools(mcp: FastMCP) -> None:
             privacy_level=privacy_level,
             source_context=source_context,
             defer_vector=defer_vector,
+            skip_duplicate_check=skip_duplicate_check,
         )
 
     # memory_read
@@ -314,16 +316,17 @@ def register_tools(mcp: FastMCP) -> None:
 
     # sandbox
     @mcp.tool()
-    async def sandbox(code: str, language: str = "python") -> str:
+    async def sandbox(code: str, language: str = "python", session_id: str | None = None) -> str:
         """Execute code in Docker sandbox. State persists per session.
-        language: "python" or "bash". Returns stdout, stderr, exit_code, artifacts (base64 images)."""
+        language: "python" or "bash". Pass session_id to scope sandbox per conversation session.
+        Returns stdout, stderr, exit_code, artifacts (base64 images)."""
         p = _resolve_persona()
-        return await _tool_sandbox(AppContextRegistry.get(p), p, code=code, language=language)
+        return await _tool_sandbox(AppContextRegistry.get(p), p, code=code, language=language, session_id=session_id)
 
     # sandbox_files
     @mcp.tool()
     async def sandbox_files(operation: str, path: str = "/sandbox", content: str | None = None) -> str:
-        """Sandbox file operations under /sandbox. operation: list/read/write/delete.
+        """Sandbox file operations under /sandbox. operation: list/read/write/append/delete.
         read auto-detects images (PNG/JPEG/GIF/WebP) returning base64 with PIL resize support."""
         p = _resolve_persona()
         r = await _tool_sandbox_files(AppContextRegistry.get(p), p, operation=operation, path=path, content=content)
@@ -332,9 +335,14 @@ def register_tools(mcp: FastMCP) -> None:
     # goal_manage
     @mcp.tool()
     async def goal_manage(
-        operation: str, content: str = "", importance: float = 0.75, memory_key: str | None = None
+        operation: str,
+        content: str = "",
+        importance: float = 0.75,
+        scope: str = "self",
+        memory_key: str | None = None,
     ) -> str:
-        """Manage goals. operation: create (new goal), achieve (mark done), cancel (abandon).
+        """Manage goals and interpersonal commitments.
+        operation: create/list/achieve/cancel. scope: self (personal goals) / interpersonal (commitments).
         Goals stored as memories with tags=["goal","active/achieved/cancelled"].
         For achieve/cancel, use memory_key to specify the goal directly (content can be empty)."""
         p = _resolve_persona()
@@ -344,6 +352,7 @@ def register_tools(mcp: FastMCP) -> None:
             operation=operation,
             content=content,
             importance=importance,
+            scope=scope,
             memory_key=memory_key,
         )
         if r.get("ok"):
@@ -351,32 +360,9 @@ def register_tools(mcp: FastMCP) -> None:
                 return f"Goal created: {r['key']}"
             if "status" in r:
                 return f"Goal {r['status']}: {r['content']}"
+            if "result" in r:
+                return r["result"]
             return "Goal done"
-        return f"Error: {r.get('error', 'unknown')}"
-
-    # promise_manage
-    @mcp.tool()
-    async def promise_manage(
-        operation: str, content: str = "", importance: float = 0.8, memory_key: str | None = None
-    ) -> str:
-        """Manage promises. operation: create (new promise), fulfill (mark done), cancel (abandon).
-        Promises stored as memories with tags=["promise","active/fulfilled/cancelled"].
-        For fulfill/cancel, use memory_key to specify the promise directly (content can be empty)."""
-        p = _resolve_persona()
-        r = await _tool_promise_manage(
-            AppContextRegistry.get(p),
-            p,
-            operation=operation,
-            content=content,
-            importance=importance,
-            memory_key=memory_key,
-        )
-        if r.get("ok"):
-            if "key" in r:
-                return f"Promise created: {r['key']}"
-            if "status" in r:
-                return f"Promise {r['status']}: {r['content']}"
-            return "Promise done"
         return f"Error: {r.get('error', 'unknown')}"
 
     # invoke_skill

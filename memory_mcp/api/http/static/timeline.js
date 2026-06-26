@@ -89,6 +89,16 @@ async function loadTimeline() {
 
         if (_timeline) { _timeline.destroy(); _timeline = null; }
 
+        if (allMemories.length === 0) {
+            container.innerHTML = '<div class="empty-state">' +
+                '<div class="empty-state-icon"><i data-lucide="clock"></i></div>' +
+                '<div class="empty-state-text">まだタイムラインがありません。<br>記憶を作成するとここに表示されます。</div>' +
+                '<button class="empty-state-cta" onclick="switchTab(\'chat\')"><i data-lucide="message-circle"></i> Chatを開く</button>' +
+                '</div>';
+            setTimeout(() => { if (typeof lucide !== 'undefined') lucide.createIcons(); }, 50);
+            return;
+        }
+
         const items = allMemories.map((m, i) => {
             const style = getEmotionStyle(m.emotion || 'neutral');
             const content = (m.content || '').substring(0, 100);

@@ -15,13 +15,6 @@ from memory_mcp.application.sandbox.service import ExecResult, SandboxFileInfo
 
 
 @pytest.fixture
-def mock_app_context():
-    ctx = MagicMock()
-    ctx.event_bus = AsyncMock()
-    return ctx
-
-
-@pytest.fixture
 def registered_tools(mock_app_context):
     """Call register_tools with a mock FastMCP, capturing tool functions."""
     tools: dict[str, object] = {}
@@ -141,6 +134,59 @@ class TestSandbox:
 
         assert "not enabled" in result.lower()
         mock_get_session.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_execute_code_with_session_id(self, registered_tools):
+        """Session ID should scope sandbox per conversation session."""
+        tools, ctx, _ = registered_tools
+        sandbox_tool = tools["sandbox"]
+
+        with (
+            patch("memory_mcp.config.settings.get_settings") as mock_get_settings,
+            patch("memory_mcp.application.sandbox.service.get_sandbox_session") as mock_get_session,
+        ):
+            mock_get_settings.return_value = _mock_settings(enabled=True)
+            session = _mock_sandbox_session()
+            session.execute.return_value = ExecResult(
+                stdout="scoped output",
+                stderr="",
+                exit_code=0,
+                artifacts=[],
+            )
+            mock_get_session.return_value = session
+
+            result = await sandbox_tool(code="print('hello')", session_id="sess_abc")
+
+        assert "scoped output" in result
+        # Should use persona:session_id as sandbox key
+        mock_get_session.assert_called_once_with("test_persona:sess_abc")
+        session.execute.assert_called_once_with("print('hello')", language="python")
+
+    @pytest.mark.asyncio
+    async def test_execute_code_without_session_id(self, registered_tools):
+        """Without session_id, sandbox key should be persona only."""
+        tools, ctx, _ = registered_tools
+        sandbox_tool = tools["sandbox"]
+
+        with (
+            patch("memory_mcp.config.settings.get_settings") as mock_get_settings,
+            patch("memory_mcp.application.sandbox.service.get_sandbox_session") as mock_get_session,
+        ):
+            mock_get_settings.return_value = _mock_settings(enabled=True)
+            session = _mock_sandbox_session()
+            session.execute.return_value = ExecResult(
+                stdout="default output",
+                stderr="",
+                exit_code=0,
+                artifacts=[],
+            )
+            mock_get_session.return_value = session
+
+            result = await sandbox_tool(code="print('hi')")
+
+        assert "default output" in result
+        # Should use persona as sandbox key (backward compatible)
+        mock_get_session.assert_called_once_with("test_persona")
 
     @pytest.mark.asyncio
     async def test_execute_service_failure(self, registered_tools):

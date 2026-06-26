@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -32,21 +32,6 @@ def _search_result(key: str = "mem_001", score: float = 0.8) -> SearchResult:
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
-
-
-@pytest.fixture
-def mock_app_context():
-    ctx = MagicMock()
-    ctx.memory_service = MagicMock()
-    ctx.search_engine = MagicMock()
-    ctx.persona_service = MagicMock()
-    ctx.equipment_service = MagicMock()
-    ctx.entity_service = MagicMock()
-    ctx.event_bus = AsyncMock()
-    ctx.vector_store = None  # no Qdrant by default
-    ctx.settings = MagicMock()
-    ctx.settings.contradiction_threshold = 0.85
-    return ctx
 
 
 @pytest.fixture
@@ -95,12 +80,7 @@ class TestMemoryCreate:
         ctx.persona_service.get_state_snapshot.return_value = ("neutral", 0.0, {}, None)
 
         memory_create = tools["memory_create"]
-        with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
-        ):
-            mock_reg_cls.get.return_value = ctx
-            result = await memory_create(content="hello world")
+        result = await memory_create(content="hello world")
 
         assert "mem_new" in result
         ctx.memory_service.create_memory.assert_called_once()
@@ -109,27 +89,15 @@ class TestMemoryCreate:
     async def test_create_requires_content(self, registered_tools):
         tools, ctx, _ = registered_tools
         memory_create = tools["memory_create"]
-        with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
-        ):
-            mock_reg_cls.get.return_value = ctx
-            result = await memory_create()
-        assert "Error" in result
-        assert "content" in result
+        result = await memory_create()
+        assert "content is required" in result.lower()
 
     @pytest.mark.asyncio
     async def test_create_invalid_importance(self, registered_tools):
         tools, ctx, _ = registered_tools
         memory_create = tools["memory_create"]
-        with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
-        ):
-            mock_reg_cls.get.return_value = ctx
-            result = await memory_create(content="hi", importance=1.5)
-        assert "Error" in result
-        assert "importance" in result
+        result = await memory_create(content="hi", importance=1.5)
+        assert "importance must be" in result.lower()
 
     @pytest.mark.asyncio
     async def test_create_unknown_emotion_warns(self, registered_tools):
@@ -137,12 +105,7 @@ class TestMemoryCreate:
         ctx.persona_service.get_state_snapshot.return_value = ("neutral", 0.0, {}, None)
         ctx.memory_service.create_memory.return_value = Success(_mem("mem_x"))
         memory_create = tools["memory_create"]
-        with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
-        ):
-            mock_reg_cls.get.return_value = ctx
-            result = await memory_create(content="hi", tags=["test"], defer_vector=True)
+        result = await memory_create(content="hi", tags=["test"], defer_vector=True)
         assert "mem_x" in result
 
     @pytest.mark.asyncio
@@ -151,13 +114,57 @@ class TestMemoryCreate:
         ctx.persona_service.get_state_snapshot.return_value = ("neutral", 0.0, {}, None)
         ctx.memory_service.create_memory.return_value = Failure(RepositoryError("db error"))
         memory_create = tools["memory_create"]
-        with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
-        ):
-            mock_reg_cls.get.return_value = ctx
-            result = await memory_create(content="hi")
-        assert "Error" in result
+        result = await memory_create(content="hi")
+        assert "db error" in result.lower()
+
+    # ── Duplicate detection tests ──
+
+    @pytest.mark.asyncio
+    async def test_create_memory_duplicate_detected(self, registered_tools):
+        """Duplicate content should return duplicate status without creating memory."""
+        tools, ctx, _ = registered_tools
+        ctx.search_engine.search.return_value = Success([
+            _search_result("mem_dup", score=0.89),
+        ])
+        memory_create = tools["memory_create"]
+        result = await memory_create(content="similar content")
+
+        import json
+        data = json.loads(result)
+        assert data["status"] == "duplicate"
+        assert len(data["similar_to"]) >= 1
+        assert data["similar_to"][0]["key"] == "mem_dup"
+        ctx.memory_service.create_memory.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_create_memory_skip_duplicate_check(self, registered_tools):
+        """skip_duplicate_check=True should bypass duplicate detection."""
+        tools, ctx, _ = registered_tools
+        ctx.search_engine.search.return_value = Success([
+            _search_result("mem_dup", score=0.89),
+        ])
+        ctx.persona_service.get_state_snapshot.return_value = ("neutral", 0.0, {}, None)
+        ctx.memory_service.create_memory.return_value = Success(_mem("mem_new"))
+        memory_create = tools["memory_create"]
+        result = await memory_create(content="similar content", skip_duplicate_check=True)
+
+        assert "mem_new" in result
+        ctx.memory_service.create_memory.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_create_memory_no_duplicate(self, registered_tools):
+        """Low-similarity content should not trigger duplicate detection."""
+        tools, ctx, _ = registered_tools
+        ctx.search_engine.search.return_value = Success([
+            _search_result("mem_low", score=0.3),
+        ])
+        ctx.persona_service.get_state_snapshot.return_value = ("neutral", 0.0, {}, None)
+        ctx.memory_service.create_memory.return_value = Success(_mem("mem_new"))
+        memory_create = tools["memory_create"]
+        result = await memory_create(content="unique content")
+
+        assert "mem_new" in result
+        ctx.memory_service.create_memory.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -173,12 +180,7 @@ class TestMemoryRead:
         ctx.memory_service.get_memory.return_value = Success(m)
         ctx.memory_service.boost_recall.return_value = Success(None)
         memory_read = tools["memory_read"]
-        with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
-        ):
-            mock_reg_cls.get.return_value = ctx
-            result = await memory_read(memory_key="mem_001")
+        result = await memory_read(memory_key="mem_001")
         assert "stored content" in result
         assert "mem_001" in result
 
@@ -187,12 +189,7 @@ class TestMemoryRead:
         tools, ctx, _ = registered_tools
         ctx.memory_service.get_recent.return_value = Success([_mem("k1"), _mem("k2")])
         memory_read = tools["memory_read"]
-        with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
-        ):
-            mock_reg_cls.get.return_value = ctx
-            result = await memory_read()
+        result = await memory_read()
         assert "k1" in result
         assert "k2" in result
 
@@ -201,13 +198,8 @@ class TestMemoryRead:
         tools, ctx, _ = registered_tools
         ctx.memory_service.get_memory.return_value = Failure(RepositoryError("not found"))
         memory_read = tools["memory_read"]
-        with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
-        ):
-            mock_reg_cls.get.return_value = ctx
-            result = await memory_read(memory_key="missing")
-        assert "Error" in result
+        result = await memory_read(memory_key="missing")
+        assert "not found" in result.lower()
 
 
 # ---------------------------------------------------------------------------
@@ -223,25 +215,15 @@ class TestMemoryDelete:
         ctx.memory_service.get_memory.return_value = Success(m)
         ctx.memory_service.delete_memory.return_value = Success(None)
         memory_delete = tools["memory_delete"]
-        with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
-        ):
-            mock_reg_cls.get.return_value = ctx
-            result = await memory_delete(memory_key="mem_del")
+        result = await memory_delete(memory_key="mem_del")
         assert "deleted" in result.lower()
 
     @pytest.mark.asyncio
     async def test_delete_requires_key_or_query(self, registered_tools):
         tools, ctx, _ = registered_tools
         memory_delete = tools["memory_delete"]
-        with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
-        ):
-            mock_reg_cls.get.return_value = ctx
-            result = await memory_delete()
-        assert "Error" in result
+        result = await memory_delete()
+        assert "memory_key or query required" in result.lower()
 
     @pytest.mark.asyncio
     async def test_delete_failure(self, registered_tools):
@@ -249,13 +231,8 @@ class TestMemoryDelete:
         ctx.memory_service.get_memory.return_value = Failure(RepositoryError("not found"))
         ctx.memory_service.delete_memory.return_value = Failure(RepositoryError("not found"))
         memory_delete = tools["memory_delete"]
-        with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
-        ):
-            mock_reg_cls.get.return_value = ctx
-            result = await memory_delete(memory_key="missing")
-        assert "Error" in result
+        result = await memory_delete(memory_key="missing")
+        assert "not found" in result.lower()
 
 
 # ---------------------------------------------------------------------------
@@ -269,12 +246,7 @@ class TestMemoryStats:
         tools, ctx, _ = registered_tools
         ctx.memory_service.get_stats.return_value = Success({"total": 42, "by_emotion": {}})
         memory_stats = tools["memory_stats"]
-        with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
-        ):
-            mock_reg_cls.get.return_value = ctx
-            result = await memory_stats()
+        result = await memory_stats()
         assert "42" in result
 
     @pytest.mark.asyncio
@@ -282,13 +254,8 @@ class TestMemoryStats:
         tools, ctx, _ = registered_tools
         ctx.memory_service.get_stats.return_value = Failure(RepositoryError("db error"))
         memory_stats = tools["memory_stats"]
-        with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
-        ):
-            mock_reg_cls.get.return_value = ctx
-            result = await memory_stats()
-        assert "Error" in result
+        result = await memory_stats()
+        assert "db error" in result.lower()
 
 
 # ---------------------------------------------------------------------------
@@ -302,38 +269,74 @@ class TestMemoryUpdate:
         tools, ctx, _ = registered_tools
         ctx.memory_service.update_memory.return_value = Success(_mem("mem_001"))
         memory_update = tools["memory_update"]
-        with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
-        ):
-            mock_reg_cls.get.return_value = ctx
-            result = await memory_update(memory_key="mem_001", content="new content")
+        result = await memory_update(memory_key="mem_001", content="new content")
         assert "updated" in result.lower()
 
     @pytest.mark.asyncio
     async def test_update_requires_key(self, registered_tools):
         tools, ctx, _ = registered_tools
         memory_update = tools["memory_update"]
-        with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
-        ):
-            mock_reg_cls.get.return_value = ctx
-            result = await memory_update()
-        assert "Error" in result
-        assert "memory_key" in result
+        result = await memory_update()
+        assert "memory_key is required" in result.lower()
 
     @pytest.mark.asyncio
     async def test_update_invalid_importance(self, registered_tools):
         tools, ctx, _ = registered_tools
         memory_update = tools["memory_update"]
-        with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
-        ):
-            mock_reg_cls.get.return_value = ctx
-            result = await memory_update(memory_key="k1", importance=-0.1)
-        assert "Error" in result
+        result = await memory_update(memory_key="k1", importance=-0.1)
+        assert "importance must be" in result.lower()
+
+    @pytest.mark.asyncio
+    async def test_update_content_too_long(self, registered_tools):
+        tools, ctx, _ = registered_tools
+        memory_update = tools["memory_update"]
+        result = await memory_update(memory_key="k1", content="x" * 50001)
+        assert "content too long" in result.lower()
+
+    @pytest.mark.asyncio
+    async def test_update_invalid_emotion(self, registered_tools):
+        tools, ctx, _ = registered_tools
+        memory_update = tools["memory_update"]
+        result = await memory_update(memory_key="k1", content="test", emotion="nonexistent")
+        assert "invalid emotion" in result.lower()
+
+    @pytest.mark.asyncio
+    async def test_update_emotion_intensity_nan(self, registered_tools):
+        tools, ctx, _ = registered_tools
+        memory_update = tools["memory_update"]
+        # Pass a string where float is expected — the core function should reject it
+        result = await memory_update(memory_key="k1", content="test", emotion_intensity="not_a_number")
+        assert "emotion_intensity must be a number" in result.lower()
+
+    @pytest.mark.asyncio
+    async def test_update_emotion_intensity_out_of_range(self, registered_tools):
+        tools, ctx, _ = registered_tools
+        ctx.memory_service.update_memory.return_value = Success(_mem("mem_001"))
+        memory_update = tools["memory_update"]
+        # 5.0 gets clamped to 1.0, so the update should succeed
+        result = await memory_update(memory_key="k1", content="test", emotion_intensity=5.0)
+        assert "updated" in result.lower()
+
+    @pytest.mark.asyncio
+    async def test_update_tags_not_list(self, registered_tools):
+        tools, ctx, _ = registered_tools
+        memory_update = tools["memory_update"]
+        result = await memory_update(memory_key="k1", content="test", tags="not_a_list")
+        assert "tags must be a list" in result.lower()
+
+    @pytest.mark.asyncio
+    async def test_update_tag_not_string(self, registered_tools):
+        tools, ctx, _ = registered_tools
+        memory_update = tools["memory_update"]
+        result = await memory_update(memory_key="k1", content="test", tags=[123])
+        assert "all tags must be strings" in result.lower()
+
+    @pytest.mark.asyncio
+    async def test_update_invalid_privacy_level(self, registered_tools):
+        tools, ctx, _ = registered_tools
+        memory_update = tools["memory_update"]
+        result = await memory_update(memory_key="k1", content="test", privacy_level="classified")
+        assert "invalid privacy_level" in result.lower()
 
 
 # ---------------------------------------------------------------------------
@@ -351,12 +354,7 @@ class TestMemorySearch:
         # search_engine._semantic should exist for the persona assignment
         ctx.search_engine._semantic = None
         memory_search = tools["memory_search"]
-        with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
-        ):
-            mock_reg_cls.get.return_value = ctx
-            result = await memory_search(query="test query")
+        result = await memory_search(query="test query")
         assert "mem_abc" in result
         assert "0.750" in result
 
@@ -366,25 +364,15 @@ class TestMemorySearch:
         ctx.search_engine.search.return_value = Success([])
         ctx.search_engine._semantic = None
         memory_search = tools["memory_search"]
-        with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
-        ):
-            mock_reg_cls.get.return_value = ctx
-            result = await memory_search(query="nothing")
+        result = await memory_search(query="nothing")
         assert "No results" in result
 
     @pytest.mark.asyncio
     async def test_search_invalid_top_k(self, registered_tools):
         tools, ctx, _ = registered_tools
         memory_search = tools["memory_search"]
-        with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
-        ):
-            mock_reg_cls.get.return_value = ctx
-            result = await memory_search(query="test", top_k=0)
-        assert "Error" in result
+        result = await memory_search(query="test", top_k=0)
+        assert "top_k must be" in result.lower()
 
     @pytest.mark.asyncio
     async def test_search_engine_failure(self, registered_tools):
@@ -394,13 +382,76 @@ class TestMemorySearch:
         ctx.search_engine.search.return_value = Failure(SearchError("vector store down"))
         ctx.search_engine._semantic = None
         memory_search = tools["memory_search"]
-        with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
-        ):
-            mock_reg_cls.get.return_value = ctx
-            result = await memory_search(query="test")
-        assert "Error" in result
+        result = await memory_search(query="test")
+        assert "vector store" in result.lower()
+
+    @pytest.mark.asyncio
+    async def test_search_with_tags_filter(self, registered_tools):
+        tools, ctx, _ = registered_tools
+        sr = _search_result("mem_tag", score=0.8)
+        ctx.search_engine.search.return_value = Success([sr])
+        ctx.search_engine._semantic = None
+        ctx.memory_service.log_search.return_value = Success(None)
+        memory_search = tools["memory_search"]
+        await memory_search(query="test", tags=["goal"])
+        call_args = ctx.search_engine.search.call_args[0][0]
+        assert call_args.tags == ["goal"]
+        assert call_args.text == "test"
+
+    @pytest.mark.asyncio
+    async def test_search_with_date_range(self, registered_tools):
+        tools, ctx, _ = registered_tools
+        ctx.search_engine.search.return_value = Success([])
+        ctx.search_engine._semantic = None
+        ctx.memory_service.log_search.return_value = Success(None)
+        memory_search = tools["memory_search"]
+        await memory_search(query="test", date_range="7d")
+        call_args = ctx.search_engine.search.call_args[0][0]
+        assert call_args.date_range == "7d"
+
+    @pytest.mark.asyncio
+    async def test_search_with_min_importance(self, registered_tools):
+        tools, ctx, _ = registered_tools
+        ctx.search_engine.search.return_value = Success([])
+        ctx.search_engine._semantic = None
+        ctx.memory_service.log_search.return_value = Success(None)
+        memory_search = tools["memory_search"]
+        await memory_search(query="test", min_importance=0.5)
+        call_args = ctx.search_engine.search.call_args[0][0]
+        assert call_args.min_importance == 0.5
+
+    @pytest.mark.asyncio
+    async def test_search_with_emotion_filter(self, registered_tools):
+        tools, ctx, _ = registered_tools
+        ctx.search_engine.search.return_value = Success([])
+        ctx.search_engine._semantic = None
+        ctx.memory_service.log_search.return_value = Success(None)
+        memory_search = tools["memory_search"]
+        await memory_search(query="test", emotion="joy")
+        call_args = ctx.search_engine.search.call_args[0][0]
+        assert call_args.emotion == "joy"
+
+    @pytest.mark.asyncio
+    async def test_search_combined_filters(self, registered_tools):
+        tools, ctx, _ = registered_tools
+        ctx.search_engine.search.return_value = Success([])
+        ctx.search_engine._semantic = None
+        ctx.memory_service.log_search.return_value = Success(None)
+        memory_search = tools["memory_search"]
+        await memory_search(
+            query="test",
+            top_k=10,
+            tags=["goal", "important"],
+            date_range="30d",
+            min_importance=0.3,
+            emotion="sad",
+        )
+        call_args = ctx.search_engine.search.call_args[0][0]
+        assert call_args.top_k == 10
+        assert call_args.tags == ["goal", "important"]
+        assert call_args.date_range == "30d"
+        assert call_args.min_importance == 0.3
+        assert call_args.emotion == "sad"
 
     @pytest.mark.asyncio
     async def test_search_passes_tags_and_filters(self, registered_tools):
@@ -409,20 +460,15 @@ class TestMemorySearch:
         ctx.search_engine._semantic = None
         ctx.memory_service.log_search.return_value = Success(None)
         memory_search = tools["memory_search"]
-        with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
-        ):
-            mock_reg_cls.get.return_value = ctx
-            await memory_search(
-                query="test",
-                top_k=3,
-                tags=["goal"],
-                min_importance=0.7,
-                emotion="joy",
-                importance_weight=0.5,
-                recency_weight=0.3,
-            )
+        await memory_search(
+            query="test",
+            top_k=3,
+            tags=["goal"],
+            min_importance=0.7,
+            emotion="joy",
+            importance_weight=0.5,
+            recency_weight=0.3,
+        )
         call_args = ctx.search_engine.search.call_args[0][0]
         assert call_args.mode == "hybrid"  # mode is now always hybrid
         assert call_args.top_k == 3

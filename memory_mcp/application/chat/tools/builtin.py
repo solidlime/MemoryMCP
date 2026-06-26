@@ -10,6 +10,7 @@ from memory_mcp.application.chat.tools.definitions import _MEMORY_MCP_TOOL_NAMES
 from memory_mcp.config.settings import get_settings
 from memory_mcp.domain.search.engine import SearchQuery
 from memory_mcp.domain.skill import SkillRepository
+from memory_mcp.domain.value_objects import _VALID_EMOTIONS
 from memory_mcp.infrastructure.logging.structured import get_logger
 from memory_mcp.infrastructure.sqlite.connection import get_global_skills_db
 
@@ -165,7 +166,22 @@ async def _handle_memory_create_builtin(ctx: AppContext, config: ChatConfig, too
 async def _handle_memory_search_builtin(ctx: AppContext, config: ChatConfig, tool_input: dict) -> dict:
     query = tool_input.get("query", "")
     top_k = int(tool_input.get("top_k", 5))
-    result = ctx.search_engine.search(SearchQuery(text=query, top_k=min(top_k, 200)))
+    tags = tool_input.get("tags")
+    date_range = tool_input.get("date_range")
+    min_importance = tool_input.get("min_importance")
+    emotion = tool_input.get("emotion")
+    if min_importance is not None:
+        min_importance = float(min_importance)
+    result = ctx.search_engine.search(
+        SearchQuery(
+            text=query,
+            top_k=min(top_k, 200),
+            tags=tags,
+            date_range=date_range,
+            min_importance=min_importance,
+            emotion=emotion,
+        )
+    )
     if result.is_ok:
         items = []
         for item in result.value:
@@ -420,6 +436,45 @@ async def _handle_memory_update_builtin(ctx: AppContext, config: ChatConfig, too
     new_content = tool_input.get("new_content", "")
     if not query or not new_content:
         return {"status": "error", "message": "query and new_content are required"}
+
+    # ── Input validation ──
+    if len(new_content) > 50000:
+        return {"status": "error", "message": "content too long (max 50000 chars)"}
+
+    importance = tool_input.get("importance")
+    if importance is not None:
+        try:
+            importance = float(importance)
+            if not (0.0 <= importance <= 1.0):
+                return {"status": "error", "message": "importance must be between 0.0 and 1.0"}
+        except (TypeError, ValueError):
+            return {"status": "error", "message": "importance must be a number"}
+
+    emotion = tool_input.get("emotion")
+    if emotion is not None and emotion not in _VALID_EMOTIONS:
+        return {"status": "error", "message": f"invalid emotion: {emotion}"}
+
+    emotion_intensity = tool_input.get("emotion_intensity")
+    if emotion_intensity is not None:
+        try:
+            emotion_intensity = float(emotion_intensity)
+            if emotion_intensity < 0.0 or emotion_intensity > 1.0:
+                return {"status": "error", "message": "emotion_intensity must be 0.0-1.0"}
+        except (TypeError, ValueError):
+            return {"status": "error", "message": "emotion_intensity must be a number"}
+
+    tags = tool_input.get("tags")
+    if tags is not None:
+        if not isinstance(tags, list):
+            return {"status": "error", "message": "tags must be a list"}
+        if not all(isinstance(t, str) for t in tags):
+            return {"status": "error", "message": "all tags must be strings"}
+
+    valid_privacy = {"internal", "private", "public"}
+    privacy_level = tool_input.get("privacy_level")
+    if privacy_level is not None and privacy_level not in valid_privacy:
+        return {"status": "error", "message": f"invalid privacy_level: {privacy_level}"}
+
     search_result = ctx.search_engine.search(SearchQuery(text=query, top_k=1))
     if not search_result.is_ok or not search_result.value:
         return {"status": "not_found", "query": query}
@@ -429,8 +484,16 @@ async def _handle_memory_update_builtin(ctx: AppContext, config: ChatConfig, too
     if not mem_key:
         return {"status": "error", "message": "memory key not found"}
     update_kwargs: dict = {"content": new_content}
-    if "importance" in tool_input:
-        update_kwargs["importance"] = float(tool_input["importance"])
+    if importance is not None:
+        update_kwargs["importance"] = importance
+    if emotion is not None:
+        update_kwargs["emotion"] = emotion
+    if emotion_intensity is not None:
+        update_kwargs["emotion_intensity"] = emotion_intensity
+    if tags is not None:
+        update_kwargs["tags"] = tags
+    if privacy_level is not None:
+        update_kwargs["privacy_level"] = privacy_level
     update_result = ctx.memory_service.update_memory(mem_key, **update_kwargs)
     if update_result.is_ok:
         return {"status": "ok", "key": mem_key}
@@ -692,7 +755,6 @@ _BUILTIN_DISPATCH: dict[str, Any] = {
 _MCP_SHARED_TOOLS = frozenset(
     {
         "goal_manage",
-        "promise_manage",
         "invoke_skill",
         "sandbox_files",
     }

@@ -121,7 +121,7 @@ async function importConversation() {
 
         dz.addEventListener('dragover', function(e) {
             e.preventDefault();
-            dz.style.borderColor = 'var(--accent)';
+            dz.style.borderColor = 'var(--accent-purple)';
             dz.style.background = 'rgba(168,85,247,0.1)';
         });
         dz.addEventListener('dragleave', function(e) {
@@ -188,7 +188,7 @@ async function importData(file) {
         var imp = data.imported || {};
         var cards = Object.keys(imp).map(function(k) {
             return '<div class="glass p-3" style="text-align:center;border-radius:8px">'
-                + '<div style="font-size:1.5rem;font-weight:700;color:var(--accent)">' + esc(String(imp[k])) + '</div>'
+                + '<div style="font-size:1.5rem;font-weight:700;color:var(--accent-purple)">' + esc(String(imp[k])) + '</div>'
                 + '<div style="font-size:0.8rem;color:var(--text-muted)">' + esc(k) + '</div>'
                 + '</div>';
         }).join('');

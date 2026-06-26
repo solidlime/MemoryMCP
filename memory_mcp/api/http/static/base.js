@@ -170,10 +170,56 @@ function toast(msg, type='info') {
 }
 
 /* =================================================================
+   GLASS CONFIRM / ALERT MODAL (23.6)
+   ================================================================= */
+function showConfirm(message, onConfirm, onCancel) {
+    const overlay = document.createElement('div');
+    overlay.className = 'confirm-overlay';
+    overlay.innerHTML =
+        '<div class="confirm-modal">' +
+        '<h3>確認</h3>' +
+        '<p>' + esc(message).replace(/\n/g, '<br>') + '</p>' +
+        '<div class="confirm-modal-actions">' +
+        '<button class="glass-btn" id="confirm-cancel-btn">キャンセル</button>' +
+        '<button class="glass-btn glass-btn-danger" id="confirm-ok-btn">OK</button>' +
+        '</div></div>';
+    document.body.appendChild(overlay);
+    requestAnimationFrame(() => overlay.classList.add('show'));
+
+    function cleanup() {
+        overlay.classList.remove('show');
+        setTimeout(() => overlay.remove(), 220);
+    }
+    document.getElementById('confirm-ok-btn').onclick = function() { cleanup(); if (onConfirm) onConfirm(); };
+    document.getElementById('confirm-cancel-btn').onclick = function() { cleanup(); if (onCancel) onCancel(); };
+    overlay.addEventListener('click', function(e) { if (e.target === overlay) { cleanup(); if (onCancel) onCancel(); } });
+    document.addEventListener('keydown', function handler(e) {
+        if (e.key === 'Escape') { cleanup(); if (onCancel) onCancel(); document.removeEventListener('keydown', handler); }
+    });
+}
+function showAlert(message) {
+    const overlay = document.createElement('div');
+    overlay.className = 'confirm-overlay';
+    overlay.innerHTML =
+        '<div class="confirm-modal">' +
+        '<h3>通知</h3>' +
+        '<p>' + esc(message).replace(/\n/g, '<br>') + '</p>' +
+        '<div class="confirm-modal-actions">' +
+        '<button class="glass-btn glass-btn-success" id="alert-ok-btn">OK</button>' +
+        '</div></div>';
+    document.body.appendChild(overlay);
+    requestAnimationFrame(() => overlay.classList.add('show'));
+    function cleanup() { overlay.classList.remove('show'); setTimeout(() => overlay.remove(), 220); }
+    document.getElementById('alert-ok-btn').onclick = cleanup;
+    overlay.addEventListener('click', function(e) { if (e.target === overlay) cleanup(); });
+}
+
+/* =================================================================
    SSE REAL-TIME EVENTS
    ================================================================= */
 function connectSSE(persona) {
     if (S._sse) { try { S._sse.close(); } catch(_) {} }
+    S._sseBackoff = 5000;
     const es = new EventSource('/api/events/' + encodeURIComponent(persona) + '?topics=memory,context');
     S._sse = es;
 
@@ -191,7 +237,9 @@ function connectSSE(persona) {
     });
     es.onerror = function() {
         S._sse = null;
-        setTimeout(function() { if (S.persona) connectSSE(S.persona); }, 5000);
+        var backoff = S._sseBackoff || 5000;
+        S._sseBackoff = Math.min(backoff * 2, 60000);
+        setTimeout(function() { if (S.persona) connectSSE(S.persona); }, backoff);
     };
 }
 
@@ -310,8 +358,16 @@ function switchTab(tab) {
         b.setAttribute('aria-selected', isActive);
     });
     document.querySelectorAll('.tab-panel').forEach(p => {
-        p.classList.toggle('active', p.id === 'tab-' + tab);
+        const isTarget = p.id === 'tab-' + tab;
+        p.classList.toggle('active', isTarget);
+        // Skip animation on subsequent tab switches
+        if (isTarget && S._tabSwitchCount > 0) {
+            p.classList.add('no-first-anim');
+        } else if (isTarget) {
+            p.classList.remove('no-first-anim');
+        }
     });
+    S._tabSwitchCount = (S._tabSwitchCount || 0) + 1;
     showSkeleton(tab);
     loadTab(tab);
     setTimeout(() => { if (typeof lucide !== 'undefined') lucide.createIcons(); }, 100);
@@ -364,14 +420,13 @@ function openMemModal(mem) {
             ${mem.body_state ? renderBodyStateBars(mem.body_state) : ''}
             ${mem.emotion ? renderEmotionBars(mem.emotion, mem.emotion_intensity) : ''}
         </div>`;
-    overlay.style.display = 'flex';
     overlay.classList.add('show');
     document.addEventListener('keydown', _memModalKeyHandler);
 }
 function closeMemModal() {
     const overlay = document.getElementById('mem-modal-overlay');
+    if (!overlay || !overlay.classList.contains('show')) return;
     overlay.classList.remove('show');
-    setTimeout(() => { overlay.style.display = 'none'; }, 220);
     document.removeEventListener('keydown', _memModalKeyHandler);
 }
 function _memModalKeyHandler(e) { if (e.key === 'Escape') closeMemModal(); }
@@ -410,7 +465,10 @@ async function init() {
         if (personas.length === 0) {
             sel.innerHTML = '<option value="">No personas found</option>';
             document.getElementById('overview-content').innerHTML =
-                '<div class="glass p-8 text-center"><div style="font-size:2rem;margin-bottom:12px"><i data-lucide="shrug"></i></div><p style="color:var(--text-secondary)">No personas found. Create a persona to get started.</p></div>';
+                '<div class="empty-state"><div class="empty-state-icon"><i data-lucide="user-plus"></i></div>' +
+                '<div class="empty-state-text">Personasタブでペルソナを作成してください。</div>' +
+                '<button class="empty-state-cta" onclick="switchTab(\'personas\')"><i data-lucide="user-plus"></i> ペルソナを作成</button></div>';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
             return;
         }
         personas.forEach(p => {
@@ -472,27 +530,54 @@ async function init() {
     document.addEventListener('keydown', (e) => {
         if (e.altKey && ((e.key >= '1' && e.key <= '9') || e.key === '0')) {
             e.preventDefault();
-            const tabs = ['overview','analytics','memories','timeline','graph','import-export','personas','chat','settings','admin'];
+            const tabs = ['overview','analytics','memories','timeline','graph','import-export','personas','chat','settings','admin','activity'];
             const idx = e.key === '0' ? 9 : parseInt(e.key) - 1;
-            switchTab(tabs[idx]);
+            if (idx < tabs.length) switchTab(tabs[idx]);
         }
     });
 }
 
 /* =================================================================
-   COUNT-UP ANIMATION
+   COUNT-UP ANIMATION (batched)
    ================================================================= */
 function animateCount(el, target, duration) {
     duration = duration || 800;
-    const startTime = performance.now();
-    function update(currentTime) {
-        const elapsed = currentTime - startTime;
+    el._animTarget = target;
+    el._animDuration = duration;
+    el._animStart = performance.now();
+    if (!S._rafRunning) {
+        S._rafRunning = true;
+        requestAnimationFrame(_batchAnimateCount);
+    }
+}
+function _batchAnimateCount(currentTime) {
+    let anyRunning = false;
+    document.querySelectorAll('[data-animate-count]').forEach(function(el) {
+        const target = parseFloat(el.dataset.animateCount);
+        const start = el._animStart || currentTime;
+        const duration = el._animDuration || 800;
+        const elapsed = currentTime - start;
         const progress = Math.min(elapsed / duration, 1);
         const eased = 1 - Math.pow(1 - progress, 3);
         el.textContent = Math.round(target * eased).toLocaleString();
-        if (progress < 1) requestAnimationFrame(update);
+        if (progress < 1) anyRunning = true;
+    });
+    // Also handle elements set via animateCount function
+    document.querySelectorAll('.count-up').forEach(function(el) {
+        if (el._animTarget == null) return;
+        const start = el._animStart || currentTime;
+        const duration = el._animDuration || 800;
+        const elapsed = currentTime - start;
+        const progress = Math.min(elapsed / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        el.textContent = Math.round(el._animTarget * eased).toLocaleString();
+        if (progress < 1) anyRunning = true;
+    });
+    if (anyRunning) {
+        requestAnimationFrame(_batchAnimateCount);
+    } else {
+        S._rafRunning = false;
     }
-    requestAnimationFrame(update);
 }
 
 /* =================================================================
@@ -525,7 +610,8 @@ function toggleMobileNav() {
    ================================================================= */
 document.addEventListener('keydown', function(e) {
     if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
-        var searchInput = document.querySelector('.tab-panel.active input[type="text"][placeholder*="earch"]');
+        var searchInput = document.querySelector('.tab-panel.active input[data-search]');
+        if (!searchInput) searchInput = document.querySelector('.tab-panel.active input[type="text"][placeholder*="earch"]');
         if (searchInput) { e.preventDefault(); searchInput.focus(); }
     }
     if (e.key === 'Escape') {
@@ -550,8 +636,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     var tablist = document.querySelector('.tab-bar');
     if (tablist) tablist.setAttribute('role', 'tablist');
-    // Initialize Lucide icons
-    if (typeof lucide !== 'undefined') { lucide.createIcons(); }
 });
 
 // Boot

@@ -4,6 +4,7 @@ Provides the shared HTML head, navigation bar, utility JavaScript,
 and the overall page shell that section-specific renderers plug into.
 """
 
+from memory_mcp import __version__
 
 # ---------------------------------------------------------------------------
 # 1. render_head
@@ -25,7 +26,7 @@ def render_head() -> str:
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <link rel="stylesheet" href="/static/base.css">
-    <script src="/static/chat.js"></script>
+    <script src="/static/chat.js" defer></script>
 </head>"""
 
 
@@ -100,7 +101,7 @@ def render_layout_shell(nav_html: str, tab_contents: str, tab_js: str, initial_p
         '    <header class="app-header">\n'
         '        <div style="display:flex;align-items:center;gap:10px;">\n'
         '            <span style="font-size:1.6rem;"><i data-lucide="brain"></i></span>\n'
-        "            <h1>MemoryMCP v2.0.0 Dashboard</h1>\n"
+        '            <h1>MemoryMCP v' + __version__ + ' Dashboard</h1>\n'
         "        </div>\n"
         '        <div class="header-controls">\n'
         '            <select id="persona-select" class="glass-input" title="Select persona">\n'
@@ -122,7 +123,7 @@ def render_layout_shell(nav_html: str, tab_contents: str, tab_js: str, initial_p
         "    </main>\n"
         "\n"
         "    <!-- Memory Detail Modal -->\n"
-        '    <div id="mem-modal-overlay" class="mem-modal-overlay" style="display:none" onclick="if(event.target===this)closeMemModal()">\n'
+        '    <div id="mem-modal-overlay" class="mem-modal-overlay" onclick="if(event.target===this)closeMemModal()">\n'
         '        <div class="mem-modal" id="mem-modal-content"></div>\n'
         "    </div>\n"
         "\n"

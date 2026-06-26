@@ -222,7 +222,11 @@ function renderMemoryList(el, memories, tagOptions, totalPages, totalCount, isSe
     /* ── Memory items ── */
     html += '<div id="mem-list" class="glass" style="overflow:hidden">';
     if (memories.length === 0) {
-        html += '<div style="padding:40px;text-align:center;color:var(--text-muted)">No memories found</div>';
+        html += '<div class="empty-state">' +
+            '<div class="empty-state-icon"><i data-lucide="brain"></i></div>' +
+            '<div class="empty-state-text">まだ記憶がありません。<br>Chatタブで「記憶して」と話しかけてみてください。</div>' +
+            '<button class="empty-state-cta" onclick="switchTab(\'chat\')"><i data-lucide="message-circle"></i> Chatを開く</button>' +
+            '</div>';
     } else if (S.mem.viewMode === 'compact') {
         /* ── Compact view ── */
         memories.forEach(function(m) {
@@ -598,7 +602,6 @@ function openMemModal(mem) {
     h += '</div>';
 
     content.innerHTML = h;
-    overlay.style.display = 'flex';
     overlay.classList.add('show');
     document.addEventListener('keydown', _memModalKeyHandler);
 
@@ -730,17 +733,18 @@ async function saveMemory() {
    deleteMemory
    ================================================================ */
 async function deleteMemory(key) {
-    if (!confirm('Are you sure? This cannot be undone.')) return;
-    try {
-        await api('/api/memories/' + encodeURIComponent(S.persona) + '/' + encodeURIComponent(key), {
-            method: 'DELETE'
-        });
-        toast('Memory deleted', 'success');
-        closeMemModal();
-        loadMemories();
-    } catch (e) {
-        toast('Delete failed: ' + e.message, 'error');
-    }
+    showConfirm('この記憶を削除しますか？この操作は取り消せません。', async function() {
+        try {
+            await api('/api/memories/' + encodeURIComponent(S.persona) + '/' + encodeURIComponent(key), {
+                method: 'DELETE'
+            });
+            toast('Memory deleted', 'success');
+            closeMemModal();
+            loadMemories();
+        } catch (e) {
+            toast('Delete failed: ' + e.message, 'error');
+        }
+    });
 }
 
 /* ================================================================
@@ -749,20 +753,20 @@ async function deleteMemory(key) {
 async function batchDeleteMemories() {
     var keys = Array.from(S.mem.selected);
     if (keys.length === 0) { toast('No memories selected', 'error'); return; }
-    if (!confirm('Delete ' + keys.length + ' memories? This cannot be undone.')) return;
-
-    var ok = 0, fail = 0;
-    for (var i = 0; i < keys.length; i++) {
-        try {
-            await api('/api/memories/' + encodeURIComponent(S.persona) + '/' + encodeURIComponent(keys[i]), {
-                method: 'DELETE'
-            });
-            ok++;
-        } catch (e) { fail++; }
-    }
-    S.mem.selected.clear();
-    toast('Deleted ' + ok + ' memories' + (fail ? ', ' + fail + ' failed' : ''), fail ? 'error' : 'success');
-    loadMemories();
+    showConfirm(keys.length + '件の記憶を削除しますか？この操作は取り消せません。', async function() {
+        var ok = 0, fail = 0;
+        for (var i = 0; i < keys.length; i++) {
+            try {
+                await api('/api/memories/' + encodeURIComponent(S.persona) + '/' + encodeURIComponent(keys[i]), {
+                    method: 'DELETE'
+                });
+                ok++;
+            } catch (e) { fail++; }
+        }
+        S.mem.selected.clear();
+        toast('Deleted ' + ok + ' memories' + (fail ? ', ' + fail + ' failed' : ''), fail ? 'error' : 'success');
+        loadMemories();
+    });
 }
 
 /* ================================================================

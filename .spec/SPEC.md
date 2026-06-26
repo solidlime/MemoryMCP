@@ -1,252 +1,259 @@
-# SPEC: ツール改善 2026-06-27
+# SPEC: ツール対策 2026-06-27 (v4 — テストギャップ反映)
 
-## フェーズA: 低リスク・高効果
+## 前提
+- MCP後方互換 **不要**。`promise_manage` は全層から完全削除
+- chat.js の `/promise` スラッシュコマンド・`fulfillPromise()` 関数も削除
+- **#13（goal list）を #1 に統合**。同一 _tools_goal.py の2回改修を回避
+- **#0（memory_llm.py テスト）を #1 の前提条件に**。テスト0件での大規模改修は不可
 
-### A1. description 短文化
-
-#### 現状の課題
-全14ツールの description が3〜5行の長文。LLM がツール選択時に全文を読む必要があり、
-認知負荷が高い。Claude Code のツールはすべて1行説明。
-
-#### 修正対象ファイル
-`memory_mcp/application/chat/tools/definitions.py` の全 `ToolDef` の `description` フィールド。
-
-#### 修正基準
-- **1行目**: いつ・なぜこのツールを使うか（必須）
-- **2行目**: 必須パラメータの簡単な説明（任意、長くなる場合のみ）
-- **削除するもの**: 実装詳細（「内部で〜する」）、注意書き（「〜の前に〜を呼べ」）、デフォルト値の説明（スキーマに書いてある）
-
-#### 変更内容
-
-| ツール | Before (行数) | After (行数) | 新description |
-|--------|-------------|-------------|---------------|
-| memory_create | 6行 | 2行 | `"新しい記憶を作成する。ユーザーの重要な事実・好み・出来事を記録したい時に使う。importance は 0.0〜1.0（高いほど重要）。"` |
-| memory_search | 3行 | 2行 | `"記憶をハイブリッド検索（意味＋キーワード）する。思い出したいことや関連情報を探す時に使う。"` |
-| context_update | 3行 | 2行 | `"ペルソナの感情・状態を更新する。気分や体調が変わった時に使う。emotion には happy/sad/angry 等を指定。"` |
-| invoke_skill | 3行 | 1行 | `"登録済みスキルを独立したLLMコンテキストで実行する。"` |
-| goal_manage | 3行 | 2行 | `"目標の作成・達成・キャンセル。operation で create/achieve/cancel を指定。達成したら achieve で完了にする。"` |
-| promise_manage | 3行 | 2行 | `"約束の作成・履行・キャンセル。operation で create/fulfill/cancel を指定。相手との約束事に使う。"` |
-| memory_update | 3行 | 2行 | `"既存の記憶を検索して内容を更新する。query で検索し、最初にヒットした記憶を new_content で置き換える。"` |
-| context_recall | 3行 | — | **削除（A2）** |
-| browser | 16行 | 5行 | `"Webブラウザを操作する。action で open/snapshot/click/fill/press/get/wait/scroll/close を指定。\nopen→snapshot→click のループで使う。open時は url 必須、click時は ref 必須。"` |
-| search | 2行 | 2行 | `"SearXNGメタサーチエンジンでWeb検索する。リアルタイム情報や最新のドキュメントを調べたい時に使う。"` |
-| image_generate | 8行 | 3行 | `"画像を生成する。prompt で生成内容を英語で指定。provider で openai/stability/auto を選べる。"` |
-| read_pdf | 7行 | 2行 | `"PDFファイルを解析してテキスト・テーブル・画像を抽出する。path にPDFの絶対パスを指定。"` |
-| execute_code | 4行 | 2行 | `"サンドボックスコンテナ内でコードを実行する。language で python/bash を指定。計算やデータ処理に使う。"` |
-| sandbox_files | 4行 | 2行 | `"サンドボックス内のファイルを操作する。operation で list/read/write/delete を指定。write時は content 必須。"` |
-
-#### 制約
-- ツールの機能的振る舞いは一切変えない（description 変更のみ）
-- 既存テストは description を検証していないため影響なし
+## レイヤー構造（実装者向け参照）
+```
+definitions.py（チャットLLM用スキーマ）
+    ├─ builtin.py（ビルトインハンドラ） ← 直接実装 or MCP委譲
+    └─ api/mcp/tools.py（@mcp.tool() 登録）
+           └─ api/mcp/_tools_*.py（共有実装） ← 両層共通
+```
+**注意**: `memory_create`/`memory_search`/`memory_update` は両層に別実装あり。片方だけの修正で不整合が生じる。
 
 ---
 
-### A2. context_recall 削除
+## 🔴 最優先
 
-#### 根拠
-`context_recall` は `tags` による AND 検索のみ。`memory_search` にも `tags` パラメータがあり、
-`memory_search` の上位互換。独立ツールとしての存在価値がない。
-ツール数を減らすことで LLM の選択肢が減り、選択精度が上がる。
+### #0. memory_llm.py テスト新規作成 🆕
 
-#### 修正内容
+#### 対象ファイル
+`memory_mcp/application/chat/memory_llm.py`（571行）
 
-**削除対象**:
-1. `definitions.py` → `context_recall` の `ToolDef` 定義を削除、`MEMORY_TOOLS` リストから削除
-2. `builtin.py` → `_handle_context_recall()` 関数を削除
-3. `builtin.py` → `_BUILTIN_DISPATCH` 辞書から `"context_recall"` エントリを削除
+#### テストファイル
+新規作成: `tests/unit/test_memory_llm.py`
 
-**注意**: `context_recall` のハンドラが他の場所から参照されていないか事前確認が必要。
-
-#### 制約
-- `memory_search` の tags パラメータが正しく AND 検索として機能していることの確認
-- 全テストパスすること
-
----
-
-### A3. search パラメータ追加
-
-#### 修正対象
-`definitions.py` の `search` ツール定義。
-
-#### 追加パラメータ
-
-| パラメータ | 型 | 必須 | デフォルト | 説明 |
-|-----------|-----|------|-----------|------|
-| `query` | str | ✅ | — | 検索クエリ（変更なし） |
-| `num_results` | int | ❌ | 10 | 取得する検索結果数（1〜50） |
-| `language` | str | ❌ | None | 言語フィルタ（"ja", "en" 等）。指定しない場合は制限なし |
-
-#### 修正内容
-1. `definitions.py`: search の `parameters` に `num_results` と `language` を追加
-2. `builtin.py` `_handle_search()`: `num_results` を SearXNG API の `limit` にマッピング、`language` を `language` パラメータにマッピング
-
----
-
-### A4. goal/promise description 差別化
-
-#### 現状
-両ツールともほぼ同じ description:
-- goal_manage: "Manage goals. operation: create (new goal), achieve (mark done)..."
-- promise_manage: "Manage promises. operation: create (new promise), fulfill (mark done)..."
-
-LLM が「これって目標？約束？」と迷う原因。
-
-#### 修正内容
-A1 の変更で既に対応。以下を明確に:
-- goal_manage: 「目標の作成・達成・キャンセル」→ 自分のやるべきこと
-- promise_manage: 「約束の作成・履行・キャンセル」→ 相手とのやりとり
-
----
-
-## フェーズB: 中リスク・高効果
-
-### B1. context_update 自動化
-
-#### 現状の問題
-`memory_create` の description に `"**Important**: Call context_update *before* memory_create if your emotional or physical state has changed."` 
-という順序制約がある。LLM に「Aの前にBを呼べ」と強制するのは悪いツール設計。
-LangGraph なら ToolNode 内で `InjectedState` として自動注入するパターン。
-
-#### 修正方針
-1. `_handle_memory_create_builtin()` 内で、明示的な `context_update` が事前に呼ばれていなくても、
-   現在のペルソナ状態を自動スナップショットする
-2. `context_update` ツールは削除せず、明示的な状態変更用に残す（感情変化を伴わない記憶作成では呼ばなくてよい）
-
-#### 修正対象
-- `builtin.py` `_handle_memory_create_builtin()`: persona 状態の自動取得ロジック追加
-- `definitions.py` `memory_create` の description から「context_update を先に呼べ」の文言を削除（A1で対応済み）
-
-#### 実装詳細
+#### 0.1 `_parse_memory_llm_result()` テスト
+LLMのJSON応答パーサ。以下のケースをカバー:
 ```python
-# memory_create ハンドラ内
-async def _handle_memory_create_builtin(...):
-    # 自動コンテキストスナップショット
-    persona = await persona_service.get(persona_name)
-    context_snapshot = {
-        "emotion": persona.emotion,
-        "emotion_intensity": persona.emotion_intensity,
-        "body_state": persona.body_state,
-        "mental_state": persona.mental_state,
-        "context_note": persona.context_note,
-    }
-    # ... 既存の memory_create 処理、context_snapshot を含める
+# 正常系
+parse_valid_full_json()          # facts, goals, context_update, inventory_update 全フィールド
+parse_json_with_facts_only()     # facts のみ、他は空
+parse_json_with_goals_only()     # goals のみ
+parse_empty_dict()               # {}
+parse_markdown_codeblock()       # ```json ... ``` でラップされたJSON
+parse_list_format_compat()       # 後方互換: リスト形式の古い出力
+parse_goals_with_fulfill_action() # action: "fulfill" (旧promise)
+parse_goals_with_scope()         # scope: "self" | "interpersonal"
+
+# 異常系
+parse_invalid_json()             # 不正なJSON文字列 → 空結果 or エラー
+parse_empty_string()             # "" → 空結果
+parse_none_input()               # None → 空結果
+parse_missing_required_fields()  # facts キー欠落 → デフォルト値
+parse_extra_fields_ignored()     # 未知キー → 無視
+parse_nested_text_markdown()     # 説明文中の ``` に釣られない
 ```
 
-#### 制約
-- `persona_service` がハンドラ内で利用可能であること
-- 既存の `context_update` → `memory_create` のテストケースが壊れないこと
+#### 0.2 `_build_memory_llm_context()` テスト
+```python
+# 引数: commitments (goal+promiseのリスト), equipment_summary (str)
+context_empty()                  # 空のcommitments + 空のequipment
+context_goals_only()             # goals のみ
+context_promises_only()          # promises のみ (scope="interpersonal")
+context_mixed()                  # goals + promises 混在
+context_with_equipment()         # 装備品あり
+context_with_long_commitments()  # 10件以上のgoal/promise
+```
+
+#### 0.3 `_MEMORY_LLM_PROMPT` フォーマットテスト
+```python
+prompt_format_all_placeholders() # persona_name, user_name, persona_gender, ... 全埋め込み
+prompt_format_partial_info()     # 一部のユーザー情報が未設定
+prompt_no_format_errors()        # 不正なプレースホルダがないことの確認
+```
+
+#### 0.4 `run_context_housekeeping()` パーステスト
+```python
+housekeeping_valid_result()      # 正常なhousekeeping結果のパース
+housekeeping_invalid_json()      # 不正JSON → 空リスト返却
+housekeeping_no_cancellations()  # キャンセル対象なし
+```
 
 ---
 
-### B2. sandbox_files の append/Edit 操作追加
+### #1. promise_manage 完全削除 + goal_manage 統合 + operation "list" 追加
 
-#### 現状の問題
-- `write` はファイル全体置換のみ。追記ができない
-- Claude Code は `Write`（全体）と `Edit`（部分置換）を分離
+#### 修正内容（v3同様、以下略）
 
-#### 追加操作
-
-**`append`**:
+**A. definitions.py** — 変更:
+```python
+ToolDefinition(
+    name="goal_manage",
+    description="目標・約束の作成・一覧・達成・キャンセル。operation: create/list/achieve/cancel。scope: self/interpersonal。",
+    input_schema={
+        "type": "object",
+        "properties": {
+            "operation": {"type": "string", "enum": ["create", "list", "achieve", "cancel"]},
+            "content": {"type": "string", "description": "内容（create時に必須）"},
+            "importance": {"type": "number", "description": "重要度 0.0〜1.0", "default": 0.75},
+            "scope": {"type": "string", "enum": ["self", "interpersonal"], "description": "目標種別", "default": "self"},
+            "memory_key": {"type": "string", "description": "memory_key（achieve/cancel時に直接指定可能）"},
+        },
+        "required": ["operation", "scope"],
+    },
+),
 ```
-operation: "append"
-path: ファイルパス（必須）
-content: 追記する内容（必須）
-```
-→ ファイル末尾に content を追記。ファイルがなければ新規作成。
+`promise_manage` ToolDefinition 削除。`_MEMORY_MCP_TOOL_NAMES` から `"promise_manage"` 削除。
 
-**`edit`**:
-```
-operation: "edit"
-path: ファイルパス（必須）
-start_line: 置換開始行（1-indexed, 必須）
-end_line: 置換終了行（1-indexed, 任意, 省略時は start_line のみ）
-new_content: 新しい内容（必須）
-```
-→ 指定行を new_content で置換。end_line 指定時は複数行を一括置換。
+**B〜R** — v3 SPEC と同一（v3 の #1-A 〜 #1-R をそのまま踏襲）
 
-#### 修正対象
-1. `definitions.py` `SANDBOX_TOOLS` の `sandbox_files` 定義: `operation` enum に `append` と `edit` を追加
-2. `definitions.py`: `edit` 用の `start_line`, `end_line`, `new_content` パラメータ追加
-3. `api/mcp/_tools_sandbox.py` `_tool_sandbox_files()`: append/edit の実装追加
-4. `application/sandbox/service.py`: 必要に応じてサンドボックス内のファイル追記/行編集API追加
+#### 削除・修正リスト（完全版）
+v3 の完全リスト（25ファイル）から変更なし。
 
 ---
 
-## フェーズC: 高リスク・高効果
+### #2. memory_update 安全化
 
-### C1. memory_create の重複検出
-
-#### 現状の問題
-同じ内容の `memory_create` を複数回呼ぶと、重複した記憶が作成される。
-例: 「今日の天気は晴れ」を3回呼ぶ → 3つのほぼ同一の記憶。
-
-Mem0 は `add` 時に既存記憶とのセマンティック類似度を計算し、重複時は統合する。
-
-#### 修正方針
-1. `_handle_memory_create_builtin()` 内で、作成前に以下の処理を追加:
-   a. 同一 persona の既存記憶を内部で `memory_search`（top_k=5）
-   b. 各結果の content と新規 content の類似度を計算
-   c. 類似度 > 0.85 の記憶があれば、既存記憶を更新（`memory_update` 内部呼び出し）
-   d. 類似度 < 0.85 なら通常の作成処理
-2. 戻り値に `{"status": "merged", "merged_into": "key", "similarity": 0.92}` のような情報を含める
-
-#### 考慮点
-- 類似度計算のオーバーヘッド（埋め込みベクトル比較は軽量）
-- 閾値 0.85 は要チューニング。環境変数で調整可能に
-- 「重複だが少し違う」場合の挙動（上書き vs 別途保存）の明示
-
-#### 修正対象
-- `builtin.py` `_handle_memory_create_builtin()`
-- `definitions.py` `memory_create` の description に重複検出の説明追加
+（v3 と同一）
 
 ---
 
-### C2. execute_code の session_id 対応
+## 🟡 高優先
 
-#### 現状の問題
-`execute_code` は毎回新しいサンドボックスを作成する。
-`x = 1` → `print(x)` のように複数回に分けて実行できない。
-OpenAI Code Interpreter は20分間のセッション状態を維持する。
+### #3. memory_search フィルタ追加
+### #4. browser description 強化
+### #5. sandbox_files required 関連改善
+### #6. 制限値のツール定義可視化
 
-#### 修正方針
-1. `execute_code` に `session_id` パラメータ追加（任意、指定時は既存セッションを再利用）
-2. `execute_code` に `action` パラメータ追加（`run` / `session_end`）:
-   - `run`（デフォルト）: コード実行
-   - `session_end`: セッションを明示的に終了（リソース解放）
-3. セッション管理:
-   - メモリ内 dict で `session_id → sandbox_container` を管理
-   - TTL 300秒（設定可能）でアイドルセッションを自動クリーンアップ
-   - `session_end` で即時解放
-
-#### 修正対象
-1. `definitions.py`: `execute_code` に `session_id` と `action` パラメータ追加
-2. `builtin.py` `_handle_execute_code()`: セッション管理ロジック追加
-3. `application/sandbox/service.py`: `run_code(session_id, code, language)` のセッション対応
-4. テスト: セッション状態維持のテスト追加
+（v3 と同一）
 
 ---
 
-## フェーズD: 軽微・任意
+## 🟢 低優先
 
-### D1. invoke_skill の list_skills 追加
+### #7. memory_create 重複検出
+### #8. execute_code session_id 対応
+### #9. description 短文化（全13ツール）
+### #10. context_update 自動化
+### #11. sandbox_files append/edit 追加
+### #14. README context_recall 記述削除
 
-#### 現状
-LLM は利用可能なスキル一覧を知らずに `invoke_skill` を呼ぶ必要がある。
-
-#### 修正
-- `invoke_skill` のツール定義の `name` パラメータの description に、
-  利用可能なスキル名一覧を動的に埋め込む
-- スキル一覧は起動時に読み込み、キャッシュする
-- または新規 `list_skills` ツールを追加（ツール数が増えるので非推奨）
+（v3 と同一）
 
 ---
 
-### D2. browser ツール引数整理
+### #15. builtin.py ハンドラのパラメータ検証テスト 🆕
 
-#### 現状
-`browser` ツールは11個のパラメータを持つ。`action` 値によって必須/非必須が変わる複雑な依存関係。
-ただし、agent-browser の `snapshot → ref → click` ループとの親和性が高く、
-一度理解すれば使いやすい。即時の大規模リファクタリングは不要。
+#### 対象
+`memory_mcp/application/chat/tools/builtin.py`
 
-#### 対応
-A1 の description 改善で対応。「open時は url 必須、click時は ref 必須」と明記する。
+#### テストファイル
+新規作成: `tests/unit/test_builtin_handlers.py`
+
+#### 15.1 `_handle_browser` パラメータ検証
+```python
+# 外部プロセス呼出し部（agent-browser CLI）は async subprocess を mock
+test_browser_action_required()   # action未指定 → エラー
+test_browser_unknown_action()    # 未知action → エラー
+test_browser_open_no_url()       # open で url未指定 → エラー
+test_browser_click_no_ref()      # click で ref未指定 → エラー
+test_browser_fill_no_ref()       # fill で ref未指定 → エラー
+test_browser_press_no_key()      # press で key未指定 → エラー
+test_browser_valid_open()        # open + url → subprocess 呼出し確認
+```
+
+#### 15.2 `_handle_execute_code` パラメータ検証
+```python
+test_execute_empty_code()        # code未指定 → エラー
+test_execute_sandbox_disabled()  # sandbox無効 → エラー
+test_execute_valid_python()      # python実行 → sandbox session呼出し確認
+test_execute_valid_bash()        # bash実行 → 同
+```
+
+#### 15.3 `_handle_image_generate` パラメータ検証
+```python
+test_image_empty_prompt()        # prompt未指定 → エラー
+test_image_invalid_provider()    # 不明provider → デフォルト使用 or エラー
+test_image_openai_call()         # openai provider → factory呼出し確認
+test_image_stability_call()      # stability provider → 同
+```
+
+#### 15.4 `_handle_search` パラメータ検証
+```python
+test_search_empty_query()        # query未指定 → エラー
+test_search_num_results_boundary() # num_results=0/@1/@10/@100 の境界
+test_search_with_language()      # languageパラメータ伝搬確認
+```
+
+---
+
+### #16. definitions.py スキーマ整合性テスト 🆕
+
+#### 対象
+`memory_mcp/application/chat/tools/definitions.py`（309行）
+
+#### テストファイル
+新規作成: `tests/unit/test_tool_definitions.py`
+
+```python
+def test_all_required_keys_exist_in_properties():
+    """全 ToolDefinition で required 配列の全キーが properties に存在することを検証"""
+    for td in MEMORY_TOOLS + SANDBOX_TOOLS:
+        for req in td.input_schema.get("required", []):
+            assert req in td.input_schema["properties"]
+
+def test_all_enums_are_non_empty():
+    """全 ToolDefinition で enum 制約が空でないことを検証"""
+    for td in MEMORY_TOOLS + SANDBOX_TOOLS:
+        for prop in td.input_schema.get("properties", {}).values():
+            if "enum" in prop:
+                assert len(prop["enum"]) > 0
+
+def test_no_duplicate_tool_names():
+    """ツール名の重複がないことを検証"""
+    names = [td.name for td in MEMORY_TOOLS + SANDBOX_TOOLS]
+    assert len(names) == len(set(names))
+
+def test_scope_enum_values():
+    """#1 変更後: goal_manage の scope enum が ["self", "interpersonal"] であること"""
+    goal_td = next(td for td in MEMORY_TOOLS if td.name == "goal_manage")
+    assert goal_td.input_schema["properties"]["scope"]["enum"] == ["self", "interpersonal"]
+
+def test_promise_manage_removed():
+    """#1 変更後: promise_manage が存在しないこと"""
+    names = [td.name for td in MEMORY_TOOLS + SANDBOX_TOOLS]
+    assert "promise_manage" not in names
+```
+
+---
+
+### #17. テスト保守性改善 🆕
+
+#### 17.1 mock_app_context フィクスチャの conftest.py 集約
+- `test_mcp_memory.py`, `test_mcp_goals_promises.py`, `test_mcp_sandbox.py` の3重定義を `conftest.py` に統合
+- `scope` パラメータで必要なサービス数を制御（例: `mock_app_context("full")`, `mock_app_context("minimal")`）
+
+#### 17.2 patch ボイラープレートのヘルパー化
+```python
+# conftest.py に追加
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def mcp_tool_context(mock_ctx, persona="test_persona"):
+    with (
+        patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg,
+        patch("memory_mcp.api.mcp.tools.get_current_persona", return_value=persona),
+    ):
+        mock_reg.get_instance.return_value = mock_ctx
+        yield mock_reg
+```
+
+#### 17.3 asyncio.run() → await 置換
+- `test_session_event_recorder.py` の `asyncio.run(recorder._on_event(...))` を `@pytest.mark.asyncio` + `await` に
+
+#### 17.4 アサーション具体化
+- `test_mcp_memory.py` の `assert "Error" in result` → `assert "not found" in result` / `assert "invalid" in result` 等のエラー種別部分一致に
+
+---
+
+## スコープ外
+- 新ツール追加
+- 外部MCPクライアント統合改善
+- _tools_sandbox.py リファクタリング
+- CHANGELOG.md 履歴修正
+- chat.js のテストフレームワーク導入

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
@@ -65,7 +64,8 @@ class TestSessionEventRecorder:
             assert args[1].__self__ is recorder
             assert args[1].__func__ is SessionEventRecorder._on_event
 
-    def test_on_event_inserts(self, recorder, mock_repo):
+    @pytest.mark.asyncio
+    async def test_on_event_inserts(self, recorder, mock_repo):
         """Verify _on_event calls repo.insert with correct SessionEvent."""
         data = {
             "session_id": "sess_001",
@@ -79,7 +79,7 @@ class TestSessionEventRecorder:
             "metadata": {"source": "test"},
         }
 
-        asyncio.run(recorder._on_event("tool.called", data))
+        await recorder._on_event("tool.called", data)
 
         mock_repo.insert.assert_called_once()
         event: SessionEvent = mock_repo.insert.call_args[0][0]
@@ -93,7 +93,8 @@ class TestSessionEventRecorder:
         assert event.detail == "some detail"
         assert event.metadata == {"source": "test"}
 
-    def test_on_event_inserts_events_ingested(self, recorder, mock_repo):
+    @pytest.mark.asyncio
+    async def test_on_event_inserts_events_ingested(self, recorder, mock_repo):
         """Verify _on_event handles events.ingested correctly."""
         data = {
             "session_id": "sess_002",
@@ -101,32 +102,34 @@ class TestSessionEventRecorder:
             "events": [{"type": "chat"}, {"type": "tool"}],
         }
 
-        asyncio.run(recorder._on_event("events.ingested", data))
+        await recorder._on_event("events.ingested", data)
 
         mock_repo.insert.assert_called_once()
         event: SessionEvent = mock_repo.insert.call_args[0][0]
         assert event.event_type == "events.ingested"
         assert event.summary == "Plugin ingested 2 events"
 
-    def test_on_event_skips_unknown(self, recorder, mock_repo):
+    @pytest.mark.asyncio
+    async def test_on_event_skips_unknown(self, recorder, mock_repo):
         """Verify unrecognized event types don't crash."""
         data = {
             "session_id": "sess_003",
             "persona": "test_persona",
         }
 
-        asyncio.run(recorder._on_event("unknown.event", data))
+        await recorder._on_event("unknown.event", data)
 
         mock_repo.insert.assert_called_once()
         event: SessionEvent = mock_repo.insert.call_args[0][0]
         assert event.event_type == "unknown.event"
         assert event.summary == "unknown.event: "
 
-    def test_on_event_missing_fields(self, recorder, mock_repo):
+    @pytest.mark.asyncio
+    async def test_on_event_missing_fields(self, recorder, mock_repo):
         """Verify missing fields use sensible defaults."""
         data = {}
 
-        asyncio.run(recorder._on_event("tool.called", data))
+        await recorder._on_event("tool.called", data)
 
         mock_repo.insert.assert_called_once()
         event: SessionEvent = mock_repo.insert.call_args[0][0]
@@ -135,7 +138,8 @@ class TestSessionEventRecorder:
         assert event.event_type == "tool.called"
         assert event.summary == "unknown: ✓"
 
-    def test_on_event_handles_error(self, recorder, mock_repo):
+    @pytest.mark.asyncio
+    async def test_on_event_handles_error(self, recorder, mock_repo):
         """Verify repo error doesn't propagate (logged only)."""
         mock_repo.insert.side_effect = RuntimeError("DB failure")
 
@@ -146,11 +150,12 @@ class TestSessionEventRecorder:
         }
 
         # Should not raise
-        asyncio.run(recorder._on_event("tool.called", data))
+        await recorder._on_event("tool.called", data)
 
         mock_repo.insert.assert_called_once()
 
-    def test_on_event_invalid_timestamp(self, recorder, mock_repo):
+    @pytest.mark.asyncio
+    async def test_on_event_invalid_timestamp(self, recorder, mock_repo):
         """Verify invalid timestamp falls back to get_now()."""
         with patch("memory_mcp.application.session_event_recorder.get_now") as mock_get_now:
             fake_now = datetime(2026, 6, 13, 15, 0, 0)
@@ -162,7 +167,7 @@ class TestSessionEventRecorder:
                 "timestamp": "not-a-valid-timestamp",
             }
 
-            asyncio.run(recorder._on_event("tool.called", data))
+            await recorder._on_event("tool.called", data)
 
             mock_repo.insert.assert_called_once()
             event: SessionEvent = mock_repo.insert.call_args[0][0]
@@ -282,7 +287,8 @@ class TestSessionEventRecorder:
         )
         assert summary == "▶ Session started: sess_abc"
 
-    def test_on_event_inserts_chat_message(self, recorder, mock_repo):
+    @pytest.mark.asyncio
+    async def test_on_event_inserts_chat_message(self, recorder, mock_repo):
         """Verify _on_event handles chat.message correctly."""
         data = {
             "session_id": "sess_chat_001",
@@ -291,7 +297,7 @@ class TestSessionEventRecorder:
             "timestamp": "2026-06-13T10:30:00",
         }
 
-        asyncio.run(recorder._on_event("chat.message", data))
+        await recorder._on_event("chat.message", data)
 
         mock_repo.insert.assert_called_once()
         event: SessionEvent = mock_repo.insert.call_args[0][0]
@@ -301,7 +307,8 @@ class TestSessionEventRecorder:
         assert event.persona == "test_persona"
         assert event.timestamp == datetime(2026, 6, 13, 10, 30, 0)
 
-    def test_on_event_inserts_chat_llm_response(self, recorder, mock_repo):
+    @pytest.mark.asyncio
+    async def test_on_event_inserts_chat_llm_response(self, recorder, mock_repo):
         """Verify _on_event handles chat.llm_response correctly."""
         data = {
             "session_id": "sess_chat_002",
@@ -310,7 +317,7 @@ class TestSessionEventRecorder:
             "timestamp": "2026-06-13T10:30:01",
         }
 
-        asyncio.run(recorder._on_event("chat.llm_response", data))
+        await recorder._on_event("chat.llm_response", data)
 
         mock_repo.insert.assert_called_once()
         event: SessionEvent = mock_repo.insert.call_args[0][0]
@@ -318,7 +325,8 @@ class TestSessionEventRecorder:
         assert event.summary == "🤖 I am a helpful assistant."
         assert event.session_id == "sess_chat_002"
 
-    def test_on_event_inserts_session_compact(self, recorder, mock_repo):
+    @pytest.mark.asyncio
+    async def test_on_event_inserts_session_compact(self, recorder, mock_repo):
         """Verify _on_event handles session.compact correctly."""
         data = {
             "session_id": "sess_chat_003",
@@ -328,7 +336,7 @@ class TestSessionEventRecorder:
             "timestamp": "2026-06-13T10:30:02",
         }
 
-        asyncio.run(recorder._on_event("session.compact", data))
+        await recorder._on_event("session.compact", data)
 
         mock_repo.insert.assert_called_once()
         event: SessionEvent = mock_repo.insert.call_args[0][0]

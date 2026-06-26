@@ -1,0 +1,35 @@
+"""Shared fixtures and helpers for unit tests."""
+
+from __future__ import annotations
+
+from contextlib import asynccontextmanager
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
+
+@pytest.fixture
+def mock_app_context():
+    """Comprehensive mock app context with all common services."""
+    ctx = MagicMock()
+    ctx.memory_service = MagicMock()
+    ctx.search_engine = MagicMock()
+    ctx.persona_service = MagicMock()
+    ctx.equipment_service = MagicMock()
+    ctx.entity_service = MagicMock()
+    ctx.event_bus = AsyncMock()
+    ctx.vector_store = None
+    ctx.settings = MagicMock()
+    ctx.settings.contradiction_threshold = 0.85
+    return ctx
+
+
+@asynccontextmanager
+async def mcp_tool_context(mock_ctx, persona="test_persona"):
+    """Context manager that patches MCP tool dependencies for testing."""
+    with (
+        patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg,
+        patch("memory_mcp.api.mcp.tools.get_current_persona", return_value=persona),
+    ):
+        mock_reg.get.return_value = mock_ctx
+        yield mock_reg

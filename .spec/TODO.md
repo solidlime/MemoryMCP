@@ -1,84 +1,95 @@
-# TODO: マルチモーダルLLM対応
+# TODO: ツール対策 + UI/UX改善 2026-06-27 (v7 — 完了)
 
-## フェーズ1: 画像生成基盤 (DALL-E + SD)
-- [x] 1.1 `infrastructure/image_gen/` パッケージ作成
-  - [x] 1.1.1 `base.py` — ImageGenProvider 抽象クラス
-  - [x] 1.1.2 `dalle.py` — DALL-E 3 実装
-  - [x] 1.1.3 `stability.py` — SD WebUI API 実装
-  - [x] 1.1.4 `factory.py` — ファクトリ
-- [x] 1.2 `domain/chat_config.py` — image_gen 系フィールド追加
-- [x] 1.3 DBマイグレーション — v026
-- [x] 1.4 `events.py` — ImageGen SSE
-- [x] 1.5 `tools/definitions.py` — image_generate ツール定義
-- [x] 1.6 `tools/builtin.py` — _handle_image_generate()
-- [x] 1.7 `sections/chat.py` — 画像生成設定UI
-- [x] 1.8 `static/chat.js` — イベント処理
-- [x] 1.9 `static/chat.css` — 画像表示スタイル
+## 🔴 クリティカルパス（前提・後方依存あり）
 
-## フェーズ2: PDF解析
-- [x] 2.1 `tools/definitions.py` — read_pdf ツール定義
-- [x] 2.2 `tools/builtin.py` — _handle_read_pdf()
-- [x] 2.3 `domain/chat_config.py` — pdf_max_size_mb
-- [x] 2.4 DBマイグレーション — v027
+### 【#0】 memory_llm.py テスト新規作成（#1 の前提）
+- [x] 0.1-0.5 テスト作成 + 確認 — 44 tests ✅
 
-## フェーズ3: テスト・検証
-- [x] 3.1 Python 単体テスト
-  - [x] 3.1.1 `test_image_gen_providers.py`
-  - [x] 3.1.2 `test_read_pdf.py`
-  - [ ] 3.1.3 `test_chat_service.py` — image_gen_* イベントテスト
-- [ ] 3.2 統合テスト
-  - [ ] 3.2.1 PDF添付→ツール呼び出し→応答のE2E
-  - [ ] 3.2.2 画像生成→チャットログ表示のE2E
-- [ ] 3.3 ブラウザテスト (agent-browser)
+### 【#1】 promise_manage 完全削除 + goal_manage 統合 + "list" 追加
+- [x] 1.1-1.27 全レイヤー削除＋scope移行＋テスト書き換え — 9ファイル変更、0 regression ✅
 
----
+### 【#2】 memory_update 安全化
+- [x] 2.1-2.5 実装＋テスト — 両層に7種バリデーション追加 ✅
 
-# TODO: コード健全化 2026-06-26
+### 【#15】 builtin.py ハンドラのパラメータ検証テスト
+- [x] 15.1-15.5 テスト作成 — 55 tests ✅
 
-## フェーズ4: sections/ のHTML外出し
-- [x] 4.1 `base.py` — CSS/JS抽出 (1,238→136行)
-- [x] 4.2 `memories.py` — JS抽出 (1,101→275行)
-- [x] 4.3 `settings.py` — JS抽出 (645→40行)
-- [x] 4.4 `coding_agent.py` — JS抽出 (634→328行)
-- [x] 4.5 `knowledge_graph.py` — JS抽出 (606→181行)
-- [x] 4.6 `overview.py` — JS抽出 (564→31行)
-- [x] 4.7 `chat.py` — 変更なし
-- [x] 4.8 `activity.py` — JS抽出 (378→165行)
-- [x] 4.9 `timeline.py` — JS抽出 (361→155行)
-- [x] 4.10 全テストパス & ruffパス確認
-- [x] 4.11 coding_agent.js 埋め込み欠落バグ修正
+### 【#16】 definitions.py スキーマ整合性テスト
+- [x] 16.1-16.5 テスト作成 — 8 tests ✅
 
-## フェーズ5: カバレッジ改善
-- [x] 5.1 テスト追加 (runtime_config, use_cases, pattern_detector, compress, prepare)
-- [x] 5.2 全体カバレッジ 63→65%（70%は長期目標）
+### 【#4】 browser description 強化
+- [x] 4.1-4.3 実装＋確認 — #4+#5+#6 まとめて ✅
 
-## フェーズ6: 設定統一
-- [x] 6.1 lefthook に統一、`.pre-commit-config.yaml` 削除
+### 【#5】 sandbox_files required 関連改善
+- [x] 5.1-5.2 実装＋確認 — #4+#5+#6 まとめて ✅
 
-## フェーズ7: Dependabot ブランチ整理
-- [x] 7.1 放置ブランチ10本削除
+### 【#6】 制限値のツール定義可視化
+- [x] 6.1-6.4 実装＋確認 — #4+#5+#6 まとめて ✅
 
----
+### 【#3】 memory_search フィルタ追加
+- [x] 3.1-3.6 実装＋テスト — フィルタパラメータ追加 ✅
 
-# TODO: ツール改善 2026-06-27
+## 🟡 必須タスク（並行・後続可）
 
-## フェーズA: 低リスク・高効果
-- [ ] A1. description 短文化（全14ツール → definitions.py）
-- [ ] A2. context_recall 削除（definitions.py + builtin.py）
-- [ ] A3. search パラメータ追加（num_results, language）
-- [ ] A4. goal/promise description 差別化（A1に含む）
-- [ ] A5. 全テストパス & ruffパス確認
+### ツール機能改善
 
-## フェーズB: 中リスク・高効果
-- [ ] B1. context_update 自動化（memory_create 内で自動スナップショット）
-- [ ] B2. sandbox_files の append/Edit 操作追加
-- [ ] B3. 全テストパス & ruffパス確認
+### 【#7】 memory_create 重複検出
+- [x] 7.1-7.3 確認＋テスト — MCP層移植 + chat.js UI ✅
 
-## フェーズC: 高リスク・高効果
-- [ ] C1. memory_create の重複検出
-- [ ] C2. execute_code の session_id 対応
-- [ ] C3. 全テストパス & ruffパス確認
+### 【#8】 execute_code session_id 対応
+- [x] 8.1-8.5 実装＋テスト — MCP層に追加 ✅
 
-## フェーズD: 軽微・任意
-- [ ] D1. invoke_skill の list_skills 機能追加
-- [ ] D2. browser ツール description 改善（A1に含む）
+### 【#9】 description 短文化（全13ツール）
+- [x] 9.1-9.3 実装＋確認 — 全13ツール短縮 (max 216→43字) ✅
+
+### 【#10】 context_update 自動化
+- [x] 10.1-10.3 実装＋確認 — context_note自動反映配線 ✅
+
+### 【#11】 sandbox_files append/edit 追加
+- [x] 11.1-11.4 実装＋テスト — description修正 + テスト ✅
+
+### 【#12】 search パラメータ確認
+- [x] 12.1-12.3 確認→クローズ — 実装済み確認 ✅
+
+### 【#14】 README context_recall 記述削除
+- [x] 14.1-14.2 削除 — 2行削除 ✅
+
+### UI/UX改善
+
+### 【#18】 インラインCSS除去 + CSS変数化 + テーマ破綻修正
+- [x] 18.1-18.12 全サブタスク — CSS変数化、重複除去、dead code削除 ✅
+
+### 【#19】 空状態（Empty State）+ CTA表示
+- [x] 19.1-19.6 全サブタスク — memories/activity/timeline/chat ✅
+
+### 【#20】 スラッシュコマンド・ショートカット可視化
+- [x] 20.1-20.4 全サブタスク — /help追加、候補ポップアップ ✅
+
+### 【#21】 chat.js defer化
+- [x] 21.1 defer属性追加 ✅
+
+### 【#22】 レスポンシブ改善
+- [x] 22.1-22.6 全サブタスク — ブレイクポイント追加、CSS変数化 ✅
+
+### 【#23】 軽微UI修正まとめ
+- [x] 23.1-23.11 全サブタスク — モーダル、SSEバックオフ、RAFバッチ化 ✅
+
+### テスト改善
+
+### 【#17】 テスト保守性改善
+- [x] 17.1-17.5 フィクスチャ集約＋ヘルパー化＋await置換＋アサーション具体化 ✅
+
+### ドッグフーディング
+- [x] サーバー起動テスト (port 26262)
+- [x] MCP API 全ツール確認 (promise_manage完全消滅確認)
+- [x] memory_update バリデーション動作確認
+- [x] memory_create + memory_search 動作確認
+- [x] goal_manage scope/list 動作確認
+- [x] goal_manage scope=self フィルタバグ修正
+- [x] @designer 視認レビュー → 6件指摘 → 全修正
+
+## 最終ステータス
+- **1134 passed, 7 skipped, 0 failed**
+- **ruff: All checks passed**
+- **変更ファイル: 30+ ファイル**
+- **新規テスト: ~160 tests**

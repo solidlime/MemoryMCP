@@ -1,0 +1,764 @@
+"""Tests for builtin.py tool handler parameter validation."""
+
+from __future__ import annotations
+
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
+from memory_mcp.application.chat.tools.builtin import (
+    _handle_browser,
+    _handle_execute_code,
+    _handle_image_generate,
+    _handle_search,
+)
+from memory_mcp.application.sandbox.service import ExecResult
+
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def mock_ctx():
+    """Minimal AppContext mock."""
+    ctx = MagicMock()
+    ctx.persona = "test_persona"
+    ctx.settings = MagicMock()
+    ctx.settings.agent_browser_path = ""
+    ctx.event_bus = AsyncMock()
+    return ctx
+
+
+@pytest.fixture
+def mock_config():
+    """Minimal ChatConfig mock."""
+    cfg = MagicMock()
+    cfg.sandbox_enabled = True
+    cfg.image_gen_enabled = True
+    cfg.image_gen_provider = "openai"
+    cfg.image_gen_dalle_model = "dall-e-3"
+    cfg.image_gen_stability_url = ""
+    cfg.searxng_url = "http://test-searxng:11111"
+    return cfg
+
+
+# ===================================================================
+# _handle_browser
+# ===================================================================
+
+
+class TestBrowserHandler:
+    @pytest.mark.asyncio
+    async def test_browser_action_required(self, mock_ctx, mock_config):
+        """action未指定 → error"""
+        result = await _handle_browser(mock_ctx, mock_config, {})
+        assert result["status"] == "error"
+        assert "action" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_browser_action_is_none(self, mock_ctx, mock_config):
+        """action=None → error"""
+        result = await _handle_browser(mock_ctx, mock_config, {"action": None})
+        assert result["status"] == "error"
+        assert "action" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_browser_action_is_blank(self, mock_ctx, mock_config):
+        """action="" → error"""
+        result = await _handle_browser(mock_ctx, mock_config, {"action": ""})
+        assert result["status"] == "error"
+        assert "action" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_browser_unknown_action(self, mock_ctx, mock_config):
+        """action="fly" → error"""
+        result = await _handle_browser(mock_ctx, mock_config, {"action": "fly"})
+        assert result["status"] == "error"
+        assert "Unknown action" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_browser_open_no_url(self, mock_ctx, mock_config):
+        """action="open" with no url → error"""
+        result = await _handle_browser(mock_ctx, mock_config, {"action": "open"})
+        assert result["status"] == "error"
+        assert "url is required" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_browser_open_empty_url(self, mock_ctx, mock_config):
+        """action="open" with empty url → error"""
+        result = await _handle_browser(mock_ctx, mock_config, {"action": "open", "url": ""})
+        assert result["status"] == "error"
+        assert "url is required" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_browser_open_bad_scheme(self, mock_ctx, mock_config):
+        """action="open" with ftp:// url → error"""
+        result = await _handle_browser(mock_ctx, mock_config, {"action": "open", "url": "ftp://example.com"})
+        assert result["status"] == "error"
+        assert "url must start with http" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_browser_click_no_ref(self, mock_ctx, mock_config):
+        """action="click" with no ref → error"""
+        result = await _handle_browser(mock_ctx, mock_config, {"action": "click"})
+        assert result["status"] == "error"
+        assert "ref is required for click" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_browser_click_empty_ref(self, mock_ctx, mock_config):
+        """action="click" with empty ref → error"""
+        result = await _handle_browser(mock_ctx, mock_config, {"action": "click", "ref": ""})
+        assert result["status"] == "error"
+        assert "ref is required for click" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_browser_fill_no_ref(self, mock_ctx, mock_config):
+        """action="fill" with no ref → error"""
+        result = await _handle_browser(mock_ctx, mock_config, {"action": "fill"})
+        assert result["status"] == "error"
+        assert "ref is required for fill" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_browser_press_no_key(self, mock_ctx, mock_config):
+        """action="press" with no key → error"""
+        result = await _handle_browser(mock_ctx, mock_config, {"action": "press"})
+        assert result["status"] == "error"
+        assert "key is required for press" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_browser_press_empty_key(self, mock_ctx, mock_config):
+        """action="press" with empty key → error"""
+        result = await _handle_browser(mock_ctx, mock_config, {"action": "press", "key": ""})
+        assert result["status"] == "error"
+        assert "key is required for press" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_browser_get_no_what(self, mock_ctx, mock_config):
+        """action="get" with no what → error"""
+        result = await _handle_browser(mock_ctx, mock_config, {"action": "get"})
+        assert result["status"] == "error"
+        assert "what is required" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_browser_get_count_no_selector(self, mock_ctx, mock_config):
+        """action="get", what="count", no selector → error"""
+        result = await _handle_browser(mock_ctx, mock_config, {"action": "get", "what": "count"})
+        assert result["status"] == "error"
+        assert "selector is required for get count" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_browser_get_custom_no_ref(self, mock_ctx, mock_config):
+        """action="get", what="text", no ref → error"""
+        result = await _handle_browser(mock_ctx, mock_config, {"action": "get", "what": "text"})
+        assert result["status"] == "error"
+        assert "ref is required for get text" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_browser_wait_no_until(self, mock_ctx, mock_config):
+        """action="wait" with no until → error"""
+        result = await _handle_browser(mock_ctx, mock_config, {"action": "wait"})
+        assert result["status"] == "error"
+        assert "until is required for wait" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_browser_wait_text_no_value(self, mock_ctx, mock_config):
+        """action="wait", until="text", no value → error"""
+        result = await _handle_browser(mock_ctx, mock_config, {"action": "wait", "until": "text"})
+        assert result["status"] == "error"
+        assert "value is required for wait text" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_browser_wait_unknown_until(self, mock_ctx, mock_config):
+        """action="wait", until="unknown" → error"""
+        result = await _handle_browser(mock_ctx, mock_config, {"action": "wait", "until": "unknown"})
+        assert result["status"] == "error"
+        assert "Unknown wait until" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_browser_scroll_amount_clamp(self, mock_ctx, mock_config):
+        """action="scroll", amount=99999 → clamped to 5000"""
+        proc_mock = AsyncMock()
+        proc_mock.returncode = 0
+        proc_mock.communicate = AsyncMock(return_value=(b"ok", b""))
+
+        with (
+            patch("memory_mcp.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"),
+            patch("asyncio.create_subprocess_exec", return_value=proc_mock) as mock_subprocess,
+        ):
+            result = await _handle_browser(
+                mock_ctx, mock_config, {"action": "scroll", "amount": 99999}
+            )
+
+        assert result["status"] == "ok"
+        call_args = mock_subprocess.call_args[0]
+        assert "5000" in call_args
+
+    @pytest.mark.asyncio
+    async def test_browser_agent_not_found(self, mock_ctx, mock_config):
+        """agent-browser binary not found → error"""
+        with patch("memory_mcp.application.chat.tools.builtin._find_agent_browser", return_value=None):
+            result = await _handle_browser(mock_ctx, mock_config, {"action": "open", "url": "https://example.com"})
+        assert result["status"] == "error"
+        assert "agent-browser not found" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_browser_valid_open(self, mock_ctx, mock_config):
+        """action="open" + url → subprocess exec called"""
+        proc_mock = AsyncMock()
+        proc_mock.returncode = 0
+        proc_mock.communicate = AsyncMock(return_value=(b"page loaded", b""))
+
+        with (
+            patch("memory_mcp.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"),
+            patch("asyncio.create_subprocess_exec", return_value=proc_mock) as mock_subprocess,
+        ):
+            result = await _handle_browser(
+                mock_ctx, mock_config, {"action": "open", "url": "https://example.com"}
+            )
+
+        assert result["status"] == "ok"
+        assert result["action"] == "open"
+        mock_subprocess.assert_awaited_once()
+        call_args = mock_subprocess.call_args[0]
+        assert call_args[0] == "/usr/bin/agent-browser"
+        assert call_args[1] == "open"
+        assert call_args[2] == "https://example.com"
+
+    @pytest.mark.asyncio
+    async def test_browser_valid_click(self, mock_ctx, mock_config):
+        """action="click" + ref → subprocess exec called"""
+        proc_mock = AsyncMock()
+        proc_mock.returncode = 0
+        proc_mock.communicate = AsyncMock(return_value=(b"clicked", b""))
+
+        with (
+            patch("memory_mcp.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"),
+            patch("asyncio.create_subprocess_exec", return_value=proc_mock),
+        ):
+            result = await _handle_browser(
+                mock_ctx, mock_config, {"action": "click", "ref": "#submit-btn"}
+            )
+
+        assert result["status"] == "ok"
+
+    @pytest.mark.asyncio
+    async def test_browser_valid_fill(self, mock_ctx, mock_config):
+        """action="fill" + ref + value → subprocess exec called"""
+        proc_mock = AsyncMock()
+        proc_mock.returncode = 0
+        proc_mock.communicate = AsyncMock(return_value=(b"filled", b""))
+
+        with (
+            patch("memory_mcp.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"),
+            patch("asyncio.create_subprocess_exec", return_value=proc_mock),
+        ):
+            result = await _handle_browser(
+                mock_ctx, mock_config, {"action": "fill", "ref": "#search", "value": "hello"}
+            )
+
+        assert result["status"] == "ok"
+
+    @pytest.mark.asyncio
+    async def test_browser_valid_press(self, mock_ctx, mock_config):
+        """action="press" + key → subprocess exec called"""
+        proc_mock = AsyncMock()
+        proc_mock.returncode = 0
+        proc_mock.communicate = AsyncMock(return_value=(b"pressed", b""))
+
+        with (
+            patch("memory_mcp.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"),
+            patch("asyncio.create_subprocess_exec", return_value=proc_mock),
+        ):
+            result = await _handle_browser(
+                mock_ctx, mock_config, {"action": "press", "key": "Enter"}
+            )
+
+        assert result["status"] == "ok"
+
+    @pytest.mark.asyncio
+    async def test_browser_valid_close(self, mock_ctx, mock_config):
+        """action="close" → subprocess exec called"""
+        proc_mock = AsyncMock()
+        proc_mock.returncode = 0
+        proc_mock.communicate = AsyncMock(return_value=(b"", b""))
+
+        with (
+            patch("memory_mcp.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"),
+            patch("asyncio.create_subprocess_exec", return_value=proc_mock),
+        ):
+            result = await _handle_browser(mock_ctx, mock_config, {"action": "close"})
+
+        assert result["status"] == "ok"
+
+    @pytest.mark.asyncio
+    async def test_browser_process_error(self, mock_ctx, mock_config):
+        """非ゼロreturncode → error"""
+        proc_mock = AsyncMock()
+        proc_mock.returncode = 1
+        proc_mock.communicate = AsyncMock(return_value=(b"", b"something went wrong"))
+
+        with (
+            patch("memory_mcp.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"),
+            patch("asyncio.create_subprocess_exec", return_value=proc_mock),
+        ):
+            result = await _handle_browser(
+                mock_ctx, mock_config, {"action": "open", "url": "https://example.com"}
+            )
+
+        assert result["status"] == "error"
+
+
+# ===================================================================
+# _handle_execute_code
+# ===================================================================
+
+
+class TestExecuteCodeHandler:
+    @pytest.mark.asyncio
+    async def test_execute_empty_code(self, mock_ctx, mock_config):
+        """code無指定 → sandbox.executeが空文字で呼ばれる"""
+        mock_session = AsyncMock()
+        mock_session.execute.return_value = ExecResult(
+            stdout="", stderr="", exit_code=0, artifacts=[]
+        )
+
+        with patch(
+            "memory_mcp.application.sandbox.service.get_sandbox_session",
+            return_value=mock_session,
+        ) as mock_get:
+            result = await _handle_execute_code(mock_ctx, mock_config, {})
+
+        assert result["exit_code"] == 0
+        mock_get.assert_called_once_with("test_persona")
+        mock_session.execute.assert_awaited_once_with("", "python")
+
+    @pytest.mark.asyncio
+    async def test_execute_sandbox_disabled(self, mock_ctx, mock_config):
+        """sandbox無効 → error"""
+        mock_config.sandbox_enabled = False
+        result = await _handle_execute_code(mock_ctx, mock_config, {"code": "print(1)"})
+        assert result["status"] == "error"
+        assert "sandbox" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_execute_valid_python(self, mock_ctx, mock_config):
+        """python実行 → sandbox session呼出し確認"""
+        mock_session = AsyncMock()
+        mock_session.execute.return_value = ExecResult(
+            stdout="hello\n", stderr="", exit_code=0, artifacts=[]
+        )
+
+        with patch(
+            "memory_mcp.application.sandbox.service.get_sandbox_session",
+            return_value=mock_session,
+        ) as mock_get:
+            result = await _handle_execute_code(
+                mock_ctx, mock_config, {"code": "print('hello')", "language": "python"}
+            )
+
+        assert result["stdout"] == "hello\n"
+        assert result["exit_code"] == 0
+        mock_get.assert_called_once_with("test_persona")
+        mock_session.execute.assert_awaited_once_with("print('hello')", "python")
+
+    @pytest.mark.asyncio
+    async def test_execute_valid_bash(self, mock_ctx, mock_config):
+        """bash実行 → sandbox session呼出し確認"""
+        mock_session = AsyncMock()
+        mock_session.execute.return_value = ExecResult(
+            stdout="file.txt\n", stderr="", exit_code=0, artifacts=[]
+        )
+
+        with patch(
+            "memory_mcp.application.sandbox.service.get_sandbox_session",
+            return_value=mock_session,
+        ) as mock_get:
+            result = await _handle_execute_code(
+                mock_ctx, mock_config, {"code": "ls", "language": "bash"}
+            )
+
+        assert result["stdout"] == "file.txt\n"
+        assert result["exit_code"] == 0
+        mock_get.assert_called_once_with("test_persona")
+        mock_session.execute.assert_awaited_once_with("ls", "bash")
+
+    @pytest.mark.asyncio
+    async def test_execute_with_session_id(self, mock_ctx, mock_config):
+        """session_id指定 → personaスコープ付きでsandbox取得"""
+        mock_session = AsyncMock()
+        mock_session.execute.return_value = ExecResult(stdout="ok", stderr="", exit_code=0)
+
+        with patch(
+            "memory_mcp.application.sandbox.service.get_sandbox_session",
+            return_value=mock_session,
+        ) as mock_get:
+            result = await _handle_execute_code(
+                mock_ctx,
+                mock_config,
+                {"code": "x=1", "session_id": "sess_001"},
+            )
+
+        assert result["session_id"] == "sess_001"
+        mock_get.assert_called_once_with("test_persona:sess_001")
+
+
+# ===================================================================
+# _handle_image_generate
+# ===================================================================
+
+
+class TestImageGenerateHandler:
+    @pytest.mark.asyncio
+    async def test_image_disabled(self, mock_ctx, mock_config):
+        """image_gen_enabled=False → error"""
+        mock_config.image_gen_enabled = False
+        result = await _handle_image_generate(mock_ctx, mock_config, {})
+        assert result["status"] == "error"
+        assert "無効" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_image_empty_prompt(self, mock_ctx, mock_config):
+        """prompt無指定 → error"""
+        result = await _handle_image_generate(mock_ctx, mock_config, {})
+        assert result["status"] == "error"
+        assert "プロンプト" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_image_empty_prompt_string(self, mock_ctx, mock_config):
+        """prompt="" → error"""
+        result = await _handle_image_generate(mock_ctx, mock_config, {"prompt": ""})
+        assert result["status"] == "error"
+        assert "プロンプト" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_image_whitespace_prompt(self, mock_ctx, mock_config):
+        """prompt="   " → error"""
+        result = await _handle_image_generate(mock_ctx, mock_config, {"prompt": "   "})
+        assert result["status"] == "error"
+        assert "プロンプト" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_image_invalid_provider(self, mock_ctx, mock_config):
+        """provider="unknown" → error"""
+        result = await _handle_image_generate(
+            mock_ctx, mock_config, {"prompt": "a cat", "provider": "unknown"}
+        )
+        assert result["status"] == "error"
+        assert "未対応" in result["message"] or "対応" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_image_stability_no_url(self, mock_ctx, mock_config):
+        """provider="stability" with no URL configured → error"""
+        result = await _handle_image_generate(
+            mock_ctx, mock_config, {"prompt": "a cat", "provider": "stability"}
+        )
+        assert result["status"] == "error"
+        assert "URL" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_image_openai_call(self, mock_ctx, mock_config):
+        """provider="openai" → DalleProvider generateが呼ばれる"""
+        mock_provider = AsyncMock()
+        mock_provider.provider_name = "openai"
+        mock_provider.generate.return_value = []
+
+        with (
+            patch("memory_mcp.infrastructure.image_gen.dalle.DalleProvider", return_value=mock_provider) as mock_dalle,
+        ):
+            result = await _handle_image_generate(
+                mock_ctx, mock_config, {"prompt": "a cat", "provider": "openai"}
+            )
+
+        assert result["status"] == "success"
+        mock_dalle.assert_called_once_with(model="dall-e-3")
+        mock_provider.generate.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_image_openai_call_with_auto(self, mock_ctx, mock_config):
+        """provider="auto" → configのprovider (openai) が使われる"""
+        mock_provider = AsyncMock()
+        mock_provider.provider_name = "openai"
+        mock_provider.generate.return_value = []
+
+        with patch(
+            "memory_mcp.infrastructure.image_gen.dalle.DalleProvider", return_value=mock_provider
+        ) as mock_dalle:
+            result = await _handle_image_generate(
+                mock_ctx, mock_config, {"prompt": "a cat", "provider": "auto"}
+            )
+
+        assert result["status"] == "success"
+        mock_dalle.assert_called_once_with(model="dall-e-3")
+
+    @pytest.mark.asyncio
+    async def test_image_stability_call(self, mock_ctx, mock_config):
+        """provider="stability" with URL → StabilityProvider generateが呼ばれる"""
+        mock_config.image_gen_stability_url = "http://sd:7860"
+        mock_provider = AsyncMock()
+        mock_provider.provider_name = "stability"
+        mock_provider.generate.return_value = []
+
+        with (
+            patch("memory_mcp.infrastructure.image_gen.stability.StabilityProvider", return_value=mock_provider) as mock_sd,
+        ):
+            result = await _handle_image_generate(
+                mock_ctx, mock_config, {"prompt": "a cat", "provider": "stability"}
+            )
+
+        assert result["status"] == "success"
+        mock_sd.assert_called_once_with(api_url="http://sd:7860")
+        mock_provider.generate.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_image_n_clamp_low(self, mock_ctx, mock_config):
+        """n=0 → clamp to 1"""
+        mock_provider = AsyncMock()
+        mock_provider.provider_name = "openai"
+        mock_provider.generate.return_value = []
+
+        with patch(
+            "memory_mcp.infrastructure.image_gen.dalle.DalleProvider", return_value=mock_provider
+        ):
+            result = await _handle_image_generate(
+                mock_ctx, mock_config, {"prompt": "a cat", "provider": "openai", "n": 0}
+            )
+
+        assert result["status"] == "success"
+
+    @pytest.mark.asyncio
+    async def test_image_n_clamp_high(self, mock_ctx, mock_config):
+        """n=10 → clamp to 4"""
+        mock_provider = AsyncMock()
+        mock_provider.provider_name = "openai"
+        mock_provider.generate.return_value = []
+
+        with patch(
+            "memory_mcp.infrastructure.image_gen.dalle.DalleProvider", return_value=mock_provider
+        ):
+            result = await _handle_image_generate(
+                mock_ctx, mock_config, {"prompt": "a cat", "provider": "openai", "n": 10}
+            )
+
+        assert result["status"] == "success"
+
+    @pytest.mark.asyncio
+    async def test_image_openai_dalle_model_config(self, mock_ctx, mock_config):
+        """configのdalle_modelがDalleProviderに伝搬する"""
+        mock_config.image_gen_dalle_model = "dall-e-2"
+        mock_provider = AsyncMock()
+        mock_provider.provider_name = "openai"
+        mock_provider.generate.return_value = []
+
+        with patch(
+            "memory_mcp.infrastructure.image_gen.dalle.DalleProvider", return_value=mock_provider
+        ) as mock_dalle:
+            result = await _handle_image_generate(
+                mock_ctx, mock_config, {"prompt": "a cat", "provider": "openai"}
+            )
+
+        assert result["status"] == "success"
+        mock_dalle.assert_called_once_with(model="dall-e-2")
+
+
+# ===================================================================
+# _handle_search
+# ===================================================================
+
+
+class TestSearchHandler:
+    @pytest.mark.asyncio
+    async def test_search_empty_query(self, mock_ctx, mock_config):
+        """query無指定 → error"""
+        result = await _handle_search(mock_ctx, mock_config, {})
+        assert result["status"] == "error"
+        assert "query" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_search_blank_query(self, mock_ctx, mock_config):
+        """query="" → error"""
+        result = await _handle_search(mock_ctx, mock_config, {"query": ""})
+        assert result["status"] == "error"
+        assert "query" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_search_whitespace_query(self, mock_ctx, mock_config):
+        """query="   " → error"""
+        result = await _handle_search(mock_ctx, mock_config, {"query": "   "})
+        assert result["status"] == "error"
+        assert "query" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_search_num_results_default(self, mock_ctx, mock_config):
+        """num_results未指定 → デフォルト10件に制限"""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "results": [{"title": f"Result {i}", "url": f"http://example.com/{i}", "content": f"Content {i}"} for i in range(20)]
+        }
+
+        mock_client = AsyncMock()
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.get.return_value = mock_response
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            result = await _handle_search(mock_ctx, mock_config, {"query": "test"})
+
+        assert result["status"] == "ok"
+        assert len(result["results"]) == 10  # default limit
+
+    @pytest.mark.asyncio
+    async def test_search_num_results_explicit(self, mock_ctx, mock_config):
+        """num_results=3 → 3件に制限"""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "results": [{"title": f"Result {i}", "url": f"http://example.com/{i}", "content": f"Content {i}"} for i in range(20)]
+        }
+
+        mock_client = AsyncMock()
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.get.return_value = mock_response
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            result = await _handle_search(mock_ctx, mock_config, {"query": "test", "num_results": 3})
+
+        assert result["status"] == "ok"
+        assert len(result["results"]) == 3
+
+    @pytest.mark.asyncio
+    async def test_search_with_language(self, mock_ctx, mock_config):
+        """language="en" → URLにlanguage=enが含まれる"""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"results": []}
+
+        captured_url = None
+
+        async def capture_get(url, **kwargs):
+            nonlocal captured_url
+            captured_url = url
+            return mock_response
+
+        mock_client = AsyncMock()
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.get = capture_get
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            await _handle_search(mock_ctx, mock_config, {"query": "test", "language": "en"})
+
+        assert captured_url is not None
+        assert "language=en" in captured_url
+
+    @pytest.mark.asyncio
+    async def test_search_default_language(self, mock_ctx, mock_config):
+        """language未指定 → デフォルトja"""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"results": []}
+
+        captured_url = None
+
+        async def capture_get(url, **kwargs):
+            nonlocal captured_url
+            captured_url = url
+            return mock_response
+
+        mock_client = AsyncMock()
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.get = capture_get
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            await _handle_search(mock_ctx, mock_config, {"query": "test"})
+
+        assert captured_url is not None
+        assert "language=ja" in captured_url
+
+    @pytest.mark.asyncio
+    async def test_search_httpx_call(self, mock_ctx, mock_config):
+        """正常系 → httpxで結果取得"""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "results": [
+                {"title": "Test Result", "url": "http://example.com", "content": "Test content."},
+            ]
+        }
+
+        mock_client = AsyncMock()
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.get = AsyncMock(return_value=mock_response)
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            result = await _handle_search(mock_ctx, mock_config, {"query": "test query"})
+
+        assert result["status"] == "ok"
+        assert result["query"] == "test query"
+        assert len(result["results"]) == 1
+        assert result["results"][0]["title"] == "Test Result"
+        assert result["count"] == 1
+
+    @pytest.mark.asyncio
+    async def test_search_httpx_timeout(self, mock_ctx, mock_config):
+        """httpx.TimeoutException → error"""
+        import httpx
+
+        mock_client = AsyncMock()
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.get = AsyncMock(side_effect=httpx.TimeoutException("timeout"))
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            result = await _handle_search(mock_ctx, mock_config, {"query": "test"})
+
+        assert result["status"] == "error"
+        assert "timed out" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_search_httpx_connect_error(self, mock_ctx, mock_config):
+        """httpx.ConnectError → error"""
+        import httpx
+
+        mock_client = AsyncMock()
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.get = AsyncMock(side_effect=httpx.ConnectError("connection refused"))
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            result = await _handle_search(mock_ctx, mock_config, {"query": "test"})
+
+        assert result["status"] == "error"
+        assert "connection failed" in result["message"] or "ConnectError" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_search_httpx_http_error(self, mock_ctx, mock_config):
+        """httpx.HTTPStatusError → error"""
+        import httpx
+
+        resp_mock = MagicMock()
+        resp_mock.status_code = 500
+        mock_client = AsyncMock()
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.get = AsyncMock(side_effect=httpx.HTTPStatusError("server error", request=MagicMock(), response=resp_mock))
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            result = await _handle_search(mock_ctx, mock_config, {"query": "test"})
+
+        assert result["status"] == "error"
+        assert "HTTP" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_search_empty_results_list(self, mock_ctx, mock_config):
+        """空の結果リスト → ok、count=0"""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"results": []}
+
+        mock_client = AsyncMock()
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.get = AsyncMock(return_value=mock_response)
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            result = await _handle_search(mock_ctx, mock_config, {"query": "nothing"})
+
+        assert result["status"] == "ok"
+        assert result["count"] == 0
+        assert result["results"] == []

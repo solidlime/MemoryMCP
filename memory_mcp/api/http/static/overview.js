@@ -165,12 +165,12 @@ async function loadOverview() {
             equipHtml += '<span class="badge badge-blue" style="min-width:80px;text-align:center">' + esc(slot) + '</span>';
             if (itemName) {
                 equipHtml += '<span style="flex:1;font-size:0.85rem;color:var(--text-secondary)">' + esc(itemName) + '</span>';
-                equipHtml += '<button data-slot="' + esc(slot) + '" onclick="unequipSlot(this.dataset.slot)" style="font-size:0.72rem;padding:2px 8px;border-radius:4px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);color:var(--text-muted);cursor:pointer" title="Unequip"><i data-lucide="x"></i></button>';
+                equipHtml += '<button data-slot="' + esc(slot) + '" onclick="unequipSlot(this.dataset.slot)" style="font-size:0.72rem;padding:2px 8px;border-radius:4px;border:1px solid var(--glass-border);background:var(--glass-bg);color:var(--text-muted);cursor:pointer" title="Unequip"><i data-lucide="x"></i></button>';
             } else {
                 equipHtml += '<span style="flex:1;font-size:0.82rem;color:var(--text-muted);font-style:italic">empty</span>';
                 const slotItems = items.filter(it => it.name);
                 if (slotItems.length > 0) {
-                    equipHtml += '<select data-slot="' + esc(slot) + '" onchange="if(this.value) changeEquipSlot(this.dataset.slot, this.value)" style="font-size:0.78rem;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);border-radius:4px;color:var(--text-secondary);padding:2px 4px"><option value="">equip...</option>';
+                    equipHtml += '<select data-slot="' + esc(slot) + '" onchange="if(this.value) changeEquipSlot(this.dataset.slot, this.value)" style="font-size:0.78rem;background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:4px;color:var(--text-secondary);padding:2px 4px"><option value="">equip...</option>';
                     slotItems.forEach(it => { equipHtml += '<option value="' + esc(it.name) + '">' + esc(it.name) + '</option>'; });
                     equipHtml += '</select>';
                 }
@@ -186,7 +186,7 @@ async function loadOverview() {
                 const name = typeof b === 'string' ? b : (b.name || b.block_name || 'block');
                 const content = typeof b === 'object' ? (b.content || b.value || '') : '';
                 const priority = typeof b === 'object' ? b.priority : null;
-                blocksHtml += '<div style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05)">';
+                blocksHtml += '<div style="padding:10px 0;border-bottom:1px solid var(--glass-border)">';
                 blocksHtml += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">';
                 blocksHtml += '<span style="font-weight:600;color:var(--accent-purple);font-size:0.85rem">' + esc(name) + '</span>';
                 if (priority != null) blocksHtml += '<span class="badge badge-yellow">P' + esc(String(priority)) + '</span>';
@@ -277,7 +277,7 @@ async function loadOverview() {
         // --- Render (new section order) ---
         el.innerHTML = `
         <!-- Profile & Relationship -->
-        <div class="glass p-6 mb-6">
+        <div class="glass glass-hoverable p-6 mb-6">
             <div class="card-title"><i data-lucide="user"></i> Profile &amp; Relationship</div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
@@ -294,7 +294,7 @@ async function loadOverview() {
             </div>
         </div>
         <!-- Memory Stats -->
-        <div class="glass p-6 mb-6">
+        <div class="glass glass-hoverable p-6 mb-6">
             <div class="card-title"><i data-lucide="bar-chart-3"></i> Memory Stats</div>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                 <div><div class="stat-value">${stats.total_count ?? '--'}</div><div class="stat-label">Total Memories</div></div>
@@ -316,7 +316,7 @@ async function loadOverview() {
             </div>
         </div>
         <!-- Goals & Promises -->
-        <div class="glass p-6 mb-6">
+        <div class="glass glass-hoverable p-6 mb-6">
             <div class="card-title"><i data-lucide="target"></i> Goals & Promises</div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
@@ -330,7 +330,7 @@ async function loadOverview() {
             </div>
         </div>
         <!-- Emotion -->
-        <div class="glass p-6 mb-6">
+        <div class="glass glass-hoverable p-6 mb-6">
             <div class="card-title"><i data-lucide="sparkles"></i> Emotion</div>
             <div>
                 ${(function() {
@@ -373,12 +373,12 @@ async function loadOverview() {
             </div>
         </div>
         <!-- Equipment -->
-        <div class="glass p-6 mb-6">
+        <div class="glass glass-hoverable p-6 mb-6">
             <div class="card-title"><i data-lucide="shield"></i> Equipment</div>
             ${equipHtml}
         </div>
         <!-- Body Sensations -->
-        <div class="glass p-6 mb-6">
+        <div class="glass glass-hoverable p-6 mb-6">
             <div class="card-title"><i data-lucide="activity"></i> Body Sensations</div>
             <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">
                 <div>
@@ -431,7 +431,7 @@ async function loadOverview() {
             </div>
         </div>
         <!-- Core Memory Blocks -->
-        <div class="glass p-6 mb-6">
+        <div class="glass glass-hoverable p-6 mb-6">
             <div class="card-title" style="justify-content:space-between">
                 <span>&#129504; Core Memory Blocks</span>
                 <button onclick="showCreateBlock()" class="glass-btn" style="padding:4px 12px;font-size:0.78rem"><i data-lucide="plus"></i> New Block</button>
@@ -440,7 +440,7 @@ async function loadOverview() {
         </div>
         <!-- Relationship Highlights (from memory tags) -->
         ${data.relationship_highlights && data.relationship_highlights.length > 0 ? `
-        <div class="glass p-6 mb-6">
+        <div class="glass glass-hoverable p-6 mb-6">
             <div class="card-title"><i data-lucide="heart"></i> Relationship Highlights</div>
             <div style="max-height:200px;overflow-y:auto">
             ${data.relationship_highlights.map(h => `
@@ -451,7 +451,7 @@ async function loadOverview() {
             </div>
         </div>` : ''}
         <!-- Inventory -->
-        <div class="glass p-6 mb-6">
+        <div class="glass glass-hoverable p-6 mb-6">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
                 <div class="card-title" style="margin-bottom:0"><i data-lucide="backpack"></i> Inventory</div>
                 <button onclick="openAddItemModal()" style="padding:4px 14px;border-radius:6px;border:1px solid rgba(167,139,250,0.4);background:rgba(167,139,250,0.1);color:var(--accent-purple);cursor:pointer;font-size:0.82rem;font-weight:600">+ Add Item</button>
@@ -480,7 +480,7 @@ async function loadOverview() {
                     <input id="new-item-qty" type="number" value="1" min="1" placeholder="Quantity" style="width:100%;padding:8px 12px;border-radius:7px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.07);color:var(--text-primary);font-size:0.88rem;outline:none;box-sizing:border-box">
                 </div>
                 <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">
-                    <button onclick="closeAddItemModal()" style="padding:7px 18px;border-radius:7px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);color:var(--text-muted);cursor:pointer;font-size:0.88rem">Cancel</button>
+                    <button onclick="closeAddItemModal()" style="padding:7px 18px;border-radius:7px;border:1px solid var(--glass-border);background:var(--glass-bg);color:var(--text-muted);cursor:pointer;font-size:0.88rem">Cancel</button>
                     <button onclick="saveNewItem()" style="padding:7px 18px;border-radius:7px;border:1px solid rgba(167,139,250,0.5);background:rgba(167,139,250,0.2);color:var(--accent-purple);cursor:pointer;font-size:0.88rem;font-weight:600">Save</button>
                 </div>
             </div>

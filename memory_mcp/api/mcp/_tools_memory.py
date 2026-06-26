@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import TYPE_CHECKING
 
@@ -23,6 +24,7 @@ async def _tool_memory_create(
     privacy_level: str = "internal",
     source_context: str | None = None,
     defer_vector: bool = False,
+    skip_duplicate_check: bool = False,
 ) -> str:
     """Create a memory. Current persona state (emotion, body_state) is automatically
     snapshotted at creation time. Always call context_update/update_context *before*
@@ -33,6 +35,30 @@ async def _tool_memory_create(
     if importance is not None and not (0.0 <= importance <= 1.0):
         return "Error: importance must be between 0.0 and 1.0"
     importance = importance if importance is not None else 0.5
+
+    # ── Semantic duplicate check (same as builtin.py L128-147) ──
+    if not skip_duplicate_check and content:
+        search_result = ctx.search_engine.search(SearchQuery(text=content, top_k=3))
+        if search_result.is_ok and search_result.value:
+            duplicates = [
+                {
+                    "key": item.memory.key,
+                    "content": item.memory.content[:100],
+                    "score": item.score,
+                }
+                for item in search_result.value
+                if item.score >= 0.75
+            ]
+            if duplicates:
+                return json.dumps(
+                    {
+                        "ok": True,
+                        "status": "duplicate",
+                        "message": "類似の記憶が既に存在します",
+                        "similar_to": duplicates,
+                    },
+                    ensure_ascii=False,
+                )
 
     # Auto-snapshot current persona state
     emotion_snap, intensity_snap, body_snap, snapped_at = ctx.persona_service.get_state_snapshot(persona)
@@ -151,20 +177,46 @@ async def _tool_memory_update(
     tags: list[str] | None = None,
     privacy_level: str | None = None,
 ) -> str:
-    """Update a memory."""
+    """Update a memory. Only provided fields are changed.
+    importance must be 0.0-1.0. Invalid emotion returns error."""
     if not memory_key:
         return "Error: memory_key is required for update"
+
+    # ── Input validation ──
+    if content is not None and len(content) > 50000:
+        return "Error: content too long (max 50000 chars)"
+
+    if importance is not None and not (0.0 <= importance <= 1.0):
+        return "Error: importance must be between 0.0 and 1.0"
+
+    if emotion is not None and emotion not in _VALID_EMOTIONS:
+        return f"Error: invalid emotion: {emotion}"
+
+    if emotion_intensity is not None:
+        try:
+            emotion_intensity = float(emotion_intensity)
+            emotion_intensity = max(0.0, min(1.0, emotion_intensity))
+        except (TypeError, ValueError):
+            return "Error: emotion_intensity must be a number"
+
+    if tags is not None:
+        if not isinstance(tags, list):
+            return "Error: tags must be a list"
+        if not all(isinstance(t, str) for t in tags):
+            return "Error: all tags must be strings"
+        if any(len(t) > 100 for t in tags):
+            return "Error: tag too long (max 100 chars)"
+
+    valid_privacy = {"internal", "private", "public"}
+    if privacy_level is not None and privacy_level not in valid_privacy:
+        return f"Error: invalid privacy_level: {privacy_level}. Must be: {', '.join(sorted(valid_privacy))}"
+
     updates: dict = {}
     if content is not None:
         updates["content"] = content
     if importance is not None:
-        if not (0.0 <= importance <= 1.0):
-            return "Error: importance must be between 0.0 and 1.0"
         updates["importance"] = normalize_importance(importance)
-    update_warning = ""
     if emotion is not None:
-        if emotion not in _VALID_EMOTIONS:
-            update_warning = f"[Warning: emotion '{emotion}' is not a valid emotion, defaulted to 'neutral']\n"
         updates["emotion"] = emotion
     if emotion_intensity is not None:
         updates["emotion_intensity"] = emotion_intensity
@@ -187,7 +239,7 @@ async def _tool_memory_update(
                 ],
             },
         )
-        return f"{update_warning}Memory updated: {memory_key}"
+        return f"Memory updated: {memory_key}"
     return f"Error: {result.error}"
 
 

@@ -215,9 +215,12 @@ async def _build_memory_llm_context(ctx: AppContext) -> tuple[str, str, str]:
             if val:
                 lines.append(f"{field}: {val}")
 
-    # アクティブな goal / promise (memory_key 付き)
+    # アクティブな goal (scope=self と scope=interpersonal を統合)
     commit_lines: list[str] = []
-    for tag_pair, label in [(["goal", "active"], "goal"), (["promise", "active"], "promise")]:
+    for tag_pair, label in [
+        (["goal", "active"], "goal (self)"),
+        (["goal", "active", "interpersonal"], "goal (interpersonal)"),
+    ]:
         mem_result = ctx.memory_service.get_by_tags(tag_pair)
         if mem_result.is_ok and mem_result.value:
             for m in mem_result.value[:5]:
@@ -328,38 +331,38 @@ async def run_memory_llm(ctx: AppContext, config: ChatConfig, payload: dict) -> 
         if goals:
             logger.info("MemoryLLM: processed %d goals for persona=%s", len(goals), persona)
 
-        # promises: action ベース処理（create / fulfill / cancel）
+        # promises → goals with scope=interpersonal (unified with goals)
         promises = result.get("promises", [])
         for promise in promises:
             action = promise.get("action", "create")
             content = promise.get("content", "")
             memory_key = promise.get("memory_key", "")
 
-            if action == "fulfill" and memory_key:
-                upd = ctx.memory_service.update_memory(memory_key, tags=["promise", "fulfilled"])
-                logger.info("MemoryLLM: promise fulfilled key=%s", memory_key)
+            if action in ("fulfill", "achieve") and memory_key:
+                upd = ctx.memory_service.update_memory(memory_key, tags=["goal", "achieved", "archived", "interpersonal"])
+                logger.info("MemoryLLM: interpersonal goal achieved key=%s", memory_key)
                 if not upd.is_ok:
-                    logger.warning("MemoryLLM: promise fulfill failed key=%s: %s", memory_key, upd.error)
+                    logger.warning("MemoryLLM: interpersonal goal achieve failed key=%s: %s", memory_key, upd.error)
             elif action == "cancel" and memory_key:
-                upd = ctx.memory_service.update_memory(memory_key, tags=["promise", "cancelled"])
-                logger.info("MemoryLLM: promise cancelled key=%s", memory_key)
+                upd = ctx.memory_service.update_memory(memory_key, tags=["goal", "cancelled", "archived", "interpersonal"])
+                logger.info("MemoryLLM: interpersonal goal cancelled key=%s", memory_key)
                 if not upd.is_ok:
-                    logger.warning("MemoryLLM: promise cancel failed key=%s: %s", memory_key, upd.error)
+                    logger.warning("MemoryLLM: interpersonal goal cancel failed key=%s: %s", memory_key, upd.error)
             elif action == "create" and content:
                 dup_check = ctx.search_engine.search(SearchQuery(text=content, top_k=3, mode="semantic"))
                 if dup_check.is_ok and dup_check.value:
                     top_hit = dup_check.value[0]
                     if (top_hit.score if hasattr(top_hit, "score") else 0.0) > 0.85:
-                        logger.debug("MemoryLLM: skipping duplicate promise: %s", content[:60])
+                        logger.debug("MemoryLLM: skipping duplicate interpersonal goal: %s", content[:60])
                         continue
                 ctx.memory_service.create_memory(
                     content=content,
                     importance=0.8,
-                    tags=["promise", "active"],
+                    tags=["goal", "active", "interpersonal"],
                     emotion="neutral",
                 )
         if promises:
-            logger.info("MemoryLLM: processed %d promises for persona=%s", len(promises), persona)
+            logger.info("MemoryLLM: processed %d interpersonal goals for persona=%s", len(promises), persona)
 
         # context_update: 感情・状態を更新
         ctx_update = result.get("context_update", {})
@@ -376,6 +379,11 @@ async def run_memory_llm(ctx: AppContext, config: ChatConfig, payload: dict) -> 
             }
             if state_fields:
                 ctx.persona_service.update_physical_state(persona, **state_fields)
+
+            # context_note → persona_info（session continuity）
+            context_note = ctx_update.get("context_note")
+            if context_note:
+                ctx.persona_service.update_persona_info(persona, {"context_note": context_note})
 
         # inventory_update: 装備変更 + アイテム追加/削除/更新
         inv_update = result.get("inventory_update", {})
@@ -461,7 +469,7 @@ async def run_context_housekeeping(ctx: AppContext, config: ChatConfig) -> dict:
 
     # 現在のcommitmentsとinventoryを収集
     goals_list: list[dict] = []
-    promises_list: list[dict] = []
+    interpersonal_list: list[dict] = []
     try:
         goal_result = ctx.memory_service.get_by_tags(["goal", "active"])
         if goal_result.is_ok and goal_result.value:
@@ -470,11 +478,11 @@ async def run_context_housekeeping(ctx: AppContext, config: ChatConfig) -> dict:
         logger.debug("Housekeeping: failed to load goals: %s", _e)
 
     try:
-        promise_result = ctx.memory_service.get_by_tags(["promise", "active"])
-        if promise_result.is_ok and promise_result.value:
-            promises_list = [{"key": m.key, "content": m.content[:100]} for m in promise_result.value[:20]]
+        interpersonal_result = ctx.memory_service.get_by_tags(["goal", "active", "interpersonal"])
+        if interpersonal_result.is_ok and interpersonal_result.value:
+            interpersonal_list = [{"key": m.key, "content": m.content[:100]} for m in interpersonal_result.value[:20]]
     except Exception as _e:
-        logger.debug("Housekeeping: failed to load promises: %s", _e)
+        logger.debug("Housekeeping: failed to load interpersonal goals: %s", _e)
 
     inv_lines: list[str] = []
     try:
@@ -487,7 +495,7 @@ async def run_context_housekeeping(ctx: AppContext, config: ChatConfig) -> dict:
         logger.debug("Housekeeping: failed to load inventory: %s", _e)
 
     goals_str = "\n".join(f"  - key={g['key']}: {g['content']}" for g in goals_list) or "(なし)"
-    promises_str = "\n".join(f"  - key={p['key']}: {p['content']}" for p in promises_list) or "(なし)"
+    promises_str = "\n".join(f"  - key={p['key']}: {p['content']}" for p in interpersonal_list) or "(なし)"
     inventory_str = "\n".join(inv_lines) or "(なし)"
 
     prompt = _HOUSEKEEPING_PROMPT.format(
@@ -552,10 +560,10 @@ async def run_context_housekeeping(ctx: AppContext, config: ChatConfig) -> dict:
     cancelled_promises = []
     for key in cancel_promises:
         if isinstance(key, str) and key.strip():
-            upd = ctx.memory_service.update_memory(key.strip(), tags=["promise", "cancelled"])
+            upd = ctx.memory_service.update_memory(key.strip(), tags=["goal", "cancelled", "archived", "interpersonal"])
             if upd.is_ok:
                 cancelled_promises.append(key)
-                logger.info("housekeeping: promise cancelled key=%s", key)
+                logger.info("housekeeping: interpersonal goal cancelled key=%s", key)
 
     removed_items = []
     for item_name in remove_items:

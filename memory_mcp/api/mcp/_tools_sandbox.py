@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from memory_mcp.application.use_cases import AppContext
 
 
-async def _tool_sandbox(ctx: AppContext, persona: str, code: str, language: str = "python") -> str:
+async def _tool_sandbox(ctx: AppContext, persona: str, code: str, language: str = "python", session_id: str | None = None) -> str:
     from memory_mcp.config.settings import get_settings
 
     settings = get_settings()
@@ -29,7 +29,11 @@ async def _tool_sandbox(ctx: AppContext, persona: str, code: str, language: str 
         return "Sandbox is not enabled."
     from memory_mcp.application.sandbox.service import get_sandbox_session
 
-    session = get_sandbox_session(persona)
+    if session_id:
+        sandbox_key = f"{persona}:{session_id}"
+        session = get_sandbox_session(sandbox_key)
+    else:
+        session = get_sandbox_session(persona)
     try:
         result = await session.execute(code, language=language)
         parts = []
@@ -311,7 +315,7 @@ async def _tool_sandbox_files(
                 "success": False,
             },
         )
-        return {"ok": False, "error": f"Unknown operation: {operation}. Use list/read/write/delete."}
+        return {"ok": False, "error": f"Unknown operation: {operation}. Use list/read/write/append/delete."}
 
 
 # --- Goal/Promise tools ---

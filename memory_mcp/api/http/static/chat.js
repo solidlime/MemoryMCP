@@ -495,7 +495,7 @@ function updateMemoryPanel(retrieved, saved, goals, promises) {
                     const key = p.key || '';
                     return '<div class="memory-item-card" data-key="' + escAttr(key) + '" data-content="' + escAttr(p.content || '') + '" data-importance="' + (p.importance || 0.8) + '" data-tags="' + escAttr((p.tags || []).join(',')) + '" onclick="openMemEdit(this)">' +
                         '<i data-lucide="handshake"></i> ' + esc((p.content || '').substring(0, 80)) +
-                        '<div class="mem-actions"><button class="mem-action-btn done" onclick="event.stopPropagation();fulfillPromise(\'' + escAttr(key) + '\',\'' + escAttr((p.content || '').substring(0, 50)) + '\')">遂行</button><button class="mem-action-btn del" onclick="event.stopPropagation();deleteMemCard(\'' + escAttr(key) + '\')">削除</button></div>' +
+                        '<div class="mem-actions"><button class="mem-action-btn del" onclick="event.stopPropagation();deleteMemCard(\'' + escAttr(key) + '\')">削除</button></div>' +
                         '</div>';
                 }).join('');
             }
@@ -546,6 +546,18 @@ function clearChatHistory() {
         <div class="chat-welcome" id="chat-welcome">
             <div class="chat-welcome-icon"><i data-lucide="message-circle"></i></div>
             <p>チャットを開始するには下のテキストボックスにメッセージを入力してください。</p>
+            <p class="chat-welcome-hint">APIキーとプロバイダーを設定してください。<br><a href="#" onclick="toggleSettingsPanel();return false;" class="chat-welcome-link">⚙️ 設定パネルを開く</a></p>
+            <div class="chat-welcome-commands">
+                <span class="chat-welcome-cmd">/memory</span>
+                <span class="chat-welcome-cmd">/goal</span>
+                <span class="chat-welcome-cmd">/code</span>
+                <span class="chat-welcome-cmd">/help</span>
+                <span class="chat-welcome-cmd">/search</span>
+                <span class="chat-welcome-cmd">/browser</span>
+                <span class="chat-welcome-cmd">/image</span>
+                <span class="chat-welcome-cmd">/sandbox</span>
+                <span class="chat-welcome-cmd">/invoke_skill</span>
+            </div>
         </div>`;
     // Delete server-side session (F3)
     const oldSid = getChatSessionId();
@@ -728,9 +740,31 @@ async function restoreChatHistory() {
         <div class="chat-welcome" id="chat-welcome">
             <div class="chat-welcome-icon"><i data-lucide="message-circle"></i></div>
             <p>チャットを開始するには下のテキストボックスにメッセージを入力してください。</p>
+            <p class="chat-welcome-hint">APIキーとプロバイダーを設定してください。<br><a href="#" onclick="toggleSettingsPanel();return false;" class="chat-welcome-link">⚙️ 設定パネルを開く</a></p>
+            <div class="chat-welcome-commands">
+                <span class="chat-welcome-cmd">/memory</span>
+                <span class="chat-welcome-cmd">/goal</span>
+                <span class="chat-welcome-cmd">/code</span>
+                <span class="chat-welcome-cmd">/help</span>
+                <span class="chat-welcome-cmd">/search</span>
+                <span class="chat-welcome-cmd">/browser</span>
+                <span class="chat-welcome-cmd">/image</span>
+                <span class="chat-welcome-cmd">/sandbox</span>
+                <span class="chat-welcome-cmd">/invoke_skill</span>
+            </div>
         </div>`;
+    // Show loading skeleton while fetching history
+    const skeletonHtml = '<div class="chat-msg assistant"><div class="chat-bubble" style="opacity:0.5"><div class="skeleton skeleton-text" style="width:80%;height:14px;margin-bottom:8px"></div><div class="skeleton skeleton-text" style="width:60%;height:14px;margin-bottom:8px"></div><div class="skeleton skeleton-text" style="width:40%;height:14px"></div></div></div>' +
+        '<div class="chat-msg user" style="align-self:flex-end"><div class="chat-bubble" style="opacity:0.5"><div class="skeleton skeleton-text" style="width:70%;height:14px;margin-bottom:8px"></div><div class="skeleton skeleton-text" style="width:50%;height:14px"></div></div></div>';
+    const skeletonDiv = document.createElement('div');
+    skeletonDiv.id = 'chat-history-skeleton';
+    skeletonDiv.innerHTML = skeletonHtml;
+    container.appendChild(skeletonDiv);
     try {
         const data = await api('/api/chat/' + encodeURIComponent(S.persona) + '/sessions/' + encodeURIComponent(sid));
+        // Remove skeleton
+        const skel = document.getElementById('chat-history-skeleton');
+        if (skel) skel.remove();
         if (!data || !data.messages || data.messages.length === 0) return;
         // display_history_turns 件数分（最新N turns = N*2 messages）に制限
         const displayTurns = parseInt(document.getElementById('chat-display-history-turns')?.value || '20');
@@ -763,6 +797,8 @@ async function restoreChatHistory() {
         setTimeout(() => { if (typeof lucide !== 'undefined') lucide.createIcons(); }, 50);
     } catch (_e) {
         // Session not found or API unavailable — start fresh
+        const skel = document.getElementById('chat-history-skeleton');
+        if (skel) skel.remove();
     }
 }
 
@@ -900,6 +936,11 @@ function appendToolEvent(eventType, data) {
         try {
             resultStr = typeof data.result === 'object' ? JSON.stringify(data.result, null, 2) : String(data.result);
         } catch (e) { resultStr = String(data.result); }
+
+        // ── Duplicate notification ──
+        if (typeof data.result === 'object' && data.result && data.result.status === 'duplicate') {
+            toast('⚠️ ' + (data.result.message || '類似の記憶が既に存在します'), 'warning');
+        }
 
         // Find matching tool_call div by id and update it
         const callDiv = data.id ? container.querySelector('[data-tool-id="' + CSS.escape(data.id) + '"]') : null;
@@ -1107,17 +1148,18 @@ async function saveMemEdit() {
 async function deleteMemCard(key) {
     const k = key || _memEditKey;
     if (!k || !S.persona) return;
-    if (!confirm('このメモリを削除しますか？')) return;
-    try {
-        await api('/api/memories/' + encodeURIComponent(S.persona) + '/' + encodeURIComponent(k), {
-            method: 'DELETE',
-        });
-        closeMemEdit();
-        toast('メモリを削除しました', 'success');
-        loadChatCommitments(); // refresh panels
-    } catch (e) {
-        toast('削除失敗: ' + e.message, 'error');
-    }
+    showConfirm('このメモリを削除しますか？', async function() {
+        try {
+            await api('/api/memories/' + encodeURIComponent(S.persona) + '/' + encodeURIComponent(k), {
+                method: 'DELETE',
+            });
+            closeMemEdit();
+            toast('メモリを削除しました', 'success');
+            loadChatCommitments(); // refresh panels
+        } catch (e) {
+            toast('削除失敗: ' + e.message, 'error');
+        }
+    });
 }
 
 async function completeGoal(key, content) {
@@ -1138,25 +1180,71 @@ async function completeGoal(key, content) {
     }
 }
 
-async function fulfillPromise(key, content) {
-    if (!S.persona) return;
-    try {
-        const resp = await api('/api/chat/' + encodeURIComponent(S.persona) + '/tool', {
-            method: 'POST',
-            body: JSON.stringify({ tool: 'promise_manage', input: { operation: 'fulfill', content } }),
-        });
-        if (resp.status === 'ok') {
-            toast('約束を遂行しました: ' + (resp.updated || content), 'success');
-            loadChatCommitments();
-        } else {
-            toast('遂行失敗: ' + (resp.message || ''), 'error');
-        }
-    } catch (e) {
-        toast('エラー: ' + e.message, 'error');
-    }
+/* ── Slash command handler ── */
+const SLASH_COMMANDS = [
+    { name: '/memory', desc: '記憶を作成', example: '/memory 今日は楽しかった' },
+    { name: '/goal', desc: '目標を作成', example: '/goal プロジェクトを完成させる' },
+    { name: '/code', desc: 'コードを実行', example: '/code print("hello")' },
+    { name: '/help', desc: 'コマンド一覧を表示', example: '/help' },
+    { name: '/search', desc: '記憶を検索', example: '/search 昨日の会話' },
+    { name: '/browser', desc: 'ブラウザ操作', example: '/browser open https://example.com' },
+    { name: '/image', desc: '画像を生成', example: '/image 猫の写真' },
+    { name: '/sandbox', desc: 'サンドボックスで実行', example: '/sandbox python script.py' },
+    { name: '/invoke_skill', desc: 'スキルを呼び出す', example: '/invoke_skill skill_name' },
+];
+
+function showHelpCommand() {
+    const timeStr = new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+    let msg = '**利用可能なコマンド**\n\n';
+    SLASH_COMMANDS.forEach(function(cmd) {
+        msg += '`' + cmd.name + '` — ' + cmd.desc + '\n';
+        msg += '  例: `' + cmd.example + '`\n\n';
+    });
+    msg += '**キーボードショートカット**\n\n';
+    msg += '`Alt+1` ~ `Alt+0` — タブ切り替え\n';
+    msg += '`Ctrl+F` — 検索\n';
+    msg += '`Enter` — 送信 / `Shift+Enter` — 改行\n';
+    appendChatMessage('assistant', msg, timeStr, true);
 }
 
-/* ── Slash command handler ── */
+function showCommandPopup(inputEl) {
+    hideCommandPopup();
+    const val = inputEl.value.trim();
+    if (!val.startsWith('/')) return;
+
+    const query = val.toLowerCase();
+    const matches = SLASH_COMMANDS.filter(function(cmd) {
+        return cmd.name.startsWith(query);
+    });
+    if (matches.length === 0) return;
+
+    const popup = document.createElement('div');
+    popup.className = 'chat-command-popup';
+    popup.id = 'chat-command-popup';
+
+    matches.forEach(function(cmd, idx) {
+        const item = document.createElement('div');
+        item.className = 'chat-command-item' + (idx === 0 ? ' active' : '');
+        item.innerHTML = '<span class="cmd-name">' + cmd.name + '</span><span class="cmd-desc">' + cmd.desc + '</span>';
+        item.onclick = function() {
+            inputEl.value = cmd.name + ' ';
+            inputEl.focus();
+            hideCommandPopup();
+            inputEl.dispatchEvent(new Event('input'));
+        };
+        popup.appendChild(item);
+    });
+
+    const inputArea = inputEl.closest('#chat-input-area') || inputEl.parentNode;
+    inputArea.style.position = 'relative';
+    inputArea.appendChild(popup);
+}
+
+function hideCommandPopup() {
+    const existing = document.getElementById('chat-command-popup');
+    if (existing) existing.remove();
+}
+
 async function handleSlashCommand(toolName, toolInput) {
     const inputEl = document.getElementById('chat-input');
     const rawInput = inputEl.value.trim();
@@ -1425,23 +1513,35 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             const val = input.value.trim();
+            hideCommandPopup();
             // Slash commands
             if (val.startsWith('/memory ')) {
                 handleSlashCommand('memory_create', { content: val.slice(8).trim(), importance: 0.7, tags: [] });
             } else if (val.startsWith('/goal ')) {
                 handleSlashCommand('goal_manage', { operation: 'create', content: val.slice(6).trim(), importance: 0.8 });
-            } else if (val.startsWith('/promise ')) {
-                handleSlashCommand('promise_manage', { operation: 'create', content: val.slice(9).trim(), importance: 0.8 });
             } else if (val.startsWith('/code ') && S.persona) {
                 handleSlashCommand('execute_code', { code: val.slice(6).trim(), language: 'python' });
+            } else if (val === '/help' || val.startsWith('/help ')) {
+                input.value = '';
+                input.style.height = 'auto';
+                showHelpCommand();
             } else {
                 chatSend();
             }
+        }
+        if (e.key === 'Escape') {
+            hideCommandPopup();
         }
     });
     input.addEventListener('input', () => {
         input.style.height = 'auto';
         input.style.height = Math.min(input.scrollHeight, 160) + 'px';
+        // Show command popup when typing /
+        if (input.value.startsWith('/')) {
+            showCommandPopup(input);
+        } else {
+            hideCommandPopup();
+        }
     });
     // File drag-and-drop on chat input
     input.addEventListener('dragover', (e) => {
