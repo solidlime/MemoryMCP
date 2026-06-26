@@ -7,20 +7,21 @@ from memory_mcp.infrastructure.llm.base import ToolDefinition
 MEMORY_TOOLS: list[ToolDefinition] = [
     ToolDefinition(
         name="memory_create",
-        description="新しい記憶を作成する。ユーザーに関する重要な情報・好み・出来事・決定事項は積極的に記録すること。記憶は永続化され、次回セッションのget_contextで復元されて会話の継続性を支える。\n\n**重要**: 感情や身体状態が変化した場合は、memory_createの*前に*必ずcontext_updateを呼ぶこと。システムがmemory_create時に現在のペルソナ状態（感情9次元+身体5次元）を自動スナップショットし、記憶に埋め込む。このスナップショットにより「同じ感情状態の時に作られた記憶」の検索が可能になる。context_updateを先に呼ばないと、前回の古い状態がスナップショットされる。",
+        description="新しい記憶を作成する。ユーザーの重要な事実・好み・出来事を記録したい時に使う。importance は 0.0〜1.0（高いほど重要）。tags で分類。重複チェックをスキップする場合は skip_duplicate_check: true を指定。",
         input_schema={
             "type": "object",
             "properties": {
                 "content": {"type": "string", "description": "記憶の内容"},
                 "importance": {"type": "number", "description": "重要度 0.0〜1.0", "default": 0.6},
                 "tags": {"type": "array", "items": {"type": "string"}, "description": "タグリスト"},
+                "skip_duplicate_check": {"type": "boolean", "description": "重複チェックをスキップ", "default": False},
             },
             "required": ["content"],
         },
     ),
     ToolDefinition(
         name="memory_search",
-        description="記憶を検索する。ユーザーについての情報・過去の出来事を調べる際に使用。",
+        description="記憶をハイブリッド検索（意味＋キーワード）する。思い出したいことや関連情報を探す時に使う。top_k で取得件数指定。",
         input_schema={
             "type": "object",
             "properties": {
@@ -32,7 +33,7 @@ MEMORY_TOOLS: list[ToolDefinition] = [
     ),
     ToolDefinition(
         name="context_update",
-        description="ペルソナ自身の感情・状態・現在の作業内容を更新する。感情が変わった際や、会話の継続性のために今していることを記録する際に使用。context_noteは1行50字以内で簡潔に。",
+        description="ペルソナの感情・状態を更新する。気分や体調が変わった時に使う。emotion には happy/sad/angry/neutral 等の感情を指定。",
         input_schema={
             "type": "object",
             "properties": {
@@ -48,7 +49,7 @@ MEMORY_TOOLS: list[ToolDefinition] = [
     ),
     ToolDefinition(
         name="invoke_skill",
-        description="特定のスキルを専用コンテキストで実行する。複雑な専門タスクをメインの会話から切り離して処理する",
+        description="登録済みのスキルを独立したLLMコンテキストで実行する。複雑な専門タスクをメインの会話から分離したい時に使う。",
         input_schema={
             "type": "object",
             "properties": {
@@ -60,7 +61,7 @@ MEMORY_TOOLS: list[ToolDefinition] = [
     ),
     ToolDefinition(
         name="goal_manage",
-        description="目標の作成・達成・キャンセル。ユーザーが「〜したい」「〜を目指す」と表明したら即座にcreate。達成したらachieve。operation: create/achieve/cancel。create時はcontent必須。achieve/cancel時はmemory_key指定可能（contentより優先）。",
+        description="目標（自分が達成したいこと）の作成・達成・キャンセル。operation は create（新しい目標）/ achieve（達成）/ cancel（キャンセル）。",
         input_schema={
             "type": "object",
             "properties": {
@@ -81,7 +82,7 @@ MEMORY_TOOLS: list[ToolDefinition] = [
     ),
     ToolDefinition(
         name="promise_manage",
-        description="約束の作成・履行・キャンセル。ペルソナがユーザーに約束したことを記録。履行したらfulfill。operation: create/fulfill/cancel。create時はcontent必須。fulfill/cancel時はmemory_key指定可能（contentより優先）。",
+        description="約束（ユーザーや他人との約束事）の作成・履行・キャンセル。goal_manage と違い、対人関係の約束に使う。operation は create/fulfill/cancel。",
         input_schema={
             "type": "object",
             "properties": {
@@ -102,7 +103,7 @@ MEMORY_TOOLS: list[ToolDefinition] = [
     ),
     ToolDefinition(
         name="memory_update",
-        description="既存記憶を更新する。記憶の内容が古くなった・変わった場合に使う。",
+        description="既存の記憶を検索して内容を更新する。記憶の内容が古くなった・変わった場合に使う。query で検索、new_content で置き換え。",
         input_schema={
             "type": "object",
             "properties": {
@@ -114,25 +115,8 @@ MEMORY_TOOLS: list[ToolDefinition] = [
         },
     ),
     ToolDefinition(
-        name="context_recall",
-        description="タグで記憶を取得。tags=['goal','active']で現在の目標一覧、tags=['promise','active']で現在の約束一覧。会話の文脈把握に使う。",
-        input_schema={
-            "type": "object",
-            "properties": {
-                "tags": {"type": "array", "items": {"type": "string"}, "description": "タグリスト（AND条件）"},
-                "top_k": {"type": "integer", "description": "取得件数", "default": 10},
-            },
-        },
-    ),
-    ToolDefinition(
         name="browser",
-        description=(
-            "Webブラウザを直接操作する。agent-browser CLI 経由でページ遷移・検索・"
-            "フォーム入力・データ抽出・スクリーンショット等が可能。"
-            "action で操作を指定し、必要なパラメータを渡す。"
-            "ページを開いたら必ず snapshot で構造を確認し、@eN リファレンスで操作すること。"
-            "ページ変化後は必ず再 snapshot すること。"
-        ),
+        description="agent-browser CLI 経由でWebブラウザを操作。基本的な流れ: open → snapshot -i → click @eN / fill @eN → snapshot -i の繰り返し。action で操作種別を指定。",
         input_schema={
             "type": "object",
             "properties": {
@@ -175,18 +159,20 @@ MEMORY_TOOLS: list[ToolDefinition] = [
     ),
     ToolDefinition(
         name="search",
-        description="SearXNGメタサーチエンジンでWeb検索を行う。Google/Bing/DuckDuckGo等の結果を集約。最新情報や事実確認に使用。",
+        description="SearXNGメタサーチエンジンでWeb検索する。リアルタイム情報や最新ドキュメントを調べたい時に使う。Google/Bing/DuckDuckGo等の結果を集約。",
         input_schema={
             "type": "object",
             "properties": {
                 "query": {"type": "string", "description": "検索クエリ（日本語可）"},
+                "num_results": {"type": "integer", "description": "取得する検索結果数（1〜50）", "default": 10, "minimum": 1, "maximum": 50},
+                "language": {"type": "string", "description": "言語フィルタ（'ja', 'en' 等）。指定しない場合は制限なし"},
             },
             "required": ["query"],
         },
     ),
     ToolDefinition(
         name="image_generate",
-        description="Generate images using DALL-E 3 or Stable Diffusion. Use this when the user asks to create, generate, or draw an image. You can specify the prompt, size, quality, and number of images.",
+        description="画像生成。DALL-E 3 または Stable Diffusion で画像を作成する。prompt で生成内容を指定。size/quality/provider で詳細調整可能。",
         input_schema={
             "type": "object",
             "properties": {
@@ -225,7 +211,7 @@ MEMORY_TOOLS: list[ToolDefinition] = [
     ),
     ToolDefinition(
         name="read_pdf",
-        description="Read and analyze a PDF file. Extracts text content, tables, and embedded images. Use this when the user attaches a PDF or asks you to analyze PDF content. You need to provide the workspace path to the PDF file.",
+        description="PDFファイルを解析してテキスト・テーブル・画像を抽出する。path にPDFファイルの絶対パスを指定。50MB以内のファイル対応。",
         input_schema={
             "type": "object",
             "properties": {
@@ -242,13 +228,7 @@ MEMORY_TOOLS: list[ToolDefinition] = [
 SANDBOX_TOOLS: list[ToolDefinition] = [
     ToolDefinition(
         name="execute_code",
-        description=(
-            "サンドボックスコンテナ内でコードを実行する。"
-            "Python スクリプト・計算・データ処理・ファイル生成に使う。"
-            "IPython カーネルなので `!ls /sandbox` などシェルコマンドも実行可能。"
-            "matplotlib 等で生成したグラフ・画像は自動で表示される。"
-            "実行結果（stdout/stderr）と画像を返す。"
-        ),
+        description="サンドボックスコンテナ内でコードを実行。Python / Bash 対応。session_id を指定すると同一コンテナで変数や状態を共有できる。",
         input_schema={
             "type": "object",
             "properties": {
@@ -258,23 +238,23 @@ SANDBOX_TOOLS: list[ToolDefinition] = [
                     "description": "言語 (python / bash)",
                     "default": "python",
                 },
+                "session_id": {
+                    "type": "string",
+                    "description": "同一セッションで状態を共有するためのID（省略時は毎回新規セッション）",
+                },
             },
             "required": ["code"],
         },
     ),
     ToolDefinition(
         name="sandbox_files",
-        description=(
-            "サンドボックスの /sandbox 配下でファイル操作を行う。"
-            "operation: list（一覧）/ read（テキスト読み取り）/ write（書き込み）/ delete（削除）。"
-            "画像ファイルの読み取りにも自動対応（PNG/JPEG/GIF/WebPを検出しbase64で返す）。"
-        ),
+        description="サンドボックスの /sandbox 配下でファイル操作。operation で list/read/write/append/delete を指定。write/append 時は content 必須。画像ファイルも自動検出。",
         input_schema={
             "type": "object",
             "properties": {
                 "operation": {
                     "type": "string",
-                    "enum": ["list", "read", "write", "delete"],
+                    "enum": ["list", "read", "write", "append", "delete"],
                     "description": "操作種別",
                 },
                 "path": {
@@ -284,10 +264,18 @@ SANDBOX_TOOLS: list[ToolDefinition] = [
                 },
                 "content": {
                     "type": "string",
-                    "description": "書き込む内容（write のみ必須）",
+                    "description": "書き込む内容（write / append のみ必須）",
                 },
             },
             "required": ["operation"],
+        },
+    ),
+    ToolDefinition(
+        name="list_skills",
+        description="登録済みスキルの一覧を取得。invoke_skill を呼ぶ前に、利用可能なスキル名と説明を確認するために使う。",
+        input_schema={
+            "type": "object",
+            "properties": {},
         },
     ),
 ]

@@ -235,6 +235,45 @@ async def _tool_sandbox_files(
             },
         )
         return result
+    elif operation == "append":
+        if not content:
+            await ctx.event_bus.publish(
+                "tool.called",
+                {
+                    "persona": persona,
+                    "tool_name": "sandbox_files",
+                    "params_summary": f"operation=append, path={path}",
+                    "result_summary": "content is required for append",
+                    "success": False,
+                },
+            )
+            return {"ok": False, "error": "content is required for append"}
+        try:
+            existing = await sandbox_session.read_file(path)
+        except Exception:
+            existing = b""
+        combined = existing + content.encode()
+        b64 = _b64.b64encode(combined).decode()
+        write_code = (
+            f"import base64, os\n"
+            f"_d = base64.b64decode({b64!r})\n"
+            f"os.makedirs(os.path.dirname({path!r}) or '.', exist_ok=True)\n"
+            f"open({path!r}, 'wb').write(_d)\n"
+            f"print('appended', len(_d), 'total bytes')"
+        )
+        exec_result = await sandbox_session.execute(write_code)
+        result = {"ok": True, "path": path, "stdout": exec_result.stdout.strip()}
+        await ctx.event_bus.publish(
+            "tool.called",
+            {
+                "persona": persona,
+                "tool_name": "sandbox_files",
+                "params_summary": f"operation=append, path={path}",
+                "result_summary": f"Appended {len(content)} bytes to {path} (total {len(combined)} bytes)",
+                "success": True,
+            },
+        )
+        return result
     elif operation == "delete":
         deleted = await sandbox_session.delete_file(path)
         if deleted:

@@ -7,8 +7,11 @@ from typing import TYPE_CHECKING, Any
 
 from memory_mcp.api.mcp.tools import TOOL_DISPATCH
 from memory_mcp.application.chat.tools.definitions import _MEMORY_MCP_TOOL_NAMES
+from memory_mcp.config.settings import get_settings
 from memory_mcp.domain.search.engine import SearchQuery
+from memory_mcp.domain.skill import SkillRepository
 from memory_mcp.infrastructure.logging.structured import get_logger
+from memory_mcp.infrastructure.sqlite.connection import get_global_skills_db
 
 if TYPE_CHECKING:
     from memory_mcp.application.use_cases import AppContext
@@ -84,21 +87,6 @@ async def _handle_context_update(ctx: AppContext, config: ChatConfig, tool_input
     return {"status": "ok"}
 
 
-async def _handle_context_recall(ctx: AppContext, config: ChatConfig, tool_input: dict) -> dict:
-    tags: list[str] = tool_input.get("tags", [])
-    top_k: int = int(tool_input.get("top_k", 10))
-    if tags:
-        tag_result = ctx.memory_service.get_by_tags(tags)
-        if not tag_result.is_ok:
-            return {"status": "error", "message": str(tag_result.error)}
-        memories = tag_result.value or []
-    else:
-        recent_result = ctx.memory_service.get_recent(limit=top_k)
-        memories = recent_result.value if recent_result.is_ok else []
-    items = [{"content": m.content, "importance": m.importance, "tags": m.tags} for m in memories[:top_k]]
-    return {"status": "ok", "memories": items, "count": len(items)}
-
-
 async def _handle_execute_code(ctx: AppContext, config: ChatConfig, tool_input: dict) -> dict:
     if not getattr(config, "sandbox_enabled", False):
         return {"status": "error", "message": "sandbox が無効です。チャット設定で有効化してください。"}
@@ -106,14 +94,26 @@ async def _handle_execute_code(ctx: AppContext, config: ChatConfig, tool_input: 
 
     code = tool_input.get("code", "")
     language = tool_input.get("language", "python")
-    sandbox = get_sandbox_session(ctx.persona)
+    session_id = tool_input.get("session_id")
+
+    if session_id:
+        # Use persona-scoped session key to prevent cross-persona leaks
+        sandbox_key = f"{ctx.persona}:{session_id}"
+        sandbox = get_sandbox_session(sandbox_key)
+    else:
+        sandbox = get_sandbox_session(ctx.persona)
+
     result = await sandbox.execute(code, language)
-    return {
+    # Include session_id in response for LLM to reference next time
+    response = {
         "stdout": result.stdout,
         "stderr": result.stderr,
         "exit_code": result.exit_code,
         "artifacts": result.artifacts,
     }
+    if session_id:
+        response["session_id"] = session_id
+    return response
 
 
 async def _handle_memory_create_builtin(ctx: AppContext, config: ChatConfig, tool_input: dict) -> dict:
@@ -121,11 +121,35 @@ async def _handle_memory_create_builtin(ctx: AppContext, config: ChatConfig, too
     if not (0.0 <= importance <= 1.0):
         return {"status": "error", "message": "importance must be between 0.0 and 1.0"}
 
+    content = tool_input.get("content", "")
+    skip_duplicate = tool_input.get("skip_duplicate_check", False)
+
+    # ── Semantic duplicate check ──
+    if not skip_duplicate and content:
+        search_result = ctx.search_engine.search(SearchQuery(text=content, top_k=3))
+        if search_result.is_ok and search_result.value:
+            duplicates = []
+            for item in search_result.value:
+                mem = item.memory
+                score = item.score
+                if score >= 0.75:
+                    duplicates.append({
+                        "content": mem.content[:100],
+                        "key": mem.key,
+                        "similarity": score,
+                    })
+            if duplicates:
+                return {
+                    "status": "duplicate",
+                    "similar_to": duplicates,
+                    "message": "類似した記憶が既に存在します。重複を避けるため新規作成をスキップしました。",
+                }
+
     # Auto-snapshot current persona state
     emotion_snap, intensity_snap, body_snap, snapped_at = ctx.persona_service.get_state_snapshot(ctx.persona)
 
     result = ctx.memory_service.create_memory(
-        content=tool_input.get("content", ""),
+        content=content,
         importance=importance,
         tags=tool_input.get("tags", []),
         emotion=emotion_snap,
@@ -319,8 +343,11 @@ async def _handle_search(
     if not query:
         return {"status": "error", "message": "query is required"}
 
+    num_results = int(tool_input.get("num_results", 10))
+    lang = (tool_input.get("language") or "ja").strip()
+
     searxng_url = getattr(config, "searxng_url", "http://nas:11111")
-    search_url = f"{searxng_url}/search?q={urllib.parse.quote(query)}&format=json&language=ja"
+    search_url = f"{searxng_url}/search?q={urllib.parse.quote(query)}&format=json&language={lang}"
 
     import httpx
 
@@ -340,8 +367,9 @@ async def _handle_search(
         return {"status": "error", "message": f"SearXNG search failed: {error_msg}"}
 
     raw_results = data.get("results", [])
+    limit = min(num_results, len(raw_results))
     results = []
-    for r in raw_results[:10]:
+    for r in raw_results[:limit]:
         title = (r.get("title") or "").strip()
         url = (r.get("url") or "").strip()
         content = (r.get("content") or "").strip()
@@ -631,12 +659,27 @@ async def _handle_read_pdf(ctx: AppContext, config: ChatConfig, tool_input: dict
         return {"status": "error", "message": f"PDFの解析に失敗しました: {str(e)}"}
 
 
+async def _handle_list_skills(ctx: AppContext, config: ChatConfig, tool_input: dict) -> dict:
+    """List all registered skills from the skill store."""
+    try:
+        db = get_global_skills_db(get_settings().data_root)
+        if db is None:
+            return {"status": "error", "message": "Skill store not available"}
+
+        repo = SkillRepository(db)
+        skills = repo.list_all()
+        items = [{"name": s.name, "description": getattr(s, "description", "")} for s in skills]
+        return {"status": "ok", "skills": items, "count": len(items)}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
 # ── Handler dispatch table (replaces if/elif chain) ──
 
 _BUILTIN_DISPATCH: dict[str, Any] = {
     "context_update": _handle_context_update,
-    "context_recall": _handle_context_recall,
     "execute_code": _handle_execute_code,
+    "list_skills": _handle_list_skills,
     "memory_create": _handle_memory_create_builtin,
     "memory_search": _handle_memory_search_builtin,
     "memory_update": _handle_memory_update_builtin,
