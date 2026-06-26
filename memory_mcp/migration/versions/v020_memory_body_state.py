@@ -9,6 +9,9 @@ from __future__ import annotations
 
 def upgrade(db) -> None:
     """Add body_state and state_snapped_at columns to memories."""
-    db.execute("ALTER TABLE memories ADD COLUMN body_state TEXT")
-    db.execute("ALTER TABLE memories ADD COLUMN state_snapped_at TEXT")
+    existing = {r[1] for r in db.execute("PRAGMA table_info(memories)").fetchall()}
+    if "body_state" not in existing:
+        db.execute("ALTER TABLE memories ADD COLUMN body_state TEXT")
+    if "state_snapped_at" not in existing:
+        db.execute("ALTER TABLE memories ADD COLUMN state_snapped_at TEXT")
     db.commit()
