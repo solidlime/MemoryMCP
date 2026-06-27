@@ -66,7 +66,7 @@ services:
       # Explicitly empty so .env cannot accidentally override with a stale DinD host.
       NOUS_SANDBOX__DOCKER_HOST: ""
       # agent-browser installed to data volume by entrypoint script
-      NOUS_AGENT_BROWSER_PATH: /opt/nous/data/agent-browser/bin/agent-browser
+      NOUS_AGENT_BROWSER_PATH: /opt/nous/data/bin/agent-browser
       # HOST_DATA_ROOT: normally auto-detected from this container's own volume mounts.
       # Set manually only if auto-detection fails (e.g. on Synology, custom Docker setups).
       # Example: NOUS_SANDBOX__HOST_DATA_ROOT: /volume1/docker/nous/data

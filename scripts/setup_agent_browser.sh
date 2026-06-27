@@ -2,7 +2,7 @@
 # Setup agent-browser for MemoryMCP (run at container startup)
 set -eo pipefail
 
-AGENT_DIR="${AGENT_BROWSER_DIR:-/opt/nous/data/agent-browser}"
+AGENT_DIR="${AGENT_BROWSER_DIR:-/opt/nous/data}"
 AGENT_BROWSER="$AGENT_DIR/bin/agent-browser"
 # Resolve to absolute path (NOUS_DATA_ROOT may be relative like ./data,
 # which breaks symlink resolution when $HOME is /root)
