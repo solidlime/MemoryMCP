@@ -6,6 +6,7 @@ import pytest
 
 from nous.api.mcp.middleware import (
     PersonaMiddleware,
+    PersonaRequiredError,
     _persona_var,
     get_current_persona,
     resolve_persona_from_headers,
@@ -105,11 +106,12 @@ class TestGetCurrentPersona:
         monkeypatch.setenv("PERSONA", "env_persona")
         assert get_current_persona() == "env_persona"
 
-    def test_fallback_to_default(self, monkeypatch):
-        """contextvar未セット、環境変数もなし → None"""
+    def test_fallback_raises_when_no_persona(self, monkeypatch):
+        """contextvar未セット、環境変数もなし → PersonaRequiredError"""
         monkeypatch.delenv("PERSONA", raising=False)
         monkeypatch.delenv("NOUS_DEFAULT_PERSONA", raising=False)
-        assert get_current_persona() is None
+        with pytest.raises(PersonaRequiredError):
+            get_current_persona()
 
 
 # =========================================================================

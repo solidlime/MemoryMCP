@@ -22,12 +22,22 @@ from nous.config.settings import Settings
 from nous.infrastructure.logging.structured import get_logger, setup_logging
 
 # ── Monkey-patch Tool.run() to re-raise McpError (preserves JSON-RPC error codes) ──
+# FastMCP's Tool.run() wraps all exceptions in ToolError, but McpError must
+# propagate unwrapped so the low-level MCP server can convert it to a proper
+# JSON-RPC error response (e.g. -32000 PERSONA_REQUIRED).
 _original_tool_run = Tool.run
+
+from mcp.server.fastmcp.exceptions import ToolError  # noqa: E402
 
 
 async def _patched_tool_run(self, arguments, context=None, convert_result=False):
     try:
         return await _original_tool_run(self, arguments, context, convert_result)
+    except ToolError as e:
+        cause = e.__cause__ or e.__context__
+        if isinstance(cause, McpError):
+            raise cause from None
+        raise
     except McpError:
         raise
 

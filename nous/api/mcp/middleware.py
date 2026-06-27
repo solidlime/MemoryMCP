@@ -48,17 +48,24 @@ def resolve_persona_from_token(authorization: str | None = None) -> str | None:
     return resolve_persona_from_headers(authorization=authorization)
 
 
-def get_current_persona() -> str | None:
+def get_current_persona() -> str:
     """Get the persona for the current request.
 
     Returns the value set by :class:`PersonaMiddleware` (via *contextvars*),
     falling back to environment variables when running outside an HTTP
     request (e.g. stdio transport).
+
+    Raises:
+        PersonaRequiredError: When no persona can be resolved.
     """
     val = _persona_var.get()
-    if val:
+    # Avoid treating empty string as valid persona
+    if val and val.strip():
         return val
-    return _env_persona()
+    env = _env_persona()
+    if env and env.strip():
+        return env
+    raise PersonaRequiredError("No persona configured. Create a persona via the WebUI or set the PERSONA environment variable.")
 
 
 class PersonaMiddleware:
@@ -84,7 +91,7 @@ class PersonaMiddleware:
                 elif lower_name == b"x-persona":
                     x_persona = value.decode("latin-1") if isinstance(value, bytes) else value
 
-            persona = resolve_persona_from_headers(authorization, x_persona) or ""
+            persona = resolve_persona_from_headers(authorization, x_persona)
             token = _persona_var.set(persona)
             try:
                 await self.app(scope, receive, send)
