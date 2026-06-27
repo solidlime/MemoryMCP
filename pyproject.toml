@@ -7,6 +7,7 @@ dependencies = [
     "PyMuPDF>=1.24.0",
     "pdfplumber>=0.11.0",
     "pytesseract>=0.3.10",
+    "docker>=7.0.0",
 ]
 
 [project.optional-dependencies]
@@ -37,7 +38,7 @@ markers = [
 ]
 
 [tool.coverage.run]
-source = ["memory_mcp"]
+source = ["nous"]
 omit = ["tests/*", "*/migration/*"]
 
 [tool.coverage.report]

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import os
 from pathlib import Path
@@ -14,7 +15,6 @@ from nous.api.http.routes import register_http_routes
 from nous.api.mcp.middleware import PersonaMiddleware
 from nous.api.mcp.tools import register_tools
 from nous.application.sandbox.service import _sessions as sandbox_sessions
-from nous.application.sandbox.service import close_sandbox_session
 from nous.application.use_cases import AppContextRegistry
 from nous.config.settings import Settings
 from nous.infrastructure.logging.structured import get_logger, setup_logging
@@ -55,6 +55,38 @@ def _mount_static_files(mcp: MemoryFastMCP) -> None:
 
         mime_type, _ = mimetypes.guess_type(str(full_path))
         return FileResponse(str(full_path), media_type=mime_type or "application/octet-stream")
+
+
+async def _ensure_sandbox_container() -> None:
+    """Ensure single sandbox container is running at startup."""
+    from nous.config.settings import get_settings
+
+    if not get_settings().sandbox.enabled:
+        return
+
+    _log = get_logger("main.sandbox")
+
+    try:
+        import docker
+    except ImportError:
+        _log.warning("docker Python package not installed. Sandbox will not be available.")
+        return
+
+    client = docker.from_env()
+    try:
+        container = client.containers.get("sandbox")
+        if container.status != "running":
+            _log.info("Starting existing sandbox container...")
+            container.start()
+        else:
+            _log.info("Sandbox container already running")
+    except docker.errors.NotFound:
+        _log.warning(
+            "Sandbox container not found. "
+            "Run 'docker compose up -d sandbox' or ensure it's started separately."
+        )
+    finally:
+        client.close()
 
 
 def create_app() -> MemoryFastMCP:
@@ -132,13 +164,15 @@ def create_app() -> MemoryFastMCP:
         except Exception as e:
             status["services"]["searxng"] = f"unreachable: {e}"
 
-        # Check sandbox (non-critical)
+        # Check sandbox container (non-critical)
         if settings.sandbox.enabled:
             try:
-                from nous.application.sandbox.service import _ensure_sandbox_image
+                import docker
 
-                _ensure_sandbox_image(settings.sandbox.image, "Dockerfile.sandbox")
-                status["services"]["sandbox"] = "ok"
+                client = docker.from_env()
+                container = client.containers.get("sandbox")
+                status["services"]["sandbox"] = "ok" if container.status == "running" else f"stopped ({container.status})"
+                client.close()
             except Exception as e:
                 status["services"]["sandbox"] = f"error: {e}"
 
@@ -178,32 +212,28 @@ def create_app() -> MemoryFastMCP:
         snapshot_worker = ContextSnapshotWorker(settings)
         snapshot_worker.start()
 
-    # Pre-warm sandbox Docker image in background to avoid blocking the
-    # first sandbox request with a long image pull/build (~500MB download).
+    # Ensure sandbox container is running at startup
     if settings.sandbox.enabled:
-        import threading
-
-        def _prewarm_sandbox() -> None:
-            try:
-                from nous.application.sandbox.service import _ensure_sandbox_image
-
-                logger.info("Pre-warming sandbox image %s in background...", settings.sandbox.image)
-                _ensure_sandbox_image(settings.sandbox.image, "Dockerfile.sandbox")
-                logger.info("Sandbox image pre-warm complete: %s", settings.sandbox.image)
-            except Exception:
-                logger.warning(
-                    "Sandbox pre-warm failed (will retry on first use): %s", settings.sandbox.image, exc_info=True
-                )
-
-        threading.Thread(target=_prewarm_sandbox, daemon=True, name="sandbox-prewarm").start()
+        try:
+            asyncio.run(_ensure_sandbox_container())
+        except Exception:
+            logger.warning("Sandbox container check failed at startup", exc_info=True)
 
     # Register sandbox session cleanup on shutdown
     import atexit
 
     def _shutdown_sandbox_sessions() -> None:
-        for persona in list(sandbox_sessions.keys()):
-            with contextlib.suppress(Exception):
-                close_sandbox_session(persona)
+        from nous.application.sandbox.service import close_sandbox_session
+
+        async def _close_all():
+            for persona in list(sandbox_sessions.keys()):
+                with contextlib.suppress(Exception):
+                    await close_sandbox_session(persona)
+
+        try:
+            asyncio.run(_close_all())
+        except Exception:
+            logger.warning("Failed to close some sandbox sessions on shutdown")
 
     atexit.register(_shutdown_sandbox_sessions)
 

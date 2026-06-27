@@ -80,7 +80,7 @@ class SandboxConfig(BaseModel):
     """Sandbox code execution configuration."""
 
     enabled: bool = True
-    provider: str = "llm_sandbox"  # "llm_sandbox" | "none"
+    provider: str = "docker"  # "docker" | "none"
     image: str = "nous-sandbox:latest"  # custom sandbox image
     docker_host: str = ""  # empty = auto-detect socket, "tcp://host:2375" = remote Docker
     docker_sock: str = ""  # override socket path (empty = auto-detect common paths)
