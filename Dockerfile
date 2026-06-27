@@ -39,6 +39,9 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     curl \
     tzdata \
+    # OCR用。不要なら削除可
+    tesseract-ocr \
+    tesseract-ocr-jpn \
     && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone \
     && rm -rf /var/lib/apt/lists/*
 

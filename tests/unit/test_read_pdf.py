@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import fitz  # PyMuPDF
 import pytest
@@ -209,5 +209,317 @@ async def test_read_pdf_text_truncation():
         # テキストが上限 (100,000) + 切り捨てメッセージ分に収まっている
         assert len(result["text"]) <= 100_100
         assert "切り捨てられました" in result["text"]
+    finally:
+        Path(pdf_path).unlink(missing_ok=True)
+
+
+# ═══════════════════════════════════════════════════════════════════
+# フォールバック連鎖テスト
+# ═══════════════════════════════════════════════════════════════════
+
+
+def _make_minimal_pdf(path: str) -> str:
+    """パス検証を通すための最小限PDF (中身は空テキスト)"""
+    doc = fitz.open()
+    page = doc.new_page()
+    page.insert_text((50, 50), "x", fontname="japan")  # 1文字だけ
+    doc.save(path)
+    doc.close()
+    return path
+
+
+@pytest.mark.asyncio
+async def test_read_pdf_fallback_pdfplumber():
+    """PyMuPDF空テキスト → pdfplumber フォールバック"""
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
+        pdf_path = _make_minimal_pdf(f.name)
+
+    try:
+        ctx = MagicMock()
+        config = MagicMock()
+
+        # Mock fitz module in sys.modules: empty text
+        mock_page = MagicMock(spec=fitz.Page)
+        mock_page.get_text.return_value = ""
+        mock_page.get_images.return_value = []
+
+        mock_doc = MagicMock()
+        mock_doc.__len__.return_value = 1
+        mock_doc.__iter__.return_value = iter([mock_page])
+        mock_doc.__getitem__.return_value = mock_page
+        mock_doc.__enter__.return_value = mock_doc
+        mock_doc.close.return_value = None
+
+        mock_fitz = MagicMock()
+        mock_fitz.open.return_value = mock_doc
+
+        # Mock pdfplumber module: returns text + tables
+        mock_plumb_page = MagicMock()
+        mock_plumb_page.extract_text.return_value = (
+            "pdfplumber fallback text content that is definitely much longer than fifty characters so the check passes."
+        )
+        mock_plumb_page.extract_tables.return_value = []
+
+        mock_pdf = MagicMock()
+        mock_pdf.pages = [mock_plumb_page]
+        mock_pdf.__enter__.return_value = mock_pdf
+
+        mock_pdfplumber = MagicMock()
+        mock_pdfplumber.open.return_value = mock_pdf
+
+        with patch.dict("sys.modules", {"fitz": mock_fitz, "pdfplumber": mock_pdfplumber}):
+            from memory_mcp.application.chat.tools.builtin import _handle_read_pdf
+
+            result = await _handle_read_pdf(ctx, config, {"path": pdf_path})
+
+        assert result["status"] == "success"
+        assert "pdfplumber fallback text content" in result["text"]
+        assert len(result["text"]) > 50
+        assert result["text_source"] == "pdfplumber"
+    finally:
+        Path(pdf_path).unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_read_pdf_fallback_ocr():
+    """PyMuPDF + pdfplumber 空テキスト → OCR フォールバック"""
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
+        pdf_path = _make_minimal_pdf(f.name)
+
+    try:
+        ctx = MagicMock()
+        config = MagicMock()
+
+        # Mock fitz: empty text, get_pixmap works
+        mock_page = MagicMock(spec=fitz.Page)
+        mock_page.get_text.return_value = ""
+        mock_page.get_images.return_value = []
+
+        mock_pix = MagicMock()
+        mock_pix.tobytes.return_value = b"fake_png_bytes"
+        mock_page.get_pixmap.return_value = mock_pix
+
+        mock_doc = MagicMock()
+        mock_doc.__len__.return_value = 1
+        mock_doc.__iter__.return_value = iter([mock_page])
+        mock_doc.__getitem__.return_value = mock_page
+        mock_doc.__enter__.return_value = mock_doc
+        mock_doc.close.return_value = None
+
+        mock_fitz = MagicMock()
+        mock_fitz.open.return_value = mock_doc
+
+        # Mock pdfplumber: empty text
+        mock_plumb_page = MagicMock()
+        mock_plumb_page.extract_text.return_value = ""
+        mock_plumb_page.extract_tables.return_value = []
+
+        mock_pdf = MagicMock()
+        mock_pdf.pages = [mock_plumb_page]
+        mock_pdf.__enter__.return_value = mock_pdf
+
+        mock_pdfplumber = MagicMock()
+        mock_pdfplumber.open.return_value = mock_pdf
+
+        # Mock PIL.Image
+        mock_img = MagicMock()
+        mock_img.convert.return_value = mock_img
+
+        mock_image_class = MagicMock()
+        mock_image_class.open.return_value = mock_img
+
+        # Mock pytesseract
+        mock_pytesseract = MagicMock()
+        mock_pytesseract.image_to_string.return_value = "OCR extracted text\n"
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "fitz": mock_fitz,
+                "pdfplumber": mock_pdfplumber,
+                "PIL": MagicMock(),
+                "PIL.Image": mock_image_class,
+                "pytesseract": mock_pytesseract,
+            },
+        ):
+            from memory_mcp.application.chat.tools.builtin import _handle_read_pdf
+
+            result = await _handle_read_pdf(ctx, config, {"path": pdf_path})
+
+        assert result["status"] == "success"
+        assert "OCR extracted text" in result["text"]
+        assert result["text_source"] == "ocr"
+    finally:
+        Path(pdf_path).unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_read_pdf_pymupdf_normal_text():
+    """通常テキスト抽出 → text_source = 'pymupdf' (リグレッションチェック)"""
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
+        pdf_path = _make_minimal_pdf(f.name)
+
+    try:
+        ctx = MagicMock()
+        config = MagicMock()
+
+        # Mock fitz: normal text (>50 chars)
+        mock_page = MagicMock(spec=fitz.Page)
+        mock_page.get_text.return_value = (
+            "Normal PDF text content that is longer than fifty characters for testing purposes."
+        )
+        mock_page.get_images.return_value = []
+
+        mock_doc = MagicMock()
+        mock_doc.__len__.return_value = 1
+        mock_doc.__iter__.return_value = iter([mock_page])
+        mock_doc.__getitem__.return_value = mock_page
+        mock_doc.__enter__.return_value = mock_doc
+        mock_doc.close.return_value = None
+
+        mock_fitz = MagicMock()
+        mock_fitz.open.return_value = mock_doc
+
+        with patch.dict("sys.modules", {"fitz": mock_fitz, "pdfplumber": MagicMock()}):
+            from memory_mcp.application.chat.tools.builtin import _handle_read_pdf
+
+            result = await _handle_read_pdf(ctx, config, {"path": pdf_path})
+
+        assert result["status"] == "success"
+        assert result["text_source"] == "pymupdf"
+        assert "Normal PDF text content" in result["text"]
+    finally:
+        Path(pdf_path).unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_read_pdf_ocr_no_images():
+    """OCRテキスト → ページラスター画像が追加されること"""
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
+        pdf_path = _make_minimal_pdf(f.name)
+
+    try:
+        ctx = MagicMock()
+        config = MagicMock()
+
+        # Mock fitz: empty text, get_pixmap works, no embedded images
+        mock_page = MagicMock(spec=fitz.Page)
+        mock_page.get_text.return_value = ""
+        mock_page.get_images.return_value = []
+
+        mock_pix = MagicMock()
+        mock_pix.tobytes.return_value = b"raster_png_bytes"
+        mock_page.get_pixmap.return_value = mock_pix
+
+        mock_doc = MagicMock()
+        mock_doc.__len__.return_value = 1
+        mock_doc.__iter__.return_value = iter([mock_page])
+        mock_doc.__getitem__.return_value = mock_page
+        mock_doc.__enter__.return_value = mock_doc
+        mock_doc.close.return_value = None
+
+        mock_fitz = MagicMock()
+        mock_fitz.open.return_value = mock_doc
+
+        # Mock pdfplumber: empty
+        mock_plumb_page = MagicMock()
+        mock_plumb_page.extract_text.return_value = ""
+        mock_plumb_page.extract_tables.return_value = []
+
+        mock_pdf = MagicMock()
+        mock_pdf.pages = [mock_plumb_page]
+        mock_pdf.__enter__.return_value = mock_pdf
+
+        mock_pdfplumber = MagicMock()
+        mock_pdfplumber.open.return_value = mock_pdf
+
+        # Mock PIL.Image
+        mock_image_class = MagicMock()
+
+        # Mock pytesseract
+        mock_pytesseract = MagicMock()
+        mock_pytesseract.image_to_string.return_value = "OCR extracted\n"
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "fitz": mock_fitz,
+                "pdfplumber": mock_pdfplumber,
+                "PIL": MagicMock(),
+                "PIL.Image": mock_image_class,
+                "pytesseract": mock_pytesseract,
+            },
+        ):
+            from memory_mcp.application.chat.tools.builtin import _handle_read_pdf
+
+            result = await _handle_read_pdf(ctx, config, {"path": pdf_path})
+
+        assert result["status"] == "success"
+        assert len(result["images"]) == 1
+        assert result["images"][0]["source"] == "page_raster"
+        assert result["images"][0]["mime_type"] == "image/png"
+    finally:
+        Path(pdf_path).unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_read_pdf_ocr_import_error():
+    """pytesseract 未インストール → graceful degradation (text_source = 'empty')"""
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
+        pdf_path = _make_minimal_pdf(f.name)
+
+    try:
+        ctx = MagicMock()
+        config = MagicMock()
+
+        # Mock fitz: empty text
+        mock_page = MagicMock(spec=fitz.Page)
+        mock_page.get_text.return_value = ""
+        mock_page.get_images.return_value = []
+
+        mock_doc = MagicMock()
+        mock_doc.__len__.return_value = 1
+        mock_doc.__iter__.return_value = iter([mock_page])
+        mock_doc.__getitem__.return_value = mock_page
+        mock_doc.__enter__.return_value = mock_doc
+        mock_doc.close.return_value = None
+
+        mock_fitz = MagicMock()
+        mock_fitz.open.return_value = mock_doc
+
+        # Mock pdfplumber: empty text
+        mock_plumb_page = MagicMock()
+        mock_plumb_page.extract_text.return_value = ""
+        mock_plumb_page.extract_tables.return_value = []
+
+        mock_pdf = MagicMock()
+        mock_pdf.pages = [mock_plumb_page]
+        mock_pdf.__enter__.return_value = mock_pdf
+
+        mock_pdfplumber = MagicMock()
+        mock_pdfplumber.open.return_value = mock_pdf
+
+        # Simulate ImportError for pytesseract: don't add it to sys.modules
+        # Also mock PIL.Image to avoid "from PIL import Image" failing
+        mock_image_class = MagicMock()
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "fitz": mock_fitz,
+                "pdfplumber": mock_pdfplumber,
+                "PIL": MagicMock(),
+                "PIL.Image": mock_image_class,
+                # pytesseract を sys.modules に入れない → import が ImportError
+            },
+        ):
+            from memory_mcp.application.chat.tools.builtin import _handle_read_pdf
+
+            result = await _handle_read_pdf(ctx, config, {"path": pdf_path})
+
+        # OCR がスキップされてもエラーにならず、テキスト空で返る
+        assert result["status"] == "success"
+        assert isinstance(result["text"], str)
+        assert result["text_source"] == "empty"
     finally:
         Path(pdf_path).unlink(missing_ok=True)
