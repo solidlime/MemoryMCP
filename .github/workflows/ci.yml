@@ -17,6 +17,46 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
+  check-docs:
+    name: Documentation Reminder
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check if docs need updating
+        id: check
+        run: |
+          # このコミットで変更されたファイル一覧
+          CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || git diff-tree --no-commit-id --name-only -r HEAD)
+
+          # nous/ 配下のコード変更 (テスト・migration・__init__.py を除く)
+          CODE_CHANGES=$(echo "$CHANGED" | grep '^nous/' | grep -v '/tests/' | grep -v '__init__\.py$' | grep -v '/migration/' | wc -l)
+
+          # docs/ または README.md または CLAUDE.md の変更
+          DOC_CHANGES=$(echo "$CHANGED" | grep -cE '^docs/|^README\.md$|^CLAUDE\.md$' || echo 0)
+
+          # コミットメッセージに [skip-docs] が含まれているか
+          SKIP_DOCS=$(git log -1 --format=%B | grep -ci '\[skip-docs\]' || echo 0)
+
+          echo "CODE_CHANGES=$CODE_CHANGES"
+          echo "DOC_CHANGES=$DOC_CHANGES"
+          echo "SKIP_DOCS=$SKIP_DOCS"
+
+          if [ "$CODE_CHANGES" -gt 0 ] && [ "$DOC_CHANGES" -eq 0 ] && [ "$SKIP_DOCS" -eq 0 ]; then
+            echo "::warning title=ドキュメント未更新::nous/ にコード変更がありますが、docs/・README.md・CLAUDE.md のいずれも更新されていません。必要に応じてドキュメントを更新するか、意図的であればコミットメッセージに [skip-docs] を含めてください。"
+            echo "reminder=true" >> $GITHUB_OUTPUT
+          else
+            if [ "$SKIP_DOCS" -gt 0 ]; then
+              echo "ℹ️ [skip-docs] 指定あり → スキップ"
+            else
+              echo "✅ ドキュメント更新OK"
+            fi
+            echo "reminder=false" >> $GITHUB_OUTPUT
+          fi
+
   lint:
     name: Lint & Format
     runs-on: ubuntu-latest
