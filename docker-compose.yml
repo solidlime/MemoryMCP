@@ -79,6 +79,26 @@ services:
       retries: 3
       start_period: 120s
 
+  sandbox:
+    build:
+      context: .
+      dockerfile: Dockerfile.sandbox
+    image: nous-sandbox:latest
+    container_name: sandbox
+    restart: unless-stopped
+    volumes:
+      # Each persona's sandbox data is mounted to /home/{persona}
+      # Static mounts for the two built-in personas
+      - ./data/memory/default/sandbox:/home/default
+      - ./data/memory/config/sandbox:/home/config
+      # Additional personas can use docker cp or dynamic bind mounts
+    cap_drop:
+      - ALL
+    cap_add:
+      - DAC_OVERRIDE  # needed for file reads across users
+    security_opt:
+      - no-new-privileges:true
+
 networks:
   default:
     name: nous-network
