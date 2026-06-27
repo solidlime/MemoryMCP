@@ -339,8 +339,10 @@ class TestAppContextMigration:
             mock_engine.run_all.return_value = Success(None)
             mock_migration_engine.return_value = mock_engine
 
-            ctx = AppContext(settings, "test_persona")
-            # Before access, _embedding is None
+            # Patch _init_vector_store to avoid eager embedding model creation
+            with patch.object(AppContext, "_init_vector_store", return_value=None):
+                ctx = AppContext(settings, "test_persona")
+            # Before access, _embedding is None (lazy init preserved)
             assert ctx._embedding is None
 
             # Access should create EmbeddingModel

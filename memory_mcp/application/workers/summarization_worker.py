@@ -2,6 +2,14 @@
 
 Periodically checks all active personas for new memories and creates
 summary records to help maintain long-term context coherence.
+
+Three summarization paths:
+1. **Statistical summary** — counts new memories, logs a daily stats entry.
+2. **Extractive summary** — collapses old/low-importance/untagged memories
+   into date-grouped plain-text entries (no LLM).
+3. **LLM summary** — when ``use_llm=True`` and ``llm_api_key`` is set,
+   each date group is sent to an OpenAI-compatible API for a structured
+   Japanese summary; falls back to extractive on failure.
 """
 
 from __future__ import annotations
@@ -9,7 +17,7 @@ from __future__ import annotations
 import threading
 import time
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from memory_mcp.infrastructure.logging.structured import get_logger
 
@@ -22,14 +30,51 @@ logger = get_logger(__name__)
 class SummarizationWorker:
     """Background worker that summarizes memories once per day.
 
-    Runs two summarization paths:
-    - Statistical summary (requires ``enabled=True``): counts new memories and
+    Three summarization paths:
+    - **Statistical summary** (``enabled=True``): counts new memories and
       logs a daily statistics entry.
-    - Extractive summary (requires ``extractive_enabled=True``, on by default):
+    - **Extractive summary** (``extractive_enabled=True``, on by default):
       finds old (>7 days), low-importance (<min_importance), untagged memories,
       groups them by date, and collapses each group into a single readable
       summary entry without any LLM API call.
+    - **LLM summary** (``use_llm=True`` + ``llm_api_key`` set): when the
+      extractive-enabled path runs and LLM config is present, each date group
+      is sent to an OpenAI-compatible API for a structured Japanese summary.
+      Falls back to the extractive plain-text format on API failure.
     """
+
+    SUMMARIZATION_SYSTEM_PROMPT = """あなたは日本語の長期記憶を整理する要約アシスタントです。
+
+# 役割
+複数の記憶エントリを1つの簡潔な要約メモリに統合する。
+
+# 入力
+- 同一日付の低重要度メモリ群（タグなし、古い記憶）
+- それぞれ50文字程度のスニペット
+
+# 出力規則
+1. **日本語で出力**（固有名詞・専門用語は原文保持）
+2. **200〜400文字**で簡潔に
+3. 以下の構造で出力:
+   - 冒頭に `[要約 YYYY-MM-DD]` プレフィックス
+   - 主要トピックを `・` 箇条書きで2-5項目
+   - 各項目は1文で要点を述べる
+4. 事実のみ記載。推論・解釈は加えない
+5. 個人名・場所・日時などの固有名詞は保持
+6. 重複内容は1つにまとめる
+
+# 出力例
+[要約 2026-06-26]
+・午前にコンビニで昼食（おにぎり2個、500円）を購入
+・午後にプロジェクトのコードレビューを実施、3件の修正指摘
+・夜に友人とカフェで30分会話、近況報告
+
+# 禁止事項
+- 絵文字・顔文字の使用
+- 主観的評価（「良かった」「楽しかった」等）
+- 未来への言及や予測
+- 入力にない情報の追加
+"""
 
     def __init__(self, settings: Settings) -> None:
         """Initialize with Settings.
@@ -180,11 +225,63 @@ class SummarizationWorker:
         except Exception:
             logger.exception("SummarizationWorker: error creating summary for %s", persona)
 
-    def _extractive_summarize_persona(self, persona: str) -> None:
-        """LLM不要な抽出型要約ワーカー。
+    def _call_llm_summarize(
+        self,
+        cfg: Any,  # SummarizationConfig
+        snippets: list[str],
+        date_str: str,
+    ) -> str | None:
+        """OpenAI互換API（OpenRouter経由）でLLM要約を生成。失敗時はNoneを返す。
 
-        7日以上前・低重要度（< min_importance）・タグなしの記憶を日付別にグループ化し、
+        Args:
+            cfg: SummarizationConfig (with llm_api_url, llm_api_key, llm_model, llm_max_tokens).
+            snippets: List of memory content strings (already truncated to ~50 chars).
+            date_str: "YYYY-MM-DD" date string for the group.
+
+        Returns:
+            Generated summary string, or None on failure.
+        """
+        import httpx  # noqa: PLC0415 — imported here only when LLM path is active
+
+        user_prompt = f"# 日付\n{date_str}\n\n# 記憶スニペット\n"
+        for i, s in enumerate(snippets, 1):
+            user_prompt += f"{i}. {s}\n"
+
+        try:
+            with httpx.Client(timeout=30.0) as client:
+                resp = client.post(
+                    f"{cfg.llm_api_url.rstrip('/')}/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {cfg.llm_api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": cfg.llm_model,
+                        "messages": [
+                            {"role": "system", "content": self.SUMMARIZATION_SYSTEM_PROMPT},
+                            {"role": "user", "content": user_prompt},
+                        ],
+                        "temperature": 0.3,
+                        "max_tokens": cfg.llm_max_tokens,
+                    },
+                )
+            resp.raise_for_status()
+            data = resp.json()
+            content: str = data["choices"][0]["message"]["content"]
+            if not content.strip():
+                logger.warning("LLM summarization returned empty content for %s", date_str)
+                return None
+            return content.strip()
+        except Exception:
+            logger.exception("LLM summarization failed for %s", date_str)
+            return None
+
+    def _extractive_summarize_persona(self, persona: str) -> None:
+        """7日以上前・低重要度・タグなし記憶を日付別にグループ化／要約。
+
         各グループを1つの要約記憶にまとめて元記憶を削除する。
+        ``use_llm=True`` + ``llm_api_key`` が設定されていれば API（OpenAI互換）
+        経由のLLM要約を試行し、失敗時は文字列連結による簡易要約にフォールバックする。
         """
         from datetime import timedelta
         from zoneinfo import ZoneInfo
@@ -231,7 +328,16 @@ class SummarizationWorker:
         for date_str, memories in sorted(groups.items()):
             batch = memories[: cfg.max_memories_per_summary]
             snippets = "; ".join(m.content[:50] for m in batch)
-            summary_content = f"[要約] {date_str}: {snippets}"
+
+            # LLMパス: use_llm=True かつ llm_api_key が設定済みなら API 要約
+            if cfg.use_llm is True and isinstance(cfg.llm_api_key, str) and cfg.llm_api_key:
+                llm_result = self._call_llm_summarize(
+                    cfg, [m.content[:50] for m in batch], date_str
+                )
+                # フォールバック: LLM失敗時は抽出型（文字列連結）
+                summary_content = llm_result or f"[要約] {date_str}: {snippets}"
+            else:
+                summary_content = f"[要約] {date_str}: {snippets}"
 
             result = ctx.memory_service.create_memory(  # type: ignore[union-attr]
                 content=summary_content,

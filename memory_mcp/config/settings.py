@@ -45,6 +45,7 @@ class SummarizationConfig(BaseModel):
     llm_api_url: str = "https://openrouter.ai/api/v1"
     llm_api_key: str | None = None
     llm_model: str = "anthropic/claude-3.5-sonnet"
+    llm_provider: str = "openrouter"
     llm_max_tokens: int = 500
     check_interval_seconds: int = 3600
     min_importance: float = 0.3
