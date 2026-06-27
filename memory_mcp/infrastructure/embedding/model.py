@@ -120,7 +120,10 @@ class EmbeddingModel:
 
         logger.info("Loading embedding model: %s (device=%s)", self.model_name, self.device)
         self._model = SentenceTransformer(self.model_name, device=self.device)
-        self._dimension = self._model.get_sentence_embedding_dimension()
+        try:
+            self._dimension = self._model.get_embedding_dimension()
+        except AttributeError:
+            self._dimension = self._model.get_sentence_embedding_dimension()
         logger.info("Embedding model loaded: dim=%d, model=%s", self._dimension, self.model_name)
 
     def reload_model(self, new_model_name: str | None = None, new_device: str | None = None) -> dict:

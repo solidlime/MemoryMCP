@@ -166,14 +166,22 @@ class AppContext:
 
     @property
     def vector_store(self) -> QdrantVectorStore | None:
-        """Lazy-init vector store. Returns None if Qdrant unavailable."""
+        """Lazy-init vector store. Returns None if Qdrant unavailable or collection creation fails."""
         if self._vector_store is None:
             try:
                 mgr = QdrantClientManager(self.settings.qdrant.url, self.settings.qdrant.api_key)
                 if mgr.health_check():
                     emb = self.embedding_model
-                    self._vector_store = QdrantVectorStore(mgr, emb, self.settings.qdrant.collection_prefix)
-                    self._vector_store.ensure_collection(self.persona)
+                    vs = QdrantVectorStore(mgr, emb, self.settings.qdrant.collection_prefix)
+                    result = vs.ensure_collection(self.persona)
+                    if result.is_ok:
+                        self._vector_store = vs
+                    else:
+                        logger.warning(
+                            "VectorStore collection creation failed for '%s': %s",
+                            self.persona,
+                            result.error,
+                        )
             except Exception as _e:
                 logger.debug("VectorStore init failed (Qdrant unavailable?): %s", _e)
         return self._vector_store

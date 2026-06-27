@@ -162,6 +162,70 @@ def register_memory_routes(mcp) -> None:
             logger.exception("Unexpected error: %s", exc)
             return JSONResponse({"error": "Internal server error"}, status_code=500)
 
+    @mcp.custom_route("/api/memories/{persona}", methods=["GET"])
+    async def list_memories(request: Request) -> JSONResponse:
+        persona = _resolve_persona_from_request(request)
+        try:
+            limit = int(request.query_params.get("limit", "50"))
+            if limit < 1 or limit > 1000:
+                return JSONResponse({"error": "limit must be between 1 and 1000"}, status_code=400)
+        except ValueError:
+            return JSONResponse({"error": "limit must be an integer"}, status_code=400)
+        try:
+            offset = int(request.query_params.get("offset", "0"))
+            if offset < 0:
+                return JSONResponse({"error": "offset must be non-negative"}, status_code=400)
+        except ValueError:
+            return JSONResponse({"error": "offset must be an integer"}, status_code=400)
+        tag = request.query_params.get("tag") or None
+        q = request.query_params.get("query") or None
+        sort_order = request.query_params.get("sort_order", "desc")
+        ctx = _safe_get_context(persona)
+        if ctx is None:
+            return JSONResponse({"error": f"Persona '{persona}' not found"}, status_code=404)
+        try:
+            page = offset // limit + 1
+            result = ctx.memory_repo.find_with_pagination(
+                page=page,
+                per_page=limit,
+                tag=tag,
+                query=q,
+                sort_order=sort_order,
+            )
+            if not result.is_ok:
+                return JSONResponse({"error": str(result.error)}, status_code=500)
+            memories, total_count = result.value
+            return JSONResponse(
+                {
+                    "persona": persona,
+                    "memories": [_memory_to_dict(m) for m in memories],
+                    "total": total_count,
+                    "limit": limit,
+                    "offset": offset,
+                }
+            )
+        except Exception as exc:
+            logger.exception("Unexpected error: %s", exc)
+            return JSONResponse({"error": "Internal server error"}, status_code=500)
+
+    @mcp.custom_route("/api/memories/{persona}/{key}", methods=["GET"])
+    async def get_memory(request: Request) -> JSONResponse:
+        persona = _resolve_persona_from_request(request)
+        key = request.path_params.get("key", "")
+        if not key:
+            return JSONResponse({"error": "Memory key is required"}, status_code=400)
+        ctx = _safe_get_context(persona)
+        if ctx is None:
+            return JSONResponse({"error": f"Persona '{persona}' not found"}, status_code=404)
+        try:
+            result = ctx.memory_service.get_memory(key)
+            if not result.is_ok:
+                return JSONResponse({"error": str(result.error)}, status_code=404)
+            return JSONResponse({"persona": persona, "memory": _memory_to_dict(result.value)})
+        except Exception as exc:
+            logger.exception("Unexpected error: %s", exc)
+            return JSONResponse({"error": "Internal server error"}, status_code=500)
+
     @mcp.custom_route("/api/memories/{persona}", methods=["POST"])
     async def create_memory(request: Request) -> JSONResponse:
         persona = _resolve_persona_from_request(request)

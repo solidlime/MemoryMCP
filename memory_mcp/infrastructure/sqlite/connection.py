@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+import threading
 from pathlib import Path
 
 from memory_mcp.infrastructure.logging.structured import get_logger
@@ -234,7 +235,7 @@ def get_global_skills_db(data_dir: str) -> sqlite3.Connection:
     if _global_skills_conn is None:
         db_path = Path(data_dir) / "skills.sqlite"
         db_path.parent.mkdir(parents=True, exist_ok=True)
-        conn = sqlite3.connect(str(db_path))
+        conn = sqlite3.connect(str(db_path), check_same_thread=False)
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("PRAGMA foreign_keys=ON")
         conn.row_factory = sqlite3.Row
@@ -262,6 +263,7 @@ class SQLiteConnection:
     def __init__(self, data_dir: str, persona: str) -> None:
         self.data_dir = data_dir
         self.persona = persona
+        self._lock = threading.Lock()
         self._connections: dict[str, sqlite3.Connection] = {}
 
     def get_memory_db(self) -> sqlite3.Connection:
@@ -273,16 +275,17 @@ class SQLiteConnection:
         return self._get_or_create(f"{self.persona}/inventory.sqlite")
 
     def _get_or_create(self, relative_path: str) -> sqlite3.Connection:
-        if relative_path not in self._connections:
-            db_path = Path(self.data_dir) / relative_path
-            db_path.parent.mkdir(parents=True, exist_ok=True)
-            conn = sqlite3.connect(str(db_path))
-            conn.execute("PRAGMA journal_mode=WAL")
-            conn.execute("PRAGMA foreign_keys=ON")
-            conn.row_factory = sqlite3.Row
-            self._connections[relative_path] = conn
-            logger.info("SQLite connection opened: %s", db_path)
-        return self._connections[relative_path]
+        with self._lock:
+            if relative_path not in self._connections:
+                db_path = Path(self.data_dir) / relative_path
+                db_path.parent.mkdir(parents=True, exist_ok=True)
+                conn = sqlite3.connect(str(db_path), check_same_thread=False)
+                conn.execute("PRAGMA journal_mode=WAL")
+                conn.execute("PRAGMA foreign_keys=ON")
+                conn.row_factory = sqlite3.Row
+                self._connections[relative_path] = conn
+                logger.info("SQLite connection opened: %s", db_path)
+            return self._connections[relative_path]
 
     def initialize_schema(self) -> None:
         """Create all tables if they don't exist."""
@@ -354,10 +357,11 @@ class SQLiteConnection:
 
     def close(self) -> None:
         """Close all managed connections."""
-        for path, conn in self._connections.items():
-            try:
-                conn.close()
-                logger.info("SQLite connection closed: %s", path)
-            except Exception as e:
-                logger.warning("Error closing SQLite connection %s: %s", path, e)
-        self._connections.clear()
+        with self._lock:
+            for path, conn in self._connections.items():
+                try:
+                    conn.close()
+                    logger.info("SQLite connection closed: %s", path)
+                except Exception as e:
+                    logger.warning("Error closing SQLite connection %s: %s", path, e)
+            self._connections.clear()

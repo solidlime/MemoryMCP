@@ -4,12 +4,14 @@ Renders a fully-functional chat interface with SSE streaming,
 tool call visualization, and an inline settings panel.
 """
 
+import sys
+
 from .coding_agent import render_coding_agent_panel
 
 
 def render_chat_tab() -> str:
     """Return the HTML for the Chat tab."""
-    return """
+    return f"""
         <link rel="stylesheet" href="/static/chat.css">
         <!-- ========== CHAT TAB ========== -->
         <section id="tab-chat" class="tab-panel" role="tabpanel">
@@ -289,7 +291,7 @@ def render_chat_tab() -> str:
                                     <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:4px;">Claude の mcp.json 形式で貼り付け・編集できます</div>
                                     <textarea id="chat-mcp-json" class="chat-field-input" rows="6"
                                         style="resize:vertical;min-height:100px;font-family:monospace;font-size:0.73rem;line-height:1.45;"
-                                        placeholder='[{&#10;  "name": "memory-mcp",&#10;  "command": "python",&#10;  "args": ["-m", "memory_mcp.main"],&#10;  "env": {}&#10;}]'></textarea>
+                                        placeholder='[{{&#10;  "name": "memory-mcp",&#10;  "command": "{sys.executable}",&#10;  "args": ["-m", "memory_mcp.main"],&#10;  "env": {{}}&#10;}}]'></textarea>
                                     <div id="chat-mcp-json-error" style="font-size:0.72rem;color:var(--accent-red);margin-top:3px;display:none;"></div>
                                 </div>
                                 <div>

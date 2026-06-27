@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+import sys
 import warnings
 
 from pydantic import BaseModel, field_validator
@@ -49,7 +50,7 @@ class ChatConfig(BaseModel):
     mcp_servers: list[dict] = [
         {
             "name": "memory-mcp",
-            "command": "python",
+            "command": sys.executable,
             "args": ["-m", "memory_mcp.main"],
             "env": {},
             "_comment": "MemoryMCP自体をMCPサーバーとして接続（全20ツール利用可）。削除・編集可。",

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import sys
 
 from memory_mcp.infrastructure.logging.structured import get_logger
 from memory_mcp.infrastructure.mcp_client.types import MCPServerConfig, MCPTool
@@ -8,12 +9,20 @@ from memory_mcp.infrastructure.mcp_client.types import MCPServerConfig, MCPTool
 logger = get_logger(__name__)
 
 
+def _resolve_command(config: MCPServerConfig) -> str:
+    """Return sys.executable if config.command is empty or the bare 'python' literal."""
+    cmd = config.command
+    if not cmd or cmd.strip() == "python":
+        return sys.executable
+    return cmd
+
+
 async def list_tools(config: MCPServerConfig) -> list[MCPTool]:
     from mcp import ClientSession
     from mcp.client.stdio import StdioServerParameters, stdio_client
 
     async def _inner() -> list[MCPTool]:
-        params = StdioServerParameters(command=config.command, args=config.args)
+        params = StdioServerParameters(command=_resolve_command(config), args=config.args)
         async with stdio_client(params) as (read, write), ClientSession(read, write) as session:
             await session.initialize()
             result = await session.list_tools()
@@ -42,7 +51,7 @@ async def call_tool(config: MCPServerConfig, tool_name: str, args: dict) -> dict
     from mcp.client.stdio import StdioServerParameters, stdio_client
 
     async def _inner() -> dict:
-        params = StdioServerParameters(command=config.command, args=config.args)
+        params = StdioServerParameters(command=_resolve_command(config), args=config.args)
         async with stdio_client(params) as (read, write), ClientSession(read, write) as session:
             await session.initialize()
             result = await session.call_tool(tool_name, args)
