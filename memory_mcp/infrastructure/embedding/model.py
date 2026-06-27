@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import threading
 from typing import TYPE_CHECKING
 
@@ -19,6 +20,10 @@ class EmbeddingModel:
     """Lazy-loading embedding model wrapper for sentence-transformers.
 
     Supports the ruri-v3 family that uses query/document prefixes.
+
+    Thread-safe: uses double-checked locking for lazy model loading.
+    Provides both sync (encode/encode_batch/dimension) and async
+    (async_encode/async_encode_batch/async_dimension) interfaces.
     """
 
     def __init__(
@@ -32,11 +37,15 @@ class EmbeddingModel:
         self._dimension: int | None = None
         self._lock = threading.Lock()
 
+    # ------------------------------------------------------------------
+    # Sync API
+    # ------------------------------------------------------------------
+
     @property
     def dimension(self) -> int:
         """Return the embedding dimension, loading the model if needed."""
         if self._dimension is None:
-            self._load_model()
+            self._ensure_loaded()
         assert self._dimension is not None
         return self._dimension
 
@@ -47,8 +56,7 @@ class EmbeddingModel:
             text: The text to encode.
             is_query: If True, prepend the query prefix; otherwise the document prefix.
         """
-        if self._model is None:
-            self._load_model()
+        self._ensure_loaded()
         assert self._model is not None
         prefixed = f"{_QUERY_PREFIX}{text}" if is_query else f"{_DOCUMENT_PREFIX}{text}"
         return self._model.encode(prefixed, normalize_embeddings=True)
@@ -67,12 +75,44 @@ class EmbeddingModel:
             is_query: If True, prepend query prefix; otherwise document prefix.
             batch_size: Batch size for encoding.
         """
-        if self._model is None:
-            self._load_model()
+        self._ensure_loaded()
         assert self._model is not None
         prefix = _QUERY_PREFIX if is_query else _DOCUMENT_PREFIX
         prefixed = [f"{prefix}{t}" for t in texts]
         return self._model.encode(prefixed, batch_size=batch_size, normalize_embeddings=True)
+
+    # ------------------------------------------------------------------
+    # Async API (runs sync methods in executor to avoid event-loop blocking)
+    # ------------------------------------------------------------------
+
+    async def async_encode(self, text: str, *, is_query: bool = False) -> np.ndarray:
+        """Async version of :meth:`encode` — runs in a thread via ``asyncio.to_thread``."""
+        return await asyncio.to_thread(self.encode, text, is_query=is_query)
+
+    async def async_encode_batch(
+        self,
+        texts: list[str],
+        *,
+        is_query: bool = False,
+        batch_size: int = 32,
+    ) -> np.ndarray:
+        """Async version of :meth:`encode_batch` — runs in a thread via ``asyncio.to_thread``."""
+        return await asyncio.to_thread(self.encode_batch, texts, is_query=is_query, batch_size=batch_size)
+
+    async def async_dimension(self) -> int:
+        """Async version of the :attr:`dimension` property."""
+        return await asyncio.to_thread(lambda: self.dimension)
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _ensure_loaded(self) -> None:
+        """Ensure model is loaded (thread-safe with double-checked locking)."""
+        if self._model is None:
+            with self._lock:
+                if self._model is None:
+                    self._load_model()
 
     def _load_model(self) -> None:
         """Lazy load the sentence-transformers model."""
