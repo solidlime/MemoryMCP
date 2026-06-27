@@ -1,41 +1,81 @@
-# HANDOFF - 2026-06-27 11:04
+# HANDOFF - 2026-06-28 01:48
 
 ## 使用ツール
-Claude Code (via opencode)
+OpenCode (orchestrator + fixer ×5 + designer ×1 + explorer ×2 + oracle ×1)
 
-## 現在のタスクと進捗
+## 完了したタスク
 
-### ✅ T020 完了 (D-3 4-tier lifecycle basic)
-| # | タスク | 状態 |
-|---|--------|------|
-| T020 | 4-tier lifecycle基本 (active/tombstoned) | ✅ |
+### Phase E: 環境変数→WebUI設定完全化 ✅
+| タスク | 内容 | 状態 |
+|--------|------|------|
+| E-1' | RuntimeConfigManager 優先順位: override > env > default | ✅ |
+| E-2 | LLM APIキー Settings統合 + RuntimeConfigManager管轄化 | ✅ |
+| E-3 | SearXNG URL / agent-browser パス RuntimeConfigManager管轄化 | ✅ |
+| E-4 | WebUI設定ダッシュボード拡充（全9カテゴリ、APIキー欄） | ✅ |
 
-### T020 実装内容詳細
-1. **DB migration v028**: `lifecycle_status TEXT DEFAULT 'active'` カラム追加
-2. **Memory entity**: `lifecycle_status: str = "active"` フィールド追加
-3. **SQLiteMemoryRepository**: 
-   - save/update に lifecycle_status 対応
-   - 全SELECTクエリに `WHERE lifecycle_status != 'tombstoned'` フィルタ
-   - `tombstone()` メソッド追加（論理削除）
-4. **MemoryService.delete_memory()**: 物理削除→論理削除(tombstone)に変更
-5. **Qdrant adapter**: upsert時 payload に lifecycle_status 含める
-6. **SearchQuery**: `lifecycle_status` パラメータ追加（デフォルト "active"）
-7. **変更ファイル**: 13ファイル (new: 1)
-8. **テスト**: 1313 passed, 7 skipped, 0 failed
+### Phase F: opencode-mem パターン採用 ✅
+| タスク | 内容 | 状態 |
+|--------|------|------|
+| F-1 | chat.message フック synthetic part メモリ注入 | ✅ |
+| F-2 | session.compacted イベント compaction recovery | ✅ |
+| F-3 | warmup 非同期化 fire-and-forget + 30s timeout | ✅ |
 
-### ⏳ 残タスク (低優先)
-- T019: D-2 Agent Skills標準移行 (SKILL.md形式, Progressive Disclosure)
-- T021: D-4 検索ハイブリッド強化 (FTS5+RRF+KNN)
-- 将来フェーズ: 30日自動物理削除, as_ofパラメータ, LRU shield, Superseding
+### Phase G: Sandbox 永続化 ✅
+| タスク | 内容 | 状態 |
+|--------|------|------|
+| G-0 | Sandbox パス検証（/home/{persona} 一貫性確認） | ✅ |
+| G-1 | sandbox volumes: ./data/memory:/home 一本化 | ✅ |
+| G-2 | config ペルソナ dangling mount 除去 | ✅ |
+| G-3 | default ペルソナ docker-compose マウント除去 | ✅ |
 
-## T020 設計判断
-- `"active"` tag は Goal/Promise status 専用として維持。lifecycle_status と独立管理
-- Goal/Promise の `"active" in tags` チェックは変更なし（異なる意味論）
-- tombstoned メモリは `find_by_key()` で取得可能（リカバリ用）
-- Qdrant ポイントは tombstone 時に物理削除（検索不能に）
-- sqlite3.Row は `.get()` 未対応 → `row["col"] if "col" in row.keys()` で代替
+### Phase H: Docker GHCR化 ✅
+| タスク | 内容 | 状態 |
+|--------|------|------|
+| H-1 | Dockerfile: memory_mcp → nous リネーム | ✅ |
+| H-2 | docker-compose.yml nous: ghcr.io/solidlime/nous:latest | ✅ |
+| H-3 | GitHub Actions docker.yml イメージ名修正 | ✅ |
+
+## テスト結果
+- **1361 passed, 7 skipped, 0 failures**
+- runtime_config テスト更新: test_env_takes_priority → test_override_takes_priority_over_env + test_env_used_when_no_override
+
+## 設計判断
+
+### 優先順位: override > env > default
+- 当初の「env完全殺し + bootstrapコピー」案は oracle の反対により撤回
+- override > env の順序入れ替えだけで元の問題（WebUIから変更できない）は解決
+- Docker Compose の env 注入はフォールバックとして維持
+
+### APIキー管理
+- Settings 直下に anthropic/openai/openrouter APIキー追加
+- SETTINGS_META に api_keys カテゴリ新設（masked: true）
+- 旧 env var（ANTHROPIC_API_KEY 等）は後方互換フォールバックとして維持
+
+### opencode-mem パターン
+- ZeR020/opencode-mem0 のパターンを3つ採用
+- chat.message + synthetic part 注入（synthetic: true で再注入防止）
+- session.compacted イベントで compaction recovery
+- warmup 非同期化（Symbol.for 重複防止 + 30s timeout）
+
+## 変更ファイル一覧
+| ファイル | 変更 |
+|----------|------|
+| `nous/config/runtime_config.py` | get_effective_value() 優先順位変更 + SETTINGS_META 拡張 |
+| `nous/config/settings.py` | anthropic/openai/openrouter APIキー + searxng_url 追加 |
+| `nous/domain/chat_config.py` | os.environ.get() → RuntimeConfigManager 経由 |
+| `nous/application/use_cases.py` | APIキー解決 → RuntimeConfigManager 経由 |
+| `nous/api/mcp/_tools_skill.py` | APIキー解決 → RuntimeConfigManager 経由 |
+| `nous/application/chat/tools/builtin.py` | agent-browser path → RuntimeConfigManager 経由 |
+| `nous/main.py` | SearXNG URL → RuntimeConfigManager 経由 |
+| `nous/api/http/static/settings.js` | 全カテゴリ網羅、APIキー欄、再起動必須表示 |
+| `nous/api/http/static/base.css` | 新バッジスタイル追加 |
+| `Dockerfile` | memory_mcp → nous リネーム |
+| `docker-compose.yml` | nous: ghcr.io, sandbox: /home一括マウント |
+| `.github/workflows/docker.yml` | IMAGE_NAME 修正 |
+| `plugins/opencode-memory-sync/src/index.ts` | warmup + chat.message注入 + compaction recovery |
+| `tests/unit/test_runtime_config.py` | 優先順位テスト更新 |
 
 ## 注意点
-- `sqlite3.Row.get()` is NOT available even in Python 3.14.4
-- ベンチマークテストは `pytest-benchmark` 未インストールにつきスキップ（既存）
-- 論理削除後の物理削除（30日経過tombstoned）は未実装
+- GHCR イメージがまだプッシュされていない → CI で一度ビルド必要
+- sandbox 既存データ移行: `mv ./data/memory/default/sandbox/* ./data/memory/default/`
+- `pytest-benchmark` 未インストール → ベンチマークテスト 7 skipped（既存）

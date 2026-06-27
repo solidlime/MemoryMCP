@@ -80,10 +80,7 @@ services:
       start_period: 120s
 
   sandbox:
-    build:
-      context: .
-      dockerfile: Dockerfile.sandbox
-    image: nous-sandbox:latest
+    image: ghcr.io/solidlime/nous-sandbox:latest
     container_name: sandbox
     restart: unless-stopped
     volumes:
