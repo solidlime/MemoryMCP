@@ -326,7 +326,7 @@ class ChatConfigRepository:
             ("image_gen_stability_url", "TEXT", "''"),
         ):
             try:
-                self._db.execute(f"SELECT {col} FROM chat_settings LIMIT 0")
+                self._db.execute(f"SELECT {col} FROM chat_settings LIMIT 0")  # nosec B608 — col from hardcoded tuple, not user input
             except sqlite3.OperationalError:
                 self._db.execute(f"ALTER TABLE chat_settings ADD COLUMN {col} {col_type} DEFAULT {default}")
 
