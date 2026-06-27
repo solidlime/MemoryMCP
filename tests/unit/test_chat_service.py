@@ -233,7 +233,7 @@ class TestChatConfigRepository:
                 context_compress_history INTEGER DEFAULT 1,
                 memory_preload_count INTEGER DEFAULT 3,
                 enable_parallel_tools INTEGER DEFAULT 1,
-                searxng_url TEXT DEFAULT 'http://nas:11111',
+                searxng_url TEXT DEFAULT 'http://localhost:8080',
                 image_gen_enabled INTEGER DEFAULT 0,
                 image_gen_provider TEXT DEFAULT 'openai',
                 image_gen_dalle_model TEXT DEFAULT 'dall-e-3',

@@ -278,7 +278,7 @@ async def _handle_search(
     num_results = int(tool_input.get("num_results", 10))
     lang = (tool_input.get("language") or "ja").strip()
 
-    searxng_url = getattr(config, "searxng_url", "http://nas:11111")
+    searxng_url = getattr(config, "searxng_url", "http://localhost:8080")
     search_url = f"{searxng_url}/search?q={urllib.parse.quote(query)}&format=json&language={lang}"
 
     import httpx
@@ -485,178 +485,26 @@ async def _handle_image_generate(ctx: AppContext, config: ChatConfig, tool_input
 
 async def _handle_read_pdf(ctx: AppContext, config: ChatConfig, tool_input: dict) -> dict:
     """PDFファイルを解析してテキスト・テーブル・画像を抽出する"""
+    import asyncio
+    from pathlib import Path
+
     path = str(tool_input.get("path", "")).strip()
     if not path:
         return {"status": "error", "message": "PDFのパスが指定されていません"}
 
+    pdf_path = Path(path)
+    if not pdf_path.exists():
+        return {"status": "error", "message": f"ファイルが見つかりません: {path}"}
+    if pdf_path.suffix.lower() != ".pdf":
+        return {"status": "error", "message": "PDFファイルではありません"}
+    # ファイルサイズチェック (50MB上限)
+    if pdf_path.stat().st_size > 50 * 1024 * 1024:
+        return {"status": "error", "message": "PDFファイルが大きすぎます (上限: 50MB)"}
+
     try:
-        import base64
-        import io
-        from pathlib import Path
-
-        import fitz  # PyMuPDF
-
-        pdf_path = Path(path)
-        if not pdf_path.exists():
-            return {"status": "error", "message": f"ファイルが見つかりません: {path}"}
-        if pdf_path.suffix.lower() != ".pdf":
-            return {"status": "error", "message": "PDFファイルではありません"}
-
-        # ファイルサイズチェック (50MB上限)
-        if pdf_path.stat().st_size > 50 * 1024 * 1024:
-            return {"status": "error", "message": "PDFファイルが大きすぎます (上限: 50MB)"}
-
-        doc = fitz.open(str(pdf_path))
-        num_pages = len(doc)
-
-        # ── テキスト抽出 (ステージ1: PyMuPDF) ──
-        all_text_parts = []
-        total_chars = 0
-        text_limit = 100000
-        text_source = "pymupdf"
-
-        for page in doc:
-            text = page.get_text()
-            if total_chars + len(text) > text_limit:
-                remaining = text_limit - total_chars
-                if remaining > 0:
-                    all_text_parts.append(text[:remaining])
-                all_text_parts.append("\n\n[テキストが上限に達したため切り捨てられました]")
-                break
-            all_text_parts.append(text)
-            total_chars += len(text)
-
-        full_text = "\n".join(all_text_parts)
-
-        # ── テキスト抽出 (ステージ2: pdfplumber フォールバック) ──
-        if len(full_text.strip()) < 50:
-            try:
-                import pdfplumber
-
-                plumber_parts = []
-                plumber_total = 0
-                with pdfplumber.open(str(pdf_path)) as pdf:
-                    for page in pdf.pages:
-                        pt = page.extract_text() or ""
-                        if plumber_total + len(pt) > text_limit:
-                            remaining = text_limit - plumber_total
-                            if remaining > 0:
-                                plumber_parts.append(pt[:remaining])
-                            plumber_parts.append("\n\n[テキストが上限に達したため切り捨てられました]")
-                            break
-                        plumber_parts.append(pt)
-                        plumber_total += len(pt)
-                plumber_text = "\n".join(plumber_parts)
-                if len(plumber_text.strip()) >= 50:
-                    full_text = plumber_text
-                    text_source = "pdfplumber"
-            except Exception:
-                pass
-
-        # ── テキスト抽出 (ステージ3: OCR フォールバック) ──
-        if len(full_text.strip()) < 50:
-            try:
-                import pytesseract  # noqa: F811
-                from PIL import Image
-
-                ocr_parts = []
-                ocr_max_pages = min(num_pages, 10)  # 性能考慮: max 10 pages
-                for page_num in range(ocr_max_pages):
-                    page = doc[page_num]
-                    pix = page.get_pixmap()
-                    img_bytes = pix.tobytes("png")
-                    img = Image.open(io.BytesIO(img_bytes)).convert("L")  # グレースケール
-                    ocr_text = pytesseract.image_to_string(img, lang="jpn+eng")
-                    if ocr_text.strip():
-                        ocr_parts.append(f"--- Page {page_num + 1} ---\n{ocr_text.strip()}")
-                if ocr_parts:
-                    full_text = "\n\n".join(ocr_parts)
-                    text_source = "ocr"
-                elif not full_text.strip():
-                    text_source = "empty"
-            except ImportError:
-                # pytesseract がない → OCR スキップ (graceful degradation)
-                if not full_text.strip():
-                    text_source = "empty"
-            except Exception:
-                if not full_text.strip():
-                    text_source = "empty"
-
-        if text_source == "pymupdf" and not full_text.strip():
-            text_source = "empty"
-
-        # ── テーブル抽出 (pdfplumber) ──
-        tables = []
-        try:
-            import pdfplumber  # noqa: F811
-
-            with pdfplumber.open(str(pdf_path)) as pdf:
-                for i, page in enumerate(pdf.pages):
-                    page_tables = page.extract_tables()
-                    for table in page_tables:
-                        if table and len(table) > 0:
-                            headers = [str(h) if h else "" for h in table[0]]
-                            rows = [[str(c) if c else "" for c in row] for row in table[1:]] if len(table) > 1 else []
-                            tables.append(
-                                {
-                                    "page": i + 1,
-                                    "headers": headers,
-                                    "rows": rows[:50],  # 最大50行まで
-                                }
-                            )
-        except Exception:
-            pass  # pdfplumberが使えなくてもテキスト抽出は成功させる
-
-        # ── 埋め込み画像抽出 (最大5枚、1MB/枚上限) ──
-        images = []
-        for page_num in range(num_pages):
-            if len(images) >= 5:
-                break
-            page = doc[page_num]
-            image_list = page.get_images(full=True)
-            for img_info in image_list:
-                if len(images) >= 5:
-                    break
-                xref = img_info[0]
-                base_image = doc.extract_image(xref)
-                image_bytes = base_image["image"]
-                if len(image_bytes) > 1_000_000:  # 1MB上限
-                    continue
-                images.append(
-                    {
-                        "page": page_num + 1,
-                        "base64": base64.b64encode(image_bytes).decode("utf-8"),
-                        "mime_type": f"image/{base_image['ext']}",
-                        "source": "embedded",
-                    }
-                )
-
-        # ── スキャンPDF補完: ページラスター画像 ──
-        if not images and text_source == "ocr":
-            page = doc[0]
-            pix = page.get_pixmap()
-            img_bytes = pix.tobytes("png")
-            images.append(
-                {
-                    "page": 1,
-                    "base64": base64.b64encode(img_bytes).decode("utf-8"),
-                    "mime_type": "image/png",
-                    "source": "page_raster",
-                }
-            )
-
-        doc.close()
-
-        return {
-            "status": "success",
-            "filename": pdf_path.name,
-            "pages": num_pages,
-            "text": full_text,
-            "text_source": text_source,
-            "tables": tables,
-            "images": images,
-        }
-
+        result = await asyncio.to_thread(_sync_process_pdf, str(pdf_path))
+        result["filename"] = pdf_path.name
+        return result
     except ImportError as e:
         missing = str(e).split("'")[1] if "'" in str(e) else str(e)
         return {
@@ -665,6 +513,163 @@ async def _handle_read_pdf(ctx: AppContext, config: ChatConfig, tool_input: dict
         }
     except Exception as e:
         return {"status": "error", "message": f"PDFの解析に失敗しました: {str(e)}"}
+
+
+def _sync_process_pdf(pdf_path: str) -> dict:
+    """同期PDF処理 — asyncio.to_thread で実行するために分離"""
+    import base64
+    import io
+
+    import fitz  # PyMuPDF
+
+    doc = fitz.open(pdf_path)
+    num_pages = len(doc)
+
+    # ── テキスト抽出 (ステージ1: PyMuPDF) ──
+    all_text_parts = []
+    total_chars = 0
+    text_limit = 100000
+    text_source = "pymupdf"
+
+    for page in doc:
+        text = page.get_text()
+        if total_chars + len(text) > text_limit:
+            remaining = text_limit - total_chars
+            if remaining > 0:
+                all_text_parts.append(text[:remaining])
+            all_text_parts.append("\n\n[テキストが上限に達したため切り捨てられました]")
+            break
+        all_text_parts.append(text)
+        total_chars += len(text)
+
+    full_text = "\n".join(all_text_parts)
+
+    # ── テキスト抽出 (ステージ2: pdfplumber フォールバック) ──
+    if len(full_text.strip()) < 50:
+        try:
+            import pdfplumber
+
+            plumber_parts = []
+            plumber_total = 0
+            with pdfplumber.open(pdf_path) as pdf:
+                for page in pdf.pages:
+                    pt = page.extract_text() or ""
+                    if plumber_total + len(pt) > text_limit:
+                        remaining = text_limit - plumber_total
+                        if remaining > 0:
+                            plumber_parts.append(pt[:remaining])
+                        plumber_parts.append("\n\n[テキストが上限に達したため切り捨てられました]")
+                        break
+                    plumber_parts.append(pt)
+                    plumber_total += len(pt)
+            plumber_text = "\n".join(plumber_parts)
+            if len(plumber_text.strip()) >= 50:
+                full_text = plumber_text
+                text_source = "pdfplumber"
+        except Exception:
+            pass
+
+    # ── テキスト抽出 (ステージ3: OCR フォールバック) ──
+    if len(full_text.strip()) < 50:
+        try:
+            import pytesseract  # noqa: F811
+            from PIL import Image
+
+            ocr_parts = []
+            ocr_max_pages = min(num_pages, 10)  # 性能考慮: max 10 pages
+            for page_num in range(ocr_max_pages):
+                page = doc[page_num]
+                pix = page.get_pixmap()
+                img_bytes = pix.tobytes("png")
+                img = Image.open(io.BytesIO(img_bytes)).convert("L")  # グレースケール
+                ocr_text = pytesseract.image_to_string(img, lang="jpn+eng")
+                if ocr_text.strip():
+                    ocr_parts.append(f"--- Page {page_num + 1} ---\n{ocr_text.strip()}")
+            if ocr_parts:
+                full_text = "\n\n".join(ocr_parts)
+                text_source = "ocr"
+            elif not full_text.strip():
+                text_source = "empty"
+        except ImportError:
+            if not full_text.strip():
+                text_source = "empty"
+        except Exception:
+            if not full_text.strip():
+                text_source = "empty"
+
+    if text_source == "pymupdf" and not full_text.strip():
+        text_source = "empty"
+
+    # ── テーブル抽出 (pdfplumber) ──
+    tables = []
+    try:
+        import pdfplumber  # noqa: F811
+
+        with pdfplumber.open(pdf_path) as pdf:
+            for i, page in enumerate(pdf.pages):
+                page_tables = page.extract_tables()
+                for table in page_tables:
+                    if table and len(table) > 0:
+                        headers = [str(h) if h else "" for h in table[0]]
+                        rows = [[str(c) if c else "" for c in row] for row in table[1:]] if len(table) > 1 else []
+                        tables.append(
+                            {
+                                "page": i + 1,
+                                "headers": headers,
+                                "rows": rows[:50],
+                            }
+                        )
+    except Exception:
+        pass
+
+    # ── 埋め込み画像抽出 (最大5枚、1MB/枚上限) ──
+    images = []
+    for page_num in range(num_pages):
+        if len(images) >= 5:
+            break
+        page = doc[page_num]
+        image_list = page.get_images(full=True)
+        for img_info in image_list:
+            if len(images) >= 5:
+                break
+            xref = img_info[0]
+            base_image = doc.extract_image(xref)
+            image_bytes = base_image["image"]
+            if len(image_bytes) > 1_000_000:
+                continue
+            images.append(
+                {
+                    "page": page_num + 1,
+                    "base64": base64.b64encode(image_bytes).decode("utf-8"),
+                    "mime_type": f"image/{base_image['ext']}",
+                    "source": "embedded",
+                }
+            )
+
+    # ── スキャンPDF補完: ページラスター画像 ──
+    if not images and text_source == "ocr":
+        page = doc[0]
+        pix = page.get_pixmap()
+        img_bytes = pix.tobytes("png")
+        images.append(
+            {
+                "page": 1,
+                "base64": base64.b64encode(img_bytes).decode("utf-8"),
+                "mime_type": "image/png",
+                "source": "page_raster",
+            }
+        )
+
+    doc.close()
+
+    return {
+        "status": "success",
+        "pages": num_pages,
+        "text": full_text,
+        "text_source": text_source,
+        "tables": tables,
+        "images": images,
+    }
 
 
 async def _handle_list_skills(ctx: AppContext, config: ChatConfig, tool_input: dict) -> dict:

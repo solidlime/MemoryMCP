@@ -309,7 +309,7 @@ class ChatConfigRepository:
             context_compress_history=bool(row[35]) if len(row) > 35 and row[35] is not None else True,
             memory_preload_count=int(row[36]) if len(row) > 36 and row[36] is not None else 3,
             enable_parallel_tools=bool(row[37]) if len(row) > 37 and row[37] is not None else True,
-            searxng_url=row[38] if len(row) > 38 and row[38] else "http://nas:11111",
+            searxng_url=row[38] if len(row) > 38 and row[38] else "http://localhost:8080",
             image_gen_enabled=bool(row[39]) if len(row) > 39 and row[39] is not None else False,
             image_gen_provider=row[40] if len(row) > 40 and row[40] else "openai",
             image_gen_dalle_model=row[41] if len(row) > 41 and row[41] else "dall-e-3",
@@ -320,7 +320,7 @@ class ChatConfigRepository:
         """Insert or replace config for persona."""
         # Ensure newer columns exist (for test environments without migrations)
         for col, col_type, default in (
-            ("searxng_url", "TEXT", "'http://nas:11111'"),
+            ("searxng_url", "TEXT", "'http://localhost:8080'"),
             ("image_gen_enabled", "BOOLEAN", "0"),
             ("image_gen_provider", "TEXT", "'openai'"),
             ("image_gen_dalle_model", "TEXT", "'dall-e-3'"),

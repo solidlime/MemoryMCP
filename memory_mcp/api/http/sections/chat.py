@@ -137,7 +137,7 @@ def render_chat_tab() -> str:
                                 </div>
                                 <div>
                                     <div class="chat-field-label">SearXNG URL</div>
-                                    <input type="text" id="chat-searxng-url" class="chat-field-input" placeholder="http://nas:11111" />
+                                    <input type="text" id="chat-searxng-url" class="chat-field-input" placeholder="http://localhost:8080" />
                                     <div class="chat-field-hint" style="font-size:0.7rem;color:var(--text-muted);margin-top:2px;">検索に使用するSearXNGメタサーチエンジンのURL</div>
                                 </div>
                                 <!-- 画像生成設定 -->

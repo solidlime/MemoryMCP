@@ -29,11 +29,13 @@ class OpenAICompatProvider(LLMProvider):
 
     def __init__(self, api_key: str, model: str = "gpt-4o", base_url: str | None = None) -> None:
         try:
+            import httpx
             from openai import AsyncOpenAI
 
             self._client = AsyncOpenAI(
                 api_key=api_key,
                 base_url=base_url or _OPENAI_BASE_URL,
+                http_client=httpx.AsyncClient(timeout=httpx.Timeout(60.0)),
             )
         except ImportError as e:
             raise ImportError("openai package required: pip install openai") from e

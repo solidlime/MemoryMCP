@@ -24,7 +24,7 @@ class AnthropicProvider(LLMProvider):
             import anthropic
 
             self._anthropic = anthropic
-            self._client = anthropic.AsyncAnthropic(api_key=api_key)
+            self._client = anthropic.AsyncAnthropic(api_key=api_key, timeout=60.0)
         except ImportError as e:
             raise ImportError("anthropic package required: pip install anthropic") from e
         self.model = model
