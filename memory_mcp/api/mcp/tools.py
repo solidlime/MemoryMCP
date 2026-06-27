@@ -426,13 +426,14 @@ def register_tools(mcp: FastMCP) -> None:
     ) -> str:
         """汎用ブラウザ操作。action: open/snapshot/click/fill/get/wait/scroll/press/close。"""
         from memory_mcp.application.chat.tools.builtin import _handle_browser
-        from memory_mcp.domain.chat_config import ChatConfig
+        from memory_mcp.domain.chat_config import ChatConfigRepository
 
         p = _resolve_persona()
         ctx = AppContextRegistry.get(p)
+        config = ChatConfigRepository(ctx.connection.get_memory_db()).get(p)
         result = await _handle_browser(
             ctx,
-            ChatConfig(),
+            config,
             {
                 "action": action,
                 "url": url,
@@ -458,13 +459,14 @@ def register_tools(mcp: FastMCP) -> None:
     ) -> str:
         """Web検索。query必須。SearXNG経由で結果を返す。"""
         from memory_mcp.application.chat.tools.builtin import _handle_search
-        from memory_mcp.domain.chat_config import ChatConfig
+        from memory_mcp.domain.chat_config import ChatConfigRepository
 
         p = _resolve_persona()
         ctx = AppContextRegistry.get(p)
+        config = ChatConfigRepository(ctx.connection.get_memory_db()).get(p)
         result = await _handle_search(
             ctx,
-            ChatConfig(),
+            config,
             {
                 "query": query,
                 "num_results": num_results,
@@ -484,13 +486,14 @@ def register_tools(mcp: FastMCP) -> None:
     ) -> str:
         """画像生成。prompt必須。nは1-4枚、size指定可。"""
         from memory_mcp.application.chat.tools.builtin import _handle_image_generate
-        from memory_mcp.domain.chat_config import ChatConfig
+        from memory_mcp.domain.chat_config import ChatConfigRepository
 
         p = _resolve_persona()
         ctx = AppContextRegistry.get(p)
+        config = ChatConfigRepository(ctx.connection.get_memory_db()).get(p)
         result = await _handle_image_generate(
             ctx,
-            ChatConfig(),
+            config,
             {
                 "prompt": prompt,
                 "size": size,
