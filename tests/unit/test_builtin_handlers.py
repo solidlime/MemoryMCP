@@ -394,7 +394,7 @@ class TestExecuteCodeHandler:
             )
 
         assert result["session_id"] == "sess_001"
-        mock_get.assert_called_once_with("test_persona:sess_001")
+        mock_get.assert_called_once_with("test_persona_sess_001")
 
 
 # ===================================================================

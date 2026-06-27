@@ -263,9 +263,13 @@ class TestDeleteMemory:
         result = service.delete_memory(created.key)
         assert result.is_ok
         # Verify it's tombstoned (logical delete, not physical)
+        # After deletion, get_memory should reject tombstoned memories
         get_result = service.get_memory(created.key)
-        assert get_result.is_ok
-        assert get_result.unwrap().lifecycle_status == "tombstoned"
+        assert not get_result.is_ok
+        # Repository can still find it for recovery
+        repo_result = service._repo.find_by_key(created.key)
+        assert repo_result.is_ok
+        assert repo_result.unwrap().lifecycle_status == "tombstoned"
 
     def test_delete_nonexistent(self, service: MemoryService):
         result = service.delete_memory("memory_99999999999999")

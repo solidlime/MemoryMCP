@@ -150,12 +150,14 @@ class MemoryService:
         return Success(memory)
 
     def get_memory(self, key: str) -> Result[Memory, DomainError]:
-        """Retrieve a memory by key."""
+        """Retrieve a memory by key (excludes tombstoned memories)."""
         result = self._repo.find_by_key(key)
         if not result.is_ok:
             return Failure(result.error)
         if result.value is None:
             return Failure(MemoryNotFoundError(f"Memory not found: {key}"))
+        if getattr(result.value, 'lifecycle_status', 'active') == 'tombstoned':
+            return Failure(MemoryNotFoundError(f"Memory deleted: {key}"))
         return Success(result.value)
 
     def update_memory(self, key: str, **updates: object) -> Result[Memory, DomainError]:

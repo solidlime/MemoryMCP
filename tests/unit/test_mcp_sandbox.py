@@ -158,8 +158,8 @@ class TestSandbox:
             result = await sandbox_tool(code="print('hello')", session_id="sess_abc")
 
         assert "scoped output" in result
-        # Should use persona:session_id as sandbox key
-        mock_get_session.assert_called_once_with("test_persona:sess_abc")
+        # Should use persona_session_id as sandbox key (colon replaced with underscore for Docker compat)
+        mock_get_session.assert_called_once_with("test_persona_sess_abc")
         session.execute.assert_called_once_with("print('hello')", language="python")
 
     @pytest.mark.asyncio

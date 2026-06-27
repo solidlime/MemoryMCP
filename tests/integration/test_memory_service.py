@@ -116,10 +116,13 @@ class TestMemoryCRUD:
         key = svc.create_memory(content="削除テスト").value.key
         del_result = svc.delete_memory(key)
         assert del_result.is_ok
-        # Verify tombstoned (logical delete)
+        # Verify tombstoned (logical delete) — get_memory excludes tombstoned
         get_result = svc.get_memory(key)
-        assert get_result.is_ok
-        assert get_result.value.lifecycle_status == "tombstoned"
+        assert not get_result.is_ok
+        # Repository can still find for recovery
+        repo_result = svc._repo.find_by_key(key)
+        assert repo_result.is_ok
+        assert repo_result.value.lifecycle_status == "tombstoned"
 
     def test_delete_nonexistent_memory(self, svc):
         result = svc.delete_memory("does_not_exist")

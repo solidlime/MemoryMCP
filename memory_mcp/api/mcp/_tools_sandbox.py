@@ -32,7 +32,7 @@ async def _tool_sandbox(
     from memory_mcp.application.sandbox.service import get_sandbox_session
 
     if session_id:
-        sandbox_key = f"{persona}:{session_id}"
+        sandbox_key = f"{persona}_{session_id}"
         session = get_sandbox_session(sandbox_key)
     else:
         session = get_sandbox_session(persona)

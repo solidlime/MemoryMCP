@@ -97,7 +97,7 @@ async def _handle_execute_code(ctx: AppContext, config: ChatConfig, tool_input: 
 
     if session_id:
         # Use persona-scoped session key to prevent cross-persona leaks
-        sandbox_key = f"{ctx.persona}:{session_id}"
+        sandbox_key = f"{ctx.persona}_{session_id}"
         sandbox = get_sandbox_session(sandbox_key)
     else:
         sandbox = get_sandbox_session(ctx.persona)
