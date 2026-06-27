@@ -65,7 +65,9 @@ def get_current_persona() -> str:
     env = _env_persona()
     if env and env.strip():
         return env
-    raise PersonaRequiredError("No persona configured. Create a persona via the WebUI or set the PERSONA environment variable.")
+    raise PersonaRequiredError(
+        "No persona configured. Create a persona via the WebUI or set the PERSONA environment variable."
+    )
 
 
 class PersonaMiddleware:
@@ -103,4 +105,5 @@ class PersonaMiddleware:
 
 class PersonaRequiredError(Exception):
     """Raised when a persona is required but none is configured."""
+
     pass

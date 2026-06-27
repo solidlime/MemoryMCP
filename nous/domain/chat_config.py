@@ -50,8 +50,7 @@ class ChatConfig(BaseModel):
     mcp_servers: list[dict] = []
     enabled_skills: list[str] = ["browser", "search", "memory"]
     searxng_url: str = (
-        RuntimeConfigManager().get_effective_value("general", "searxng_url")[0]
-        or "http://localhost:8080"
+        RuntimeConfigManager().get_effective_value("general", "searxng_url")[0] or "http://localhost:8080"
     )
     # 画像生成
     image_gen_enabled: bool = False

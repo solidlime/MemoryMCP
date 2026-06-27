@@ -183,9 +183,8 @@ def create_app() -> MemoryFastMCP:
 
             from nous.config.runtime_config import RuntimeConfigManager
 
-            searxng_url = (
-                RuntimeConfigManager().get_effective_value("general", "searxng_url")[0]
-                or os.environ.get("SEARXNG_URL", "http://searxng:8080")
+            searxng_url = RuntimeConfigManager().get_effective_value("general", "searxng_url")[0] or os.environ.get(
+                "SEARXNG_URL", "http://searxng:8080"
             )
             async with httpx.AsyncClient(timeout=5.0) as client:
                 r = await client.get(f"{searxng_url}/healthz")

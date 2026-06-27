@@ -57,9 +57,7 @@ def register_persona_routes(mcp) -> None:
         data_path = Path(settings.data_dir)
         persona_count = 0
         if data_path.exists():
-            persona_count = len(
-                [d for d in data_path.iterdir() if d.is_dir() and (d / "memory.sqlite").exists()]
-            )
+            persona_count = len([d for d in data_path.iterdir() if d.is_dir() and (d / "memory.sqlite").exists()])
 
         if persona_count == 0:
             return HTMLResponse(_render_setup_page())
