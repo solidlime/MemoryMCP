@@ -26,12 +26,12 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install ruff bandit mypy
-      - run: ruff check memory_mcp/ tests/
-      - run: ruff format --check memory_mcp/ tests/
+      - run: ruff check nous/ tests/
+      - run: ruff format --check nous/ tests/
       - name: Security scan (Bandit)
-        run: bandit -r memory_mcp/ -ll -x memory_mcp/migration/,memory_mcp/api/http/sections/
+        run: bandit -r nous/ -ll -x nous/migration/,nous/api/http/sections/
       - name: Type check (mypy)
-        run: python -m mypy memory_mcp/ --ignore-missing-imports
+        run: python -m mypy nous/ --ignore-missing-imports
         continue-on-error: true
 
   test-unit:
@@ -60,7 +60,7 @@ jobs:
         run: >-
           python -m pytest tests/unit/ tests/integration/test_http_routers.py
           -v --tb=short -m "not slow" --timeout=60
-          --cov=memory_mcp --cov-config=pyproject.toml
+          --cov=nous --cov-config=pyproject.toml
           --cov-fail-under=62
 
   test-integration:
@@ -106,7 +106,7 @@ jobs:
           done
 
       - name: Integration tests
-        run: python -m pytest tests/integration/ -v --tb=short --timeout=120 --cov=memory_mcp --cov-report=xml --cov-report=term-missing
+        run: python -m pytest tests/integration/ -v --tb=short --timeout=120 --cov=nous --cov-report=xml --cov-report=term-missing
         env:
           MEMORY_MCP_QDRANT_URL: http://localhost:6333
           MEMORY_MCP_DATA_ROOT: /tmp/test_data
