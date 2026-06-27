@@ -171,9 +171,7 @@ class TestEnsureSandboxUser:
     async def test_container_not_found(self, mock_docker):
         """Should raise RuntimeError if sandbox container missing."""
         mock_client, _, mock_from_env = mock_docker
-        mock_client.containers.get.side_effect = __import__("docker").errors.NotFound(
-            "sandbox", "not found"
-        )
+        mock_client.containers.get.side_effect = __import__("docker").errors.NotFound("sandbox", "not found")
 
         from nous.application.sandbox.service import ensure_sandbox_user
 

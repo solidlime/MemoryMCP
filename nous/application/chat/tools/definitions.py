@@ -231,20 +231,34 @@ MEMORY_TOOLS: list[ToolDefinition] = [
 
 SANDBOX_TOOLS: list[ToolDefinition] = [
     ToolDefinition(
-        name="sandbox",
-        description="サンドボックスでコード実行。language: python/bash。content最大50000文字。",
+        name="sandbox_execute",
+        description=(
+            "サンドボックス環境でコードを実行します。"
+            "あなたは sandbox コンテナ内の専用ユーザーとして実行されます。"
+            "ホームディレクトリは自動設定され、pip install --user で"
+            "インストールしたパッケージは次回以降も利用可能です。\n"
+            "対応言語: python, javascript, bash, go, rust\n"
+            "ファイル操作は sandbox_files ツールを使ってください。\n"
+            "コードの内容だけ書いてください。環境設定（cd, export等）は不要です。"
+        ),
         input_schema={
             "type": "object",
             "properties": {
                 "code": {"type": "string", "description": "実行するコード"},
                 "language": {
                     "type": "string",
-                    "description": "言語 (python / bash)",
+                    "description": "プログラミング言語 (python/js/bash/go/rust)",
                     "default": "python",
+                },
+                "libraries": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "事前インストールするpipパッケージ（初回のみ）",
+                    "default": [],
                 },
                 "session_id": {
                     "type": "string",
-                    "description": "同一セッションで状態を共有するためのID（省略時は毎回新規セッション）",
+                    "description": "同一セッションで状態を共有するためのID（省略時はpersonaで永続化）",
                 },
             },
             "required": ["code"],
@@ -272,6 +286,34 @@ SANDBOX_TOOLS: list[ToolDefinition] = [
                 },
             },
             "required": ["operation"],
+        },
+    ),
+    ToolDefinition(
+        name="sandbox_reset",
+        description=(
+            "サンドボックス環境をリセットします。\n"
+            "files: 作業ファイルのみ削除\n"
+            "packages: pip/npmパッケージも削除\n"
+            "full: ユーザーごと再作成（完全初期化）"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "level": {
+                    "type": "string",
+                    "enum": ["files", "packages", "full"],
+                    "description": "リセットレベル (files/packages/full)",
+                    "default": "files",
+                },
+            },
+        },
+    ),
+    ToolDefinition(
+        name="sandbox_context",
+        description="サンドボックスの現在の環境情報（利用可能言語、インストール済みパッケージ）を取得します。",
+        input_schema={
+            "type": "object",
+            "properties": {},
         },
     ),
     ToolDefinition(
@@ -303,8 +345,10 @@ _NOUS_TOOL_NAMES: frozenset[str] = frozenset(
         "item_update",
         "item_search",
         "item_history",
-        "sandbox",
+        "sandbox_execute",
         "sandbox_files",
+        "sandbox_reset",
+        "sandbox_context",
         "goal_manage",
         "invoke_skill",
         "search",

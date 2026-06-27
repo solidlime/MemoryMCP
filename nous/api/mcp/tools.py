@@ -44,7 +44,12 @@ from nous.api.mcp._tools_memory import (  # noqa: E402, F401
     _tool_memory_update,
 )
 from nous.api.mcp._tools_persona import _tool_get_context, _tool_update_context  # noqa: E402, F401
-from nous.api.mcp._tools_sandbox import _tool_sandbox, _tool_sandbox_files  # noqa: E402, F401
+from nous.api.mcp._tools_sandbox import (
+    _tool_sandbox_execute,
+    _tool_sandbox_files,
+    _tool_sandbox_reset,
+    _tool_sandbox_context,
+)  # noqa: E402, F401
 from nous.api.mcp._tools_skill import _tool_invoke_skill  # noqa: E402, F401
 
 # =============================================================================
@@ -67,8 +72,10 @@ TOOL_DISPATCH: dict[str, Any] = {
     "item_update": _tool_item_update,
     "item_search": _tool_item_search,
     "item_history": _tool_item_history,
-    "sandbox": _tool_sandbox,
+    "sandbox_execute": _tool_sandbox_execute,
     "sandbox_files": _tool_sandbox_files,
+    "sandbox_reset": _tool_sandbox_reset,
+    "sandbox_context": _tool_sandbox_context,
     "goal_manage": _tool_goal_manage,
     "invoke_skill": _tool_invoke_skill,
 }
@@ -345,14 +352,25 @@ def register_tools(mcp: FastMCP) -> None:
         p = _resolve_persona()
         return await _tool_item_history(AppContextRegistry.get(p), p, days=days)
 
-    # sandbox
-    @_tool("sandbox")
-    async def sandbox(code: str, language: str = "python", session_id: str | None = None) -> str:
+    # sandbox_execute
+    @_tool("sandbox_execute")
+    async def sandbox_execute(
+        code: str, language: str = "python", libraries: list[str] | None = None, session_id: str | None = None
+    ) -> str:
         """Execute code in Docker sandbox. State persists per session.
-        language: "python" or "bash". Pass session_id to scope sandbox per conversation session.
+        language: "python", "js", "bash", "go", "rust".
+        libraries: pip packages to install before execution.
+        Pass session_id to scope sandbox per conversation session.
         Returns stdout, stderr, exit_code, artifacts (base64 images)."""
         p = _resolve_persona()
-        return await _tool_sandbox(AppContextRegistry.get(p), p, code=code, language=language, session_id=session_id)
+        return await _tool_sandbox_execute(
+            AppContextRegistry.get(p),
+            p,
+            code=code,
+            language=language,
+            libraries=libraries,
+            session_id=session_id,
+        )
 
     # sandbox_files
     @_tool("sandbox_files")
@@ -362,6 +380,20 @@ def register_tools(mcp: FastMCP) -> None:
         p = _resolve_persona()
         r = await _tool_sandbox_files(AppContextRegistry.get(p), p, operation=operation, path=path, content=content)
         return json.dumps(r, ensure_ascii=False)
+
+    # sandbox_reset
+    @_tool("sandbox_reset")
+    async def sandbox_reset(level: str = "files") -> str:
+        """Reset sandbox environment. level: files (default), packages, full."""
+        p = _resolve_persona()
+        return await _tool_sandbox_reset(AppContextRegistry.get(p), p, level=level)
+
+    # sandbox_context
+    @_tool("sandbox_context")
+    async def sandbox_context() -> str:
+        """Get sandbox environment context (languages, installed packages)."""
+        p = _resolve_persona()
+        return await _tool_sandbox_context(AppContextRegistry.get(p), p)
 
     # goal_manage
     @_tool("goal_manage")

@@ -70,7 +70,7 @@ class TestSandbox:
     async def test_execute_python_success(self, registered_tools):
         """Executing valid Python code returns stdout."""
         tools, ctx, _ = registered_tools
-        sandbox_tool = tools["sandbox"]
+        sandbox_tool = tools["sandbox_execute"]
 
         with (
             patch("nous.config.settings.get_settings") as mock_get_settings,
@@ -90,13 +90,13 @@ class TestSandbox:
 
         assert "hello" in result
         assert "world" in result
-        session.execute.assert_called_once_with("print('hello')", language="python")
+        session.execute.assert_called_once_with("print('hello')", language="python", libraries=None)
 
     @pytest.mark.asyncio
     async def test_execute_with_error(self, registered_tools):
         """Code with errors should return stderr."""
         tools, ctx, _ = registered_tools
-        sandbox_tool = tools["sandbox"]
+        sandbox_tool = tools["sandbox_execute"]
 
         with (
             patch("nous.config.settings.get_settings") as mock_get_settings,
@@ -122,7 +122,7 @@ class TestSandbox:
     async def test_execute_missing_code(self, registered_tools):
         """Disabled sandbox should return an error message."""
         tools, ctx, _ = registered_tools
-        sandbox_tool = tools["sandbox"]
+        sandbox_tool = tools["sandbox_execute"]
 
         with (
             patch("nous.config.settings.get_settings") as mock_get_settings,
@@ -139,7 +139,7 @@ class TestSandbox:
     async def test_sandbox_with_session_id(self, registered_tools):
         """Session ID should scope sandbox per conversation session."""
         tools, ctx, _ = registered_tools
-        sandbox_tool = tools["sandbox"]
+        sandbox_tool = tools["sandbox_execute"]
 
         with (
             patch("nous.config.settings.get_settings") as mock_get_settings,
@@ -160,13 +160,13 @@ class TestSandbox:
         assert "scoped output" in result
         # Should use persona_session_id as sandbox key (colon replaced with underscore for Docker compat)
         mock_get_session.assert_called_once_with("test_persona_sess_abc")
-        session.execute.assert_called_once_with("print('hello')", language="python")
+        session.execute.assert_called_once_with("print('hello')", language="python", libraries=None)
 
     @pytest.mark.asyncio
     async def test_sandbox_without_session_id(self, registered_tools):
         """Without session_id, sandbox key should be persona only."""
         tools, ctx, _ = registered_tools
-        sandbox_tool = tools["sandbox"]
+        sandbox_tool = tools["sandbox_execute"]
 
         with (
             patch("nous.config.settings.get_settings") as mock_get_settings,
@@ -192,7 +192,7 @@ class TestSandbox:
     async def test_execute_service_failure(self, registered_tools):
         """Service failure (exception) should return a sandbox error."""
         tools, ctx, _ = registered_tools
-        sandbox_tool = tools["sandbox"]
+        sandbox_tool = tools["sandbox_execute"]
 
         with (
             patch("nous.config.settings.get_settings") as mock_get_settings,

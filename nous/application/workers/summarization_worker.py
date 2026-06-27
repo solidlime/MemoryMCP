@@ -331,9 +331,7 @@ class SummarizationWorker:
 
             # LLMパス: use_llm=True かつ llm_api_key が設定済みなら API 要約
             if cfg.use_llm is True and isinstance(cfg.llm_api_key, str) and cfg.llm_api_key:
-                llm_result = self._call_llm_summarize(
-                    cfg, [m.content[:50] for m in batch], date_str
-                )
+                llm_result = self._call_llm_summarize(cfg, [m.content[:50] for m in batch], date_str)
                 # フォールバック: LLM失敗時は抽出型（文字列連結）
                 summary_content = llm_result or f"[要約] {date_str}: {snippets}"
             else:

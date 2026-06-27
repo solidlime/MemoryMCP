@@ -92,9 +92,7 @@ class AppContext:
         if not migration_result.is_ok:
             import logging
 
-            logging.getLogger("nous").error(
-                "Migration failed for persona '%s': %s", persona, migration_result.error
-            )
+            logging.getLogger("nous").error("Migration failed for persona '%s': %s", persona, migration_result.error)
 
         # Repositories
         self.memory_repo = SQLiteMemoryRepository(self.connection)

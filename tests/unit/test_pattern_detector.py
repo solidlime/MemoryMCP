@@ -369,9 +369,7 @@ class TestMaybeRunMentalModel:
         _set_get_by_tags(ctx, mapping)
 
         # Mock provider init to raise
-        with patch(
-            "nous.application.chat.pattern_detector.get_provider", side_effect=Exception("LLM unavailable")
-        ):
+        with patch("nous.application.chat.pattern_detector.get_provider", side_effect=Exception("LLM unavailable")):
             result = await maybe_run_mental_model(ctx, config)
         assert result == []
 

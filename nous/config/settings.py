@@ -86,7 +86,7 @@ class SandboxConfig(BaseModel):
     docker_sock: str = ""  # override socket path (empty = auto-detect common paths)
     timeout: int = 30
     session_idle_timeout: int = 1800
-    allowed_languages: list[str] = ["python", "javascript", "bash"]
+    allowed_languages: list[str] = ["python", "javascript", "bash", "go", "rust"]
     max_sessions: int = 10
     workspace_dir: str = "/sandbox"
     host_data_root: str = ""  # HOST-absolute path to data dir (needed for sibling-container volume mounts)

@@ -87,8 +87,7 @@ class SandboxSession:
             logger.debug("Sandbox container %s is %s", SANDBOX_CONTAINER_NAME, self._container.status)
         except NotFound:
             raise RuntimeError(
-                f"Sandbox container '{SANDBOX_CONTAINER_NAME}' not found. "
-                "Run: docker compose up -d sandbox"
+                f"Sandbox container '{SANDBOX_CONTAINER_NAME}' not found. Run: docker compose up -d sandbox"
             ) from None
 
     async def _ensure_user(self) -> None:
@@ -182,9 +181,7 @@ class SandboxSession:
         binpath = f"{filepath}.bin"
 
         # Write code via heredoc (safe -- no shell escaping needed)
-        stdout, stderr, exit_code = await self._exec_root(
-            f"cat > {filepath} << 'SANDBOX_END'\n{code}\nSANDBOX_END"
-        )
+        stdout, stderr, exit_code = await self._exec_root(f"cat > {filepath} << 'SANDBOX_END'\n{code}\nSANDBOX_END")
         if exit_code != 0:
             return ExecResult(stdout=stdout, stderr=stderr, exit_code=exit_code, language=language)
 
@@ -244,9 +241,7 @@ class SandboxSession:
 
         # Write via heredoc for safety
         filepath = remote_path
-        stdout, stderr, exit_code = await self._exec_root(
-            f"cat > {filepath} << 'SANDBOX_END'\n{content}\nSANDBOX_END"
-        )
+        stdout, stderr, exit_code = await self._exec_root(f"cat > {filepath} << 'SANDBOX_END'\n{content}\nSANDBOX_END")
         if exit_code != 0:
             raise OSError(stderr or f"Failed to write: {filepath}")
 
@@ -266,9 +261,7 @@ class SandboxSession:
             "        entries.append({'name': entry.name, 'path': entry.path, 'is_dir': entry.is_dir(), 'size': 0})\n"
             "print(json.dumps(entries))"
         )
-        stdout, stderr, exit_code = await self._exec_user(
-            f"python3 -c {_safe_quote(code)}"
-        )
+        stdout, stderr, exit_code = await self._exec_user(f"python3 -c {_safe_quote(code)}")
         if exit_code != 0:
             logger.warning("list_files failed for %s: %s", path, stderr)
             return []
@@ -288,9 +281,7 @@ class SandboxSession:
             "    data = f.read()\n"
             "print(base64.b64encode(data).decode())\n"
         )
-        stdout, stderr, exit_code = await self._exec_user(
-            f"python3 -c {_safe_quote(code)}"
-        )
+        stdout, stderr, exit_code = await self._exec_user(f"python3 -c {_safe_quote(code)}")
         if exit_code != 0:
             raise FileNotFoundError(stderr or f"File not found: {remote_path}")
         return base64.b64decode(stdout.strip())
@@ -386,9 +377,7 @@ class SandboxSession:
             f"for line in _tree({path!r}):\n"
             "    print(line)"
         )
-        stdout, stderr, exit_code = await self._exec_user(
-            f"python3 -c {_safe_quote(code)}"
-        )
+        stdout, stderr, exit_code = await self._exec_user(f"python3 -c {_safe_quote(code)}")
         return stdout if exit_code == 0 else stderr
 
     # ---- Reset / Context ----
@@ -415,9 +404,7 @@ class SandboxSession:
                 f"! -name '.bashrc' "
                 f"-delete 2>/dev/null"
             )
-            await self._exec_root(
-                f"find {home} -type d -empty -delete 2>/dev/null"
-            )
+            await self._exec_root(f"find {home} -type d -empty -delete 2>/dev/null")
             await self._exec_root(f"mkdir -p {home}")
             return f"Sandbox files reset for {self.persona}"
 
@@ -431,9 +418,7 @@ class SandboxSession:
             return f"Sandbox packages reset for {self.persona}"
 
         elif level == "full":
-            await self._exec_root(
-                f"id -u {self.username} &>/dev/null && userdel -r {self.username} || true"
-            )
+            await self._exec_root(f"id -u {self.username} &>/dev/null && userdel -r {self.username} || true")
             self._initialized = False
             await self._ensure_user()
             return f"Sandbox fully reset for {self.persona} (user recreated)"
@@ -459,9 +444,7 @@ class SandboxSession:
 
         # Check pip packages
         pkgs: list[str] = []
-        stdout, _, exit_code = await self._exec_user(
-            "pip3 list --user --format=json 2>/dev/null || echo '[]'"
-        )
+        stdout, _, exit_code = await self._exec_user("pip3 list --user --format=json 2>/dev/null || echo '[]'")
         if exit_code == 0:
             try:  # noqa: SIM105
                 pkgs = [p["name"] for p in _json.loads(stdout)]
@@ -490,6 +473,7 @@ class SandboxSession:
 
 # ---- Helper ----
 
+
 def _safe_quote(s: str) -> str:
     """Safely quote a string for use in shell commands (single quotes)."""
     escaped = s.replace("'", "'\"'\"'")
@@ -497,6 +481,7 @@ def _safe_quote(s: str) -> str:
 
 
 # ---- Standalone container operations ----
+
 
 async def _get_container() -> tuple[docker.DockerClient, object]:
     """Get a running sandbox container (helper for standalone functions).
@@ -512,8 +497,7 @@ async def _get_container() -> tuple[docker.DockerClient, object]:
     except NotFound:
         client.close()
         raise RuntimeError(
-            f"Sandbox container '{SANDBOX_CONTAINER_NAME}' not found. "
-            "Run: docker compose up -d sandbox"
+            f"Sandbox container '{SANDBOX_CONTAINER_NAME}' not found. Run: docker compose up -d sandbox"
         ) from None
 
 
@@ -524,9 +508,7 @@ async def ensure_sandbox_user(persona: str) -> str:
     try:
         # Check if user already exists
         check_cmd = user_exists_commands(persona)[0]
-        exit_code, output = await asyncio.to_thread(
-            container.exec_run, ["bash", "-c", check_cmd], user="root"
-        )
+        exit_code, output = await asyncio.to_thread(container.exec_run, ["bash", "-c", check_cmd], user="root")
         if exit_code == 0:
             logger.debug("Sandbox user already exists: %s", username)
             return username
@@ -535,7 +517,10 @@ async def ensure_sandbox_user(persona: str) -> str:
         cmds = user_create_commands(persona)
         script = " && ".join(cmds)
         exit_code, output = await asyncio.to_thread(
-            container.exec_run, ["bash", "-c", script], user="root", demux=True,
+            container.exec_run,
+            ["bash", "-c", script],
+            user="root",
+            demux=True,
         )
         if exit_code != 0:
             _, stderr_bytes = output if isinstance(output, tuple) else (output, None)
@@ -554,7 +539,9 @@ async def delete_sandbox_user(persona: str) -> bool:
     try:
         cmds = user_delete_commands(persona)
         exit_code, output = await asyncio.to_thread(
-            container.exec_run, ["bash", "-c", cmds[0]], user="root",
+            container.exec_run,
+            ["bash", "-c", cmds[0]],
+            user="root",
         )
         if exit_code == 0:
             logger.info("Sandbox user deleted: %s", make_username(persona))

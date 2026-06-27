@@ -183,9 +183,7 @@ class TestBrowserHandler:
         proc_mock.communicate = AsyncMock(return_value=(b"ok", b""))
 
         with (
-            patch(
-                "nous.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"
-            ),
+            patch("nous.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"),
             patch("asyncio.create_subprocess_exec", return_value=proc_mock) as mock_subprocess,
         ):
             result = await _handle_browser(mock_ctx, mock_config, {"action": "scroll", "amount": 99999})
@@ -210,9 +208,7 @@ class TestBrowserHandler:
         proc_mock.communicate = AsyncMock(return_value=(b"page loaded", b""))
 
         with (
-            patch(
-                "nous.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"
-            ),
+            patch("nous.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"),
             patch("asyncio.create_subprocess_exec", return_value=proc_mock) as mock_subprocess,
         ):
             result = await _handle_browser(mock_ctx, mock_config, {"action": "open", "url": "https://example.com"})
@@ -234,9 +230,7 @@ class TestBrowserHandler:
         proc_mock.communicate = AsyncMock(return_value=(b"clicked", b""))
 
         with (
-            patch(
-                "nous.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"
-            ),
+            patch("nous.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"),
             patch("asyncio.create_subprocess_exec", return_value=proc_mock),
         ):
             result = await _handle_browser(mock_ctx, mock_config, {"action": "click", "ref": "#submit-btn"})
@@ -251,9 +245,7 @@ class TestBrowserHandler:
         proc_mock.communicate = AsyncMock(return_value=(b"filled", b""))
 
         with (
-            patch(
-                "nous.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"
-            ),
+            patch("nous.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"),
             patch("asyncio.create_subprocess_exec", return_value=proc_mock),
         ):
             result = await _handle_browser(
@@ -270,9 +262,7 @@ class TestBrowserHandler:
         proc_mock.communicate = AsyncMock(return_value=(b"pressed", b""))
 
         with (
-            patch(
-                "nous.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"
-            ),
+            patch("nous.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"),
             patch("asyncio.create_subprocess_exec", return_value=proc_mock),
         ):
             result = await _handle_browser(mock_ctx, mock_config, {"action": "press", "key": "Enter"})
@@ -287,9 +277,7 @@ class TestBrowserHandler:
         proc_mock.communicate = AsyncMock(return_value=(b"", b""))
 
         with (
-            patch(
-                "nous.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"
-            ),
+            patch("nous.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"),
             patch("asyncio.create_subprocess_exec", return_value=proc_mock),
         ):
             result = await _handle_browser(mock_ctx, mock_config, {"action": "close"})
@@ -304,9 +292,7 @@ class TestBrowserHandler:
         proc_mock.communicate = AsyncMock(return_value=(b"", b"something went wrong"))
 
         with (
-            patch(
-                "nous.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"
-            ),
+            patch("nous.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"),
             patch("asyncio.create_subprocess_exec", return_value=proc_mock),
         ):
             result = await _handle_browser(mock_ctx, mock_config, {"action": "open", "url": "https://example.com"})
@@ -334,7 +320,7 @@ class TestExecuteCodeHandler:
 
         assert result["exit_code"] == 0
         mock_get.assert_called_once_with("test_persona")
-        mock_session.execute.assert_awaited_once_with("", "python")
+        mock_session.execute.assert_awaited_once_with("", "python", libraries=[])
 
     @pytest.mark.asyncio
     async def test_execute_sandbox_disabled(self, mock_ctx, mock_config):
@@ -359,7 +345,7 @@ class TestExecuteCodeHandler:
         assert result["stdout"] == "hello\n"
         assert result["exit_code"] == 0
         mock_get.assert_called_once_with("test_persona")
-        mock_session.execute.assert_awaited_once_with("print('hello')", "python")
+        mock_session.execute.assert_awaited_once_with("print('hello')", "python", libraries=[])
 
     @pytest.mark.asyncio
     async def test_execute_valid_bash(self, mock_ctx, mock_config):
@@ -376,7 +362,7 @@ class TestExecuteCodeHandler:
         assert result["stdout"] == "file.txt\n"
         assert result["exit_code"] == 0
         mock_get.assert_called_once_with("test_persona")
-        mock_session.execute.assert_awaited_once_with("ls", "bash")
+        mock_session.execute.assert_awaited_once_with("ls", "bash", libraries=[])
 
     @pytest.mark.asyncio
     async def test_execute_with_session_id(self, mock_ctx, mock_config):
@@ -485,9 +471,7 @@ class TestImageGenerateHandler:
         mock_provider.generate.return_value = []
 
         with (
-            patch(
-                "nous.infrastructure.image_gen.stability.StabilityProvider", return_value=mock_provider
-            ) as mock_sd,
+            patch("nous.infrastructure.image_gen.stability.StabilityProvider", return_value=mock_provider) as mock_sd,
         ):
             result = await _handle_image_generate(mock_ctx, mock_config, {"prompt": "a cat", "provider": "stability"})
 

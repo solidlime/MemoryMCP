@@ -12,8 +12,12 @@ if TYPE_CHECKING:
 
 
 async def _tool_sandbox_execute(
-    ctx: AppContext, persona: str, code: str, language: str = "python",
-    libraries: list[str] | None = None, session_id: str | None = None
+    ctx: AppContext,
+    persona: str,
+    code: str,
+    language: str = "python",
+    libraries: list[str] | None = None,
+    session_id: str | None = None,
 ) -> str:
     from nous.config.settings import get_settings
 
@@ -324,9 +328,7 @@ async def _tool_sandbox_files(
         return {"ok": False, "error": f"Unknown operation: {operation}. Use list/read/write/append/delete."}
 
 
-async def _tool_sandbox_reset(
-    ctx: AppContext, persona: str, level: str = "files"
-) -> str:
+async def _tool_sandbox_reset(ctx: AppContext, persona: str, level: str = "files") -> str:
     """Reset sandbox environment for a persona."""
     from nous.config.settings import get_settings
 
@@ -374,9 +376,7 @@ async def _tool_sandbox_reset(
         return f"Sandbox reset error: {e}"
 
 
-async def _tool_sandbox_context(
-    ctx: AppContext, persona: str
-) -> str:
+async def _tool_sandbox_context(ctx: AppContext, persona: str) -> str:
     """Get sandbox environment context."""
     from nous.config.settings import get_settings
 
@@ -400,6 +400,7 @@ async def _tool_sandbox_context(
         session = await get_sandbox_session(persona)
         result = await session.get_context()
         import json
+
         output = json.dumps(result, ensure_ascii=False, indent=2)
         await ctx.event_bus.publish(
             "tool.called",

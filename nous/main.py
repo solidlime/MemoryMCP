@@ -82,8 +82,7 @@ async def _ensure_sandbox_container() -> None:
             _log.info("Sandbox container already running")
     except docker.errors.NotFound:
         _log.warning(
-            "Sandbox container not found. "
-            "Run 'docker compose up -d sandbox' or ensure it's started separately."
+            "Sandbox container not found. Run 'docker compose up -d sandbox' or ensure it's started separately."
         )
     finally:
         client.close()
@@ -171,7 +170,9 @@ def create_app() -> MemoryFastMCP:
 
                 client = docker.from_env()
                 container = client.containers.get("sandbox")
-                status["services"]["sandbox"] = "ok" if container.status == "running" else f"stopped ({container.status})"
+                status["services"]["sandbox"] = (
+                    "ok" if container.status == "running" else f"stopped ({container.status})"
+                )
                 client.close()
             except Exception as e:
                 status["services"]["sandbox"] = f"error: {e}"
