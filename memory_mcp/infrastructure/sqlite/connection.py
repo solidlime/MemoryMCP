@@ -31,7 +31,8 @@ CREATE TABLE IF NOT EXISTS memories (
     last_accessed TEXT,
     privacy_level TEXT DEFAULT 'internal',
     body_state TEXT,
-    state_snapped_at TEXT
+    state_snapped_at TEXT,
+    lifecycle_status TEXT DEFAULT 'active'
 );
 
 CREATE TABLE IF NOT EXISTS memory_strength (

@@ -205,7 +205,11 @@ class MemoryService:
         return Success(result.value)
 
     def delete_memory(self, key: str) -> Result[None, DomainError]:
-        """Delete a memory by key."""
+        """Tombstone a memory by key (logical delete).
+
+        Sets lifecycle_status to 'tombstoned' so search results exclude it,
+        but the record remains in the database for potential recovery.
+        """
         existing = self._repo.find_by_key(key)
         if not existing.is_ok:
             return Failure(existing.error)
@@ -231,7 +235,7 @@ class MemoryService:
             change_type="delete",
         )
 
-        return self._repo.delete(key)
+        return self._repo.tombstone(key)
 
     def get_recent(self, limit: int = 10, offset: int = 0) -> Result[list[Memory], DomainError]:
         """Get most recent memories with optional pagination offset."""

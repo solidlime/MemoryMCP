@@ -62,6 +62,12 @@ class InMemoryMemoryRepository:
         self._store.pop(key, None)
         return Success(None)
 
+    def tombstone(self, key: str) -> Result[None, RepositoryError]:
+        if key not in self._store:
+            return Failure(RepositoryError(f"Not found: {key}"))
+        self._store[key].lifecycle_status = "tombstoned"
+        return Success(None)
+
     def count(self) -> Result[int, RepositoryError]:
         return Success(len(self._store))
 
@@ -256,9 +262,10 @@ class TestDeleteMemory:
         created = service.create_memory(content="remove me").unwrap()
         result = service.delete_memory(created.key)
         assert result.is_ok
-        # Verify it's gone
+        # Verify it's tombstoned (logical delete, not physical)
         get_result = service.get_memory(created.key)
-        assert not get_result.is_ok
+        assert get_result.is_ok
+        assert get_result.unwrap().lifecycle_status == "tombstoned"
 
     def test_delete_nonexistent(self, service: MemoryService):
         result = service.delete_memory("memory_99999999999999")

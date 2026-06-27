@@ -33,6 +33,7 @@ class Memory:
     last_accessed: datetime | None = None
     body_state: dict[str, float] | None = None
     state_snapped_at: datetime | None = None
+    lifecycle_status: str = "active"
 
 
 @dataclass

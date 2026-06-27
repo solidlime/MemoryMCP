@@ -56,6 +56,12 @@ class InMemoryVersionedRepository:
         self._store.pop(key, None)
         return Success(None)
 
+    def tombstone(self, key: str) -> Result[None, RepositoryError]:
+        if key not in self._store:
+            return Failure(RepositoryError(f"Not found: {key}"))
+        self._store[key].lifecycle_status = "tombstoned"
+        return Success(None)
+
     def count(self) -> Result[int, RepositoryError]:
         return Success(len(self._store))
 

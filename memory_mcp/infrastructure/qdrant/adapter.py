@@ -69,13 +69,14 @@ class QdrantVectorStore:
         key: str,
         content: str,
         metadata: dict | None = None,
+        lifecycle_status: str = "active",
     ) -> Result[None, VectorStoreError]:
         """Embed and upsert a memory into the vector store."""
         try:
             from qdrant_client.models import PointStruct
 
             vector = self.embedding.encode(content, is_query=False)
-            payload = {"key": key, "content": content}
+            payload = {"key": key, "content": content, "lifecycle_status": lifecycle_status}
             if metadata:
                 payload.update(metadata)
 

@@ -307,7 +307,7 @@ async def _tool_memory_delete(
                 "content_preview": content_preview,
             },
         )
-        return f"Memory deleted: {key}{snippet}"
+        return f"Memory tombstoned: {key}{snippet}"
     return f"Error: {result.error}"
 
 

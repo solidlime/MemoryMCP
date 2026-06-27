@@ -44,6 +44,9 @@ from memory_mcp.migration.versions.v026_image_gen import upgrade as v026_upgrade
 from memory_mcp.migration.versions.v027_skill_metadata import (
     upgrade as v027_upgrade,
 )
+from memory_mcp.migration.versions.v028_lifecycle_status import (
+    upgrade as v028_upgrade,
+)
 
 ALL_MIGRATIONS: list[tuple[str, str, object]] = [
     ("001", "Initial schema", v001_upgrade),
@@ -72,4 +75,5 @@ ALL_MIGRATIONS: list[tuple[str, str, object]] = [
     ("025", "Add searxng_url column to chat_settings", v025_upgrade),
     ("026", "Add image_gen columns to chat_settings", v026_upgrade),
     ("027", "Add license/compatibility/metadata to skills table", v027_upgrade),
+    ("028", "Add lifecycle_status column to memories table", v028_upgrade),
 ]

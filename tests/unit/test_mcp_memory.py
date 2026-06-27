@@ -252,7 +252,7 @@ class TestMemoryDelete:
         ctx.memory_service.delete_memory.return_value = Success(None)
         memory_delete = tools["memory_delete"]
         result = await memory_delete(memory_key="mem_del")
-        assert "deleted" in result.lower()
+        assert "tombstoned" in result.lower()
 
     @pytest.mark.asyncio
     async def test_delete_requires_key_or_query(self, registered_tools):

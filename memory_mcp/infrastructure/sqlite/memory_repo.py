@@ -29,6 +29,11 @@ class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
     def _db(self):
         return self._conn.get_memory_db()
 
+    @staticmethod
+    def _active_where() -> str:
+        """Return WHERE clause fragment to exclude tombstoned memories."""
+        return "lifecycle_status != 'tombstoned'"
+
     # ------------------------------------------------------------------
     # Memory CRUD
     # ------------------------------------------------------------------
@@ -44,8 +49,9 @@ class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
                     emotion, emotion_intensity, physical_state, mental_state,
                     environment, relationship_status, source_context,
                     related_keys, summary_ref, equipped_items, access_count,
-                    last_accessed, privacy_level, body_state, state_snapped_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    last_accessed, privacy_level, body_state, state_snapped_at,
+                    lifecycle_status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     memory.key,
@@ -69,6 +75,7 @@ class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
                     memory.privacy_level,
                     json.dumps(memory.body_state, ensure_ascii=False) if memory.body_state else None,
                     format_iso(memory.state_snapped_at) if memory.state_snapped_at else None,
+                    memory.lifecycle_status,
                 ),
             )
             # T4-A: Insert initial memory_strength record so WebUI shows a
@@ -104,7 +111,7 @@ class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
         """Return the most recently updated memories with optional pagination offset."""
         try:
             rows = self._db.execute(
-                "SELECT * FROM memories ORDER BY updated_at DESC LIMIT ? OFFSET ?",
+                f"SELECT * FROM memories WHERE {self._active_where()} ORDER BY updated_at DESC LIMIT ? OFFSET ?",
                 (limit, offset),
             ).fetchall()
             return Success([self._row_to_memory(r) for r in rows])
@@ -115,7 +122,9 @@ class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
     def find_by_tags(self, tags: list[str], limit: int = 10) -> Result[list[Memory], RepositoryError]:
         """Find memories that contain any of the specified tags."""
         try:
-            rows = self._db.execute("SELECT * FROM memories ORDER BY updated_at DESC").fetchall()
+            rows = self._db.execute(
+                f"SELECT * FROM memories WHERE {self._active_where()} ORDER BY updated_at DESC"
+            ).fetchall()
             result: list[Memory] = []
             tag_set = set(tags)
             for row in rows:
@@ -142,6 +151,8 @@ class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
                     updates[field] = json.dumps(value, ensure_ascii=False)
                 elif field in ("created_at", "updated_at", "last_accessed") and value is not None:
                     updates[field] = format_iso(value) if not isinstance(value, str) else value
+                elif field == "lifecycle_status":
+                    updates[field] = str(value)
                 else:
                     updates[field] = value
             updates["updated_at"] = format_iso(get_now())
@@ -178,7 +189,7 @@ class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
     def count(self) -> Result[int, RepositoryError]:
         """Count total memories."""
         try:
-            row = self._db.execute("SELECT COUNT(*) as cnt FROM memories").fetchone()
+            row = self._db.execute(f"SELECT COUNT(*) as cnt FROM memories WHERE {self._active_where()}").fetchone()
             return Success(row["cnt"])
         except Exception as e:
             logger.error("Failed to count memories: %s", e)
@@ -187,7 +198,9 @@ class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
     def find_all(self) -> Result[list[Memory], RepositoryError]:
         """Return all memories."""
         try:
-            rows = self._db.execute("SELECT * FROM memories ORDER BY updated_at DESC").fetchall()
+            rows = self._db.execute(
+                f"SELECT * FROM memories WHERE {self._active_where()} ORDER BY updated_at DESC"
+            ).fetchall()
             return Success([self._row_to_memory(r) for r in rows])
         except Exception as e:
             logger.error("Failed to find all memories: %s", e)
@@ -210,23 +223,27 @@ class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
             if not terms:
                 return Success([])
             # Each term must match independently (AND logic)
-            conditions = " AND ".join("content LIKE ?" for _ in terms)
-            params = list(f"%{t}%" for t in terms)
+            conditions: list[str] = ["content LIKE ?" for _ in terms]  # noqa: UP028
+            params: list[str] = list(f"%{t}%" for t in terms)
+
+            # Exclude tombstoned memories
+            conditions.append("lifecycle_status != 'tombstoned'")
 
             # Date range filter
             if date_from is not None or date_to is not None:
                 if date_from is not None and date_to is not None:
-                    conditions += " AND created_at BETWEEN ? AND ?"
+                    conditions.append("created_at BETWEEN ? AND ?")
                     params.extend([date_from.isoformat(), date_to.isoformat()])
                 elif date_from is not None:
-                    conditions += " AND created_at >= ?"
+                    conditions.append("created_at >= ?")
                     params.append(date_from.isoformat())
                 elif date_to is not None:
-                    conditions += " AND created_at <= ?"
+                    conditions.append("created_at <= ?")
                     params.append(date_to.isoformat())
 
+            where_clause = " AND ".join(conditions)
             rows = self._db.execute(
-                f"SELECT * FROM memories WHERE {conditions} ORDER BY updated_at DESC",  # noqa: S608  # nosec B608
+                f"SELECT * FROM memories WHERE {where_clause} ORDER BY updated_at DESC",  # noqa: S608  # nosec B608
                 tuple(params),
             ).fetchall()
             scored: list[tuple[Memory, float]] = []
@@ -347,7 +364,7 @@ class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
         Returns (memories, total_count) tuple.
         """
         try:
-            conditions: list[str] = []
+            conditions: list[str] = [self._active_where()]
             params: list[str] = []
 
             if tag:
@@ -357,7 +374,7 @@ class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
                 conditions.append("content LIKE ?")
                 params.append(f"%{query}%")
 
-            where_clause = (" WHERE " + " AND ".join(conditions)) if conditions else ""
+            where_clause = " WHERE " + " AND ".join(conditions)
             order = "ASC" if sort_order.lower() == "asc" else "DESC"
 
             count_row = self._db.execute(
@@ -380,7 +397,7 @@ class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
     def get_all_tags(self) -> Result[list[str], RepositoryError]:
         """Return a deduplicated list of all tags used across memories."""
         try:
-            rows = self._db.execute("SELECT tags FROM memories").fetchall()
+            rows = self._db.execute(f"SELECT tags FROM memories WHERE {self._active_where()}").fetchall()
             all_tags: set[str] = set()
             for row in rows:
                 all_tags.update(self._parse_json_list(row["tags"]))
@@ -394,9 +411,10 @@ class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
         try:
             if not tags:
                 return Success([])
-            conditions = ["tags LIKE ?" for _ in tags]
+            match_conditions = ["tags LIKE ?" for _ in tags]
             params = [f'%"{t}"%' for t in tags]
-            where = " AND ".join(conditions)
+            all_conditions = [self._active_where(), *match_conditions]
+            where = " AND ".join(all_conditions)
             rows = self._db.execute(
                 f"SELECT * FROM memories WHERE {where} ORDER BY updated_at DESC",  # nosec B608
                 params,
@@ -414,13 +432,14 @@ class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
         """Get memories ranked by importance * recency * strength."""
         try:
             rows = self._db.execute(
-                """
+                f"""
                 SELECT m.*,
                     m.importance * 0.4 +
                     (1.0 / (1.0 + (julianday('now') - julianday(m.created_at)) * 0.1)) * 0.3 +
                     COALESCE(ms.strength, 0.5) * 0.3 AS smart_score
                 FROM memories m
                 LEFT JOIN memory_strength ms ON m.key = ms.memory_key
+                WHERE {self._active_where()}
                 ORDER BY smart_score DESC
                 LIMIT ?
                 """,
@@ -490,10 +509,12 @@ class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
     def get_memory_index(self) -> Result[dict, RepositoryError]:
         """Get compressed memory index for context snapshot."""
         try:
-            total = self._db.execute("SELECT COUNT(*) as cnt FROM memories").fetchone()["cnt"]
+            total = self._db.execute(f"SELECT COUNT(*) as cnt FROM memories WHERE {self._active_where()}").fetchone()[
+                "cnt"
+            ]
 
-            tag_rows = self._db.execute("""
-                SELECT tags FROM memories WHERE tags IS NOT NULL AND tags != '' AND tags != '[]'
+            tag_rows = self._db.execute(f"""
+                SELECT tags FROM memories WHERE {self._active_where()} AND tags IS NOT NULL AND tags != '' AND tags != '[]'
             """).fetchall()
             tag_dist: dict[str, int] = {}
             for row in tag_rows:
@@ -506,25 +527,25 @@ class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
                     pass
             top_tags = sorted(tag_dist.items(), key=lambda x: x[1], reverse=True)[:10]
 
-            emotion_rows = self._db.execute("""
+            emotion_rows = self._db.execute(f"""
                 SELECT emotion, COUNT(*) as cnt FROM memories
-                WHERE emotion IS NOT NULL AND emotion != ''
+                WHERE {self._active_where()} AND emotion IS NOT NULL AND emotion != ''
                 GROUP BY emotion ORDER BY cnt DESC
             """).fetchall()
             emotion_dist = [(r["emotion"], r["cnt"]) for r in emotion_rows[:8]]
             emotion_others = max(0, len(emotion_rows) - 8)
 
-            timeline_rows = self._db.execute("""
+            timeline_rows = self._db.execute(f"""
                 SELECT strftime('%Y-%m', created_at) as month, COUNT(*) as cnt
                 FROM memories
-                WHERE created_at >= datetime('now', '-12 months')
+                WHERE {self._active_where()} AND created_at >= datetime('now', '-12 months')
                 GROUP BY month ORDER BY month
             """).fetchall()
             timeline = [(r["month"], r["cnt"]) for r in timeline_rows]
 
-            high_imp = self._db.execute("SELECT COUNT(*) as cnt FROM memories WHERE importance >= 0.8").fetchone()[
-                "cnt"
-            ]
+            high_imp = self._db.execute(
+                f"SELECT COUNT(*) as cnt FROM memories WHERE {self._active_where()} AND importance >= 0.8"
+            ).fetchone()["cnt"]
 
             return Success(
                 {
@@ -544,9 +565,10 @@ class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
         """Find important relationship-related memories."""
         try:
             rows = self._db.execute(
-                """
+                f"""
                 SELECT * FROM memories
                 WHERE importance >= 0.7
+                AND {self._active_where()}
                 AND (
                     tags LIKE '%relationship%'
                     OR tags LIKE '%first_meeting%'
@@ -570,12 +592,28 @@ class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
         """Find memories ranked purely by importance descending."""
         try:
             rows = self._db.execute(
-                "SELECT * FROM memories ORDER BY importance DESC LIMIT ?",
+                f"SELECT * FROM memories WHERE {self._active_where()} ORDER BY importance DESC LIMIT ?",
                 (limit,),
             ).fetchall()
             return Success([self._row_to_memory(r) for r in rows])
         except Exception as e:
             logger.error("Failed to find top by importance: %s", e)
+            return Failure(RepositoryError(str(e)))
+
+    def tombstone(self, key: str) -> Result[None, RepositoryError]:
+        """Logically delete a memory by setting lifecycle_status to 'tombstoned'."""
+        try:
+            now = format_iso(get_now())
+            self._db.execute(
+                "UPDATE memories SET lifecycle_status = 'tombstoned', updated_at = ? WHERE key = ?",
+                (now, key),
+            )
+            self._db.commit()
+            logger.info("Memory tombstoned: %s", key)
+            return Success(None)
+        except Exception as e:
+            self._db.rollback()
+            logger.error("Failed to tombstone memory %s: %s", key, e)
             return Failure(RepositoryError(str(e)))
 
     # ------------------------------------------------------------------
@@ -637,6 +675,9 @@ class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
             last_accessed=self._parse_iso_or_none(row["last_accessed"]) if "last_accessed" in row else None,
             body_state=self._parse_json_dict(row["body_state"]) if "body_state" in row else None,
             state_snapped_at=self._parse_iso_or_none(row["state_snapped_at"]) if "state_snapped_at" in row else None,
+            lifecycle_status=row["lifecycle_status"]
+            if "lifecycle_status" in (row.keys() if hasattr(row, "keys") else [])
+            else "active",
         )
 
     @staticmethod

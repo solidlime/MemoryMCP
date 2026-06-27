@@ -36,6 +36,7 @@ class SearchQuery:
     emotion: str | None = None
     importance_weight: float = 0.0
     recency_weight: float = 0.0
+    lifecycle_status: str | None = "active"
 
 
 @dataclass
