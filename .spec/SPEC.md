@@ -1,6 +1,6 @@
-# SPEC - 技術仕様・要件定義 v8
+# SPEC - 技術仕様・要件定義 v9
 
-> 元PLAN: `.spec/PLAN.md` v8。@oracle レビュー反映済み。
+> 元PLAN: `.spec/PLAN.md` v9。@oracle レビュー反映済み。
 
 ## 目標
 - **`docker compose up` 一発で全機能が利用可能になること。**
@@ -20,11 +20,13 @@
   - nous の `depends_on` に `searxng` 追加
   - SearXNG デフォルトURL: `http://searxng:8080`
 
-- [ ] **A-2**: Dockerfile.sandbox 多言語ランタイム追加
-  - 追加ランタイム: Node.js 22.x LTS, Go 1.22+, Rust + rust-script, Tesseract OCR + jpn
-  - ベースイメージ: `python:3.11-slim-bullseye` 維持
-  - マルチステージビルドでサイズ最小化
-  - 合計約600MB増 → 実用性検証
+- [x] **A-2 (改)**: 単一sandboxコンテナ + 言語非依存イメージ
+  - ベース: ubuntu:22.04
+  - ランタイム: python3, nodejs, golang-go, rust (rustup経由), gcc/g++, bash
+  - 単一固定コンテナ名 `sandbox`、ペルソナ別Linuxユーザー分離
+  - `llm_sandbox` 依存廃止、`docker exec` ベース実行
+  - データ永続: `{host_root}/memory/{persona}/sandbox/` → `/home/{persona}/` にマウント
+  - パッケージ: pip --user / npm --global でペルソナ別永続化
 
 - [ ] **A-3**: NOUS_SEARXNG_URL 環境変数化
   - 環境変数 `NOUS_SEARXNG_URL` で上書き可能
@@ -87,25 +89,27 @@
 
 ### 柱C: sandbox マルチ言語対応
 
-- [ ] **C-2**: JavaScript セッション追加
-  - `service.py` に `_ensure_javascript_started()` 追加
-  - llm_sandbox `InteractiveSandboxSession(lang="javascript")`
-  - ルーティング: `javascript`/`js`/`node` → JS セッション
+- [x] **C-1 (改)**: 単一コンテナ sandbox 方式
+  - service.py: llm_sandbox → docker exec 全面書換 (962→520行)
+  - user_manager.py: persona別Linuxユーザー作成・削除
+  - ペルソナ作成時にsandboxユーザー自動作成 (ensure_sandbox_user)
 
-- [ ] **C-3**: Go セッション追加
-  - `_execute_stateless(code, "go")` でステートレス実行
-  - `go run` 使用。毎回新規コンテナ
+- [x] **C-2**: JavaScript セッション追加
+  - docker exec 経由で node 実行
+  - ルーティング: `javascript`/`js`/`node` → node 実行
 
-- [ ] **C-4**: Rust セッション追加
-  - `_execute_stateless(code, "rust")` でステートレス実行
-  - `rust-script` 経由で単一ファイル実行
+- [x] **C-3**: Go セッション追加
+  - docker exec 経由で go run 実行
 
-- [ ] **C-5**: Bash ネイティブ実行化
-  - 現在: Python subprocess.run() ラップ → `_execute_stateless(code, "bash")` に直接ルーティング
+- [x] **C-4**: Rust セッション追加
+  - docker exec 経由で rustc 実行
+
+- [x] **C-5**: Bash ネイティブ実行化
+  - docker exec 経由で直接 bash 実行
   - `!` プレフィックス除去ロジックは service.py 側で維持
 
-- [ ] **C-6**: `allowed_languages` 更新 + `get_supported_languages` 追加
-  - settings.py: `["python", "javascript", "bash", "go", "rust"]`
+- [x] **C-6**: `allowed_languages` 更新 + `get_supported_languages` 追加
+  - settings.py: `["python", "javascript", "bash", "go", "rust"]` — go, rust 追加済み
   - definitions.py: language description 更新
   - `get_supported_languages` ツール追加（Zero-Context Discovery）
 
@@ -144,14 +148,14 @@
 - **パフォーマンス**: sandbox イメージビルド時間 10分以内、コンテナ起動 30秒以内
 - **セキュリティ**: sandbox コンテナは read_only + cap_drop ALL、全コンテナ no-new-privileges
 - **後方互換性**: 既存 MCP クライアントとの互換性維持（B-5はMCP→dict形式統一で破壊的変更なし）
-- **テスト**: 全変更後 1134+ tests がパスすること、新規コードにはテスト追加
+- **テスト**: 全変更後 1360+ tests がパスすること、新規コードにはテスト追加
 - **CI**: docker.yml / ci.yml 両方を通すこと
 
 ## 技術構成
 
-- **言語・フレームワーク**: Python 3.12, FastMCP, asyncio
+- **言語・フレームワーク**: Python 3.14, FastMCP, asyncio
 - **インフラ・環境**: Docker Compose (Qdrant + SearXNG + nous)
-- **sandbox**: llm_sandbox 0.3.x, Docker sibling container
+- **sandbox**: docker-py, 単一 ubuntu:22.04 コンテナ + Linuxユーザー分離
 - **ブラウザ**: agent-browser CLI v0.30.x
 - **検索**: SearXNG (自己ホスト)
 - **DB**: SQLite (メモリ), Qdrant (ベクトル)

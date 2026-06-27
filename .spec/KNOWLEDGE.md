@@ -1,4 +1,4 @@
-# KNOWLEDGE: 全体評価・対策・教訓 2026-06-27 (v5)
+# KNOWLEDGE: 全体評価・対策・教訓 2026-06-28 (v6)
 
 ## 評価から得た重要な知見
 
@@ -40,3 +40,21 @@
 - PDF解析: PyMuPDF + pdfplumber
 - pre-commit: lefthook に統一済み
 - カバレッジ: 63→65%、長期目標70%
+
+## sandbox 単一コンテナ移行の知見 🆕
+
+### 技術的教訓
+- `llm_sandbox` のマルチコンテナ管理は複雑性が高く、単一コンテナ + `docker exec` 方式で十分なユーザー分離が可能
+- `docker.from_env().containers.get("sandbox").exec_run(code, user=username)` でLinuxユーザー権限分離がシンプルに実現できる
+- `DAC_OVERRIDE` ケーパビリティ追加で、ユーザー所有でないファイルの読み取りが可能（sandbox共有に必要）
+
+### 実装パターン
+- ユーザー管理は純粋関数（コマンドリスト生成）と Docker 実行（副作用）を分離する設計がテスト容易性を高める
+- `user_manager.py`: 純粋関数 → ユニットテスト容易
+- `service.py`: Docker exec 実行 → 統合テスト/モックテスト
+- `_execute_via_file()`: ヒアドキュメント → ファイル → 実行 → クリーンアップ パターンでシェルインジェクション防止
+
+### 改名の原則
+- パッケージ名変更は段階的に: (1) ファイルシステム (mv), (2) Pythonインポート (sed), (3) 文字列リテラル (fixer並列)
+- 並列fixerで効率的だが、同一ファイルの競合に注意（今回は競合なし）
+- テストの env var 文字列は grep から漏れやすいので別途 sed で対応
