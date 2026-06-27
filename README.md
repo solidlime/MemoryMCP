@@ -37,8 +37,6 @@ docker-compose up -d
 
 起動したら **http://localhost:26262** をブラウザで開くだけ。
 
-> **Note**: Docker を使わない場合は [開発セットアップ](#開発セットアップ) を参照。
-
 ---
 
 ## LLM と接続する
@@ -155,36 +153,7 @@ docker-compose up -d
 
 全設定項目は WebUI の**設定画面**から確認・変更できます（WebUI からの変更は `docker-compose.yml` の環境変数より優先されます）。
 
----
 
-## 開発セットアップ
-
-Docker を使わずにローカルで開発する場合:
-
-```bash
-# 1. Qdrant を起動
-docker run -d -p 6333:6333 -v "$(pwd)/data/qdrant:/qdrant/storage" qdrant/qdrant
-
-# 2. 依存関係をインストール（CPU 版 PyTorch）
-pip install torch --index-url https://download.pytorch.org/whl/cpu
-pip install -r requirements.txt
-
-# 3. サーバー起動
-python -m nous.main
-```
-
-### テスト
-
-```bash
-# 全テスト
-python -m pytest tests/ -q
-
-# ユニットテストのみ
-python -m pytest tests/unit/ -q
-
-# カバレッジ付き
-python -m pytest tests/ --cov=nous --cov-report=html
-```
 
 ---
 
