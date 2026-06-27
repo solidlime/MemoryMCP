@@ -35,8 +35,10 @@ def test(method, path, expected_status=(200,), body=None, label=None, use_mcp_he
         status = r.status
     except urllib.error.HTTPError as e:
         status = e.code
-        try: resp = e.read().decode("utf-8", errors="replace")[:500]
-        except: resp = str(e)
+        try:
+            resp = e.read().decode("utf-8", errors="replace")[:500]
+        except Exception:
+            resp = str(e)
     except Exception as e:
         status = 0
         resp = str(e)
