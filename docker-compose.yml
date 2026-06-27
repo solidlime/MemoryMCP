@@ -1,3 +1,20 @@
+# ─── データ永続化の設計 ──────────────────────────────────────────
+# ホスト側とコンテナ側で別々の変数を使い、役割を分離している。
+#
+#   DATA_ROOT（docker-compose変数）        = ホスト側のベースパス
+#     → .env またはシェル環境変数で設定。デフォルト ./data
+#     → 全サービスの volume マウント元として使われる
+#
+#   NOUS_DATA_ROOT（アプリ内部設定）        = コンテナ側のベースパス
+#     → Dockerfile で /opt/nous/data に固定
+#     → アプリ（Python）がデータを読み書きするパス
+#
+#   volume マウント例: ${DATA_ROOT:-./data}:/opt/nous/data
+#                          ↑ホスト側            ↑コンテナ側 = NOUS_DATA_ROOT
+#
+# DATA_ROOT を変更してもコンテナ内部パスは変わらないので、
+# アプリの設定やコードを一切触らずにデータ保存先だけ差し替えられる。
+# ─────────────────────────────────────────────────────────────────
 services:
   qdrant:
     image: qdrant/qdrant:latest
@@ -41,7 +58,8 @@ services:
     ports:
       - "26262:26262"
     volumes:
-      # Persist all data (memory, logs, cache) under APP_HOME (/opt/nous)
+      # 全データ永続化（memory, logs, cache）
+      # DATA_ROOT（ホスト） → /opt/nous/data（コンテナ、=NOUS_DATA_ROOT）
       - ${DATA_ROOT:-./data}:/opt/nous/data
       # Host Docker socket for sibling-container sandbox execution (no DinD needed)
       - /var/run/docker.sock:/var/run/docker.sock
@@ -84,8 +102,9 @@ services:
     container_name: sandbox
     restart: unless-stopped
     volumes:
-      # 全ペルソナの sandbox データをホストに永続化
-      # ./data/memory/{persona}/sandbox/ → /home/{persona}/ (Dockerfile.sandbox の useradd -m と一致)
+      # 全ペルソナの sandbox データ永続化
+      # DATA_ROOT（ホスト）の memory/ サブディレクトリ → /home（コンテナ）
+      # /home/{persona}/ は useradd -m で自動作成される
       - ${DATA_ROOT:-./data}/memory:/home
     cap_drop:
       - ALL
