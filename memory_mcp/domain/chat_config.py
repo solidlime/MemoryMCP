@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
-import sys
 import warnings
 
 from pydantic import BaseModel, field_validator
@@ -47,16 +46,8 @@ class ChatConfig(BaseModel):
     extract_model: str = ""
     extract_max_tokens: int = 512
     tool_result_max_chars: int = 4000
-    mcp_servers: list[dict] = [
-        {
-            "name": "memory-mcp",
-            "command": sys.executable,
-            "args": ["-m", "memory_mcp.main"],
-            "env": {},
-            "_comment": "MemoryMCP自体をMCPサーバーとして接続（全20ツール利用可）。削除・編集可。",
-        }
-    ]
-    enabled_skills: list[str] = ["browser", "search"]
+    mcp_servers: list[dict] = []
+    enabled_skills: list[str] = []
     searxng_url: str = os.environ.get("MEMORY_MCP_SEARXNG_URL", "http://localhost:8080")
     # 画像生成
     image_gen_enabled: bool = False

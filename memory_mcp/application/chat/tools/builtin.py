@@ -140,7 +140,8 @@ async def _handle_browser(
         }
 
     # ── Build command args from action ──
-    args: list[str] = [agent_bin]
+    # --no-sandbox: WSL2/Linux で "No usable sandbox!" エラー回避
+    args: list[str] = [agent_bin, "--no-sandbox"]
 
     try:
         if action == "open":
