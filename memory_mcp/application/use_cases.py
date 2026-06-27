@@ -46,12 +46,12 @@ class QdrantSemanticSearch:
     def __init__(self, vector_store: QdrantVectorStore, memory_repo: SQLiteMemoryRepository) -> None:
         self.vector_store = vector_store
         self.memory_repo = memory_repo
-        self._persona: str = ""
+        self.persona: str = ""
 
     def search(self, query: str, limit: int = 10, date_from=None, date_to=None):
         # Fetch extra results to compensate for date post-filtering
         fetch_limit = limit * 3 if (date_from or date_to) else limit
-        result = self.vector_store.search(self._persona, query, fetch_limit)
+        result = self.vector_store.search(self.persona, query, fetch_limit)
         if not result.is_ok:
             return Failure(SearchError(str(result.error)))
 

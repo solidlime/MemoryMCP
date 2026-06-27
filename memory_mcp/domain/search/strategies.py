@@ -27,6 +27,8 @@ class KeywordSearchStrategy(Protocol):
 class SemanticSearchStrategy(Protocol):
     """Strategy for semantic/vector-based memory search."""
 
+    persona: str
+
     def search(
         self,
         query: str,

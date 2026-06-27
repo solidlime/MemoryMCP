@@ -58,7 +58,7 @@ class TestQdrantSemanticSearch:
         adapter = QdrantSemanticSearch(vs, repo)
         assert adapter.vector_store is vs
         assert adapter.memory_repo is repo
-        assert adapter._persona == ""
+        assert adapter.persona == ""
 
     def test_search_failure_propagates(self):
         vs = MagicMock()
@@ -78,7 +78,7 @@ class TestQdrantSemanticSearch:
         repo.find_by_key.return_value = Success(memory)
 
         adapter = QdrantSemanticSearch(vs, repo)
-        adapter._persona = "test"
+        adapter.persona = "test"
         result = adapter.search("query")
         assert result.is_ok
         assert len(result.value) == 1
@@ -103,7 +103,7 @@ class TestQdrantSemanticSearch:
         repo = MagicMock()
 
         adapter = QdrantSemanticSearch(vs, repo)
-        adapter._persona = "my_persona"
+        adapter.persona = "my_persona"
         adapter.search("query")
         vs.search.assert_called_once_with("my_persona", "query", 10)
 
@@ -134,7 +134,7 @@ class TestQdrantSemanticSearchDateFiltering:
         repo.find_by_key.side_effect = find_by_key
 
         adapter = QdrantSemanticSearch(vs, repo)
-        adapter._persona = "test"
+        adapter.persona = "test"
         # date_from = 5 days ago (timezone-aware, as parse_date_range returns)
         from datetime import datetime
 
@@ -160,7 +160,7 @@ class TestQdrantSemanticSearchDateFiltering:
         repo.find_by_key.side_effect = find_by_key
 
         adapter = QdrantSemanticSearch(vs, repo)
-        adapter._persona = "test"
+        adapter.persona = "test"
         from datetime import datetime
 
         date_to = datetime.now(UTC) - timedelta(days=5)
@@ -187,7 +187,7 @@ class TestQdrantSemanticSearchDateFiltering:
         repo.find_by_key.side_effect = find_by_key
 
         adapter = QdrantSemanticSearch(vs, repo)
-        adapter._persona = "test"
+        adapter.persona = "test"
         from datetime import datetime
 
         date_from = datetime.now(UTC) - timedelta(days=15)
@@ -204,7 +204,7 @@ class TestQdrantSemanticSearchDateFiltering:
         repo = MagicMock()
 
         adapter = QdrantSemanticSearch(vs, repo)
-        adapter._persona = "test"
+        adapter.persona = "test"
         from datetime import datetime
 
         adapter.search("query", limit=5, date_from=datetime.now(UTC))
@@ -218,7 +218,7 @@ class TestQdrantSemanticSearchDateFiltering:
         repo = MagicMock()
 
         adapter = QdrantSemanticSearch(vs, repo)
-        adapter._persona = "test"
+        adapter.persona = "test"
         adapter.search("query", limit=5)
         vs.search.assert_called_once_with("test", "query", 5)
 
@@ -240,7 +240,7 @@ class TestQdrantSemanticSearchDateFiltering:
         repo.find_by_key.side_effect = find_by_key
 
         adapter = QdrantSemanticSearch(vs, repo)
-        adapter._persona = "test"
+        adapter.persona = "test"
         date_from = datetime.now(UTC) - timedelta(days=30)
         result = adapter.search("query", limit=2, date_from=date_from)
         assert result.is_ok

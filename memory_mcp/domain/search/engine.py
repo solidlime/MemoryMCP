@@ -189,6 +189,11 @@ class SearchEngine:
 
         return Success(deduped[: query.top_k])
 
+    def set_persona(self, persona: str) -> None:
+        """Set the persona for semantic search."""
+        if self._semantic is not None:
+            self._semantic.persona = persona
+
     def best_search_mode(self) -> str:
         """Return the best available search mode based on current configuration."""
         cfg = self._memorag_config

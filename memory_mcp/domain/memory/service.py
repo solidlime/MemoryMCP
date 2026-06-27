@@ -35,6 +35,10 @@ class MemoryService:
         self._entity_service = entity_service
         self._enricher = enricher
 
+    def save_memory(self, mem: Memory) -> Result[Memory, DomainError]:
+        """Save a pre-constructed memory entity directly to the repository."""
+        return self._repo.save(mem)
+
     def create_memory(
         self,
         content: str,

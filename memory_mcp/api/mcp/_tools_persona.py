@@ -211,7 +211,7 @@ async def _tool_update_context(
                             importance=0.8,
                             emotion="anticipation",
                         )
-                        ctx.memory_service._repo.save(mem)
+                        ctx.memory_service.save_memory(mem)
 
         if promises_from_pi is not None:
             if isinstance(promises_from_pi, str):
@@ -235,7 +235,7 @@ async def _tool_update_context(
                             importance=0.8,
                             emotion="trust",
                         )
-                        ctx.memory_service._repo.save(mem)
+                        ctx.memory_service.save_memory(mem)
 
         if pi:
             result = ctx.persona_service.update_persona_info(persona, pi)

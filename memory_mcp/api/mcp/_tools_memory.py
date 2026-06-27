@@ -341,8 +341,7 @@ async def _tool_memory_search(
         vector_weight=vector_weight,
         keyword_weight=keyword_weight,
     )
-    if hasattr(ctx.search_engine, "_semantic") and ctx.search_engine._semantic:
-        ctx.search_engine._semantic._persona = persona
+    ctx.search_engine.set_persona(persona)
     result = ctx.search_engine.search(search_query)
     if not result.is_ok:
         await ctx.event_bus.publish(
