@@ -11,8 +11,9 @@ if TYPE_CHECKING:
     from nous.application.use_cases import AppContext
 
 
-async def _tool_sandbox(
-    ctx: AppContext, persona: str, code: str, language: str = "python", session_id: str | None = None
+async def _tool_sandbox_execute(
+    ctx: AppContext, persona: str, code: str, language: str = "python",
+    libraries: list[str] | None = None, session_id: str | None = None
 ) -> str:
     from nous.config.settings import get_settings
 
@@ -22,7 +23,7 @@ async def _tool_sandbox(
             "tool.called",
             {
                 "persona": persona,
-                "tool_name": "sandbox",
+                "tool_name": "sandbox_execute",
                 "params_summary": f"language={language}, code={code[:50]}...",
                 "result_summary": "Sandbox is not enabled",
                 "success": False,
@@ -33,11 +34,11 @@ async def _tool_sandbox(
 
     if session_id:
         sandbox_key = f"{persona}_{session_id}"
-        session = get_sandbox_session(sandbox_key)
+        session = await get_sandbox_session(sandbox_key)
     else:
-        session = get_sandbox_session(persona)
+        session = await get_sandbox_session(persona)
     try:
-        result = await session.execute(code, language=language)
+        result = await session.execute(code, language=language, libraries=libraries)
         parts = []
         if result.stdout:
             parts.append(result.stdout)
@@ -50,12 +51,15 @@ async def _tool_sandbox(
             for i, b64 in enumerate(result.artifacts):
                 parts.append(f"[artifact_{i}: data:image/png;base64,{b64}]")
         result_text = "\n".join(parts) if parts else "(no output)"
+        params = f"language={language}, code={code[:50]}..."
+        if libraries:
+            params += f", libraries={libraries}"
         await ctx.event_bus.publish(
             "tool.called",
             {
                 "persona": persona,
-                "tool_name": "sandbox",
-                "params_summary": f"language={language}, code={code[:50]}...",
+                "tool_name": "sandbox_execute",
+                "params_summary": params,
                 "result_summary": f"Output ({len(result_text)} chars), exit_code={result.exit_code}",
                 "success": True,
             },
@@ -66,7 +70,7 @@ async def _tool_sandbox(
             "tool.called",
             {
                 "persona": persona,
-                "tool_name": "sandbox",
+                "tool_name": "sandbox_execute",
                 "params_summary": f"language={language}, code={code[:50]}...",
                 "result_summary": f"Sandbox error: {e}",
                 "success": False,
@@ -111,7 +115,7 @@ async def _tool_sandbox_files(
             },
         )
         return {"ok": False, "error": "path must be under /sandbox"}
-    sandbox_session = get_sandbox_session(persona)
+    sandbox_session = await get_sandbox_session(persona)
     import base64 as _b64
 
     if operation == "list":
@@ -318,6 +322,108 @@ async def _tool_sandbox_files(
             },
         )
         return {"ok": False, "error": f"Unknown operation: {operation}. Use list/read/write/append/delete."}
+
+
+async def _tool_sandbox_reset(
+    ctx: AppContext, persona: str, level: str = "files"
+) -> str:
+    """Reset sandbox environment for a persona."""
+    from nous.config.settings import get_settings
+
+    settings = get_settings()
+    if not settings.sandbox.enabled:
+        await ctx.event_bus.publish(
+            "tool.called",
+            {
+                "persona": persona,
+                "tool_name": "sandbox_reset",
+                "params_summary": f"level={level}",
+                "result_summary": "Sandbox is not enabled",
+                "success": False,
+            },
+        )
+        return "Sandbox is not enabled."
+
+    from nous.application.sandbox.service import get_sandbox_session
+
+    session = await get_sandbox_session(persona)
+    try:
+        result = await session.reset(level=level)
+        await ctx.event_bus.publish(
+            "tool.called",
+            {
+                "persona": persona,
+                "tool_name": "sandbox_reset",
+                "params_summary": f"level={level}",
+                "result_summary": result,
+                "success": True,
+            },
+        )
+        return result
+    except Exception as e:
+        await ctx.event_bus.publish(
+            "tool.called",
+            {
+                "persona": persona,
+                "tool_name": "sandbox_reset",
+                "params_summary": f"level={level}",
+                "result_summary": f"Error: {e}",
+                "success": False,
+            },
+        )
+        return f"Sandbox reset error: {e}"
+
+
+async def _tool_sandbox_context(
+    ctx: AppContext, persona: str
+) -> str:
+    """Get sandbox environment context."""
+    from nous.config.settings import get_settings
+
+    settings = get_settings()
+    if not settings.sandbox.enabled:
+        await ctx.event_bus.publish(
+            "tool.called",
+            {
+                "persona": persona,
+                "tool_name": "sandbox_context",
+                "params_summary": "",
+                "result_summary": "Sandbox is not enabled",
+                "success": False,
+            },
+        )
+        return "Sandbox is not enabled."
+
+    from nous.application.sandbox.service import get_sandbox_session
+
+    try:
+        session = await get_sandbox_session(persona)
+        result = await session.get_context()
+        import json
+        output = json.dumps(result, ensure_ascii=False, indent=2)
+        await ctx.event_bus.publish(
+            "tool.called",
+            {
+                "persona": persona,
+                "tool_name": "sandbox_context",
+                "params_summary": "",
+                "result_summary": f"Context: user={result.get('user')}, langs={list(result.get('languages', {}).keys())}",
+                "success": True,
+            },
+        )
+        return output
+    except Exception as e:
+        await ctx.event_bus.publish(
+            "tool.called",
+            {
+                "persona": persona,
+                "tool_name": "sandbox_context",
+                "params_summary": "",
+                "result_summary": f"Error: {e}",
+                "success": False,
+            },
+        )
+        return f"Sandbox context error: {e}"
 
 
 # --- Goal/Promise tools ---

@@ -93,16 +93,17 @@ async def _handle_execute_code(ctx: AppContext, config: ChatConfig, tool_input: 
 
     code = tool_input.get("code", "")
     language = tool_input.get("language", "python")
+    libraries = tool_input.get("libraries", [])
     session_id = tool_input.get("session_id")
 
     if session_id:
         # Use persona-scoped session key to prevent cross-persona leaks
         sandbox_key = f"{ctx.persona}_{session_id}"
-        sandbox = get_sandbox_session(sandbox_key)
+        sandbox = await get_sandbox_session(sandbox_key)
     else:
-        sandbox = get_sandbox_session(ctx.persona)
+        sandbox = await get_sandbox_session(ctx.persona)
 
-    result = await sandbox.execute(code, language)
+    result = await sandbox.execute(code, language, libraries=libraries)
     # Include session_id in response for LLM to reference next time
     response = {
         "stdout": result.stdout,
@@ -113,6 +114,27 @@ async def _handle_execute_code(ctx: AppContext, config: ChatConfig, tool_input: 
     if session_id:
         response["session_id"] = session_id
     return response
+
+
+async def _handle_sandbox_reset(ctx: AppContext, config: ChatConfig, tool_input: dict) -> dict:
+    if not getattr(config, "sandbox_enabled", False):
+        return {"status": "error", "message": "sandbox が無効です。"}
+    from nous.application.sandbox.service import get_sandbox_session
+
+    level = tool_input.get("level", "files")
+    session = await get_sandbox_session(ctx.persona)
+    result = await session.reset(level=level)
+    return {"status": "ok", "message": result}
+
+
+async def _handle_sandbox_context(ctx: AppContext, config: ChatConfig, tool_input: dict) -> dict:
+    if not getattr(config, "sandbox_enabled", False):
+        return {"status": "error", "message": "sandbox が無効です。"}
+    from nous.application.sandbox.service import get_sandbox_session
+
+    session = await get_sandbox_session(ctx.persona)
+    result = await session.get_context()
+    return {"status": "ok", **result}
 
 
 async def _handle_browser(
@@ -353,7 +375,7 @@ def _find_agent_browser(settings=None) -> str | None:
 
 async def _handle_mcp_dispatch(tool_name: str, ctx: AppContext, config: ChatConfig, tool_input: dict) -> dict:
     """Call shared MCP tool implementation via TOOL_DISPATCH."""
-    if tool_name == "sandbox_files" and not getattr(config, "sandbox_enabled", False):
+    if tool_name.startswith("sandbox_") and not getattr(config, "sandbox_enabled", False):
         return {"status": "error", "message": "sandbox が無効です。チャット設定で有効化してください。"}
 
     func = TOOL_DISPATCH.get(tool_name)
@@ -704,7 +726,9 @@ async def _handle_list_skills(ctx: AppContext, config: ChatConfig, tool_input: d
 # ── Handler dispatch table (replaces if/elif chain) ──
 
 _BUILTIN_DISPATCH: dict[str, Any] = {
-    "sandbox": _handle_execute_code,
+    "sandbox_execute": _handle_execute_code,
+    "sandbox_reset": _handle_sandbox_reset,
+    "sandbox_context": _handle_sandbox_context,
     "list_skills": _handle_list_skills,
     "browser": _handle_browser,
     "search": _handle_search,

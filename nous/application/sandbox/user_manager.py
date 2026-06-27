@@ -11,7 +11,7 @@ SANDBOX_CONTAINER_NAME = "sandbox"
 
 def make_username(persona: str) -> str:
     """Convert persona name to sandbox username.
-    
+
     Persona name IS the Linux username. Sanitize if needed.
     Maps: persona="default" → username="default"
     """
@@ -20,12 +20,11 @@ def make_username(persona: str) -> str:
 
 def user_create_commands(persona: str) -> list[str]:
     """Generate shell commands to create a persona user inside sandbox.
-    
+
     Creates user if not exists, ensures home directory, sets up pip user dir.
     Idempotent — safe to run multiple times.
-    Username = persona name (no prefix).
     """
-    username = persona
+    username = make_username(persona)
     home = f"/home/{username}"
     return [
         # Create user if not exists (idempotent via id check)

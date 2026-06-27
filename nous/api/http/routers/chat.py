@@ -344,7 +344,7 @@ def register_chat_routes(mcp) -> None:
         try:
             from nous.application.sandbox.service import get_sandbox_session
 
-            session = get_sandbox_session(persona)
+            session = await get_sandbox_session(persona)
             filename = upload.filename or "upload"
             remote_path = await session.upload_file(tmp_path, filename)
             return JSONResponse({"filename": filename, "remote_path": remote_path})
@@ -459,7 +459,7 @@ def register_chat_routes(mcp) -> None:
 
         from nous.application.sandbox.service import get_sandbox_session
 
-        session = get_sandbox_session(persona)
+        session = await get_sandbox_session(persona)
         try:
             if recursive:
                 tree = await session.get_file_tree(path)
@@ -546,7 +546,7 @@ def register_chat_routes(mcp) -> None:
 
         from nous.application.sandbox.service import get_sandbox_session
 
-        session = get_sandbox_session(persona)
+        session = await get_sandbox_session(persona)
         try:
             if fmt == "text":
                 content = await session.read_file_text(filepath)
@@ -620,7 +620,7 @@ def register_chat_routes(mcp) -> None:
 
         from nous.application.sandbox.service import get_sandbox_session
 
-        session = get_sandbox_session(persona)
+        session = await get_sandbox_session(persona)
         result = await session.execute(code, language=language)
         return JSONResponse(
             {
@@ -656,7 +656,7 @@ def register_chat_routes(mcp) -> None:
 
         from nous.application.sandbox.service import get_sandbox_session
 
-        session = get_sandbox_session(persona)
+        session = await get_sandbox_session(persona)
         output = await session.install_packages(packages)
         return JSONResponse({"output": output, "packages": packages})
 
@@ -675,7 +675,7 @@ def register_chat_routes(mcp) -> None:
 
         from nous.application.sandbox.service import get_sandbox_session
 
-        session = get_sandbox_session(persona)
+        session = await get_sandbox_session(persona)
         await session.reset()
         return JSONResponse({"ok": True, "message": "セッションをリセットしました"})
 
@@ -698,7 +698,7 @@ def register_chat_routes(mcp) -> None:
 
         from nous.application.sandbox.service import get_sandbox_session
 
-        session = get_sandbox_session(persona)
+        session = await get_sandbox_session(persona)
         ok = await session.delete_file(filepath)
         return JSONResponse({"deleted": ok, "path": filepath})
 
@@ -723,7 +723,7 @@ def register_chat_routes(mcp) -> None:
 
         from nous.application.sandbox.service import get_sandbox_session
 
-        session = get_sandbox_session(persona)
+        session = await get_sandbox_session(persona)
         try:
             content = await session.read_file_text(path)
             return JSONResponse({"content": content, "path": path})
@@ -757,7 +757,7 @@ def register_chat_routes(mcp) -> None:
 
         from nous.application.sandbox.service import get_sandbox_session
 
-        session = get_sandbox_session(persona)
+        session = await get_sandbox_session(persona)
         try:
             await session.write_file_text(path, content)
             return JSONResponse({"ok": True, "path": path})

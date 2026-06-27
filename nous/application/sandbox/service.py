@@ -16,7 +16,10 @@ from docker.errors import NotFound
 
 from nous.application.sandbox.user_manager import (
     SANDBOX_CONTAINER_NAME,
+    make_username,
     user_create_commands,
+    user_delete_commands,
+    user_exists_commands,
 )
 
 if TYPE_CHECKING:
@@ -499,14 +502,89 @@ def _safe_quote(s: str) -> str:
     return f"'{escaped}'"
 
 
+# ---- Standalone container operations ----
+
+async def _get_container() -> tuple[docker.DockerClient, object]:
+    """Get a running sandbox container (helper for standalone functions).
+
+    Returns (client, container) tuple. Caller must close client.
+    """
+    client = docker.from_env()
+    try:
+        container = client.containers.get(SANDBOX_CONTAINER_NAME)
+        if container.status != "running":
+            container.start()
+        return client, container
+    except NotFound:
+        client.close()
+        raise RuntimeError(
+            f"Sandbox container '{SANDBOX_CONTAINER_NAME}' not found. "
+            "Run: docker compose up -d sandbox"
+        ) from None
+
+
+async def ensure_sandbox_user(persona: str) -> str:
+    """Ensure Linux user exists in sandbox container. Returns username."""
+    username = make_username(persona)
+    client, container = await _get_container()
+    try:
+        # Check if user already exists
+        check_cmd = user_exists_commands(persona)[0]
+        exit_code, output = await asyncio.to_thread(
+            container.exec_run, ["bash", "-c", check_cmd], user="root"
+        )
+        if exit_code == 0:
+            logger.debug("Sandbox user already exists: %s", username)
+            return username
+
+        # Create user
+        cmds = user_create_commands(persona)
+        script = " && ".join(cmds)
+        exit_code, output = await asyncio.to_thread(
+            container.exec_run, ["bash", "-c", script], user="root", demux=True,
+        )
+        if exit_code != 0:
+            _, stderr_bytes = output if isinstance(output, tuple) else (output, None)
+            stderr = stderr_bytes.decode("utf-8", errors="replace") if stderr_bytes else ""
+            logger.warning("User creation had issues for %s: %s", persona, stderr)
+        logger.info("Sandbox user ensured: %s", username)
+        return username
+    finally:
+        with contextlib.suppress(Exception):
+            client.close()
+
+
+async def delete_sandbox_user(persona: str) -> bool:
+    """Delete Linux user from sandbox container. Returns True if deleted."""
+    client, container = await _get_container()
+    try:
+        cmds = user_delete_commands(persona)
+        exit_code, output = await asyncio.to_thread(
+            container.exec_run, ["bash", "-c", cmds[0]], user="root",
+        )
+        if exit_code == 0:
+            logger.info("Sandbox user deleted: %s", make_username(persona))
+        else:
+            logger.warning("Sandbox user deletion failed for %s", persona)
+        return exit_code == 0
+    finally:
+        with contextlib.suppress(Exception):
+            client.close()
+
+
 # ---- Global session registry ----
 
 _sessions: dict[str, SandboxSession] = {}
 
 
-def get_sandbox_session(persona: str) -> SandboxSession:
-    """Get or create a sandbox session for the given persona."""
+async def get_sandbox_session(persona: str) -> SandboxSession:
+    """Get or create a sandbox session for the given persona.
+
+    Ensures the Linux user exists in the sandbox container before creating
+    a new session.
+    """
     if persona not in _sessions:
+        await ensure_sandbox_user(persona)
         _sessions[persona] = SandboxSession(persona)
         logger.info("Sandbox session created for persona=%s", persona)
     return _sessions[persona]
