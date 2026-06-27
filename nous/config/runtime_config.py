@@ -19,6 +19,11 @@ logger = get_logger(__name__)
 
 # Settings metadata: which settings can be hot-reloaded
 SETTINGS_META: dict[str, dict[str, dict]] = {
+    "api_keys": {
+        "anthropic_api_key": {"hot_reload": True, "description": "Anthropic API key", "masked": True},
+        "openai_api_key": {"hot_reload": True, "description": "OpenAI API key", "masked": True},
+        "openrouter_api_key": {"hot_reload": True, "description": "OpenRouter API key", "masked": True},
+    },
     "server": {
         "host": {"hot_reload": False, "description": "Server bind address"},
         "port": {"hot_reload": False, "description": "Server port"},
@@ -76,6 +81,8 @@ SETTINGS_META: dict[str, dict[str, dict]] = {
         "default_persona": {"hot_reload": True, "description": "Default persona"},
         "contradiction_threshold": {"hot_reload": True, "description": "Contradiction detection threshold"},
         "duplicate_threshold": {"hot_reload": True, "description": "Duplicate detection threshold"},
+        "searxng_url": {"hot_reload": True, "description": "SearXNG search engine URL"},
+        "agent_browser_path": {"hot_reload": True, "description": "Path to agent-browser binary"},
     },
 }
 
@@ -146,25 +153,25 @@ class RuntimeConfigManager:
     def get_effective_value(self, category: str, key: str) -> tuple[Any, str]:
         """Get the effective value and its source for a setting.
 
-        Returns: (value, source) where source is "env", "override", or "default"
+        Returns: (value, source) where source is "override", "env", or "default"
         """
-        # Check environment variable first
+        # Check overrides first (WebUI takes priority over environment variables)
+        override_val = self._overrides.get(category, {}).get(key)
+        if override_val is not None:
+            return (override_val, "override")
+
+        # Check environment variable
         env_key = self._get_env_key(category, key)
         env_val = os.environ.get(env_key)
         if env_val is not None:
             return (env_val, "env")
-
-        # Check overrides
-        override_val = self._overrides.get(category, {}).get(key)
-        if override_val is not None:
-            return (override_val, "override")
 
         # Fall back to default from Settings
         return (self._get_settings_value(category, key), "default")
 
     def _get_env_key(self, category: str, key: str) -> str:
         """Construct environment variable name."""
-        if category == "general":
+        if category in ("general", "api_keys"):
             return f"NOUS_{key.upper()}"
         return f"NOUS_{category.upper()}__{key.upper()}"
 

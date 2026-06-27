@@ -43,9 +43,17 @@ async def _tool_invoke_skill(ctx: AppContext, persona: str, name: str, task: str
         config = ChatConfig(**_json.loads(chat_config_result.value.get("content", "{}")))
     api_key = config.get_effective_api_key() if config else None
     if not api_key:
-        import os
+        from nous.config.runtime_config import RuntimeConfigManager
 
-        api_key = os.environ.get("OPENROUTER_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
+        _rcm = RuntimeConfigManager()
+        api_key = (
+            _rcm.get_effective_value("api_keys", "openrouter_api_key")[0]
+            or _rcm.get_effective_value("api_keys", "anthropic_api_key")[0]
+        )
+        if not api_key:
+            import os
+
+            api_key = os.environ.get("OPENROUTER_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         await ctx.event_bus.publish(
             "tool.called",

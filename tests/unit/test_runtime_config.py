@@ -111,10 +111,24 @@ def test_callbacks_fire_on_update(tmp_data_dir: Path):
     assert received[0] == ("timezone", "Europe/London")
 
 
-def test_env_takes_priority(tmp_data_dir: Path):
-    """Environment variables should override both defaults and file overrides."""
+def test_override_takes_priority_over_env(tmp_data_dir: Path):
+    """WebUI overrides should take priority over environment variables."""
     mgr = RuntimeConfigManager()
     mgr.update("general", "timezone", "US/Eastern")
+
+    env_key = "NOUS_TIMEZONE"
+    os.environ[env_key] = "UTC"
+    try:
+        value, source = mgr.get_effective_value("general", "timezone")
+        assert source == "override"
+        assert value == "US/Eastern"
+    finally:
+        del os.environ[env_key]
+
+
+def test_env_used_when_no_override(tmp_data_dir: Path):
+    """Environment variable is used as fallback when no override exists."""
+    mgr = RuntimeConfigManager()
 
     env_key = "NOUS_TIMEZONE"
     os.environ[env_key] = "UTC"

@@ -1,6 +1,21 @@
-# TODO - タスクリスト v9
+# TODO - タスクリスト v10
 
 ## 優先度：🔴（ブロッカー・本番必須）
+- [x] T035: E-1 RuntimeConfigManager 優先順位を override > env > default に変更（30m）
+- [x] T036: E-2 LLM APIキーを Settings 統合 + RuntimeConfigManager 管轄化（1h）
+- [x] T037: E-3 SearXNG URL / agent-browser パス の RuntimeConfigManager 管轄化（30m）
+- [x] T038: E-4 WebUI 設定ダッシュボード拡充（APIキー欄・全カテゴリ・envソース表示）（1.5h）
+- [x] T039: F-1 chat.message フックで synthetic part メモリ注入（1.5h, plugins/opencode-memory-sync）
+- [x] T040: F-2 session.compacted イベントで compaction recovery（1h, plugins/opencode-memory-sync）
+- [x] T041: F-3 warmup 非同期化（30m, plugins/opencode-memory-sync）
+- [x] T042: G-1 sandbox コンテナの /home 一括バインドマウント（15m, docker-compose.yml）
+- [x] T043: G-2 config ペルソナの dangling mount 除去（5m, docker-compose.yml）
+- [x] T044: G-3 default ペルソナの docker-compose マウント除去（G-1で自動解決）
+- [x] T045: H-1 Dockerfile の memory_mcp → nous 修正（15m）
+- [x] T046: H-2 docker-compose nous を ghcr.io/solidlime/nous:latest に（5m）
+- [x] T047: H-3 GitHub Actions docker.yml のイメージ名修正確認（15m）
+
+## 優先度：🟡（重要・後方互換）
 - [ ] T001: A-1 SearXNG docker-compose化（30m）
 - [x] T002: A-2 Dockerfile.sandbox多言語ランタイム追加（2h）(Chunk 1-3で実装済み: 単一sandboxコンテナ + docker exec方式)
 - [ ] T003: A-4 本番ビルド + 全起動確認（1h, A-1,A-2依存）

@@ -143,6 +143,101 @@
 
 ---
 
+### 柱E: 環境変数依存削減 + WebUI設定完全化 (2026-06-28)
+
+> **背景**: 現状 `RuntimeConfigManager` の優先順位は env > JSON override > default。環境変数が設定されたキーは WebUI から変更不可。APIキーは `os.environ.get()` 直読みで RuntimeConfigManager 非経由。
+> **方針**: WebUI 優先のみ。env/override 切替トグルは不要。
+
+- [ ] **E-1**: WebUI優先の設定システム（RuntimeConfigManager 改修）
+  - `get_effective_value()` の優先順位を `json_override > env > default` → `json_override > default` に変更
+  - 環境変数は「初回起動時の初期値」としてのみ使用し、WebUI 設定後は無視
+  - 起動時: env var → json_override に一度だけコピー（json_override が空の場合のみ）
+  - 既存の `SETTINGS_META` / ホットリロード / コールバック機構は維持
+
+- [ ] **E-2**: LLM APIキーを Settings に統合（RuntimeConfigManager 管轄化）
+  - `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `OPENROUTER_API_KEY` の直読み廃止
+  - `Settings` クラスに `llm_api_keys` セクション追加
+  - `chat_config.py` / `use_cases.py` / `_tools_skill.py` の直読み箇所を `RuntimeConfigManager` 経由に変更
+  - `config_overrides.json` に平文保存（当面暗号化不要）
+
+- [ ] **E-3**: SearXNG URL / agent-browser パス の RuntimeConfigManager 管轄化
+  - `NOUS_SEARXNG_URL` / `SEARXNG_URL` の直読み (`os.environ.get()`) を `RuntimeConfigManager` 経由に統一
+  - `NOUS_AGENT_BROWSER_PATH` / `AGENT_BROWSER_PATH` の直読みも同様に統一
+  - chat_config.py, builtin.py, main.py の直読み箇所を修正
+
+- [ ] **E-4**: WebUI 設定ダッシュボード拡充
+  - 既存 `static/settings.js` を全設定カテゴリ対応に拡張
+  - 環境変数由来の設定は `source: "env"` 表示 + WebUI値で上書き可能なトグル
+  - LLM APIキー設定欄追加（パスワードフィールド）
+  - 設定変更後にホットリロード状態を表示（モデル再読込中など）
+
+### 柱F: opencode-mem プラグインパターン採用 (2026-06-28)
+
+> **背景**: `ZeR020/opencode-mem0` のソースコード調査で Nous に即採用価値のある7パターンを発見。Phase 1 で3パターンを導入。
+> **対象プラグイン**: `plugins/opencode-memory-sync/src/index.ts`
+
+- [ ] **F-1**: `chat.message` フックで synthetic part 注入
+  - `output.parts.unshift()` でメモリコンテキストを注入（既存は tool result の出力のみ）
+  - `synthetic: true` フラグで再注入防止（`isNonSyntheticUserMessages` フィルタ）
+  - 注入条件: `injectOn === "always"` または compaction 直後の最初のユーザーメッセージ
+  - 注入コンテキスト整形: Profile + Project Knowledge + 関連メモリ（タグ検索 or 全文検索）
+  - 検索API: Nous MCP の `memory_search` ツールを使用
+
+- [ ] **F-2**: `session.compacted` イベントで compaction recovery
+  - `session.compacted` イベントリスナー追加
+  - compaction 後に `memory_search` で最新メモリを取得し再注入
+  - `compaction.memoryLimit` (デフォルト 10) で上限制御
+  - `noReply: true` で「メモリ注入のみのターン」生成（オプション）
+
+- [ ] **F-3**: warmup 非同期化（fire-and-forget）
+  - Global Symbol (`Symbol.for("nous.memory-sync.warmedup")`) で重複防止
+  - warmup 処理（embedding model load + index rebuild）を IIFE で非同期実行
+  - タイムアウト 30s 設定、text-only フォールバック
+
+### 柱G: Sandbox コンテナのホストマウント永続化修正 (2026-06-28)
+
+> **背景**: docker-compose.yml の sandbox サービスに `default` と `config` の2ペルソナのみ静的マウント。他ペルソナの sandbox データはコンテナ writable layer のみで再起動時に消失。
+> **方針**: 全 `/home` を一括バインドマウント。静的マウント廃止 + テストペルソナのハードコード除去。
+
+- [ ] **G-1**: sandbox コンテナの全 `/home` 一括バインドマウント
+  - docker-compose.yml の sandbox サービス volumes を `- ./data/memory:/home` の1行に変更
+  - `default` / `config` の静的マウント行を削除
+  - 全ペルソナの sandbox データ (`/home/{persona}/`) がホストに永続化される
+  - 注意: `useradd -m` が `/home/{persona}` を作るのでパス構造は一致
+
+- [ ] **G-2**: `config` ペルソナのハードコード除去
+  - docker-compose.yml の `config` マウント行削除（G-1で自動解決）
+  - Python コードベースに `"config"` ペルソナ参照がないことを確認（調査済み: 0件）
+
+- [ ] **G-3**: `default` ペルソナのハードコード監査・削減
+  - `default` ペルソナはシステムプライマリとして維持（削除不可は正当）
+  - docker-compose.yml のマウント行削除（G-1で自動解決）
+  - 設定のデフォルト値としての利用箇所は許容（`settings.py`, `middleware.py` 等）
+
+### 柱H: Dockerイメージの GHCR 配布 + CI 修正 (2026-06-28)
+
+> **背景**: Dockerfile がプロジェクトリネーム (`memory_mcp` → `nous`) に追従しておらずビルド不能。
+> docker-compose.yml の nous サービスは `image: nous:latest`（ローカル）で GHCR からプルしていない。
+> GitHub Actions `docker.yml` はワークフローとして存在するが Dockerfile のパス修正が必要。
+
+- [ ] **H-1**: Dockerfile の `memory_mcp` → `nous` 修正
+  - `APP_HOME`: `/opt/memory-mcp` → `/opt/nous`
+  - `MEMORY_MCP_DATA_ROOT` → `NOUS_DATA_ROOT=/opt/nous/data`
+  - `COPY memory_mcp/` → `COPY nous/`
+  - `CMD ["python", "-m", "memory_mcp.main"]` → `CMD ["python", "-m", "nous.main"]`
+
+- [ ] **H-2**: docker-compose.yml の nous サービスを GHCR イメージに変更
+  - `image: nous:latest` → `image: ghcr.io/solidlime/nous:latest`
+  - `build:` セクション不要（CI がビルド担当）
+  - `env_file: .env` は維持
+
+- [ ] **H-3**: GitHub Actions `docker.yml` の修正
+  - COPY パスが `nous/` になっているか確認
+  - イメージ名: `ghcr.io/${{ github.repository_owner }}/nous` (小文字)
+  - トリガー・タグ戦略は現状のまま維持
+
+---
+
 ## 非機能要件
 
 - **パフォーマンス**: sandbox イメージビルド時間 10分以内、コンテナ起動 30秒以内

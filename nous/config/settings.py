@@ -125,6 +125,15 @@ class Settings(BaseSettings):
     plugin_api_key: str = ""  # empty = no auth (dev mode)
     # Agent-browser settings
     agent_browser_path: str = ""  # Custom path to agent-browser binary (empty = auto-detect)
+
+    # LLM provider API keys (shared across subsystems)
+    anthropic_api_key: str = ""
+    openai_api_key: str = ""
+    openrouter_api_key: str = ""
+
+    # SearXNG search engine URL
+    searxng_url: str = "http://localhost:8080"
+
     embedding: EmbeddingConfig = EmbeddingConfig()
     reranker: RerankerConfig = RerankerConfig()
     qdrant: QdrantConfig = QdrantConfig()

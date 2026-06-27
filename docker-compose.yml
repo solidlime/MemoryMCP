@@ -36,7 +36,7 @@ services:
       start_period: 60s
 
   nous:
-    image: nous:latest
+    image: ghcr.io/solidlime/nous:latest
     container_name: nous
     ports:
       - "26262:26262"
@@ -87,11 +87,9 @@ services:
     container_name: sandbox
     restart: unless-stopped
     volumes:
-      # Each persona's sandbox data is mounted to /home/{persona}
-      # Static mounts for the two built-in personas
-      - ./data/memory/default/sandbox:/home/default
-      - ./data/memory/config/sandbox:/home/config
-      # Additional personas can use docker cp or dynamic bind mounts
+      # 全ペルソナの sandbox データをホストに永続化
+      # ./data/memory/{persona}/sandbox/ → /home/{persona}/ (Dockerfile.sandbox の useradd -m と一致)
+      - ./data/memory:/home
     cap_drop:
       - ALL
     cap_add:

@@ -289,3 +289,74 @@ v7 でツール機能改善・UI/UX改善・テスト充実は完了 (1134 tests
 - D-3 拡張（LRU shield / as_of / active_days / chain-aware pruning / 自動Superseding）
 - D-2 `.well-known/agent-skills/index.json`（将来フェーズ）
 - D-1 Camelot テーブル抽出（pdfplumberで十分）
+
+---
+
+## 柱E: 環境変数依存削減 + WebUI設定完全化 (2026-06-28)
+
+### 背景
+現状 `RuntimeConfigManager` の優先順位は env > JSON override > default。環境変数が設定されているキーはWebUIから変更不可（`source: "env"` 表示で上書き拒否）。
+また LLM APIキーは `os.environ.get()` 直読みで RuntimeConfigManager を経由していない。
+
+### E-1. RuntimeConfigManager 優先順位を WebUI 優先に
+- `get_effective_value()` の優先順位を `json_override > env > default` → `json_override > default` に変更
+- 環境変数は初回起動時の初期値としてのみ使用（json_overrideが空の場合のみenv var→json_overrideにコピー）
+- env/override切替トグルは不要。WebUI優先のみ
+- 既存のホットリロード・コールバック機構は維持
+
+### E-2. LLM APIキーを Settings 統合
+- `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `OPENROUTER_API_KEY` を `Settings.llm_api_keys` に追加
+- `chat_config.py` / `use_cases.py` / `_tools_skill.py` の直読みを RuntimeConfigManager 経由に変更
+- `config_overrides.json` に平文保存（当面暗号化不要）
+
+### E-3. SearXNG URL / agent-browser パスの RuntimeConfigManager 管轄化
+- `NOUS_SEARXNG_URL` / `SEARXNG_URL` / `NOUS_AGENT_BROWSER_PATH` / `AGENT_BROWSER_PATH` の直読み統一
+- chat_config.py, builtin.py, main.py の修正
+
+### E-4. WebUI 設定ダッシュボード拡充
+- 既存 `static/settings.js` を全設定カテゴリ対応に拡張
+- LLM APIキー設定欄追加（パスワードフィールド）
+- 設定変更後のホットリロード状態表示
+
+---
+
+## 柱F: opencode-mem プラグインパターン採用 (2026-06-28)
+
+### 背景
+`ZeR020/opencode-mem0` (tickernelz/opencode-mem の fork, 645+ stars) のソースコード調査から7パターンを発見。
+Phase 1で3パターンを `plugins/opencode-memory-sync/src/index.ts` に導入。
+
+### F-1. chat.message フックで synthetic part 注入
+- `output.parts.unshift()` でメモリコンテキストを注入
+- `synthetic: true` フラグで再注入防止
+- 注入条件: `injectOn === "always"` または compaction後の最初のユーザーメッセージ
+- Nous MCP の `memory_search` ツールでコンテキスト取得
+
+### F-2. session.compacted イベントで compaction recovery
+- compaction 後に最新メモリを再注入
+- `compaction.memoryLimit` (default 10) で上限制御
+
+### F-3. warmup 非同期化
+- Global Symbol パターンで重複防止
+- fire-and-forget 非同期 warmup（embedding model load + index rebuild）
+- 30s timeout, text-only fallback
+
+---
+
+## 柱G: Sandbox コンテナのホストマウント永続化修正 (2026-06-28)
+
+### 背景
+docker-compose.yml の sandbox サービスに `default` と `config` のみ静的マウント。
+他ペルソナの sandbox データ（pip パッケージ、.bashrc、npm/cargo キャッシュ）は
+コンテナ writable layer のみに存在し、`docker compose restart sandbox` で全消失。
+
+### G-1. sandbox コンテナの全 /home 一括バインドマウント
+- docker-compose.yml sandbox volumes を `- ./data/memory:/home` の1行に
+- `default` / `config` の静的マウント行削除
+
+### G-2. config ペルソナのハードコード除去
+- docker-compose.yml の config マウント行削除（G-1で自動解決）
+- コードベースに `"config"` ペルソナ参照なし（調査済み）
+
+### G-3. default ペルソナの docker-compose マウント除去
+- G-1で自動解決。defaultペルソナ自体はシステムプライマリとして維持

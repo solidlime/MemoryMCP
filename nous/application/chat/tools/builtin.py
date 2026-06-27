@@ -347,12 +347,19 @@ def _find_agent_browser(settings=None) -> str | None:
     if s.agent_browser_path and os.path.isfile(s.agent_browser_path):
         return s.agent_browser_path
 
-    # 2. Legacy AGENT_BROWSER_PATH (no prefix)
+    # 2. RuntimeConfigManager (NOUS_AGENT_BROWSER_PATH etc.)
+    from nous.config.runtime_config import RuntimeConfigManager
+
+    path, _ = RuntimeConfigManager().get_effective_value("general", "agent_browser_path")
+    if path and os.path.isfile(path):
+        return path
+
+    # 3. Legacy AGENT_BROWSER_PATH (no prefix)
     path = os.environ.get("AGENT_BROWSER_PATH")
     if path and os.path.isfile(path):
         return path
 
-    # 3. Data volume paths (Docker)
+    # 4. Data volume paths (Docker)
     data_root = os.environ.get("NOUS_DATA_ROOT", "/opt/nous/data")
     candidates = [
         os.path.join(data_root, "agent-browser/bin/agent-browser"),
@@ -362,7 +369,7 @@ def _find_agent_browser(settings=None) -> str | None:
         if os.path.isfile(c):
             return c
 
-    # 4. PATH
+    # 5. PATH
     found = shutil.which("agent-browser") or shutil.which("agent-browser.cmd")
     if found:
         return found

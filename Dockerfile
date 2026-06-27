@@ -1,4 +1,4 @@
-# Multi-stage build for memory-mcp with FastMCP - Optimized
+# Multi-stage build for Nous with FastMCP - Optimized
 # Build stage: Install dependencies
 FROM python:3.12-slim AS builder
 
@@ -25,8 +25,8 @@ RUN pip install --no-cache-dir \
 # Runtime stage: Copy only necessary files
 FROM python:3.12-slim
 
-ENV APP_HOME=/opt/memory-mcp \
-    MEMORY_MCP_DATA_ROOT=/opt/memory-mcp/data \
+ENV APP_HOME=/opt/nous \
+    NOUS_DATA_ROOT=/opt/nous/data \
     PYTHONUNBUFFERED=1 \
     LANG=C.UTF-8 \
     TZ=Asia/Tokyo
@@ -69,7 +69,7 @@ RUN find /usr/local/lib/python3.12/site-packages -type d -name __pycache__ -exec
     rm -rf /usr/local/lib/python3.12/site-packages/pip /usr/local/lib/python3.12/site-packages/setuptools
 
 # Copy application code (v2: memory_mcp package only)
-COPY memory_mcp/ ${APP_HOME}/memory_mcp/
+COPY nous/ ${APP_HOME}/nous/
 COPY pyproject.toml ${APP_HOME}/
 
 # Create data directory under APP_HOME
@@ -91,7 +91,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
 
 # Run agent-browser setup on startup, then launch the MCP server
 ENTRYPOINT ["/usr/local/bin/setup_agent_browser.sh"]
-CMD ["python", "-m", "memory_mcp.main"]
+CMD ["python", "-m", "nous.main"]
 
 # Notes:
 # - Development tip: place environment overrides in a top-level `.env` (or use Compose `env_file:`)

@@ -7,10 +7,11 @@ import warnings
 
 from pydantic import BaseModel, field_validator
 
+from nous.config.runtime_config import RuntimeConfigManager
 from nous.domain.shared.time_utils import format_iso, get_now
 from nous.domain.value_objects import normalize_importance
 
-# Environment variable names for API keys per provider
+# Backward-compat env var names for API keys per provider (legacy, without NOUS_ prefix)
 _ENV_API_KEYS: dict[str, str] = {
     "anthropic": "ANTHROPIC_API_KEY",
     "openai": "OPENAI_API_KEY",
@@ -48,7 +49,10 @@ class ChatConfig(BaseModel):
     tool_result_max_chars: int = 4000
     mcp_servers: list[dict] = []
     enabled_skills: list[str] = ["browser", "search", "memory"]
-    searxng_url: str = os.environ.get("NOUS_SEARXNG_URL", "http://localhost:8080")
+    searxng_url: str = (
+        RuntimeConfigManager().get_effective_value("general", "searxng_url")[0]
+        or "http://localhost:8080"
+    )
     # 画像生成
     image_gen_enabled: bool = False
     image_gen_provider: str = "openai"  # "openai" | "stability"
@@ -174,9 +178,15 @@ class ChatConfig(BaseModel):
         return max(0, min(20, v))
 
     def get_effective_api_key(self) -> str:
-        """Return stored API key or fall back to environment variable."""
+        """Return stored API key or fall back via RuntimeConfigManager."""
         if self.api_key:
             return self.api_key
+        # RuntimeConfigManager (reads NOUS_ANTHROPIC_API_KEY etc.)
+        key_name = f"{self.provider}_api_key"
+        value, _ = RuntimeConfigManager().get_effective_value("api_keys", key_name)
+        if value:
+            return value
+        # Backward compat: old env vars without NOUS_ prefix
         env_var = _ENV_API_KEYS.get(self.provider, "")
         return os.environ.get(env_var, "")
 
