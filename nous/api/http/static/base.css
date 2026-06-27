@@ -370,9 +370,17 @@ html.light .badge-yellow { color: #d97706; } html.light .badge-red { color: #dc2
 .setting-label { position: relative; }
 .tooltip-icon { cursor: help; opacity: 0.6; font-size: 0.75rem; margin-left: 2px; }
 .tooltip-icon:hover { opacity: 1; }
-.setting-badge { font-size: 0.65rem; padding: 1px 5px; border-radius: 6px; margin-left: 4px; vertical-align: middle; }
-.badge-hot { background: rgba(52,211,153,0.15); color: var(--accent-green); }
-.badge-restart { background: rgba(251,146,60,0.15); color: #fb923c; }
+.setting-badge {
+    font-size: 0.65rem; padding: 2px 7px; border-radius: 6px;
+    white-space: nowrap; flex-shrink: 0;
+    display: inline-flex; align-items: center; gap: 3px;
+}
+.badge-hot { background: rgba(52,211,153,0.15); color: var(--accent-green); border: 1px solid rgba(52,211,153,0.25); }
+.badge-restart { background: rgba(251,146,60,0.15); color: #fb923c; border: 1px solid rgba(251,146,60,0.25); }
+.pw-toggle-btn {
+    transition: color 0.15s ease;
+}
+.pw-toggle-btn:hover { color: var(--accent-purple) !important; }
 
 /* ============================================================
    SETTINGS PANEL STICKY HEADER (Chat)

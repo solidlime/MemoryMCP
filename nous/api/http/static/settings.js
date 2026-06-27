@@ -1,3 +1,7 @@
+/* ═══════════════════════════════════════════════════════════════════
+   SETTINGS DASHBOARD — Nous WebUI
+   ═══════════════════════════════════════════════════════════════════ */
+
 const DEPENDS_RULES = {
     'summarization.use_llm': { field: 'summarization.enabled', value: true },
     'summarization.llm_api_url': { field: 'summarization.use_llm', value: true },
@@ -25,10 +29,38 @@ const BUILTIN_PROFILES = {
 };
 
 const CATEGORY_ICONS = {
-    server: '<i data-lucide="monitor"></i>', embedding: '<i data-lucide="brain"></i>', reranker: '<i data-lucide="search"></i>', qdrant: '<i data-lucide="package"></i>',
-    worker: '<i data-lucide="alarm-clock"></i>', general: '<i data-lucide="settings"></i>', search: '<i data-lucide="search-check"></i>', persona: '<i data-lucide="user"></i>',
-    summarization: '<i data-lucide="bot"></i>', forgetting: '<i data-lucide="broom"></i>'
+    api_keys: '<i data-lucide="key"></i>',
+    server: '<i data-lucide="monitor"></i>',
+    embedding: '<i data-lucide="brain"></i>',
+    reranker: '<i data-lucide="search"></i>',
+    qdrant: '<i data-lucide="package"></i>',
+    forgetting: '<i data-lucide="broom"></i>',
+    summarization: '<i data-lucide="bot"></i>',
+    memory_enrichment: '<i data-lucide="sparkles"></i>',
+    general: '<i data-lucide="settings"></i>'
 };
+
+const CATEGORY_DESCRIPTIONS = {
+    api_keys: 'API keys for LLM providers. Keys are stored securely and masked in the UI.',
+    server: 'Server bind address and port. Changes require a full server restart.',
+    embedding: 'Embedding model configuration for vector search. Reload takes 10-60s.',
+    reranker: 'Cross-encoder reranker for search result quality. Reload takes 5-30s.',
+    qdrant: 'Qdrant vector database connection settings.',
+    forgetting: 'Ebbinghaus forgetting curve for automatic memory decay.',
+    summarization: 'LLM-based or statistical memory summarization pipeline.',
+    memory_enrichment: 'Auto-evaluate importance and relations via LLM after memory creation.',
+    general: 'General settings: timezone, logging, thresholds, search engine, browser path.'
+};
+
+/* ── Category display order (consistent across renders) ── */
+const CATEGORY_ORDER = [
+    'api_keys', 'general', 'server', 'embedding', 'reranker',
+    'qdrant', 'forgetting', 'summarization', 'memory_enrichment'
+];
+
+/* ═══════════════════════════════════════════════════════════════════
+   LOAD SETTINGS
+   ═══════════════════════════════════════════════════════════════════ */
 
 async function loadSettings() {
     const el = document.getElementById('settings-content');
@@ -47,15 +79,23 @@ async function loadSettings() {
     }
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   SOURCE ICON
+   ═══════════════════════════════════════════════════════════════════ */
+
 function sourceIcon(src) {
-    if (src === 'env') return '<span class="setting-source source-env"><i data-lucide="globe"></i> env</span>';
-    if (src === 'override') return '<span class="setting-source source-override"><i data-lucide="edit-3"></i> override</span>';
-    return '<span class="setting-source source-default"><i data-lucide="clipboard-list"></i> default</span>';
+    if (src === 'env') return '<span class="setting-source source-env" title="Set via environment variable"><i data-lucide="globe"></i> env</span>';
+    if (src === 'override') return '<span class="setting-source source-override" title="Set via WebUI override"><i data-lucide="edit-3"></i> override</span>';
+    return '<span class="setting-source source-default" title="Using default value"><i data-lucide="clipboard-list"></i> default</span>';
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   RENDER SETTINGS
+   ═══════════════════════════════════════════════════════════════════ */
+
 function renderSettings(el, settings, status) {
-    const reloadStatus = (status && status.reload_status) || {};
-    let html = '';
+    var reloadStatus = (status && status.reload_status) || {};
+    var html = '';
 
     /* ── Profiles section ── */
     html += '<div class="glass p-4 mb-6">';
@@ -71,35 +111,43 @@ function renderSettings(el, settings, status) {
     html += '<div style="position:relative">';
     html += '<span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:0.9rem"><i data-lucide="search"></i></span>';
     html += '<input id="settings-search" type="text" class="glass-input" placeholder="Search settings..." style="width:100%;padding-left:38px;padding-right:36px;font-size:0.9rem" oninput="filterSettings(this.value)">';
-    html += '<button id="settings-search-clear" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.85rem;display:none"><i data-lucide="x"></i></button>';
+    html += '<button id="settings-search-clear" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.85rem;display:none" onclick="document.getElementById(\'settings-search\');filterSettings(\'\')"><i data-lucide="x"></i></button>';
     html += '</div>';
     html += '</div>';
 
     /* ── Category cards ── */
-    for (const [cat, fields] of Object.entries(settings)) {
-        if (cat === 'reload_status') continue;
-        if (typeof fields !== 'object' || fields === null) continue;
-        const hasFields = Object.values(fields).some(f => typeof f === 'object' && f !== null);
-        if (!hasFields) continue;
+    var sortedCats = CATEGORY_ORDER.filter(function(c) { return settings[c]; });
+    /* Append any categories not in CATEGORY_ORDER (future-proofing) */
+    Object.keys(settings).forEach(function(c) {
+        if (c !== 'reload_status' && sortedCats.indexOf(c) === -1) sortedCats.push(c);
+    });
 
-        const icon = CATEGORY_ICONS[cat] || '<i data-lucide="settings"></i>';
-        const catLabel = cat.charAt(0).toUpperCase() + cat.slice(1);
+    sortedCats.forEach(function(cat) {
+        var fields = settings[cat];
+        if (typeof fields !== 'object' || fields === null) return;
+        var hasFields = Object.values(fields).some(function(f) { return typeof f === 'object' && f !== null; });
+        if (!hasFields) return;
+
+        var icon = CATEGORY_ICONS[cat] || '<i data-lucide="settings"></i>';
+        var catLabel = cat.replace(/_/g, ' ').replace(/\b\w/g, function(l) { return l.toUpperCase(); });
+        var catDesc = CATEGORY_DESCRIPTIONS[cat] || '';
 
         /* Diff detection for category */
-        let hasDiffs = false;
-        const catSearchText = cat + ' ' + catLabel;
-        for (const [key, meta] of Object.entries(fields)) {
-            if (typeof meta !== 'object' || meta === null) continue;
+        var hasDiffs = false;
+        var catSearchText = cat + ' ' + catLabel;
+        Object.entries(fields).forEach(function(entry) {
+            var key = entry[0], meta = entry[1];
+            if (typeof meta !== 'object' || meta === null) return;
             if (meta.value != null && meta.default_value != null && String(meta.value) !== '***') {
-                if (String(meta.value) !== String(meta.default_value)) { hasDiffs = true; break; }
+                if (String(meta.value) !== String(meta.default_value)) { hasDiffs = true; }
             }
-        }
+        });
 
         /* Reload status */
-        const catStatus = reloadStatus[cat];
-        let statusHtml = '';
+        var catStatus = reloadStatus[cat];
+        var statusHtml = '';
         if (catStatus && catStatus.status && catStatus.status !== 'idle') {
-            const st = catStatus.status;
+            var st = catStatus.status;
             if (st === 'loading' || st === 'reloading') {
                 statusHtml = '<div style="margin-top:8px"><div style="font-size:0.78rem;color:var(--accent-yellow);margin-bottom:4px"><i data-lucide="clock"></i> ' + esc(catStatus.message || 'Loading...') + '</div><div class="progress-wrap"><div class="progress-bar progress-indeterminate"></div></div></div>';
             } else if (st === 'ready' || st === 'success') {
@@ -111,38 +159,48 @@ function renderSettings(el, settings, status) {
 
         /* Card wrapper */
         html += '<div class="glass p-6 mb-6 setting-category-card" data-category="' + esc(cat) + '" data-searchtext="' + esc(catSearchText) + '">';
-        html += '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px">';
+        html += '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px">';
         html += '<div style="display:flex;align-items:center;gap:10px">';
-        html += '<button class="cat-toggle-btn" id="cat-toggle-' + cat + '" data-toggle-cat="' + cat + '">▼</button>';
-        html += '<span class="card-title" style="margin:0">' + icon + ' ' + esc(catLabel) + ' Settings</span>';
+        html += '<button class="cat-toggle-btn" id="cat-toggle-' + cat + '" data-toggle-cat="' + cat + '" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.8rem;padding:2px" title="Toggle section">▼</button>';
+        html += '<span class="card-title" style="margin:0">' + icon + ' ' + esc(catLabel) + '</span>';
         html += '</div>';
+        html += '<div style="display:flex;align-items:center;gap:8px">';
         if (hasDiffs) {
-            html += '<button class="cat-reset-btn" data-reset-cat="' + cat + '">↩ Reset Category</button>';
+            html += '<button class="cat-reset-btn" data-reset-cat="' + cat + '" style="font-size:0.75rem;padding:4px 10px;border-radius:8px;background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);color:var(--accent-red);cursor:pointer">↩ Reset Category</button>';
         }
         html += '</div>';
+        html += '</div>';
+
+        /* Category description */
+        if (catDesc) {
+            html += '<div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:12px;line-height:1.4;padding-left:22px">' + esc(catDesc) + '</div>';
+        }
+
         html += statusHtml;
         html += '<div id="cat-body-' + cat + '" class="cat-body">';
 
         /* ── Fields ── */
-        for (const [key, meta] of Object.entries(fields)) {
-            if (typeof meta !== 'object' || meta === null) continue;
-            const val = meta.value != null ? meta.value : '';
-            const defaultVal = meta.default_value;
-            const src = meta.source || 'default';
-            const hot = meta.hot_reload !== false;
-            const inputId = 'setting-' + cat + '-' + key;
-            const isPassword = key.toLowerCase().includes('key') || key.toLowerCase().includes('password') || key.toLowerCase().includes('secret');
-            const isBool = val === true || val === false;
-            const desc = meta.description || '';
-            const isMasked = String(val) === '***';
-            const isDiff = !isMasked && defaultVal != null && String(val) !== String(defaultVal);
-            const reloadHint = hot ? '<i data-lucide="refresh-cw"></i> Hot-reload OK' : '<i data-lucide="lock"></i> Requires restart';
-            const tooltipText = reloadHint + (meta.reload_time ? ' (⏱ ' + meta.reload_time + ')' : '');
-            const searchText = key.replace(/_/g, ' ') + ' ' + desc + ' ' + cat;
+        Object.entries(fields).forEach(function(entry) {
+            var key = entry[0], meta = entry[1];
+            if (typeof meta !== 'object' || meta === null) return;
+            var val = meta.value != null ? meta.value : '';
+            var defaultVal = meta.default_value;
+            var src = meta.source || 'default';
+            var hot = meta.hot_reload !== false;
+            var isMasked = meta.masked === true || String(val) === '***';
+            var inputId = 'setting-' + cat + '-' + key;
+            var isBool = val === true || val === false;
+            var desc = meta.description || '';
+            var isDiff = !isMasked && defaultVal != null && String(val) !== String(defaultVal);
+            var reloadHint = hot
+                ? '<i data-lucide="refresh-cw" style="width:13px;height:13px"></i> Hot-reload'
+                : '<i data-lucide="lock" style="width:13px;height:13px"></i> Restart required';
+            var tooltipText = reloadHint + (meta.reload_time ? ' (' + meta.reload_time + ')' : '');
+            var searchText = key.replace(/_/g, ' ') + ' ' + desc + ' ' + cat;
 
             html += '<div class="setting-row" data-setting-key="' + cat + '.' + key + '" data-category="' + cat + '" data-searchtext="' + esc(searchText) + '">';
 
-            /* Label column with blue dot */
+            /* Label column with diff dot */
             html += '<div style="display:flex;flex-direction:column;gap:2px;flex:0 0 auto;min-width:160px;position:relative">';
             html += '<span class="setting-diff-dot" style="' + (isDiff ? '' : 'display:none;') + 'position:absolute;left:-14px;top:8px;width:8px;height:8px;border-radius:50%;background:var(--accent-blue)"></span>';
             html += '<label class="setting-label" for="' + inputId + '" title="' + esc(tooltipText) + '" style="margin-bottom:0">' + esc(key.replace(/_/g, ' ')) + '</label>';
@@ -152,19 +210,23 @@ function renderSettings(el, settings, status) {
             /* Source icon */
             html += sourceIcon(src);
 
-            /* Lock icon */
-            if (!hot) html += '<span title="Restart required" style="cursor:help"><i data-lucide="lock"></i></span>';
-
             /* Input element */
-            if (key === 'log_level') {
+            if (isMasked) {
+                /* ── Password / masked field with toggle ── */
+                var displayVal = isMasked && val === '***' ? '••••••••' : String(val);
+                html += '<div style="flex:1;min-width:160px;position:relative;display:flex;align-items:center">';
+                html += '<input id="' + inputId + '" type="password" class="glass-input" style="flex:1;padding-right:36px" value="' + esc(String(val)) + '" data-cat="' + esc(cat) + '" data-key="' + esc(key) + '" data-masked="true" placeholder="' + (val === '***' ? '•••••••• (set via env/override)' : 'Enter value...') + '"' + (!hot ? ' disabled' : '') + '>';
+                html += '<button class="pw-toggle-btn" data-input="' + inputId + '" style="position:absolute;right:8px;background:none;border:none;color:var(--text-muted);cursor:pointer;padding:2px;font-size:0.8rem" title="Show/hide"><i data-lucide="eye"></i></button>';
+                html += '</div>';
+            } else if (key === 'log_level') {
                 html += '<select id="' + inputId + '" class="glass-input" style="flex:1;min-width:120px" data-cat="' + esc(cat) + '" data-key="' + esc(key) + '">';
-                ['DEBUG','INFO','WARNING','ERROR','CRITICAL'].forEach(lv => {
+                ['DEBUG','INFO','WARNING','ERROR','CRITICAL'].forEach(function(lv) {
                     html += '<option value="' + lv + '"' + (String(val).toUpperCase() === lv ? ' selected' : '') + '>' + lv + '</option>';
                 });
                 html += '</select>';
             } else if (key === 'device') {
                 html += '<select id="' + inputId + '" class="glass-input" style="flex:1;min-width:120px" data-cat="' + esc(cat) + '" data-key="' + esc(key) + '">';
-                ['cpu','cuda','mps','auto'].forEach(d => {
+                ['cpu','cuda','mps','auto'].forEach(function(d) {
                     html += '<option value="' + d + '"' + (String(val) === d ? ' selected' : '') + '>' + d + '</option>';
                 });
                 html += '</select>';
@@ -174,41 +236,45 @@ function renderSettings(el, settings, status) {
                 html += '<option value="false"' + (val === false ? ' selected' : '') + '>false</option>';
                 html += '</select>';
             } else {
-                const inputType = isPassword ? 'password' : (typeof val === 'number' ? 'number' : 'text');
-                html += '<input id="' + inputId + '" type="' + inputType + '" class="glass-input" style="flex:1;min-width:160px" value="' + esc(String(val)) + '" data-cat="' + esc(cat) + '" data-key="' + esc(key) + '"' + (typeof val === 'number' ? ' step="any"' : '') + '>';
+                var inputType = (typeof val === 'number' && key !== 'host') ? 'number' : 'text';
+                html += '<input id="' + inputId + '" type="' + inputType + '" class="glass-input" style="flex:1;min-width:160px" value="' + esc(String(val)) + '" data-cat="' + esc(cat) + '" data-key="' + esc(key) + '"' + (typeof val === 'number' ? ' step="any"' : '') + (!hot ? ' disabled' : '') + '>';
             }
 
+            /* Hot reload badge */
+            html += '<span class="setting-badge ' + (hot ? 'badge-hot' : 'badge-restart') + '" title="' + esc(tooltipText) + '">' + (hot ? '⚡ hot' : '🔒 restart') + '</span>';
+
             /* Apply button */
-            html += '<button class="glass-btn setting-apply-btn" data-cat="' + esc(cat) + '" data-key="' + esc(key) + '" data-input="' + inputId + '" style="padding:6px 12px;font-size:0.78rem">' + (hot ? '<i data-lucide="check-circle"></i> Apply' : '<i data-lucide="lock"></i> Apply*') + '</button>';
+            if (!hot) {
+                html += '<button class="setting-apply-btn" data-cat="' + esc(cat) + '" data-key="' + esc(key) + '" data-input="' + inputId + '" disabled style="padding:6px 12px;font-size:0.78rem;opacity:0.4;cursor:not-allowed"><i data-lucide="lock"></i> Locked</button>';
+            } else {
+                html += '<button class="glass-btn setting-apply-btn" data-cat="' + esc(cat) + '" data-key="' + esc(key) + '" data-input="' + inputId + '" style="padding:6px 12px;font-size:0.78rem"><i data-lucide="check-circle"></i> Apply</button>';
+            }
 
             /* Reset button (hidden when no diff) */
-            html += '<button class="setting-reset-btn" data-cat="' + esc(cat) + '" data-key="' + esc(key) + '" style="' + (isDiff ? '' : 'display:none;') + 'padding:4px 10px;font-size:0.72rem">↩ Reset</button>';
-
-            /* Restart hint */
-            if (!hot) html += '<span style="font-size:0.7rem;color:var(--accent-yellow)">Restart required</span>';
+            html += '<button class="setting-reset-btn" data-cat="' + esc(cat) + '" data-key="' + esc(key) + '" style="' + (isDiff ? '' : 'display:none;') + 'padding:4px 10px;font-size:0.72rem;background:none;border:1px solid var(--glass-border);border-radius:6px;color:var(--text-muted);cursor:pointer">↩ Reset</button>';
 
             /* Validation error placeholder */
             html += '<div class="setting-validation-error" style="display:none;width:100%;font-size:0.72rem;color:var(--accent-red);margin-top:2px"></div>';
 
             html += '</div>'; /* end setting-row */
-        }
+        });
 
         html += '</div>'; /* end cat-body */
         html += '</div>'; /* end category card */
-    }
+    });
 
     /* ── Source legend & action buttons ── */
     html += '<div class="glass p-6">';
-    html += '<div class="card-title"><i data-lucide="save"></i> Configuration Source Priority</div>';
+    html += '<div class="card-title"><i data-lucide="info"></i> Configuration Source Priority</div>';
     html += '<div style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:16px">';
     html += '<span class="setting-source source-env"><i data-lucide="globe"></i> env</span>';
-    html += '<span style="margin:0 8px">></span>';
+    html += '<span style="margin:0 8px;color:var(--text-muted)">&gt;</span>';
     html += '<span class="setting-source source-override"><i data-lucide="edit-3"></i> override</span>';
-    html += '<span style="margin:0 8px">></span>';
+    html += '<span style="margin:0 8px;color:var(--text-muted)">&gt;</span>';
     html += '<span class="setting-source source-default"><i data-lucide="clipboard-list"></i> default</span>';
     html += '</div>';
     html += '<div style="display:flex;gap:10px;flex-wrap:wrap">';
-    html += '<button id="export-config-btn" class="glass-btn-success glass-btn"><i data-lucide="upload"></i> Export Config</button>';
+    html += '<button id="export-config-btn" class="glass-btn-success glass-btn"><i data-lucide="download"></i> Export Config</button>';
     html += '<button id="reset-config-btn" class="glass-btn-danger glass-btn"><i data-lucide="trash-2"></i> Reset All to Defaults</button>';
     html += '</div>';
     html += '</div>';
@@ -248,9 +314,22 @@ function renderSettings(el, settings, status) {
         };
     });
 
+    /* Password toggle buttons */
+    document.querySelectorAll('.pw-toggle-btn').forEach(function(btn) {
+        btn.onclick = function() {
+            var input = document.getElementById(this.dataset.input);
+            if (!input) return;
+            var isPassword = input.type === 'password';
+            input.type = isPassword ? 'text' : 'password';
+            this.innerHTML = isPassword ? '<i data-lucide="eye-off"></i>' : '<i data-lucide="eye"></i>';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        };
+    });
+
     /* Apply buttons */
     document.querySelectorAll('.setting-apply-btn').forEach(function(btn) {
         btn.onclick = async function() {
+            if (btn.disabled) return;
             var cat = btn.dataset.cat;
             var key = btn.dataset.key;
             var input = document.getElementById(btn.dataset.input);
@@ -274,17 +353,18 @@ function renderSettings(el, settings, status) {
                     return;
                 }
             }
-            btn.textContent = '<i data-lucide="clock"></i>';
+            btn.innerHTML = '<i data-lucide="clock"></i>';
             btn.disabled = true;
             try {
                 await api('/api/settings', { method: 'PUT', body: JSON.stringify({ category: cat, key: key, value: value }) });
                 toast('<i data-lucide="check-circle"></i> Setting saved: ' + cat + '.' + key, 'success');
-                btn.textContent = '<i data-lucide="check-circle"></i> Done';
-                if (cat === 'embedding' || cat === 'reranker') startStatusPoll();
+                btn.innerHTML = '<i data-lucide="check-circle"></i> Done';
+                if (cat === 'embedding' || cat === 'reranker' || cat === 'qdrant') startStatusPoll();
                 setTimeout(function() { loadSettings(); }, 1500);
             } catch (e) {
-                toast('<i data-lucide="x-circle"></i> Failed to save: ' + e.message, 'error');
-                btn.textContent = '<i data-lucide="x-circle"></i> Error';
+                var errMsg = e.message || 'Unknown error';
+                toast('<i data-lucide="x-circle"></i> Failed to save: ' + errMsg, 'error');
+                btn.innerHTML = '<i data-lucide="x-circle"></i> Error';
             }
             setTimeout(function() { btn.disabled = false; }, 2000);
         };
@@ -303,11 +383,12 @@ function renderSettings(el, settings, status) {
             if (!result.valid) {
                 this.style.borderColor = 'var(--accent-red)';
                 if (errEl) { errEl.textContent = result.error; errEl.style.display = 'block'; }
-                if (applyBtn) applyBtn.disabled = true;
+                if (applyBtn && !applyBtn.disabled) applyBtn.disabled = true;
             } else {
                 this.style.borderColor = '';
                 if (errEl) { errEl.textContent = ''; errEl.style.display = 'none'; }
-                if (applyBtn) applyBtn.disabled = false;
+                if (applyBtn && !applyBtn.dataset.cat) { /* don't re-enable locked buttons */ }
+                else if (applyBtn) applyBtn.disabled = false;
             }
         });
     });
@@ -318,9 +399,9 @@ function renderSettings(el, settings, status) {
         var blob = new Blob([JSON.stringify(settings, null, 2)], {type: 'application/json'});
         var a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = 'memorymcp-config.json';
+        a.download = 'nous-config.json';
         a.click();
-        toast('<i data-lucide="upload"></i> Config exported', 'success');
+        toast('<i data-lucide="download"></i> Config exported', 'success');
     };
 
     /* Reset All button */
@@ -328,15 +409,19 @@ function renderSettings(el, settings, status) {
     if (rstBtn) rstBtn.onclick = async function() {
         if (!confirm('Reset ALL settings to defaults? This cannot be undone.')) return;
         try {
-            for (const [rCat, rFields] of Object.entries(settings)) {
-                if (typeof rFields !== 'object') continue;
-                for (const [rKey, rMeta] of Object.entries(rFields)) {
+            var count = 0;
+            Object.entries(settings).forEach(function(entry) {
+                var rCat = entry[0], rFields = entry[1];
+                if (typeof rFields !== 'object') return;
+                Object.entries(rFields).forEach(function(e2) {
+                    var rKey = e2[0], rMeta = e2[1];
                     if (rMeta && rMeta.source === 'override' && rMeta.default_value != null) {
-                        await api('/api/settings', { method: 'PUT', body: JSON.stringify({ category: rCat, key: rKey, value: rMeta.default_value }) });
+                        api('/api/settings', { method: 'PUT', body: JSON.stringify({ category: rCat, key: rKey, value: rMeta.default_value }) });
+                        count++;
                     }
-                }
-            }
-            toast('<i data-lucide="check-circle"></i> All settings reset to defaults', 'success');
+                });
+            });
+            toast('<i data-lucide="check-circle"></i> All settings reset to defaults (' + count + ' changes)', 'success');
             setTimeout(function() { loadSettings(); }, 500);
         } catch (e) {
             toast('<i data-lucide="x-circle"></i> Reset failed: ' + e.message, 'error');
@@ -354,7 +439,7 @@ function renderSettings(el, settings, status) {
             if (action === 'load-builtin') {
                 loadSettingsProfile(name, BUILTIN_PROFILES[name]);
             } else if (action === 'load-user') {
-                var data = localStorage.getItem('memorymcp_profile_' + name);
+                var data = localStorage.getItem('nous_profile_' + name);
                 if (data) loadSettingsProfile(name, JSON.parse(data));
             } else if (action === 'delete') {
                 deleteSettingsProfile(name);
@@ -364,9 +449,12 @@ function renderSettings(el, settings, status) {
 
     applyDependsRules();
     renderSettingsProfiles();
+    animateCards(el);
 }
 
-/* ═══════════════════════ SEARCH / FILTER ═══════════════════════ */
+/* ═══════════════════════════════════════════════════════════════════
+   SEARCH / FILTER
+   ═══════════════════════════════════════════════════════════════════ */
 
 function filterSettings(query) {
     var q = query.toLowerCase().trim();
@@ -374,7 +462,6 @@ function filterSettings(query) {
     if (clearBtn) clearBtn.style.display = q ? 'block' : 'none';
 
     document.querySelectorAll('.setting-category-card').forEach(function(card) {
-        var cat = card.dataset.category || '';
         var catText = (card.dataset.searchtext || '').toLowerCase();
         var rows = card.querySelectorAll('.setting-row');
 
@@ -389,10 +476,7 @@ function filterSettings(query) {
 
         rows.forEach(function(r) {
             var rowText = (r.dataset.searchtext || '').toLowerCase();
-            if (catMatch) {
-                r.style.display = '';
-                anyRowMatch = true;
-            } else if (rowText.includes(q)) {
+            if (catMatch || rowText.includes(q)) {
                 r.style.display = '';
                 anyRowMatch = true;
             } else {
@@ -404,6 +488,7 @@ function filterSettings(query) {
 
         /* Auto-expand matching categories */
         if (catMatch || anyRowMatch) {
+            var cat = card.dataset.category;
             var body = document.getElementById('cat-body-' + cat);
             var toggle = document.getElementById('cat-toggle-' + cat);
             if (body) body.style.display = 'block';
@@ -412,11 +497,14 @@ function filterSettings(query) {
     });
 }
 
-/* ═══════════════════════ CATEGORY TOGGLE ═══════════════════════ */
+/* ═══════════════════════════════════════════════════════════════════
+   CATEGORY TOGGLE
+   ═══════════════════════════════════════════════════════════════════ */
 
 function toggleCategory(catId) {
     var body = document.getElementById('cat-body-' + catId);
     var toggle = document.getElementById('cat-toggle-' + catId);
+    if (!body || !toggle) return;
     if (body.style.display === 'none') {
         body.style.display = 'block';
         toggle.textContent = '▼';
@@ -426,7 +514,9 @@ function toggleCategory(catId) {
     }
 }
 
-/* ═══════════════════════ RESET FUNCTIONS ═══════════════════════ */
+/* ═══════════════════════════════════════════════════════════════════
+   RESET FUNCTIONS
+   ═══════════════════════════════════════════════════════════════════ */
 
 async function resetField(cat, key, defaultVal) {
     try {
@@ -443,27 +533,33 @@ async function resetCategory(cat) {
     var settings = S.settingsData;
     if (!settings || !settings[cat]) return;
     try {
-        for (const [key, meta] of Object.entries(settings[cat])) {
+        var count = 0;
+        Object.entries(settings[cat]).forEach(function(entry) {
+            var key = entry[0], meta = entry[1];
             if (meta && meta.source === 'override' && meta.default_value != null) {
-                await api('/api/settings', { method: 'PUT', body: JSON.stringify({ category: cat, key: key, value: meta.default_value }) });
+                api('/api/settings', { method: 'PUT', body: JSON.stringify({ category: cat, key: key, value: meta.default_value }) });
+                count++;
             }
-        }
-        toast('<i data-lucide="check-circle"></i> Category ' + cat + ' reset to defaults', 'success');
+        });
+        toast('<i data-lucide="check-circle"></i> Category ' + cat + ' reset (' + count + ' settings)', 'success');
         setTimeout(function() { loadSettings(); }, 800);
     } catch (e) {
         toast('<i data-lucide="x-circle"></i> Reset failed: ' + e.message, 'error');
     }
 }
 
-/* ═══════════════════════ DEPENDENCY RULES ═══════════════════════ */
+/* ═══════════════════════════════════════════════════════════════════
+   DEPENDENCY RULES
+   ═══════════════════════════════════════════════════════════════════ */
 
 function applyDependsRules() {
-    for (const [targetKey, rule] of Object.entries(DEPENDS_RULES)) {
+    Object.entries(DEPENDS_RULES).forEach(function(entry) {
+        var targetKey = entry[0], rule = entry[1];
         var parts = rule.field.split('.');
         var depCat = parts[0];
         var depKey = parts[1];
         var settings = S.settingsData;
-        if (!settings || !settings[depCat] || !settings[depCat][depKey]) continue;
+        if (!settings || !settings[depCat] || !settings[depCat][depKey]) return;
         var depValue = settings[depCat][depKey].value;
         var isEnabled = depValue === rule.value || depValue === String(rule.value);
         var row = document.querySelector('[data-setting-key="' + targetKey + '"]');
@@ -476,16 +572,26 @@ function applyDependsRules() {
                 if (input) input.disabled = true;
                 if (btn) btn.disabled = true;
             } else {
-                if (input) input.disabled = false;
-                if (btn) btn.disabled = false;
+                /* Only re-enable if not a locked (hot_reload=false) field */
+                var meta = settings[targetKey.split('.')[0]] && settings[targetKey.split('.')[0]][targetKey.split('.')[1]];
+                if (!meta || meta.hot_reload !== false) {
+                    if (input) input.disabled = false;
+                    if (btn) btn.disabled = false;
+                }
             }
         }
-    }
+    });
 }
 
-/* ═══════════════════════ FIELD VALIDATION ═══════════════════════ */
+/* ═══════════════════════════════════════════════════════════════════
+   FIELD VALIDATION
+   ═══════════════════════════════════════════════════════════════════ */
 
 function validateField(cat, key, value, meta) {
+    /* Skip validation for empty masked fields (user hasn't entered a new value) */
+    if (meta.masked && (!value || value === '••••••••' || value === '***')) {
+        return { valid: true, error: '' };
+    }
     /* Number validation */
     if (typeof meta.default_value === 'number' || meta.default_value === 0) {
         var num = parseFloat(value);
@@ -506,7 +612,9 @@ function validateField(cat, key, value, meta) {
     return { valid: true, error: '' };
 }
 
-/* ═══════════════════════ PROFILES ═══════════════════════ */
+/* ═══════════════════════════════════════════════════════════════════
+   PROFILES
+   ═══════════════════════════════════════════════════════════════════ */
 
 function saveSettingsProfile() {
     var name = prompt('Enter profile name:');
@@ -514,14 +622,16 @@ function saveSettingsProfile() {
     var settings = S.settingsData;
     if (!settings) { toast('No settings loaded', 'error'); return; }
     var profile = {};
-    for (const [cat, fields] of Object.entries(settings)) {
-        if (typeof fields !== 'object' || fields === null) continue;
+    Object.entries(settings).forEach(function(entry) {
+        var cat = entry[0], fields = entry[1];
+        if (typeof fields !== 'object' || fields === null) return;
         profile[cat] = {};
-        for (const [key, meta] of Object.entries(fields)) {
-            if (meta && meta.value != null) profile[cat][key] = meta.value;
-        }
-    }
-    localStorage.setItem('memorymcp_profile_' + name.trim(), JSON.stringify(profile));
+        Object.entries(fields).forEach(function(e2) {
+            var key = e2[0], meta = e2[1];
+            if (meta && meta.value != null && String(meta.value) !== '***') profile[cat][key] = meta.value;
+        });
+    });
+    localStorage.setItem('nous_profile_' + name.trim(), JSON.stringify(profile));
     toast('<i data-lucide="save"></i> Profile "' + esc(name.trim()) + '" saved', 'success');
     renderSettingsProfiles();
 }
@@ -530,12 +640,14 @@ async function loadSettingsProfile(name, profile) {
     if (!confirm('Load profile "' + esc(name) + '"? This will apply all settings from the profile.')) return;
     try {
         var count = 0;
-        for (const [cat, fields] of Object.entries(profile)) {
-            for (const [key, value] of Object.entries(fields)) {
-                await api('/api/settings', { method: 'PUT', body: JSON.stringify({ category: cat, key: key, value: value }) });
+        Object.entries(profile).forEach(function(entry) {
+            var cat = entry[0], fields = entry[1];
+            Object.entries(fields).forEach(function(e2) {
+                var key = e2[0], value = e2[1];
+                api('/api/settings', { method: 'PUT', body: JSON.stringify({ category: cat, key: key, value: value }) });
                 count++;
-            }
-        }
+            });
+        });
         toast('<i data-lucide="check-circle"></i> Loaded profile "' + esc(name) + '" (' + count + ' settings)', 'success');
         setTimeout(function() { loadSettings(); }, 1000);
     } catch (e) {
@@ -545,7 +657,7 @@ async function loadSettingsProfile(name, profile) {
 
 function deleteSettingsProfile(name) {
     if (!confirm('Delete profile "' + esc(name) + '"?')) return;
-    localStorage.removeItem('memorymcp_profile_' + name);
+    localStorage.removeItem('nous_profile_' + name);
     toast('Profile "' + esc(name) + '" deleted', 'info');
     renderSettingsProfiles();
 }
@@ -555,16 +667,16 @@ function renderSettingsProfiles() {
     if (!container) return;
     var html = '';
     /* Built-in profiles */
-    for (const [name] of Object.entries(BUILTIN_PROFILES)) {
+    Object.keys(BUILTIN_PROFILES).forEach(function(name) {
         html += '<button data-profile-action="load-builtin" data-profile-name="' + esc(name) + '" class="glass-btn profile-chip" style="padding:5px 14px;font-size:0.78rem;background:linear-gradient(135deg,rgba(167,139,250,0.15),rgba(244,114,182,0.15));border-color:rgba(167,139,250,0.3)">';
         html += '<i data-lucide="package"></i> ' + esc(name);
         html += '</button>';
-    }
+    });
     /* User profiles from localStorage */
     for (var i = 0; i < localStorage.length; i++) {
         var k = localStorage.key(i);
-        if (k && k.startsWith('memorymcp_profile_')) {
-            var pName = k.replace('memorymcp_profile_', '');
+        if (k && k.startsWith('nous_profile_')) {
+            var pName = k.replace('nous_profile_', '');
             html += '<div style="display:inline-flex;align-items:center;gap:0">';
             html += '<button data-profile-action="load-user" data-profile-name="' + esc(pName) + '" class="glass-btn profile-chip" style="padding:5px 14px;font-size:0.78rem;border-top-right-radius:0;border-bottom-right-radius:0">';
             html += '<i data-lucide="user"></i> ' + esc(pName);
@@ -577,7 +689,9 @@ function renderSettingsProfiles() {
     container.innerHTML = html;
 }
 
-/* ═══════════════════════ STATUS POLLING ═══════════════════════ */
+/* ═══════════════════════════════════════════════════════════════════
+   STATUS POLLING
+   ═══════════════════════════════════════════════════════════════════ */
 
 function startStatusPoll() {
     if (S.statusPoll) clearInterval(S.statusPoll);
