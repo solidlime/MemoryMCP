@@ -291,10 +291,66 @@ class SQLiteConnection:
         memory_conn.commit()
         logger.info("Memory schema initialized for persona '%s'", self.persona)
 
+        # Initialize FTS5 full-text search index
+        self._init_fts_schema(memory_conn)
+
         inventory_conn = self.get_inventory_db()
         inventory_conn.executescript(_INVENTORY_SCHEMA)
         inventory_conn.commit()
         logger.info("Inventory schema initialized for persona '%s'", self.persona)
+
+    def _init_fts_schema(self, conn: sqlite3.Connection) -> None:
+        """Create FTS5 virtual table and sync triggers for full-text search.
+
+        Uses a standalone FTS5 table (not external-content) with its own copy of
+        ``content`` and a ``memories_key`` column for JOINs. Triggers use standard
+        SQL ``DELETE FROM`` (the FTS5-specific ``'delete'`` command is not available
+        in bundled libsqlite3 3.46).
+        """
+        conn.execute(
+            """
+            CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
+                content,
+                memories_key UNINDEXED,
+                tokenize='unicode61'
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TRIGGER IF NOT EXISTS memories_ai AFTER INSERT ON memories BEGIN
+                INSERT INTO memories_fts(rowid, content, memories_key)
+                VALUES (new.rowid, new.content, new.key);
+            END
+            """
+        )
+        conn.execute(
+            """
+            CREATE TRIGGER IF NOT EXISTS memories_ad AFTER DELETE ON memories BEGIN
+                DELETE FROM memories_fts WHERE rowid = old.rowid;
+            END
+            """
+        )
+        conn.execute(
+            """
+            CREATE TRIGGER IF NOT EXISTS memories_au AFTER UPDATE ON memories BEGIN
+                DELETE FROM memories_fts WHERE rowid = old.rowid;
+                INSERT INTO memories_fts(rowid, content, memories_key)
+                VALUES (new.rowid, new.content, new.key);
+            END
+            """
+        )
+        # Backfill FTS5 index if empty (migration from non-FTS5 DB)
+        count = conn.execute("SELECT COUNT(*) as cnt FROM memories_fts").fetchone()["cnt"]
+        if count == 0:
+            existing = conn.execute("SELECT COUNT(*) as cnt FROM memories").fetchone()["cnt"]
+            if existing > 0:
+                conn.execute(
+                    "INSERT INTO memories_fts(rowid, content, memories_key) SELECT rowid, content, key FROM memories"
+                )
+                logger.info("FTS5 index backfilled: %d documents", existing)
+        conn.commit()
+        logger.info("FTS5 schema initialized for persona '%s'", self.persona)
 
     def close(self) -> None:
         """Close all managed connections."""

@@ -31,6 +31,16 @@ MEMORY_TOOLS: list[ToolDefinition] = [
                 "date_range": {"type": "string", "description": "日付範囲: 7d, 30d, 昨日, 今日"},
                 "min_importance": {"type": "number", "description": "最小重要度 0.0-1.0"},
                 "emotion": {"type": "string", "description": "感情でフィルタ（happy/sad/angry 等）"},
+                "vector_weight": {
+                    "type": "number",
+                    "description": "RRFベクトル検索の重み（0.0-1.0）",
+                    "default": 1.0,
+                },
+                "keyword_weight": {
+                    "type": "number",
+                    "description": "RRFキーワード検索の重み（0.0-1.0）",
+                    "default": 0.5,
+                },
             },
             "required": ["query"],
         },

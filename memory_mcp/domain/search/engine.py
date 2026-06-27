@@ -37,6 +37,9 @@ class SearchQuery:
     importance_weight: float = 0.0
     recency_weight: float = 0.0
     lifecycle_status: str | None = "active"
+    vector_weight: float = 1.0  # RRF weight for vector/semantic signal
+    keyword_weight: float = 0.5  # RRF weight for keyword (FTS5 + plain) signal
+    similarity_threshold: float = 0.85  # cosine similarity flag threshold
 
 
 @dataclass
@@ -45,7 +48,8 @@ class SearchResult:
 
     memory: Memory
     score: float
-    source: str  # "semantic" | "keyword" | "hybrid"
+    source: str  # "semantic" | "keyword" | "fts" | "hybrid"
+    similarity_flag: bool = False  # True when cosine_similarity >= threshold
 
 
 class SearchEngine:
@@ -139,21 +143,38 @@ class SearchEngine:
     def _hybrid_search(
         self, query: SearchQuery, date_from=None, date_to=None
     ) -> Result[list[SearchResult], SearchError]:
-        """Execute hybrid search combining keyword and semantic results."""
+        """Execute hybrid search combining FTS5, plain keyword, and semantic results with RRF fusion."""
         all_results: list[SearchResult] = []
 
+        # 1. Plain LIKE keyword search (existing)
         kw_result = self._keyword.search(query.text, limit=query.top_k, date_from=date_from, date_to=date_to)
         if kw_result.is_ok:
             all_results.extend(self._to_search_results(kw_result.value, "keyword"))
 
+        # 2. FTS5 full-text search (BM25 ranked)
+        if self._memory_repo is not None and hasattr(self._memory_repo, "search_fts"):
+            fts_result = self._memory_repo.search_fts(
+                query.text, top_k=query.top_k * 2, date_from=date_from, date_to=date_to
+            )
+            if fts_result.is_ok:
+                all_results.extend(self._to_search_results(fts_result.value, "fts"))
+
+        # 3. Semantic vector search (Qdrant)
         if self._semantic is not None:
             sem_result = self._semantic.search(query.text, limit=query.top_k, date_from=date_from, date_to=date_to)
             if sem_result.is_ok:
-                all_results.extend(self._to_search_results(sem_result.value, "semantic"))
+                sem_results = self._to_search_results(sem_result.value, "semantic")
+                # Apply similarity_flag for high-confidence matches
+                if query.similarity_threshold > 0:
+                    for sr in sem_results:
+                        if sr.score >= query.similarity_threshold:
+                            sr.similarity_flag = True
+                all_results.extend(sem_results)
 
         if not all_results:
             return Success([])
 
+        # 4. RRF ranking with source weights
         if self._ranker is not None:
             all_results = self._ranker.rank(all_results, query)
         else:
@@ -204,6 +225,8 @@ class SearchEngine:
                 min_importance=query.min_importance,
                 importance_weight=query.importance_weight,
                 recency_weight=query.recency_weight,
+                vector_weight=query.vector_weight,
+                keyword_weight=query.keyword_weight,
             )
             result = self._hybrid_search(sub)
             if result.is_ok:
@@ -291,6 +314,8 @@ class SearchEngine:
                 min_importance=query.min_importance,
                 importance_weight=query.importance_weight,
                 recency_weight=query.recency_weight,
+                vector_weight=query.vector_weight,
+                keyword_weight=query.keyword_weight,
             )
             result = self._hybrid_search(sub)
             if result.is_ok:

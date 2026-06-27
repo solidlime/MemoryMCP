@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 import pytest
 
 from memory_mcp.domain.memory.entities import Memory
@@ -402,3 +404,122 @@ class TestGetAllStrengths:
         result = repo.get_all_strengths()
         assert result.is_ok
         assert len(result.unwrap()) == 3
+
+
+# ---------------------------------------------------------------------------
+# FTS5 full-text search
+# ---------------------------------------------------------------------------
+
+
+class TestFTS5Search:
+    def test_fts_empty_query_returns_empty(self, repo):
+        result = repo.search_fts("")
+        assert result.is_ok
+        assert result.unwrap() == []
+
+    def test_fts_search_finds_content(self, repo):
+        repo.save(_make_memory("mem1", "hello world this is a test"))
+        repo.save(_make_memory("mem2", "goodbye world"))
+        result = repo.search_fts("hello", top_k=10)
+        assert result.is_ok
+        results = result.unwrap()
+        assert len(results) >= 1
+        assert results[0][0].key == "mem1"
+
+    def test_fts_search_respects_top_k(self, repo):
+        repo.save(_make_memory("mem1", "alpha beta gamma"))
+        repo.save(_make_memory("mem2", "alpha beta delta"))
+        repo.save(_make_memory("mem3", "alpha beta epsilon"))
+        result = repo.search_fts("alpha", top_k=2)
+        assert result.is_ok
+        assert len(result.unwrap()) == 2
+
+    def test_fts_score_normalized(self, repo):
+        repo.save(_make_memory("mem1", "hello world foo bar baz"))
+        result = repo.search_fts("hello", top_k=10)
+        assert result.is_ok
+        results = result.unwrap()
+        assert len(results) >= 1
+        mem, score = results[0]
+        assert 0.0 <= score <= 1.0
+        assert mem.key == "mem1"
+
+    def test_fts_excludes_tombstoned(self, repo):
+        repo.save(_make_memory("mem1", "hello world active"))
+        repo.save(_make_memory("mem2", "hello world tombstoned"))
+        repo.tombstone("mem2")
+        result = repo.search_fts("hello", top_k=10)
+        assert result.is_ok
+        keys = [m.key for m, _ in result.unwrap()]
+        assert "mem1" in keys
+        assert "mem2" not in keys
+
+    def test_fts_and_trigger_sync_on_insert(self, repo):
+        """FTS5 index should automatically sync with memories table via trigger."""
+        repo.save(_make_memory("mem_trigger", "trigger test content"))
+        result = repo.search_fts("trigger", top_k=10)
+        assert result.is_ok
+        assert len(result.unwrap()) >= 1
+        assert result.unwrap()[0][0].key == "mem_trigger"
+
+    def test_fts_and_trigger_sync_on_update(self, repo):
+        """Updating content should be reflected in FTS5."""
+        repo.save(_make_memory("mem_update", "original content"))
+        repo.update("mem_update", content="updated content here")
+        # Should find by new content
+        result = repo.search_fts("updated", top_k=10)
+        assert result.is_ok
+        assert len(result.unwrap()) >= 1
+        # Should NOT find by old content
+        result = repo.search_fts("original", top_k=10)
+        assert result.is_ok
+        assert len(result.unwrap()) == 0
+
+    def test_fts_and_trigger_sync_on_delete(self, repo):
+        """Deleting a memory should remove it from FTS5 index."""
+        repo.save(_make_memory("mem_del", "delete this content"))
+        repo.delete("mem_del")
+        result = repo.search_fts("delete", top_k=10)
+        assert result.is_ok
+        assert len(result.unwrap()) == 0
+
+    def test_fts_sanitize_query_special_chars(self, repo):
+        """FTS5 query sanitization should handle special characters."""
+        repo.save(_make_memory("mem_safe", "safe content here"))
+        # Special FTS5 chars (parentheses) should be handled safely
+        result = repo.search_fts("safe (content)", top_k=10)
+        assert result.is_ok
+        assert len(result.unwrap()) >= 1
+
+    def test_fts_sanitize_query_with_quotes(self, repo):
+        """Terms with embedded quotes should be escaped correctly."""
+        repo.save(_make_memory("mem_quote", 'say "hello" world'))
+        result = repo.search_fts('"hello"', top_k=10)
+        assert result.is_ok
+        assert len(result.unwrap()) >= 1
+
+    def test_fts_date_filter(self, repo):
+        """FTS5 search should respect date range filtering."""
+        now = get_now()
+        repo.save(
+            Memory(
+                key="mem_old",
+                content="old content hello",
+                created_at=now - timedelta(days=30),
+                updated_at=now - timedelta(days=30),
+            )
+        )
+        repo.save(
+            Memory(
+                key="mem_new",
+                content="new content hello",
+                created_at=now,
+                updated_at=now,
+            )
+        )
+        # Filter to only recent memories
+        result = repo.search_fts("hello", top_k=10, date_from=now - timedelta(days=1))
+        assert result.is_ok
+        keys = [m.key for m, _ in result.unwrap()]
+        assert "mem_new" in keys
+        assert "mem_old" not in keys

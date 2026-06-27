@@ -207,6 +207,86 @@ class SQLiteMemoryRepository(SQLiteBlockMixin, SQLiteStrengthMixin):
             return Failure(RepositoryError(str(e)))
 
     # ------------------------------------------------------------------
+    # FTS5 full-text search
+    # ------------------------------------------------------------------
+
+    def search_fts(
+        self, query: str, top_k: int = 10, date_from: datetime | None = None, date_to: datetime | None = None
+    ) -> Result[list[tuple[Memory, float]], RepositoryError]:
+        """FTS5 full-text search using BM25 ranking.
+
+        Returns [(Memory, normalized_bm25_score), ...] sorted by relevance.
+        Score normalized to 0-1 range via ``1 / (1 + |bm25|)``.
+        """
+        try:
+            fts_query = self._sanitize_fts_query(query)
+            if not fts_query:
+                return Success([])
+
+            conditions: list[str] = ["memories_fts MATCH ?"]
+            params: list = [fts_query]
+
+            # Exclude tombstoned
+            conditions.append("m.lifecycle_status != 'tombstoned'")
+
+            # Date range filter
+            if date_from is not None or date_to is not None:
+                if date_from is not None and date_to is not None:
+                    conditions.append("m.created_at BETWEEN ? AND ?")
+                    params.extend([date_from.isoformat(), date_to.isoformat()])
+                elif date_from is not None:
+                    conditions.append("m.created_at >= ?")
+                    params.append(date_from.isoformat())
+                elif date_to is not None:
+                    conditions.append("m.created_at <= ?")
+                    params.append(date_to.isoformat())
+
+            where_clause = " AND ".join(conditions)
+            rows = self._db.execute(
+                f"""
+                SELECT m.*, rank
+                FROM memories_fts
+                JOIN memories m ON m.key = memories_fts.memories_key
+                WHERE {where_clause}
+                ORDER BY rank
+                LIMIT ?
+                """,  # noqa: S608  # nosec B608
+                [*params, top_k],
+            ).fetchall()
+
+            scored: list[tuple[Memory, float]] = []
+            for row in rows:
+                memory = self._row_to_memory(row)
+                bm25 = row["rank"]
+                # BM25: lower = more relevant (usually -5 to 5)
+                # Normalize to 0-1: 1/(1+|bm25|)
+                score = 1.0 / (1.0 + abs(bm25))
+                scored.append((memory, score))
+            return Success(scored)
+        except Exception as e:
+            logger.error("FTS5 search failed for '%s': %s", query, e)
+            return Failure(RepositoryError(str(e)))
+
+    @staticmethod
+    def _sanitize_fts_query(query: str) -> str:
+        """Convert a plain-text query to safe FTS5 MATCH syntax (AND logic).
+
+        Splits on whitespace, double-quotes each term, and joins with ``AND``
+        to ensure all terms must match. This protects against FTS5 special
+        characters (``OR``, ``NOT``, ``*``, ``(...)``) while preserving
+        Unicode text including Japanese.
+        """
+        terms = query.strip().split()
+        if not terms:
+            return ""
+        escaped = []
+        for t in terms:
+            # Escape embedded double-quotes by doubling them (FTS5 convention)
+            t = t.replace('"', '""')
+            escaped.append(f'"{t}"')
+        return " AND ".join(escaped)
+
+    # ------------------------------------------------------------------
     # Keyword search
     # ------------------------------------------------------------------
 

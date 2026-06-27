@@ -115,6 +115,17 @@ MemoryMCP: 日本語特化の永続記憶 MCP サーバー。SQLite + Qdrant + E
 | メモリ | SQLite+Qdrant+Ebbinghaus | SQLite+4-tier+RRF | ◎ 高レベル |
 | Docker | sandbox着手 | DooD+secrets+healthcheck | ◎ 良好 |
 
+### 4-tier lifecycle 論理削除（2026-06-27）
+- `lifecycle_status TEXT DEFAULT 'active'` カラム追加 (v028 migration)
+- `"active"` tag は Goal/Promise status 専用。lifecycle_status とは独立管理
+- `memory_delete` は論理削除 (tombstone) に変更: `lifecycle_status = "tombstoned"`
+- Qdrant ポイントは物理削除（tombstone時に delete）
+- 全 SELECT クエリで `WHERE lifecycle_status != 'tombstoned'` フィルタ
+- `find_by_key()` は tombstoned も取得可能（リカバリ用）
+- `_active_where()` 静的メソッドでフィルタ統一
+- `sqlite3.Row.get()` は Python 3.14 でも未実装 → `row["col"] if "col" in row.keys()` で代替
+- InMemory test repos にも `tombstone()` 追加必須
+
 #### 次アクション候補
 1. **PDF capability**: PyMuPDF+pdfplumber+Tesseract-jpn フォールバック
 2. **Agent Skills 標準正式移行**: 既存 plugins/ を SKILL.md 形式統一

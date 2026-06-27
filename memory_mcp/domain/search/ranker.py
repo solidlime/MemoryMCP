@@ -17,13 +17,25 @@ class ResultRanker(Protocol):
 
 
 class RRFRanker:
-    """Reciprocal Rank Fusion ranker."""
+    """Reciprocal Rank Fusion ranker.
+
+    ``SearchQuery.vector_weight`` applies to ``source="semantic"``.
+    ``SearchQuery.keyword_weight`` applies to ``source="keyword"`` and ``source="fts"``.
+    """
 
     def __init__(self, k: int = 60) -> None:
         self.k = k
 
+    @staticmethod
+    def _source_weight(source: str, query: SearchQuery) -> float:
+        """Return RRF weight for a given source name."""
+        if source == "semantic":
+            return query.vector_weight if hasattr(query, "vector_weight") else 1.0
+        # "keyword" or "fts" → keyword_weight
+        return query.keyword_weight if hasattr(query, "keyword_weight") else 0.5
+
     def rank(self, results: list[SearchResult], query: SearchQuery) -> list[SearchResult]:
-        """Rank results using RRF formula: score = sum(1/(k + rank_i))."""
+        """Rank results using weighted RRF formula: score = sum(weight / (k + rank_i))."""
         if not results:
             return []
 
@@ -36,11 +48,12 @@ class RRFRanker:
         for r in results:
             by_source.setdefault(r.source, []).append(r)
 
-        for _source, group in by_source.items():
+        for source, group in by_source.items():
+            weight = self._source_weight(source, query)
             group.sort(key=lambda x: x.score, reverse=True)
             for rank, r in enumerate(group):
                 key = r.memory.key
-                rrf_score = 1.0 / (self.k + rank + 1)
+                rrf_score = weight / (self.k + rank + 1)
                 scores[key] = scores.get(key, 0.0) + rrf_score
                 if key not in result_map or r.score > result_map[key].score:
                     result_map[key] = r

@@ -322,6 +322,8 @@ async def _tool_memory_search(
     emotion: str | None = None,
     importance_weight: float = 0.0,
     recency_weight: float = 0.0,
+    vector_weight: float = 1.0,
+    keyword_weight: float = 0.5,
 ) -> str:
     """Search memories with hybrid retrieval."""
     if top_k is not None and (top_k < 1 or top_k > 200):
@@ -336,6 +338,8 @@ async def _tool_memory_search(
         emotion=emotion,
         importance_weight=importance_weight,
         recency_weight=recency_weight,
+        vector_weight=vector_weight,
+        keyword_weight=keyword_weight,
     )
     if hasattr(ctx.search_engine, "_semantic") and ctx.search_engine._semantic:
         ctx.search_engine._semantic._persona = persona
@@ -369,16 +373,17 @@ async def _tool_memory_search(
     memories: list[dict] = []
     for sr in result.value:
         m = sr.memory
-        memories.append(
-            {
-                "key": m.key,
-                "content": m.content,
-                "importance": m.importance,
-                "tags": m.tags,
-                "emotion": m.emotion,
-                "score": sr.score,
-            }
-        )
+        entry: dict = {
+            "key": m.key,
+            "content": m.content,
+            "importance": m.importance,
+            "tags": m.tags,
+            "emotion": m.emotion,
+            "score": sr.score,
+        }
+        if sr.similarity_flag:
+            entry["similarity_flag"] = True
+        memories.append(entry)
     await ctx.event_bus.publish(
         "tool.called",
         {

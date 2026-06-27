@@ -199,10 +199,13 @@ def register_tools(mcp: FastMCP) -> None:
         emotion: str | None = None,
         importance_weight: float = 0.0,
         recency_weight: float = 0.0,
+        vector_weight: float = 1.0,
+        keyword_weight: float = 0.5,
     ) -> str:
         """Search memories with hybrid retrieval. Use when conversation references past events
         or you need context about the user. date_range: "7d","30d","昨日".
-        importance_weight/recency_weight: RRF scoring boosts (0.0-1.0)."""
+        importance_weight/recency_weight: RRF scoring boosts (0.0-1.0).
+        vector_weight/keyword_weight: RRF source weights for semantic/keyword signals."""
         p = _resolve_persona()
         return await _tool_memory_search(
             AppContextRegistry.get(p),
@@ -215,6 +218,8 @@ def register_tools(mcp: FastMCP) -> None:
             emotion=emotion,
             importance_weight=importance_weight,
             recency_weight=recency_weight,
+            vector_weight=vector_weight,
+            keyword_weight=keyword_weight,
         )
 
     # memory_stats
