@@ -251,6 +251,35 @@ v7 でツール機能改善・UI/UX改善・テスト充実は完了 (1134 tests
 
 ---
 
+---
+
+## 柱E: MemoryMCP スキルパッケージとして配布（次回以降）
+
+> **発案**: 2026-06-27。MemoryMCPをAIエージェント向けのスキルパッケージとして配布し、
+> Opencode等のMCPサーバ登録時の連携精度を向上させる。
+
+### E-1. SKILL.md 作成
+- MemoryMCPの全20ツールの使い方・ユースケース・ベストプラクティスを記述
+- Agent Skills標準形式（フロントマター: name, description）
+- Progressive Disclosure: 起動時~100 tokens / アクティブ時<5000 tokens
+- AIエージェントが「このサーバで何ができるか」を事前理解できるように
+
+### E-2. Opencode向けMCPサーバ設定テンプレート
+- `opencode.json` の `mcpServers` セクションに追加する設定例
+- 環境変数テンプレート込み
+- ワンコマンド/ワンクリック登録を目指す
+
+### E-3. pipパッケージ + CLI エントリポイント
+- `pip install memory-mcp` でインストール可能に
+- `memory-mcp serve` コマンドでサーバー起動
+- `memory-mcp register` でOpencode等に自動登録（可能であれば）
+
+### E-4. スキルディスカバリ
+- AIエージェントがMemoryMCPの存在を自動検出できる仕組み
+- `.well-known/agent-skills/` またはMCPプロトコルのserver info活用
+
+---
+
 ## スコープ外（本PLAN対象外、別案件）
 - 画像生成 プロバイダ追加（現状の DALL-E + Stability で十分）
 - 外部 API フォールバック（Brave Search API 等）→ SearXNG 自己ホストで十分
