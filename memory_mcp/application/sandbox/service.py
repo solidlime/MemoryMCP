@@ -312,10 +312,13 @@ def _build_container_configs(persona: str) -> tuple[dict, Path | None]:
         # support chown, causing EACCES when UID 1000 tries to read root-owned
         # temp files created by llm_sandbox (0o600). Security is still enforced
         # via cap_drop ALL + no-new-privileges below.
+        # DAC_OVERRIDE is required: temp files (0o600, host UID) must be
+        # readable by root (UID 0) inside the sandbox container.
         "volumes": {
             str(sandbox_mount): {"bind": WORKSPACE, "mode": "rw"},
         },
         "cap_drop": ["ALL"],
+        "cap_add": ["DAC_OVERRIDE"],
         "security_opt": ["no-new-privileges:true"],
     }
     logger.info(
@@ -570,6 +573,7 @@ class SandboxSession:
                     lang=language,
                     runtime_configs={
                         "cap_drop": container_configs.get("cap_drop", ["ALL"]),
+                        "cap_add": container_configs.get("cap_add", ["DAC_OVERRIDE"]),
                         "security_opt": container_configs.get("security_opt", ["no-new-privileges:true"]),
                     },
                 ) as session:
