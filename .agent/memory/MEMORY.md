@@ -57,3 +57,70 @@ MemoryMCP: 日本語特化の永続記憶 MCP サーバー。SQLite + Qdrant + E
 - SSHリモート: `git remote set-url origin git@github.com:solidlime/MemoryMCP.git`
 - HTTPSが認証失敗する場合のフォールバック
 - `ruff check → 0 errors` を維持。pytest: 1085 pass / 1 fail (test_settings既存バグ)
+
+### MCP Capabilities 業界調査 (2026-06-27)
+詳細: `docs/mcp_research_2026-06-27.md` (35+プロジェクト調査)
+
+#### 画像生成パターン
+- **Capability Discovery Protocol**: 各プロバイダーの `discover_capabilities()` が起動時に能力返却。ルーターが enum ではなく capability サーフェスに問い合わせる
+- **環境変数プレフィックス**: `<SERVER>_<PROVIDER>_<FIELD>` 命名規則が業界標準
+- **画像返却**: base64 MCP `ImageContent` が最も一般的（MemoryMCPは準拠済み）
+- **Hexagonal Architecture**: Domain/Application/Infrastructure/McpHost 6レイヤー分離で新プロバイダー追加が容易
+- **fail-fast startup + stderr分離 + FluentValidation** の3点セット
+
+#### PDF処理パターン
+- **ライブラリフォールバック連鎖**: テキスト抽出は PyMuPDF→pdfplumber→pypdf、テーブルは Camelot→pdfplumber→Tabula
+- **OCR判定閾値**: ページテキスト ≥ 30文字 → native、< 30文字 → OCR fallback
+- **キャッシュ戦略**: SQLiteに メタデータ・ページ単位テキスト・画像path保存。base64より軽量
+- **コアロジック分離**: `pdf_utils.py` をMCP非依存に分離（テスト容易性）
+- **必須システム依存**: tesseract-ocr, tesseract-ocr-jpn, ghostscript, default-jre-headless, poppler-utils, pandoc
+- **エンジン選択**: "native" / "auto" / "smart" / "ocr" / "force_ocr" を LLMに選択させる
+
+#### Skills/Plugins 標準
+- **Agent Skills 標準** (https://agentskills.io/specification): `SKILL.md` 形式が業界標準
+- **フロントマター**: `name` (1-64文字, a-z0-9-) + `description` (1-1024文字) 必須
+- **Progressive Disclosure (3段階)**: 起動時name/description (~100 tokens) → アクティブ時SKILL.md全体 (<5000 tokens) → 必要に応じて参照ファイル
+- **Claude Code Issue #21545**: 全MCPツールのfull schemaロードで30-40%コンテキスト消費 → lazy-load 必須要件
+- **Anthropic code-execution**: 150K→2K tokens (98.7%削減) の `search_tools` パターン
+- **`/well-known/agent-skills/index.json`**: 外部スキル発見の業界標準化進行中
+
+#### Memory/Persistence パターン
+- **4-tier lifecycle**: Active → Superseded → Tombstoned → Hard-deleted (MemoryMCPのEbbinghausに統合候補)
+- **ハイブリッド検索 (RRF)**: KNN (vector) + FTS5 (BM25) → RRF でマージが業界標準
+- **WAL + 5秒 busy_timeout + CASCADE delete** が並行アクセスの最低条件
+- **時系列クエリ `as_of` パラメータ**: 過去時点のグラフ状態を復元
+- **エンティティ名正規化**: 大文字小文字・区切り文字を無視した一致
+- **size cap + 6-month LRU shield** が長期運用で必須
+- **active_days 概念**: ユーザー活動期間のみカウント（休暇で記憶喪失しない）
+- **chain-aware pruning**: グラフ隣接が高い記憶は連鎖して延命
+- **embedding失敗時の graceful degradation**: LIKE-onlyフォールバック
+- **Tool description カスタマイズ環境変数**: LLMパフォーマンス直結
+- **FSRS (power-law) > Ebbinghaus (exponential)**: 人間の記憶に正確だが実装複雑度高
+
+#### Docker デプロイパターン
+- **`depends_on with condition: service_healthy`**: 依存サービスのヘルスチェック後に起動
+- **DooD vs DinD**: socket マウント = root-level ホストアクセス権（特権昇格ベクトル）。信頼できるイメージのみ
+- **Docker MCP Toolkit のリソース制限**: 1 CPU / 2 GB が参考値
+- **nginx + SSE の落とし穴**: `proxy_buffering off` 必須（デフォルトでリアルタイム性が壊れる）
+- **Hardening 3点セット**: `read_only: true` + `tmpfs: /tmp` + `cap_drop: [ALL]`
+- **Health check endpoint `/health`**: FastMCP の `custom_route` で実装
+- **Image signing + SBOM**: エンタープライズ要件
+
+#### MemoryMCP 現状評価
+| 領域 | 現状 | 業界標準 | 評価 |
+|---|---|---|---|
+| 画像生成 | OpenAI互換content配列 | base64 ImageContent | ◎ 標準準拠 |
+| PDF | 無し | フォールバック連鎖+OCR | △ 機会あり |
+| スキル | plugins/着手 | SKILL.md標準 | ○ 進行中 |
+| メモリ | SQLite+Qdrant+Ebbinghaus | SQLite+4-tier+RRF | ◎ 高レベル |
+| Docker | sandbox着手 | DooD+secrets+healthcheck | ◎ 良好 |
+
+#### 次アクション候補
+1. **PDF capability**: PyMuPDF+pdfplumber+Tesseract-jpn フォールバック
+2. **Agent Skills 標準正式移行**: 既存 plugins/ を SKILL.md 形式統一
+3. **4-tier lifecycle 統合**: Ebbinghaus に active/superseded/tombstoned/hard-deleted
+4. **KNN+FTS5+RRF**: Qdrant 維持しつつ SQLite FTS5 も活用
+5. **Docker hardening 強化**: sandbox image に `read_only+cap_drop` 追加
+6. **Health check `/health`**: FastMCP custom_route で実装
+7. **`as_of` パラメータ**: 時系列クエリ対応
+8. **Tool description カスタマイズ環境変数**: `MEMORY_MCP_TOOL_*_DESCRIPTION`
