@@ -233,7 +233,7 @@ def get_global_skills_db(data_dir: str) -> sqlite3.Connection:
     """Return the singleton global skills.sqlite connection."""
     global _global_skills_conn
     if _global_skills_conn is None:
-        db_path = Path(data_dir) / "skills.sqlite"
+        db_path = Path(data_dir) / "skills" / "skills.sqlite"
         db_path.parent.mkdir(parents=True, exist_ok=True)
         conn = sqlite3.connect(str(db_path), check_same_thread=False)
         conn.execute("PRAGMA journal_mode=WAL")

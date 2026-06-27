@@ -1,393 +1,196 @@
-# PLAN: Docker本番構築 + 全ツール統合 + 機能拡張 2026-06-27 (v8)
+# ホスト側データ永続化ディレクトリ構造 案
 
-> **前回レビュー反映**: @oracle 指摘6件を全反映（B-5分割、agent-browser WSL2、A-2軽量化、D-1/D-3縮小、D-2/.well-known削除、優先順位再編）
+## 動機：sandbox から nous 記憶DB の分離
 
-## 根拠
-v7 でツール機能改善・UI/UX改善・テスト充実は完了 (1134 tests, 0 fail)。
-ドッグフーディングで判明した根本問題 + @librarian による30+プロジェクト比較調査 + @explorer による全ツールMCP監査の結果から、
-以下の4領域での改善が必要。
+**現状の問題**: `data/memory/{persona}/` が nous 記憶DB（`memory.sqlite`, `inventory.sqlite`）と sandbox 永続ホーム（`sandbox/` 以下）の**両方を兼ねている**。sandbox コンテナが `data/memory/` 全体を `/home` にマウントするため、sandbox 内で実行されるユーザーコードが nous の SQLite DB ファイルを読み書きできてしまう。これは意図しない露出であり破損リスクがある。
 
-## 目標
-**`docker compose up` 一発で全機能が利用可能になること。**
-**外部MCPクライアントからも全ツールが利用可能になること。**
+**解決方針**: `data/memory/{persona}/`（nous DB専用）と `data/sandbox/{persona}/`（sandbox ホーム専用）を**完全分離**する。sandbox コンテナは `data/sandbox/` のみをマウントし、nous の DB ファイルを一切見せない。
 
-## 4本柱
-- **柱A**: Docker Compose 完全自動デプロイ (SearXNG、sandbox多言語イメージ、browserセットアップ、security hardening、healthチェック)
-- **柱B**: MCPツール全登録 + 名前統一 + 二重実装解消 (未登録5ツールのMCP化、名前統一、memory系二重実装の一本化)
-- **柱C**: sandbox マルチ言語対応 (Node.js、Bashネイティブ、Go/Rust)
-- **柱D**: 新機能追加 (PDF OCR、Agent Skills標準移行、メモリ4-tier lifecycle基本、ツール説明カスタマイズ)
+---
 
-## 優先順位と依存関係（改訂版）
+## 提案ディレクトリ構造
+
 ```
-柱A (Docker) ────── 最優先。他全柱の前提環境
-柱B-1〜B-4 (MCP登録・名前統一) ──── 柱Aと並行可
-柱D-1/D-2 (PDF/Skills) ──── 柱Bから独立。並行可
-柱B-5 (二重実装解消) ──── 柱B-1完了後。D-3の前提
-柱C (sandbox多言語) ── 柱A-2のDockerfile改修に依存
-柱D-3/D-4 (lifecycle/検索) ── 柱B-5完了後
+data/                                   # ← DATA_ROOT (default: ./data)
+│
+├── qdrant/                             # 🔵 [qdrant service] ベクトルDB
+│   └── (qdrant が自動管理)             #    全ペルソナ共有。collection名 "memory_{persona}" で分離
+│                                       #    mount: ${DATA_ROOT}/qdrant → /qdrant/storage
+│
+├── searxng/                            # 🔵 [searxng service] 検索エンジン設定
+│   └── settings.yml                    #    全ペルソナ共有
+│                                       #    mount: ${DATA_ROOT}/searxng → /etc/searxng
+│
+│   # ═══════════════════════════════════════════════════════════════════
+│   # 以下は nous コンテナ管轄（/opt/nous/data = NOUS_DATA_ROOT）
+│   # mount: ${DATA_ROOT} → /opt/nous/data （data/ 全体）
+│   # ═══════════════════════════════════════════════════════════════════
+│
+├── memory/                             # 🟢 nous 記憶DB（ペルソナ別）
+│   ├── default/                        #    ペルソナ "default"
+│   │   ├── memory.sqlite               #      └─ 記憶DB
+│   │   ├── memory.sqlite-wal           #         WAL journal
+│   │   ├── memory.sqlite-shm           #         shared memory
+│   │   ├── inventory.sqlite            #      └─ 目録DB
+│   │   ├── inventory.sqlite-wal
+│   │   └── inventory.sqlite-shm
+│   ├── test_persona/                   #    ペルソナ "test_persona"（同上）
+│   └── ...                             #    動的追加
+│
+├── sandbox/                            # 🟢 sandbox 永続ホーム（ペルソナ別）
+│   │                                   #    mount: ${DATA_ROOT}/sandbox → /home
+│   │                                   #    ★ sandbox コンテナはここだけ見える。memory.sqlite 非露出
+│   ├── default/                        #    ペルソナ "default"
+│   │   ├── .sandbox-venv/              #      └─ Python venv
+│   │   ├── .sandbox-pip-cache/         #      └─ pip cache
+│   │   └── uploads/                    #      └─ 添付ファイル（nous 書込 → sandbox 読取）
+│   ├── test_persona/
+│   └── ...
+│
+├── cache/                              # 🟡 モデルキャッシュ（全ペルソナ共有）
+│   ├── huggingface/
+│   ├── sentence_transformers/
+│   └── torch/
+│
+├── config/                             # 🟡 実行時設定（全ペルソナ共有）
+│   └── config_overrides.json
+│
+├── skills/                             # 🟡 エージェントスキル（全ペルソナ共有）
+│   ├── skills.sqlite                   #    ★ data/ ルートから skills/ 内に移動
+│   ├── memory/SKILL.md
+│   ├── browser/SKILL.md
+│   └── search/SKILL.md
+│
+├── import/                             # 🟡 自動インポート（全ペルソナ共有）
+│   └── done/
+│
+├── agent-browser/                      # 🟡 agent-browser CLI
+│   └── bin/agent-browser
+│
+├── logs/                               # ★新設: アプリログ永続化
+│   └── nous.log
+│
+└── backups/                            # ★新設: 手動バックアップ置き場
+    └── .gitkeep
 ```
 
 ---
 
-## 柱A: Docker Compose 完全自動デプロイ
+## ペルソナ分離のまとめ
 
-### A-1. docker-compose.yml に SearXNG サービス追加
-- `searxng/searxng:latest` イメージ、ポート8080（内部）
-- ボリューム: `./data/searxng:/etc/searxng` で設定永続化
-- 環境変数 `SEARXNG_BASE_URL` 設定
-- nous の `depends_on` に searxng 追加 (condition: service_healthy)
-- SearXNG URL デフォルト値を `http://searxng:8080` に変更
-
-### A-2. Dockerfile.sandbox 多言語ランタイム追加
-- **Node.js 22.x LTS** 追加 (~50MB増)
-- **Go 1.22+** 追加 (~150MB増) — ステートレス実行のみ
-- **Rust + rust-script** 追加 (~200MB増) — ステートレス実行のみ
-- **Tesseract OCR + jpn** 追加 (~200MB増) — PDF OCR用 (D-1で使用)
-- ベースイメージ: python:3.11-slim-bullseye 維持
-- マルチステージビルドで最終イメージサイズ最小化
-- ⚠️ 合計約600MB増 → ビルド時間・pull時間実用性を検証。Go/Rustはビルド時間が長いため、許容できない場合はイメージ分割（python+node+tesseract と go+rust を別イメージ）を検討
-
-### A-3. 環境変数による SearXNG URL 設定
-- `NOUS_SEARXNG_URL` 環境変数で上書き可能に
-- docker-compose.yml で `SEARXNG_URL=http://searxng:8080` 設定
-- chat_config.py のデフォルト値変更（`http://nas:11111` → env var）
-
-### A-4. 本番ビルド + 全起動確認
-- `docker compose up` で qdrant + searxng + nous 全起動
-- sandbox イメージ自動ビルド確認
-- agent-browser 自動セットアップ確認
-- **agent-browser のコンテナ内 Chrome 起動確認（`--no-sandbox` フラグ伝搬検証）** ← WSL2ブロッカー対処
-- healthcheck が全サービスで機能するか確認
-- CI ワークフロー (docker.yml) が更新後の Dockerfile でビルド通るか確認
-
-### A-5. Docker security hardening
-- sandbox コンテナ: `read_only: true`, `cap_drop: [ALL]`, `tmpfs: /tmp`
-- nous: `read_only: true` (書き込み必要なボリュームのみ rw)
-- 全コンテナ: `no-new-privileges: true`
-- nginx (使用時) の `proxy_buffering off` 確認 (SSE 対応)
-
-### A-6. `/health` エンドポイント追加
-- FastMCP の `custom_route` で `/health` 実装
-- Qdrant / SearXNG / sandbox の到達性チェックを含む
-- docker-compose の healthcheck に使用
+| データ種別 | 配置パス | ペルソナ分離 | sandbox 露出 | サービス |
+|-----------|---------|:--:|:--:|:-------:|
+| 記憶DB | `data/memory/{persona}/memory.sqlite` | ディレクトリ | ❌ 非露出 | nous |
+| 目録DB | `data/memory/{persona}/inventory.sqlite` | ディレクトリ | ❌ 非露出 | nous |
+| sandbox ホーム | `data/sandbox/{persona}/` | ディレクトリ | ✅ | sandbox |
+| 添付ファイル | `data/sandbox/{persona}/uploads/` | ディレクトリ | ✅ | nous⇄sandbox |
+| sandbox テンポラリ | コンテナ内 `/sandbox/` | コンテナ内蔵 | N/A | sandbox |
+| ベクトルDB | `data/qdrant/collections/memory_{persona}/` | collection名 | ❌ | qdrant |
+| モデルキャッシュ | `data/cache/` | 共有 | ❌ | nous |
+| 設定 | `data/config/` | 共有 | ❌ | nous |
+| スキル | `data/skills/` | 共有 | ❌ | nous |
+| 検索エンジン | `data/searxng/` | 共有 | ❌ | searxng |
 
 ---
 
-## 柱B: MCPツール全登録 + 名前統一 + 二重実装解消
+## docker-compose.yml 変更
 
-### B-1. 未登録5ツールの MCP `@mcp.tool()` 追加
-以下のツールを `tools.py` に `@mcp.tool()` として追加:
-- **browser**: `builtin._handle_browser` を呼ぶ MCP ラッパー
-- **search**: `builtin._handle_search` を呼ぶ MCP ラッパー
-- **image_generate**: `builtin._handle_image_generate` を呼ぶ MCP ラッパー
-- **read_pdf**: `builtin._handle_read_pdf` を呼ぶ MCP ラッパー
-- **list_skills**: `builtin._handle_list_skills` を呼ぶ MCP ラッパー
+```diff
+  sandbox:
+    image: ghcr.io/solidlime/nous-sandbox:latest
+    container_name: sandbox
+    restart: unless-stopped
+    volumes:
+-     - ${DATA_ROOT:-./data}/memory:/home
++     - ${DATA_ROOT:-./data}/sandbox:/home
+    cap_drop:
+      - ALL
+    cap_add:
+      - DAC_OVERRIDE
+    security_opt:
+      - no-new-privileges:true
+```
 
-→ **委譲パターン**: 新たに実装を作らず、builtin 実装を MCP ラッパーから委譲呼出し。
-→ 必要なのは `_resolve_persona()` + `AppContextRegistry.get()` の解決と、パラメータのマッピングのみ。
-
-### B-2. `execute_code` → `sandbox` 名前統一
-- definitions.py: ToolDefinition 名を `sandbox` に変更
-- builtin.py: `_BUILTIN_DISPATCH` キーを `sandbox` に変更
-- chat.js: ツール呼出しを `sandbox` に統一
-- テストのツール名参照も全更新
-
-### B-3. `context_update` と `update_context` の統合
-- 現在: MCPに`update_context`(20+パラメータ)、Builtinに`context_update`(4パラメータ)
-- 方針: `context_update` を削除し、`update_context` に一本化
-- definitions.py: `context_update` → `update_context` に名称変更、パラメータを MCP 側に合わせる
-- builtin.py: `_handle_context_update_builtin` を `_tool_update_context` に委譲
-- `_NOUS_TOOL_NAMES` から `context_update` 削除
-
-### B-4. `_NOUS_TOOL_NAMES` フィルタ修正
-- `web_search` → `search` に修正
-- 追加: `image_generate`, `read_pdf`, `list_skills` (MCP登録後は重複防止のため)
-- B-2/B-3 完了後に名前の一貫性を確認
-
-### B-5. memory_create / memory_search / memory_update 二重実装解消
-> ⚠️ **@oracle 指摘反映**: 元のPLANは単純な委譲を想定していたが、MCP側は文字列、Builtin側はdictを返すという**戻り値形式の根本的不整合**がある。単純委譲では全memory操作が破壊される。2フェーズに分割して安全に移行する。
-
-**クリティカルな不整合**:
-| ツール | MCP 戻り値 | Builtin 戻り値 |
-|--------|-----------|----------------|
-| memory_create | `"Memory created: {key}"` (str) | `{"status": "ok", "key": mem.key}` (dict) |
-| memory_search | 整形済み文字列 (str) | `{"status": "ok", "memories": [...]}` (dict) |
-| memory_update | `"Memory updated: {key}"` (str) | `{"status": "ok", "key": mem_key}` (dict) |
-
-`_handle_mcp_dispatch()` (builtin.py) は `result.get("ok")` で dict を期待 → 文字列だと `AttributeError`。
-
-#### B-5-1. 戻り値形式の統一（先に実施）
-- MCP の `_tool_memory_create/search/update` の戻り値を dict 形式に統一
-- `{"ok": True/Falsy, "key": ..., "memories": [...], "error": "..."}` の契約に揃える
-- 既存MCPクライアントが文字列を期待している場合の後方互換性は、MCPプロトコルがJSONを前提としているため破壊的変更にはならない（文字列もJSONとして有効）
-- Builtin 側の `_handle_memory_create/search/update_builtin` の戻り値形式に MCP 側を合わせるのが安全方向
-
-#### B-5-2. 実装の統合（B-5-1完了後）
-- B-5-1 で戻り値が統一された後、builtin → MCP 委譲に切り替え
-- `builtin.py` の `_handle_memory_*_builtin` を削除し、`_BUILTIN_DISPATCH` から `_tool_memory_*` を直接呼ぶ
-- `memory_update` の query→key 解決ロジックは `_tool_memory_update` に移植（`memory_key` と `query` 両方を受け入れる後方互換シグネチャ）
-
-### B-6. ツール説明の環境変数カスタマイズ (`qdrant/mcp-server-qdrant` パターン)
-- `NOUS_TOOL_DESCRIPTION_OVERRIDE` 環境変数
-- 形式: `tool_name=new_description` (カンマ区切り)
-- `register_tools()` でツール登録時に読み取り・上書き
-- LLM コンテキスト最適化のため（冗長な説明を短縮可能に）
+nous / qdrant / searxng のマウントは **変更不要**。
 
 ---
 
-## 柱C: sandbox マルチ言語対応
+## コード変更（2ファイル、2行）
 
-### C-1. Dockerfile.sandbox 多言語ランタイム
-- A-2 と同一タスク。Node.js + Go + Rust + Tesseract を追加。
+### `nous/api/http/routers/chat.py`
 
-### C-2. service.py に JavaScript セッション追加
-- `_ensure_javascript_started()` メソッド追加
-- llm_sandbox の `InteractiveSandboxSession(lang="javascript")` を使用
-- sandbox execute のルーティング: `javascript` / `js` / `node` → JS セッション
+**attachment_upload()** — Line 374:
+```diff
+- uploads_dir = Path(settings.data_root) / "memory" / persona / "sandbox" / "uploads"
++ uploads_dir = Path(settings.data_root) / "sandbox" / persona / "uploads"
+```
 
-### C-3. service.py に Go セッション追加
-- `_execute_stateless(code, "go")` で対応
-- `go run` でステートレス実行（毎回新規コンテナ）
-- Dockerfile に golang が必要 (C-1 で対応済み)
+**attachment_serve()** — Line 436:
+```diff
+- file_path = Path(settings.data_root) / "memory" / persona / "sandbox" / "uploads" / safe_name
++ file_path = Path(settings.data_root) / "sandbox" / persona / "uploads" / safe_name
+```
 
-### C-4. service.py に Rust セッション追加
-- `_execute_stateless(code, "rust")` で対応
-- `rust-script` 経由で単一ファイル実行（cargoプロジェクト不要）
-- Dockerfile に rustc + cargo + rust-script が必要 (C-1 で対応済み)
+### `nous/config/settings.py`
 
-### C-5. Bash をネイティブ実行に修正
-- 現在: Python の subprocess.run() でラップ（`!` プレフィックス除去あり）
-- 修正: `_execute_stateless(code, "bash")` に直接ルーティング
-- `!` プレフィックス除去ロジックは service.py 側で維持
+`ensure_directories()` に `sandbox` ディレクトリと `logs`, `backups` を追加:
+```diff
+  def ensure_directories(self) -> None:
+      dirs = [
+          self.data_dir,
+          self.import_dir,
++         Path(self.data_root) / "sandbox",
++         Path(self.data_root) / "logs",
++         Path(self.data_root) / "backups",
+          Path(self.import_dir) / "done",
+          self.cache_dir,
+          Path(self.cache_dir) / "huggingface",
+          Path(self.cache_dir) / "sentence_transformers",
+          Path(self.cache_dir) / "torch",
+          self.config_dir,
+          self.skills_dir,
+      ]
+      for d in dirs:
+          Path(d).mkdir(parents=True, exist_ok=True)
+```
 
-### C-6. `allowed_languages` を実態に合わせる
-- settings.py: `["python", "javascript", "bash"]` → `["python", "javascript", "bash", "go", "rust"]`
-- definitions.py のツール定義 language description 更新
-- `get_supported_languages` ツール追加（llm-sandbox 公式パターン）
-  - LLM が自分で「どの言語が使えるか」を発見できる
-  - Zero-Context Discovery パターン
+### `get_global_skills_db()` — skills.sqlite のパス修正
 
----
-
-## 柱D: 新機能追加
-
-### D-1. PDF OCR 対応 (`read_pdf` ツール強化)
-- 現在: PyMuPDF + pdfplumber でテキスト抽出。**既に動作中。**
-- 追加:
-  - **Tesseract OCR** (日本語対応: tesseract-ocr-jpn) によるスキャンPDF対応
-  - **フォールバック連鎖**: PyMuPDF → pdfplumber → Tesseract OCR
-  - **画像抽出**: ページ埋め込み画像の base64 出力 (マルチモーダルLLM向け)
-- テーブル抽出は既存の pdfplumber で十分。Camelot は追加しない（Java必須で過剰依存）。
-- Dockerfile (A-2) に `tesseract-ocr`, `tesseract-ocr-jpn` 追加
-- 依存: `pytesseract`
-
-### D-2. Agent Skills 標準移行（基本部分のみ）
-- 既存の `plugins/` を Agent Skills 標準 (`SKILL.md` 形式) に移行
-- フロントマター: `name` (1-64文字, a-z0-9-), `description` (1-1024文字)
-- Progressive Disclosure 3段階:
-  - 起動時: ~100 tokens (スキル名+短い説明のみ)
-  - アクティブ時: <5000 tokens (SKILL.md 本文)
-  - 必要時: 参照ファイル
-- `list_skills` ツールの出力を SKILL.md フロントマターから生成
-- `invoke_skill` ツールを SKILL.md ベースの読み込みに変更
-- `.well-known/agent-skills/index.json` は**将来のフェーズ**に先送り
-
-### D-3. メモリ 4-tier lifecycle 統合（基本部分のみ）
-> ⚠️ **@oracle 指摘反映**: 元PLANの4hは控えめすぎ（実質8-12h）。LRU shield / active_days / `as_of` / chain-aware pruning はフェーズ2に先送りし、基本の4-tier状態遷移のみに絞る。
-
-参考: `dustinspace217/mcp-memory-server`, `YourMemory`
-- 現在: active / archived の2状態（`tags` で表現）
-- 追加:
-  - **Active**: 通常の記憶（tags: `active`）
-  - **Superseded**: 新しい情報で置き換えられた記憶（保持、検索対象外。tags: `superseded`）
-  - **Tombstoned**: 削除された記憶（30日間の猶予期間後に物理削除。tags: `tombstoned`）
-  - **Hard-deleted**: 物理削除済み（DBレコード削除）
-- 実装: DBスキーマに `lifecycle_status` カラム追加（active/superseded/tombstoned）
-- **後方互換**: 既存の tags ベースの active/archived 表現は `lifecycle_status` にマッピング
-
-**先送り（フェーズ2）**:
-- `as_of` パラメータ（時系列クエリ）
-- LRU shield（6ヶ月アクセス保護）
-- active_days / chain-aware pruning
-- 自動 Superseding（重複検出時に古い記憶を自動 Supersede）
-
-### D-4. メモリ検索のハイブリッド化強化
-- 現在: Qdrant ベクトル検索 + SQLite キーワード
-- 追加:
-  - **FTS5 全文検索インデックス**を memory テーブルに追加
-  - **KNN (Qdrant) + FTS5 (SQLite) + キーワード の3-signal ハイブリッド**
-  - **RRF (Reciprocal Rank Fusion)** で3信号の結果を統合
-  - **RRF 重みパラメータ**: `vector_weight`, `keyword_weight` でバランス調整可
-  - **Similarity flag**: cosine ≥ 0.85 で `similarity_flag=true` (Yarlan1503 パターン)
-- 後方互換: 既存の検索クエリはそのまま動作
+`nous/storage/skills_db.py`（または該当箇所）:
+```diff
+- db_path = Path(settings.data_root) / "skills.sqlite"
++ db_path = Path(settings.skills_dir) / "skills.sqlite"
+```
 
 ---
 
-## 全タスク一覧と優先度・依存関係・規模（改訂版）
+## 構造変更のまとめ
 
-| # | タスク | 優先度 | 依存 | 規模 | 柱 |
-|---|--------|--------|------|------|-----|
-| A-1 | SearXNG docker-compose化 | 🔴 | なし | 小 (30m) | A |
-| A-2 | Dockerfile.sandbox多言語化 | 🔴 | なし | 中 (2h) | A/C |
-| A-3 | SearXNG環境変数化 | 🟡 | A-1 | 小 (15m) | A |
-| A-4 | 本番ビルド+全起動確認 | 🔴 | A-1,A-2 | 中 (1h) | A |
-| A-5 | Docker security hardening | 🟡 | A-1 | 小 (15m) | A |
-| A-6 | /health エンドポイント | 🟡 | なし | 小 (30m) | A |
-| B-1 | 5ツールMCP登録 | 🔴 | なし | 中 (2h) | B |
-| B-2 | sandbox名統一 | 🟡 | なし | 小 (30m) | B |
-| B-3 | context_update統合 | 🟡 | なし | 中 (1h) | B |
-| B-4 | フィルタ修正 | 🟡 | B-2 | 小 (5m) | B |
-| B-5-1 | memory戻り値形式統一 | 🔴 | B-1 | 中 (1.5h) | B |
-| B-5-2 | memory実装統合（委譲） | 🟡 | B-5-1 | 中 (2h) | B |
-| B-6 | ツール説明カスタマイズ | 🟢 | なし | 小 (30m) | B |
-| C-2 | JSセッション追加 | 🔴 | A-2 | 中 (2h) | C |
-| C-3/C-4 | Go/Rustセッション追加 | 🟢 | A-2 | 中 (2h) | C |
-| C-5 | Bashネイティブ化 | 🟡 | なし | 小 (1h) | C |
-| C-6 | allowed_languages修正 | 🟡 | C-2~C-5 | 小 (5m) | C |
-| D-1 | PDF OCR対応 | 🟢 | なし | 中 (2h) | D |
-| D-2 | Agent Skills標準移行 | 🟢 | なし | 大 (4h) | D |
-| D-3 | 4-tier lifecycle基本 | 🟢 | B-5-2 | 大 (6h) | D |
-| D-4 | 検索ハイブリッド強化 | 🟢 | D-3 | 大 (4h) | D |
+| # | 変更内容 | 種別 | 影響 |
+|---|---------|:--:|------|
+| 1 | `data/sandbox/` 新設、sandbox マウント切替 | 構造 | sandbox から DB を隔離 |
+| 2 | `data/memory/{persona}/sandbox/` → `data/sandbox/{persona}/` 移行 | データ移行 | 既存 sandbox データを移動 |
+| 3 | `chat.py` の uploads パスを `sandbox/{persona}/uploads/` に変更 | コード | 2行 |
+| 4 | `skills.sqlite` を `data/skills/` 内に移動 | 構造 | 孤立ファイル整理 |
+| 5 | `logs/`, `backups/` 新設 | 構造 | ログ永続化＋手動バックアップ |
+| 6 | `import/`, `import/done/` を `.gitkeep` 付きでGit管理 | 構造 | 自動インポート受付 |
+| 7 | `.gitignore` 調整 | 設定 | 空ディレクトリのGit管理 |
 
 ---
 
----
+## データ移行手順（既存環境向け）
 
-## 柱E: Nous スキルパッケージとして配布（次回以降）
+```bash
+# 各ペルソナの sandbox データを新しい場所に移動
+for persona_dir in data/memory/*/; do
+    persona=$(basename "$persona_dir")
+    if [ -d "data/memory/$persona/sandbox" ]; then
+        mkdir -p "data/sandbox/$persona"
+        mv "data/memory/$persona/sandbox/"* "data/sandbox/$persona/"
+        rmdir "data/memory/$persona/sandbox"
+    fi
+done
 
-> **発案**: 2026-06-27。NousをAIエージェント向けのスキルパッケージとして配布し、
-> Opencode等のMCPサーバ登録時の連携精度を向上させる。
-
-### E-1. SKILL.md 作成
-- Nousの全20ツールの使い方・ユースケース・ベストプラクティスを記述
-- Agent Skills標準形式（フロントマター: name, description）
-- Progressive Disclosure: 起動時~100 tokens / アクティブ時<5000 tokens
-- AIエージェントが「このサーバで何ができるか」を事前理解できるように
-
-### E-2. Opencode向けMCPサーバ設定テンプレート
-- `opencode.json` の `mcpServers` セクションに追加する設定例
-- 環境変数テンプレート込み
-- ワンコマンド/ワンクリック登録を目指す
-
-### E-3. pipパッケージ + CLI エントリポイント
-- `pip install nous` でインストール可能に
-- `nous serve` コマンドでサーバー起動
-- `nous register` でOpencode等に自動登録（可能であれば）
-
-### E-4. スキルディスカバリ
-- AIエージェントがNousの存在を自動検出できる仕組み
-- `.well-known/agent-skills/` またはMCPプロトコルのserver info活用
-
----
-
-## スコープ外（本PLAN対象外、別案件）
-- 画像生成 プロバイダ追加（現状の DALL-E + Stability で十分）
-- 外部 API フォールバック（Brave Search API 等）→ SearXNG 自己ホストで十分
-- chat.js テストフレームワーク導入
-- マルチアーキテクチャビルド (arm64)
-- Playwright 移行（agent-browser CLI で十分）
-- D-3 拡張（LRU shield / as_of / active_days / chain-aware pruning / 自動Superseding）
-- D-2 `.well-known/agent-skills/index.json`（将来フェーズ）
-- D-1 Camelot テーブル抽出（pdfplumberで十分）
-
----
-
-## 柱E: 環境変数依存削減 + WebUI設定完全化 (2026-06-28)
-
-### 背景
-現状 `RuntimeConfigManager` の優先順位は env > JSON override > default。環境変数が設定されているキーはWebUIから変更不可（`source: "env"` 表示で上書き拒否）。
-また LLM APIキーは `os.environ.get()` 直読みで RuntimeConfigManager を経由していない。
-
-### E-1. RuntimeConfigManager 優先順位を WebUI 優先に
-- `get_effective_value()` の優先順位を `json_override > env > default` → `json_override > default` に変更
-- 環境変数は初回起動時の初期値としてのみ使用（json_overrideが空の場合のみenv var→json_overrideにコピー）
-- env/override切替トグルは不要。WebUI優先のみ
-- 既存のホットリロード・コールバック機構は維持
-
-### E-2. LLM APIキーを Settings 統合
-- `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `OPENROUTER_API_KEY` を `Settings.llm_api_keys` に追加
-- `chat_config.py` / `use_cases.py` / `_tools_skill.py` の直読みを RuntimeConfigManager 経由に変更
-- `config_overrides.json` に平文保存（当面暗号化不要）
-
-### E-3. SearXNG URL / agent-browser パスの RuntimeConfigManager 管轄化
-- `NOUS_SEARXNG_URL` / `SEARXNG_URL` / `NOUS_AGENT_BROWSER_PATH` / `AGENT_BROWSER_PATH` の直読み統一
-- chat_config.py, builtin.py, main.py の修正
-
-### E-4. WebUI 設定ダッシュボード拡充
-- 既存 `static/settings.js` を全設定カテゴリ対応に拡張
-- LLM APIキー設定欄追加（パスワードフィールド）
-- 設定変更後のホットリロード状態表示
-
----
-
-## 柱F: opencode-mem プラグインパターン採用 (2026-06-28)
-
-### 背景
-`ZeR020/opencode-mem0` (tickernelz/opencode-mem の fork, 645+ stars) のソースコード調査から7パターンを発見。
-Phase 1で3パターンを `plugins/opencode-memory-sync/src/index.ts` に導入。
-
-### F-1. chat.message フックで synthetic part 注入
-- `output.parts.unshift()` でメモリコンテキストを注入
-- `synthetic: true` フラグで再注入防止
-- 注入条件: `injectOn === "always"` または compaction後の最初のユーザーメッセージ
-- Nous MCP の `memory_search` ツールでコンテキスト取得
-
-### F-2. session.compacted イベントで compaction recovery
-- compaction 後に最新メモリを再注入
-- `compaction.memoryLimit` (default 10) で上限制御
-
-### F-3. warmup 非同期化
-- Global Symbol パターンで重複防止
-- fire-and-forget 非同期 warmup（embedding model load + index rebuild）
-- 30s timeout, text-only fallback
-
----
-
-## 柱G: Sandbox コンテナのホストマウント永続化修正 (2026-06-28)
-
-### 背景
-docker-compose.yml の sandbox サービスに `default` と `config` のみ静的マウント。
-他ペルソナの sandbox データ（pip パッケージ、.bashrc、npm/cargo キャッシュ）は
-コンテナ writable layer のみに存在し、`docker compose restart sandbox` で全消失。
-
-### G-1. sandbox コンテナの全 /home 一括バインドマウント
-- docker-compose.yml sandbox volumes を `- ./data/memory:/home` の1行に
-- `default` / `config` の静的マウント行削除
-
-### G-2. config ペルソナのハードコード除去
-- docker-compose.yml の config マウント行削除（G-1で自動解決）
-- コードベースに `"config"` ペルソナ参照なし（調査済み）
-
-### G-3. default ペルソナの docker-compose マウント除去
-- G-1で自動解決。defaultペルソナ自体はシステムプライマリとして維持
-
----
-
-## 柱I: default ペルソナ廃止 + 初期セットアップ画面 (2026-06-28)
-
-### 背景
-現在 `default` ペルソナがシステムの前提としてハードコードされている（Settings.default_persona, middleware fallback, WebUI初期表示）。
-ユーザーにとって無意味な名前で、本来はユーザー自身に決めさせるべき。
-
-### I-1. Settings.default_persona → None
-- `settings.py`: `default_persona: str = "default"` → `default_persona: str | None = None`
-- 起動時にペルソナ未作成なら空のまま
-
-### I-2. MCP ツールのペルソナ未指定エラー
-- `middleware.py`: persona 未指定 → エラー `"ペルソナが設定されていません"`
-- `chat_config.py`: persona 未指定 → エラー
-- エラーメッセージ: `"No persona configured. Create one at the WebUI dashboard, or set PERSONA env var / NOUS_DEFAULT_PERSONA."`
-
-### I-3. WebUI 初期セットアップ画面
-- `/dashboard` アクセス時、API でペルソナ一覧取得 → 0件ならセットアップ画面
-- セットアップ画面: ペルソナ名入力 → POST /api/personas → 作成後ダッシュボードへリダイレクト
-- 2回目以降: 最後に使ったペルソナを localStorage で記憶
-
-### I-4. default 削除禁止コード除去
-- `persona.py`: `if persona == "default"` 削除禁止 → 全ペルソナ削除可
-- フロントエンド: default 削除禁止表示除去
-
-### I-5. 後方互換
-- 既存 DB の `default` ペルソナはそのまま残る（削除しない）
-- `PERSONA` 環境変数または `NOUS_DEFAULT_PERSONA` を設定していれば従来通り動作
-- MCP クライアントが `PERSONA=default` を送ってきた場合、そのペルソナが存在すれば使う（なければエラー）
+# skills.sqlite を skills/ 内に移動
+mv data/skills.sqlite data/skills/skills.sqlite
+```

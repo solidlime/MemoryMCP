@@ -39,11 +39,37 @@ Thumbs.db
 output/
 logs/
 
-# Data runtime (but keep zip files and bundled skills)
+# Data runtime (allow: .gitkeep, SKILL.md, seed settings)
 data/*/
 data/_tmp/
 !data/*.zip
+# searxng: allow only seed settings.yml + .gitkeep
+!data/searxng/
+data/searxng/*
+!data/searxng/settings.yml
+# skills: allow only SKILL.md + .gitkeep, exclude SQLite DBs
 !data/skills/
+data/skills/*
+!data/skills/**/SKILL.md
+!data/skills/.gitkeep
+# import: allow only .gitkeep
+!data/import/
+data/import/*
+!data/import/done/
+!data/import/.gitkeep
+!data/import/done/.gitkeep
+# config: allow only .gitkeep
+!data/config/
+data/config/*
+!data/config/.gitkeep
+# logs: allow only .gitkeep
+!data/logs/
+data/logs/*
+!data/logs/.gitkeep
+# backups: allow only .gitkeep
+!data/backups/
+data/backups/*
+!data/backups/.gitkeep
 
 # Serena local files
 .serena/

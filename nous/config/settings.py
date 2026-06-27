@@ -208,6 +208,9 @@ class Settings(BaseSettings):
         """起動時に必要なディレクトリを全て作成する。"""
         dirs = [
             self.data_dir,
+            Path(self.data_root) / "sandbox",
+            Path(self.data_root) / "logs",
+            Path(self.data_root) / "backups",
             self.import_dir,
             Path(self.import_dir) / "done",
             self.cache_dir,

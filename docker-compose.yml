@@ -87,9 +87,9 @@ services:
     restart: unless-stopped
     volumes:
       # 全ペルソナの sandbox データ永続化
-      # DATA_ROOT（ホスト）の memory/ サブディレクトリ → /home（コンテナ）
+      # DATA_ROOT（ホスト）の sandbox/ サブディレクトリ → /home（コンテナ）
       # /home/{persona}/ は useradd -m で自動作成される
-      - ${DATA_ROOT:-./data}/memory:/home
+      - ${DATA_ROOT:-./data}/sandbox:/home
     cap_drop:
       - ALL
     cap_add:

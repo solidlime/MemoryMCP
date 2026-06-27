@@ -371,7 +371,7 @@ def register_chat_routes(mcp) -> None:
         from nous.config.settings import get_settings
 
         settings = get_settings()
-        uploads_dir = Path(settings.data_root) / "memory" / persona / "sandbox" / "uploads"
+        uploads_dir = Path(settings.data_root) / "sandbox" / persona / "uploads"
         uploads_dir.mkdir(parents=True, exist_ok=True)
 
         form = await request.form()
@@ -433,7 +433,7 @@ def register_chat_routes(mcp) -> None:
         from nous.config.settings import get_settings
 
         settings = get_settings()
-        file_path = Path(settings.data_root) / "memory" / persona / "sandbox" / "uploads" / safe_name
+        file_path = Path(settings.data_root) / "sandbox" / persona / "uploads" / safe_name
         if not file_path.exists():
             return JSONResponse({"error": "File not found"}, status_code=404)
 
