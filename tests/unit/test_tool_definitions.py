@@ -12,15 +12,17 @@ from memory_mcp.application.chat.tools.definitions import MEMORY_TOOLS, SANDBOX_
 # Helpers
 # ---------------------------------------------------------------------------
 
-_VALID_JSON_SCHEMA_TYPES = frozenset({
-    "string",
-    "number",
-    "integer",
-    "boolean",
-    "array",
-    "object",
-    "null",
-})
+_VALID_JSON_SCHEMA_TYPES = frozenset(
+    {
+        "string",
+        "number",
+        "integer",
+        "boolean",
+        "array",
+        "object",
+        "null",
+    }
+)
 
 
 def _all_tools():
@@ -61,9 +63,7 @@ def test_all_required_keys_exist_in_properties():
     for td in _all_tools():
         props = td.input_schema.get("properties", {})
         for req_key in td.input_schema.get("required", []):
-            assert req_key in props, (
-                f"{td.name}: required key '{req_key}' not found in properties"
-            )
+            assert req_key in props, f"{td.name}: required key '{req_key}' not found in properties"
 
 
 def test_all_enums_are_non_empty():
@@ -71,9 +71,7 @@ def test_all_enums_are_non_empty():
     for td in _all_tools():
         for prop_name, prop in td.input_schema.get("properties", {}).items():
             if "enum" in prop:
-                assert len(prop["enum"]) > 0, (
-                    f"{td.name}.{prop_name}: enum is empty"
-                )
+                assert len(prop["enum"]) > 0, f"{td.name}.{prop_name}: enum is empty"
 
 
 # ---------------------------------------------------------------------------
@@ -84,9 +82,7 @@ def test_all_enums_are_non_empty():
 def test_no_duplicate_tool_names():
     """No duplicate tool names across MEMORY_TOOLS + SANDBOX_TOOLS."""
     names = [td.name for td in _all_tools()]
-    assert len(names) == len(set(names)), (
-        f"Duplicate names: {[n for n in names if names.count(n) > 1]}"
-    )
+    assert len(names) == len(set(names)), f"Duplicate names: {[n for n in names if names.count(n) > 1]}"
 
 
 # ---------------------------------------------------------------------------
@@ -101,9 +97,7 @@ def test_no_duplicate_tool_names():
 def test_promise_manage_removed():
     """promise_manage does not exist in any tool list (post-#1)."""
     names = [td.name for td in _all_tools()]
-    assert "promise_manage" not in names, (
-        "promise_manage should have been removed in #1"
-    )
+    assert "promise_manage" not in names, "promise_manage should have been removed in #1"
 
 
 def test_scope_enum_values():
@@ -130,9 +124,7 @@ def test_property_types_are_valid_json_schema_types():
         for prop_name, prop in td.input_schema.get("properties", {}).items():
             if "type" not in prop:
                 continue
-            assert prop["type"] in _VALID_JSON_SCHEMA_TYPES, (
-                f"{td.name}.{prop_name}: invalid type '{prop['type']}'"
-            )
+            assert prop["type"] in _VALID_JSON_SCHEMA_TYPES, f"{td.name}.{prop_name}: invalid type '{prop['type']}'"
             # Recurse into array items
             if prop["type"] == "array" and isinstance(prop.get("items"), dict):
                 item_type = prop["items"].get("type")

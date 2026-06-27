@@ -11,7 +11,9 @@ if TYPE_CHECKING:
     from memory_mcp.application.use_cases import AppContext
 
 
-async def _tool_sandbox(ctx: AppContext, persona: str, code: str, language: str = "python", session_id: str | None = None) -> str:
+async def _tool_sandbox(
+    ctx: AppContext, persona: str, code: str, language: str = "python", session_id: str | None = None
+) -> str:
     from memory_mcp.config.settings import get_settings
 
     settings = get_settings()

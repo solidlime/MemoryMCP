@@ -425,19 +425,23 @@ def register_tools(mcp: FastMCP) -> None:
 
         p = _resolve_persona()
         ctx = AppContextRegistry.get(p)
-        result = await _handle_browser(ctx, ChatConfig(), {
-            "action": action,
-            "url": url,
-            "ref": ref,
-            "value": value,
-            "key": key,
-            "what": what,
-            "selector": selector,
-            "until": until,
-            "direction": direction,
-            "amount": amount,
-            "interactive": interactive,
-        })
+        result = await _handle_browser(
+            ctx,
+            ChatConfig(),
+            {
+                "action": action,
+                "url": url,
+                "ref": ref,
+                "value": value,
+                "key": key,
+                "what": what,
+                "selector": selector,
+                "until": until,
+                "direction": direction,
+                "amount": amount,
+                "interactive": interactive,
+            },
+        )
         return json.dumps(result, ensure_ascii=False)
 
     # search
@@ -453,11 +457,15 @@ def register_tools(mcp: FastMCP) -> None:
 
         p = _resolve_persona()
         ctx = AppContextRegistry.get(p)
-        result = await _handle_search(ctx, ChatConfig(), {
-            "query": query,
-            "num_results": num_results,
-            "language": language,
-        })
+        result = await _handle_search(
+            ctx,
+            ChatConfig(),
+            {
+                "query": query,
+                "num_results": num_results,
+                "language": language,
+            },
+        )
         return json.dumps(result, ensure_ascii=False)
 
     # image_generate
@@ -475,13 +483,17 @@ def register_tools(mcp: FastMCP) -> None:
 
         p = _resolve_persona()
         ctx = AppContextRegistry.get(p)
-        result = await _handle_image_generate(ctx, ChatConfig(), {
-            "prompt": prompt,
-            "size": size,
-            "quality": quality,
-            "n": n,
-            "provider": provider,
-        })
+        result = await _handle_image_generate(
+            ctx,
+            ChatConfig(),
+            {
+                "prompt": prompt,
+                "size": size,
+                "quality": quality,
+                "n": n,
+                "provider": provider,
+            },
+        )
         return json.dumps(result, ensure_ascii=False)
 
     # read_pdf

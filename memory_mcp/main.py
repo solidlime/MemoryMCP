@@ -113,6 +113,7 @@ def create_app() -> MemoryFastMCP:
         # Check Qdrant
         try:
             from qdrant_client import QdrantClient
+
             client = QdrantClient(url=settings.qdrant.url, api_key=settings.qdrant.api_key)
             client.get_collections()
             status["services"]["qdrant"] = "ok"
@@ -123,6 +124,7 @@ def create_app() -> MemoryFastMCP:
         # Check SearXNG (non-critical)
         try:
             import httpx
+
             searxng_url = os.environ.get("MEMORY_MCP_SEARXNG_URL", os.environ.get("SEARXNG_URL", "http://searxng:8080"))
             async with httpx.AsyncClient(timeout=5.0) as client:
                 r = await client.get(f"{searxng_url}/healthz")
@@ -134,6 +136,7 @@ def create_app() -> MemoryFastMCP:
         if settings.sandbox.enabled:
             try:
                 from memory_mcp.application.sandbox.service import _ensure_sandbox_image
+
                 _ensure_sandbox_image(settings.sandbox.image, "Dockerfile.sandbox")
                 status["services"]["sandbox"] = "ok"
             except Exception as e:

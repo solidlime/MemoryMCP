@@ -149,8 +149,17 @@ MEMORY_TOOLS: list[ToolDefinition] = [
             "type": "object",
             "properties": {
                 "query": {"type": "string", "description": "検索クエリ（日本語可）"},
-                "num_results": {"type": "integer", "description": "取得する検索結果数（1〜50）", "default": 10, "minimum": 1, "maximum": 50},
-                "language": {"type": "string", "description": "言語フィルタ（'ja', 'en' 等）。指定しない場合は制限なし"},
+                "num_results": {
+                    "type": "integer",
+                    "description": "取得する検索結果数（1〜50）",
+                    "default": 10,
+                    "minimum": 1,
+                    "maximum": 50,
+                },
+                "language": {
+                    "type": "string",
+                    "description": "言語フィルタ（'ja', 'en' 等）。指定しない場合は制限なし",
+                },
             },
             "required": ["query"],
         },

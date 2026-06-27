@@ -339,12 +339,16 @@ async def run_memory_llm(ctx: AppContext, config: ChatConfig, payload: dict) -> 
             memory_key = promise.get("memory_key", "")
 
             if action in ("fulfill", "achieve") and memory_key:
-                upd = ctx.memory_service.update_memory(memory_key, tags=["goal", "achieved", "archived", "interpersonal"])
+                upd = ctx.memory_service.update_memory(
+                    memory_key, tags=["goal", "achieved", "archived", "interpersonal"]
+                )
                 logger.info("MemoryLLM: interpersonal goal achieved key=%s", memory_key)
                 if not upd.is_ok:
                     logger.warning("MemoryLLM: interpersonal goal achieve failed key=%s: %s", memory_key, upd.error)
             elif action == "cancel" and memory_key:
-                upd = ctx.memory_service.update_memory(memory_key, tags=["goal", "cancelled", "archived", "interpersonal"])
+                upd = ctx.memory_service.update_memory(
+                    memory_key, tags=["goal", "cancelled", "archived", "interpersonal"]
+                )
                 logger.info("MemoryLLM: interpersonal goal cancelled key=%s", memory_key)
                 if not upd.is_ok:
                     logger.warning("MemoryLLM: interpersonal goal cancel failed key=%s: %s", memory_key, upd.error)

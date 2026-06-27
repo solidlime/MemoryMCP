@@ -39,10 +39,7 @@ async def _tool_goal_manage(
         memories = tag_result.value or []
         # scope="self" の場合は interpersonal タグ付きを除外
         if scope == "self":
-            memories = [
-                m for m in memories
-                if "interpersonal" not in (getattr(m, "tags", []) or [])
-            ]
+            memories = [m for m in memories if "interpersonal" not in (getattr(m, "tags", []) or [])]
         lines = [f"Active goals (scope={scope}):"]
         if not memories:
             lines.append("  (none)")

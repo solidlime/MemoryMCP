@@ -183,12 +183,12 @@ class TestBrowserHandler:
         proc_mock.communicate = AsyncMock(return_value=(b"ok", b""))
 
         with (
-            patch("memory_mcp.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"),
+            patch(
+                "memory_mcp.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"
+            ),
             patch("asyncio.create_subprocess_exec", return_value=proc_mock) as mock_subprocess,
         ):
-            result = await _handle_browser(
-                mock_ctx, mock_config, {"action": "scroll", "amount": 99999}
-            )
+            result = await _handle_browser(mock_ctx, mock_config, {"action": "scroll", "amount": 99999})
 
         assert result["status"] == "ok"
         call_args = mock_subprocess.call_args[0]
@@ -210,12 +210,12 @@ class TestBrowserHandler:
         proc_mock.communicate = AsyncMock(return_value=(b"page loaded", b""))
 
         with (
-            patch("memory_mcp.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"),
+            patch(
+                "memory_mcp.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"
+            ),
             patch("asyncio.create_subprocess_exec", return_value=proc_mock) as mock_subprocess,
         ):
-            result = await _handle_browser(
-                mock_ctx, mock_config, {"action": "open", "url": "https://example.com"}
-            )
+            result = await _handle_browser(mock_ctx, mock_config, {"action": "open", "url": "https://example.com"})
 
         assert result["status"] == "ok"
         assert result["action"] == "open"
@@ -233,12 +233,12 @@ class TestBrowserHandler:
         proc_mock.communicate = AsyncMock(return_value=(b"clicked", b""))
 
         with (
-            patch("memory_mcp.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"),
+            patch(
+                "memory_mcp.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"
+            ),
             patch("asyncio.create_subprocess_exec", return_value=proc_mock),
         ):
-            result = await _handle_browser(
-                mock_ctx, mock_config, {"action": "click", "ref": "#submit-btn"}
-            )
+            result = await _handle_browser(mock_ctx, mock_config, {"action": "click", "ref": "#submit-btn"})
 
         assert result["status"] == "ok"
 
@@ -250,7 +250,9 @@ class TestBrowserHandler:
         proc_mock.communicate = AsyncMock(return_value=(b"filled", b""))
 
         with (
-            patch("memory_mcp.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"),
+            patch(
+                "memory_mcp.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"
+            ),
             patch("asyncio.create_subprocess_exec", return_value=proc_mock),
         ):
             result = await _handle_browser(
@@ -267,12 +269,12 @@ class TestBrowserHandler:
         proc_mock.communicate = AsyncMock(return_value=(b"pressed", b""))
 
         with (
-            patch("memory_mcp.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"),
+            patch(
+                "memory_mcp.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"
+            ),
             patch("asyncio.create_subprocess_exec", return_value=proc_mock),
         ):
-            result = await _handle_browser(
-                mock_ctx, mock_config, {"action": "press", "key": "Enter"}
-            )
+            result = await _handle_browser(mock_ctx, mock_config, {"action": "press", "key": "Enter"})
 
         assert result["status"] == "ok"
 
@@ -284,7 +286,9 @@ class TestBrowserHandler:
         proc_mock.communicate = AsyncMock(return_value=(b"", b""))
 
         with (
-            patch("memory_mcp.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"),
+            patch(
+                "memory_mcp.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"
+            ),
             patch("asyncio.create_subprocess_exec", return_value=proc_mock),
         ):
             result = await _handle_browser(mock_ctx, mock_config, {"action": "close"})
@@ -299,12 +303,12 @@ class TestBrowserHandler:
         proc_mock.communicate = AsyncMock(return_value=(b"", b"something went wrong"))
 
         with (
-            patch("memory_mcp.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"),
+            patch(
+                "memory_mcp.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"
+            ),
             patch("asyncio.create_subprocess_exec", return_value=proc_mock),
         ):
-            result = await _handle_browser(
-                mock_ctx, mock_config, {"action": "open", "url": "https://example.com"}
-            )
+            result = await _handle_browser(mock_ctx, mock_config, {"action": "open", "url": "https://example.com"})
 
         assert result["status"] == "error"
 
@@ -319,9 +323,7 @@ class TestExecuteCodeHandler:
     async def test_execute_empty_code(self, mock_ctx, mock_config):
         """code無指定 → sandbox.executeが空文字で呼ばれる"""
         mock_session = AsyncMock()
-        mock_session.execute.return_value = ExecResult(
-            stdout="", stderr="", exit_code=0, artifacts=[]
-        )
+        mock_session.execute.return_value = ExecResult(stdout="", stderr="", exit_code=0, artifacts=[])
 
         with patch(
             "memory_mcp.application.sandbox.service.get_sandbox_session",
@@ -345,17 +347,13 @@ class TestExecuteCodeHandler:
     async def test_execute_valid_python(self, mock_ctx, mock_config):
         """python実行 → sandbox session呼出し確認"""
         mock_session = AsyncMock()
-        mock_session.execute.return_value = ExecResult(
-            stdout="hello\n", stderr="", exit_code=0, artifacts=[]
-        )
+        mock_session.execute.return_value = ExecResult(stdout="hello\n", stderr="", exit_code=0, artifacts=[])
 
         with patch(
             "memory_mcp.application.sandbox.service.get_sandbox_session",
             return_value=mock_session,
         ) as mock_get:
-            result = await _handle_execute_code(
-                mock_ctx, mock_config, {"code": "print('hello')", "language": "python"}
-            )
+            result = await _handle_execute_code(mock_ctx, mock_config, {"code": "print('hello')", "language": "python"})
 
         assert result["stdout"] == "hello\n"
         assert result["exit_code"] == 0
@@ -366,17 +364,13 @@ class TestExecuteCodeHandler:
     async def test_execute_valid_bash(self, mock_ctx, mock_config):
         """bash実行 → sandbox session呼出し確認"""
         mock_session = AsyncMock()
-        mock_session.execute.return_value = ExecResult(
-            stdout="file.txt\n", stderr="", exit_code=0, artifacts=[]
-        )
+        mock_session.execute.return_value = ExecResult(stdout="file.txt\n", stderr="", exit_code=0, artifacts=[])
 
         with patch(
             "memory_mcp.application.sandbox.service.get_sandbox_session",
             return_value=mock_session,
         ) as mock_get:
-            result = await _handle_execute_code(
-                mock_ctx, mock_config, {"code": "ls", "language": "bash"}
-            )
+            result = await _handle_execute_code(mock_ctx, mock_config, {"code": "ls", "language": "bash"})
 
         assert result["stdout"] == "file.txt\n"
         assert result["exit_code"] == 0
@@ -441,18 +435,14 @@ class TestImageGenerateHandler:
     @pytest.mark.asyncio
     async def test_image_invalid_provider(self, mock_ctx, mock_config):
         """provider="unknown" → error"""
-        result = await _handle_image_generate(
-            mock_ctx, mock_config, {"prompt": "a cat", "provider": "unknown"}
-        )
+        result = await _handle_image_generate(mock_ctx, mock_config, {"prompt": "a cat", "provider": "unknown"})
         assert result["status"] == "error"
         assert "未対応" in result["message"] or "対応" in result["message"]
 
     @pytest.mark.asyncio
     async def test_image_stability_no_url(self, mock_ctx, mock_config):
         """provider="stability" with no URL configured → error"""
-        result = await _handle_image_generate(
-            mock_ctx, mock_config, {"prompt": "a cat", "provider": "stability"}
-        )
+        result = await _handle_image_generate(mock_ctx, mock_config, {"prompt": "a cat", "provider": "stability"})
         assert result["status"] == "error"
         assert "URL" in result["message"]
 
@@ -466,9 +456,7 @@ class TestImageGenerateHandler:
         with (
             patch("memory_mcp.infrastructure.image_gen.dalle.DalleProvider", return_value=mock_provider) as mock_dalle,
         ):
-            result = await _handle_image_generate(
-                mock_ctx, mock_config, {"prompt": "a cat", "provider": "openai"}
-            )
+            result = await _handle_image_generate(mock_ctx, mock_config, {"prompt": "a cat", "provider": "openai"})
 
         assert result["status"] == "success"
         mock_dalle.assert_called_once_with(model="dall-e-3")
@@ -481,12 +469,8 @@ class TestImageGenerateHandler:
         mock_provider.provider_name = "openai"
         mock_provider.generate.return_value = []
 
-        with patch(
-            "memory_mcp.infrastructure.image_gen.dalle.DalleProvider", return_value=mock_provider
-        ) as mock_dalle:
-            result = await _handle_image_generate(
-                mock_ctx, mock_config, {"prompt": "a cat", "provider": "auto"}
-            )
+        with patch("memory_mcp.infrastructure.image_gen.dalle.DalleProvider", return_value=mock_provider) as mock_dalle:
+            result = await _handle_image_generate(mock_ctx, mock_config, {"prompt": "a cat", "provider": "auto"})
 
         assert result["status"] == "success"
         mock_dalle.assert_called_once_with(model="dall-e-3")
@@ -500,11 +484,11 @@ class TestImageGenerateHandler:
         mock_provider.generate.return_value = []
 
         with (
-            patch("memory_mcp.infrastructure.image_gen.stability.StabilityProvider", return_value=mock_provider) as mock_sd,
+            patch(
+                "memory_mcp.infrastructure.image_gen.stability.StabilityProvider", return_value=mock_provider
+            ) as mock_sd,
         ):
-            result = await _handle_image_generate(
-                mock_ctx, mock_config, {"prompt": "a cat", "provider": "stability"}
-            )
+            result = await _handle_image_generate(mock_ctx, mock_config, {"prompt": "a cat", "provider": "stability"})
 
         assert result["status"] == "success"
         mock_sd.assert_called_once_with(api_url="http://sd:7860")
@@ -517,9 +501,7 @@ class TestImageGenerateHandler:
         mock_provider.provider_name = "openai"
         mock_provider.generate.return_value = []
 
-        with patch(
-            "memory_mcp.infrastructure.image_gen.dalle.DalleProvider", return_value=mock_provider
-        ):
+        with patch("memory_mcp.infrastructure.image_gen.dalle.DalleProvider", return_value=mock_provider):
             result = await _handle_image_generate(
                 mock_ctx, mock_config, {"prompt": "a cat", "provider": "openai", "n": 0}
             )
@@ -533,9 +515,7 @@ class TestImageGenerateHandler:
         mock_provider.provider_name = "openai"
         mock_provider.generate.return_value = []
 
-        with patch(
-            "memory_mcp.infrastructure.image_gen.dalle.DalleProvider", return_value=mock_provider
-        ):
+        with patch("memory_mcp.infrastructure.image_gen.dalle.DalleProvider", return_value=mock_provider):
             result = await _handle_image_generate(
                 mock_ctx, mock_config, {"prompt": "a cat", "provider": "openai", "n": 10}
             )
@@ -550,12 +530,8 @@ class TestImageGenerateHandler:
         mock_provider.provider_name = "openai"
         mock_provider.generate.return_value = []
 
-        with patch(
-            "memory_mcp.infrastructure.image_gen.dalle.DalleProvider", return_value=mock_provider
-        ) as mock_dalle:
-            result = await _handle_image_generate(
-                mock_ctx, mock_config, {"prompt": "a cat", "provider": "openai"}
-            )
+        with patch("memory_mcp.infrastructure.image_gen.dalle.DalleProvider", return_value=mock_provider) as mock_dalle:
+            result = await _handle_image_generate(mock_ctx, mock_config, {"prompt": "a cat", "provider": "openai"})
 
         assert result["status"] == "success"
         mock_dalle.assert_called_once_with(model="dall-e-2")
@@ -594,7 +570,9 @@ class TestSearchHandler:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "results": [{"title": f"Result {i}", "url": f"http://example.com/{i}", "content": f"Content {i}"} for i in range(20)]
+            "results": [
+                {"title": f"Result {i}", "url": f"http://example.com/{i}", "content": f"Content {i}"} for i in range(20)
+            ]
         }
 
         mock_client = AsyncMock()
@@ -613,7 +591,9 @@ class TestSearchHandler:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "results": [{"title": f"Result {i}", "url": f"http://example.com/{i}", "content": f"Content {i}"} for i in range(20)]
+            "results": [
+                {"title": f"Result {i}", "url": f"http://example.com/{i}", "content": f"Content {i}"} for i in range(20)
+            ]
         }
 
         mock_client = AsyncMock()
@@ -737,7 +717,9 @@ class TestSearchHandler:
         resp_mock.status_code = 500
         mock_client = AsyncMock()
         mock_client.__aenter__.return_value = mock_client
-        mock_client.get = AsyncMock(side_effect=httpx.HTTPStatusError("server error", request=MagicMock(), response=resp_mock))
+        mock_client.get = AsyncMock(
+            side_effect=httpx.HTTPStatusError("server error", request=MagicMock(), response=resp_mock)
+        )
 
         with patch("httpx.AsyncClient", return_value=mock_client):
             result = await _handle_search(mock_ctx, mock_config, {"query": "test"})

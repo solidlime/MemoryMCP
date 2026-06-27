@@ -378,7 +378,11 @@ async def _handle_mcp_dispatch(tool_name: str, ctx: AppContext, config: ChatConf
     if result.get("ok"):
         # memory_create duplicate case
         if result.get("status") == "duplicate":
-            return {"status": "duplicate", "similar_to": result.get("similar_to", []), "message": result.get("message", "")}
+            return {
+                "status": "duplicate",
+                "similar_to": result.get("similar_to", []),
+                "message": result.get("message", ""),
+            }
         if "key" in result:
             return {"status": "ok", "key": result["key"]}
         if "memories" in result:

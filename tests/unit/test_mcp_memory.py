@@ -83,6 +83,7 @@ class TestMemoryCreate:
         result = await memory_create(content="hello world")
 
         import json
+
         data = json.loads(result)
         assert data["ok"] is True
         assert data["key"] == "mem_new"
@@ -94,6 +95,7 @@ class TestMemoryCreate:
         memory_create = tools["memory_create"]
         result = await memory_create()
         import json
+
         data = json.loads(result)
         assert data["ok"] is False
         assert "content is required" in data["error"].lower()
@@ -104,6 +106,7 @@ class TestMemoryCreate:
         memory_create = tools["memory_create"]
         result = await memory_create(content="hi", importance=1.5)
         import json
+
         data = json.loads(result)
         assert data["ok"] is False
         assert "importance must be" in data["error"].lower()
@@ -116,6 +119,7 @@ class TestMemoryCreate:
         memory_create = tools["memory_create"]
         result = await memory_create(content="hi", tags=["test"], defer_vector=True)
         import json
+
         data = json.loads(result)
         assert data["ok"] is True
         assert data["key"] == "mem_x"
@@ -128,6 +132,7 @@ class TestMemoryCreate:
         memory_create = tools["memory_create"]
         result = await memory_create(content="hi")
         import json
+
         data = json.loads(result)
         assert data["ok"] is False
         assert "db error" in data["error"].lower()
@@ -138,13 +143,16 @@ class TestMemoryCreate:
     async def test_create_memory_duplicate_detected(self, registered_tools):
         """Duplicate content should return duplicate status without creating memory."""
         tools, ctx, _ = registered_tools
-        ctx.search_engine.search.return_value = Success([
-            _search_result("mem_dup", score=0.89),
-        ])
+        ctx.search_engine.search.return_value = Success(
+            [
+                _search_result("mem_dup", score=0.89),
+            ]
+        )
         memory_create = tools["memory_create"]
         result = await memory_create(content="similar content")
 
         import json
+
         data = json.loads(result)
         assert data["ok"] is True
         assert data["status"] == "duplicate"
@@ -156,15 +164,18 @@ class TestMemoryCreate:
     async def test_create_memory_skip_duplicate_check(self, registered_tools):
         """skip_duplicate_check=True should bypass duplicate detection."""
         tools, ctx, _ = registered_tools
-        ctx.search_engine.search.return_value = Success([
-            _search_result("mem_dup", score=0.89),
-        ])
+        ctx.search_engine.search.return_value = Success(
+            [
+                _search_result("mem_dup", score=0.89),
+            ]
+        )
         ctx.persona_service.get_state_snapshot.return_value = ("neutral", 0.0, {}, None)
         ctx.memory_service.create_memory.return_value = Success(_mem("mem_new"))
         memory_create = tools["memory_create"]
         result = await memory_create(content="similar content", skip_duplicate_check=True)
 
         import json
+
         data = json.loads(result)
         assert data["ok"] is True
         assert data["key"] == "mem_new"
@@ -174,15 +185,18 @@ class TestMemoryCreate:
     async def test_create_memory_no_duplicate(self, registered_tools):
         """Low-similarity content should not trigger duplicate detection."""
         tools, ctx, _ = registered_tools
-        ctx.search_engine.search.return_value = Success([
-            _search_result("mem_low", score=0.3),
-        ])
+        ctx.search_engine.search.return_value = Success(
+            [
+                _search_result("mem_low", score=0.3),
+            ]
+        )
         ctx.persona_service.get_state_snapshot.return_value = ("neutral", 0.0, {}, None)
         ctx.memory_service.create_memory.return_value = Success(_mem("mem_new"))
         memory_create = tools["memory_create"]
         result = await memory_create(content="unique content")
 
         import json
+
         data = json.loads(result)
         assert data["ok"] is True
         assert data["key"] == "mem_new"
@@ -293,6 +307,7 @@ class TestMemoryUpdate:
         memory_update = tools["memory_update"]
         result = await memory_update(memory_key="mem_001", content="new content")
         import json
+
         data = json.loads(result)
         assert data["ok"] is True
         assert data["key"] == "mem_001"
@@ -303,6 +318,7 @@ class TestMemoryUpdate:
         memory_update = tools["memory_update"]
         result = await memory_update()
         import json
+
         data = json.loads(result)
         assert data["ok"] is False
         assert "memory_key is required" in data["error"].lower()
@@ -313,6 +329,7 @@ class TestMemoryUpdate:
         memory_update = tools["memory_update"]
         result = await memory_update(memory_key="k1", importance=-0.1)
         import json
+
         data = json.loads(result)
         assert data["ok"] is False
         assert "importance must be" in data["error"].lower()
@@ -323,6 +340,7 @@ class TestMemoryUpdate:
         memory_update = tools["memory_update"]
         result = await memory_update(memory_key="k1", content="x" * 50001)
         import json
+
         data = json.loads(result)
         assert data["ok"] is False
         assert "content too long" in data["error"].lower()
@@ -333,6 +351,7 @@ class TestMemoryUpdate:
         memory_update = tools["memory_update"]
         result = await memory_update(memory_key="k1", content="test", emotion="nonexistent")
         import json
+
         data = json.loads(result)
         assert data["ok"] is False
         assert "invalid emotion" in data["error"].lower()
@@ -344,6 +363,7 @@ class TestMemoryUpdate:
         # Pass a string where float is expected — the core function should reject it
         result = await memory_update(memory_key="k1", content="test", emotion_intensity="not_a_number")
         import json
+
         data = json.loads(result)
         assert data["ok"] is False
         assert "emotion_intensity must be a number" in data["error"].lower()
@@ -356,6 +376,7 @@ class TestMemoryUpdate:
         # 5.0 gets clamped to 1.0, so the update should succeed
         result = await memory_update(memory_key="k1", content="test", emotion_intensity=5.0)
         import json
+
         data = json.loads(result)
         assert data["ok"] is True
         assert data["key"] == "k1"
@@ -366,6 +387,7 @@ class TestMemoryUpdate:
         memory_update = tools["memory_update"]
         result = await memory_update(memory_key="k1", content="test", tags="not_a_list")
         import json
+
         data = json.loads(result)
         assert data["ok"] is False
         assert "tags must be a list" in data["error"].lower()
@@ -376,6 +398,7 @@ class TestMemoryUpdate:
         memory_update = tools["memory_update"]
         result = await memory_update(memory_key="k1", content="test", tags=[123])
         import json
+
         data = json.loads(result)
         assert data["ok"] is False
         assert "all tags must be strings" in data["error"].lower()
@@ -386,6 +409,7 @@ class TestMemoryUpdate:
         memory_update = tools["memory_update"]
         result = await memory_update(memory_key="k1", content="test", privacy_level="classified")
         import json
+
         data = json.loads(result)
         assert data["ok"] is False
         assert "invalid privacy_level" in data["error"].lower()
@@ -408,6 +432,7 @@ class TestMemorySearch:
         memory_search = tools["memory_search"]
         result = await memory_search(query="test query")
         import json
+
         data = json.loads(result)
         assert data["ok"] is True
         assert len(data["memories"]) == 1
@@ -422,6 +447,7 @@ class TestMemorySearch:
         memory_search = tools["memory_search"]
         result = await memory_search(query="nothing")
         import json
+
         data = json.loads(result)
         assert data["ok"] is True
         assert data["memories"] == []
@@ -432,6 +458,7 @@ class TestMemorySearch:
         memory_search = tools["memory_search"]
         result = await memory_search(query="test", top_k=0)
         import json
+
         data = json.loads(result)
         assert data["ok"] is False
         assert "top_k must be" in data["error"].lower()
@@ -446,6 +473,7 @@ class TestMemorySearch:
         memory_search = tools["memory_search"]
         result = await memory_search(query="test")
         import json
+
         data = json.loads(result)
         assert data["ok"] is False
         assert "vector store" in data["error"].lower()

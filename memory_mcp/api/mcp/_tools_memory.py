@@ -33,9 +33,7 @@ async def _tool_memory_create(
     if not content:
         return json.dumps({"ok": False, "error": "content is required"}, ensure_ascii=False)
     if importance is not None and not (0.0 <= importance <= 1.0):
-        return json.dumps(
-            {"ok": False, "error": "importance must be between 0.0 and 1.0"}, ensure_ascii=False
-        )
+        return json.dumps({"ok": False, "error": "importance must be between 0.0 and 1.0"}, ensure_ascii=False)
     importance = importance if importance is not None else 0.5
 
     # ── Semantic duplicate check (same as builtin.py L128-147) ──
@@ -207,9 +205,7 @@ async def _tool_memory_update(
         return json.dumps({"ok": False, "error": "content too long (max 50000 chars)"}, ensure_ascii=False)
 
     if importance is not None and not (0.0 <= importance <= 1.0):
-        return json.dumps(
-            {"ok": False, "error": "importance must be between 0.0 and 1.0"}, ensure_ascii=False
-        )
+        return json.dumps({"ok": False, "error": "importance must be between 0.0 and 1.0"}, ensure_ascii=False)
 
     if emotion is not None and emotion not in _VALID_EMOTIONS:
         return json.dumps({"ok": False, "error": f"invalid emotion: {emotion}"}, ensure_ascii=False)
@@ -219,17 +215,13 @@ async def _tool_memory_update(
             emotion_intensity = float(emotion_intensity)
             emotion_intensity = max(0.0, min(1.0, emotion_intensity))
         except (TypeError, ValueError):
-            return json.dumps(
-                {"ok": False, "error": "emotion_intensity must be a number"}, ensure_ascii=False
-            )
+            return json.dumps({"ok": False, "error": "emotion_intensity must be a number"}, ensure_ascii=False)
 
     if tags is not None:
         if not isinstance(tags, list):
             return json.dumps({"ok": False, "error": "tags must be a list"}, ensure_ascii=False)
         if not all(isinstance(t, str) for t in tags):
-            return json.dumps(
-                {"ok": False, "error": "all tags must be strings"}, ensure_ascii=False
-            )
+            return json.dumps({"ok": False, "error": "all tags must be strings"}, ensure_ascii=False)
         if any(len(t) > 100 for t in tags):
             return json.dumps({"ok": False, "error": "tag too long (max 100 chars)"}, ensure_ascii=False)
 
@@ -377,14 +369,16 @@ async def _tool_memory_search(
     memories: list[dict] = []
     for sr in result.value:
         m = sr.memory
-        memories.append({
-            "key": m.key,
-            "content": m.content,
-            "importance": m.importance,
-            "tags": m.tags,
-            "emotion": m.emotion,
-            "score": sr.score,
-        })
+        memories.append(
+            {
+                "key": m.key,
+                "content": m.content,
+                "importance": m.importance,
+                "tags": m.tags,
+                "emotion": m.emotion,
+                "score": sr.score,
+            }
+        )
     await ctx.event_bus.publish(
         "tool.called",
         {

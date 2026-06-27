@@ -185,9 +185,7 @@ class TestGoalManage:
         tools, ctx, _ = registered_tools
         m = _mem("goal_002", content="I will help", tags=["goal", "active", "interpersonal"])
         ctx.memory_service.get_memory.return_value = Success(m)
-        ctx.memory_service.update_memory.return_value = Success(
-            _mem("goal_002", tags=["goal", "achieved", "archived"])
-        )
+        ctx.memory_service.update_memory.return_value = Success(_mem("goal_002", tags=["goal", "achieved", "archived"]))
         goal_manage = tools["goal_manage"]
         result = await goal_manage(operation="achieve", memory_key="goal_002", scope="interpersonal")
 
@@ -279,9 +277,7 @@ class TestGoalManage:
     async def test_list_goals_self(self, registered_tools):
         """Listing self goals should query with tags=['goal','active']."""
         tools, ctx, _ = registered_tools
-        ctx.memory_service.get_by_tags.return_value = Success(
-            [_mem("g1", content="goal 1", tags=["goal", "active"])]
-        )
+        ctx.memory_service.get_by_tags.return_value = Success([_mem("g1", content="goal 1", tags=["goal", "active"])])
         goal_manage = tools["goal_manage"]
         result = await goal_manage(operation="list", scope="self")
 

@@ -339,7 +339,15 @@ class TestMemoryLLMPromptFormat:
         import re
 
         placeholders = set(re.findall(r"\{(\w+)\}", _MEMORY_LLM_PROMPT))
-        expected = {"persona_name", "persona_identity", "context", "commitments", "inventory", "user_message", "assistant_response"}
+        expected = {
+            "persona_name",
+            "persona_identity",
+            "context",
+            "commitments",
+            "inventory",
+            "user_message",
+            "assistant_response",
+        }
         assert placeholders == expected, f"Unexpected placeholders: {placeholders - expected}"
 
 
@@ -536,10 +544,12 @@ class TestBuildMemoryLLMContext:
         mock_ctx.memory_service.get_by_tags.return_value = Success([])
 
         # Equipment with items
-        mock_ctx.equipment_service.get_equipment.return_value = Success({
-            "top": "白いシャツ",
-            "bottom": "青いジーンズ",
-        })
+        mock_ctx.equipment_service.get_equipment.return_value = Success(
+            {
+                "top": "白いシャツ",
+                "bottom": "青いジーンズ",
+            }
+        )
 
         # Inventory items
         item = MagicMock()
@@ -569,7 +579,7 @@ class TestBuildMemoryLLMContext:
         for i in range(5):
             g = MagicMock()
             g.key = f"goal_{i:03d}"
-            g.content = f"目標{i+1}: テスト"
+            g.content = f"目標{i + 1}: テスト"
             g.id = None
             goals.append(g)
 
@@ -578,7 +588,7 @@ class TestBuildMemoryLLMContext:
         for i in range(5):
             p = MagicMock()
             p.key = f"ip_{i:03d}"
-            p.content = f"約束{i+1}: テスト"
+            p.content = f"約束{i + 1}: テスト"
             p.id = None
             ip_goals.append(p)
 
@@ -684,7 +694,9 @@ class TestRunContextHousekeeping:
         from memory_mcp.infrastructure.llm.base import DoneEvent, TextDeltaEvent
 
         async def mock_stream(**kwargs):
-            yield TextDeltaEvent(content='{"cancel_goals":["goal_001"],"cancel_promises":["prom_001"],"remove_items":["古いアイテム"]}')
+            yield TextDeltaEvent(
+                content='{"cancel_goals":["goal_001"],"cancel_promises":["prom_001"],"remove_items":["古いアイテム"]}'
+            )
             yield DoneEvent()
 
         with patch("memory_mcp.application.chat.memory_llm.get_provider") as mock_get_provider:
@@ -779,9 +791,11 @@ class TestRunContextHousekeeping:
         from memory_mcp.infrastructure.llm.base import DoneEvent, TextDeltaEvent
 
         async def mock_stream(**kwargs):
-            yield TextDeltaEvent(content="""```json
+            yield TextDeltaEvent(
+                content="""```json
 {"cancel_goals":["goal_002"],"cancel_promises":[],"remove_items":[]}
-```""")
+```"""
+            )
             yield DoneEvent()
 
         with patch("memory_mcp.application.chat.memory_llm.get_provider") as mock_get_provider:
@@ -805,7 +819,9 @@ class TestRunContextHousekeeping:
         from memory_mcp.infrastructure.llm.base import DoneEvent, TextDeltaEvent
 
         async def mock_stream(**kwargs):
-            yield TextDeltaEvent(content='{"cancel_goals":["goal_001", "", "  "],"cancel_promises":[""],"remove_items":["", "valid_item"]}')
+            yield TextDeltaEvent(
+                content='{"cancel_goals":["goal_001", "", "  "],"cancel_promises":[""],"remove_items":["", "valid_item"]}'
+            )
             yield DoneEvent()
 
         with patch("memory_mcp.application.chat.memory_llm.get_provider") as mock_get_provider:
@@ -831,7 +847,9 @@ class TestRunContextHousekeeping:
         from memory_mcp.infrastructure.llm.base import DoneEvent, TextDeltaEvent
 
         async def mock_stream(**kwargs):
-            yield TextDeltaEvent(content='{"cancel_goals":["goal_001","goal_002"],"cancel_promises":[],"remove_items":[]}')
+            yield TextDeltaEvent(
+                content='{"cancel_goals":["goal_001","goal_002"],"cancel_promises":[],"remove_items":[]}'
+            )
             yield DoneEvent()
 
         with patch("memory_mcp.application.chat.memory_llm.get_provider") as mock_get_provider:
@@ -922,13 +940,17 @@ class TestRunMemoryLLM:
             await run_memory_llm(mock_ctx, mock_config, payload)
 
         mock_ctx.persona_service.update_emotion.assert_called_once_with(
-            "test_persona", "joy", 0.85,
+            "test_persona",
+            "joy",
+            0.85,
         )
         mock_ctx.persona_service.update_physical_state.assert_called_once_with(
-            "test_persona", mental_state="リラックス",
+            "test_persona",
+            mental_state="リラックス",
         )
         mock_ctx.persona_service.update_persona_info.assert_called_once_with(
-            "test_persona", {"context_note": "会話は和やかだった"},
+            "test_persona",
+            {"context_note": "会話は和やかだった"},
         )
 
     @pytest.mark.asyncio
@@ -972,7 +994,9 @@ class TestRunMemoryLLM:
             await run_memory_llm(mock_ctx, mock_config, payload)
 
         mock_ctx.persona_service.update_emotion.assert_called_once_with(
-            "test_persona", "sad", 0.3,
+            "test_persona",
+            "sad",
+            0.3,
         )
         mock_ctx.persona_service.update_physical_state.assert_not_called()
         mock_ctx.persona_service.update_persona_info.assert_not_called()
@@ -1000,6 +1024,8 @@ class TestRunMemoryLLM:
 
         mock_ctx.persona_service.update_emotion.assert_not_called()
         mock_ctx.persona_service.update_physical_state.assert_called_once_with(
-            "test_persona", physical_state="疲れている", environment="自宅",
+            "test_persona",
+            physical_state="疲れている",
+            environment="自宅",
         )
         mock_ctx.persona_service.update_persona_info.assert_not_called()
