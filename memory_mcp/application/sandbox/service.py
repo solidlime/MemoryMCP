@@ -430,30 +430,27 @@ class SandboxSession:
     async def _ensure_javascript_started(self) -> None:
         """Start a JavaScript sandbox session if not already running.
 
-        Uses llm_sandbox.SandboxSession (= create_session) with keep_template=True
+        Uses llm_sandbox.SandboxSession with keep_template=True
         so the Node.js container persists across execute() calls.
+        No custom image specified — llm_sandbox pulls its own sandbox-node image on first use.
         """
         if self._js_session is not None:
             return
         try:
             self._setup_docker_env()
             container_configs, _ = _build_container_configs(self.persona)
-            from memory_mcp.config.settings import get_settings
-
-            sandbox_image = get_settings().sandbox.image
 
             # Remove any stale container with the same name
             _cleanup_stale_sandbox_container(f"{self.persona}-js")
 
-            # Ensure sandbox image exists (build if not present locally)
-            _ensure_sandbox_image(sandbox_image, "Dockerfile.sandbox")
-
             def _start_js_session():
                 from llm_sandbox import SandboxSession
 
+                # No image= specified — llm_sandbox uses default sandbox-node image
+                # (ghcr.io/vndee/sandbox-node22-bullseye or similar)
+                # This avoids baking Node.js into our custom Python image (~50MB saved)
                 session = SandboxSession(
                     lang="javascript",
-                    image=sandbox_image,
                     runtime_configs=container_configs,
                     keep_template=True,
                 )
