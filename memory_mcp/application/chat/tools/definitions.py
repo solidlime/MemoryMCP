@@ -36,7 +36,7 @@ MEMORY_TOOLS: list[ToolDefinition] = [
         },
     ),
     ToolDefinition(
-        name="context_update",
+        name="update_context",
         description="ペルソナ状態を更新。感情・体調・環境など。",
         input_schema={
             "type": "object",
@@ -212,7 +212,7 @@ MEMORY_TOOLS: list[ToolDefinition] = [
 
 SANDBOX_TOOLS: list[ToolDefinition] = [
     ToolDefinition(
-        name="execute_code",
+        name="sandbox",
         description="サンドボックスでコード実行。language: python/bash。content最大50000文字。",
         input_schema={
             "type": "object",
@@ -288,6 +288,9 @@ _MEMORY_MCP_TOOL_NAMES: frozenset[str] = frozenset(
         "sandbox_files",
         "goal_manage",
         "invoke_skill",
-        "web_search",
+        "search",
+        "image_generate",
+        "read_pdf",
+        "list_skills",
     }
 )

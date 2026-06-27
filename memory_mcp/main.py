@@ -101,6 +101,53 @@ def create_app() -> MemoryFastMCP:
     # Mount static files for dashboard CSS/JS
     _mount_static_files(mcp)
 
+    # Health check endpoint (docker-compose healthcheck)
+    @mcp.custom_route("/health", methods=["GET", "HEAD"])
+    async def health(request: Request):  # type: ignore[no-redef]  # noqa: F811
+        import json as _json
+
+        from starlette.responses import Response
+
+        status = {"status": "healthy", "services": {}}
+
+        # Check Qdrant
+        try:
+            from qdrant_client import QdrantClient
+            client = QdrantClient(url=settings.qdrant.url, api_key=settings.qdrant.api_key)
+            client.get_collections()
+            status["services"]["qdrant"] = "ok"
+        except Exception as e:
+            status["services"]["qdrant"] = f"error: {e}"
+            status["status"] = "degraded"
+
+        # Check SearXNG (non-critical)
+        try:
+            import httpx
+            searxng_url = os.environ.get("MEMORY_MCP_SEARXNG_URL", os.environ.get("SEARXNG_URL", "http://searxng:8080"))
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                r = await client.get(f"{searxng_url}/healthz")
+                status["services"]["searxng"] = "ok" if r.status_code < 500 else f"error: HTTP {r.status_code}"
+        except Exception as e:
+            status["services"]["searxng"] = f"unreachable: {e}"
+
+        # Check sandbox (non-critical)
+        if settings.sandbox.enabled:
+            try:
+                from memory_mcp.application.sandbox.service import _ensure_sandbox_image
+                _ensure_sandbox_image(settings.sandbox.image, "Dockerfile.sandbox")
+                status["services"]["sandbox"] = "ok"
+            except Exception as e:
+                status["services"]["sandbox"] = f"error: {e}"
+
+        return Response(
+            _json.dumps(status, ensure_ascii=False),
+            media_type="application/json",
+            status_code=200 if status["status"] == "healthy" else 503,
+        )
+
+    # Mount static files for dashboard CSS/JS
+    _mount_static_files(mcp)
+
     # Auto-sync skills from filesystem at startup
     try:
         from memory_mcp.domain.skill import SkillRepository

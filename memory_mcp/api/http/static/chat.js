@@ -1520,7 +1520,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (val.startsWith('/goal ')) {
                 handleSlashCommand('goal_manage', { operation: 'create', content: val.slice(6).trim(), importance: 0.8 });
             } else if (val.startsWith('/code ') && S.persona) {
-                handleSlashCommand('execute_code', { code: val.slice(6).trim(), language: 'python' });
+                handleSlashCommand('sandbox', { code: val.slice(6).trim(), language: 'python' });
             } else if (val === '/help' || val.startsWith('/help ')) {
                 input.value = '';
                 input.style.height = 'auto';

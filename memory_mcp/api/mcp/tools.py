@@ -78,11 +78,37 @@ TOOL_DISPATCH: dict[str, Any] = {
 # =============================================================================
 
 
+def _parse_description_overrides() -> dict[str, str]:
+    """Parse MEMORY_MCP_TOOL_DESCRIPTION_OVERRIDE env var.
+    Format: tool_name=new_description,tool_name2=desc2
+    Comma-separated, name=value pairs."""
+    import os
+
+    raw = os.environ.get("MEMORY_MCP_TOOL_DESCRIPTION_OVERRIDE", "")
+    if not raw.strip():
+        return {}
+    overrides: dict[str, str] = {}
+    for part in raw.split(","):
+        part = part.strip()
+        if "=" in part:
+            name, desc = part.split("=", 1)
+            overrides[name.strip()] = desc.strip()
+    return overrides
+
+
 def register_tools(mcp: FastMCP) -> None:
-    """Register flat-named MCP tools (20 tools)."""
+    """Register flat-named MCP tools (20+ tools)."""
+    _desc_overrides = _parse_description_overrides()
+
+    def _tool(name: str):
+        """Return @mcp.tool() decorator with optional description override."""
+        desc = _desc_overrides.get(name)
+        if desc:
+            return mcp.tool(description=desc)
+        return mcp.tool()
 
     # get_context
-    @mcp.tool()
+    @_tool("get_context")
     async def get_context() -> str:
         """Get persona state and memory overview. Call FIRST at session start.
         Lightweight: active commitments + essential story + body/emotion state (~500-800 tokens)."""
@@ -90,7 +116,7 @@ def register_tools(mcp: FastMCP) -> None:
         return await _tool_get_context(AppContextRegistry.get(p), p)
 
     # memory_create
-    @mcp.tool()
+    @_tool("memory_create")
     async def memory_create(
         content: str = "",
         importance: float | None = None,
@@ -123,14 +149,14 @@ def register_tools(mcp: FastMCP) -> None:
         )
 
     # memory_read
-    @mcp.tool()
+    @_tool("memory_read")
     async def memory_read(memory_key: str | None = None, limit: int = 10, offset: int = 0) -> str:
         """Read a memory by key, or list most recent if key omitted. Use limit/offset for pagination."""
         p = _resolve_persona()
         return await _tool_memory_read(AppContextRegistry.get(p), p, memory_key=memory_key, limit=limit, offset=offset)
 
     # memory_update
-    @mcp.tool()
+    @_tool("memory_update")
     async def memory_update(
         memory_key: str = "",
         content: str | None = None,
@@ -156,14 +182,14 @@ def register_tools(mcp: FastMCP) -> None:
         )
 
     # memory_delete
-    @mcp.tool()
+    @_tool("memory_delete")
     async def memory_delete(memory_key: str | None = None, query: str | None = None) -> str:
         """Delete a memory by key or search query. Shows deleted content snippet for confirmation."""
         p = _resolve_persona()
         return await _tool_memory_delete(AppContextRegistry.get(p), p, memory_key=memory_key, query=query)
 
     # memory_search
-    @mcp.tool()
+    @_tool("memory_search")
     async def memory_search(
         query: str,
         top_k: int = 5,
@@ -192,14 +218,14 @@ def register_tools(mcp: FastMCP) -> None:
         )
 
     # memory_stats
-    @mcp.tool()
+    @_tool("memory_stats")
     async def memory_stats(top_n: int = 20) -> str:
         """Get memory statistics: total count, tag/emotion distributions (top_n entries each)."""
         p = _resolve_persona()
         return await _tool_memory_stats(AppContextRegistry.get(p), p, top_n=top_n)
 
     # update_context
-    @mcp.tool()
+    @_tool("update_context")
     async def update_context(
         emotion: str | None = None,
         emotion_intensity: float | None = None,
@@ -238,7 +264,7 @@ def register_tools(mcp: FastMCP) -> None:
         )
 
     # item_add
-    @mcp.tool()
+    @_tool("item_add")
     async def item_add(
         item_name: str = "",
         category: str | None = None,
@@ -259,28 +285,28 @@ def register_tools(mcp: FastMCP) -> None:
         )
 
     # item_remove
-    @mcp.tool()
+    @_tool("item_remove")
     async def item_remove(item_name: str = "") -> str:
         """Remove item from inventory by name."""
         p = _resolve_persona()
         return await _tool_item_remove(AppContextRegistry.get(p), p, item_name=item_name)
 
     # item_equip
-    @mcp.tool()
+    @_tool("item_equip")
     async def item_equip(equipment: dict | None = None, auto_add: bool = True) -> str:
         """Equip items to slots. equipment={"top":"白いドレス"}. Slots: top,bottom,shoes,outer,accessories,head."""
         p = _resolve_persona()
         return await _tool_item_equip(AppContextRegistry.get(p), p, equipment=equipment, auto_add=auto_add)
 
     # item_unequip
-    @mcp.tool()
+    @_tool("item_unequip")
     async def item_unequip(slots: list[str] | str | None = None) -> str:
         """Unequip items from slots. slots: "top" or ["top","head"]."""
         p = _resolve_persona()
         return await _tool_item_unequip(AppContextRegistry.get(p), p, slots=slots)
 
     # item_update
-    @mcp.tool()
+    @_tool("item_update")
     async def item_update(
         item_name: str = "",
         category: str | None = None,
@@ -301,21 +327,21 @@ def register_tools(mcp: FastMCP) -> None:
         )
 
     # item_search
-    @mcp.tool()
+    @_tool("item_search")
     async def item_search(query: str | None = None, category: str | None = None) -> str:
         """Search inventory by name query or category."""
         p = _resolve_persona()
         return await _tool_item_search(AppContextRegistry.get(p), p, query=query, category=category)
 
     # item_history
-    @mcp.tool()
+    @_tool("item_history")
     async def item_history(days: int = 7) -> str:
         """Get equipment change history for the last N days."""
         p = _resolve_persona()
         return await _tool_item_history(AppContextRegistry.get(p), p, days=days)
 
     # sandbox
-    @mcp.tool()
+    @_tool("sandbox")
     async def sandbox(code: str, language: str = "python", session_id: str | None = None) -> str:
         """Execute code in Docker sandbox. State persists per session.
         language: "python" or "bash". Pass session_id to scope sandbox per conversation session.
@@ -324,7 +350,7 @@ def register_tools(mcp: FastMCP) -> None:
         return await _tool_sandbox(AppContextRegistry.get(p), p, code=code, language=language, session_id=session_id)
 
     # sandbox_files
-    @mcp.tool()
+    @_tool("sandbox_files")
     async def sandbox_files(operation: str, path: str = "/sandbox", content: str | None = None) -> str:
         """Sandbox file operations under /sandbox. operation: list/read/write/append/delete.
         read auto-detects images (PNG/JPEG/GIF/WebP) returning base64 with PIL resize support."""
@@ -333,7 +359,7 @@ def register_tools(mcp: FastMCP) -> None:
         return json.dumps(r, ensure_ascii=False)
 
     # goal_manage
-    @mcp.tool()
+    @_tool("goal_manage")
     async def goal_manage(
         operation: str,
         content: str = "",
@@ -366,7 +392,7 @@ def register_tools(mcp: FastMCP) -> None:
         return f"Error: {r.get('error', 'unknown')}"
 
     # invoke_skill
-    @mcp.tool()
+    @_tool("invoke_skill")
     async def invoke_skill(name: str, task: str) -> str:
         """Execute a skill in isolated LLM context. Loads skill from store,
         runs with chat config provider/model. Returns skill output text."""
@@ -375,6 +401,112 @@ def register_tools(mcp: FastMCP) -> None:
         if r.get("ok"):
             return r.get("result", "(no response)")
         return f"Error: {r.get('error', 'unknown')}"
+
+    # ── Chat builtin tool wrappers (delegate to builtin.py handlers) ──
+
+    # browser
+    @_tool("browser")
+    async def browser(
+        action: str,
+        url: str = "",
+        ref: str = "",
+        value: str = "",
+        key: str = "",
+        what: str = "",
+        selector: str = "",
+        until: str = "",
+        direction: str = "",
+        amount: int = 300,
+        interactive: bool = True,
+    ) -> str:
+        """汎用ブラウザ操作。action: open/snapshot/click/fill/get/wait/scroll/press/close。"""
+        from memory_mcp.application.chat.tools.builtin import _handle_browser
+        from memory_mcp.domain.chat_config import ChatConfig
+
+        p = _resolve_persona()
+        ctx = AppContextRegistry.get(p)
+        result = await _handle_browser(ctx, ChatConfig(), {
+            "action": action,
+            "url": url,
+            "ref": ref,
+            "value": value,
+            "key": key,
+            "what": what,
+            "selector": selector,
+            "until": until,
+            "direction": direction,
+            "amount": amount,
+            "interactive": interactive,
+        })
+        return json.dumps(result, ensure_ascii=False)
+
+    # search
+    @_tool("search")
+    async def search(
+        query: str,
+        num_results: int = 10,
+        language: str = "",
+    ) -> str:
+        """Web検索。query必須。SearXNG経由で結果を返す。"""
+        from memory_mcp.application.chat.tools.builtin import _handle_search
+        from memory_mcp.domain.chat_config import ChatConfig
+
+        p = _resolve_persona()
+        ctx = AppContextRegistry.get(p)
+        result = await _handle_search(ctx, ChatConfig(), {
+            "query": query,
+            "num_results": num_results,
+            "language": language,
+        })
+        return json.dumps(result, ensure_ascii=False)
+
+    # image_generate
+    @_tool("image_generate")
+    async def image_generate(
+        prompt: str,
+        size: str = "1024x1024",
+        quality: str = "standard",
+        n: int = 1,
+        provider: str = "auto",
+    ) -> str:
+        """画像生成。prompt必須。nは1-4枚、size指定可。"""
+        from memory_mcp.application.chat.tools.builtin import _handle_image_generate
+        from memory_mcp.domain.chat_config import ChatConfig
+
+        p = _resolve_persona()
+        ctx = AppContextRegistry.get(p)
+        result = await _handle_image_generate(ctx, ChatConfig(), {
+            "prompt": prompt,
+            "size": size,
+            "quality": quality,
+            "n": n,
+            "provider": provider,
+        })
+        return json.dumps(result, ensure_ascii=False)
+
+    # read_pdf
+    @_tool("read_pdf")
+    async def read_pdf(path: str) -> str:
+        """PDF解析。path必須。テキスト・テーブル・画像抽出。"""
+        from memory_mcp.application.chat.tools.builtin import _handle_read_pdf
+        from memory_mcp.domain.chat_config import ChatConfig
+
+        p = _resolve_persona()
+        ctx = AppContextRegistry.get(p)
+        result = await _handle_read_pdf(ctx, ChatConfig(), {"path": path})
+        return json.dumps(result, ensure_ascii=False)
+
+    # list_skills
+    @_tool("list_skills")
+    async def list_skills() -> str:
+        """登録スキル一覧を取得。"""
+        from memory_mcp.application.chat.tools.builtin import _handle_list_skills
+        from memory_mcp.domain.chat_config import ChatConfig
+
+        p = _resolve_persona()
+        ctx = AppContextRegistry.get(p)
+        result = await _handle_list_skills(ctx, ChatConfig(), {})
+        return json.dumps(result, ensure_ascii=False)
 
 
 def _resolve_persona() -> str:

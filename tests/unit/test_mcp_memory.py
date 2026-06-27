@@ -82,7 +82,10 @@ class TestMemoryCreate:
         memory_create = tools["memory_create"]
         result = await memory_create(content="hello world")
 
-        assert "mem_new" in result
+        import json
+        data = json.loads(result)
+        assert data["ok"] is True
+        assert data["key"] == "mem_new"
         ctx.memory_service.create_memory.assert_called_once()
 
     @pytest.mark.asyncio
@@ -90,14 +93,20 @@ class TestMemoryCreate:
         tools, ctx, _ = registered_tools
         memory_create = tools["memory_create"]
         result = await memory_create()
-        assert "content is required" in result.lower()
+        import json
+        data = json.loads(result)
+        assert data["ok"] is False
+        assert "content is required" in data["error"].lower()
 
     @pytest.mark.asyncio
     async def test_create_invalid_importance(self, registered_tools):
         tools, ctx, _ = registered_tools
         memory_create = tools["memory_create"]
         result = await memory_create(content="hi", importance=1.5)
-        assert "importance must be" in result.lower()
+        import json
+        data = json.loads(result)
+        assert data["ok"] is False
+        assert "importance must be" in data["error"].lower()
 
     @pytest.mark.asyncio
     async def test_create_unknown_emotion_warns(self, registered_tools):
@@ -106,7 +115,10 @@ class TestMemoryCreate:
         ctx.memory_service.create_memory.return_value = Success(_mem("mem_x"))
         memory_create = tools["memory_create"]
         result = await memory_create(content="hi", tags=["test"], defer_vector=True)
-        assert "mem_x" in result
+        import json
+        data = json.loads(result)
+        assert data["ok"] is True
+        assert data["key"] == "mem_x"
 
     @pytest.mark.asyncio
     async def test_create_service_failure(self, registered_tools):
@@ -115,7 +127,10 @@ class TestMemoryCreate:
         ctx.memory_service.create_memory.return_value = Failure(RepositoryError("db error"))
         memory_create = tools["memory_create"]
         result = await memory_create(content="hi")
-        assert "db error" in result.lower()
+        import json
+        data = json.loads(result)
+        assert data["ok"] is False
+        assert "db error" in data["error"].lower()
 
     # ── Duplicate detection tests ──
 
@@ -131,6 +146,7 @@ class TestMemoryCreate:
 
         import json
         data = json.loads(result)
+        assert data["ok"] is True
         assert data["status"] == "duplicate"
         assert len(data["similar_to"]) >= 1
         assert data["similar_to"][0]["key"] == "mem_dup"
@@ -148,7 +164,10 @@ class TestMemoryCreate:
         memory_create = tools["memory_create"]
         result = await memory_create(content="similar content", skip_duplicate_check=True)
 
-        assert "mem_new" in result
+        import json
+        data = json.loads(result)
+        assert data["ok"] is True
+        assert data["key"] == "mem_new"
         ctx.memory_service.create_memory.assert_called_once()
 
     @pytest.mark.asyncio
@@ -163,7 +182,10 @@ class TestMemoryCreate:
         memory_create = tools["memory_create"]
         result = await memory_create(content="unique content")
 
-        assert "mem_new" in result
+        import json
+        data = json.loads(result)
+        assert data["ok"] is True
+        assert data["key"] == "mem_new"
         ctx.memory_service.create_memory.assert_called_once()
 
 
@@ -270,35 +292,50 @@ class TestMemoryUpdate:
         ctx.memory_service.update_memory.return_value = Success(_mem("mem_001"))
         memory_update = tools["memory_update"]
         result = await memory_update(memory_key="mem_001", content="new content")
-        assert "updated" in result.lower()
+        import json
+        data = json.loads(result)
+        assert data["ok"] is True
+        assert data["key"] == "mem_001"
 
     @pytest.mark.asyncio
     async def test_update_requires_key(self, registered_tools):
         tools, ctx, _ = registered_tools
         memory_update = tools["memory_update"]
         result = await memory_update()
-        assert "memory_key is required" in result.lower()
+        import json
+        data = json.loads(result)
+        assert data["ok"] is False
+        assert "memory_key is required" in data["error"].lower()
 
     @pytest.mark.asyncio
     async def test_update_invalid_importance(self, registered_tools):
         tools, ctx, _ = registered_tools
         memory_update = tools["memory_update"]
         result = await memory_update(memory_key="k1", importance=-0.1)
-        assert "importance must be" in result.lower()
+        import json
+        data = json.loads(result)
+        assert data["ok"] is False
+        assert "importance must be" in data["error"].lower()
 
     @pytest.mark.asyncio
     async def test_update_content_too_long(self, registered_tools):
         tools, ctx, _ = registered_tools
         memory_update = tools["memory_update"]
         result = await memory_update(memory_key="k1", content="x" * 50001)
-        assert "content too long" in result.lower()
+        import json
+        data = json.loads(result)
+        assert data["ok"] is False
+        assert "content too long" in data["error"].lower()
 
     @pytest.mark.asyncio
     async def test_update_invalid_emotion(self, registered_tools):
         tools, ctx, _ = registered_tools
         memory_update = tools["memory_update"]
         result = await memory_update(memory_key="k1", content="test", emotion="nonexistent")
-        assert "invalid emotion" in result.lower()
+        import json
+        data = json.loads(result)
+        assert data["ok"] is False
+        assert "invalid emotion" in data["error"].lower()
 
     @pytest.mark.asyncio
     async def test_update_emotion_intensity_nan(self, registered_tools):
@@ -306,7 +343,10 @@ class TestMemoryUpdate:
         memory_update = tools["memory_update"]
         # Pass a string where float is expected — the core function should reject it
         result = await memory_update(memory_key="k1", content="test", emotion_intensity="not_a_number")
-        assert "emotion_intensity must be a number" in result.lower()
+        import json
+        data = json.loads(result)
+        assert data["ok"] is False
+        assert "emotion_intensity must be a number" in data["error"].lower()
 
     @pytest.mark.asyncio
     async def test_update_emotion_intensity_out_of_range(self, registered_tools):
@@ -315,28 +355,40 @@ class TestMemoryUpdate:
         memory_update = tools["memory_update"]
         # 5.0 gets clamped to 1.0, so the update should succeed
         result = await memory_update(memory_key="k1", content="test", emotion_intensity=5.0)
-        assert "updated" in result.lower()
+        import json
+        data = json.loads(result)
+        assert data["ok"] is True
+        assert data["key"] == "k1"
 
     @pytest.mark.asyncio
     async def test_update_tags_not_list(self, registered_tools):
         tools, ctx, _ = registered_tools
         memory_update = tools["memory_update"]
         result = await memory_update(memory_key="k1", content="test", tags="not_a_list")
-        assert "tags must be a list" in result.lower()
+        import json
+        data = json.loads(result)
+        assert data["ok"] is False
+        assert "tags must be a list" in data["error"].lower()
 
     @pytest.mark.asyncio
     async def test_update_tag_not_string(self, registered_tools):
         tools, ctx, _ = registered_tools
         memory_update = tools["memory_update"]
         result = await memory_update(memory_key="k1", content="test", tags=[123])
-        assert "all tags must be strings" in result.lower()
+        import json
+        data = json.loads(result)
+        assert data["ok"] is False
+        assert "all tags must be strings" in data["error"].lower()
 
     @pytest.mark.asyncio
     async def test_update_invalid_privacy_level(self, registered_tools):
         tools, ctx, _ = registered_tools
         memory_update = tools["memory_update"]
         result = await memory_update(memory_key="k1", content="test", privacy_level="classified")
-        assert "invalid privacy_level" in result.lower()
+        import json
+        data = json.loads(result)
+        assert data["ok"] is False
+        assert "invalid privacy_level" in data["error"].lower()
 
 
 # ---------------------------------------------------------------------------
@@ -355,8 +407,12 @@ class TestMemorySearch:
         ctx.search_engine._semantic = None
         memory_search = tools["memory_search"]
         result = await memory_search(query="test query")
-        assert "mem_abc" in result
-        assert "0.750" in result
+        import json
+        data = json.loads(result)
+        assert data["ok"] is True
+        assert len(data["memories"]) == 1
+        assert data["memories"][0]["key"] == "mem_abc"
+        assert data["memories"][0]["score"] == 0.75
 
     @pytest.mark.asyncio
     async def test_search_no_results(self, registered_tools):
@@ -365,14 +421,20 @@ class TestMemorySearch:
         ctx.search_engine._semantic = None
         memory_search = tools["memory_search"]
         result = await memory_search(query="nothing")
-        assert "No results" in result
+        import json
+        data = json.loads(result)
+        assert data["ok"] is True
+        assert data["memories"] == []
 
     @pytest.mark.asyncio
     async def test_search_invalid_top_k(self, registered_tools):
         tools, ctx, _ = registered_tools
         memory_search = tools["memory_search"]
         result = await memory_search(query="test", top_k=0)
-        assert "top_k must be" in result.lower()
+        import json
+        data = json.loads(result)
+        assert data["ok"] is False
+        assert "top_k must be" in data["error"].lower()
 
     @pytest.mark.asyncio
     async def test_search_engine_failure(self, registered_tools):
@@ -383,7 +445,10 @@ class TestMemorySearch:
         ctx.search_engine._semantic = None
         memory_search = tools["memory_search"]
         result = await memory_search(query="test")
-        assert "vector store" in result.lower()
+        import json
+        data = json.loads(result)
+        assert data["ok"] is False
+        assert "vector store" in data["error"].lower()
 
     @pytest.mark.asyncio
     async def test_search_with_tags_filter(self, registered_tools):

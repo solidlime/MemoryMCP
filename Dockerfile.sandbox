@@ -2,12 +2,21 @@
 # slim-bullseye: ~50MB vs ~350MB for full bullseye — much faster first pull
 FROM python:3.11-slim-bullseye
 
-# Install system dependencies (llm-sandbox標準 + venv/git追加)
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+# Install system dependencies: base + Node.js 22.x + Go + Rust + Tesseract OCR
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
     python3-venv \
     git \
+    curl \
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && (apt-get install -y --no-install-recommends golang-1.22-go || apt-get install -y --no-install-recommends golang-go) \
+    && apt-get install -y --no-install-recommends rustc cargo \
+    && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-jpn \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python packages (llm-sandbox標準セット + 追加)
@@ -15,6 +24,9 @@ RUN pip install --no-cache-dir \
     numpy pandas matplotlib pillow \
     seaborn scikit-learn scipy scikit-image plotly \
     requests httpx
+
+# Install rust-script (ステートレス Rust 単一ファイル実行)
+RUN cargo install rust-script
 
 # Create workspace
 RUN mkdir -p /sandbox/uploads /sandbox/output

@@ -1,259 +1,190 @@
-# SPEC: ツール対策 2026-06-27 (v4 — テストギャップ反映)
+# SPEC - 技術仕様・要件定義 v8
 
-## 前提
-- MCP後方互換 **不要**。`promise_manage` は全層から完全削除
-- chat.js の `/promise` スラッシュコマンド・`fulfillPromise()` 関数も削除
-- **#13（goal list）を #1 に統合**。同一 _tools_goal.py の2回改修を回避
-- **#0（memory_llm.py テスト）を #1 の前提条件に**。テスト0件での大規模改修は不可
+> 元PLAN: `.spec/PLAN.md` v8。@oracle レビュー反映済み。
 
-## レイヤー構造（実装者向け参照）
-```
-definitions.py（チャットLLM用スキーマ）
-    ├─ builtin.py（ビルトインハンドラ） ← 直接実装 or MCP委譲
-    └─ api/mcp/tools.py（@mcp.tool() 登録）
-           └─ api/mcp/_tools_*.py（共有実装） ← 両層共通
-```
-**注意**: `memory_create`/`memory_search`/`memory_update` は両層に別実装あり。片方だけの修正で不整合が生じる。
+## 目標
+- **`docker compose up` 一発で全機能が利用可能になること。**
+- **外部MCPクライアントからも全ツールが利用可能になること。**
 
 ---
 
-## 🔴 最優先
+## 機能要件
 
-### #0. memory_llm.py テスト新規作成 🆕
+### 柱A: Docker Compose 完全自動デプロイ
 
-#### 対象ファイル
-`memory_mcp/application/chat/memory_llm.py`（571行）
+- [ ] **A-1**: docker-compose.yml に SearXNG サービス追加
+  - イメージ: `searxng/searxng:latest`
+  - ポート: 8080（内部ネットワーク）
+  - ボリューム: `./data/searxng:/etc/searxng`
+  - 環境変数: `SEARXNG_BASE_URL=http://localhost:8080/`
+  - memory-mcp の `depends_on` に `searxng` 追加
+  - SearXNG デフォルトURL: `http://searxng:8080`
 
-#### テストファイル
-新規作成: `tests/unit/test_memory_llm.py`
+- [ ] **A-2**: Dockerfile.sandbox 多言語ランタイム追加
+  - 追加ランタイム: Node.js 22.x LTS, Go 1.22+, Rust + rust-script, Tesseract OCR + jpn
+  - ベースイメージ: `python:3.11-slim-bullseye` 維持
+  - マルチステージビルドでサイズ最小化
+  - 合計約600MB増 → 実用性検証
 
-#### 0.1 `_parse_memory_llm_result()` テスト
-LLMのJSON応答パーサ。以下のケースをカバー:
-```python
-# 正常系
-parse_valid_full_json()          # facts, goals, context_update, inventory_update 全フィールド
-parse_json_with_facts_only()     # facts のみ、他は空
-parse_json_with_goals_only()     # goals のみ
-parse_empty_dict()               # {}
-parse_markdown_codeblock()       # ```json ... ``` でラップされたJSON
-parse_list_format_compat()       # 後方互換: リスト形式の古い出力
-parse_goals_with_fulfill_action() # action: "fulfill" (旧promise)
-parse_goals_with_scope()         # scope: "self" | "interpersonal"
+- [ ] **A-3**: MEMORY_MCP_SEARXNG_URL 環境変数化
+  - 環境変数 `MEMORY_MCP_SEARXNG_URL` で上書き可能
+  - chat_config.py のデフォルト値を env var に
+  - docker-compose.yml に `SEARXNG_URL=http://searxng:8080`
 
-# 異常系
-parse_invalid_json()             # 不正なJSON文字列 → 空結果 or エラー
-parse_empty_string()             # "" → 空結果
-parse_none_input()               # None → 空結果
-parse_missing_required_fields()  # facts キー欠落 → デフォルト値
-parse_extra_fields_ignored()     # 未知キー → 無視
-parse_nested_text_markdown()     # 説明文中の ``` に釣られない
-```
+- [ ] **A-4**: 本番ビルド + 全起動確認
+  - `docker compose up` で qdrant + searxng + memory-mcp 全起動
+  - sandbox イメージ自動ビルド確認
+  - agent-browser Chrome 起動確認（--no-sandbox フラグ検証）
+  - CI docker.yml が新Dockerfileでビルド通るか確認
 
-#### 0.2 `_build_memory_llm_context()` テスト
-```python
-# 引数: commitments (goal+promiseのリスト), equipment_summary (str)
-context_empty()                  # 空のcommitments + 空のequipment
-context_goals_only()             # goals のみ
-context_promises_only()          # promises のみ (scope="interpersonal")
-context_mixed()                  # goals + promises 混在
-context_with_equipment()         # 装備品あり
-context_with_long_commitments()  # 10件以上のgoal/promise
-```
+- [ ] **A-5**: Docker security hardening
+  - sandbox: `read_only: true`, `cap_drop: [ALL]`, `tmpfs: /tmp`
+  - memory-mcp: `read_only: true`（書き込みボリュームのみ rw）
+  - 全コンテナ: `no-new-privileges: true`
 
-#### 0.3 `_MEMORY_LLM_PROMPT` フォーマットテスト
-```python
-prompt_format_all_placeholders() # persona_name, user_name, persona_gender, ... 全埋め込み
-prompt_format_partial_info()     # 一部のユーザー情報が未設定
-prompt_no_format_errors()        # 不正なプレースホルダがないことの確認
-```
+- [ ] **A-6**: `/health` エンドポイント追加
+  - FastMCP `custom_route` で `/health` 実装
+  - Qdrant / SearXNG / sandbox の到達性チェック
+  - docker-compose healthcheck で使用
 
-#### 0.4 `run_context_housekeeping()` パーステスト
-```python
-housekeeping_valid_result()      # 正常なhousekeeping結果のパース
-housekeeping_invalid_json()      # 不正JSON → 空リスト返却
-housekeeping_no_cancellations()  # キャンセル対象なし
-```
+### 柱B: MCPツール全登録 + 名前統一 + 二重実装解消
 
----
+- [ ] **B-1**: 未登録5ツールの MCP `@mcp.tool()` 追加
+  - browser, search, image_generate, read_pdf, list_skills を MCP 登録
+  - **委譲パターン**: builtin 実装を MCP ラッパーから呼ぶ。重複実装禁止
+  - `tools.py` に各 `@mcp.tool()` 関数追加
 
-### #1. promise_manage 完全削除 + goal_manage 統合 + operation "list" 追加
+- [ ] **B-2**: `execute_code` → `sandbox` 名前統一
+  - definitions.py: ツール名 `sandbox`
+  - builtin.py: `_BUILTIN_DISPATCH` キー `sandbox`
+  - chat.js: ツール呼出 `sandbox`
+  - テストのツール名参照全更新
 
-#### 修正内容（v3同様、以下略）
+- [ ] **B-3**: `context_update` → `update_context` 統合
+  - `context_update` (builtin) を削除、`update_context` (MCP側) に一本化
+  - definitions.py の名称変更・パラメータ拡充
+  - `_BUILTIN_DISPATCH` から `_tool_update_context` を呼ぶ
 
-**A. definitions.py** — 変更:
-```python
-ToolDefinition(
-    name="goal_manage",
-    description="目標・約束の作成・一覧・達成・キャンセル。operation: create/list/achieve/cancel。scope: self/interpersonal。",
-    input_schema={
-        "type": "object",
-        "properties": {
-            "operation": {"type": "string", "enum": ["create", "list", "achieve", "cancel"]},
-            "content": {"type": "string", "description": "内容（create時に必須）"},
-            "importance": {"type": "number", "description": "重要度 0.0〜1.0", "default": 0.75},
-            "scope": {"type": "string", "enum": ["self", "interpersonal"], "description": "目標種別", "default": "self"},
-            "memory_key": {"type": "string", "description": "memory_key（achieve/cancel時に直接指定可能）"},
-        },
-        "required": ["operation", "scope"],
-    },
-),
-```
-`promise_manage` ToolDefinition 削除。`_MEMORY_MCP_TOOL_NAMES` から `"promise_manage"` 削除。
+- [ ] **B-4**: `_MEMORY_MCP_TOOL_NAMES` フィルタ修正
+  - `web_search` → `search`
+  - `image_generate`, `read_pdf`, `list_skills` 追加（MCP登録後の重複防止）
 
-**B〜R** — v3 SPEC と同一（v3 の #1-A 〜 #1-R をそのまま踏襲）
+- [ ] **B-5-1**: memory_create/search/update 戻り値形式統一
+  - MCP 側の戻り値（現在文字列）を dict 形式に統一
+  - 契約: `{"ok": True/False, "key": "...", "memories": [...], "error": "..."}`
+  - Builtin 側の形式に MCP 側を合わせる（安全方向）
 
-#### 削除・修正リスト（完全版）
-v3 の完全リスト（25ファイル）から変更なし。
+- [ ] **B-5-2**: memory_create/search/update 実装統合（委譲）
+  - B-5-1 の形式統一後、builtin → MCP 委譲に切り替え
+  - `_handle_memory_*_builtin` 関数削除
+  - `memory_update` の query→key 解決ロジックを `_tool_memory_update` に移植
+  - 後方互換シグネチャ: `memory_key` と `query` 両方受け入れ
 
----
+- [ ] **B-6**: ツール説明環境変数カスタマイズ
+  - 環境変数: `MEMORY_MCP_TOOL_DESCRIPTION_OVERRIDE`
+  - 形式: `tool_name=new_description` (カンマ区切り)
+  - `register_tools()` で上書き
 
-### #2. memory_update 安全化
+### 柱C: sandbox マルチ言語対応
 
-（v3 と同一）
+- [ ] **C-2**: JavaScript セッション追加
+  - `service.py` に `_ensure_javascript_started()` 追加
+  - llm_sandbox `InteractiveSandboxSession(lang="javascript")`
+  - ルーティング: `javascript`/`js`/`node` → JS セッション
 
----
+- [ ] **C-3**: Go セッション追加
+  - `_execute_stateless(code, "go")` でステートレス実行
+  - `go run` 使用。毎回新規コンテナ
 
-## 🟡 高優先
+- [ ] **C-4**: Rust セッション追加
+  - `_execute_stateless(code, "rust")` でステートレス実行
+  - `rust-script` 経由で単一ファイル実行
 
-### #3. memory_search フィルタ追加
-### #4. browser description 強化
-### #5. sandbox_files required 関連改善
-### #6. 制限値のツール定義可視化
+- [ ] **C-5**: Bash ネイティブ実行化
+  - 現在: Python subprocess.run() ラップ → `_execute_stateless(code, "bash")` に直接ルーティング
+  - `!` プレフィックス除去ロジックは service.py 側で維持
 
-（v3 と同一）
+- [ ] **C-6**: `allowed_languages` 更新 + `get_supported_languages` 追加
+  - settings.py: `["python", "javascript", "bash", "go", "rust"]`
+  - definitions.py: language description 更新
+  - `get_supported_languages` ツール追加（Zero-Context Discovery）
 
----
+### 柱D: 新機能追加
 
-## 🟢 低優先
+- [ ] **D-1**: PDF OCR 対応
+  - Tesseract OCR (tesseract-ocr-jpn) によるスキャンPDF対応
+  - フォールバック連鎖: PyMuPDF → pdfplumber → Tesseract OCR
+  - 画像抽出: ページ埋め込み画像の base64 出力
+  - テーブル抽出は pdfplumber で十分。Camelot 不要
 
-### #7. memory_create 重複検出
-### #8. execute_code session_id 対応
-### #9. description 短文化（全13ツール）
-### #10. context_update 自動化
-### #11. sandbox_files append/edit 追加
-### #14. README context_recall 記述削除
+- [ ] **D-2**: Agent Skills 標準移行（基本）
+  - `plugins/` → `SKILL.md` 形式に移行
+  - フロントマター: `name`, `description`
+  - Progressive Disclosure 3段階
+  - `list_skills` / `invoke_skill` を SKILL.md ベースに
+  - `.well-known/` は将来フェーズ
 
-（v3 と同一）
+- [ ] **D-3**: メモリ 4-tier lifecycle 基本
+  - 状態: Active → Superseded → Tombstoned → Hard-deleted
+  - DBスキーマに `lifecycle_status` カラム追加
+  - 後方互換: 既存 tags ベース表現 → lifecycle_status にマッピング
+  - 先送り: as_of, LRU shield, active_days, chain-aware pruning, 自動Superseding
 
----
-
-### #15. builtin.py ハンドラのパラメータ検証テスト 🆕
-
-#### 対象
-`memory_mcp/application/chat/tools/builtin.py`
-
-#### テストファイル
-新規作成: `tests/unit/test_builtin_handlers.py`
-
-#### 15.1 `_handle_browser` パラメータ検証
-```python
-# 外部プロセス呼出し部（agent-browser CLI）は async subprocess を mock
-test_browser_action_required()   # action未指定 → エラー
-test_browser_unknown_action()    # 未知action → エラー
-test_browser_open_no_url()       # open で url未指定 → エラー
-test_browser_click_no_ref()      # click で ref未指定 → エラー
-test_browser_fill_no_ref()       # fill で ref未指定 → エラー
-test_browser_press_no_key()      # press で key未指定 → エラー
-test_browser_valid_open()        # open + url → subprocess 呼出し確認
-```
-
-#### 15.2 `_handle_execute_code` パラメータ検証
-```python
-test_execute_empty_code()        # code未指定 → エラー
-test_execute_sandbox_disabled()  # sandbox無効 → エラー
-test_execute_valid_python()      # python実行 → sandbox session呼出し確認
-test_execute_valid_bash()        # bash実行 → 同
-```
-
-#### 15.3 `_handle_image_generate` パラメータ検証
-```python
-test_image_empty_prompt()        # prompt未指定 → エラー
-test_image_invalid_provider()    # 不明provider → デフォルト使用 or エラー
-test_image_openai_call()         # openai provider → factory呼出し確認
-test_image_stability_call()      # stability provider → 同
-```
-
-#### 15.4 `_handle_search` パラメータ検証
-```python
-test_search_empty_query()        # query未指定 → エラー
-test_search_num_results_boundary() # num_results=0/@1/@10/@100 の境界
-test_search_with_language()      # languageパラメータ伝搬確認
-```
+- [ ] **D-4**: メモリ検索ハイブリッド強化
+  - SQLite FTS5 全文検索インデックス追加
+  - KNN (Qdrant) + FTS5 (SQLite) + キーワード の3-signal ハイブリッド
+  - RRF (Reciprocal Rank Fusion) で結果統合
+  - RRF 重みパラメータ: `vector_weight`, `keyword_weight`
+  - Similarity flag: cosine ≥ 0.85
 
 ---
 
-### #16. definitions.py スキーマ整合性テスト 🆕
+## 非機能要件
 
-#### 対象
-`memory_mcp/application/chat/tools/definitions.py`（309行）
+- **パフォーマンス**: sandbox イメージビルド時間 10分以内、コンテナ起動 30秒以内
+- **セキュリティ**: sandbox コンテナは read_only + cap_drop ALL、全コンテナ no-new-privileges
+- **後方互換性**: 既存 MCP クライアントとの互換性維持（B-5はMCP→dict形式統一で破壊的変更なし）
+- **テスト**: 全変更後 1134+ tests がパスすること、新規コードにはテスト追加
+- **CI**: docker.yml / ci.yml 両方を通すこと
 
-#### テストファイル
-新規作成: `tests/unit/test_tool_definitions.py`
+## 技術構成
 
+- **言語・フレームワーク**: Python 3.12, FastMCP, asyncio
+- **インフラ・環境**: Docker Compose (Qdrant + SearXNG + memory-mcp)
+- **sandbox**: llm_sandbox 0.3.x, Docker sibling container
+- **ブラウザ**: agent-browser CLI v0.30.x
+- **検索**: SearXNG (自己ホスト)
+- **DB**: SQLite (メモリ), Qdrant (ベクトル)
+- **画像生成**: OpenAI DALL-E + Stability (既存)
+- **PDF**: PyMuPDF + pdfplumber + Tesseract OCR
+
+## データ構造・インターフェース
+
+### B-5 戻り値統一契約
 ```python
-def test_all_required_keys_exist_in_properties():
-    """全 ToolDefinition で required 配列の全キーが properties に存在することを検証"""
-    for td in MEMORY_TOOLS + SANDBOX_TOOLS:
-        for req in td.input_schema.get("required", []):
-            assert req in td.input_schema["properties"]
+# 成功時
+{"ok": True, "key": "mem_xxx", "content": "..."}
 
-def test_all_enums_are_non_empty():
-    """全 ToolDefinition で enum 制約が空でないことを検証"""
-    for td in MEMORY_TOOLS + SANDBOX_TOOLS:
-        for prop in td.input_schema.get("properties", {}).values():
-            if "enum" in prop:
-                assert len(prop["enum"]) > 0
+# メモリ検索成功時
+{"ok": True, "memories": [{"key": "mem_xxx", "content": "...", "score": 0.95}, ...]}
 
-def test_no_duplicate_tool_names():
-    """ツール名の重複がないことを検証"""
-    names = [td.name for td in MEMORY_TOOLS + SANDBOX_TOOLS]
-    assert len(names) == len(set(names))
-
-def test_scope_enum_values():
-    """#1 変更後: goal_manage の scope enum が ["self", "interpersonal"] であること"""
-    goal_td = next(td for td in MEMORY_TOOLS if td.name == "goal_manage")
-    assert goal_td.input_schema["properties"]["scope"]["enum"] == ["self", "interpersonal"]
-
-def test_promise_manage_removed():
-    """#1 変更後: promise_manage が存在しないこと"""
-    names = [td.name for td in MEMORY_TOOLS + SANDBOX_TOOLS]
-    assert "promise_manage" not in names
+# 失敗時
+{"ok": False, "error": "error message"}
 ```
 
----
-
-### #17. テスト保守性改善 🆕
-
-#### 17.1 mock_app_context フィクスチャの conftest.py 集約
-- `test_mcp_memory.py`, `test_mcp_goals_promises.py`, `test_mcp_sandbox.py` の3重定義を `conftest.py` に統合
-- `scope` パラメータで必要なサービス数を制御（例: `mock_app_context("full")`, `mock_app_context("minimal")`）
-
-#### 17.2 patch ボイラープレートのヘルパー化
-```python
-# conftest.py に追加
-from contextlib import asynccontextmanager
-
-@asynccontextmanager
-async def mcp_tool_context(mock_ctx, persona="test_persona"):
-    with (
-        patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg,
-        patch("memory_mcp.api.mcp.tools.get_current_persona", return_value=persona),
-    ):
-        mock_reg.get_instance.return_value = mock_ctx
-        yield mock_reg
+### D-3 lifecycle_status スキーマ
+```sql
+ALTER TABLE memories ADD COLUMN lifecycle_status TEXT DEFAULT 'active';
+-- 値: 'active', 'superseded', 'tombstoned'
+-- 既存 tags からのマッピング:
+--   tagsに'archived' → lifecycle_status='tombstoned'
+--   tagsに'active' or なし → lifecycle_status='active'
 ```
 
-#### 17.3 asyncio.run() → await 置換
-- `test_session_event_recorder.py` の `asyncio.run(recorder._on_event(...))` を `@pytest.mark.asyncio` + `await` に
-
-#### 17.4 アサーション具体化
-- `test_mcp_memory.py` の `assert "Error" in result` → `assert "not found" in result` / `assert "invalid" in result` 等のエラー種別部分一致に
-
----
-
-## スコープ外
-- 新ツール追加
-- 外部MCPクライアント統合改善
-- _tools_sandbox.py リファクタリング
-- CHANGELOG.md 履歴修正
-- chat.js のテストフレームワーク導入
+### D-4 FTS5 インデックス
+```sql
+CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
+    content, key, tags,
+    content='memories', content_rowid='rowid'
+);
+```

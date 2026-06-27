@@ -19,7 +19,7 @@ def registered_tools(mock_app_context):
     """Call register_tools with a mock FastMCP, capturing tool functions."""
     tools: dict[str, object] = {}
 
-    def mock_tool_decorator():
+    def mock_tool_decorator(**kwargs):
         def decorator(func):
             tools[func.__name__] = func
             return func
@@ -136,7 +136,7 @@ class TestSandbox:
         mock_get_session.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_execute_code_with_session_id(self, registered_tools):
+    async def test_sandbox_with_session_id(self, registered_tools):
         """Session ID should scope sandbox per conversation session."""
         tools, ctx, _ = registered_tools
         sandbox_tool = tools["sandbox"]
@@ -163,7 +163,7 @@ class TestSandbox:
         session.execute.assert_called_once_with("print('hello')", language="python")
 
     @pytest.mark.asyncio
-    async def test_execute_code_without_session_id(self, registered_tools):
+    async def test_sandbox_without_session_id(self, registered_tools):
         """Without session_id, sandbox key should be persona only."""
         tools, ctx, _ = registered_tools
         sandbox_tool = tools["sandbox"]

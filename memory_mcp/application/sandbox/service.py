@@ -339,6 +339,7 @@ class SandboxSession:
         self.persona = persona
         self._docker_host = docker_host
         self._python_session = None  # ArtifactSandboxSession or InteractiveSandboxSession
+        self._js_session = None  # SandboxSession (create_session) for JavaScript
         self._lock = asyncio.Lock()
 
     def _setup_docker_env(self) -> None:
@@ -426,29 +427,87 @@ class SandboxSession:
                 raise RuntimeError(f"Docker に接続できませんでした: {hint}") from e
             raise RuntimeError(f"Failed to start sandbox: {e}") from e
 
+    async def _ensure_javascript_started(self) -> None:
+        """Start a JavaScript sandbox session if not already running.
+
+        Uses llm_sandbox.SandboxSession (= create_session) with keep_template=True
+        so the Node.js container persists across execute() calls.
+        """
+        if self._js_session is not None:
+            return
+        try:
+            self._setup_docker_env()
+            container_configs, _ = _build_container_configs(self.persona)
+            from memory_mcp.config.settings import get_settings
+
+            sandbox_image = get_settings().sandbox.image
+
+            # Remove any stale container with the same name
+            _cleanup_stale_sandbox_container(f"{self.persona}-js")
+
+            # Ensure sandbox image exists (build if not present locally)
+            _ensure_sandbox_image(sandbox_image, "Dockerfile.sandbox")
+
+            def _start_js_session():
+                from llm_sandbox import SandboxSession
+
+                session = SandboxSession(
+                    lang="javascript",
+                    image=sandbox_image,
+                    runtime_configs=container_configs,
+                    keep_template=True,
+                )
+                session.open()
+                return session
+
+            self._js_session = await asyncio.to_thread(_start_js_session)
+            logger.info("JavaScript sandbox session started for persona=%s", self.persona)
+        except Exception as e:
+            self._js_session = None
+            if "FileNotFoundError" in str(e) or "Connection aborted" in str(e):
+                if platform.system() == "Windows":
+                    hint = "Docker Desktop が起動していることを確認してください。"
+                else:
+                    candidates = _SOCKET_CANDIDATES.get(platform.system(), ["/var/run/docker.sock"])
+                    checked = ", ".join(candidates)
+                    hint = (
+                        f"Docker ソケットが見つかりません（確認済み: {checked}）。"
+                        " docker-compose.yml の volumes に /var/run/docker.sock:/var/run/docker.sock が設定されているか確認してください。"
+                    )
+                raise RuntimeError(f"Docker に接続できませんでした: {hint}") from e
+            raise RuntimeError(f"Failed to start JavaScript sandbox: {e}") from e
+
     async def execute(self, code: str, language: str = "python", libraries: list[str] | None = None) -> ExecResult:
         """Execute code in the appropriate sandbox session.
 
-        bash/shell/shell は専用コンテナが無いため、Python IPython セッション内で
-        subprocess 経由で実行する。
+        python/py     → IPython セッション（stateful）
+        javascript/js/node → JavaScript SandboxSession（stateful）
+        bash/shell/sh → stateless コンテナ実行
+        go/golang     → stateless コンテナ実行
+        rust/rs       → stateless コンテナ実行
+        その他        → _execute_stateless フォールバック
         """
-        if language in ("python", "py", "bash", "shell", "sh"):
-            if language in ("bash", "shell", "sh"):
-                import json as _json
-
-                # Strip IPython magic ! prefix — users may copy commands from
-                # Python sandbox (!ls) but use language="bash" where ! is invalid
-                shell_code = code.lstrip()
-                if shell_code.startswith("!"):
-                    shell_code = shell_code[1:].lstrip()
-                code = (
-                    "import subprocess as _sp; "
-                    f"r = _sp.run({_json.dumps(shell_code)}, "
-                    "shell=True, capture_output=True, text=True); "
-                    "print(r.stdout, end=''); "
-                    "__import__('sys').stderr.write(r.stderr)"
-                )
+        if language in ("python", "py"):
             return await self._execute_python(code)
+        if language in ("javascript", "js", "node"):
+            await self._ensure_javascript_started()
+            try:
+                result = await asyncio.to_thread(self._js_session.run, code)
+                return ExecResult(
+                    stdout=getattr(result, "stdout", "") or "",
+                    stderr=getattr(result, "stderr", "") or "",
+                    exit_code=getattr(result, "exit_code", 0) or 0,
+                    language="javascript",
+                )
+            except Exception as e:
+                logger.warning("Sandbox JavaScript execute error: %s", e)
+                return ExecResult(stdout="", stderr=str(e), exit_code=1, language="javascript")
+        if language in ("bash", "shell", "sh"):
+            return await self._execute_stateless(code, "bash", [])
+        if language in ("go", "golang"):
+            return await self._execute_stateless(code, "go", [])
+        if language in ("rust", "rs"):
+            return await self._execute_stateless(code, "rust", [])
         return await self._execute_stateless(code, language, libraries or [])
 
     async def _execute_python(self, code: str) -> ExecResult:
@@ -859,6 +918,11 @@ print(json.dumps(_tree({root!r})))
             with contextlib.suppress(Exception):
                 self._python_session.__exit__(None, None, None)
             self._python_session = None
+
+        if self._js_session is not None:
+            with contextlib.suppress(Exception):
+                self._js_session.close()
+            self._js_session = None
 
 
 # Global session registry (persona → SandboxSession)

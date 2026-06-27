@@ -1,36 +1,36 @@
-# HANDOFF - 2026-06-21 18:56
+# HANDOFF - 2026-06-27 07:48
 
 ## 使用ツール
 OpenCode (deepseek-v4-pro)
 
 ## 現在のタスクと進捗
-- [x] P0-2a: chat.py CSS/JS分離 (2714→417行, static/chat.css 586行, static/chat.js 1710行)
-- [x] browser ツール実装 (web_search完全削除 → 汎用 browser ツール: open/snapshot/click/fill/get/wait/scroll/close)
-- [x] search ツール実装 (SearXNG httpx JSON API連携)
-- [x] SearXNG WebUI設定欄追加 (基本設定アコーディオン内)
-- [x] ブラウザ動作テスト (browser/search ツール)
-- [x] web_search JSON.stringify 二重エンコードバグ修正
-- [x] CI 全パス (4f77c52)
-- [x] WebUI破損修正 (chat.js読み込みをheadへ移動)
-- [x] WebUIブラウザ検証 (全タブ正常表示確認済み)
+- [x] ツール対策 + UI/UX改善 v7 — **全23タスク完了**
+- [x] ドッグフーディングテスト — API動作確認 + scopeバグ修正 + 視認レビュー
+- [x] コミット: `ebfbcc0` → `main`
+- [ ] GitHub Actions CI 結果確認待ち（Docker Build & Push 実行中）
+
+## 主な変更
+1. **promise_manage 完全削除 + goal_manage 統合**: scope (self/interpersonal) + list操作
+2. **memory_update 安全化**: 全層に7種バリデーション追加
+3. **テスト新規作成**: memory_llm.py (48 tests), builtin_handlers (55 tests), tool_definitions (8 tests)
+4. **UI/UX改善**: CSS変数化、空状態、スラッシュコマンド可視化、レスポンシブ、モーダル改善
+5. **テスト保守性**: conftest.py集約、asyncio.run→await、アサーション具体化
 
 ## 試したこと・結果
-- ✅ chat.py CSS/JS分離: @explorer で構造解析 → @fixer×2並列でCSS抽出→JS抽出 → @fixerでPython側修正 → @designerスキップ（抽出のみ）
-- ✅ FastMCP 静的ファイルサーブ: `mount()` 非対応 → `_mount_static_files()` で custom_route 自家実装
-- ✅ browser ツール: builtin.py に _handle_browser 実装 (150行), agent-browser v0.27.0 経由
-- ✅ search ツール: _handle_search 実装、chat_config 40カラム化 + 移行ファイル v025
-- ❌ DuckDuckGo/Google/Brave/Mojeek: 全 bot CAPTCHA ブロック → SearXNG (nas:11111) で回避
-- ✅ CI 5サイクル: ruff format → Bandit → カラム移行 → カバレッジ → ruff 再format
-- ✅ WebUI破損: `<script>内に<script>` が原因。fix: chat.js読込をbase.py render_head()の`</head>`直前に移動
+- ✅ MCP後方互換なしでのpromise_manage全削除 → 1058 pass / 0 regression
+- ✅ @designer 全23サブタスク一括対応 → ファイル競合なし
+- ✅ @designer 視認レビュー → 6件指摘 → 全修正 (タブバー色不整合、.glass:hover過剰、rgbaハードコード等)
+- ✅ ドッグフーディング: curl APIテスト。goal_manage scope=self フィルタバグ発見→修正
+- ❌ agent-browser Chrome sandbox制限で使えず → curl + APIテストで代用
 
-## 次のセッションで最初にやること
-1. 残件確認: TODO.md を再確認（全タスク完了か）
-2. ユーザーからの新規指示待ち
+## 最終ステータス
+- **1134 passed, 7 skipped, 0 failed**
+- **ruff: All checks passed**
+- **33 files changed, +3,630 / -1,336**
 
 ## 注意点・ブロッカー
-- MEMORY_MCP_SANDBOX__ENABLED=false がWindows環境変数で設定中。Chatのsandbox MCPツールが動作しない原因
-- DuckDuckGo/Google/BraveはbotアクセスをCAPTCHAブロック。検索はSearXNG (http://nas:11111) 経由必須
-- FastMCP は Starlette mount() 非対応。静的ファイルは custom_route で自家実装
-- chat.py の render_chat_js() は空文字列を返す。JSは base.py render_head() 経由で読み込み
-- テスト: 906 pass / 1 fail (test_settings.py::test_full_defaults 既存バグ)
-- コミット済み・プッシュ済み。CIグリーン
+- Chrome sandbox制限によりagent-browserが動作不可（WSL2環境）。`--no-sandbox`フラグ伝搬できず
+- GitHub Actions 確認待ち。前回CI failureは我々の変更前のもの
+- MEMORY_MCP_SANDBOX__ENABLED 環境変数要確認（sandbox機能テスト未実施）
+- LSP型エラー多数あり（Result型のSuccess/Failure pattern matching）→ すべて既存
+- ruff既存エラー6件（_api_test.py, _check_skill_prompt.py, _split_tools.py）→ ユーティリティスクリプト、テスト対象外

@@ -8,9 +8,7 @@ from typing import TYPE_CHECKING, Any
 from memory_mcp.api.mcp.tools import TOOL_DISPATCH
 from memory_mcp.application.chat.tools.definitions import _MEMORY_MCP_TOOL_NAMES
 from memory_mcp.config.settings import get_settings
-from memory_mcp.domain.search.engine import SearchQuery
 from memory_mcp.domain.skill import SkillRepository
-from memory_mcp.domain.value_objects import _VALID_EMOTIONS
 from memory_mcp.infrastructure.logging.structured import get_logger
 from memory_mcp.infrastructure.sqlite.connection import get_global_skills_db
 
@@ -115,88 +113,6 @@ async def _handle_execute_code(ctx: AppContext, config: ChatConfig, tool_input: 
     if session_id:
         response["session_id"] = session_id
     return response
-
-
-async def _handle_memory_create_builtin(ctx: AppContext, config: ChatConfig, tool_input: dict) -> dict:
-    importance = float(tool_input.get("importance", 0.6))
-    if not (0.0 <= importance <= 1.0):
-        return {"status": "error", "message": "importance must be between 0.0 and 1.0"}
-
-    content = tool_input.get("content", "")
-    skip_duplicate = tool_input.get("skip_duplicate_check", False)
-
-    # ── Semantic duplicate check ──
-    if not skip_duplicate and content:
-        search_result = ctx.search_engine.search(SearchQuery(text=content, top_k=3))
-        if search_result.is_ok and search_result.value:
-            duplicates = []
-            for item in search_result.value:
-                mem = item.memory
-                score = item.score
-                if score >= 0.75:
-                    duplicates.append({
-                        "content": mem.content[:100],
-                        "key": mem.key,
-                        "similarity": score,
-                    })
-            if duplicates:
-                return {
-                    "status": "duplicate",
-                    "similar_to": duplicates,
-                    "message": "類似した記憶が既に存在します。重複を避けるため新規作成をスキップしました。",
-                }
-
-    # Auto-snapshot current persona state
-    emotion_snap, intensity_snap, body_snap, snapped_at = ctx.persona_service.get_state_snapshot(ctx.persona)
-
-    result = ctx.memory_service.create_memory(
-        content=content,
-        importance=importance,
-        tags=tool_input.get("tags", []),
-        emotion=emotion_snap,
-        emotion_intensity=intensity_snap,
-        body_state=body_snap,
-        state_snapped_at=snapped_at,
-    )
-    if result.is_ok:
-        return {"status": "ok", "key": result.value.key}
-    return {"status": "error", "message": str(result.error)}
-
-
-async def _handle_memory_search_builtin(ctx: AppContext, config: ChatConfig, tool_input: dict) -> dict:
-    query = tool_input.get("query", "")
-    top_k = int(tool_input.get("top_k", 5))
-    tags = tool_input.get("tags")
-    date_range = tool_input.get("date_range")
-    min_importance = tool_input.get("min_importance")
-    emotion = tool_input.get("emotion")
-    if min_importance is not None:
-        min_importance = float(min_importance)
-    result = ctx.search_engine.search(
-        SearchQuery(
-            text=query,
-            top_k=min(top_k, 200),
-            tags=tags,
-            date_range=date_range,
-            min_importance=min_importance,
-            emotion=emotion,
-        )
-    )
-    if result.is_ok:
-        items = []
-        for item in result.value:
-            mem = item[0] if isinstance(item, tuple) else item
-            items.append(
-                {
-                    "content": getattr(mem, "content", str(mem)),
-                    "importance": getattr(mem, "importance", 0.5),
-                    "tags": getattr(mem, "tags", []),
-                    "emotion": getattr(mem, "emotion", "neutral"),
-                    "emotion_intensity": getattr(mem, "emotion_intensity", 0.0),
-                }
-            )
-        return {"status": "ok", "memories": items}
-    return {"status": "error", "message": str(result.error)}
 
 
 async def _handle_browser(
@@ -431,75 +347,6 @@ def _find_agent_browser(settings=None) -> str | None:
     return None
 
 
-async def _handle_memory_update_builtin(ctx: AppContext, config: ChatConfig, tool_input: dict) -> dict:
-    query = tool_input.get("query", "")
-    new_content = tool_input.get("new_content", "")
-    if not query or not new_content:
-        return {"status": "error", "message": "query and new_content are required"}
-
-    # ── Input validation ──
-    if len(new_content) > 50000:
-        return {"status": "error", "message": "content too long (max 50000 chars)"}
-
-    importance = tool_input.get("importance")
-    if importance is not None:
-        try:
-            importance = float(importance)
-            if not (0.0 <= importance <= 1.0):
-                return {"status": "error", "message": "importance must be between 0.0 and 1.0"}
-        except (TypeError, ValueError):
-            return {"status": "error", "message": "importance must be a number"}
-
-    emotion = tool_input.get("emotion")
-    if emotion is not None and emotion not in _VALID_EMOTIONS:
-        return {"status": "error", "message": f"invalid emotion: {emotion}"}
-
-    emotion_intensity = tool_input.get("emotion_intensity")
-    if emotion_intensity is not None:
-        try:
-            emotion_intensity = float(emotion_intensity)
-            if emotion_intensity < 0.0 or emotion_intensity > 1.0:
-                return {"status": "error", "message": "emotion_intensity must be 0.0-1.0"}
-        except (TypeError, ValueError):
-            return {"status": "error", "message": "emotion_intensity must be a number"}
-
-    tags = tool_input.get("tags")
-    if tags is not None:
-        if not isinstance(tags, list):
-            return {"status": "error", "message": "tags must be a list"}
-        if not all(isinstance(t, str) for t in tags):
-            return {"status": "error", "message": "all tags must be strings"}
-
-    valid_privacy = {"internal", "private", "public"}
-    privacy_level = tool_input.get("privacy_level")
-    if privacy_level is not None and privacy_level not in valid_privacy:
-        return {"status": "error", "message": f"invalid privacy_level: {privacy_level}"}
-
-    search_result = ctx.search_engine.search(SearchQuery(text=query, top_k=1))
-    if not search_result.is_ok or not search_result.value:
-        return {"status": "not_found", "query": query}
-    item = search_result.value[0]
-    mem = item[0] if isinstance(item, tuple) else item
-    mem_key = getattr(mem, "key", None)
-    if not mem_key:
-        return {"status": "error", "message": "memory key not found"}
-    update_kwargs: dict = {"content": new_content}
-    if importance is not None:
-        update_kwargs["importance"] = importance
-    if emotion is not None:
-        update_kwargs["emotion"] = emotion
-    if emotion_intensity is not None:
-        update_kwargs["emotion_intensity"] = emotion_intensity
-    if tags is not None:
-        update_kwargs["tags"] = tags
-    if privacy_level is not None:
-        update_kwargs["privacy_level"] = privacy_level
-    update_result = ctx.memory_service.update_memory(mem_key, **update_kwargs)
-    if update_result.is_ok:
-        return {"status": "ok", "key": mem_key}
-    return {"status": "error", "message": str(update_result.error)}
-
-
 # ── MCP-shared handlers (delegate to TOOL_DISPATCH) ──
 
 
@@ -512,11 +359,30 @@ async def _handle_mcp_dispatch(tool_name: str, ctx: AppContext, config: ChatConf
     if func is None:
         return {"status": "error", "message": f"Unknown tool: {tool_name}"}
 
-    result = await func(ctx, ctx.persona, **tool_input)
+    # ── Parameter mapping: builtin → MCP parameter name diff ──
+    mapped_input = dict(tool_input)
+    if tool_name == "memory_update" and "new_content" in mapped_input:
+        mapped_input["content"] = mapped_input.pop("new_content")
+
+    result_raw = await func(ctx, ctx.persona, **mapped_input)
+    # Some MCP functions return JSON string, others return dict
+    if isinstance(result_raw, str):
+        try:
+            result = json.loads(result_raw)
+        except json.JSONDecodeError:
+            return {"status": "ok", "content": result_raw}  # plain text response
+    else:
+        result = result_raw
+
     # Translate core dict format to builtin format
     if result.get("ok"):
+        # memory_create duplicate case
+        if result.get("status") == "duplicate":
+            return {"status": "duplicate", "similar_to": result.get("similar_to", []), "message": result.get("message", "")}
         if "key" in result:
             return {"status": "ok", "key": result["key"]}
+        if "memories" in result:
+            return {"status": "ok", "memories": result["memories"]}
         if "status" in result:
             return {"status": "ok", "updated": result.get("content", "")}
         if "result" in result:
@@ -740,12 +606,8 @@ async def _handle_list_skills(ctx: AppContext, config: ChatConfig, tool_input: d
 # ── Handler dispatch table (replaces if/elif chain) ──
 
 _BUILTIN_DISPATCH: dict[str, Any] = {
-    "context_update": _handle_context_update,
-    "execute_code": _handle_execute_code,
+    "sandbox": _handle_execute_code,
     "list_skills": _handle_list_skills,
-    "memory_create": _handle_memory_create_builtin,
-    "memory_search": _handle_memory_search_builtin,
-    "memory_update": _handle_memory_update_builtin,
     "browser": _handle_browser,
     "search": _handle_search,
     "image_generate": _handle_image_generate,
@@ -757,6 +619,10 @@ _MCP_SHARED_TOOLS = frozenset(
         "goal_manage",
         "invoke_skill",
         "sandbox_files",
+        "update_context",
+        "memory_create",
+        "memory_search",
+        "memory_update",
     }
 )
 
