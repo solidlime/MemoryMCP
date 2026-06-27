@@ -8,7 +8,7 @@ services:
       - "6334:6334"
     volumes:
       # Persist Qdrant vector data on host (ensures ./storage is always pre-created)
-      - ${DATA_ROOT:-./data}/qdrant:/qdrant/storage
+      - ${DATA_ROOT}/qdrant:/qdrant/storage
     restart: unless-stopped
     environment:
       TZ: Asia/Tokyo
@@ -25,7 +25,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ${DATA_ROOT:-./data}/searxng:/etc/searxng
+      - ${DATA_ROOT}/searxng:/etc/searxng
     restart: unless-stopped
     environment:
       SEARXNG_BASE_URL: http://localhost:8080/
@@ -44,7 +44,7 @@ services:
     volumes:
       # 全データ永続化（memory, logs, cache）
       # DATA_ROOT（ホスト） → /opt/nous/data（コンテナ、=NOUS_DATA_ROOT）
-      - ${DATA_ROOT:-./data}:/opt/nous/data
+      - ${DATA_ROOT}:/opt/nous/data
       # Host Docker socket for sibling-container sandbox execution (no DinD needed)
       - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
@@ -89,7 +89,7 @@ services:
       # 全ペルソナの sandbox データ永続化
       # DATA_ROOT（ホスト）の sandbox/ サブディレクトリ → /home（コンテナ）
       # /home/{persona}/ は useradd -m で自動作成される
-      - ${DATA_ROOT:-./data}/sandbox:/home
+      - ${DATA_ROOT}/sandbox:/home
     cap_drop:
       - ALL
     cap_add:
