@@ -56,7 +56,7 @@ class ChatConfig(BaseModel):
         }
     ]
     enabled_skills: list[str] = ["browser", "search"]
-    searxng_url: str = "http://nas:11111"
+    searxng_url: str = os.environ.get("MEMORY_MCP_SEARXNG_URL", "http://localhost:8080")
     # 画像生成
     image_gen_enabled: bool = False
     image_gen_provider: str = "openai"  # "openai" | "stability"

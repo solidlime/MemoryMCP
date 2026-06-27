@@ -21,8 +21,8 @@ RUN pip install --no-cache-dir \
     seaborn scikit-learn scipy scikit-image plotly \
     requests httpx
 
-# Create workspace
-RUN mkdir -p /sandbox/uploads /sandbox/output
+# Create workspace with permissive permissions (container may run as non-root)
+RUN mkdir -p /sandbox/uploads /sandbox/output && chmod 777 /sandbox
 WORKDIR /sandbox
 
 CMD ["tail", "-f", "/dev/null"]
