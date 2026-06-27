@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import json
+import re
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
 
@@ -9,12 +11,30 @@ from memory_mcp.domain.shared.time_utils import format_iso, get_now
 if TYPE_CHECKING:
     import sqlite3
 
+_logger: Any = None  # lazy import
+
+
+def _get_logger():
+    global _logger
+    if _logger is None:
+        from memory_mcp.infrastructure.logging.structured import get_logger
+
+        _logger = get_logger(__name__)
+    return _logger
+
+
+# a-z, 0-9, - only, 1-64 chars, no leading/trailing hyphen
+_VALID_SKILL_NAME = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}[a-z0-9]$")
+
 
 class Skill(BaseModel):
     id: int | None = None
     name: str
     description: str = ""
     content: str = ""
+    license: str | None = None
+    compatibility: str | None = None
+    metadata: dict[str, str] | None = None
     created_at: str | None = None
     updated_at: str | None = None
 
@@ -23,32 +43,65 @@ class SkillRepository:
     def __init__(self, db: sqlite3.Connection) -> None:
         self._db = db
 
+    @staticmethod
+    def _parse_metadata(raw: str | None) -> dict[str, str] | None:
+        if raw is None:
+            return None
+        try:
+            return json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            return None
+
+    @staticmethod
+    def _dump_metadata(meta: dict[str, str] | None) -> str | None:
+        if meta is None:
+            return None
+        return json.dumps(meta, ensure_ascii=False)
+
+    @staticmethod
+    def _row_to_skill(r: sqlite3.Row) -> Skill:
+        return Skill(
+            id=r[0],
+            name=r[1],
+            description=r[2] or "",
+            content=r[3] or "",
+            license=r[4] if r[4] else None,
+            compatibility=r[5] if r[5] else None,
+            metadata=SkillRepository._parse_metadata(r[6]),
+            created_at=r[7],
+            updated_at=r[8],
+        )
+
+    _SELECT_COLS = "id, name, description, content, license, compatibility, metadata, created_at, updated_at"
+
     def list_all(self) -> list[Skill]:
-        rows = self._db.execute(
-            "SELECT id, name, description, content, created_at, updated_at FROM skills ORDER BY name"
-        ).fetchall()
-        return [
-            Skill(id=r[0], name=r[1], description=r[2] or "", content=r[3] or "", created_at=r[4], updated_at=r[5])
-            for r in rows
-        ]
+        rows = self._db.execute(f"SELECT {self._SELECT_COLS} FROM skills ORDER BY name").fetchall()
+        return [self._row_to_skill(r) for r in rows]
 
     def get(self, name: str) -> Skill | None:
         row = self._db.execute(
-            "SELECT id, name, description, content, created_at, updated_at FROM skills WHERE name = ?",
+            f"SELECT {self._SELECT_COLS} FROM skills WHERE name = ?",
             (name,),
         ).fetchone()
         if row is None:
             return None
-        return Skill(
-            id=row[0], name=row[1], description=row[2] or "", content=row[3] or "", created_at=row[4], updated_at=row[5]
-        )
+        return self._row_to_skill(row)
 
     def save(self, skill: Skill) -> Skill:
         now = format_iso(get_now())
         if skill.id is None:
             cursor = self._db.execute(
-                "INSERT INTO skills (name, description, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
-                (skill.name, skill.description, skill.content, now, now),
+                "INSERT INTO skills (name, description, content, license, compatibility, metadata, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    skill.name,
+                    skill.description,
+                    skill.content,
+                    skill.license,
+                    skill.compatibility,
+                    self._dump_metadata(skill.metadata),
+                    now,
+                    now,
+                ),
             )
             self._db.commit()
             return Skill(
@@ -56,13 +109,25 @@ class SkillRepository:
                 name=skill.name,
                 description=skill.description,
                 content=skill.content,
+                license=skill.license,
+                compatibility=skill.compatibility,
+                metadata=skill.metadata,
                 created_at=now,
                 updated_at=now,
             )
         else:
             self._db.execute(
-                "UPDATE skills SET name=?, description=?, content=?, updated_at=? WHERE id=?",
-                (skill.name, skill.description, skill.content, now, skill.id),
+                "UPDATE skills SET name=?, description=?, content=?, license=?, compatibility=?, metadata=?, updated_at=? WHERE id=?",
+                (
+                    skill.name,
+                    skill.description,
+                    skill.content,
+                    skill.license,
+                    skill.compatibility,
+                    self._dump_metadata(skill.metadata),
+                    now,
+                    skill.id,
+                ),
             )
             self._db.commit()
             return Skill(
@@ -70,6 +135,9 @@ class SkillRepository:
                 name=skill.name,
                 description=skill.description,
                 content=skill.content,
+                license=skill.license,
+                compatibility=skill.compatibility,
+                metadata=skill.metadata,
                 created_at=skill.created_at,
                 updated_at=now,
             )
@@ -79,8 +147,17 @@ class SkillRepository:
         existing = self.get(skill.name)
         if existing is None:
             cursor = self._db.execute(
-                "INSERT INTO skills (name, description, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
-                (skill.name, skill.description, skill.content, now, now),
+                "INSERT INTO skills (name, description, content, license, compatibility, metadata, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    skill.name,
+                    skill.description,
+                    skill.content,
+                    skill.license,
+                    skill.compatibility,
+                    self._dump_metadata(skill.metadata),
+                    now,
+                    now,
+                ),
             )
             self._db.commit()
             return Skill(
@@ -88,13 +165,24 @@ class SkillRepository:
                 name=skill.name,
                 description=skill.description,
                 content=skill.content,
+                license=skill.license,
+                compatibility=skill.compatibility,
+                metadata=skill.metadata,
                 created_at=now,
                 updated_at=now,
             )
         else:
             self._db.execute(
-                "UPDATE skills SET description=?, content=?, updated_at=? WHERE name=?",
-                (skill.description, skill.content, now, skill.name),
+                "UPDATE skills SET description=?, content=?, license=?, compatibility=?, metadata=?, updated_at=? WHERE name=?",
+                (
+                    skill.description,
+                    skill.content,
+                    skill.license,
+                    skill.compatibility,
+                    self._dump_metadata(skill.metadata),
+                    now,
+                    skill.name,
+                ),
             )
             self._db.commit()
             return Skill(
@@ -102,6 +190,9 @@ class SkillRepository:
                 name=skill.name,
                 description=skill.description,
                 content=skill.content,
+                license=skill.license,
+                compatibility=skill.compatibility,
+                metadata=skill.metadata,
                 created_at=existing.created_at,
                 updated_at=now,
             )
@@ -136,15 +227,58 @@ class SkillRepository:
             if not skill_file.exists():
                 continue
             raw = skill_file.read_text(encoding="utf-8")
-            name, description, content = _parse_skill_md(entry.name, raw)
-            upserted.append(self.upsert(Skill(name=name, description=description, content=content)))
+            parsed = _parse_skill_md(entry.name, raw)
+            # unpack with explicit typing for type checker
+            p_name: str = parsed["name"]  # type: ignore[assignment]
+            p_desc: str = parsed["description"]  # type: ignore[assignment]
+            p_content: str = parsed["content"]  # type: ignore[assignment]
+            p_license: str | None = parsed.get("license")  # type: ignore[assignment]
+            p_compat: str | None = parsed.get("compatibility")  # type: ignore[assignment]
+            p_meta: dict[str, str] | None = parsed.get("metadata")  # type: ignore[assignment]
+            upserted.append(
+                self.upsert(
+                    Skill(
+                        name=p_name,
+                        description=p_desc,
+                        content=p_content,
+                        license=p_license,
+                        compatibility=p_compat,
+                        metadata=p_meta,
+                    )
+                )
+            )
         return upserted
 
 
-def _parse_skill_md(dir_name: str, raw: str) -> tuple[str, str, str]:
-    """Extract name/description from YAML frontmatter, body as content."""
+def _validate_name(name: str, dir_name: str) -> str:
+    """Validate skill name against spec. WARNING on violation, fallback to dir_name."""
+    log = _get_logger()
+    if not name:
+        log.warning("Skill name is empty, using directory name '%s'", dir_name)
+        return dir_name
+    if len(name) > 64:
+        log.warning("Skill name '%s' exceeds 64 chars, using directory name '%s'", name, dir_name)
+        return dir_name
+    if not _VALID_SKILL_NAME.match(name):
+        log.warning(
+            "Skill name '%s' invalid (a-z0-9 + hyphens only, no leading/trailing hyphen), using directory name '%s'",
+            name,
+            dir_name,
+        )
+        return dir_name
+    return name
+
+
+def _parse_skill_md(dir_name: str, raw: str) -> dict[str, Any]:
+    """Extract name/description/license/compatibility/metadata from YAML frontmatter, body as content.
+
+    Returns dict with keys: name, description, content, license, compatibility, metadata.
+    """
     name = dir_name
     description = ""
+    license_val: str | None = None
+    compatibility_val: str | None = None
+    metadata_val: dict[str, str] | None = None
     body = raw
     if raw.startswith("---"):
         end = raw.find("---", 3)
@@ -152,8 +286,31 @@ def _parse_skill_md(dir_name: str, raw: str) -> tuple[str, str, str]:
             fm = raw[3:end].strip()
             body = raw[end + 3 :].strip()
             for line in fm.splitlines():
-                if line.startswith("name:"):
-                    name = line[5:].strip()
-                elif line.startswith("description:"):
-                    description = line[12:].strip()
-    return name, description, body
+                stripped = line.strip()
+                if stripped.startswith("name:"):
+                    name = stripped[5:].strip()
+                elif stripped.startswith("description:"):
+                    description = stripped[12:].strip()
+                elif stripped.startswith("license:"):
+                    license_val = stripped[8:].strip()
+                elif stripped.startswith("compatibility:"):
+                    compatibility_val = stripped[14:].strip()
+                elif stripped.startswith("metadata:"):
+                    meta_raw = stripped[9:].strip()
+                    if meta_raw:
+                        try:
+                            parsed = json.loads(meta_raw)
+                            if isinstance(parsed, dict):
+                                metadata_val = {str(k): str(v) for k, v in parsed.items()}
+                        except json.JSONDecodeError:
+                            log = _get_logger()
+                            log.warning("Skill '%s': metadata is not valid JSON, ignoring", name)
+    name = _validate_name(name, dir_name)
+    return {
+        "name": name,
+        "description": description,
+        "content": body,
+        "license": license_val,
+        "compatibility": compatibility_val,
+        "metadata": metadata_val,
+    }

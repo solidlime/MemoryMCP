@@ -50,14 +50,17 @@ class PromptBuildStep:
                 for s in skills:
                     if not s:
                         continue
-                    line = f"- {s.name}: {s.description}"
-                    if s.content and len(s.content) < 500:
-                        content_preview = s.content.strip().split("\n")[0][:200]
-                        line += f"\n  {content_preview}"
+                    # L1: name + short description only (~100 tokens/skill)
+                    desc = (s.description or "")[:120]
+                    line = f"- {s.name}: {desc}"
                     skill_lines.append(line)
                 skills_raw = [s.model_dump() for s in skills if s]
                 if skill_lines:
-                    parts.append("\n--- 利用可能なSkill ---\n" + "\n".join(skill_lines))
+                    parts.append(
+                        "\n--- 利用可能なSkill ---\n"
+                        + "\n".join(skill_lines)
+                        + "\n\n各スキルの詳細な使い方は invoke_skill ツールで読み込めます。"
+                    )
             except Exception as e:
                 logger.warning("PromptBuildStep: skills load failed: %s", e)
 

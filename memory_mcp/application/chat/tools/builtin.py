@@ -676,8 +676,21 @@ async def _handle_list_skills(ctx: AppContext, config: ChatConfig, tool_input: d
 
         repo = SkillRepository(db)
         skills = repo.list_all()
-        items = [{"name": s.name, "description": getattr(s, "description", "")} for s in skills]
-        return {"status": "ok", "skills": items, "count": len(items)}
+        items = [
+            {
+                "name": s.name,
+                "description": s.description or "",
+                "license": s.license,
+                "compatibility": s.compatibility,
+            }
+            for s in skills
+        ]
+        return {
+            "status": "ok",
+            "skills": items,
+            "count": len(items),
+            "note": "L2 詳細（SKILL.md全文）は invoke_skill ツールで取得してください。",
+        }
     except Exception as e:
         return {"status": "error", "message": str(e)}
 

@@ -1,6 +1,8 @@
 ---
 name: browser
 description: browser ツールでWebブラウザを直接操作。検索エンジンは Brave Search (search.brave.com) または Mojeek (mojeek.com) を使うこと。Google・DuckDuckGoはブロックされるので絶対に使わない。web_searchツールは存在しない。
+license: MIT
+compatibility: memory-mcp >= 2.0.0
 ---
 
 # browser スキル

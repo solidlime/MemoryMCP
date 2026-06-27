@@ -212,12 +212,15 @@ CREATE TABLE IF NOT EXISTS chat_sessions (
 
 _SKILLS_SCHEMA = """\
 CREATE TABLE IF NOT EXISTS skills (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    name        TEXT UNIQUE NOT NULL,
-    description TEXT DEFAULT '',
-    content     TEXT NOT NULL DEFAULT '',
-    created_at  TEXT,
-    updated_at  TEXT
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    name          TEXT UNIQUE NOT NULL,
+    description   TEXT DEFAULT '',
+    content       TEXT NOT NULL DEFAULT '',
+    license       TEXT,
+    compatibility TEXT,
+    metadata      TEXT,
+    created_at    TEXT,
+    updated_at    TEXT
 );
 """
 
@@ -235,10 +238,21 @@ def get_global_skills_db(data_dir: str) -> sqlite3.Connection:
         conn.execute("PRAGMA foreign_keys=ON")
         conn.row_factory = sqlite3.Row
         conn.executescript(_SKILLS_SCHEMA)
+        # migrate existing DBs — add columns if missing
+        _migrate_skills_schema(conn)
         conn.commit()
         _global_skills_conn = conn
         logger.info("Global skills DB opened: %s", db_path)
     return _global_skills_conn
+
+
+def _migrate_skills_schema(conn: sqlite3.Connection) -> None:
+    """Add new columns to skills table for existing databases."""
+    from contextlib import suppress
+
+    for col in ("license", "compatibility", "metadata"):
+        with suppress(Exception):
+            conn.execute(f"ALTER TABLE skills ADD COLUMN {col} TEXT")
 
 
 class SQLiteConnection:
