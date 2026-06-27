@@ -156,7 +156,7 @@ class MemoryService:
             return Failure(result.error)
         if result.value is None:
             return Failure(MemoryNotFoundError(f"Memory not found: {key}"))
-        if getattr(result.value, 'lifecycle_status', 'active') == 'tombstoned':
+        if getattr(result.value, "lifecycle_status", "active") == "tombstoned":
             return Failure(MemoryNotFoundError(f"Memory deleted: {key}"))
         return Success(result.value)
 

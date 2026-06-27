@@ -1,4 +1,5 @@
 """Quick test: rollback non-existent session."""
+
 import json
 import urllib.request
 
@@ -8,7 +9,7 @@ req = urllib.request.Request(
     "http://localhost:26262/api/chat/herta/sessions/NO_SUCH_SESSION/rollback",
     data=data,
     headers={"Content-Type": "application/json", "X-Persona": "herta"},
-    method="POST"
+    method="POST",
 )
 try:
     r = urllib.request.urlopen(req, timeout=10)

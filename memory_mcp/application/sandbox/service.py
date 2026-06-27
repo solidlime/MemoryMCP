@@ -500,7 +500,15 @@ class SandboxSession:
                 logger.warning("Sandbox JavaScript execute error: %s", e)
                 return ExecResult(stdout="", stderr=str(e), exit_code=1, language="javascript")
         if language in ("bash", "shell", "sh"):
-            return await self._execute_stateless(code, "bash", [])
+            # Run via Python session's IPython subprocess (llm_sandbox doesn't support bash natively)
+            return await self._execute_python(
+                f"import subprocess, sys\n"
+                f"cmd = {repr(code)}\n"
+                f"r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=60)\n"
+                f"sys.stdout.write(r.stdout)\n"
+                f"sys.stderr.write(r.stderr)\n"
+                f"sys.exit(r.returncode)\n"
+            )
         if language in ("go", "golang"):
             return await self._execute_stateless(code, "go", [])
         if language in ("rust", "rs"):

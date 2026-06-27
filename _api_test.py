@@ -1,6 +1,7 @@
 """MemoryMCP 全機能 API 実動作テスト
 すべてのHTTPエンドポイントをテストし、問題点・矛盾・重複を検出する。
 """
+
 import json
 import time
 import urllib.error
@@ -11,10 +12,12 @@ P = "herta"
 RESULTS = []
 DEV_MODE = True  # 404/405は開発中なのでINFO扱い
 
+
 def fmt_err(e):
     if hasattr(e, "code"):
         return f"HTTP {e.code}"
     return f"{type(e).__name__}: {e}"
+
 
 def test(method, path, expected_status=(200,), body=None, label=None, use_mcp_header=False, skip_404_ok=False):
     """Call endpoint and record result."""
@@ -52,8 +55,19 @@ def test(method, path, expected_status=(200,), body=None, label=None, use_mcp_he
         level = "PASS"
 
     label = label or f"{method} {path}"
-    RESULTS.append({"label": label, "method": method, "path": path, "status": status, "passed": passed, "level": level, "resp_preview": resp[:120]})
+    RESULTS.append(
+        {
+            "label": label,
+            "method": method,
+            "path": path,
+            "status": status,
+            "passed": passed,
+            "level": level,
+            "resp_preview": resp[:120],
+        }
+    )
     return level
+
 
 # ==================== PHASE 1: HEALTH + ROOT ====================
 print("=" * 60)
@@ -142,9 +156,19 @@ print("PHASE 9: サンドボックス API")
 print("=" * 60)
 
 test("GET", f"/api/chat/{P}/sandbox/files", label="サンドボックスファイル一覧")
-test("DELETE", f"/api/chat/{P}/sandbox/files/_nonexistent", expected_status=(200, 404), label="存在しないsandboxファイル削除")
+test(
+    "DELETE",
+    f"/api/chat/{P}/sandbox/files/_nonexistent",
+    expected_status=(200, 404),
+    label="存在しないsandboxファイル削除",
+)
 # execute a simple python snippet
-test("POST", f"/api/chat/{P}/sandbox/execute", body={"language": "python", "code": "print('hello sandbox')"}, label="Sandboxコード実行")
+test(
+    "POST",
+    f"/api/chat/{P}/sandbox/execute",
+    body={"language": "python", "code": "print('hello sandbox')"},
+    label="Sandboxコード実行",
+)
 
 # ==================== PHASE 10: IMPORT/EXPORT ====================
 print("\n" + "=" * 60)
@@ -158,18 +182,38 @@ print("\n" + "=" * 60)
 print("PHASE 11: MCP プロトコル (Streamable HTTP)")
 print("=" * 60)
 
-test("POST", "/mcp", body={"jsonrpc":"2.0","method":"tools/list","params":{},"id":1},
-     label="MCP tools/list", use_mcp_header=True)
-test("POST", "/mcp", body={"jsonrpc":"2.0","method":"tools/call","params":{"name":"memory_stats","arguments":{"top_n":3}},"id":2},
-     label="MCP tools/call (memory_stats)", use_mcp_header=True)
+test(
+    "POST",
+    "/mcp",
+    body={"jsonrpc": "2.0", "method": "tools/list", "params": {}, "id": 1},
+    label="MCP tools/list",
+    use_mcp_header=True,
+)
+test(
+    "POST",
+    "/mcp",
+    body={
+        "jsonrpc": "2.0",
+        "method": "tools/call",
+        "params": {"name": "memory_stats", "arguments": {"top_n": 3}},
+        "id": 2,
+    },
+    label="MCP tools/call (memory_stats)",
+    use_mcp_header=True,
+)
 
 # ==================== PHASE 12: ROLLBACK (新機能) ====================
 print("\n" + "=" * 60)
 print("PHASE 12: 新機能 - チャットロールバック")
 print("=" * 60)
 
-test("POST", f"/api/chat/{P}/sessions/test_nonexistent/rollback", body={"keep_until": 0},
-     expected_status=(200, 404), label="存在しないセッションロールバック")
+test(
+    "POST",
+    f"/api/chat/{P}/sessions/test_nonexistent/rollback",
+    body={"keep_until": 0},
+    expected_status=(200, 404),
+    label="存在しないセッションロールバック",
+)
 
 # ==================== PHASE 13: SKILLS SYNC ====================
 print("\n" + "=" * 60)

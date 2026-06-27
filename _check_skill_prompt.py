@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Check if test_echo skill appears in chat debug prompt."""
+
 import asyncio
 import json
 
@@ -7,13 +8,16 @@ import aiohttp
 
 
 async def check():
-    async with aiohttp.ClientSession() as s, s.post(
-        "http://localhost:26262/api/chat/herta",
-        json={"message": "hi", "session_id": "debug_skill_check", "debug": True}
-    ) as resp:
+    async with (
+        aiohttp.ClientSession() as s,
+        s.post(
+            "http://localhost:26262/api/chat/herta",
+            json={"message": "hi", "session_id": "debug_skill_check", "debug": True},
+        ) as resp,
+    ):
         async for line in resp.content:
             line = line.decode().strip()
-            if line.startswith('data:') and 'system_prompt' in line:
+            if line.startswith("data:") and "system_prompt" in line:
                 data = json.loads(line[5:])
                 sp = data.get("system_prompt", "")
                 if "test_echo" in sp:
@@ -30,5 +34,6 @@ async def check():
                             print(f"  [{i}] {sline}")
                 break
     await s.close()
+
 
 asyncio.run(check())

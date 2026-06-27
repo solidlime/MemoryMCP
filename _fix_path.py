@@ -1,4 +1,5 @@
 """Fix node PATH in bashrc - robust version."""
+
 import os
 
 path = os.path.expanduser("~/.bashrc")

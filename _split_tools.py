@@ -1,4 +1,5 @@
 """One-time script: split tools.py into categorized sub-modules + helpers."""
+
 from pathlib import Path
 
 TOOLS_PY = Path(r"\\wsl.localhost\Ubuntu\home\rausraus\Code\MemoryMCP\memory_mcp\api\mcp\tools.py")
@@ -23,32 +24,44 @@ COMMON_IMPORTS = [
 # (start_line_1idx, end_line_1idx) for each group
 GROUPS = {
     "_tools_memory.py": [
-        (156, 201), (204, 276), (279, 324),
-        (327, 365), (368, 443), (446, 472),
+        (156, 201),
+        (204, 276),
+        (279, 324),
+        (327, 365),
+        (368, 443),
+        (446, 472),
     ],
     "_tools_persona.py": [
-        (53, 153), (475, 613),
+        (53, 153),
+        (475, 613),
     ],
     "_tools_item.py": [
-        (616, 650), (653, 679), (682, 708), (711, 738),
-        (741, 784), (787, 827), (830, 871),
+        (616, 650),
+        (653, 679),
+        (682, 708),
+        (711, 738),
+        (741, 784),
+        (787, 827),
+        (830, 871),
     ],
     "_tools_sandbox.py": [
-        (874, 929), (932, 1138),
+        (874, 929),
+        (932, 1138),
     ],
     "_tools_goal.py": [
-        (1141, 1273), (1276, 1408),
+        (1141, 1273),
+        (1276, 1408),
     ],
     "_tools_skill.py": [
         (1411, 1513),
     ],
     # Helpers referenced by _tool_get_context (moved to shared module)
     "_tools_helpers.py": [
-        (1865, 1898),   # _format_state_block
-        (1901, 1914),   # _format_state_diff
-        (1921, 1935),   # _parse_days_from_relative
-        (1938, 1946),   # _build_time_comment
-        (1949, 2107),   # _format_lightweight_response
+        (1865, 1898),  # _format_state_block
+        (1901, 1914),  # _format_state_diff
+        (1921, 1935),  # _parse_days_from_relative
+        (1938, 1946),  # _build_time_comment
+        (1949, 2107),  # _format_lightweight_response
     ],
 }
 
@@ -79,7 +92,8 @@ for filename, ranges in GROUPS.items():
                 block_lines.append("\n")
             f.writelines(block_lines)
             f.write("\n")
-    lc = len(open(out_path, encoding="utf-8").readlines())
+    with open(out_path, encoding="utf-8") as f:
+        lc = len(f.readlines())
     print(f"Created {out_path.name}: {lc} lines")
 
 # 2. Rebuild tools.py: keep lines 0-51 (imports + _VALID_EMOTIONS),
