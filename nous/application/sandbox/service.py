@@ -5,11 +5,8 @@ import contextlib
 import json as _json
 import logging
 import os
-import tempfile
 import uuid
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import TYPE_CHECKING
 
 import docker
 from docker.errors import NotFound
@@ -21,9 +18,6 @@ from nous.application.sandbox.user_manager import (
     user_delete_commands,
     user_exists_commands,
 )
-
-if TYPE_CHECKING:
-    from nous.config.settings import Settings
 
 logger = logging.getLogger(__name__)
 
@@ -348,7 +342,7 @@ class SandboxSession:
 
         # Resize if needed (max 1568px on longest side) -- run resize locally
         try:
-            from io import BytesIO
+            from io import BytesIO  # noqa: I001
             from PIL import Image
 
             img = Image.open(BytesIO(data))
@@ -469,7 +463,7 @@ class SandboxSession:
             "pip3 list --user --format=json 2>/dev/null || echo '[]'"
         )
         if exit_code == 0:
-            try:
+            try:  # noqa: SIM105
                 pkgs = [p["name"] for p in _json.loads(stdout)]
             except Exception:
                 pass
@@ -485,7 +479,7 @@ class SandboxSession:
     async def close(self) -> None:
         """Release Docker client connection. Container stays running for other personas."""
         if self._docker:
-            try:
+            try:  # noqa: SIM105
                 self._docker.close()
             except Exception:
                 pass
