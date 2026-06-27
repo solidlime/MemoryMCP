@@ -262,7 +262,7 @@ async function saveChatConfig() {
         enable_memory_tools: getChecked('chat-enable-memory-tools'),
         mcp_servers: parseMcpJson(),
         tool_result_max_chars: parseInt(document.getElementById('chat-tool-result-max')?.value || '4000'),
-        enabled_skills: CHAT.enabledSkills,
+        enabled_skills: BUILTIN_SKILLS.concat((CHAT.enabledSkills || []).filter(function(s) { return !BUILTIN_SKILLS.includes(s); })),
         reflection_enabled: getChecked('chat-reflection-enabled'),
         reflection_threshold: parseFloat(document.getElementById('chat-reflection-threshold')?.value || '1.0'),
         reflection_min_interval_hours: parseFloat(document.getElementById('chat-reflection-interval')?.value || '1.0'),
@@ -315,6 +315,43 @@ function renderMcpJson(servers) {
         mcpServers[srv.name] = entry;
     });
     ta.value = JSON.stringify({ mcpServers }, null, 2);
+
+    /* ── Render MCP server list with Built-in badges ── */
+    var listEl = document.getElementById('chat-mcp-server-list');
+    if (listEl) {
+        listEl.innerHTML = '';
+        (servers || []).forEach(function(srv) {
+            var isBuiltin = srv._builtin === true;
+            var row = document.createElement('div');
+            row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--glass-border);';
+            var nameSpan = document.createElement('span');
+            nameSpan.style.cssText = 'font-size:0.82rem;color:var(--text-secondary);font-weight:500;';
+            nameSpan.textContent = srv.name;
+            row.appendChild(nameSpan);
+            if (isBuiltin) {
+                var badge = document.createElement('span');
+                badge.className = 'builtin-badge';
+                badge.textContent = 'Built-in';
+                row.appendChild(badge);
+            }
+            var spacer = document.createElement('span');
+            spacer.style.cssText = 'flex:1;';
+            row.appendChild(spacer);
+            if (!isBuiltin) {
+                var delBtn = document.createElement('button');
+                delBtn.className = 'mem-action-btn del';
+                delBtn.textContent = '削除';
+                delBtn.style.cssText = 'font-size:0.68rem;padding:2px 8px;';
+                delBtn.onclick = function() {
+                    CHAT.mcpServers = CHAT.mcpServers.filter(function(s) { return s.name !== srv.name; });
+                    renderMcpJson(CHAT.mcpServers);
+                    renderMcpServerList(CHAT.mcpServers);
+                };
+                row.appendChild(delBtn);
+            }
+            listEl.appendChild(row);
+        });
+    }
 }
 
 function parseMcpJson() {
@@ -327,6 +364,11 @@ function parseMcpJson() {
     try {
         const parsed = JSON.parse(raw);
         const dict = parsed.mcpServers || {};
+        /* Preserve _builtin flags from original CHAT.mcpServers */
+        var builtinMap = {};
+        (CHAT.mcpServers || []).forEach(function(s) {
+            if (s._builtin) builtinMap[s.name] = true;
+        });
         return Object.entries(dict).map(([name, cfg]) => ({
             name,
             transport: cfg.url ? 'http' : 'stdio',
@@ -335,12 +377,15 @@ function parseMcpJson() {
             args: cfg.args || [],
             headers: cfg.headers || cfg.env || {},
             enabled: true,
+            _builtin: builtinMap[name] || false,
         }));
     } catch (e) {
         if (errEl) { errEl.textContent = 'JSON形式エラー: ' + e.message; errEl.style.display = ''; }
         return CHAT.mcpServers;
     }
 }
+
+const BUILTIN_SKILLS = ['browser', 'search'];
 
 function renderSkillsList(allSkills, enabledSkills) {
     const list = document.getElementById('chat-skills-list');
@@ -352,6 +397,7 @@ function renderSkillsList(allSkills, enabledSkills) {
     }
     allSkills.forEach(skill => {
         const enabled = (enabledSkills || []).includes(skill.name);
+        const isBuiltin = BUILTIN_SKILLS.includes(skill.name);
         const item = document.createElement('div');
         item.style.cssText = 'display:flex;align-items:center;gap:8px;';
         const cb = document.createElement('input');
@@ -359,6 +405,10 @@ function renderSkillsList(allSkills, enabledSkills) {
         cb.checked = enabled;
         cb.id = 'skill-cb-' + skill.name;
         cb.style.cssText = 'width:14px;height:14px;accent-color:var(--accent-purple);cursor:pointer;';
+        if (isBuiltin) {
+            cb.disabled = true;
+            cb.title = 'Built-in スキルは削除できません';
+        }
         cb.addEventListener('change', () => {
             if (cb.checked) {
                 if (!CHAT.enabledSkills.includes(skill.name)) CHAT.enabledSkills.push(skill.name);
@@ -368,9 +418,15 @@ function renderSkillsList(allSkills, enabledSkills) {
         });
         const label = document.createElement('label');
         label.htmlFor = cb.id;
-        label.style.cssText = 'font-size:0.78rem;color:var(--text-secondary);cursor:pointer;';
+        label.style.cssText = 'font-size:0.78rem;color:var(--text-secondary);cursor:pointer;display:inline-flex;align-items:center;gap:6px;';
         label.title = skill.description || '';
         label.textContent = skill.name;
+        if (isBuiltin) {
+            var badge = document.createElement('span');
+            badge.className = 'builtin-badge';
+            badge.textContent = 'Built-in';
+            label.appendChild(badge);
+        }
         item.appendChild(cb);
         item.appendChild(label);
         list.appendChild(item);

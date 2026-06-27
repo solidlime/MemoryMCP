@@ -287,6 +287,7 @@ def render_chat_tab() -> str:
                         <details data-category="tools">
                             <summary><i data-lucide="battery-charging"></i> MCPサーバー <span class="chat-help-icon" onmouseenter="showHelpTooltip(event, 'tools')" title="説明を表示" onmouseleave="hideHelpTooltip()"><i data-lucide="help-circle"></i></span></summary>
                             <div class="details-body" id="chat-mcp-section">
+                                <div id="chat-mcp-server-list" style="display:flex;flex-direction:column;gap:2px;margin-bottom:8px;"></div>
                                 <div>
                                     <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:4px;">Claude の mcp.json 形式で貼り付け・編集できます</div>
                                     <textarea id="chat-mcp-json" class="chat-field-input" rows="6"
