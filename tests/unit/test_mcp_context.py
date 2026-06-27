@@ -7,11 +7,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from memory_mcp.domain.memory.entities import Memory
-from memory_mcp.domain.persona.entities import PersonaState
-from memory_mcp.domain.search.engine import SearchResult
-from memory_mcp.domain.shared.errors import DomainError
-from memory_mcp.domain.shared.result import Failure, Success
+from nous.domain.memory.entities import Memory
+from nous.domain.persona.entities import PersonaState
+from nous.domain.search.engine import SearchResult
+from nous.domain.shared.errors import DomainError
+from nous.domain.shared.result import Failure, Success
 
 UTC = UTC
 
@@ -68,12 +68,12 @@ def registered_tools(mock_app_context):
     mock_mcp.tool = mock_tool_decorator
 
     with (
-        patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_registry_cls,
-        patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
+        patch("nous.api.mcp.tools.AppContextRegistry") as mock_registry_cls,
+        patch("nous.api.mcp.tools.get_current_persona", return_value="test_persona"),
     ):
         mock_registry_cls.get.return_value = mock_app_context
 
-        from memory_mcp.api.mcp.tools import register_tools
+        from nous.api.mcp.tools import register_tools
 
         register_tools(mock_mcp)
 
@@ -94,8 +94,8 @@ class TestUpdateContext:
         ctx.persona_service.update_emotion.return_value = Success(None)
         update_context = tools["update_context"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
+            patch("nous.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
+            patch("nous.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
             result = await update_context(emotion="joy", emotion_intensity=0.9)
@@ -108,8 +108,8 @@ class TestUpdateContext:
         ctx.persona_service.update_physical_state.return_value = Success(None)
         update_context = tools["update_context"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
+            patch("nous.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
+            patch("nous.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
             result = await update_context(physical_state="tired", mental_state="focused")
@@ -121,8 +121,8 @@ class TestUpdateContext:
         tools, ctx, _ = registered_tools
         update_context = tools["update_context"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
+            patch("nous.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
+            patch("nous.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
             result = await update_context()
@@ -134,8 +134,8 @@ class TestUpdateContext:
         ctx.persona_service.update_relationship.return_value = Success(None)
         update_context = tools["update_context"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
+            patch("nous.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
+            patch("nous.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
             result = await update_context(relationship_status="friends")
@@ -147,8 +147,8 @@ class TestUpdateContext:
         ctx.persona_service.update_persona_info.return_value = Success(None)
         update_context = tools["update_context"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
+            patch("nous.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
+            patch("nous.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
             result = await update_context(nickname="Taro")
@@ -160,8 +160,8 @@ class TestUpdateContext:
         ctx.persona_service.update_user_info.return_value = Success(None)
         update_context = tools["update_context"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
+            patch("nous.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
+            patch("nous.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
             result = await update_context(user_info={"name": "Alice", "nickname": "Ali"})
@@ -190,8 +190,8 @@ class TestGetContext:
         ctx.persona_service.record_conversation_time.return_value = Success(None)
         get_context = tools["get_context"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
+            patch("nous.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
+            patch("nous.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
             result = await get_context()
@@ -205,8 +205,8 @@ class TestGetContext:
         ctx.persona_service.get_context.return_value = Failure(DomainError("persona error"))
         get_context = tools["get_context"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
+            patch("nous.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
+            patch("nous.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
             result = await get_context()
@@ -230,8 +230,8 @@ class TestGetContext:
         ctx.persona_service.record_conversation_time.return_value = Success(None)
         get_context = tools["get_context"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
+            patch("nous.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
+            patch("nous.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
             result = await get_context()

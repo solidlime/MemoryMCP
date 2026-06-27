@@ -17,11 +17,11 @@ if TYPE_CHECKING:
 
 import pytest
 
-from memory_mcp.api.mcp.middleware import resolve_persona_from_headers
-from memory_mcp.domain.shared.errors import MigrationError
-from memory_mcp.domain.shared.result import Failure
-from memory_mcp.infrastructure.sqlite.connection import SQLiteConnection
-from memory_mcp.migration.importers.legacy_importer import LegacyImporter
+from nous.api.mcp.middleware import resolve_persona_from_headers
+from nous.domain.shared.errors import MigrationError
+from nous.domain.shared.result import Failure
+from nous.infrastructure.sqlite.connection import SQLiteConnection
+from nous.migration.importers.legacy_importer import LegacyImporter
 
 pytestmark = pytest.mark.unit
 
@@ -86,7 +86,7 @@ class TestBearerTokenValidation:
     def test_injection_attempt_rejected(self, monkeypatch):
         """SQL injection in token must NOT be used as persona name."""
         monkeypatch.delenv("PERSONA", raising=False)
-        monkeypatch.delenv("MEMORY_MCP_DEFAULT_PERSONA", raising=False)
+        monkeypatch.delenv("NOUS_DEFAULT_PERSONA", raising=False)
         malicious = 'Bearer "; DROP TABLE memories; --'
         result = resolve_persona_from_headers(authorization=malicious)
         # Must fall back to "default", not the injected string
@@ -96,7 +96,7 @@ class TestBearerTokenValidation:
     def test_special_chars_rejected(self, monkeypatch):
         """Path traversal chars in token must be rejected."""
         monkeypatch.delenv("PERSONA", raising=False)
-        monkeypatch.delenv("MEMORY_MCP_DEFAULT_PERSONA", raising=False)
+        monkeypatch.delenv("NOUS_DEFAULT_PERSONA", raising=False)
         result = resolve_persona_from_headers(authorization="Bearer ../../../etc")
         assert result == "default"
         assert ".." not in result
@@ -104,7 +104,7 @@ class TestBearerTokenValidation:
     def test_too_long_token_rejected(self, monkeypatch):
         """Token longer than 64 characters must be rejected."""
         monkeypatch.delenv("PERSONA", raising=False)
-        monkeypatch.delenv("MEMORY_MCP_DEFAULT_PERSONA", raising=False)
+        monkeypatch.delenv("NOUS_DEFAULT_PERSONA", raising=False)
         long_token = "a" * 65
         result = resolve_persona_from_headers(authorization=f"Bearer {long_token}")
         assert result == "default"
@@ -118,7 +118,7 @@ class TestBearerTokenValidation:
     def test_empty_token_rejected(self, monkeypatch):
         """`Bearer   ` (spaces only) must fall through to next source."""
         monkeypatch.delenv("PERSONA", raising=False)
-        monkeypatch.delenv("MEMORY_MCP_DEFAULT_PERSONA", raising=False)
+        monkeypatch.delenv("NOUS_DEFAULT_PERSONA", raising=False)
         result = resolve_persona_from_headers(
             authorization="Bearer   ",
             x_persona="fallback_persona",
@@ -129,7 +129,7 @@ class TestBearerTokenValidation:
     def test_x_persona_header_validation(self, monkeypatch):
         """`X-Persona` with special characters must be rejected."""
         monkeypatch.delenv("PERSONA", raising=False)
-        monkeypatch.delenv("MEMORY_MCP_DEFAULT_PERSONA", raising=False)
+        monkeypatch.delenv("NOUS_DEFAULT_PERSONA", raising=False)
         result = resolve_persona_from_headers(x_persona="../../root")
         assert result == "default"
         assert ".." not in result

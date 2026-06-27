@@ -38,7 +38,7 @@ async def test_dalle_generate_success():
             mock_http.get = AsyncMock(return_value=mock_resp)
             mock_http_class.return_value = mock_http
 
-            from memory_mcp.infrastructure.image_gen.dalle import DalleProvider
+            from nous.infrastructure.image_gen.dalle import DalleProvider
 
             provider = DalleProvider(model="dall-e-3")
             images = await provider.generate(prompt="かわいい猫", size="1024x1024")
@@ -72,7 +72,7 @@ async def test_dalle_generate_multiple():
             mock_http.get = AsyncMock(return_value=mock_resp)
             mock_http_class.return_value = mock_http
 
-            from memory_mcp.infrastructure.image_gen.dalle import DalleProvider
+            from nous.infrastructure.image_gen.dalle import DalleProvider
 
             provider = DalleProvider()
             images = await provider.generate(prompt="test", n=3)
@@ -88,7 +88,7 @@ async def test_dalle_generate_api_error():
         mock_client.images.generate = AsyncMock(side_effect=Exception("API Error"))
         mock_client_class.return_value = mock_client
 
-        from memory_mcp.infrastructure.image_gen.dalle import DalleProvider
+        from nous.infrastructure.image_gen.dalle import DalleProvider
 
         provider = DalleProvider()
 
@@ -114,7 +114,7 @@ async def test_stability_generate_success():
         mock_client.post = AsyncMock(return_value=mock_response)
         mock_client_class.return_value = mock_client
 
-        from memory_mcp.infrastructure.image_gen.stability import StabilityProvider
+        from nous.infrastructure.image_gen.stability import StabilityProvider
 
         provider = StabilityProvider(api_url="http://localhost:7860")
         images = await provider.generate(prompt="test", size="512x512", n=1)
@@ -137,7 +137,7 @@ async def test_stability_generate_multiple_n():
         mock_client.post = AsyncMock(return_value=mock_response)
         mock_client_class.return_value = mock_client
 
-        from memory_mcp.infrastructure.image_gen.stability import StabilityProvider
+        from nous.infrastructure.image_gen.stability import StabilityProvider
 
         provider = StabilityProvider(api_url="http://localhost:7860")
         images = await provider.generate(prompt="test", n=3)
@@ -155,7 +155,7 @@ async def test_stability_generate_connection_error():
         mock_client.post = AsyncMock(side_effect=Exception("Connection refused"))
         mock_client_class.return_value = mock_client
 
-        from memory_mcp.infrastructure.image_gen.stability import StabilityProvider
+        from nous.infrastructure.image_gen.stability import StabilityProvider
 
         provider = StabilityProvider(api_url="http://localhost:7860")
 
@@ -170,8 +170,8 @@ async def test_stability_generate_connection_error():
 
 def test_factory_returns_dalle_provider():
     """factoryがDALL-Eプロバイダを返す"""
-    from memory_mcp.infrastructure.image_gen.base import ImageGenConfig
-    from memory_mcp.infrastructure.image_gen.factory import get_image_gen_provider
+    from nous.infrastructure.image_gen.base import ImageGenConfig
+    from nous.infrastructure.image_gen.factory import get_image_gen_provider
 
     config = ImageGenConfig(provider="openai", dalle_model="dall-e-3")
     provider = get_image_gen_provider(config)
@@ -182,8 +182,8 @@ def test_factory_returns_dalle_provider():
 
 def test_factory_returns_stability_provider():
     """factoryがSDプロバイダを返す"""
-    from memory_mcp.infrastructure.image_gen.base import ImageGenConfig
-    from memory_mcp.infrastructure.image_gen.factory import get_image_gen_provider
+    from nous.infrastructure.image_gen.base import ImageGenConfig
+    from nous.infrastructure.image_gen.factory import get_image_gen_provider
 
     config = ImageGenConfig(provider="stability", stability_url="http://localhost:7860")
     provider = get_image_gen_provider(config)
@@ -194,8 +194,8 @@ def test_factory_returns_stability_provider():
 
 def test_factory_returns_none_when_no_stability_url():
     """SD URLが設定されていない場合None"""
-    from memory_mcp.infrastructure.image_gen.base import ImageGenConfig
-    from memory_mcp.infrastructure.image_gen.factory import get_image_gen_provider
+    from nous.infrastructure.image_gen.base import ImageGenConfig
+    from nous.infrastructure.image_gen.factory import get_image_gen_provider
 
     config = ImageGenConfig(provider="stability", stability_url="")
     provider = get_image_gen_provider(config)
@@ -205,8 +205,8 @@ def test_factory_returns_none_when_no_stability_url():
 
 def test_factory_returns_none_for_unknown_provider():
     """不明なプロバイダはNone"""
-    from memory_mcp.infrastructure.image_gen.base import ImageGenConfig
-    from memory_mcp.infrastructure.image_gen.factory import get_image_gen_provider
+    from nous.infrastructure.image_gen.base import ImageGenConfig
+    from nous.infrastructure.image_gen.factory import get_image_gen_provider
 
     config = ImageGenConfig(provider="unknown")
     provider = get_image_gen_provider(config)

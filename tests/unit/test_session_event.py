@@ -6,9 +6,9 @@ from datetime import datetime
 
 import pytest
 
-from memory_mcp.domain.memory.session_event import SessionEvent
-from memory_mcp.infrastructure.sqlite.connection import SQLiteConnection
-from memory_mcp.infrastructure.sqlite.session_event_repo import SessionEventRepository
+from nous.domain.memory.session_event import SessionEvent
+from nous.infrastructure.sqlite.connection import SQLiteConnection
+from nous.infrastructure.sqlite.session_event_repo import SessionEventRepository
 
 # ---------------------------------------------------------------------------
 # Fixtures

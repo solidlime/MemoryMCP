@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 # ---------------------------------------------------------------------------
 # Import the helpers directly (no server / embedding model needed)
 # ---------------------------------------------------------------------------
-from memory_mcp.application.chat.pipeline.prepare import (
+from nous.application.chat.pipeline.prepare import (
     _RECENCY_LAMBDA,
     _compute_recency_decay,
 )

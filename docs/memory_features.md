@@ -99,7 +99,7 @@ Custom block names are also allowed.
 ```python
 # Write a block
 memory(operation="block_write", block_name="user_model",
-       content="らうらうはmemory-mcpを開発中。Python好き。")
+        content="らうらうはNousを開発中。Python好き。")
 
 # Read a specific block
 memory(operation="block_read", block_name="user_model")

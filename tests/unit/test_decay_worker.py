@@ -3,9 +3,9 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
-from memory_mcp.application.workers.decay_worker import DecayWorker
-from memory_mcp.domain.memory.entities import MemoryStrength
-from memory_mcp.domain.shared.time_utils import get_now
+from nous.application.workers.decay_worker import DecayWorker
+from nous.domain.memory.entities import MemoryStrength
+from nous.domain.shared.time_utils import get_now
 
 
 def _make_strength(key: str, strength: float = 0.8, use_old_decay: bool = False) -> MemoryStrength:

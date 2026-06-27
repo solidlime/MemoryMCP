@@ -7,10 +7,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from memory_mcp.application.use_cases import QdrantSemanticSearch, SQLiteKeywordSearch
-from memory_mcp.domain.memory.entities import Memory
-from memory_mcp.domain.shared.result import Failure, Success
-from memory_mcp.domain.shared.time_utils import get_now
+from nous.application.use_cases import QdrantSemanticSearch, SQLiteKeywordSearch
+from nous.domain.memory.entities import Memory
+from nous.domain.shared.result import Failure, Success
+from nous.domain.shared.time_utils import get_now
 
 
 def _make_memory(key="mem_001", content="test", created_at=None):
@@ -257,12 +257,12 @@ class TestAppContextMigration:
 
     def test_migration_failure_logged(self, tmp_path):
         """When MigrationEngine.run_all fails, an error should be logged (lines 93-95)."""
-        from memory_mcp.application.use_cases import AppContext
-        from memory_mcp.config.settings import Settings
+        from nous.application.use_cases import AppContext
+        from nous.config.settings import Settings
 
         settings = Settings(data_root=str(tmp_path))
 
-        with patch("memory_mcp.migration.engine.MigrationEngine") as mock_migration_engine:
+        with patch("nous.migration.engine.MigrationEngine") as mock_migration_engine:
             mock_engine = MagicMock()
             mock_engine.run_all.return_value = Failure(Exception("migration failed"))
             mock_migration_engine.return_value = mock_engine
@@ -274,8 +274,8 @@ class TestAppContextMigration:
 
     def test_memory_enricher_created_with_api_key(self, tmp_path):
         """When memory_enrichment is enabled and api_key is set, MemoryEnricher is created (lines 120-124)."""
-        from memory_mcp.application.use_cases import AppContext
-        from memory_mcp.config.settings import Settings
+        from nous.application.use_cases import AppContext
+        from nous.config.settings import Settings
 
         settings = Settings(
             data_root=str(tmp_path),
@@ -290,8 +290,8 @@ class TestAppContextMigration:
         )
 
         with (
-            patch("memory_mcp.migration.engine.MigrationEngine") as mock_migration_engine,
-            patch("memory_mcp.infrastructure.llm.memory_enricher.MemoryEnricher") as mock_memory_enricher,
+            patch("nous.migration.engine.MigrationEngine") as mock_migration_engine,
+            patch("nous.infrastructure.llm.memory_enricher.MemoryEnricher") as mock_memory_enricher,
         ):
             mock_engine = MagicMock()
             mock_engine.run_all.return_value = Success(None)
@@ -304,14 +304,14 @@ class TestAppContextMigration:
 
     def test_session_event_recorder_failure_swallowed(self, tmp_path):
         """When SessionEventRecorder.start() fails, warning is logged (lines 160-165)."""
-        from memory_mcp.application.use_cases import AppContext
-        from memory_mcp.config.settings import Settings
+        from nous.application.use_cases import AppContext
+        from nous.config.settings import Settings
 
         settings = Settings(data_root=str(tmp_path))
 
         with (
-            patch("memory_mcp.migration.engine.MigrationEngine") as mock_migration_engine,
-            patch("memory_mcp.application.session_event_recorder.SessionEventRecorder") as mock_session_event_recorder,
+            patch("nous.migration.engine.MigrationEngine") as mock_migration_engine,
+            patch("nous.application.session_event_recorder.SessionEventRecorder") as mock_session_event_recorder,
         ):
             mock_engine = MagicMock()
             mock_engine.run_all.return_value = Success(None)
@@ -329,12 +329,12 @@ class TestAppContextMigration:
 
     def test_embedding_model_lazy_init(self, tmp_path):
         """embedding_model property should lazily initialize EmbeddingModel (lines 183-185)."""
-        from memory_mcp.application.use_cases import AppContext
-        from memory_mcp.config.settings import Settings
+        from nous.application.use_cases import AppContext
+        from nous.config.settings import Settings
 
         settings = Settings(data_root=str(tmp_path))
 
-        with patch("memory_mcp.migration.engine.MigrationEngine") as mock_migration_engine:
+        with patch("nous.migration.engine.MigrationEngine") as mock_migration_engine:
             mock_engine = MagicMock()
             mock_engine.run_all.return_value = Success(None)
             mock_migration_engine.return_value = mock_engine
@@ -346,7 +346,7 @@ class TestAppContextMigration:
             assert ctx._embedding is None
 
             # Access should create EmbeddingModel
-            with patch("memory_mcp.application.use_cases.EmbeddingModel") as mock_embedding:
+            with patch("nous.application.use_cases.EmbeddingModel") as mock_embedding:
                 mock_emb = MagicMock()
                 mock_embedding.return_value = mock_emb
                 emb = ctx.embedding_model
@@ -364,7 +364,7 @@ class TestAppContextRegistry:
 
     def test_get_creates_settings_if_not_configured(self, tmp_path):
         """When _settings is None, get() should create default Settings (lines 229-231)."""
-        from memory_mcp.application.use_cases import AppContextRegistry
+        from nous.application.use_cases import AppContextRegistry
 
         # Ensure _settings is None
         AppContextRegistry._settings = None
@@ -372,8 +372,8 @@ class TestAppContextRegistry:
 
         with (
             patch.object(AppContextRegistry, "_settings", None),
-            patch("memory_mcp.config.settings.Settings") as mock_settings,
-            patch("memory_mcp.application.use_cases.AppContext") as mock_app_context,
+            patch("nous.config.settings.Settings") as mock_settings,
+            patch("nous.application.use_cases.AppContext") as mock_app_context,
         ):
             mock_settings_inst = MagicMock()
             mock_settings_inst.data_dir = str(tmp_path)
@@ -391,7 +391,7 @@ class TestAppContextRegistry:
 
     def test_get_returns_cached_context(self, tmp_path):
         """get() should return the same context for the same persona."""
-        from memory_mcp.application.use_cases import AppContextRegistry
+        from nous.application.use_cases import AppContextRegistry
 
         AppContextRegistry._settings = None
         AppContextRegistry._contexts.clear()
@@ -406,7 +406,7 @@ class TestAppContextRegistry:
 
     def test_close_all_closes_and_clears(self):
         """close_all should close all contexts and clear the registry."""
-        from memory_mcp.application.use_cases import AppContextRegistry
+        from nous.application.use_cases import AppContextRegistry
 
         AppContextRegistry._contexts.clear()
         ctx1 = MagicMock()
@@ -425,14 +425,14 @@ class TestAppContextVectorStore:
 
     def test_vector_store_init_failure_returns_none(self, tmp_path):
         """When QdrantClientManager init fails, vector_store returns None (lines 177-178)."""
-        from memory_mcp.application.use_cases import AppContext
-        from memory_mcp.config.settings import Settings
+        from nous.application.use_cases import AppContext
+        from nous.config.settings import Settings
 
         settings = Settings(data_root=str(tmp_path))
 
         with (
-            patch("memory_mcp.migration.engine.MigrationEngine") as mock_migration_engine,
-            patch("memory_mcp.application.use_cases.QdrantClientManager") as mock_qdrant_client_manager,
+            patch("nous.migration.engine.MigrationEngine") as mock_migration_engine,
+            patch("nous.application.use_cases.QdrantClientManager") as mock_qdrant_client_manager,
         ):
             mock_engine = MagicMock()
             mock_engine.run_all.return_value = Success(None)
@@ -448,15 +448,15 @@ class TestAppContextVectorStore:
 
     def test_vector_store_init_success(self, tmp_path):
         """When Qdrant is available, vector_store is initialized (lines 174-176)."""
-        from memory_mcp.application.use_cases import AppContext
-        from memory_mcp.config.settings import Settings
+        from nous.application.use_cases import AppContext
+        from nous.config.settings import Settings
 
         settings = Settings(data_root=str(tmp_path), qdrant={"url": "http://localhost:6333"})
 
         with (
-            patch("memory_mcp.migration.engine.MigrationEngine") as mock_migration_engine,
-            patch("memory_mcp.application.use_cases.QdrantClientManager") as mock_qdrant_client_manager,
-            patch("memory_mcp.application.use_cases.QdrantVectorStore") as mock_vector_store,
+            patch("nous.migration.engine.MigrationEngine") as mock_migration_engine,
+            patch("nous.application.use_cases.QdrantClientManager") as mock_qdrant_client_manager,
+            patch("nous.application.use_cases.QdrantVectorStore") as mock_vector_store,
             patch.object(MagicMock(), "embedding_model", create=True),
         ):
             mock_engine = MagicMock()
@@ -479,14 +479,14 @@ class TestAppContextVectorStore:
 
     def test_vector_store_health_check_false(self, tmp_path):
         """When health_check returns False, vector_store stays None."""
-        from memory_mcp.application.use_cases import AppContext
-        from memory_mcp.config.settings import Settings
+        from nous.application.use_cases import AppContext
+        from nous.config.settings import Settings
 
         settings = Settings(data_root=str(tmp_path), qdrant={"url": "http://localhost:6333"})
 
         with (
-            patch("memory_mcp.migration.engine.MigrationEngine") as mock_migration_engine,
-            patch("memory_mcp.application.use_cases.QdrantClientManager") as mock_qdrant_client_manager,
+            patch("nous.migration.engine.MigrationEngine") as mock_migration_engine,
+            patch("nous.application.use_cases.QdrantClientManager") as mock_qdrant_client_manager,
         ):
             mock_engine = MagicMock()
             mock_engine.run_all.return_value = Success(None)
@@ -503,12 +503,12 @@ class TestAppContextVectorStore:
 
     def test_search_engine_strength_lookup_fallback_to_default(self, tmp_path):
         """When get_strength fails, strength_lookup defaults to 1.0 (line 197)."""
-        from memory_mcp.application.use_cases import AppContext
-        from memory_mcp.config.settings import Settings
+        from nous.application.use_cases import AppContext
+        from nous.config.settings import Settings
 
         settings = Settings(data_root=str(tmp_path))
 
-        with patch("memory_mcp.migration.engine.MigrationEngine") as mock_migration_engine:
+        with patch("nous.migration.engine.MigrationEngine") as mock_migration_engine:
             mock_engine = MagicMock()
             mock_engine.run_all.return_value = Success(None)
             mock_migration_engine.return_value = mock_engine
@@ -518,7 +518,7 @@ class TestAppContextVectorStore:
             # Make get_strength return Failure → _strength_lookup falls to return 1.0
             ctx.memory_repo.get_strength = MagicMock(return_value=Failure(Exception("not found")))
 
-            from memory_mcp.domain.search.engine import SearchQuery
+            from nous.domain.search.engine import SearchQuery
 
             # Use hybrid mode which goes through the ranker.
             # vector_store must be None so QdrantSemanticSearch is not created (it would fail).
@@ -536,12 +536,12 @@ class TestAppContextVectorStore:
 
     def test_search_engine_strength_lookup_none_strength(self, tmp_path):
         """When get_strength returns Success(None), strength_lookup returns 1.0."""
-        from memory_mcp.application.use_cases import AppContext
-        from memory_mcp.config.settings import Settings
+        from nous.application.use_cases import AppContext
+        from nous.config.settings import Settings
 
         settings = Settings(data_root=str(tmp_path))
 
-        with patch("memory_mcp.migration.engine.MigrationEngine") as mock_migration_engine:
+        with patch("nous.migration.engine.MigrationEngine") as mock_migration_engine:
             mock_engine = MagicMock()
             mock_engine.run_all.return_value = Success(None)
             mock_migration_engine.return_value = mock_engine
@@ -551,7 +551,7 @@ class TestAppContextVectorStore:
             # Make get_strength return Success(None) → _strength_lookup falls to return 1.0
             ctx.memory_repo.get_strength = MagicMock(return_value=Success(None))
 
-            from memory_mcp.domain.search.engine import SearchQuery
+            from nous.domain.search.engine import SearchQuery
 
             with patch.object(ctx, "_vector_store", None):
                 se = ctx.search_engine

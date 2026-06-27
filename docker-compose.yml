@@ -35,14 +35,14 @@ services:
       retries: 3
       start_period: 60s
 
-  memory-mcp:
-    image: ghcr.io/solidlime/memorymcp:latest
-    container_name: memory-mcp
+  nous:
+    image: nous:latest
+    container_name: nous
     ports:
       - "26262:26262"
     volumes:
-      # Persist all data (memory, logs, cache) under APP_HOME (/opt/memory-mcp)
-      - ./data:/opt/memory-mcp/data
+      # Persist all data (memory, logs, cache) under APP_HOME (/opt/nous)
+      - ./data:/opt/nous/data
       # Host Docker socket for sibling-container sandbox execution (no DinD needed)
       - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
@@ -53,22 +53,22 @@ services:
         condition: service_healthy
     environment:
       # Point to the qdrant service (overrides Dockerfile default of localhost:6333)
-      MEMORY_MCP_QDRANT__URL: http://qdrant:6333
+      NOUS_QDRANT__URL: http://qdrant:6333
       # SearXNG meta search engine URL
       SEARXNG_URL: http://searxng:8080
       LANG: C.UTF-8
       # --- Code Execution Sandbox ---
       # Sandbox uses the host Docker socket (mounted above) to spawn sibling containers.
       # No separate DinD service required.
-      MEMORY_MCP_SANDBOX__ENABLED: "true"
+      NOUS_SANDBOX__ENABLED: "true"
       # Explicitly empty so .env cannot accidentally override with a stale DinD host.
-      MEMORY_MCP_SANDBOX__DOCKER_HOST: ""
+      NOUS_SANDBOX__DOCKER_HOST: ""
       # agent-browser installed to data volume by entrypoint script
-      MEMORY_MCP_AGENT_BROWSER_PATH: /opt/memory-mcp/data/agent-browser/bin/agent-browser
+      NOUS_AGENT_BROWSER_PATH: /opt/nous/data/agent-browser/bin/agent-browser
       # HOST_DATA_ROOT: normally auto-detected from this container's own volume mounts.
       # Set manually only if auto-detection fails (e.g. on Synology, custom Docker setups).
-      # Example: MEMORY_MCP_SANDBOX__HOST_DATA_ROOT: /volume1/docker/memory-mcp/data
-      # MEMORY_MCP_SANDBOX__HOST_DATA_ROOT:
+      # Example: NOUS_SANDBOX__HOST_DATA_ROOT: /volume1/docker/nous/data
+      # NOUS_SANDBOX__HOST_DATA_ROOT:
     # Load env vars from .env file (ignored by git) so you can override Dockerfile defaults
     env_file:
       - .env
@@ -81,4 +81,4 @@ services:
 
 networks:
   default:
-    name: memory-mcp-network
+    name: nous-network

@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from memory_mcp.application.chat.pattern_detector import (
+from nous.application.chat.pattern_detector import (
     _MENTAL_MODEL_META_TAG,
     _TYPE_TAGS,
     _get_last_abstraction_at,
@@ -16,9 +16,9 @@ from memory_mcp.application.chat.pattern_detector import (
     _store_last_abstraction_at,
     maybe_run_mental_model,
 )
-from memory_mcp.domain.memory.entities import Memory
-from memory_mcp.domain.shared.result import Success
-from memory_mcp.infrastructure.llm.base import DoneEvent, TextDeltaEvent
+from nous.domain.memory.entities import Memory
+from nous.domain.shared.result import Success
+from nous.infrastructure.llm.base import DoneEvent, TextDeltaEvent
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -288,7 +288,7 @@ class TestMaybeRunMentalModel:
 
         mock_provider.stream = mock_stream
 
-        with patch("memory_mcp.application.chat.pattern_detector.get_provider", return_value=mock_provider):
+        with patch("nous.application.chat.pattern_detector.get_provider", return_value=mock_provider):
             result = await maybe_run_mental_model(ctx, config)
 
         assert len(result) == 2
@@ -370,7 +370,7 @@ class TestMaybeRunMentalModel:
 
         # Mock provider init to raise
         with patch(
-            "memory_mcp.application.chat.pattern_detector.get_provider", side_effect=Exception("LLM unavailable")
+            "nous.application.chat.pattern_detector.get_provider", side_effect=Exception("LLM unavailable")
         ):
             result = await maybe_run_mental_model(ctx, config)
         assert result == []
@@ -399,7 +399,7 @@ class TestMaybeRunMentalModel:
 
         mock_provider.stream = mock_stream
 
-        with patch("memory_mcp.application.chat.pattern_detector.get_provider", return_value=mock_provider):
+        with patch("nous.application.chat.pattern_detector.get_provider", return_value=mock_provider):
             result = await maybe_run_mental_model(ctx, config)
 
         # 5 type groups × 2 models = 10 total
@@ -430,8 +430,8 @@ class TestMaybeRunMentalModel:
             if tags == [_MENTAL_MODEL_META_TAG]:
                 return Success([])
             if tags == ["decision"]:
-                from memory_mcp.domain.shared.errors import SearchError
-                from memory_mcp.domain.shared.result import Failure
+                from nous.domain.shared.errors import SearchError
+                from nous.domain.shared.result import Failure
 
                 return Failure(SearchError("db error"))
             return Success(mapping.get(tags[0], []))
@@ -473,7 +473,7 @@ class TestMaybeRunMentalModel:
 
         mock_provider.stream = failing_stream
 
-        with patch("memory_mcp.application.chat.pattern_detector.get_provider", return_value=mock_provider):
+        with patch("nous.application.chat.pattern_detector.get_provider", return_value=mock_provider):
             result = await maybe_run_mental_model(ctx, config)
         assert result == []
 
@@ -509,7 +509,7 @@ class TestMaybeRunMentalModel:
 
         mock_provider.stream = empty_stream
 
-        with patch("memory_mcp.application.chat.pattern_detector.get_provider", return_value=mock_provider):
+        with patch("nous.application.chat.pattern_detector.get_provider", return_value=mock_provider):
             result = await maybe_run_mental_model(ctx, config)
         assert result == []
 
@@ -548,7 +548,7 @@ class TestMaybeRunMentalModel:
 
         mock_provider.stream = ok_stream
 
-        with patch("memory_mcp.application.chat.pattern_detector.get_provider", return_value=mock_provider):
+        with patch("nous.application.chat.pattern_detector.get_provider", return_value=mock_provider):
             result = await maybe_run_mental_model(ctx, config)
         # Exception is caught, type is skipped, result should be empty
         assert result == []

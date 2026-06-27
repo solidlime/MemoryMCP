@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from memory_mcp.application.chat.events import (
+from nous.application.chat.events import (
     DebugInfoSSE,
     DoneSSE,
     ErrorSSE,
@@ -14,8 +14,8 @@ from memory_mcp.application.chat.events import (
     ToolCallSSE,
     ToolResultSSE,
 )
-from memory_mcp.application.chat.pipeline.context import ChatTurnContext
-from memory_mcp.application.chat.pipeline.prepare import _compute_recency_decay
+from nous.application.chat.pipeline.context import ChatTurnContext
+from nous.application.chat.pipeline.prepare import _compute_recency_decay
 
 # --- Events ---
 
@@ -84,14 +84,14 @@ class TestChatTurnContext:
 class TestComputeEmotionDecay:
     def test_zero_intensity_no_decay(self):
         """Zero intensity → no decay needed, returns 0.0."""
-        from memory_mcp.domain.persona.emotion_decay import compute_emotion_decay
+        from nous.domain.persona.emotion_decay import compute_emotion_decay
 
         result = compute_emotion_decay(intensity=0.0, elapsed_hours=10)
         assert result == 0.0
 
     def test_decay_after_elapsed(self):
         """intensity=0.8, elapsed=48h (2 half-lives) → 0.8 * 0.25 = 0.2."""
-        from memory_mcp.domain.persona.emotion_decay import compute_emotion_decay
+        from nous.domain.persona.emotion_decay import compute_emotion_decay
 
         result = compute_emotion_decay(intensity=0.8, elapsed_hours=48.0)
         assert result > 0.0
@@ -101,7 +101,7 @@ class TestComputeEmotionDecay:
 
     def test_no_change_for_zero_elapsed(self):
         """Zero elapsed → decay returns 0.0 (caller skips when elapsed <= 0)."""
-        from memory_mcp.domain.persona.emotion_decay import compute_emotion_decay
+        from nous.domain.persona.emotion_decay import compute_emotion_decay
 
         result = compute_emotion_decay(intensity=0.8, elapsed_hours=0)
         assert result == 0.0
@@ -112,8 +112,8 @@ class TestComputeEmotionDecay:
 
 class TestToolRegistry:
     def test_builtin_tools_only(self):
-        from memory_mcp.application.chat.tools.registry import ToolRegistry
-        from memory_mcp.infrastructure.llm.base import ToolDefinition
+        from nous.application.chat.tools.registry import ToolRegistry
+        from nous.infrastructure.llm.base import ToolDefinition
 
         tools = [ToolDefinition(name="t1", description="d1", input_schema={})]
         reg = ToolRegistry(tools, mcp_pool=None)
@@ -121,14 +121,14 @@ class TestToolRegistry:
         assert reg.get_all_tools()[0].name == "t1"
 
     def test_mcp_tool_detection(self):
-        from memory_mcp.application.chat.tools.registry import ToolRegistry
+        from nous.application.chat.tools.registry import ToolRegistry
 
         reg = ToolRegistry([], mcp_pool=None)
         assert reg.is_mcp_tool("server__tool") is True
         assert reg.is_mcp_tool("memory_create") is False
 
     def test_truncate_result(self):
-        from memory_mcp.application.chat.tools.registry import ToolRegistry
+        from nous.application.chat.tools.registry import ToolRegistry
 
         reg = ToolRegistry([], mcp_pool=None)
         result = {"content": "x" * 10000}
@@ -189,7 +189,7 @@ class TestBuildContextSectionLightMode:
         """compress_mode='light' should skip reflection, mental model, session summary, emotion history."""
         from unittest.mock import MagicMock
 
-        from memory_mcp.application.chat.pipeline.prepare import _build_context_section
+        from nous.application.chat.pipeline.prepare import _build_context_section
 
         ctx = MagicMock()
         ctx.persona = "test"
@@ -233,8 +233,8 @@ class TestBuildContextSectionNormalMode:
         """compress_mode='auto' should attempt to fetch all sections."""
         from unittest.mock import MagicMock
 
-        from memory_mcp.application.chat.pipeline.prepare import _build_context_section
-        from memory_mcp.domain.shared.result import Success
+        from nous.application.chat.pipeline.prepare import _build_context_section
+        from nous.domain.shared.result import Success
 
         ctx = MagicMock()
         ctx.persona = "test"
@@ -271,7 +271,7 @@ class TestBuildContextSectionTierContent:
         """Tier1 should include emotion and mental state when present."""
         from unittest.mock import MagicMock
 
-        from memory_mcp.application.chat.pipeline.prepare import _build_context_section
+        from nous.application.chat.pipeline.prepare import _build_context_section
 
         ctx = MagicMock()
         ctx.persona = "test"
@@ -311,7 +311,7 @@ class TestBuildContextSectionTierContent:
         """Tier2 should include body metrics and environment when present."""
         from unittest.mock import MagicMock
 
-        from memory_mcp.application.chat.pipeline.prepare import _build_context_section
+        from nous.application.chat.pipeline.prepare import _build_context_section
 
         ctx = MagicMock()
         ctx.persona = "test"
@@ -350,7 +350,7 @@ class TestBuildContextSectionTierContent:
         """Tier2 should include user_info and persona_info."""
         from unittest.mock import MagicMock
 
-        from memory_mcp.application.chat.pipeline.prepare import _build_context_section
+        from nous.application.chat.pipeline.prepare import _build_context_section
 
         ctx = MagicMock()
         ctx.persona = "test"

@@ -5,8 +5,8 @@ from __future__ import annotations
 import json
 import sqlite3
 
-from memory_mcp.migration.versions.v006_normalize_emotions import upgrade as upgrade_v006
-from memory_mcp.migration.versions.v008_add_persona_to_goals_promises import upgrade as upgrade_v008
+from nous.migration.versions.v006_normalize_emotions import upgrade as upgrade_v006
+from nous.migration.versions.v008_add_persona_to_goals_promises import upgrade as upgrade_v008
 
 
 def _make_db():
@@ -72,7 +72,7 @@ def _make_db():
 
 
 def _run_upgrade(conn):
-    from memory_mcp.migration.versions.v009_goals_promises_to_memories import upgrade
+    from nous.migration.versions.v009_goals_promises_to_memories import upgrade
 
     upgrade(conn)
 

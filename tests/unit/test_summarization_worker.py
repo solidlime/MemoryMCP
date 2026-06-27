@@ -8,8 +8,8 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from memory_mcp.application.workers.summarization_worker import SummarizationWorker
-from memory_mcp.domain.memory.entities import Memory
+from nous.application.workers.summarization_worker import SummarizationWorker
+from nous.domain.memory.entities import Memory
 
 
 def _make_settings(
@@ -215,7 +215,7 @@ class TestSummarizePersona:
         worker._last_counts["herta"] = 45
         ctx = _make_ctx(total_count=50)  # diff = 50 - 45 = 5
 
-        with patch("memory_mcp.application.use_cases.AppContextRegistry") as registry:
+        with patch("nous.application.use_cases.AppContextRegistry") as registry:
             registry.get.return_value = ctx
             worker._summarize_persona("herta")
 
@@ -228,7 +228,7 @@ class TestSummarizePersona:
         worker._last_counts["herta"] = 30
         ctx = _make_ctx(total_count=50)  # diff = 50 - 30 = 20 >= 10
 
-        with patch("memory_mcp.application.use_cases.AppContextRegistry") as registry:
+        with patch("nous.application.use_cases.AppContextRegistry") as registry:
             registry.get.return_value = ctx
             worker._summarize_persona("herta")
 
@@ -241,7 +241,7 @@ class TestSummarizePersona:
         worker._last_counts["herta"] = 0
         ctx = _make_ctx(total_count=20)  # diff = 20 >= 5
 
-        with patch("memory_mcp.application.use_cases.AppContextRegistry") as registry:
+        with patch("nous.application.use_cases.AppContextRegistry") as registry:
             registry.get.return_value = ctx
             worker._summarize_persona("herta")
 
@@ -253,7 +253,7 @@ class TestSummarizePersona:
         worker = SummarizationWorker(settings)
         ctx = _make_ctx(total_count=5)  # diff = 5 - 0 = 5 < 10
 
-        with patch("memory_mcp.application.use_cases.AppContextRegistry") as registry:
+        with patch("nous.application.use_cases.AppContextRegistry") as registry:
             registry.get.return_value = ctx
             worker._summarize_persona("herta")
 
@@ -266,7 +266,7 @@ class TestSummarizePersona:
         ctx = MagicMock()
         ctx.memory_service.get_stats.return_value = MagicMock(is_ok=False, error="DB error")
 
-        with patch("memory_mcp.application.use_cases.AppContextRegistry") as registry:
+        with patch("nous.application.use_cases.AppContextRegistry") as registry:
             registry.get.return_value = ctx
             worker._summarize_persona("herta")
 
@@ -277,7 +277,7 @@ class TestSummarizePersona:
         settings = _make_settings()
         worker = SummarizationWorker(settings)
 
-        with patch("memory_mcp.application.use_cases.AppContextRegistry") as registry:
+        with patch("nous.application.use_cases.AppContextRegistry") as registry:
             registry.get.side_effect = KeyError("herta")
             # 例外が伝播しないことを確認
             worker._summarize_persona("herta")
@@ -290,7 +290,7 @@ class TestSummarizeAll:
         worker = SummarizationWorker(settings)
 
         fake_contexts = {"alice": MagicMock(), "bob": MagicMock()}
-        with patch("memory_mcp.application.use_cases.AppContextRegistry") as registry:
+        with patch("nous.application.use_cases.AppContextRegistry") as registry:
             registry._contexts = fake_contexts
             with patch.object(worker, "_summarize_persona") as mock_summarize:
                 worker._summarize_all()
@@ -312,7 +312,7 @@ class TestSummarizeAll:
             if persona == "alice":
                 raise RuntimeError("alice failed")
 
-        with patch("memory_mcp.application.use_cases.AppContextRegistry") as registry:
+        with patch("nous.application.use_cases.AppContextRegistry") as registry:
             registry._contexts = fake_contexts
             with patch.object(worker, "_summarize_persona", side_effect=side_effect):
                 worker._summarize_all()
@@ -325,7 +325,7 @@ class TestSummarizeAll:
         settings = _make_settings()
         worker = SummarizationWorker(settings)
 
-        with patch("memory_mcp.application.use_cases.AppContextRegistry") as registry:
+        with patch("nous.application.use_cases.AppContextRegistry") as registry:
             registry._contexts.keys.side_effect = RuntimeError("registry error")
             # 例外が伝播しないことを確認
             worker._summarize_all()
@@ -336,7 +336,7 @@ class TestSummarizeAll:
         worker = SummarizationWorker(settings)
 
         fake_contexts = {"alice": MagicMock()}
-        with patch("memory_mcp.application.use_cases.AppContextRegistry") as registry:
+        with patch("nous.application.use_cases.AppContextRegistry") as registry:
             registry._contexts = fake_contexts
             with patch.object(worker, "_extractive_summarize_persona") as mock_ext:
                 worker._summarize_all()
@@ -349,7 +349,7 @@ class TestSummarizeAll:
         worker = SummarizationWorker(settings)
 
         fake_contexts = {"alice": MagicMock()}
-        with patch("memory_mcp.application.use_cases.AppContextRegistry") as registry:
+        with patch("nous.application.use_cases.AppContextRegistry") as registry:
             registry._contexts = fake_contexts
             with (
                 patch.object(worker, "_summarize_persona") as mock_stat,
@@ -369,7 +369,7 @@ class TestExtractiveSummarizePersona:
         worker = SummarizationWorker(settings)
         ctx = _make_extractive_ctx([])
 
-        with patch("memory_mcp.application.use_cases.AppContextRegistry") as registry:
+        with patch("nous.application.use_cases.AppContextRegistry") as registry:
             registry.get.return_value = ctx
             worker._extractive_summarize_persona("herta")
 
@@ -382,7 +382,7 @@ class TestExtractiveSummarizePersona:
         mem = _make_memory("k1", "テストコンテンツ", importance=0.1, days_old=10)
         ctx = _make_extractive_ctx([mem])
 
-        with patch("memory_mcp.application.use_cases.AppContextRegistry") as registry:
+        with patch("nous.application.use_cases.AppContextRegistry") as registry:
             registry.get.return_value = ctx
             worker._extractive_summarize_persona("herta")
 
@@ -395,7 +395,7 @@ class TestExtractiveSummarizePersona:
         mem = _make_memory("k1", "タグあり", importance=0.1, tags=["foo"], days_old=10)
         ctx = _make_extractive_ctx([mem])
 
-        with patch("memory_mcp.application.use_cases.AppContextRegistry") as registry:
+        with patch("nous.application.use_cases.AppContextRegistry") as registry:
             registry.get.return_value = ctx
             worker._extractive_summarize_persona("herta")
 
@@ -408,7 +408,7 @@ class TestExtractiveSummarizePersona:
         mem = _make_memory("k1", "最近の記憶", importance=0.1, days_old=3)
         ctx = _make_extractive_ctx([mem])
 
-        with patch("memory_mcp.application.use_cases.AppContextRegistry") as registry:
+        with patch("nous.application.use_cases.AppContextRegistry") as registry:
             registry.get.return_value = ctx
             worker._extractive_summarize_persona("herta")
 
@@ -421,7 +421,7 @@ class TestExtractiveSummarizePersona:
         mem = _make_memory("k1", "重要な記憶", importance=0.5, days_old=10)
         ctx = _make_extractive_ctx([mem])
 
-        with patch("memory_mcp.application.use_cases.AppContextRegistry") as registry:
+        with patch("nous.application.use_cases.AppContextRegistry") as registry:
             registry.get.return_value = ctx
             worker._extractive_summarize_persona("herta")
 
@@ -434,7 +434,7 @@ class TestExtractiveSummarizePersona:
         mem = _make_memory("k1", "境界値", importance=0.3, days_old=10)
         ctx = _make_extractive_ctx([mem])
 
-        with patch("memory_mcp.application.use_cases.AppContextRegistry") as registry:
+        with patch("nous.application.use_cases.AppContextRegistry") as registry:
             registry.get.return_value = ctx
             worker._extractive_summarize_persona("herta")
 
@@ -447,7 +447,7 @@ class TestExtractiveSummarizePersona:
         mem = _make_memory("k1", "これはテストコンテンツです", importance=0.1, days_old=10)
         ctx = _make_extractive_ctx([mem])
 
-        with patch("memory_mcp.application.use_cases.AppContextRegistry") as registry:
+        with patch("nous.application.use_cases.AppContextRegistry") as registry:
             registry.get.return_value = ctx
             worker._extractive_summarize_persona("herta")
 
@@ -463,7 +463,7 @@ class TestExtractiveSummarizePersona:
         mem = _make_memory("k1", "コンテンツ", importance=0.1, days_old=10)
         ctx = _make_extractive_ctx([mem])
 
-        with patch("memory_mcp.application.use_cases.AppContextRegistry") as registry:
+        with patch("nous.application.use_cases.AppContextRegistry") as registry:
             registry.get.return_value = ctx
             worker._extractive_summarize_persona("herta")
 
@@ -478,7 +478,7 @@ class TestExtractiveSummarizePersona:
         mem = _make_memory("k1", "コンテンツ", importance=0.1, days_old=10)
         ctx = _make_extractive_ctx([mem])
 
-        with patch("memory_mcp.application.use_cases.AppContextRegistry") as registry:
+        with patch("nous.application.use_cases.AppContextRegistry") as registry:
             registry.get.return_value = ctx
             worker._extractive_summarize_persona("herta")
 
@@ -493,7 +493,7 @@ class TestExtractiveSummarizePersona:
         mem2 = _make_memory("k2", "記憶2", importance=0.2, days_old=10)
         ctx = _make_extractive_ctx([mem1, mem2])
 
-        with patch("memory_mcp.application.use_cases.AppContextRegistry") as registry:
+        with patch("nous.application.use_cases.AppContextRegistry") as registry:
             registry.get.return_value = ctx
             worker._extractive_summarize_persona("herta")
 
@@ -509,7 +509,7 @@ class TestExtractiveSummarizePersona:
         mem2 = _make_memory("k2", "15日前の記憶", importance=0.1, days_old=15)
         ctx = _make_extractive_ctx([mem1, mem2])
 
-        with patch("memory_mcp.application.use_cases.AppContextRegistry") as registry:
+        with patch("nous.application.use_cases.AppContextRegistry") as registry:
             registry.get.return_value = ctx
             worker._extractive_summarize_persona("herta")
 
@@ -525,7 +525,7 @@ class TestExtractiveSummarizePersona:
         mem2 = _make_memory("k2", "記憶B", importance=0.1, days_old=10)
         ctx = _make_extractive_ctx([mem1, mem2])
 
-        with patch("memory_mcp.application.use_cases.AppContextRegistry") as registry:
+        with patch("nous.application.use_cases.AppContextRegistry") as registry:
             registry.get.return_value = ctx
             worker._extractive_summarize_persona("herta")
 
@@ -543,7 +543,7 @@ class TestExtractiveSummarizePersona:
         mem = _make_memory("k1", long_content, importance=0.1, days_old=10)
         ctx = _make_extractive_ctx([mem])
 
-        with patch("memory_mcp.application.use_cases.AppContextRegistry") as registry:
+        with patch("nous.application.use_cases.AppContextRegistry") as registry:
             registry.get.return_value = ctx
             worker._extractive_summarize_persona("herta")
 
@@ -561,7 +561,7 @@ class TestExtractiveSummarizePersona:
         ctx = _make_extractive_ctx([mem])
         ctx.memory_service.create_memory.return_value = MagicMock(is_ok=False, error="DB error")
 
-        with patch("memory_mcp.application.use_cases.AppContextRegistry") as registry:
+        with patch("nous.application.use_cases.AppContextRegistry") as registry:
             registry.get.return_value = ctx
             worker._extractive_summarize_persona("herta")
 
@@ -574,7 +574,7 @@ class TestExtractiveSummarizePersona:
         ctx = MagicMock()
         ctx.memory_repo.find_all.return_value = MagicMock(is_ok=False)
 
-        with patch("memory_mcp.application.use_cases.AppContextRegistry") as registry:
+        with patch("nous.application.use_cases.AppContextRegistry") as registry:
             registry.get.return_value = ctx
             worker._extractive_summarize_persona("herta")
 
@@ -585,7 +585,7 @@ class TestExtractiveSummarizePersona:
         settings = _make_settings()
         worker = SummarizationWorker(settings)
 
-        with patch("memory_mcp.application.use_cases.AppContextRegistry") as registry:
+        with patch("nous.application.use_cases.AppContextRegistry") as registry:
             registry.get.side_effect = KeyError("herta")
             # 例外が伝播しないことを確認
             worker._extractive_summarize_persona("herta")

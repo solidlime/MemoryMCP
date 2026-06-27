@@ -4,8 +4,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from memory_mcp.domain.search.engine import SearchQuery, SearchResult
-from memory_mcp.domain.search.ranker import ChainedRanker, ForgettingCurveRanker, RRFRanker
+from nous.domain.search.engine import SearchQuery, SearchResult
+from nous.domain.search.ranker import ChainedRanker, ForgettingCurveRanker, RRFRanker
 
 
 def _make_result(key: str, score: float, source: str = "keyword") -> SearchResult:

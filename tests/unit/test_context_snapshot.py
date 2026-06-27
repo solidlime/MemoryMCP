@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-from memory_mcp.domain.search.context_snapshot import SNAPSHOT_BLOCK_NAME, MemoryContextSnapshot
+from nous.domain.search.context_snapshot import SNAPSHOT_BLOCK_NAME, MemoryContextSnapshot
 
 
 def _make_memory(key: str, content: str, importance: float = 0.8, tags: list = None, emotion: str = "neutral"):

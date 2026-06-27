@@ -2,7 +2,7 @@
 
 import pytest
 
-from memory_mcp.domain.shared.result import Failure, Success
+from nous.domain.shared.result import Failure, Success
 
 
 class TestSuccess:

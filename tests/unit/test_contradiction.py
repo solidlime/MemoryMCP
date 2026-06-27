@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from memory_mcp.domain.memory.contradiction import ContradictionDetector
-from memory_mcp.domain.shared.errors import VectorStoreError
-from memory_mcp.domain.shared.result import Failure, Success
+from nous.domain.memory.contradiction import ContradictionDetector
+from nous.domain.shared.errors import VectorStoreError
+from nous.domain.shared.result import Failure, Success
 
 # ---------------------------------------------------------------------------
 # Mock vector store

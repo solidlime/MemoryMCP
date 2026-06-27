@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import pytest
 
-from memory_mcp.domain.persona.entities import EmotionRecord
-from memory_mcp.domain.shared.time_utils import get_now
-from memory_mcp.infrastructure.sqlite.connection import SQLiteConnection
-from memory_mcp.infrastructure.sqlite.persona_repo import (
+from nous.domain.persona.entities import EmotionRecord
+from nous.domain.shared.time_utils import get_now
+from nous.infrastructure.sqlite.connection import SQLiteConnection
+from nous.infrastructure.sqlite.persona_repo import (
     SQLitePersonaRepository,
     _parse_or_none,
     _safe_float,

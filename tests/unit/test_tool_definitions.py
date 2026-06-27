@@ -6,7 +6,7 @@ to catch regressions during refactoring (e.g. promise_manage/goal_manage).
 
 from __future__ import annotations
 
-from memory_mcp.application.chat.tools.definitions import MEMORY_TOOLS, SANDBOX_TOOLS
+from nous.application.chat.tools.definitions import MEMORY_TOOLS, SANDBOX_TOOLS
 
 # ---------------------------------------------------------------------------
 # Helpers

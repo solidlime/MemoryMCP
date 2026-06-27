@@ -7,9 +7,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from memory_mcp.domain.memory.entities import Memory
-from memory_mcp.domain.shared.errors import RepositoryError
-from memory_mcp.domain.shared.result import Failure, Success
+from nous.domain.memory.entities import Memory
+from nous.domain.shared.errors import RepositoryError
+from nous.domain.shared.result import Failure, Success
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -49,12 +49,12 @@ def registered_tools(mock_app_context):
     mock_mcp.tool = mock_tool_decorator
 
     with (
-        patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_registry_cls,
-        patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
+        patch("nous.api.mcp.tools.AppContextRegistry") as mock_registry_cls,
+        patch("nous.api.mcp.tools.get_current_persona", return_value="test_persona"),
     ):
         mock_registry_cls.get.return_value = mock_app_context
 
-        from memory_mcp.api.mcp.tools import register_tools
+        from nous.api.mcp.tools import register_tools
 
         register_tools(mock_mcp)
 

@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from memory_mcp.application.session_event_recorder import SessionEventRecorder
-from memory_mcp.domain.memory.session_event import SessionEvent
+from nous.application.session_event_recorder import SessionEventRecorder
+from nous.domain.memory.session_event import SessionEvent
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -157,7 +157,7 @@ class TestSessionEventRecorder:
     @pytest.mark.asyncio
     async def test_on_event_invalid_timestamp(self, recorder, mock_repo):
         """Verify invalid timestamp falls back to get_now()."""
-        with patch("memory_mcp.application.session_event_recorder.get_now") as mock_get_now:
+        with patch("nous.application.session_event_recorder.get_now") as mock_get_now:
             fake_now = datetime(2026, 6, 13, 15, 0, 0)
             mock_get_now.return_value = fake_now
 

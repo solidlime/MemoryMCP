@@ -2,7 +2,7 @@
 name: search
 description: SearXNG 検索エンジンを使った Web 検索。最新情報の検索、事実確認、ドキュメント検索に search ツールを使用する。Google/Bing/DuckDuckGo 等の主要検索エンジンを透過的に利用可能。
 license: MIT
-compatibility: memory-mcp >= 2.0.0
+compatibility: nous >= 2.0.0
 ---
 
 # 検索スキル

@@ -28,8 +28,8 @@ def mock_app_context():
 async def mcp_tool_context(mock_ctx, persona="test_persona"):
     """Context manager that patches MCP tool dependencies for testing."""
     with (
-        patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg,
-        patch("memory_mcp.api.mcp.tools.get_current_persona", return_value=persona),
+        patch("nous.api.mcp.tools.AppContextRegistry") as mock_reg,
+        patch("nous.api.mcp.tools.get_current_persona", return_value=persona),
     ):
         mock_reg.get.return_value = mock_ctx
         yield mock_reg

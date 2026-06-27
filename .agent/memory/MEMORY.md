@@ -1,7 +1,7 @@
 # MEMORY
 
 ## プロジェクト概要
-MemoryMCP: 日本語特化の永続記憶 MCP サーバー。SQLite + Qdrant + Ebbinghaus 忘却曲線。WebUIダッシュボード付き。
+Nous: 日本語特化の永続記憶 MCP サーバー。SQLite + Qdrant + Ebbinghaus 忘却曲線。WebUIダッシュボード付き。
 3レイヤー構造（L1:MCP拡張, L2:EventBus基盤, L3:OpenCode Plugin）。
 
 ## 学習した知識・教訓
@@ -15,7 +15,7 @@ MemoryMCP: 日本語特化の永続記憶 MCP サーバー。SQLite + Qdrant + E
 ### ブラウザ自動テスト（2026-06-21）
 - `agent-browser` CLI: PowerShellでは `@` エスケープ必須 (`'@eN'`)。長時間 `wait` はデーモン破壊
 - WSLコマンド: `wsl -d Ubuntu -- bash -c "..."` 形式。複雑JSONは一時ファイル経由
-- MemoryMCPサーバー: `.venv/bin/python -m memory_mcp.main`。`pkill` で停止
+- Nousサーバー: `.venv/bin/python -m nous.main`。`pkill` で停止
 
 ### browser / search チャットツール（2026-06-21）
 - **browser ツール**: `builtin.py::_handle_browser()` — agent-browser CLI経由で汎用ブラウザ操作。open/snapshot/click/fill/get/wait/scroll/close。web_searchは完全削除
@@ -54,7 +54,7 @@ MemoryMCP: 日本語特化の永続記憶 MCP サーバー。SQLite + Qdrant + E
 - OpenAI互換: `content: [{type: text}, {type: image_url}]`。DOMPurify: img許可設定追加
 
 ### コミットワークフロー
-- SSHリモート: `git remote set-url origin git@github.com:solidlime/MemoryMCP.git`
+- SSHリモート: `git remote set-url origin git@github.com:solidlime/Nous.git`
 - HTTPSが認証失敗する場合のフォールバック
 - `ruff check → 0 errors` を維持。pytest: 1085 pass / 1 fail (test_settings既存バグ)
 
@@ -85,7 +85,7 @@ MemoryMCP: 日本語特化の永続記憶 MCP サーバー。SQLite + Qdrant + E
 - **`/well-known/agent-skills/index.json`**: 外部スキル発見の業界標準化進行中
 
 #### Memory/Persistence パターン
-- **4-tier lifecycle**: Active → Superseded → Tombstoned → Hard-deleted (MemoryMCPのEbbinghausに統合候補)
+- **4-tier lifecycle**: Active → Superseded → Tombstoned → Hard-deleted (NousのEbbinghausに統合候補)
 - **ハイブリッド検索 (RRF)**: KNN (vector) + FTS5 (BM25) → RRF でマージが業界標準
 - **WAL + 5秒 busy_timeout + CASCADE delete** が並行アクセスの最低条件
 - **時系列クエリ `as_of` パラメータ**: 過去時点のグラフ状態を復元
@@ -106,7 +106,7 @@ MemoryMCP: 日本語特化の永続記憶 MCP サーバー。SQLite + Qdrant + E
 - **Health check endpoint `/health`**: FastMCP の `custom_route` で実装
 - **Image signing + SBOM**: エンタープライズ要件
 
-#### MemoryMCP 現状評価
+#### Nous 現状評価
 | 領域 | 現状 | 業界標準 | 評価 |
 |---|---|---|---|
 | 画像生成 | OpenAI互換content配列 | base64 ImageContent | ◎ 標準準拠 |
@@ -134,4 +134,4 @@ MemoryMCP: 日本語特化の永続記憶 MCP サーバー。SQLite + Qdrant + E
 5. **Docker hardening 強化**: sandbox image に `read_only+cap_drop` 追加
 6. **Health check `/health`**: FastMCP custom_route で実装
 7. **`as_of` パラメータ**: 時系列クエリ対応
-8. **Tool description カスタマイズ環境変数**: `MEMORY_MCP_TOOL_*_DESCRIPTION`
+8. **Tool description カスタマイズ環境変数**: `NOUS_TOOL_*_DESCRIPTION`

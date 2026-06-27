@@ -6,10 +6,10 @@ from datetime import timedelta
 
 import pytest
 
-from memory_mcp.domain.memory.entities import Memory
-from memory_mcp.domain.shared.time_utils import get_now
-from memory_mcp.infrastructure.sqlite.connection import SQLiteConnection
-from memory_mcp.infrastructure.sqlite.memory_repo import SQLiteMemoryRepository
+from nous.domain.memory.entities import Memory
+from nous.domain.shared.time_utils import get_now
+from nous.infrastructure.sqlite.connection import SQLiteConnection
+from nous.infrastructure.sqlite.memory_repo import SQLiteMemoryRepository
 
 
 @pytest.fixture

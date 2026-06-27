@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 import pytest
 
-from memory_mcp.config.runtime_config import SETTINGS_META, RuntimeConfigManager
+from nous.config.runtime_config import SETTINGS_META, RuntimeConfigManager
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -26,10 +26,10 @@ def _reset_singleton():
 @pytest.fixture()
 def tmp_data_dir(tmp_path: Path):
     """Provide a temporary data directory and patch get_settings to use it."""
-    from memory_mcp.config.settings import Settings
+    from nous.config.settings import Settings
 
     mock_settings = Settings(data_root=str(tmp_path))
-    with patch("memory_mcp.config.runtime_config.get_settings", return_value=mock_settings):
+    with patch("nous.config.runtime_config.get_settings", return_value=mock_settings):
         yield tmp_path
 
 
@@ -116,7 +116,7 @@ def test_env_takes_priority(tmp_data_dir: Path):
     mgr = RuntimeConfigManager()
     mgr.update("general", "timezone", "US/Eastern")
 
-    env_key = "MEMORY_MCP_TIMEZONE"
+    env_key = "NOUS_TIMEZONE"
     os.environ[env_key] = "UTC"
     try:
         value, source = mgr.get_effective_value("general", "timezone")
@@ -140,7 +140,7 @@ def test_singleton_pattern(tmp_data_dir: Path):
 
 def test_reload_status_default_for_unknown_key(tmp_data_dir: Path):
     """Getting a status for an unknown key should return default 'ready'."""
-    from memory_mcp.config.runtime_config import ReloadStatus
+    from nous.config.runtime_config import ReloadStatus
 
     rs = ReloadStatus()
     status = rs.get("nonexistent")
@@ -149,7 +149,7 @@ def test_reload_status_default_for_unknown_key(tmp_data_dir: Path):
 
 def test_reload_status_set_and_get(tmp_data_dir: Path):
     """ReloadStatus.set should store values and .get should retrieve them."""
-    from memory_mcp.config.runtime_config import ReloadStatus
+    from nous.config.runtime_config import ReloadStatus
 
     rs = ReloadStatus()
     rs.set("embedding", "loading", progress=0.5)
@@ -168,7 +168,7 @@ def test_reload_status_set_and_get(tmp_data_dir: Path):
 
 def test_reload_status_get_all_returns_copy(tmp_data_dir: Path):
     """ReloadStatus.get_all should return all stored statuses."""
-    from memory_mcp.config.runtime_config import ReloadStatus
+    from nous.config.runtime_config import ReloadStatus
 
     rs = ReloadStatus()
     assert rs.get_all() == {}
@@ -190,15 +190,15 @@ def test_reload_status_get_all_returns_copy(tmp_data_dir: Path):
 
 
 def test_get_env_key_general(tmp_data_dir: Path):
-    """General category env vars use MEMORY_MCP_KEY format."""
+    """General category env vars use NOUS_KEY format."""
     mgr = RuntimeConfigManager()
-    assert mgr._get_env_key("general", "timezone") == "MEMORY_MCP_TIMEZONE"
+    assert mgr._get_env_key("general", "timezone") == "NOUS_TIMEZONE"
 
 
 def test_get_env_key_non_general(tmp_data_dir: Path):
-    """Non-general category env vars use MEMORY_MCP_CATEGORY__KEY format."""
+    """Non-general category env vars use NOUS_CATEGORY__KEY format."""
     mgr = RuntimeConfigManager()
-    assert mgr._get_env_key("embedding", "model") == "MEMORY_MCP_EMBEDDING__MODEL"
+    assert mgr._get_env_key("embedding", "model") == "NOUS_EMBEDDING__MODEL"
 
 
 # ──────────────────────────────────────────────
@@ -243,7 +243,7 @@ def test_get_effective_value_override_source(tmp_data_dir: Path):
 
 def test_get_all_masked_values(tmp_data_dir: Path):
     """Masked settings should show '***' when value is truthy."""
-    import memory_mcp.config.runtime_config as rc
+    import nous.config.runtime_config as rc
 
     mgr = RuntimeConfigManager()
     result = mgr.get_all()
@@ -308,7 +308,7 @@ def test_register_callback_new_category(tmp_data_dir: Path):
 
 def test_load_overrides_invalid_json(tmp_path: Path):
     """Invalid JSON in config_overrides.json should be handled gracefully."""
-    from memory_mcp.config.settings import Settings
+    from nous.config.settings import Settings
 
     config_dir = tmp_path / "config"
     config_dir.mkdir(parents=True)
@@ -316,7 +316,7 @@ def test_load_overrides_invalid_json(tmp_path: Path):
     overrides_file.write_text("{invalid json}")
 
     mock_settings = Settings(data_root=str(tmp_path))
-    with patch("memory_mcp.config.runtime_config.get_settings", return_value=mock_settings):
+    with patch("nous.config.runtime_config.get_settings", return_value=mock_settings):
         mgr = RuntimeConfigManager()
         assert mgr._overrides == {}
 
@@ -364,7 +364,7 @@ def test_apply_setting_sub_category(tmp_data_dir: Path):
 
 def test_register_model_reload_callbacks(tmp_data_dir: Path):
     """register_model_reload_callbacks should register 3 callbacks."""
-    from memory_mcp.config.runtime_config import register_model_reload_callbacks
+    from nous.config.runtime_config import register_model_reload_callbacks
 
     mgr = RuntimeConfigManager()
     register_model_reload_callbacks(mgr)
@@ -379,8 +379,8 @@ def test_embedding_reload_callback_fires(tmp_data_dir: Path):
     """The embedding reload callback should fire on embedding setting update."""
     from unittest.mock import MagicMock
 
-    from memory_mcp.application.use_cases import AppContextRegistry
-    from memory_mcp.config.runtime_config import register_model_reload_callbacks
+    from nous.application.use_cases import AppContextRegistry
+    from nous.config.runtime_config import register_model_reload_callbacks
 
     mgr = RuntimeConfigManager()
     register_model_reload_callbacks(mgr)
@@ -406,8 +406,8 @@ def test_embedding_reload_callback_device(tmp_data_dir: Path):
     """The embedding reload callback with device key should pass new_device."""
     from unittest.mock import MagicMock
 
-    from memory_mcp.application.use_cases import AppContextRegistry
-    from memory_mcp.config.runtime_config import register_model_reload_callbacks
+    from nous.application.use_cases import AppContextRegistry
+    from nous.config.runtime_config import register_model_reload_callbacks
 
     mgr = RuntimeConfigManager()
     register_model_reload_callbacks(mgr)
@@ -431,8 +431,8 @@ def test_embedding_reload_with_error_status(tmp_data_dir: Path):
     """When embedding reload returns error, status should reflect it."""
     from unittest.mock import MagicMock
 
-    from memory_mcp.application.use_cases import AppContextRegistry
-    from memory_mcp.config.runtime_config import register_model_reload_callbacks
+    from nous.application.use_cases import AppContextRegistry
+    from nous.config.runtime_config import register_model_reload_callbacks
 
     mgr = RuntimeConfigManager()
     register_model_reload_callbacks(mgr)
@@ -456,8 +456,8 @@ def test_reranker_reload_callback(tmp_data_dir: Path):
     """The reranker reload callback should fire on reranker setting update."""
     from unittest.mock import MagicMock
 
-    from memory_mcp.application.use_cases import AppContextRegistry
-    from memory_mcp.config.runtime_config import register_model_reload_callbacks
+    from nous.application.use_cases import AppContextRegistry
+    from nous.config.runtime_config import register_model_reload_callbacks
 
     mgr = RuntimeConfigManager()
     register_model_reload_callbacks(mgr)
@@ -480,8 +480,8 @@ def test_reranker_enabled_callback(tmp_data_dir: Path):
     """Reranker enabled change should pass new_enabled."""
     from unittest.mock import MagicMock
 
-    from memory_mcp.application.use_cases import AppContextRegistry
-    from memory_mcp.config.runtime_config import register_model_reload_callbacks
+    from nous.application.use_cases import AppContextRegistry
+    from nous.config.runtime_config import register_model_reload_callbacks
 
     mgr = RuntimeConfigManager()
     register_model_reload_callbacks(mgr)
@@ -504,8 +504,8 @@ def test_qdrant_reload_callback_url(tmp_data_dir: Path):
     """Qdrant URL change should trigger reconnect."""
     from unittest.mock import MagicMock
 
-    from memory_mcp.application.use_cases import AppContextRegistry
-    from memory_mcp.config.runtime_config import register_model_reload_callbacks
+    from nous.application.use_cases import AppContextRegistry
+    from nous.config.runtime_config import register_model_reload_callbacks
 
     mgr = RuntimeConfigManager()
     register_model_reload_callbacks(mgr)
@@ -530,8 +530,8 @@ def test_qdrant_reload_callback_api_key(tmp_data_dir: Path):
     """Qdrant API key change should trigger reconnect."""
     from unittest.mock import MagicMock
 
-    from memory_mcp.application.use_cases import AppContextRegistry
-    from memory_mcp.config.runtime_config import register_model_reload_callbacks
+    from nous.application.use_cases import AppContextRegistry
+    from nous.config.runtime_config import register_model_reload_callbacks
 
     mgr = RuntimeConfigManager()
     register_model_reload_callbacks(mgr)
@@ -554,8 +554,8 @@ def test_qdrant_collection_prefix_change(tmp_data_dir: Path):
     """Qdrant collection_prefix change should trigger reconnect and ensure_collection."""
     from unittest.mock import MagicMock
 
-    from memory_mcp.application.use_cases import AppContextRegistry
-    from memory_mcp.config.runtime_config import register_model_reload_callbacks
+    from nous.application.use_cases import AppContextRegistry
+    from nous.config.runtime_config import register_model_reload_callbacks
 
     mgr = RuntimeConfigManager()
     register_model_reload_callbacks(mgr)

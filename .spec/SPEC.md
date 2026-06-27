@@ -17,7 +17,7 @@
   - ポート: 8080（内部ネットワーク）
   - ボリューム: `./data/searxng:/etc/searxng`
   - 環境変数: `SEARXNG_BASE_URL=http://localhost:8080/`
-  - memory-mcp の `depends_on` に `searxng` 追加
+  - nous の `depends_on` に `searxng` 追加
   - SearXNG デフォルトURL: `http://searxng:8080`
 
 - [ ] **A-2**: Dockerfile.sandbox 多言語ランタイム追加
@@ -26,20 +26,20 @@
   - マルチステージビルドでサイズ最小化
   - 合計約600MB増 → 実用性検証
 
-- [ ] **A-3**: MEMORY_MCP_SEARXNG_URL 環境変数化
-  - 環境変数 `MEMORY_MCP_SEARXNG_URL` で上書き可能
+- [ ] **A-3**: NOUS_SEARXNG_URL 環境変数化
+  - 環境変数 `NOUS_SEARXNG_URL` で上書き可能
   - chat_config.py のデフォルト値を env var に
   - docker-compose.yml に `SEARXNG_URL=http://searxng:8080`
 
 - [ ] **A-4**: 本番ビルド + 全起動確認
-  - `docker compose up` で qdrant + searxng + memory-mcp 全起動
+  - `docker compose up` で qdrant + searxng + nous 全起動
   - sandbox イメージ自動ビルド確認
   - agent-browser Chrome 起動確認（--no-sandbox フラグ検証）
   - CI docker.yml が新Dockerfileでビルド通るか確認
 
 - [ ] **A-5**: Docker security hardening
   - sandbox: `read_only: true`, `cap_drop: [ALL]`, `tmpfs: /tmp`
-  - memory-mcp: `read_only: true`（書き込みボリュームのみ rw）
+  - nous: `read_only: true`（書き込みボリュームのみ rw）
   - 全コンテナ: `no-new-privileges: true`
 
 - [ ] **A-6**: `/health` エンドポイント追加
@@ -65,7 +65,7 @@
   - definitions.py の名称変更・パラメータ拡充
   - `_BUILTIN_DISPATCH` から `_tool_update_context` を呼ぶ
 
-- [ ] **B-4**: `_MEMORY_MCP_TOOL_NAMES` フィルタ修正
+- [ ] **B-4**: `_NOUS_TOOL_NAMES` フィルタ修正
   - `web_search` → `search`
   - `image_generate`, `read_pdf`, `list_skills` 追加（MCP登録後の重複防止）
 
@@ -81,7 +81,7 @@
   - 後方互換シグネチャ: `memory_key` と `query` 両方受け入れ
 
 - [ ] **B-6**: ツール説明環境変数カスタマイズ
-  - 環境変数: `MEMORY_MCP_TOOL_DESCRIPTION_OVERRIDE`
+  - 環境変数: `NOUS_TOOL_DESCRIPTION_OVERRIDE`
   - 形式: `tool_name=new_description` (カンマ区切り)
   - `register_tools()` で上書き
 
@@ -150,7 +150,7 @@
 ## 技術構成
 
 - **言語・フレームワーク**: Python 3.12, FastMCP, asyncio
-- **インフラ・環境**: Docker Compose (Qdrant + SearXNG + memory-mcp)
+- **インフラ・環境**: Docker Compose (Qdrant + SearXNG + nous)
 - **sandbox**: llm_sandbox 0.3.x, Docker sibling container
 - **ブラウザ**: agent-browser CLI v0.30.x
 - **検索**: SearXNG (自己ホスト)

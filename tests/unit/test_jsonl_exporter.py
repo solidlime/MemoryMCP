@@ -6,9 +6,9 @@ import json
 
 import pytest
 
-from memory_mcp.infrastructure.sqlite.connection import SQLiteConnection
-from memory_mcp.migration.exporters.jsonl_exporter import JSONLExporter
-from memory_mcp.migration.importers.jsonl_importer import JSONLImporter
+from nous.infrastructure.sqlite.connection import SQLiteConnection
+from nous.migration.exporters.jsonl_exporter import JSONLExporter
+from nous.migration.importers.jsonl_importer import JSONLImporter
 
 
 @pytest.fixture

@@ -14,17 +14,17 @@ import warnings
 
 import pytest
 
-from memory_mcp.api.mcp.tools import _format_lightweight_response
-from memory_mcp.domain.memory.entities import Memory
-from memory_mcp.domain.memory.entity_extractor import SimpleEntityExtractor
-from memory_mcp.domain.memory.graph import EntityService
-from memory_mcp.domain.persona.entities import PersonaState
-from memory_mcp.domain.persona.service import PersonaService
-from memory_mcp.domain.shared.time_utils import get_now
-from memory_mcp.infrastructure.sqlite.connection import SQLiteConnection
-from memory_mcp.infrastructure.sqlite.entity_repo import SQLiteEntityRepository
-from memory_mcp.infrastructure.sqlite.memory_repo import SQLiteMemoryRepository
-from memory_mcp.infrastructure.sqlite.persona_repo import SQLitePersonaRepository
+from nous.api.mcp.tools import _format_lightweight_response
+from nous.domain.memory.entities import Memory
+from nous.domain.memory.entity_extractor import SimpleEntityExtractor
+from nous.domain.memory.graph import EntityService
+from nous.domain.persona.entities import PersonaState
+from nous.domain.persona.service import PersonaService
+from nous.domain.shared.time_utils import get_now
+from nous.infrastructure.sqlite.connection import SQLiteConnection
+from nous.infrastructure.sqlite.entity_repo import SQLiteEntityRepository
+from nous.infrastructure.sqlite.memory_repo import SQLiteMemoryRepository
+from nous.infrastructure.sqlite.persona_repo import SQLitePersonaRepository
 
 # ---------------------------------------------------------------------------
 # Shared helpers

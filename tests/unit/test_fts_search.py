@@ -5,10 +5,10 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
-from memory_mcp.domain.memory.entities import Memory
-from memory_mcp.domain.search.engine import SearchEngine, SearchQuery, SearchResult
-from memory_mcp.domain.search.ranker import RRFRanker
-from memory_mcp.domain.shared.result import Success
+from nous.domain.memory.entities import Memory
+from nous.domain.search.engine import SearchEngine, SearchQuery, SearchResult
+from nous.domain.search.ranker import RRFRanker
+from nous.domain.shared.result import Success
 
 
 def _mem(

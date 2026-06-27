@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from memory_mcp.application.sandbox.service import ExecResult, SandboxFileInfo
+from nous.application.sandbox.service import ExecResult, SandboxFileInfo
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -30,12 +30,12 @@ def registered_tools(mock_app_context):
     mock_mcp.tool = mock_tool_decorator
 
     with (
-        patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_registry_cls,
-        patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
+        patch("nous.api.mcp.tools.AppContextRegistry") as mock_registry_cls,
+        patch("nous.api.mcp.tools.get_current_persona", return_value="test_persona"),
     ):
         mock_registry_cls.get.return_value = mock_app_context
 
-        from memory_mcp.api.mcp.tools import register_tools
+        from nous.api.mcp.tools import register_tools
 
         register_tools(mock_mcp)
         yield tools, mock_app_context, mock_registry_cls
@@ -73,8 +73,8 @@ class TestSandbox:
         sandbox_tool = tools["sandbox"]
 
         with (
-            patch("memory_mcp.config.settings.get_settings") as mock_get_settings,
-            patch("memory_mcp.application.sandbox.service.get_sandbox_session") as mock_get_session,
+            patch("nous.config.settings.get_settings") as mock_get_settings,
+            patch("nous.application.sandbox.service.get_sandbox_session") as mock_get_session,
         ):
             mock_get_settings.return_value = _mock_settings(enabled=True)
             session = _mock_sandbox_session()
@@ -99,8 +99,8 @@ class TestSandbox:
         sandbox_tool = tools["sandbox"]
 
         with (
-            patch("memory_mcp.config.settings.get_settings") as mock_get_settings,
-            patch("memory_mcp.application.sandbox.service.get_sandbox_session") as mock_get_session,
+            patch("nous.config.settings.get_settings") as mock_get_settings,
+            patch("nous.application.sandbox.service.get_sandbox_session") as mock_get_session,
         ):
             mock_get_settings.return_value = _mock_settings(enabled=True)
             session = _mock_sandbox_session()
@@ -125,8 +125,8 @@ class TestSandbox:
         sandbox_tool = tools["sandbox"]
 
         with (
-            patch("memory_mcp.config.settings.get_settings") as mock_get_settings,
-            patch("memory_mcp.application.sandbox.service.get_sandbox_session") as mock_get_session,
+            patch("nous.config.settings.get_settings") as mock_get_settings,
+            patch("nous.application.sandbox.service.get_sandbox_session") as mock_get_session,
         ):
             mock_get_settings.return_value = _mock_settings(enabled=False)
 
@@ -142,8 +142,8 @@ class TestSandbox:
         sandbox_tool = tools["sandbox"]
 
         with (
-            patch("memory_mcp.config.settings.get_settings") as mock_get_settings,
-            patch("memory_mcp.application.sandbox.service.get_sandbox_session") as mock_get_session,
+            patch("nous.config.settings.get_settings") as mock_get_settings,
+            patch("nous.application.sandbox.service.get_sandbox_session") as mock_get_session,
         ):
             mock_get_settings.return_value = _mock_settings(enabled=True)
             session = _mock_sandbox_session()
@@ -169,8 +169,8 @@ class TestSandbox:
         sandbox_tool = tools["sandbox"]
 
         with (
-            patch("memory_mcp.config.settings.get_settings") as mock_get_settings,
-            patch("memory_mcp.application.sandbox.service.get_sandbox_session") as mock_get_session,
+            patch("nous.config.settings.get_settings") as mock_get_settings,
+            patch("nous.application.sandbox.service.get_sandbox_session") as mock_get_session,
         ):
             mock_get_settings.return_value = _mock_settings(enabled=True)
             session = _mock_sandbox_session()
@@ -195,8 +195,8 @@ class TestSandbox:
         sandbox_tool = tools["sandbox"]
 
         with (
-            patch("memory_mcp.config.settings.get_settings") as mock_get_settings,
-            patch("memory_mcp.application.sandbox.service.get_sandbox_session") as mock_get_session,
+            patch("nous.config.settings.get_settings") as mock_get_settings,
+            patch("nous.application.sandbox.service.get_sandbox_session") as mock_get_session,
         ):
             mock_get_settings.return_value = _mock_settings(enabled=True)
             session = _mock_sandbox_session()
@@ -224,8 +224,8 @@ class TestSandboxFiles:
         sf_tool = tools["sandbox_files"]
 
         with (
-            patch("memory_mcp.config.settings.get_settings") as mock_get_settings,
-            patch("memory_mcp.application.sandbox.service.get_sandbox_session") as mock_get_session,
+            patch("nous.config.settings.get_settings") as mock_get_settings,
+            patch("nous.application.sandbox.service.get_sandbox_session") as mock_get_session,
         ):
             mock_get_settings.return_value = _mock_settings(enabled=True)
             session = _mock_sandbox_session()
@@ -253,8 +253,8 @@ class TestSandboxFiles:
         sf_tool = tools["sandbox_files"]
 
         with (
-            patch("memory_mcp.config.settings.get_settings") as mock_get_settings,
-            patch("memory_mcp.application.sandbox.service.get_sandbox_session") as mock_get_session,
+            patch("nous.config.settings.get_settings") as mock_get_settings,
+            patch("nous.application.sandbox.service.get_sandbox_session") as mock_get_session,
         ):
             mock_get_settings.return_value = _mock_settings(enabled=True)
             session = _mock_sandbox_session()
@@ -278,8 +278,8 @@ class TestSandboxFiles:
         sf_tool = tools["sandbox_files"]
 
         with (
-            patch("memory_mcp.config.settings.get_settings") as mock_get_settings,
-            patch("memory_mcp.application.sandbox.service.get_sandbox_session") as mock_get_session,
+            patch("nous.config.settings.get_settings") as mock_get_settings,
+            patch("nous.application.sandbox.service.get_sandbox_session") as mock_get_session,
         ):
             mock_get_settings.return_value = _mock_settings(enabled=True)
             session = _mock_sandbox_session()
@@ -305,8 +305,8 @@ class TestSandboxFiles:
         sf_tool = tools["sandbox_files"]
 
         with (
-            patch("memory_mcp.config.settings.get_settings") as mock_get_settings,
-            patch("memory_mcp.application.sandbox.service.get_sandbox_session") as mock_get_session,
+            patch("nous.config.settings.get_settings") as mock_get_settings,
+            patch("nous.application.sandbox.service.get_sandbox_session") as mock_get_session,
         ):
             mock_get_settings.return_value = _mock_settings(enabled=True)
             session = _mock_sandbox_session()
@@ -327,8 +327,8 @@ class TestSandboxFiles:
         sf_tool = tools["sandbox_files"]
 
         with (
-            patch("memory_mcp.config.settings.get_settings") as mock_get_settings,
-            patch("memory_mcp.application.sandbox.service.get_sandbox_session") as mock_get_session,
+            patch("nous.config.settings.get_settings") as mock_get_settings,
+            patch("nous.application.sandbox.service.get_sandbox_session") as mock_get_session,
         ):
             mock_get_settings.return_value = _mock_settings(enabled=True)
             session = _mock_sandbox_session()
@@ -349,8 +349,8 @@ class TestSandboxFiles:
         sf_tool = tools["sandbox_files"]
 
         with (
-            patch("memory_mcp.config.settings.get_settings") as mock_get_settings,
-            patch("memory_mcp.application.sandbox.service.get_sandbox_session") as mock_get_session,
+            patch("nous.config.settings.get_settings") as mock_get_settings,
+            patch("nous.application.sandbox.service.get_sandbox_session") as mock_get_session,
         ):
             mock_get_settings.return_value = _mock_settings(enabled=True)
             session = _mock_sandbox_session()
@@ -377,8 +377,8 @@ class TestSandboxFiles:
         sf_tool = tools["sandbox_files"]
 
         with (
-            patch("memory_mcp.config.settings.get_settings") as mock_get_settings,
-            patch("memory_mcp.application.sandbox.service.get_sandbox_session") as mock_get_session,
+            patch("nous.config.settings.get_settings") as mock_get_settings,
+            patch("nous.application.sandbox.service.get_sandbox_session") as mock_get_session,
         ):
             mock_get_settings.return_value = _mock_settings(enabled=True)
             session = _mock_sandbox_session()
@@ -406,8 +406,8 @@ class TestSandboxFiles:
         sf_tool = tools["sandbox_files"]
 
         with (
-            patch("memory_mcp.config.settings.get_settings") as mock_get_settings,
-            patch("memory_mcp.application.sandbox.service.get_sandbox_session"),
+            patch("nous.config.settings.get_settings") as mock_get_settings,
+            patch("nous.application.sandbox.service.get_sandbox_session"),
         ):
             mock_get_settings.return_value = _mock_settings(enabled=True)
 
@@ -424,8 +424,8 @@ class TestSandboxFiles:
         sf_tool = tools["sandbox_files"]
 
         with (
-            patch("memory_mcp.config.settings.get_settings") as mock_get_settings,
-            patch("memory_mcp.application.sandbox.service.get_sandbox_session") as mock_get_session,
+            patch("nous.config.settings.get_settings") as mock_get_settings,
+            patch("nous.application.sandbox.service.get_sandbox_session") as mock_get_session,
         ):
             mock_get_settings.return_value = _mock_settings(enabled=True)
 
@@ -443,8 +443,8 @@ class TestSandboxFiles:
         sf_tool = tools["sandbox_files"]
 
         with (
-            patch("memory_mcp.config.settings.get_settings") as mock_get_settings,
-            patch("memory_mcp.application.sandbox.service.get_sandbox_session"),
+            patch("nous.config.settings.get_settings") as mock_get_settings,
+            patch("nous.application.sandbox.service.get_sandbox_session"),
         ):
             mock_get_settings.return_value = _mock_settings(enabled=True)
 

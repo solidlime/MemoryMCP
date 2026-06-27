@@ -6,13 +6,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from memory_mcp.api.http.sections.chat import render_chat_tab
-from memory_mcp.application.chat.events import _sse_encode as _sse
-from memory_mcp.application.chat_service import SessionManager, SessionWindow
-from memory_mcp.domain.chat_config import ChatConfig, ChatConfigRepository
-from memory_mcp.infrastructure.llm.base import DoneEvent, TextDeltaEvent, ToolCallEvent
+from nous.api.http.sections.chat import render_chat_tab
+from nous.application.chat.events import _sse_encode as _sse
+from nous.application.chat_service import SessionManager, SessionWindow
+from nous.domain.chat_config import ChatConfig, ChatConfigRepository
+from nous.infrastructure.llm.base import DoneEvent, TextDeltaEvent, ToolCallEvent
 
-_CHAT_JS_PATH = Path(__file__).resolve().parent.parent.parent / "memory_mcp" / "api" / "http" / "static" / "chat.js"
+_CHAT_JS_PATH = Path(__file__).resolve().parent.parent.parent / "nous" / "api" / "http" / "static" / "chat.js"
 
 
 def _read_chat_js() -> str:
@@ -372,7 +372,7 @@ class TestChatService:
 
     @pytest.mark.asyncio
     async def test_no_api_key_yields_error(self):
-        from memory_mcp.application.chat_service import ChatService
+        from nous.application.chat_service import ChatService
 
         ctx = self._make_ctx()
         cfg = self._make_config(api_key="")
@@ -389,7 +389,7 @@ class TestChatService:
 
     @pytest.mark.asyncio
     async def test_streams_text_and_done(self):
-        from memory_mcp.application.chat_service import ChatService
+        from nous.application.chat_service import ChatService
 
         async def mock_stream(*args, **kwargs):
             yield TextDeltaEvent(content="Hello ")
@@ -403,7 +403,7 @@ class TestChatService:
         cfg = self._make_config(api_key="sk-valid-key")
         service = ChatService()
 
-        with patch("memory_mcp.application.chat.pipeline.inference.get_provider", return_value=mock_provider):
+        with patch("nous.application.chat.pipeline.inference.get_provider", return_value=mock_provider):
             chunks = []
             async for chunk in service.chat(ctx, cfg, "sess1", "hello"):
                 chunks.append(chunk)
@@ -416,7 +416,7 @@ class TestChatService:
 
     @pytest.mark.asyncio
     async def test_tool_call_executed(self):
-        from memory_mcp.application.chat_service import ChatService
+        from nous.application.chat_service import ChatService
 
         tool_evt = ToolCallEvent(
             tool_name="memory_search",
@@ -441,8 +441,8 @@ class TestChatService:
 
         ctx = self._make_ctx()
         # Make search return something
-        from memory_mcp.domain.memory.entities import Memory
-        from memory_mcp.domain.search.engine import SearchResult
+        from nous.domain.memory.entities import Memory
+        from nous.domain.search.engine import SearchResult
 
         mem = Memory(
             key="mem_001",
@@ -460,7 +460,7 @@ class TestChatService:
         cfg = self._make_config(api_key="sk-valid-key")
         service = ChatService()
 
-        with patch("memory_mcp.application.chat.pipeline.inference.get_provider", return_value=mock_provider):
+        with patch("nous.application.chat.pipeline.inference.get_provider", return_value=mock_provider):
             chunks = []
             async for chunk in service.chat(ctx, cfg, "sess2", "search memories"):
                 chunks.append(chunk)

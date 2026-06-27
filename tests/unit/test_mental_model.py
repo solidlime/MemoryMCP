@@ -5,8 +5,8 @@ from __future__ import annotations
 import json
 from datetime import datetime
 
-from memory_mcp.application.chat.pattern_detector import _parse_models
-from memory_mcp.domain.memory.mental_model import MentalModel
+from nous.application.chat.pattern_detector import _parse_models
+from nous.domain.memory.mental_model import MentalModel
 
 
 class TestMentalModelDataclass:

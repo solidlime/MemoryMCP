@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from memory_mcp.application.chat.reflection import _parse_insights
+from nous.application.chat.reflection import _parse_insights
 
 
 class TestParseInsights:

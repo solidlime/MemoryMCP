@@ -6,14 +6,14 @@ from typing import Any
 
 import pytest
 
-from memory_mcp.domain.equipment.entities import (
+from nous.domain.equipment.entities import (
     EquipmentHistory,
     EquipmentSlot,
     Item,
 )
-from memory_mcp.domain.equipment.service import EquipmentService
-from memory_mcp.domain.shared.errors import RepositoryError
-from memory_mcp.domain.shared.result import Failure, Result, Success
+from nous.domain.equipment.service import EquipmentService
+from nous.domain.shared.errors import RepositoryError
+from nous.domain.shared.result import Failure, Result, Success
 
 # ---------------------------------------------------------------------------
 # InMemory EquipmentRepository

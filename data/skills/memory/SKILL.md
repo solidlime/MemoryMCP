@@ -1,13 +1,13 @@
 ---
 name: memory
-description: MemoryMCP メモリ操作。重要な情報・ユーザーの好み・決定事項を長期記憶し、必要な時に検索・更新・削除する。会話の文脈維持とパーソナライズに必須。
+description: Nous メモリ操作。重要な情報・ユーザーの好み・決定事項を長期記憶し、必要な時に検索・更新・削除する。会話の文脈維持とパーソナライズに必須。
 license: MIT
-compatibility: memory-mcp >= 2.0.0
+compatibility: nous >= 2.0.0
 ---
 
 # メモリ操作スキル
 
-MemoryMCP の memory_* ツール群を使って、ユーザーとの会話から重要な情報を長期記憶し、
+Nous の memory_* ツール群を使って、ユーザーとの会話から重要な情報を長期記憶し、
 後続の会話で活用するためのベストプラクティス集。
 
 ## ツール一覧
@@ -125,7 +125,7 @@ memory_search(query="最近の進捗", date_range="7d", min_importance=0.5)
 memory_update(memory_key="memory_20260627_143751_540177", content="新しい内容")
 
 # query指定で検索→更新
-memory_update(query="プロジェクト名について", content="プロジェクト名はMemoryMCP")
+memory_update(query="プロジェクト名について", content="プロジェクト名はNous")
 ```
 
 ---

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from memory_mcp.domain.memory.type_classifier import TYPE_TAGS, auto_tags, classify
+from nous.domain.memory.type_classifier import TYPE_TAGS, auto_tags, classify
 
 # ---------------------------------------------------------------------------
 # classify() — English

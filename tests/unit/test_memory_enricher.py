@@ -7,10 +7,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from memory_mcp.domain.memory.enrichment import EnrichmentResult, RelationCandidate
-from memory_mcp.domain.value_objects import _VALID_EMOTIONS, normalize_emotion
-from memory_mcp.infrastructure.llm.base import DoneEvent, TextDeltaEvent
-from memory_mcp.infrastructure.llm.memory_enricher import MemoryEnricher
+from nous.domain.memory.enrichment import EnrichmentResult, RelationCandidate
+from nous.domain.value_objects import _VALID_EMOTIONS, normalize_emotion
+from nous.infrastructure.llm.base import DoneEvent, TextDeltaEvent
+from nous.infrastructure.llm.memory_enricher import MemoryEnricher
 
 
 @pytest.fixture
@@ -32,7 +32,7 @@ def mock_get_provider():
         mock_provider, mock_factory = mock_get_provider
         mock_provider.stream.return_value = _async_iter(events...)
     """
-    with patch("memory_mcp.infrastructure.llm.memory_enricher.get_provider") as mock:
+    with patch("nous.infrastructure.llm.memory_enricher.get_provider") as mock:
         mock_provider = MagicMock()
         mock.return_value = mock_provider
         yield mock_provider, mock

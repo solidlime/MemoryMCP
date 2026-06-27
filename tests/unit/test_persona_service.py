@@ -6,16 +6,16 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from memory_mcp.domain.persona.entities import (
+from nous.domain.persona.entities import (
     ContextEntry,
     EmotionRecord,
     PersonaState,
 )
-from memory_mcp.domain.persona.service import PersonaService
-from memory_mcp.domain.shared.result import Result, Success
+from nous.domain.persona.service import PersonaService
+from nous.domain.shared.result import Result, Success
 
 if TYPE_CHECKING:
-    from memory_mcp.domain.shared.errors import RepositoryError
+    from nous.domain.shared.errors import RepositoryError
 
 # ---------------------------------------------------------------------------
 # InMemory PersonaRepository

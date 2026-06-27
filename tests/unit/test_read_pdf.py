@@ -1,7 +1,7 @@
 """
 PDF解析ツール (_handle_read_pdf) の単体テスト
 
-テスト対象: memory_mcp.application.chat.tools.builtin._handle_read_pdf
+テスト対象: nous.application.chat.tools.builtin._handle_read_pdf
 シグネチャ: async def _handle_read_pdf(ctx: AppContext, config: ChatConfig, tool_input: dict) -> dict
 
 テスト用PDFは PyMuPDF (fitz) で動的に生成し、テスト後に確実に削除する。
@@ -66,7 +66,7 @@ async def test_read_pdf_basic_text():
         ctx = MagicMock()
         config = MagicMock()
 
-        from memory_mcp.application.chat.tools.builtin import _handle_read_pdf
+        from nous.application.chat.tools.builtin import _handle_read_pdf
 
         result = await _handle_read_pdf(ctx, config, {"path": pdf_path})
 
@@ -89,7 +89,7 @@ async def test_read_pdf_multi_page():
         ctx = MagicMock()
         config = MagicMock()
 
-        from memory_mcp.application.chat.tools.builtin import _handle_read_pdf
+        from nous.application.chat.tools.builtin import _handle_read_pdf
 
         result = await _handle_read_pdf(ctx, config, {"path": pdf_path})
 
@@ -108,7 +108,7 @@ async def test_read_pdf_file_not_found():
     ctx = MagicMock()
     config = MagicMock()
 
-    from memory_mcp.application.chat.tools.builtin import _handle_read_pdf
+    from nous.application.chat.tools.builtin import _handle_read_pdf
 
     result = await _handle_read_pdf(ctx, config, {"path": "/tmp/nonexistent_file_xyz.pdf"})
 
@@ -127,7 +127,7 @@ async def test_read_pdf_not_a_pdf():
         ctx = MagicMock()
         config = MagicMock()
 
-        from memory_mcp.application.chat.tools.builtin import _handle_read_pdf
+        from nous.application.chat.tools.builtin import _handle_read_pdf
 
         result = await _handle_read_pdf(ctx, config, {"path": txt_path})
 
@@ -143,7 +143,7 @@ async def test_read_pdf_missing_path():
     ctx = MagicMock()
     config = MagicMock()
 
-    from memory_mcp.application.chat.tools.builtin import _handle_read_pdf
+    from nous.application.chat.tools.builtin import _handle_read_pdf
 
     result = await _handle_read_pdf(ctx, config, {})
 
@@ -161,7 +161,7 @@ async def test_read_pdf_has_tables():
         ctx = MagicMock()
         config = MagicMock()
 
-        from memory_mcp.application.chat.tools.builtin import _handle_read_pdf
+        from nous.application.chat.tools.builtin import _handle_read_pdf
 
         result = await _handle_read_pdf(ctx, config, {"path": pdf_path})
 
@@ -201,7 +201,7 @@ async def test_read_pdf_text_truncation():
         ctx = MagicMock()
         config = MagicMock()
 
-        from memory_mcp.application.chat.tools.builtin import _handle_read_pdf
+        from nous.application.chat.tools.builtin import _handle_read_pdf
 
         result = await _handle_read_pdf(ctx, config, {"path": pdf_path})
 
@@ -268,7 +268,7 @@ async def test_read_pdf_fallback_pdfplumber():
         mock_pdfplumber.open.return_value = mock_pdf
 
         with patch.dict("sys.modules", {"fitz": mock_fitz, "pdfplumber": mock_pdfplumber}):
-            from memory_mcp.application.chat.tools.builtin import _handle_read_pdf
+            from nous.application.chat.tools.builtin import _handle_read_pdf
 
             result = await _handle_read_pdf(ctx, config, {"path": pdf_path})
 
@@ -342,7 +342,7 @@ async def test_read_pdf_fallback_ocr():
                 "pytesseract": mock_pytesseract,
             },
         ):
-            from memory_mcp.application.chat.tools.builtin import _handle_read_pdf
+            from nous.application.chat.tools.builtin import _handle_read_pdf
 
             result = await _handle_read_pdf(ctx, config, {"path": pdf_path})
 
@@ -381,7 +381,7 @@ async def test_read_pdf_pymupdf_normal_text():
         mock_fitz.open.return_value = mock_doc
 
         with patch.dict("sys.modules", {"fitz": mock_fitz, "pdfplumber": MagicMock()}):
-            from memory_mcp.application.chat.tools.builtin import _handle_read_pdf
+            from nous.application.chat.tools.builtin import _handle_read_pdf
 
             result = await _handle_read_pdf(ctx, config, {"path": pdf_path})
 
@@ -450,7 +450,7 @@ async def test_read_pdf_ocr_no_images():
                 "pytesseract": mock_pytesseract,
             },
         ):
-            from memory_mcp.application.chat.tools.builtin import _handle_read_pdf
+            from nous.application.chat.tools.builtin import _handle_read_pdf
 
             result = await _handle_read_pdf(ctx, config, {"path": pdf_path})
 
@@ -513,7 +513,7 @@ async def test_read_pdf_ocr_import_error():
                 # pytesseract を sys.modules に入れない → import が ImportError
             },
         ):
-            from memory_mcp.application.chat.tools.builtin import _handle_read_pdf
+            from nous.application.chat.tools.builtin import _handle_read_pdf
 
             result = await _handle_read_pdf(ctx, config, {"path": pdf_path})
 

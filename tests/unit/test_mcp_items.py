@@ -7,8 +7,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from memory_mcp.domain.shared.errors import RepositoryError
-from memory_mcp.domain.shared.result import Failure, Success
+from nous.domain.shared.errors import RepositoryError
+from nous.domain.shared.result import Failure, Success
 
 UTC = UTC
 
@@ -52,12 +52,12 @@ def registered_tools(mock_app_context):
     mock_mcp.tool = mock_tool_decorator
 
     with (
-        patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_registry_cls,
-        patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
+        patch("nous.api.mcp.tools.AppContextRegistry") as mock_registry_cls,
+        patch("nous.api.mcp.tools.get_current_persona", return_value="test_persona"),
     ):
         mock_registry_cls.get.return_value = mock_app_context
 
-        from memory_mcp.api.mcp.tools import register_tools
+        from nous.api.mcp.tools import register_tools
 
         register_tools(mock_mcp)
 
@@ -78,8 +78,8 @@ class TestItemTool:
         ctx.equipment_service.equip.return_value = Success(None)
         item_equip = tools["item_equip"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
+            patch("nous.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
+            patch("nous.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
             result = await item_equip(equipment={"top": "white dress"})
@@ -91,8 +91,8 @@ class TestItemTool:
         tools, ctx, _ = registered_tools
         item_equip = tools["item_equip"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
+            patch("nous.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
+            patch("nous.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
             result = await item_equip()
@@ -104,8 +104,8 @@ class TestItemTool:
         ctx.equipment_service.add_item.return_value = Success(None)
         item_add = tools["item_add"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
+            patch("nous.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
+            patch("nous.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
             result = await item_add(item_name="blue hat", category="accessories")
@@ -117,8 +117,8 @@ class TestItemTool:
         ctx.equipment_service.remove_item.return_value = Success(None)
         item_remove = tools["item_remove"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
+            patch("nous.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
+            patch("nous.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
             result = await item_remove(item_name="blue hat")
@@ -130,8 +130,8 @@ class TestItemTool:
         ctx.equipment_service.unequip.return_value = Success(None)
         item_unequip = tools["item_unequip"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
+            patch("nous.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
+            patch("nous.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
             result = await item_unequip(slots=["top", "head"])
@@ -147,8 +147,8 @@ class TestItemTool:
         ctx.equipment_service.search_items.return_value = Success([item_obj])
         item_search = tools["item_search"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
+            patch("nous.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
+            patch("nous.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
             result = await item_search(query="hat")
@@ -160,8 +160,8 @@ class TestItemTool:
         ctx.equipment_service.update_item.return_value = Success(None)
         item_update = tools["item_update"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
+            patch("nous.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
+            patch("nous.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
             result = await item_update(item_name="blue hat", quantity=3)
@@ -188,8 +188,8 @@ class TestItemHistory:
         ctx.equipment_service.get_history.return_value = Success([h1, h2])
         item_history = tools["item_history"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
+            patch("nous.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
+            patch("nous.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
             result = await item_history(days=7)
@@ -208,8 +208,8 @@ class TestItemHistory:
         ctx.equipment_service.get_history.return_value = Success([h])
         item_history = tools["item_history"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
+            patch("nous.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
+            patch("nous.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
             result = await item_history(days=30)
@@ -223,8 +223,8 @@ class TestItemHistory:
         ctx.equipment_service.get_history.return_value = Success([])
         item_history = tools["item_history"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
+            patch("nous.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
+            patch("nous.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
             result = await item_history(days=7)
@@ -237,8 +237,8 @@ class TestItemHistory:
         ctx.equipment_service.get_history.return_value = Failure(RepositoryError("db error"))
         item_history = tools["item_history"]
         with (
-            patch("memory_mcp.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
-            patch("memory_mcp.api.mcp.tools.get_current_persona", return_value="test_persona"),
+            patch("nous.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
+            patch("nous.api.mcp.tools.get_current_persona", return_value="test_persona"),
         ):
             mock_reg_cls.get.return_value = ctx
             result = await item_history(days=7)

@@ -7,12 +7,12 @@ from __future__ import annotations
 
 import pytest
 
-from memory_mcp.domain.memory.entities import Memory
-from memory_mcp.domain.persona.service import PersonaService
-from memory_mcp.domain.shared.time_utils import get_now
-from memory_mcp.infrastructure.sqlite.connection import SQLiteConnection
-from memory_mcp.infrastructure.sqlite.memory_repo import SQLiteMemoryRepository
-from memory_mcp.infrastructure.sqlite.persona_repo import SQLitePersonaRepository
+from nous.domain.memory.entities import Memory
+from nous.domain.persona.service import PersonaService
+from nous.domain.shared.time_utils import get_now
+from nous.infrastructure.sqlite.connection import SQLiteConnection
+from nous.infrastructure.sqlite.memory_repo import SQLiteMemoryRepository
+from nous.infrastructure.sqlite.persona_repo import SQLitePersonaRepository
 
 PERSONA = "test_remove_persona"
 

@@ -10,8 +10,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from memory_mcp.application.auto_import import run_auto_import
-from memory_mcp.config.settings import Settings
+from nous.application.auto_import import run_auto_import
+from nous.config.settings import Settings
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 
@@ -24,7 +24,7 @@ def _zip_available(*names: str) -> bool:
 @pytest.fixture
 def import_settings(tmp_path):
     """Create Settings with temporary directories for auto-import tests."""
-    from memory_mcp.application.use_cases import AppContextRegistry
+    from nous.application.use_cases import AppContextRegistry
 
     settings = Settings(data_root=str(tmp_path))
     # computed_field: data_dir = tmp_path/memory, import_dir = tmp_path/import
@@ -38,7 +38,7 @@ def import_settings(tmp_path):
 @pytest.fixture(autouse=True)
 def _isolate_test(monkeypatch):
     """Isolate each test: mock vector_store property and clean up registry."""
-    from memory_mcp.application.use_cases import AppContext, AppContextRegistry
+    from nous.application.use_cases import AppContext, AppContextRegistry
 
     monkeypatch.setattr(AppContext, "vector_store", property(lambda self: None))
 
@@ -60,7 +60,7 @@ def test_disabled_when_import_dir_empty(tmp_path):
 
     from unittest.mock import patch
 
-    with patch("memory_mcp.application.auto_import.LegacyImporter", mock_importer_cls):
+    with patch("nous.application.auto_import.LegacyImporter", mock_importer_cls):
         result = run_auto_import(mock_settings)
 
     assert result == {}
@@ -141,7 +141,7 @@ def test_overwrites_existing_data(import_settings):
     assert result2["herta"]["memories"] == 167
 
     # Verify actual row count in DB — no duplicates
-    from memory_mcp.infrastructure.sqlite.connection import SQLiteConnection
+    from nous.infrastructure.sqlite.connection import SQLiteConnection
 
     conn = SQLiteConnection(import_settings.data_dir, "herta")
     try:

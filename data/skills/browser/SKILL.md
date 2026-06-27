@@ -2,7 +2,7 @@
 name: browser
 description: browser ツールでWebブラウザを直接操作。検索エンジンは Brave Search (search.brave.com) または Mojeek (mojeek.com) を使うこと。Google・DuckDuckGoはブロックされるので絶対に使わない。web_searchツールは存在しない。
 license: MIT
-compatibility: memory-mcp >= 2.0.0
+compatibility: nous >= 2.0.0
 ---
 
 # browser スキル
@@ -128,7 +128,7 @@ agent-browser network requests    # リクエスト一覧
 
 **検索ワークフロー例（Brave Search推奨）**:
 ```
-browser(action="open", url="https://search.brave.com/search?q=MemoryMCP")
+browser(action="open", url="https://search.brave.com/search?q=Nous")
 → browser(action="wait", until="load")
 → browser(action="snapshot", interactive=true, selector=".snippet")
 → (結果を読んでユーザーに要約)

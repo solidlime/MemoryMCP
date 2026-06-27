@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from memory_mcp.application.use_cases import AppContextRegistry
+from nous.application.use_cases import AppContextRegistry
 
 
 @pytest.fixture(autouse=True)
@@ -32,7 +32,7 @@ class TestAppContextRegistry:
         settings = _mock_settings()
         AppContextRegistry.configure(settings)
 
-        with patch("memory_mcp.application.use_cases.AppContext") as mock_app_ctx:
+        with patch("nous.application.use_cases.AppContext") as mock_app_ctx:
             mock_ctx = MagicMock()
             mock_app_ctx.return_value = mock_ctx
             result = AppContextRegistry.get("default")
@@ -43,7 +43,7 @@ class TestAppContextRegistry:
         settings = _mock_settings()
         AppContextRegistry.configure(settings)
 
-        with patch("memory_mcp.application.use_cases.AppContext") as mock_app_ctx:
+        with patch("nous.application.use_cases.AppContext") as mock_app_ctx:
             mock_ctx = MagicMock()
             mock_app_ctx.return_value = mock_ctx
 
@@ -59,7 +59,7 @@ class TestAppContextRegistry:
         settings = _mock_settings()
         AppContextRegistry.configure(settings)
 
-        with patch("memory_mcp.application.use_cases.AppContext") as mock_app_ctx:
+        with patch("nous.application.use_cases.AppContext") as mock_app_ctx:
             ctx_a = MagicMock()
             ctx_b = MagicMock()
             mock_app_ctx.side_effect = [ctx_a, ctx_b]
@@ -77,8 +77,8 @@ class TestAppContextRegistry:
         AppContextRegistry.configure(settings)
 
         with (
-            patch("memory_mcp.application.use_cases.AppContext"),
-            patch("memory_mcp.application.workers.decay_worker.DecayWorker") as mock_worker_cls,
+            patch("nous.application.use_cases.AppContext"),
+            patch("nous.application.workers.decay_worker.DecayWorker") as mock_worker_cls,
         ):
             mock_worker = MagicMock()
             mock_worker_cls.return_value = mock_worker

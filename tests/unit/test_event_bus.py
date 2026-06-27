@@ -6,7 +6,7 @@ import asyncio
 
 import pytest
 
-from memory_mcp.application.event_bus import (
+from nous.application.event_bus import (
     EVENT_CONTEXT_UPDATED,
     EVENT_MEMORY_CREATED,
     EVENT_MEMORY_DELETED,

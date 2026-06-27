@@ -6,13 +6,13 @@ from typing import Any
 
 import pytest
 
-from memory_mcp.domain.memory.entities import Memory
-from memory_mcp.domain.memory.service import MemoryService
-from memory_mcp.domain.shared.errors import RepositoryError
-from memory_mcp.domain.shared.result import Failure, Result, Success
-from memory_mcp.domain.shared.time_utils import get_now
-from memory_mcp.infrastructure.sqlite.connection import SQLiteConnection
-from memory_mcp.infrastructure.sqlite.memory_repo import SQLiteMemoryRepository
+from nous.domain.memory.entities import Memory
+from nous.domain.memory.service import MemoryService
+from nous.domain.shared.errors import RepositoryError
+from nous.domain.shared.result import Failure, Result, Success
+from nous.domain.shared.time_utils import get_now
+from nous.infrastructure.sqlite.connection import SQLiteConnection
+from nous.infrastructure.sqlite.memory_repo import SQLiteMemoryRepository
 
 # ---------------------------------------------------------------------------
 # InMemory repo with version support (for unit tests)

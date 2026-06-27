@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from memory_mcp.config.settings import (
+from nous.config.settings import (
     EmbeddingConfig,
     ForgettingConfig,
     QdrantConfig,
@@ -44,9 +44,9 @@ class TestDefaultValues:
 
 class TestSettings:
     def test_full_defaults(self, monkeypatch):
-        # CI環境で MEMORY_MCP_DATA_ROOT / MEMORY_MCP_DATA_DIR が設定されている可能性があるため削除
-        monkeypatch.delenv("MEMORY_MCP_DATA_ROOT", raising=False)
-        monkeypatch.delenv("MEMORY_MCP_DATA_DIR", raising=False)
+        # CI環境で NOUS_DATA_ROOT / NOUS_DATA_DIR が設定されている可能性があるため削除
+        monkeypatch.delenv("NOUS_DATA_ROOT", raising=False)
+        monkeypatch.delenv("NOUS_DATA_DIR", raising=False)
         s = Settings()
         assert s.timezone == "Asia/Tokyo"
         assert s.data_dir == "./data/memory"
@@ -57,19 +57,19 @@ class TestSettings:
         assert s.duplicate_threshold == 0.90
 
     def test_env_override_simple(self, monkeypatch):
-        monkeypatch.setenv("MEMORY_MCP_TIMEZONE", "UTC")
-        monkeypatch.setenv("MEMORY_MCP_LOG_LEVEL", "DEBUG")
+        monkeypatch.setenv("NOUS_TIMEZONE", "UTC")
+        monkeypatch.setenv("NOUS_LOG_LEVEL", "DEBUG")
         s = Settings()
         assert s.timezone == "UTC"
         assert s.log_level == "DEBUG"
 
     def test_env_override_nested(self, monkeypatch):
-        monkeypatch.setenv("MEMORY_MCP_SERVER__PORT", "9999")
+        monkeypatch.setenv("NOUS_SERVER__PORT", "9999")
         s = Settings()
         assert s.server.port == 9999
 
     def test_env_override_data_root(self, monkeypatch):
-        monkeypatch.setenv("MEMORY_MCP_DATA_ROOT", "/custom/data")
+        monkeypatch.setenv("NOUS_DATA_ROOT", "/custom/data")
         s = Settings()
         assert s.data_root == "/custom/data"
         assert s.data_dir == "/custom/data/memory"

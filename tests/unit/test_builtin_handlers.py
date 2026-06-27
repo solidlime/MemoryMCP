@@ -6,13 +6,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from memory_mcp.application.chat.tools.builtin import (
+from nous.application.chat.tools.builtin import (
     _handle_browser,
     _handle_execute_code,
     _handle_image_generate,
     _handle_search,
 )
-from memory_mcp.application.sandbox.service import ExecResult
+from nous.application.sandbox.service import ExecResult
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -184,7 +184,7 @@ class TestBrowserHandler:
 
         with (
             patch(
-                "memory_mcp.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"
+                "nous.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"
             ),
             patch("asyncio.create_subprocess_exec", return_value=proc_mock) as mock_subprocess,
         ):
@@ -197,7 +197,7 @@ class TestBrowserHandler:
     @pytest.mark.asyncio
     async def test_browser_agent_not_found(self, mock_ctx, mock_config):
         """agent-browser binary not found → error"""
-        with patch("memory_mcp.application.chat.tools.builtin._find_agent_browser", return_value=None):
+        with patch("nous.application.chat.tools.builtin._find_agent_browser", return_value=None):
             result = await _handle_browser(mock_ctx, mock_config, {"action": "open", "url": "https://example.com"})
         assert result["status"] == "error"
         assert "agent-browser not found" in result["message"]
@@ -211,7 +211,7 @@ class TestBrowserHandler:
 
         with (
             patch(
-                "memory_mcp.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"
+                "nous.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"
             ),
             patch("asyncio.create_subprocess_exec", return_value=proc_mock) as mock_subprocess,
         ):
@@ -235,7 +235,7 @@ class TestBrowserHandler:
 
         with (
             patch(
-                "memory_mcp.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"
+                "nous.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"
             ),
             patch("asyncio.create_subprocess_exec", return_value=proc_mock),
         ):
@@ -252,7 +252,7 @@ class TestBrowserHandler:
 
         with (
             patch(
-                "memory_mcp.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"
+                "nous.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"
             ),
             patch("asyncio.create_subprocess_exec", return_value=proc_mock),
         ):
@@ -271,7 +271,7 @@ class TestBrowserHandler:
 
         with (
             patch(
-                "memory_mcp.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"
+                "nous.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"
             ),
             patch("asyncio.create_subprocess_exec", return_value=proc_mock),
         ):
@@ -288,7 +288,7 @@ class TestBrowserHandler:
 
         with (
             patch(
-                "memory_mcp.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"
+                "nous.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"
             ),
             patch("asyncio.create_subprocess_exec", return_value=proc_mock),
         ):
@@ -305,7 +305,7 @@ class TestBrowserHandler:
 
         with (
             patch(
-                "memory_mcp.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"
+                "nous.application.chat.tools.builtin._find_agent_browser", return_value="/usr/bin/agent-browser"
             ),
             patch("asyncio.create_subprocess_exec", return_value=proc_mock),
         ):
@@ -327,7 +327,7 @@ class TestExecuteCodeHandler:
         mock_session.execute.return_value = ExecResult(stdout="", stderr="", exit_code=0, artifacts=[])
 
         with patch(
-            "memory_mcp.application.sandbox.service.get_sandbox_session",
+            "nous.application.sandbox.service.get_sandbox_session",
             return_value=mock_session,
         ) as mock_get:
             result = await _handle_execute_code(mock_ctx, mock_config, {})
@@ -351,7 +351,7 @@ class TestExecuteCodeHandler:
         mock_session.execute.return_value = ExecResult(stdout="hello\n", stderr="", exit_code=0, artifacts=[])
 
         with patch(
-            "memory_mcp.application.sandbox.service.get_sandbox_session",
+            "nous.application.sandbox.service.get_sandbox_session",
             return_value=mock_session,
         ) as mock_get:
             result = await _handle_execute_code(mock_ctx, mock_config, {"code": "print('hello')", "language": "python"})
@@ -368,7 +368,7 @@ class TestExecuteCodeHandler:
         mock_session.execute.return_value = ExecResult(stdout="file.txt\n", stderr="", exit_code=0, artifacts=[])
 
         with patch(
-            "memory_mcp.application.sandbox.service.get_sandbox_session",
+            "nous.application.sandbox.service.get_sandbox_session",
             return_value=mock_session,
         ) as mock_get:
             result = await _handle_execute_code(mock_ctx, mock_config, {"code": "ls", "language": "bash"})
@@ -385,7 +385,7 @@ class TestExecuteCodeHandler:
         mock_session.execute.return_value = ExecResult(stdout="ok", stderr="", exit_code=0)
 
         with patch(
-            "memory_mcp.application.sandbox.service.get_sandbox_session",
+            "nous.application.sandbox.service.get_sandbox_session",
             return_value=mock_session,
         ) as mock_get:
             result = await _handle_execute_code(
@@ -455,7 +455,7 @@ class TestImageGenerateHandler:
         mock_provider.generate.return_value = []
 
         with (
-            patch("memory_mcp.infrastructure.image_gen.dalle.DalleProvider", return_value=mock_provider) as mock_dalle,
+            patch("nous.infrastructure.image_gen.dalle.DalleProvider", return_value=mock_provider) as mock_dalle,
         ):
             result = await _handle_image_generate(mock_ctx, mock_config, {"prompt": "a cat", "provider": "openai"})
 
@@ -470,7 +470,7 @@ class TestImageGenerateHandler:
         mock_provider.provider_name = "openai"
         mock_provider.generate.return_value = []
 
-        with patch("memory_mcp.infrastructure.image_gen.dalle.DalleProvider", return_value=mock_provider) as mock_dalle:
+        with patch("nous.infrastructure.image_gen.dalle.DalleProvider", return_value=mock_provider) as mock_dalle:
             result = await _handle_image_generate(mock_ctx, mock_config, {"prompt": "a cat", "provider": "auto"})
 
         assert result["status"] == "success"
@@ -486,7 +486,7 @@ class TestImageGenerateHandler:
 
         with (
             patch(
-                "memory_mcp.infrastructure.image_gen.stability.StabilityProvider", return_value=mock_provider
+                "nous.infrastructure.image_gen.stability.StabilityProvider", return_value=mock_provider
             ) as mock_sd,
         ):
             result = await _handle_image_generate(mock_ctx, mock_config, {"prompt": "a cat", "provider": "stability"})
@@ -502,7 +502,7 @@ class TestImageGenerateHandler:
         mock_provider.provider_name = "openai"
         mock_provider.generate.return_value = []
 
-        with patch("memory_mcp.infrastructure.image_gen.dalle.DalleProvider", return_value=mock_provider):
+        with patch("nous.infrastructure.image_gen.dalle.DalleProvider", return_value=mock_provider):
             result = await _handle_image_generate(
                 mock_ctx, mock_config, {"prompt": "a cat", "provider": "openai", "n": 0}
             )
@@ -516,7 +516,7 @@ class TestImageGenerateHandler:
         mock_provider.provider_name = "openai"
         mock_provider.generate.return_value = []
 
-        with patch("memory_mcp.infrastructure.image_gen.dalle.DalleProvider", return_value=mock_provider):
+        with patch("nous.infrastructure.image_gen.dalle.DalleProvider", return_value=mock_provider):
             result = await _handle_image_generate(
                 mock_ctx, mock_config, {"prompt": "a cat", "provider": "openai", "n": 10}
             )
@@ -531,7 +531,7 @@ class TestImageGenerateHandler:
         mock_provider.provider_name = "openai"
         mock_provider.generate.return_value = []
 
-        with patch("memory_mcp.infrastructure.image_gen.dalle.DalleProvider", return_value=mock_provider) as mock_dalle:
+        with patch("nous.infrastructure.image_gen.dalle.DalleProvider", return_value=mock_provider) as mock_dalle:
             result = await _handle_image_generate(mock_ctx, mock_config, {"prompt": "a cat", "provider": "openai"})
 
         assert result["status"] == "success"

@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
-from memory_mcp.domain.shared.time_utils import (
+from nous.domain.shared.time_utils import (
     format_iso,
     generate_memory_key,
     get_now,
@@ -141,19 +141,19 @@ class TestRelativeTimeStr:
 class TestParseDateRange:
     """parse_date_range の全パターンテスト。get_now() をモックして固定日時で検証。"""
 
-    @patch("memory_mcp.domain.shared.time_utils.get_now", return_value=_fixed_now())
+    @patch("nous.domain.shared.time_utils.get_now", return_value=_fixed_now())
     def test_none_input(self, _mock):
         start, end = parse_date_range(None)
         assert start is None
         assert end is None
 
-    @patch("memory_mcp.domain.shared.time_utils.get_now", return_value=_fixed_now())
+    @patch("nous.domain.shared.time_utils.get_now", return_value=_fixed_now())
     def test_empty_string(self, _mock):
         start, end = parse_date_range("")
         assert start is None
         assert end is None
 
-    @patch("memory_mcp.domain.shared.time_utils.get_now", return_value=_fixed_now())
+    @patch("nous.domain.shared.time_utils.get_now", return_value=_fixed_now())
     def test_yesterday(self, _mock):
         start, end = parse_date_range("昨日")
         assert start is not None and end is not None
@@ -162,20 +162,20 @@ class TestParseDateRange:
         assert end.day == 14
         assert end.hour == 23 and end.minute == 59
 
-    @patch("memory_mcp.domain.shared.time_utils.get_now", return_value=_fixed_now())
+    @patch("nous.domain.shared.time_utils.get_now", return_value=_fixed_now())
     def test_day_before_yesterday(self, _mock):
         start, end = parse_date_range("一昨日")
         assert start is not None and end is not None
         assert start.day == 13
         assert end.day == 13
 
-    @patch("memory_mcp.domain.shared.time_utils.get_now", return_value=_fixed_now())
+    @patch("nous.domain.shared.time_utils.get_now", return_value=_fixed_now())
     def test_ototoi(self, _mock):
         start, end = parse_date_range("おととい")
         assert start is not None and end is not None
         assert start.day == 13
 
-    @patch("memory_mcp.domain.shared.time_utils.get_now", return_value=_fixed_now())
+    @patch("nous.domain.shared.time_utils.get_now", return_value=_fixed_now())
     def test_last_week(self, _mock):
         """2025-06-15 は日曜。先週=6/2(月)〜6/8(日)。"""
         start, end = parse_date_range("先週")
@@ -183,34 +183,34 @@ class TestParseDateRange:
         assert start.month == 6 and start.day == 2
         assert end.month == 6 and end.day == 8
 
-    @patch("memory_mcp.domain.shared.time_utils.get_now", return_value=_fixed_now())
+    @patch("nous.domain.shared.time_utils.get_now", return_value=_fixed_now())
     def test_last_month(self, _mock):
         start, end = parse_date_range("先月")
         assert start is not None and end is not None
         assert start.month == 5 and start.day == 1
         assert end.month == 5 and end.day == 31
 
-    @patch("memory_mcp.domain.shared.time_utils.get_now", return_value=_fixed_now())
+    @patch("nous.domain.shared.time_utils.get_now", return_value=_fixed_now())
     def test_this_morning(self, _mock):
         start, end = parse_date_range("今朝")
         assert start is not None and end is not None
         assert start.hour == 0
         assert end.hour == 12
 
-    @patch("memory_mcp.domain.shared.time_utils.get_now", return_value=_fixed_now())
+    @patch("nous.domain.shared.time_utils.get_now", return_value=_fixed_now())
     def test_n_days_ago_arabic(self, _mock):
         start, end = parse_date_range("3日前")
         assert start is not None and end is not None
         assert start.day == 12
         assert end.day == 12
 
-    @patch("memory_mcp.domain.shared.time_utils.get_now", return_value=_fixed_now())
+    @patch("nous.domain.shared.time_utils.get_now", return_value=_fixed_now())
     def test_n_days_ago_kanji(self, _mock):
         start, end = parse_date_range("三日前")
         assert start is not None and end is not None
         assert start.day == 12
 
-    @patch("memory_mcp.domain.shared.time_utils.get_now", return_value=_fixed_now())
+    @patch("nous.domain.shared.time_utils.get_now", return_value=_fixed_now())
     def test_n_weeks_ago(self, _mock):
         start, end = parse_date_range("2週間前")
         assert start is not None and end is not None
@@ -220,14 +220,14 @@ class TestParseDateRange:
         assert start.day == 1
         assert end.day == 8
 
-    @patch("memory_mcp.domain.shared.time_utils.get_now", return_value=_fixed_now())
+    @patch("nous.domain.shared.time_utils.get_now", return_value=_fixed_now())
     def test_n_months_ago(self, _mock):
         start, end = parse_date_range("3ヶ月前")
         assert start is not None and end is not None
         assert start.month == 3 and start.day == 1
         assert end.month == 3 and end.day == 31
 
-    @patch("memory_mcp.domain.shared.time_utils.get_now", return_value=_fixed_now())
+    @patch("nous.domain.shared.time_utils.get_now", return_value=_fixed_now())
     def test_today(self, _mock):
         """'今日' → today_start to now."""
         start, end = parse_date_range("今日")
@@ -235,7 +235,7 @@ class TestParseDateRange:
         assert start.day == 15 and start.hour == 0
         assert end.day == 15
 
-    @patch("memory_mcp.domain.shared.time_utils.get_now", return_value=_fixed_now())
+    @patch("nous.domain.shared.time_utils.get_now", return_value=_fixed_now())
     def test_relative_days_format(self, _mock):
         start, end = parse_date_range("7d")
         assert start is not None and end is not None
@@ -264,7 +264,7 @@ class TestParseDateRange:
         assert start.hour == 18
 
     @patch(
-        "memory_mcp.domain.shared.time_utils.get_now",
+        "nous.domain.shared.time_utils.get_now",
         return_value=datetime(2025, 2, 15, 10, 0, 0, tzinfo=ZoneInfo("Asia/Tokyo")),
     )
     def test_n_months_ago_crosses_year_boundary(self, _mock):
@@ -275,7 +275,7 @@ class TestParseDateRange:
         assert start.year == 2024
 
     @patch(
-        "memory_mcp.domain.shared.time_utils.get_now",
+        "nous.domain.shared.time_utils.get_now",
         return_value=datetime(2025, 1, 15, 10, 0, 0, tzinfo=ZoneInfo("Asia/Tokyo")),
     )
     def test_n_months_ago_resulting_in_december(self, _mock):
@@ -301,14 +301,14 @@ class TestParseDateRange:
         result = relative_time_str(dt)
         assert "分前" in result
 
-    @patch("memory_mcp.domain.shared.time_utils.get_now", return_value=_fixed_now())
+    @patch("nous.domain.shared.time_utils.get_now", return_value=_fixed_now())
     def test_n_days_ago_with_juu(self, _mock):
         """十日前 (10 days ago) uses 十 kanji."""
         start, end = parse_date_range("十日前")
         assert start is not None
         assert start.day == 5  # 2025-06-15 - 10 = 2025-06-05
 
-    @patch("memory_mcp.domain.shared.time_utils.get_now", return_value=_fixed_now())
+    @patch("nous.domain.shared.time_utils.get_now", return_value=_fixed_now())
     def test_n_days_ago_with_sanju(self, _mock):
         """三十日前 (30 days ago) uses 三十 kanji combination."""
         start, end = parse_date_range("三十日前")
@@ -317,13 +317,13 @@ class TestParseDateRange:
         assert start.month == 5
         assert start.day == 16
 
-    @patch("memory_mcp.domain.shared.time_utils.get_now", return_value=_fixed_now())
+    @patch("nous.domain.shared.time_utils.get_now", return_value=_fixed_now())
     def test_n_weeks_with_kanji_juu(self, _mock):
         """十週間前 uses 十 kanji."""
         start, end = parse_date_range("十週間前")
         assert start is not None
 
-    @patch("memory_mcp.domain.shared.time_utils.get_now", return_value=_fixed_now())
+    @patch("nous.domain.shared.time_utils.get_now", return_value=_fixed_now())
     def test_n_days_ago_with_hyaku(self, _mock):
         """百日前 (100 days ago) uses 百 kanji."""
         start, end = parse_date_range("百日前")

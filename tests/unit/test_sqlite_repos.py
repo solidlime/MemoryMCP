@@ -7,14 +7,14 @@ from __future__ import annotations
 
 import pytest
 
-from memory_mcp.domain.equipment.entities import Item
-from memory_mcp.domain.memory.entities import Memory, MemoryStrength
-from memory_mcp.domain.persona.entities import EmotionRecord
-from memory_mcp.domain.shared.time_utils import get_now
-from memory_mcp.infrastructure.sqlite.connection import SQLiteConnection
-from memory_mcp.infrastructure.sqlite.equipment_repo import SQLiteEquipmentRepository
-from memory_mcp.infrastructure.sqlite.memory_repo import SQLiteMemoryRepository
-from memory_mcp.infrastructure.sqlite.persona_repo import SQLitePersonaRepository
+from nous.domain.equipment.entities import Item
+from nous.domain.memory.entities import Memory, MemoryStrength
+from nous.domain.persona.entities import EmotionRecord
+from nous.domain.shared.time_utils import get_now
+from nous.infrastructure.sqlite.connection import SQLiteConnection
+from nous.infrastructure.sqlite.equipment_repo import SQLiteEquipmentRepository
+from nous.infrastructure.sqlite.memory_repo import SQLiteMemoryRepository
+from nous.infrastructure.sqlite.persona_repo import SQLitePersonaRepository
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -196,9 +196,9 @@ class TestSQLitePersonaRepo:
         t1 = datetime(2025, 6, 15, 10, 0, 0, tzinfo=tz)
         t2 = t1 + timedelta(seconds=5)
 
-        with patch("memory_mcp.infrastructure.sqlite.persona_repo.get_now", return_value=t1):
+        with patch("nous.infrastructure.sqlite.persona_repo.get_now", return_value=t1):
             persona_repo.update_state(PERSONA, "emotion", "joy")
-        with patch("memory_mcp.infrastructure.sqlite.persona_repo.get_now", return_value=t2):
+        with patch("nous.infrastructure.sqlite.persona_repo.get_now", return_value=t2):
             persona_repo.update_state(PERSONA, "emotion", "sadness")
 
         result = persona_repo.get_current_state(PERSONA)

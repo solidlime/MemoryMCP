@@ -6,8 +6,8 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from memory_mcp.domain.memory.entities import Memory, MemoryStrength
-from memory_mcp.domain.memory.value_objects import (
+from nous.domain.memory.entities import Memory, MemoryStrength
+from nous.domain.memory.value_objects import (
     Emotion,
     Importance,
     MemoryKey,

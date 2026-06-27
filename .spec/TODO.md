@@ -14,7 +14,7 @@
 - [ ] T009: A-6 /health エンドポイント追加（30m）
 - [ ] T010: B-2 execute_code → sandbox 名前統一（30m）
 - [ ] T011: B-3 context_update → update_context 統合（1h）
-- [ ] T012: B-4 _MEMORY_MCP_TOOL_NAMES フィルタ修正（5m, B-2依存）
+- [ ] T012: B-4 _NOUS_TOOL_NAMES フィルタ修正（5m, B-2依存）
 - [ ] T013: B-5-2 memory_create/search/update 実装統合・委譲（2h, B-5-1依存）
 - [ ] T014: C-5 Bash ネイティブ実行化（1h）
 - [ ] T015: C-6 allowed_languages 更新 + get_supported_languages ツール追加（5m, C-2~C-5依存）

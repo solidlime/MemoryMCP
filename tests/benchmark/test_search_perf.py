@@ -2,9 +2,9 @@
 
 from datetime import UTC, datetime
 
-from memory_mcp.domain.memory.entities import Memory, MemoryStrength
-from memory_mcp.domain.search.engine import SearchQuery, SearchResult
-from memory_mcp.domain.search.ranker import ForgettingCurveRanker, RRFRanker
+from nous.domain.memory.entities import Memory, MemoryStrength
+from nous.domain.search.engine import SearchQuery, SearchResult
+from nous.domain.search.ranker import ForgettingCurveRanker, RRFRanker
 
 
 def make_memories(n: int) -> list[Memory]:

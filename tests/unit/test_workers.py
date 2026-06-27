@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-from memory_mcp.application.workers.cleanup_worker import CleanupWorker
-from memory_mcp.application.workers.rebuild_worker import RebuildWorker
-from memory_mcp.domain.memory.entities import Memory
-from memory_mcp.domain.shared.errors import VectorStoreError
-from memory_mcp.domain.shared.result import Failure, Success
-from memory_mcp.domain.shared.time_utils import get_now
+from nous.application.workers.cleanup_worker import CleanupWorker
+from nous.application.workers.rebuild_worker import RebuildWorker
+from nous.domain.memory.entities import Memory
+from nous.domain.shared.errors import VectorStoreError
+from nous.domain.shared.result import Failure, Success
+from nous.domain.shared.time_utils import get_now
 
 
 def _make_memory(key: str = "mem_001", content: str = "test") -> Memory:

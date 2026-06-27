@@ -8,13 +8,13 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from memory_mcp.domain.memory.enrichment import EnrichmentResult, RelationCandidate
-from memory_mcp.domain.memory.service import MemoryService
-from memory_mcp.domain.shared.errors import RepositoryError
-from memory_mcp.domain.shared.result import Failure, Result, Success
+from nous.domain.memory.enrichment import EnrichmentResult, RelationCandidate
+from nous.domain.memory.service import MemoryService
+from nous.domain.shared.errors import RepositoryError
+from nous.domain.shared.result import Failure, Result, Success
 
 if TYPE_CHECKING:
-    from memory_mcp.domain.memory.entities import Memory, MemoryStrength
+    from nous.domain.memory.entities import Memory, MemoryStrength
 
 TZ = ZoneInfo("Asia/Tokyo")
 
@@ -281,7 +281,7 @@ class TestGetRecent:
         keys = []
         for i in range(5):
             with patch(
-                "memory_mcp.domain.memory.service.generate_memory_key",
+                "nous.domain.memory.service.generate_memory_key",
                 return_value=f"memory_2025010100000{i}",
             ):
                 r = service.create_memory(content=f"memory {i}")
@@ -307,12 +307,12 @@ class TestGetStats:
 
     def test_stats_with_data(self, service: MemoryService):
         with patch(
-            "memory_mcp.domain.memory.service.generate_memory_key",
+            "nous.domain.memory.service.generate_memory_key",
             return_value="memory_20250101000001",
         ):
             service.create_memory(content="a", tags=["food"], emotion="joy")
         with patch(
-            "memory_mcp.domain.memory.service.generate_memory_key",
+            "nous.domain.memory.service.generate_memory_key",
             return_value="memory_20250101000002",
         ):
             service.create_memory(content="b", tags=["food", "travel"], emotion="sadness")
@@ -346,14 +346,14 @@ class TestBoostRecall:
 
     def test_boost_recall_updates_strength(self) -> None:
         """boost_recall() が呼ばれると strength が更新される"""
-        from memory_mcp.domain.memory.entities import MemoryStrength
+        from nous.domain.memory.entities import MemoryStrength
 
         repo = MagicMock()
         existing_strength = MemoryStrength(memory_key="mem_001")
         repo.get_strength.return_value = MagicMock(is_ok=True, value=existing_strength)
         repo.save_strength.return_value = MagicMock(is_ok=True)
 
-        from memory_mcp.domain.memory.service import MemoryService
+        from nous.domain.memory.service import MemoryService
 
         service = MemoryService(repo)
         result = service.boost_recall("mem_001")
@@ -367,7 +367,7 @@ class TestBoostRecall:
         repo.get_strength.return_value = MagicMock(is_ok=True, value=None)
         repo.save_strength.return_value = MagicMock(is_ok=True)
 
-        from memory_mcp.domain.memory.service import MemoryService
+        from nous.domain.memory.service import MemoryService
 
         service = MemoryService(repo)
         result = service.boost_recall("mem_new")
@@ -380,7 +380,7 @@ class TestBoostRecall:
         repo = MagicMock()
         repo.get_strength.return_value = MagicMock(is_ok=False, error="DB error")
 
-        from memory_mcp.domain.memory.service import MemoryService
+        from nous.domain.memory.service import MemoryService
 
         service = MemoryService(repo)
         result = service.boost_recall("mem_fail")

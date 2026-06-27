@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from memory_mcp.application.chat.memory_llm import (
+from nous.application.chat.memory_llm import (
     _HOUSEKEEPING_PROMPT,
     _MEMORY_LLM_PROMPT,
     _build_memory_llm_context,
@@ -14,7 +14,7 @@ from memory_mcp.application.chat.memory_llm import (
     run_context_housekeeping,
     run_memory_llm,
 )
-from memory_mcp.domain.shared.result import Failure, Success
+from nous.domain.shared.result import Failure, Success
 
 # ===========================================================================
 # _parse_memory_llm_result()
@@ -691,7 +691,7 @@ class TestRunContextHousekeeping:
         mock_ctx.equipment_service.search_items.return_value = Success([])
 
         # Mock the LLM stream to return valid JSON
-        from memory_mcp.infrastructure.llm.base import DoneEvent, TextDeltaEvent
+        from nous.infrastructure.llm.base import DoneEvent, TextDeltaEvent
 
         async def mock_stream(**kwargs):
             yield TextDeltaEvent(
@@ -699,7 +699,7 @@ class TestRunContextHousekeeping:
             )
             yield DoneEvent()
 
-        with patch("memory_mcp.application.chat.memory_llm.get_provider") as mock_get_provider:
+        with patch("nous.application.chat.memory_llm.get_provider") as mock_get_provider:
             mock_provider = AsyncMock()
             mock_provider.stream = mock_stream
             mock_get_provider.return_value = mock_provider
@@ -720,13 +720,13 @@ class TestRunContextHousekeeping:
         mock_ctx.memory_service.get_by_tags.return_value = Success([])
         mock_ctx.equipment_service.search_items.return_value = Success([])
 
-        from memory_mcp.infrastructure.llm.base import DoneEvent, TextDeltaEvent
+        from nous.infrastructure.llm.base import DoneEvent, TextDeltaEvent
 
         async def mock_stream(**kwargs):
             yield TextDeltaEvent(content="不正なJSON{{{")
             yield DoneEvent()
 
-        with patch("memory_mcp.application.chat.memory_llm.get_provider") as mock_get_provider:
+        with patch("nous.application.chat.memory_llm.get_provider") as mock_get_provider:
             mock_provider = AsyncMock()
             mock_provider.stream = mock_stream
             mock_get_provider.return_value = mock_provider
@@ -743,13 +743,13 @@ class TestRunContextHousekeeping:
         mock_ctx.memory_service.get_by_tags.return_value = Success([])
         mock_ctx.equipment_service.search_items.return_value = Success([])
 
-        from memory_mcp.infrastructure.llm.base import DoneEvent, TextDeltaEvent
+        from nous.infrastructure.llm.base import DoneEvent, TextDeltaEvent
 
         async def mock_stream(**kwargs):
             yield TextDeltaEvent(content='{"cancel_goals":[],"cancel_promises":[],"remove_items":[]}')
             yield DoneEvent()
 
-        with patch("memory_mcp.application.chat.memory_llm.get_provider") as mock_get_provider:
+        with patch("nous.application.chat.memory_llm.get_provider") as mock_get_provider:
             mock_provider = AsyncMock()
             mock_provider.stream = mock_stream
             mock_get_provider.return_value = mock_provider
@@ -774,7 +774,7 @@ class TestRunContextHousekeeping:
         mock_ctx.memory_service.get_by_tags.return_value = Success([])
         mock_ctx.equipment_service.search_items.return_value = Success([])
 
-        with patch("memory_mcp.application.chat.memory_llm.get_provider") as mock_get_provider:
+        with patch("nous.application.chat.memory_llm.get_provider") as mock_get_provider:
             mock_get_provider.side_effect = ValueError("bad provider config")
 
             result = await run_context_housekeeping(mock_ctx, mock_config)
@@ -788,7 +788,7 @@ class TestRunContextHousekeeping:
         mock_ctx.memory_service.get_by_tags.return_value = Success([])
         mock_ctx.equipment_service.search_items.return_value = Success([])
 
-        from memory_mcp.infrastructure.llm.base import DoneEvent, TextDeltaEvent
+        from nous.infrastructure.llm.base import DoneEvent, TextDeltaEvent
 
         async def mock_stream(**kwargs):
             yield TextDeltaEvent(
@@ -798,7 +798,7 @@ class TestRunContextHousekeeping:
             )
             yield DoneEvent()
 
-        with patch("memory_mcp.application.chat.memory_llm.get_provider") as mock_get_provider:
+        with patch("nous.application.chat.memory_llm.get_provider") as mock_get_provider:
             mock_provider = AsyncMock()
             mock_provider.stream = mock_stream
             mock_get_provider.return_value = mock_provider
@@ -816,7 +816,7 @@ class TestRunContextHousekeeping:
         mock_ctx.memory_service.get_by_tags.return_value = Success([])
         mock_ctx.equipment_service.search_items.return_value = Success([])
 
-        from memory_mcp.infrastructure.llm.base import DoneEvent, TextDeltaEvent
+        from nous.infrastructure.llm.base import DoneEvent, TextDeltaEvent
 
         async def mock_stream(**kwargs):
             yield TextDeltaEvent(
@@ -824,7 +824,7 @@ class TestRunContextHousekeeping:
             )
             yield DoneEvent()
 
-        with patch("memory_mcp.application.chat.memory_llm.get_provider") as mock_get_provider:
+        with patch("nous.application.chat.memory_llm.get_provider") as mock_get_provider:
             mock_provider = AsyncMock()
             mock_provider.stream = mock_stream
             mock_get_provider.return_value = mock_provider
@@ -844,7 +844,7 @@ class TestRunContextHousekeeping:
         mock_ctx.memory_service.get_by_tags.return_value = Success([])
         mock_ctx.equipment_service.search_items.return_value = Success([])
 
-        from memory_mcp.infrastructure.llm.base import DoneEvent, TextDeltaEvent
+        from nous.infrastructure.llm.base import DoneEvent, TextDeltaEvent
 
         async def mock_stream(**kwargs):
             yield TextDeltaEvent(
@@ -852,7 +852,7 @@ class TestRunContextHousekeeping:
             )
             yield DoneEvent()
 
-        with patch("memory_mcp.application.chat.memory_llm.get_provider") as mock_get_provider:
+        with patch("nous.application.chat.memory_llm.get_provider") as mock_get_provider:
             mock_provider = AsyncMock()
             mock_provider.stream = mock_stream
             mock_get_provider.return_value = mock_provider
@@ -933,7 +933,7 @@ class TestRunMemoryLLM:
             "inventory_update": {},
         }
 
-        with patch("memory_mcp.application.chat.memory_llm.MemoryLLM") as mock_llm:
+        with patch("nous.application.chat.memory_llm.MemoryLLM") as mock_llm:
             instance = mock_llm.return_value
             instance.process = AsyncMock(return_value=llm_result)
 
@@ -965,7 +965,7 @@ class TestRunMemoryLLM:
             "inventory_update": {},
         }
 
-        with patch("memory_mcp.application.chat.memory_llm.MemoryLLM") as mock_llm:
+        with patch("nous.application.chat.memory_llm.MemoryLLM") as mock_llm:
             instance = mock_llm.return_value
             instance.process = AsyncMock(return_value=llm_result)
 
@@ -987,7 +987,7 @@ class TestRunMemoryLLM:
             "inventory_update": {},
         }
 
-        with patch("memory_mcp.application.chat.memory_llm.MemoryLLM") as mock_llm:
+        with patch("nous.application.chat.memory_llm.MemoryLLM") as mock_llm:
             instance = mock_llm.return_value
             instance.process = AsyncMock(return_value=llm_result)
 
@@ -1016,7 +1016,7 @@ class TestRunMemoryLLM:
             "inventory_update": {},
         }
 
-        with patch("memory_mcp.application.chat.memory_llm.MemoryLLM") as mock_llm:
+        with patch("nous.application.chat.memory_llm.MemoryLLM") as mock_llm:
             instance = mock_llm.return_value
             instance.process = AsyncMock(return_value=llm_result)
 

@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import pytest
 
-from memory_mcp.domain.memory.entity_extractor import SimpleEntityExtractor
-from memory_mcp.domain.memory.graph import Entity, EntityRelation, EntityService
-from memory_mcp.domain.shared.time_utils import format_iso, get_now
-from memory_mcp.infrastructure.sqlite.connection import SQLiteConnection
-from memory_mcp.infrastructure.sqlite.entity_repo import SQLiteEntityRepository
+from nous.domain.memory.entity_extractor import SimpleEntityExtractor
+from nous.domain.memory.graph import Entity, EntityRelation, EntityService
+from nous.domain.shared.time_utils import format_iso, get_now
+from nous.infrastructure.sqlite.connection import SQLiteConnection
+from nous.infrastructure.sqlite.entity_repo import SQLiteEntityRepository
 
 # ---------------------------------------------------------------------------
 # Fixtures

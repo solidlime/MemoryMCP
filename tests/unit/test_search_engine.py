@@ -7,11 +7,11 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from memory_mcp.domain.memory.entities import Memory
-from memory_mcp.domain.search.clue_generator import ClueGenerator, _parse_clues
-from memory_mcp.domain.search.engine import SearchEngine, SearchQuery, SearchResult
-from memory_mcp.domain.search.ranker import ForgettingCurveRanker, RRFRanker
-from memory_mcp.domain.shared.result import Failure, Success
+from nous.domain.memory.entities import Memory
+from nous.domain.search.clue_generator import ClueGenerator, _parse_clues
+from nous.domain.search.engine import SearchEngine, SearchQuery, SearchResult
+from nous.domain.search.ranker import ForgettingCurveRanker, RRFRanker
+from nous.domain.shared.result import Failure, Success
 
 UTC = UTC
 
@@ -191,7 +191,7 @@ def _make_keyword_strategy(pairs: list[tuple[Memory, float]] | None = None, ok: 
     if ok:
         strat.search.return_value = Success(pairs or [])
     else:
-        from memory_mcp.domain.shared.errors import SearchError
+        from nous.domain.shared.errors import SearchError
 
         strat.search.return_value = Failure(SearchError("keyword error"))
     return strat
@@ -202,7 +202,7 @@ def _make_semantic_strategy(pairs: list[tuple[Memory, float]] | None = None, ok:
     if ok:
         strat.search.return_value = Success(pairs or [])
     else:
-        from memory_mcp.domain.shared.errors import SearchError
+        from nous.domain.shared.errors import SearchError
 
         strat.search.return_value = Failure(SearchError("semantic error"))
     return strat

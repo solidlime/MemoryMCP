@@ -8,10 +8,10 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from memory_mcp.domain.memory.entities import Memory
-from memory_mcp.domain.search.engine import SearchQuery, SearchResult
-from memory_mcp.domain.search.ranker import TopicAffinityRanker
-from memory_mcp.migration.importers.convo_importer import parse_conversation_file
+from nous.domain.memory.entities import Memory
+from nous.domain.search.engine import SearchQuery, SearchResult
+from nous.domain.search.ranker import TopicAffinityRanker
+from nous.migration.importers.convo_importer import parse_conversation_file
 
 if TYPE_CHECKING:
     from pathlib import Path

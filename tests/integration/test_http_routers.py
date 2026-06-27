@@ -20,9 +20,9 @@ from unittest.mock import patch
 import httpx
 import pytest
 
-from memory_mcp.application.use_cases import AppContextRegistry
-from memory_mcp.config.runtime_config import RuntimeConfigManager
-from memory_mcp.main import create_app
+from nous.application.use_cases import AppContextRegistry
+from nous.config.runtime_config import RuntimeConfigManager
+from nous.main import create_app
 
 # ---------------------------------------------------------------------------
 # Fixtures — identical pattern to test_http_api.py
@@ -41,7 +41,7 @@ def _reset_singletons():
     AppContextRegistry.close_all()
     AppContextRegistry._settings = None
     RuntimeConfigManager.reset()
-    import memory_mcp.config.settings as _s
+    import nous.config.settings as _s
 
     _s.get_settings.cache_clear()
     yield
@@ -55,13 +55,13 @@ def _reset_singletons():
 async def client(tmp_data_dir, _reset_singletons):
     """AsyncClient backed by a fresh MemoryMCP app (Qdrant intentionally offline)."""
     env_overrides = {
-        "MEMORY_MCP_DATA_ROOT": tmp_data_dir,
-        "MEMORY_MCP_SERVER__HOST": "127.0.0.1",
-        "MEMORY_MCP_SERVER__PORT": "19997",
-        "MEMORY_MCP_QDRANT__URL": "http://localhost:1",  # unreachable
-        "MEMORY_MCP_FORGETTING__ENABLED": "false",
-        "MEMORY_MCP_LOG_LEVEL": "WARNING",
-        "MEMORY_MCP_IMPORT_DIR": "",
+        "NOUS_DATA_ROOT": tmp_data_dir,
+        "NOUS_SERVER__HOST": "127.0.0.1",
+        "NOUS_SERVER__PORT": "19997",
+        "NOUS_QDRANT__URL": "http://localhost:1",  # unreachable
+        "NOUS_FORGETTING__ENABLED": "false",
+        "NOUS_LOG_LEVEL": "WARNING",
+        "NOUS_IMPORT_DIR": "",
     }
     with patch.dict(os.environ, env_overrides, clear=False):
         app_mcp = create_app()
@@ -699,7 +699,7 @@ class TestDashboardStateRestoration:
     def test_dashboard_uses_consistent_persona_storage_helpers(self):
         """Persona persistence should use shared helpers instead of split localStorage keys."""
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        base_js_path = os.path.join(base_dir, "memory_mcp", "api", "http", "static", "base.js")
+        base_js_path = os.path.join(base_dir, "nous", "api", "http", "static", "base.js")
         with open(base_js_path) as f:
             js = f.read()
 

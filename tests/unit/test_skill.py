@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 
-from memory_mcp.domain.skill import Skill, SkillRepository, _parse_skill_md
+from nous.domain.skill import Skill, SkillRepository, _parse_skill_md
 
 
 def _make_db() -> sqlite3.Connection:

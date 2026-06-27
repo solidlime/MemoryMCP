@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from memory_mcp.infrastructure.llm.base import LLMMessage
-from memory_mcp.infrastructure.llm.token_counter import TokenCounter
+from nous.infrastructure.llm.base import LLMMessage
+from nous.infrastructure.llm.token_counter import TokenCounter
 
 
 def _dummy_app_context():
@@ -25,7 +25,7 @@ def _dummy_turn_ctx(system_prompt: str):
 
 def _make_chat_config(**overrides):
     """Create a ChatConfig with defaults suitable for testing."""
-    from memory_mcp.domain.chat_config import ChatConfig
+    from nous.domain.chat_config import ChatConfig
 
     defaults = {
         "persona": "test",
@@ -193,7 +193,7 @@ def _messages_with_tool_results() -> list[LLMMessage]:
 class TestCompressStep:
     def test_no_compression_when_under_budget(self):
         """When under budget, messages pass through unchanged."""
-        from memory_mcp.application.chat.pipeline.compress import CompressStep
+        from nous.application.chat.pipeline.compress import CompressStep
 
         config = _make_chat_config(context_max_tokens=1_000_000)  # Huge budget
         ctx = _dummy_app_context()
@@ -206,7 +206,7 @@ class TestCompressStep:
 
     def test_compression_reduces_token_count(self):
         """Compression should reduce total tokens."""
-        from memory_mcp.application.chat.pipeline.compress import CompressStep
+        from nous.application.chat.pipeline.compress import CompressStep
 
         config = _make_chat_config(context_max_tokens=200)  # Very low, force compression
         ctx = _dummy_app_context()
@@ -226,7 +226,7 @@ class TestCompressStep:
 
     def test_system_prompt_trimmed(self):
         """System prompt should have fewer memory lines after compression."""
-        from memory_mcp.application.chat.pipeline.compress import CompressStep
+        from nous.application.chat.pipeline.compress import CompressStep
 
         config = _make_chat_config(context_max_tokens=200, context_compression_mode="aggressive")
         ctx = _dummy_app_context()
@@ -247,7 +247,7 @@ class TestCompressStep:
 
     def test_tool_results_cleared(self):
         """Old tool results should be replaced with [cleared] marker."""
-        from memory_mcp.application.chat.pipeline.compress import CompressStep
+        from nous.application.chat.pipeline.compress import CompressStep
 
         config = _make_chat_config(context_max_tokens=200)
         ctx = _dummy_app_context()
@@ -268,7 +268,7 @@ class TestCompressStep:
 
     def test_old_messages_truncated(self):
         """Old messages should be truncated and marked with [旧]."""
-        from memory_mcp.application.chat.pipeline.compress import CompressStep
+        from nous.application.chat.pipeline.compress import CompressStep
 
         config = _make_chat_config(context_max_tokens=200, context_keep_recent_turns=1)
         ctx = _dummy_app_context()
@@ -293,7 +293,7 @@ class TestCompressStep:
 
     def test_compression_preserves_tool_call_ids(self):
         """Cleared tool results should keep their tool_call_id for API compatibility."""
-        from memory_mcp.application.chat.pipeline.compress import CompressStep
+        from nous.application.chat.pipeline.compress import CompressStep
 
         config = _make_chat_config(context_max_tokens=200)
         ctx = _dummy_app_context()
@@ -308,7 +308,7 @@ class TestCompressStep:
 
     def test_conversation_structure_preserved(self):
         """Compression should not corrupt message role ordering."""
-        from memory_mcp.application.chat.pipeline.compress import CompressStep
+        from nous.application.chat.pipeline.compress import CompressStep
 
         config = _make_chat_config(context_max_tokens=200)
         ctx = _dummy_app_context()
@@ -329,7 +329,7 @@ class TestCompressStep:
 
     def test_no_trim_when_single_section(self):
         """System prompt with no section markers returns unchanged."""
-        from memory_mcp.application.chat.pipeline.compress import CompressStep
+        from nous.application.chat.pipeline.compress import CompressStep
 
         prompt = "Simple prompt without any section markers"
         result = CompressStep._trim_system_prompt(prompt, "aggressive")
@@ -337,7 +337,7 @@ class TestCompressStep:
 
     def test_stage1_alone_brings_under_budget(self):
         """After stage 1 (system prompt trim), if already under budget, return session_messages unchanged."""
-        from memory_mcp.application.chat.pipeline.compress import CompressStep
+        from nous.application.chat.pipeline.compress import CompressStep
 
         config = _make_chat_config(
             context_max_tokens=10000,  # Moderate budget
@@ -355,7 +355,7 @@ class TestCompressStep:
 
     def test_context_compress_history_false(self):
         """When context_compress_history=False, messages should not be cleared/truncated."""
-        from memory_mcp.application.chat.pipeline.compress import CompressStep
+        from nous.application.chat.pipeline.compress import CompressStep
 
         config = _make_chat_config(
             context_max_tokens=1,  # Always over budget
@@ -374,7 +374,7 @@ class TestCompressStep:
 
     def test_compress_history_true_clears_tool_results(self):
         """When context_compress_history=True and over budget, tool results get cleared."""
-        from memory_mcp.application.chat.pipeline.compress import CompressStep
+        from nous.application.chat.pipeline.compress import CompressStep
 
         config = _make_chat_config(
             context_max_tokens=1,  # Always over budget
@@ -392,7 +392,7 @@ class TestCompressStep:
 
     def test_trim_system_prompt_skill_section_truncated(self):
         """Long skill descriptions should be truncated."""
-        from memory_mcp.application.chat.pipeline.compress import CompressStep
+        from nous.application.chat.pipeline.compress import CompressStep
 
         # Build prompt with long skill section
         lines = [
@@ -410,7 +410,7 @@ class TestCompressStep:
 
     def test_clear_tool_results_with_few_assistant_msgs(self):
         """When there are <= 3 assistant messages, no clearing happens."""
-        from memory_mcp.application.chat.pipeline.compress import CompressStep
+        from nous.application.chat.pipeline.compress import CompressStep
 
         msgs = [
             LLMMessage(role="user", content="Hello"),
@@ -428,7 +428,7 @@ class TestCompressStep:
 
     def test_truncate_old_messages_short_content(self):
         """Messages with content <= 300 chars should not be truncated."""
-        from memory_mcp.application.chat.pipeline.compress import CompressStep
+        from nous.application.chat.pipeline.compress import CompressStep
 
         msgs = [
             LLMMessage(role="user", content="Short user message"),
@@ -447,7 +447,7 @@ class TestCompressStep:
 
     def test_truncate_old_messages_within_keep_count(self):
         """When total messages <= keep_recent_turns*2, no truncation."""
-        from memory_mcp.application.chat.pipeline.compress import CompressStep
+        from nous.application.chat.pipeline.compress import CompressStep
 
         msgs = [
             LLMMessage(role="user", content="Short"),
@@ -460,7 +460,7 @@ class TestCompressStep:
 
     def test_stage2_under_budget_after_clear(self):
         """After clearing tool results (stage 2), if under budget, return messages."""
-        from memory_mcp.application.chat.pipeline.compress import CompressStep
+        from nous.application.chat.pipeline.compress import CompressStep
 
         config = _make_chat_config(
             context_max_tokens=2000,  # Moderate budget: clear may be enough
@@ -476,7 +476,7 @@ class TestCompressStep:
 
     def test_return_after_stage1_trim_only(self):
         """System prompt trim alone brings under budget → return session_messages (line 84)."""
-        from memory_mcp.application.chat.pipeline.compress import CompressStep
+        from nous.application.chat.pipeline.compress import CompressStep
 
         config = _make_chat_config(
             context_compression_mode="aggressive",
@@ -505,7 +505,7 @@ class TestCompressStep:
 
     def test_return_after_stage2_clear_only(self):
         """Tool result clearing brings under budget → return messages (line 95)."""
-        from memory_mcp.application.chat.pipeline.compress import CompressStep
+        from nous.application.chat.pipeline.compress import CompressStep
 
         config = _make_chat_config(
             context_compression_mode="aggressive",
@@ -536,7 +536,7 @@ class TestDogfooding:
         """Verify ChatConfig → repository save/load preserves new fields."""
         import sqlite3
 
-        from memory_mcp.domain.chat_config import ChatConfig, ChatConfigRepository
+        from nous.domain.chat_config import ChatConfig, ChatConfigRepository
 
         db = sqlite3.connect(":memory:")
 
@@ -619,7 +619,7 @@ class TestDogfooding:
 
     def test_sessionwindow_new_defaults(self):
         """Verify SessionWindow uses new defaults (200 msg max)."""
-        from memory_mcp.application.chat.session_store import SessionWindow
+        from nous.application.chat.session_store import SessionWindow
 
         w = SessionWindow()
         assert w._max_messages == 200
@@ -627,21 +627,21 @@ class TestDogfooding:
 
     def test_sessionwindow_custom_max_messages(self):
         """Verify SessionWindow accepts max_messages parameter."""
-        from memory_mcp.application.chat.session_store import SessionWindow
+        from nous.application.chat.session_store import SessionWindow
 
         w = SessionWindow(max_messages=50)
         assert w._max_messages == 50
 
     def test_sessionwindow_max_turns_backward_compat(self):
         """Verify SessionWindow still accepts max_turns and converts."""
-        from memory_mcp.application.chat.session_store import SessionWindow
+        from nous.application.chat.session_store import SessionWindow
 
         w = SessionWindow(max_turns=10)
         assert w._max_messages == 20  # 10 turns * 2
 
     def test_chatconfig_max_window_turns_validator(self):
         """Verify max_window_turns validates correctly with new 1-500 range."""
-        from memory_mcp.domain.chat_config import ChatConfig
+        from nous.domain.chat_config import ChatConfig
 
         # Within range
         cfg = ChatConfig(persona="test", max_window_turns=100)
@@ -657,7 +657,7 @@ class TestDogfooding:
 
     def test_parallel_tools_flag_exists(self):
         """Verify enable_parallel_tools is accessible."""
-        from memory_mcp.domain.chat_config import ChatConfig
+        from nous.domain.chat_config import ChatConfig
 
         cfg = ChatConfig()
         assert hasattr(cfg, "enable_parallel_tools")

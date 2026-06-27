@@ -3,6 +3,8 @@
 # Non-Python languages (JS/Go/Rust/Bash) use llm_sandbox defaults — no bloat here.
 FROM python:3.11-slim-bullseye
 
+LABEL org.opencontainers.image.title="Nous Sandbox"
+
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Install system dependencies: Python build tools only

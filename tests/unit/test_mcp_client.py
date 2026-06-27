@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from memory_mcp.infrastructure.mcp_client.types import MCPServerConfig, MCPTool
+from nous.infrastructure.mcp_client.types import MCPServerConfig, MCPTool
 
 
 class TestMCPServerConfig:
@@ -53,7 +53,7 @@ class TestMCPTool:
 class TestMCPClientPool:
     @pytest.mark.asyncio
     async def test_empty_pool(self):
-        from memory_mcp.infrastructure.mcp_client.pool import MCPClientPool
+        from nous.infrastructure.mcp_client.pool import MCPClientPool
 
         async with MCPClientPool([]) as pool:
             tools = pool.list_all_tools()
@@ -61,7 +61,7 @@ class TestMCPClientPool:
 
     @pytest.mark.asyncio
     async def test_invalid_config_ignored(self):
-        from memory_mcp.infrastructure.mcp_client.pool import MCPClientPool
+        from nous.infrastructure.mcp_client.pool import MCPClientPool
 
         # invalid dict (missing required 'name') should be silently ignored
         async with MCPClientPool([{"transport": "http"}]) as pool:
@@ -69,7 +69,7 @@ class TestMCPClientPool:
 
     @pytest.mark.asyncio
     async def test_disabled_server_skipped(self):
-        from memory_mcp.infrastructure.mcp_client.pool import MCPClientPool
+        from nous.infrastructure.mcp_client.pool import MCPClientPool
 
         cfg = {"name": "test", "transport": "http", "url": "http://localhost:9999", "enabled": False}
         async with MCPClientPool([cfg]) as pool:
@@ -80,8 +80,8 @@ class TestMCPClientPool:
     async def test_list_all_tools_returns_tool_definitions(self):
         from unittest.mock import AsyncMock, patch
 
-        from memory_mcp.infrastructure.mcp_client.pool import MCPClientPool
-        from memory_mcp.infrastructure.mcp_client.types import MCPTool
+        from nous.infrastructure.mcp_client.pool import MCPClientPool
+        from nous.infrastructure.mcp_client.types import MCPTool
 
         cfg = {"name": "myserver", "transport": "http", "url": "http://localhost:9999", "enabled": True}
 
@@ -96,7 +96,7 @@ class TestMCPClientPool:
         ]
 
         with patch(
-            "memory_mcp.infrastructure.mcp_client.pool.MCPClientPool._fetch_tools", new_callable=AsyncMock
+            "nous.infrastructure.mcp_client.pool.MCPClientPool._fetch_tools", new_callable=AsyncMock
         ) as mock_fetch:
             mock_fetch.return_value = mock_tools
             async with MCPClientPool([cfg]) as pool:
@@ -109,11 +109,11 @@ class TestMCPClientPool:
     async def test_call_tool_routing(self):
         from unittest.mock import AsyncMock, patch
 
-        from memory_mcp.infrastructure.mcp_client.pool import MCPClientPool
+        from nous.infrastructure.mcp_client.pool import MCPClientPool
 
         cfg = {"name": "myserver", "transport": "http", "url": "http://localhost:9999"}
 
-        with patch("memory_mcp.infrastructure.mcp_client.http_client.call_tool", new_callable=AsyncMock) as mock_call:
+        with patch("nous.infrastructure.mcp_client.http_client.call_tool", new_callable=AsyncMock) as mock_call:
             mock_call.return_value = {"result": "ok"}
             async with MCPClientPool([cfg]) as pool:
                 await pool.call_tool("myserver__do_thing", {"arg": "val"})
@@ -123,7 +123,7 @@ class TestMCPClientPool:
 
     @pytest.mark.asyncio
     async def test_call_tool_invalid_name(self):
-        from memory_mcp.infrastructure.mcp_client.pool import MCPClientPool
+        from nous.infrastructure.mcp_client.pool import MCPClientPool
 
         async with MCPClientPool([]) as pool:
             result = await pool.call_tool("notqualified", {})
@@ -131,7 +131,7 @@ class TestMCPClientPool:
 
     @pytest.mark.asyncio
     async def test_call_tool_unknown_server(self):
-        from memory_mcp.infrastructure.mcp_client.pool import MCPClientPool
+        from nous.infrastructure.mcp_client.pool import MCPClientPool
 
         async with MCPClientPool([]) as pool:
             result = await pool.call_tool("unknown__tool", {})

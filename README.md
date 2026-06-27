@@ -1,4 +1,4 @@
-# MemoryMCP
+# Nous
 
 > 日本語特化の永続記憶 MCP サーバー — SQLite + Qdrant + Ebbinghaus 忘却曲線
 
@@ -30,7 +30,7 @@
 docker-compose up -d
 ```
 
-`docker-compose.yml` に Memory MCP Server + Qdrant が含まれる。データは `./data` にマウントされる。
+`docker-compose.yml` に Nous Server + Qdrant が含まれる。データは `./data` にマウントされる。
 
 ### ローカル開発
 
@@ -43,7 +43,7 @@ pip install torch --index-url https://download.pytorch.org/whl/cpu
 pip install -r requirements.txt
 
 # サーバー起動
-python -m memory_mcp.main
+python -m nous.main
 ```
 
 サーバーは `http://localhost:26262` で起動する。
@@ -53,11 +53,11 @@ python -m memory_mcp.main
 When running in Docker with sibling-container sandbox mode, files created inside the sandbox
 at `/sandbox` need a host-side path to persist. If files are not visible on the host:
 
-1. **Set `MEMORY_MCP_SANDBOX__HOST_DATA_ROOT`** to the host-side data path:
+1. **Set `NOUS_SANDBOX__HOST_DATA_ROOT`** to the host-side data path:
    ```yaml
    # docker-compose.yml
    environment:
-     MEMORY_MCP_SANDBOX__HOST_DATA_ROOT: /volume1/docker/MemoryMCP/data
+     NOUS_SANDBOX__HOST_DATA_ROOT: /volume1/docker/Nous/data
    ```
 
 2. **Ensure `docker` Python SDK** is installed (`pip install docker>=7.0.0`)
@@ -218,36 +218,36 @@ WebUI チャットで LLM に注入されるビルトインツール。MCPツー
 
 ## 設定
 
-すべての設定は環境変数（`MEMORY_MCP_` プレフィックス）で制御する。ネストした設定は `__` 区切りで指定する。
+すべての設定は環境変数（`NOUS_` プレフィックス）で制御する。ネストした設定は `__` 区切りで指定する。
 
 | 環境変数 | デフォルト | 説明 |
 |---|---|---|
-| `MEMORY_MCP_DATA_ROOT` | `./data` | データ保存先（全サブパスを自動導出） |
-| `MEMORY_MCP_SERVER__PORT` | `26262` | HTTP ポート |
-| `MEMORY_MCP_SERVER__HOST` | `0.0.0.0` | バインドアドレス |
-| `MEMORY_MCP_QDRANT__URL` | `http://localhost:6333` | Qdrant 接続先 |
-| `MEMORY_MCP_EMBEDDING__MODEL` | `cl-nagoya/ruri-v3-30m` | 埋め込みモデル |
-| `MEMORY_MCP_RERANKER__MODEL` | `hotchpotch/japanese-reranker-xsmall-v2` | Reranker モデル |
-| `MEMORY_MCP_TIMEZONE` | `Asia/Tokyo` | タイムゾーン |
-| `MEMORY_MCP_LOG_LEVEL` | `INFO` | ログレベル |
-| `MEMORY_MCP_DEFAULT_PERSONA` | `default` | デフォルト Persona 名 |
-| `PERSONA` | *(なし)* | デフォルト Persona 名（`MEMORY_MCP_DEFAULT_PERSONA` より優先） |
-| `MEMORY_MCP_SANDBOX__ENABLED` | `true` | Sandbox コード実行を有効化 |
-| `MEMORY_MCP_SANDBOX__PROVIDER` | `llm_sandbox` | Sandbox プロバイダー |
-| `MEMORY_MCP_SANDBOX__DOCKER_HOST` | *(auto)* | Docker ホスト URL（空 = ソケット自動検出） |
-| `MEMORY_MCP_SANDBOX__HOST_DATA_ROOT` | *(auto)* | ホスト側データディレクトリ絶対パス（sibling-container 永続化用） |
-| `MEMORY_MCP_SANDBOX__TIMEOUT` | `30` | コード実行タイムアウト（秒） |
-| `MEMORY_MCP_MEMORY_ENRICHMENT__ENABLED` | `true` | 記憶作成時の LLM 補完（重要度・関係抽出）を有効化 |
-| `MEMORY_MCP_MEMORY_ENRICHMENT__PROVIDER` | `openrouter` | LLM プロバイダー |
-| `MEMORY_MCP_MEMORY_ENRICHMENT__API_KEY` | *(なし)* | LLM API キー |
-| `MEMORY_MCP_MEMORY_ENRICHMENT__MODEL` | `openai/gpt-4o-mini` | LLM モデル |
-| `MEMORY_MCP_MEMORY_ENRICHMENT__BASE_URL` | `https://openrouter.ai/api/v1` | LLM API ベース URL |
-| `MEMORY_MCP_MEMORY_ENRICHMENT__MIN_CHARS` | `10` | 補完をスキップする最小文字数 |
-| `MEMORY_MCP_MEMORAG__ENABLED` | `true` | MemoRAG コンテキストスナップショットを有効化 |
-| `MEMORY_MCP_MEMORAG__CLUE_GENERATION_ENABLED` | `false` | LLM ベースのクエリ手がかり生成を有効化 |
-| `MEMORY_MCP_FORGETTING__ENABLED` | `true` | Ebbinghaus 忘却曲線を有効化 |
-| `MEMORY_MCP_FORGETTING__DECAY_INTERVAL_SECONDS` | `3600` | 減衰ワーカー実行間隔（秒） |
-| `MEMORY_MCP_FORGETTING__MIN_STRENGTH` | `0.01` | 最小記憶強度 |
+| `NOUS_DATA_ROOT` | `./data` | データ保存先（全サブパスを自動導出） |
+| `NOUS_SERVER__PORT` | `26262` | HTTP ポート |
+| `NOUS_SERVER__HOST` | `0.0.0.0` | バインドアドレス |
+| `NOUS_QDRANT__URL` | `http://localhost:6333` | Qdrant 接続先 |
+| `NOUS_EMBEDDING__MODEL` | `cl-nagoya/ruri-v3-30m` | 埋め込みモデル |
+| `NOUS_RERANKER__MODEL` | `hotchpotch/japanese-reranker-xsmall-v2` | Reranker モデル |
+| `NOUS_TIMEZONE` | `Asia/Tokyo` | タイムゾーン |
+| `NOUS_LOG_LEVEL` | `INFO` | ログレベル |
+| `NOUS_DEFAULT_PERSONA` | `default` | デフォルト Persona 名 |
+| `PERSONA` | *(なし)* | デフォルト Persona 名（`NOUS_DEFAULT_PERSONA` より優先） |
+| `NOUS_SANDBOX__ENABLED` | `true` | Sandbox コード実行を有効化 |
+| `NOUS_SANDBOX__PROVIDER` | `llm_sandbox` | Sandbox プロバイダー |
+| `NOUS_SANDBOX__DOCKER_HOST` | *(auto)* | Docker ホスト URL（空 = ソケット自動検出） |
+| `NOUS_SANDBOX__HOST_DATA_ROOT` | *(auto)* | ホスト側データディレクトリ絶対パス（sibling-container 永続化用） |
+| `NOUS_SANDBOX__TIMEOUT` | `30` | コード実行タイムアウト（秒） |
+| `NOUS_MEMORY_ENRICHMENT__ENABLED` | `true` | 記憶作成時の LLM 補完（重要度・関係抽出）を有効化 |
+| `NOUS_MEMORY_ENRICHMENT__PROVIDER` | `openrouter` | LLM プロバイダー |
+| `NOUS_MEMORY_ENRICHMENT__API_KEY` | *(なし)* | LLM API キー |
+| `NOUS_MEMORY_ENRICHMENT__MODEL` | `openai/gpt-4o-mini` | LLM モデル |
+| `NOUS_MEMORY_ENRICHMENT__BASE_URL` | `https://openrouter.ai/api/v1` | LLM API ベース URL |
+| `NOUS_MEMORY_ENRICHMENT__MIN_CHARS` | `10` | 補完をスキップする最小文字数 |
+| `NOUS_MEMORAG__ENABLED` | `true` | MemoRAG コンテキストスナップショットを有効化 |
+| `NOUS_MEMORAG__CLUE_GENERATION_ENABLED` | `false` | LLM ベースのクエリ手がかり生成を有効化 |
+| `NOUS_FORGETTING__ENABLED` | `true` | Ebbinghaus 忘却曲線を有効化 |
+| `NOUS_FORGETTING__DECAY_INTERVAL_SECONDS` | `3600` | 減衰ワーカー実行間隔（秒） |
+| `NOUS_FORGETTING__MIN_STRENGTH` | `0.01` | 最小記憶強度 |
 
 ### Persona 識別の優先順位
 
@@ -255,7 +255,7 @@ WebUI チャットで LLM に注入されるビルトインツール。MCPツー
 |---|---|---|
 | 1 | Bearer トークン | `Authorization: Bearer herta` |
 | 2 | X-Persona ヘッダー | `X-Persona: herta` |
-| 3 | 環境変数 | `PERSONA=herta` / `MEMORY_MCP_DEFAULT_PERSONA=herta` |
+| 3 | 環境変数 | `PERSONA=herta` / `NOUS_DEFAULT_PERSONA=herta` |
 | 4 | デフォルト | `"default"` |
 
 ## Claude Desktop 設定
@@ -307,7 +307,7 @@ Clean Architecture + DDD に基づくレイヤー構成：
 ### ディレクトリ構成
 
 ```
-memory_mcp/
+nous/
 ├── main.py              # エントリポイント（FastMCP + HTTP）
 ├── config/settings.py   # Pydantic BaseSettings
 ├── domain/              # ビジネスロジック（レイヤー分離）
@@ -382,7 +382,7 @@ memory_mcp/
 ### データディレクトリ
 
 ```
-$MEMORY_MCP_DATA_ROOT/     # デフォルト: ./data（Docker: /data）
+$NOUS_DATA_ROOT/     # デフォルト: ./data（Docker: /data）
 ├── memory/{persona}/      # Persona 別 DB（memory.sqlite 等）
 ├── import/                # Auto-import 用 ZIP 配置ディレクトリ
 │   └── done/              # 処理済み ZIP 移動先
@@ -464,23 +464,23 @@ python -m pytest tests/ -q
 python -m pytest tests/unit/ -q
 
 # カバレッジレポート付き
-python -m pytest tests/ --cov=memory_mcp --cov-report=html
+python -m pytest tests/ --cov=nous --cov-report=html
 ```
 
 ## CLI ツール
 
 ```bash
 # インポート
-python -m memory_mcp.cli import --persona herta --input data/herta.zip
+python -m nous.cli import --persona herta --input data/herta.zip
 
 # エクスポート
-python -m memory_mcp.cli export --persona herta --output backup.jsonl
+python -m nous.cli export --persona herta --output backup.jsonl
 
 # スキーママイグレーション
-python -m memory_mcp.cli migrate --target latest
+python -m nous.cli migrate --target latest
 
 # Persona 統計
-python -m memory_mcp.cli stats --persona herta
+python -m nous.cli stats --persona herta
 ```
 
 ## CI/CD
@@ -517,4 +517,4 @@ MIT License — 詳細は [LICENSE](LICENSE) を参照。
 
 ---
 
-**MemoryMCP** — Built by [solidlime](https://github.com/solidlime) with ❤️
+**Nous** — Built by [solidlime](https://github.com/solidlime) with ❤️

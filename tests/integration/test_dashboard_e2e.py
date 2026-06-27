@@ -16,10 +16,10 @@ from unittest.mock import patch
 import httpx
 import pytest
 
-from memory_mcp.application.use_cases import AppContext, AppContextRegistry
-from memory_mcp.config.runtime_config import RuntimeConfigManager
-from memory_mcp.domain.shared.time_utils import format_iso, get_now
-from memory_mcp.main import create_app
+from nous.application.use_cases import AppContext, AppContextRegistry
+from nous.config.runtime_config import RuntimeConfigManager
+from nous.domain.shared.time_utils import format_iso, get_now
+from nous.main import create_app
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -43,7 +43,7 @@ def _reset_singletons():
     AppContextRegistry.close_all()
     AppContextRegistry._settings = None
     RuntimeConfigManager.reset()
-    import memory_mcp.config.settings as _s
+    import nous.config.settings as _s
 
     _s.get_settings.cache_clear()
     yield
@@ -58,13 +58,13 @@ def _reset_singletons():
 async def client(tmp_data_dir, _reset_singletons):
     """httpx AsyncClient backed by a fresh MemoryMCP Starlette app."""
     env_overrides = {
-        "MEMORY_MCP_DATA_ROOT": tmp_data_dir,
-        "MEMORY_MCP_SERVER__HOST": "127.0.0.1",
-        "MEMORY_MCP_SERVER__PORT": "19999",
-        "MEMORY_MCP_QDRANT__URL": "http://localhost:1",  # intentionally unreachable
-        "MEMORY_MCP_FORGETTING__ENABLED": "false",
-        "MEMORY_MCP_LOG_LEVEL": "WARNING",
-        "MEMORY_MCP_IMPORT_DIR": "",
+        "NOUS_DATA_ROOT": tmp_data_dir,
+        "NOUS_SERVER__HOST": "127.0.0.1",
+        "NOUS_SERVER__PORT": "19999",
+        "NOUS_QDRANT__URL": "http://localhost:1",  # intentionally unreachable
+        "NOUS_FORGETTING__ENABLED": "false",
+        "NOUS_LOG_LEVEL": "WARNING",
+        "NOUS_IMPORT_DIR": "",
     }
     with patch.dict(os.environ, env_overrides, clear=False):
         app_mcp = create_app()

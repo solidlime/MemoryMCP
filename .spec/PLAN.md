@@ -35,7 +35,7 @@ v7 でツール機能改善・UI/UX改善・テスト充実は完了 (1134 tests
 - `searxng/searxng:latest` イメージ、ポート8080（内部）
 - ボリューム: `./data/searxng:/etc/searxng` で設定永続化
 - 環境変数 `SEARXNG_BASE_URL` 設定
-- memory-mcp の `depends_on` に searxng 追加 (condition: service_healthy)
+- nous の `depends_on` に searxng 追加 (condition: service_healthy)
 - SearXNG URL デフォルト値を `http://searxng:8080` に変更
 
 ### A-2. Dockerfile.sandbox 多言語ランタイム追加
@@ -48,12 +48,12 @@ v7 でツール機能改善・UI/UX改善・テスト充実は完了 (1134 tests
 - ⚠️ 合計約600MB増 → ビルド時間・pull時間実用性を検証。Go/Rustはビルド時間が長いため、許容できない場合はイメージ分割（python+node+tesseract と go+rust を別イメージ）を検討
 
 ### A-3. 環境変数による SearXNG URL 設定
-- `MEMORY_MCP_SEARXNG_URL` 環境変数で上書き可能に
+- `NOUS_SEARXNG_URL` 環境変数で上書き可能に
 - docker-compose.yml で `SEARXNG_URL=http://searxng:8080` 設定
 - chat_config.py のデフォルト値変更（`http://nas:11111` → env var）
 
 ### A-4. 本番ビルド + 全起動確認
-- `docker compose up` で qdrant + searxng + memory-mcp 全起動
+- `docker compose up` で qdrant + searxng + nous 全起動
 - sandbox イメージ自動ビルド確認
 - agent-browser 自動セットアップ確認
 - **agent-browser のコンテナ内 Chrome 起動確認（`--no-sandbox` フラグ伝搬検証）** ← WSL2ブロッカー対処
@@ -62,7 +62,7 @@ v7 でツール機能改善・UI/UX改善・テスト充実は完了 (1134 tests
 
 ### A-5. Docker security hardening
 - sandbox コンテナ: `read_only: true`, `cap_drop: [ALL]`, `tmpfs: /tmp`
-- memory-mcp: `read_only: true` (書き込み必要なボリュームのみ rw)
+- nous: `read_only: true` (書き込み必要なボリュームのみ rw)
 - 全コンテナ: `no-new-privileges: true`
 - nginx (使用時) の `proxy_buffering off` 確認 (SSE 対応)
 
@@ -97,9 +97,9 @@ v7 でツール機能改善・UI/UX改善・テスト充実は完了 (1134 tests
 - 方針: `context_update` を削除し、`update_context` に一本化
 - definitions.py: `context_update` → `update_context` に名称変更、パラメータを MCP 側に合わせる
 - builtin.py: `_handle_context_update_builtin` を `_tool_update_context` に委譲
-- `_MEMORY_MCP_TOOL_NAMES` から `context_update` 削除
+- `_NOUS_TOOL_NAMES` から `context_update` 削除
 
-### B-4. `_MEMORY_MCP_TOOL_NAMES` フィルタ修正
+### B-4. `_NOUS_TOOL_NAMES` フィルタ修正
 - `web_search` → `search` に修正
 - 追加: `image_generate`, `read_pdf`, `list_skills` (MCP登録後は重複防止のため)
 - B-2/B-3 完了後に名前の一貫性を確認
@@ -128,7 +128,7 @@ v7 でツール機能改善・UI/UX改善・テスト充実は完了 (1134 tests
 - `memory_update` の query→key 解決ロジックは `_tool_memory_update` に移植（`memory_key` と `query` 両方を受け入れる後方互換シグネチャ）
 
 ### B-6. ツール説明の環境変数カスタマイズ (`qdrant/mcp-server-qdrant` パターン)
-- `MEMORY_MCP_TOOL_DESCRIPTION_OVERRIDE` 環境変数
+- `NOUS_TOOL_DESCRIPTION_OVERRIDE` 環境変数
 - 形式: `tool_name=new_description` (カンマ区切り)
 - `register_tools()` でツール登録時に読み取り・上書き
 - LLM コンテキスト最適化のため（冗長な説明を短縮可能に）
@@ -253,13 +253,13 @@ v7 でツール機能改善・UI/UX改善・テスト充実は完了 (1134 tests
 
 ---
 
-## 柱E: MemoryMCP スキルパッケージとして配布（次回以降）
+## 柱E: Nous スキルパッケージとして配布（次回以降）
 
-> **発案**: 2026-06-27。MemoryMCPをAIエージェント向けのスキルパッケージとして配布し、
+> **発案**: 2026-06-27。NousをAIエージェント向けのスキルパッケージとして配布し、
 > Opencode等のMCPサーバ登録時の連携精度を向上させる。
 
 ### E-1. SKILL.md 作成
-- MemoryMCPの全20ツールの使い方・ユースケース・ベストプラクティスを記述
+- Nousの全20ツールの使い方・ユースケース・ベストプラクティスを記述
 - Agent Skills標準形式（フロントマター: name, description）
 - Progressive Disclosure: 起動時~100 tokens / アクティブ時<5000 tokens
 - AIエージェントが「このサーバで何ができるか」を事前理解できるように
@@ -270,12 +270,12 @@ v7 でツール機能改善・UI/UX改善・テスト充実は完了 (1134 tests
 - ワンコマンド/ワンクリック登録を目指す
 
 ### E-3. pipパッケージ + CLI エントリポイント
-- `pip install memory-mcp` でインストール可能に
-- `memory-mcp serve` コマンドでサーバー起動
-- `memory-mcp register` でOpencode等に自動登録（可能であれば）
+- `pip install nous` でインストール可能に
+- `nous serve` コマンドでサーバー起動
+- `nous register` でOpencode等に自動登録（可能であれば）
 
 ### E-4. スキルディスカバリ
-- AIエージェントがMemoryMCPの存在を自動検出できる仕組み
+- AIエージェントがNousの存在を自動検出できる仕組み
 - `.well-known/agent-skills/` またはMCPプロトコルのserver info活用
 
 ---
