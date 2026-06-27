@@ -164,6 +164,9 @@ class AppContext:
             self._session_event_repo = None
             self._session_event_recorder = None
 
+        # Eagerly ensure Qdrant collection exists for this persona
+        self._init_vector_store()
+
     @property
     def vector_store(self) -> QdrantVectorStore | None:
         """Lazy-init vector store. Returns None if Qdrant unavailable or collection creation fails."""
@@ -213,6 +216,25 @@ class AppContext:
                 memorag_config=self.settings.memorag,
             )
         return self._search_engine
+
+    def _init_vector_store(self) -> None:
+        """Eagerly ensure Qdrant collection exists for this persona on startup."""
+        try:
+            mgr = QdrantClientManager(self.settings.qdrant.url, self.settings.qdrant.api_key)
+            if mgr.health_check():
+                emb = self.embedding_model
+                vs = QdrantVectorStore(mgr, emb, self.settings.qdrant.collection_prefix)
+                result = vs.ensure_collection(self.persona)
+                if result.is_ok:
+                    self._vector_store = vs
+                else:
+                    logger.warning(
+                        "VectorStore collection creation failed for '%s': %s",
+                        self.persona,
+                        result.error,
+                    )
+        except Exception as _e:
+            logger.debug("VectorStore eager init failed (Qdrant unavailable?): %s", _e)
 
     def close(self) -> None:
         self.connection.close()
