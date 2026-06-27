@@ -52,6 +52,18 @@ def register_persona_routes(mcp) -> None:
     async def dashboard_page(request: Request) -> HTMLResponse:
         from nous.api.http.dashboard import render_dashboard
 
+        # Check if any personas exist; show setup screen if none.
+        settings = Settings()
+        data_path = Path(settings.data_dir)
+        persona_count = 0
+        if data_path.exists():
+            persona_count = len(
+                [d for d in data_path.iterdir() if d.is_dir() and (d / "memory.sqlite").exists()]
+            )
+
+        if persona_count == 0:
+            return HTMLResponse(_render_setup_page())
+
         return HTMLResponse(render_dashboard())
 
     @mcp.custom_route("/dashboard/{persona}", methods=["GET"])
@@ -291,8 +303,6 @@ def register_persona_routes(mcp) -> None:
     @mcp.custom_route("/api/personas/{persona}", methods=["DELETE"])
     async def delete_persona(request: Request) -> JSONResponse:
         persona = _resolve_persona_from_request(request)
-        if persona == "default":
-            return JSONResponse({"error": "Cannot delete the default persona"}, status_code=403)
         settings = Settings()
         persona_dir = Path(settings.data_dir) / persona
         if not persona_dir.exists():
@@ -337,3 +347,137 @@ def register_persona_routes(mcp) -> None:
         except Exception as exc:
             logger.exception("Unexpected error: %s", exc)
             return JSONResponse({"error": "Internal server error"}, status_code=500)
+
+
+def _render_setup_page() -> str:
+    """Return minimal setup HTML when no persona exists."""
+    return r"""<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MemoryMCP — Setup</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  body {
+    background: linear-gradient(135deg, #0f0a1a 0%, #1a1035 50%, #0f0a1a 100%);
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    font-family: system-ui, -apple-system, sans-serif;
+    margin: 0; padding: 20px;
+  }
+  .glass {
+    background: rgba(255,255,255,0.04);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 20px;
+    padding: 40px;
+    max-width: 440px;
+    width: 100%;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.4);
+  }
+  .glass-input {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 12px;
+    color: rgba(255,255,255,0.9);
+    padding: 12px 16px;
+    width: 100%;
+    box-sizing: border-box;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .glass-input:focus { border-color: #a855f7; }
+  .glass-btn {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 12px;
+    color: rgba(255,255,255,0.9);
+    padding: 10px 24px;
+    cursor: pointer;
+    transition: background 0.2s;
+    font-size: 0.95rem;
+  }
+  .glass-btn:hover { background: rgba(255,255,255,0.14); }
+  .btn-primary {
+    background: #a855f7;
+    border: none;
+    color: white;
+  }
+  .btn-primary:hover { background: #9333ea; }
+  .text-muted { color: rgba(255,255,255,0.5); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+<div class="glass">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px">
+    <i data-lucide="brain" style="width:2rem;height:2rem;color:#a855f7"></i>
+    <div>
+      <h1 style="font-size:1.5rem;font-weight:700;color:white;margin:0">MemoryMCP</h1>
+      <p style="margin:2px 0 0 0" class="text-muted">Welcome! Let's set up your first persona.</p>
+    </div>
+  </div>
+
+  <p style="color:rgba(255,255,255,0.7);margin-bottom:20px;line-height:1.5">
+    A <strong>persona</strong> is your AI companion's identity — memories, emotions,
+    and state are scoped per persona. Create one to get started.
+  </p>
+
+  <form id="setup-form" onsubmit="return createPersona(event)">
+    <label style="display:block;font-size:0.9rem;color:rgba(255,255,255,0.8);margin-bottom:6px">
+      Persona name
+    </label>
+    <input type="text" id="persona-name" class="glass-input"
+      placeholder="e.g. assistant, friend, scholar"
+      maxlength="50" pattern="[a-zA-Z0-9_-]{1,50}"
+      title="Alphanumeric, hyphens, underscores (1-50 chars)"
+      autofocus required>
+    <p class="text-muted" style="margin:6px 0 0 0">
+      Allowed: letters, numbers, underscores, hyphens (1-50 chars)
+    </p>
+
+    <div id="error-msg" style="color:#ef4444;font-size:0.85rem;margin-top:10px;display:none"></div>
+
+    <button type="submit" id="create-btn" class="glass-btn btn-primary"
+      style="width:100%;margin-top:20px;padding:12px;font-size:1rem;font-weight:600"
+      onclick="this.disabled=true;this.textContent='Creating...'">
+      <i data-lucide="sparkles" style="width:1.1rem;height:1.1rem;vertical-align:middle"></i>
+      Create Persona
+    </button>
+  </form>
+</div>
+
+<script>
+  lucide.createIcons();
+  async function createPersona(e) {
+    e.preventDefault();
+    var name = document.getElementById('persona-name').value.trim();
+    var errEl = document.getElementById('error-msg');
+    var btn = document.getElementById('create-btn');
+    if (!name) return false;
+    try {
+      var res = await fetch('/api/personas', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name: name})
+      });
+      var data = await res.json();
+      if (!res.ok) {
+        errEl.textContent = data.error || 'Failed to create persona';
+        errEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Create Persona';
+        return false;
+      }
+      window.location.href = '/dashboard/' + encodeURIComponent(name);
+    } catch (e) {
+      errEl.textContent = 'Network error: ' + e.message;
+      errEl.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Create Persona';
+    }
+    return false;
+  }
+</script>
+</body>
+</html>"""

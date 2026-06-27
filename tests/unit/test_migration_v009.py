@@ -600,8 +600,13 @@ def test_v008_adds_persona_column_to_goals():
     cols = [row[1] for row in conn.execute("PRAGMA table_info(goals)").fetchall()]
     assert "persona" in cols
 
+    # マイグレーション後、既存行は DEFAULT 'default' を持つ（歴史的挙動）
     row = conn.execute("SELECT persona FROM goals WHERE id='g1'").fetchone()
     assert row["persona"] == "default"
+    # 明示的に persona 値を指定すると反映される
+    conn.execute("UPDATE goals SET persona='test_user' WHERE id='g1'")
+    row = conn.execute("SELECT persona FROM goals WHERE id='g1'").fetchone()
+    assert row["persona"] == "test_user"
 
 
 def test_v008_adds_persona_column_to_promises():
@@ -620,12 +625,12 @@ def test_v008_idempotent():
     conn.row_factory = sqlite3.Row
     conn.execute(
         "CREATE TABLE goals (id TEXT PRIMARY KEY, description TEXT NOT NULL, "
-        "status TEXT, priority INTEGER, persona TEXT DEFAULT 'default', "
+        "status TEXT, priority INTEGER, persona TEXT DEFAULT 'test_user', "
         "created_at TEXT NOT NULL, updated_at TEXT NOT NULL)"
     )
     conn.execute(
         "CREATE TABLE promises (id TEXT PRIMARY KEY, description TEXT NOT NULL, "
-        "status TEXT, priority INTEGER, persona TEXT DEFAULT 'default', "
+        "status TEXT, priority INTEGER, persona TEXT DEFAULT 'test_user', "
         "created_at TEXT NOT NULL, updated_at TEXT NOT NULL)"
     )
     conn.commit()
@@ -635,15 +640,16 @@ def test_v008_idempotent():
 
 
 def test_v008_new_rows_get_default_persona():
-    """v008 適用後に挿入した行は persona='default' を持つ。"""
+    """v008 適用後に挿入した行は persona 値を保持する。"""
     conn = _make_goals_db()
     upgrade_v008(conn)
     conn.commit()
 
+    # 明示的に persona 値を指定して挿入
     conn.execute(
-        "INSERT INTO goals (id, description, created_at, updated_at) VALUES ('g2', 'new', '2024-01-02', '2024-01-02')"
+        "INSERT INTO goals (id, description, persona, created_at, updated_at) VALUES ('g2', 'new', 'test_user', '2024-01-02', '2024-01-02')"
     )
     conn.commit()
 
     row = conn.execute("SELECT persona FROM goals WHERE id='g2'").fetchone()
-    assert row["persona"] == "default"
+    assert row["persona"] == "test_user"

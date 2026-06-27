@@ -121,7 +121,7 @@ def register_chat_routes(mcp) -> None:
             return StreamingResponse(bad_request(), media_type="text/event-stream")
 
         user_message = (body.get("message") or "").strip()
-        session_id = (body.get("session_id") or "default").strip()
+        session_id = (body.get("session_id") or "main").strip()
         debug_mode = bool(body.get("debug", False))
         images: list[dict] = body.get("images") or []
 

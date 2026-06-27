@@ -623,14 +623,14 @@ function clearChatHistory() {
     }
     // Generate a new session ID (persona-scoped key)
     const newSession = 'sess_' + Date.now();
-    const storageKey = 'chat_session_id_' + (S.persona || 'default');
+    const storageKey = 'chat_session_id_' + (S.persona);
     localStorage.setItem(storageKey, newSession);
     document.getElementById('chat-status').textContent = '会話をリセットしました';
     setTimeout(() => { document.getElementById('chat-status').textContent = ''; }, 2000);
 }
 
 function getChatSessionId() {
-    const storageKey = 'chat_session_id_' + (S.persona || 'default');
+    const storageKey = 'chat_session_id_' + (S.persona);
     let sid = localStorage.getItem(storageKey);
     if (!sid) {
         sid = 'sess_' + Date.now();
@@ -902,7 +902,7 @@ function exportChatHistory() {
     const bubbles = container.querySelectorAll('.chat-msg');
     if (bubbles.length === 0) { toast('エクスポートする会話がありません', 'error'); return; }
     const lines = [];
-    const persona = S.persona || 'default';
+    const persona = S.persona;
     lines.push('# 会話ログ - ' + persona);
     lines.push('> エクスポート日時: ' + new Date().toISOString());
     lines.push('');

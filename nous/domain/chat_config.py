@@ -34,7 +34,7 @@ _DEFAULT_BASE_URLS: dict[str, str] = {
 
 
 class ChatConfig(BaseModel):
-    persona: str = "default"
+    persona: str | None = None
     provider: str = "anthropic"
     model: str = ""
     api_key: str = ""

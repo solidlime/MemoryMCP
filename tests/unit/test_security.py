@@ -89,17 +89,15 @@ class TestBearerTokenValidation:
         monkeypatch.delenv("NOUS_DEFAULT_PERSONA", raising=False)
         malicious = 'Bearer "; DROP TABLE memories; --'
         result = resolve_persona_from_headers(authorization=malicious)
-        # Must fall back to "default", not the injected string
-        assert result == "default"
-        assert "DROP" not in result
+        # Must not accept the injected string
+        assert result is None
 
     def test_special_chars_rejected(self, monkeypatch):
         """Path traversal chars in token must be rejected."""
         monkeypatch.delenv("PERSONA", raising=False)
         monkeypatch.delenv("NOUS_DEFAULT_PERSONA", raising=False)
         result = resolve_persona_from_headers(authorization="Bearer ../../../etc")
-        assert result == "default"
-        assert ".." not in result
+        assert result is None
 
     def test_too_long_token_rejected(self, monkeypatch):
         """Token longer than 64 characters must be rejected."""
@@ -107,7 +105,7 @@ class TestBearerTokenValidation:
         monkeypatch.delenv("NOUS_DEFAULT_PERSONA", raising=False)
         long_token = "a" * 65
         result = resolve_persona_from_headers(authorization=f"Bearer {long_token}")
-        assert result == "default"
+        assert result is None
 
     def test_exactly_64_chars_accepted(self):
         """Token of exactly 64 characters is within the allowed limit."""
@@ -131,8 +129,7 @@ class TestBearerTokenValidation:
         monkeypatch.delenv("PERSONA", raising=False)
         monkeypatch.delenv("NOUS_DEFAULT_PERSONA", raising=False)
         result = resolve_persona_from_headers(x_persona="../../root")
-        assert result == "default"
-        assert ".." not in result
+        assert result is None
 
     def test_x_persona_valid_value_accepted(self):
         """Valid `X-Persona` value passes through."""

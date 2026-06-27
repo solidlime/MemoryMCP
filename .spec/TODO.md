@@ -41,6 +41,11 @@
 - [ ] T019: D-2 Agent Skills標準移行（基本）（4h）
 - [ ] T020: D-3 メモリ 4-tier lifecycle（基本）（6h, B-5-2依存）
 - [ ] T021: D-4 メモリ検索ハイブリッド強化（4h, D-3依存）
+- [ ] T048: I-1 Settings.default_persona → None に変更（5m）
+- [ ] T049: I-2 MCP ツールのペルソナ未指定エラー処理（middleware.py, chat_config.py）（30m）
+- [ ] T050: I-3 WebUI 初期セットアップ画面（persona.py ルート + セットアップ HTML）（1h）
+- [ ] T051: I-4 default 削除禁止コード除去（persona.py, sections/persona.py）（15m）
+- [ ] T052: I-5 テスト更新 + 後方互換確認（30m）
 
 ## 並行実行計画
 

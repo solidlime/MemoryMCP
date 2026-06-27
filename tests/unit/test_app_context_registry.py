@@ -35,7 +35,7 @@ class TestAppContextRegistry:
         with patch("nous.application.use_cases.AppContext") as mock_app_ctx:
             mock_ctx = MagicMock()
             mock_app_ctx.return_value = mock_ctx
-            result = AppContextRegistry.get("default")
+            result = AppContextRegistry.get("test_user")
             assert result is mock_ctx
 
     def test_get_same_persona_twice_no_error(self):

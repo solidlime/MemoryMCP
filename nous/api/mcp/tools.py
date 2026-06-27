@@ -5,8 +5,10 @@ import logging
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP  # noqa: TC002
+from mcp.shared.exceptions import McpError
+from mcp.types import ErrorData
 
-from nous.api.mcp.middleware import get_current_persona
+from nous.api.mcp.middleware import PersonaRequiredError, get_current_persona
 from nous.application.use_cases import AppContextRegistry
 
 logger = logging.getLogger(__name__)
@@ -562,4 +564,7 @@ def register_tools(mcp: FastMCP) -> None:
 
 
 def _resolve_persona() -> str:
-    return get_current_persona()
+    try:
+        return get_current_persona()
+    except PersonaRequiredError:
+        raise McpError(ErrorData(code=-32000, message="PERSONA_REQUIRED")) from None

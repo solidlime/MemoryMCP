@@ -19,7 +19,7 @@ from nous.application.sandbox.user_manager import (
 
 class TestMakeUsername:
     def test_default_persona(self):
-        assert make_username("default") == "default"
+        assert make_username("test_user") == "test_user"
 
     def test_custom_persona(self):
         assert make_username("my-persona") == "my-persona"
@@ -31,7 +31,7 @@ class TestMakeUsername:
 
 class TestUserCreateCommands:
     def test_generates_idempotent_commands(self):
-        cmds = user_create_commands("default")
+        cmds = user_create_commands("test_user")
         assert len(cmds) > 0
         joined = " ".join(cmds)
         assert "useradd" in joined
@@ -39,12 +39,12 @@ class TestUserCreateCommands:
         assert "id -u" in cmds[0]
 
     def test_generates_pip_user_setup(self):
-        cmds = user_create_commands("default")
+        cmds = user_create_commands("test_user")
         text = " ".join(cmds)
         assert "PIP_USER=1" in text
 
     def test_generates_npm_global_setup(self):
-        cmds = user_create_commands("default")
+        cmds = user_create_commands("test_user")
         text = " ".join(cmds)
         assert ".npm-global" in text
 
@@ -62,7 +62,7 @@ class TestUserCreateCommands:
 
 class TestUserDeleteCommands:
     def test_generates_delete_command(self):
-        cmds = user_delete_commands("default")
+        cmds = user_delete_commands("test_user")
         text = " ".join(cmds)
         assert "userdel" in text
 
@@ -79,10 +79,10 @@ class TestUserDeleteCommands:
 
 class TestUserExistsCommands:
     def test_generates_id_check(self):
-        cmds = user_exists_commands("default")
+        cmds = user_exists_commands("test_user")
         text = " ".join(cmds)
         assert "id -u" in text
-        assert "default" in text
+        assert "test_user" in text
 
 
 class TestConstants:

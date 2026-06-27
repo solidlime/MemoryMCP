@@ -9,14 +9,14 @@ if TYPE_CHECKING:
     from starlette.types import ASGIApp, Receive, Scope, Send
 
 # Per-request persona resolved from HTTP headers.
-_persona_var: contextvars.ContextVar[str] = contextvars.ContextVar("_persona_var", default="")
+_persona_var: contextvars.ContextVar[str | None] = contextvars.ContextVar("_persona_var", default=None)
 
 _PERSONA_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
 
 
-def _env_persona() -> str:
+def _env_persona() -> str | None:
     """Resolve persona from environment variables."""
-    return os.environ.get("PERSONA", os.environ.get("NOUS_DEFAULT_PERSONA", "default"))
+    return os.environ.get("PERSONA") or os.environ.get("NOUS_DEFAULT_PERSONA") or None
 
 
 def resolve_persona_from_headers(
@@ -24,7 +24,7 @@ def resolve_persona_from_headers(
     x_persona: str | None = None,
     *,
     default: str | None = None,
-) -> str:
+) -> str | None:
     """Resolve persona from HTTP headers with environment fallback.
 
     Priority: Bearer token > X-Persona header > *default* > environment variable.
@@ -43,12 +43,12 @@ def resolve_persona_from_headers(
 
 
 # Backward-compatible alias
-def resolve_persona_from_token(authorization: str | None = None) -> str:
+def resolve_persona_from_token(authorization: str | None = None) -> str | None:
     """Resolve persona from Bearer token or environment."""
     return resolve_persona_from_headers(authorization=authorization)
 
 
-def get_current_persona() -> str:
+def get_current_persona() -> str | None:
     """Get the persona for the current request.
 
     Returns the value set by :class:`PersonaMiddleware` (via *contextvars*),
@@ -84,7 +84,7 @@ class PersonaMiddleware:
                 elif lower_name == b"x-persona":
                     x_persona = value.decode("latin-1") if isinstance(value, bytes) else value
 
-            persona = resolve_persona_from_headers(authorization, x_persona)
+            persona = resolve_persona_from_headers(authorization, x_persona) or ""
             token = _persona_var.set(persona)
             try:
                 await self.app(scope, receive, send)
@@ -92,3 +92,8 @@ class PersonaMiddleware:
                 _persona_var.reset(token)
         else:
             await self.app(scope, receive, send)
+
+
+class PersonaRequiredError(Exception):
+    """Raised when a persona is required but none is configured."""
+    pass

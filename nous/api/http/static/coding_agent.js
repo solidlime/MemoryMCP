@@ -121,7 +121,7 @@
     runBtn.disabled = true;
     _clearOutput();
     _appendOutput('Running...\n', 'ca-out-info');
-    var persona = (window.S && S.persona) ? S.persona : 'default';
+    var persona = S.persona;
     try {
       var resp = await fetch('/api/chat/' + persona + '/sandbox/execute', {
         method: 'POST',
@@ -171,7 +171,7 @@
   }
 
   async function _loadFiles() {
-    var persona = (window.S && S.persona) ? S.persona : 'default';
+    var persona = S.persona;
     fileList.innerHTML = '<div class="ca-empty">Loading...</div>';
     try {
       var resp = await fetch('/api/chat/' + persona + '/sandbox/files');
@@ -206,7 +206,7 @@
   }
 
   function _downloadFile(name) {
-    var persona = (window.S && S.persona) ? S.persona : 'default';
+    var persona = S.persona;
     var a = document.createElement('a');
     a.href = '/api/chat/' + persona + '/sandbox/files/' + encodeURIComponent(name);
     a.download = name;
@@ -214,7 +214,7 @@
   }
 
   async function _deleteFile(name) {
-    var persona = (window.S && S.persona) ? S.persona : 'default';
+    var persona = S.persona;
     try {
       await fetch('/api/chat/' + persona + '/sandbox/files/' + encodeURIComponent(name), { method: 'DELETE' });
       _loadFiles();
@@ -224,7 +224,7 @@
   }
 
   async function _uploadFiles(fileObjs) {
-    var persona = (window.S && S.persona) ? S.persona : 'default';
+    var persona = S.persona;
     var arr = Array.from(fileObjs);
     for (var i = 0; i < arr.length; i++) {
       var fd = new FormData();

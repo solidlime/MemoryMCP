@@ -212,6 +212,9 @@ async def seeded_client(client):
 @pytest.mark.asyncio
 async def test_dashboard_html_loads(client):
     """E1: GET / → 200, HTML contains key dashboard elements."""
+    # Create a persona first so the dashboard loads (not the setup page)
+    create_resp = await client.post("/api/personas", json={"name": "testpersona"})
+    assert create_resp.status_code == 201, f"Setup failed: {create_resp.text}"
     resp = await client.get("/")
     assert resp.status_code == 200
     html = resp.text

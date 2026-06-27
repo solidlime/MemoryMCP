@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp.tools.base import Tool
+from mcp.shared.exceptions import McpError
 
 if TYPE_CHECKING:
     from starlette.requests import Request
@@ -18,6 +20,19 @@ from nous.application.sandbox.service import _sessions as sandbox_sessions
 from nous.application.use_cases import AppContextRegistry
 from nous.config.settings import Settings
 from nous.infrastructure.logging.structured import get_logger, setup_logging
+
+# ── Monkey-patch Tool.run() to re-raise McpError (preserves JSON-RPC error codes) ──
+_original_tool_run = Tool.run
+
+
+async def _patched_tool_run(self, arguments, context=None, convert_result=False):
+    try:
+        return await _original_tool_run(self, arguments, context, convert_result)
+    except McpError:
+        raise
+
+
+Tool.run = _patched_tool_run
 
 
 class MemoryFastMCP(FastMCP):

@@ -51,7 +51,7 @@ class TestSettings:
         assert s.timezone == "Asia/Tokyo"
         assert s.data_dir == "./data/memory"
         assert s.log_level == "INFO"
-        assert s.default_persona == "default"
+        assert s.default_persona is None
         assert s.server.port == 26262
         assert s.contradiction_threshold == 0.85
         assert s.duplicate_threshold == 0.90

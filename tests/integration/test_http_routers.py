@@ -315,10 +315,6 @@ class TestPersonaCRUD:
         )
         assert resp.status_code == 400
 
-    async def test_delete_default_persona_forbidden(self, client):
-        resp = await client.delete("/api/personas/default")
-        assert resp.status_code == 403
-
     async def test_delete_nonexistent_persona_returns_404(self, client):
         resp = await client.delete("/api/personas/does_not_exist_xyz")
         assert resp.status_code == 404

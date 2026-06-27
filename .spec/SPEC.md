@@ -236,6 +236,34 @@
   - イメージ名: `ghcr.io/${{ github.repository_owner }}/nous` (小文字)
   - トリガー・タグ戦略は現状のまま維持
 
+### 柱I: default ペルソナ廃止 + 初期セットアップ画面 (2026-06-28)
+
+> **背景**: `default` ペルソナがシステム前提としてハードコードされている。ユーザーにとって意味のない名前であり、本来はユーザー自身に決めさせるべき。
+> **方針**: `default` の新規作成を廃止。ペルソナ未作成の状態を許容し、WebUI 初回アクセス時にセットアップを促す。
+
+- [ ] **I-1**: Settings.default_persona → None
+  - `settings.py`: `default_persona: str = "default"` → `str | None = None`
+  - 起動時にペルソナ未作成なら空のまま
+
+- [ ] **I-2**: MCP ツールのペルソナ未指定エラー
+  - `middleware.py`: persona 未指定 → エラー `"No persona configured. Create one at the WebUI dashboard."`
+  - `chat_config.py`: persona 未指定 → エラー
+  - エラーコード: `PERSONA_REQUIRED`
+
+- [ ] **I-3**: WebUI 初期セットアップ画面
+  - `GET /dashboard` → APIでペルソナ一覧取得 → 0件ならセットアップ HTML
+  - セットアップ画面: ペルソナ名入力 → `POST /api/personas` → 作成成功 → `/dashboard/{new_persona}` にリダイレクト
+  - 既存ペルソナがある場合: 従来通り選択画面または最後に使ったペルソナへ
+
+- [ ] **I-4**: default 削除禁止コード除去
+  - `persona.py:294`: `if persona == "default":` 削除禁止 → 削除
+  - `sections/persona.py`: フロントエンドの default 削除禁止表示除去
+
+- [ ] **I-5**: 後方互換
+  - 既存 DB の `default` ペルソナはそのまま残る（破壊しない）
+  - `PERSONA` / `NOUS_DEFAULT_PERSONA` 環境変数を設定していれば従来通り動作
+  - MCP クライアントが `PERSONA=default` を送ってきた場合、存在すれば使う・なければエラー
+
 ---
 
 ## 非機能要件

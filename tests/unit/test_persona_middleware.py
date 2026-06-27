@@ -58,11 +58,11 @@ class TestResolvePersonaFromHeaders:
         assert result == "fallback"
 
     def test_ultimate_default(self, monkeypatch):
-        """全てなしで 'default' 返却"""
+        """全てなしで None 返却"""
         monkeypatch.delenv("PERSONA", raising=False)
         monkeypatch.delenv("NOUS_DEFAULT_PERSONA", raising=False)
         result = resolve_persona_from_headers()
-        assert result == "default"
+        assert result is None
 
     def test_bearer_whitespace_stripped(self):
         """Bearerトークンの空白はstrip"""
@@ -106,10 +106,10 @@ class TestGetCurrentPersona:
         assert get_current_persona() == "env_persona"
 
     def test_fallback_to_default(self, monkeypatch):
-        """contextvar未セット、環境変数もなし → 'default'"""
+        """contextvar未セット、環境変数もなし → None"""
         monkeypatch.delenv("PERSONA", raising=False)
         monkeypatch.delenv("NOUS_DEFAULT_PERSONA", raising=False)
-        assert get_current_persona() == "default"
+        assert get_current_persona() is None
 
 
 # =========================================================================
@@ -222,7 +222,7 @@ class TestPersonaMiddleware:
             "headers": [(b"x-persona", b"temp_persona")],
         }
         await middleware(scope, None, lambda msg: _noop_send(msg))
-        assert _persona_var.get() == ""
+        assert _persona_var.get() is None
 
     async def test_non_http_scope_passthrough(self):
         """非HTTPスコープはパススルー"""

@@ -145,7 +145,7 @@ class Settings(BaseSettings):
     timezone: str = "Asia/Tokyo"
     data_root: str = "./data"
     log_level: str = "INFO"
-    default_persona: str = "default"
+    default_persona: str | None = None
     contradiction_threshold: float = 0.85
     duplicate_threshold: float = 0.90
 
