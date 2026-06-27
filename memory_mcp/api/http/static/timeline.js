@@ -128,7 +128,7 @@ async function loadTimeline() {
             selectable: true,
             multiselect: false,
             tooltip: { followMouse: true, overflowMethod: 'cap' },
-            margin: { item: { vertical: 4 } },
+            margin: { item: { vertical: 8 } },
             timeAxis: { scale: 'day', step: 1 },
             orientation: { axis: 'top' },
         };

@@ -76,6 +76,7 @@ def render_analytics_js() -> str:
                     <button class="glass-btn emo-days-btn ${days===365?'active':''}" data-days="365" style="padding:4px 12px;font-size:0.78rem">1Y</button>
                 </div>
             </div>
+            <div id="emo-legend" style="display:flex;flex-wrap:wrap;gap:4px 14px;margin-bottom:8px;font-size:0.78rem"></div>
             <div style="height:280px;position:relative"><canvas id="chart-emotions"></canvas></div>
         </div>
         <div class="glass p-6">
@@ -101,6 +102,15 @@ def render_analytics_js() -> str:
                 data: { labels: dates.map(d => fmtDate(d)), datasets },
                 options: chartOpts({ scales: { y: { min: 0, max: 1 }, x: {} } })
             });
+            // Dynamic legend from actual datasets
+            var legendEl = document.getElementById('emo-legend');
+            if (legendEl) {
+                legendEl.innerHTML = datasets.map(function(ds) {
+                    return '<span style="display:inline-flex;align-items:center;gap:4px;color:var(--text-muted)">' +
+                        '<span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:' + ds.borderColor + '"></span>' +
+                        ds.label + '</span>';
+                }).join('');
+            }
         } else if (emoCtx) {
             emoCtx.parentElement.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted)">No emotion data for this period</div>';
         }

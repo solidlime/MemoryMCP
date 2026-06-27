@@ -100,9 +100,10 @@ function buildVisData(nodes, edges) {
     var visNodes = nodes.map(function(n) {
         var emoColor = EMOTION_COLORS[n.emotion] || '#94a3b8';
         var sz = 10 + (n.importance || 0.5) * 30;
+        var nodeLabel = truncate(n.content, 20) || n.key || 'Unknown';
         return {
             id: n.key,
-            label: truncate(n.content, 20),
+            label: nodeLabel,
             title: buildTooltip(n),
             size: sz,
             color: {

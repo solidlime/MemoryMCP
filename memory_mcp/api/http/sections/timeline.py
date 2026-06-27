@@ -61,6 +61,7 @@ def render_timeline_tab() -> str:
                 #tl-container .vis-item {
                     border-radius: 6px; border-width: 2px; font-size: 0.72rem;
                     transition: transform 0.15s, box-shadow 0.15s;
+                    overflow: hidden;
                 }
                 #tl-container .vis-item:hover {
                     transform: scale(1.02); z-index: 10;
