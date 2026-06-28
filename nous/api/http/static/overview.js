@@ -380,7 +380,7 @@ async function loadOverview() {
         <!-- Body Sensations -->
         <div class="glass glass-hoverable p-6 mb-6">
             <div class="card-title"><i data-lucide="activity"></i> Body Sensations</div>
-            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
                 <div>
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
                         <span style="font-size:0.78rem;color:var(--text-muted)"><i data-lucide="flame"></i> Fatigue</span>
@@ -408,11 +408,9 @@ async function loadOverview() {
                         <div style="height:100%;width:${stats.arousal != null ? (stats.arousal * 100).toFixed(1) : 0}%;background:linear-gradient(90deg,#a78bfa,#c4b5fd);border-radius:3px;transition:width 0.4s ease"></div>
                     </div>
                 </div>
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px;font-size:0.82rem">
                 <div>
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
-                        <span style="font-size:0.78rem;color:var(--text-muted);min-width:85px"><i data-lucide="heart-pulse"></i> Heart Rate</span>
+                        <span style="font-size:0.78rem;color:var(--text-muted)"><i data-lucide="heart-pulse"></i> Heart Rate</span>
                         <span style="font-size:0.78rem;color:var(--text-secondary);font-weight:600">${stats.heart_rate != null ? (stats.heart_rate * 100).toFixed(0) + '%' : '--'}</span>
                     </div>
                     <div style="height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden">
@@ -421,7 +419,7 @@ async function loadOverview() {
                 </div>
                 <div>
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
-                        <span style="font-size:0.78rem;color:var(--text-muted);min-width:85px"><i data-lucide="activity"></i> Pain</span>
+                        <span style="font-size:0.78rem;color:var(--text-muted)"><i data-lucide="activity"></i> Pain</span>
                         <span style="font-size:0.78rem;color:var(--text-secondary);font-weight:600">${stats.pain != null ? (stats.pain * 100).toFixed(0) + '%' : '--'}</span>
                     </div>
                     <div style="height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden">

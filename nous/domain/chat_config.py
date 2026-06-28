@@ -241,7 +241,8 @@ class ChatConfigRepository:
                 "context_compression_mode, context_keep_recent_turns, "
                 "context_compress_system_prompt, context_compress_history, "
                 "memory_preload_count, enable_parallel_tools, searxng_url, "
-                "image_gen_enabled, image_gen_provider, image_gen_dalle_model, image_gen_stability_url "
+                "image_gen_enabled, image_gen_provider, image_gen_dalle_model, image_gen_stability_url, "
+                "enable_memory_tools, debug_mode "
                 "FROM chat_settings WHERE persona = ?",
                 (persona,),
             ).fetchone()
@@ -260,12 +261,13 @@ class ChatConfigRepository:
                 "max_stored_messages, context_max_tokens, context_compression_threshold, "
                 "context_compression_mode, context_keep_recent_turns, "
                 "context_compress_system_prompt, context_compress_history, "
-                "memory_preload_count, enable_parallel_tools, searxng_url "
+                "memory_preload_count, enable_parallel_tools, searxng_url, "
+                "enable_memory_tools, debug_mode "
                 "FROM chat_settings WHERE persona = ?",
                 (persona,),
             ).fetchone()
             if row is not None:
-                row = (*row, 0, "openai", "dall-e-3", "")
+                row = (*row, 0, "openai", "dall-e-3", "", 1, 0)
         if row is None:
             return ChatConfig(persona=persona)
         return ChatConfig(
@@ -314,6 +316,8 @@ class ChatConfigRepository:
             image_gen_provider=row[40] if len(row) > 40 and row[40] else "openai",
             image_gen_dalle_model=row[41] if len(row) > 41 and row[41] else "dall-e-3",
             image_gen_stability_url=row[42] if len(row) > 42 and row[42] else "",
+            enable_memory_tools=bool(row[43]) if len(row) > 43 and row[43] is not None else True,
+            debug_mode=bool(row[44]) if len(row) > 44 and row[44] is not None else False,
         )
 
     def save(self, config: ChatConfig) -> None:
@@ -325,6 +329,8 @@ class ChatConfigRepository:
             ("image_gen_provider", "TEXT", "'openai'"),
             ("image_gen_dalle_model", "TEXT", "'dall-e-3'"),
             ("image_gen_stability_url", "TEXT", "''"),
+            ("enable_memory_tools", "BOOLEAN", "1"),
+            ("debug_mode", "BOOLEAN", "0"),
         ):
             try:
                 self._db.execute(f"SELECT {col} FROM chat_settings LIMIT 0")  # nosec B608 — col from hardcoded tuple, not user input
@@ -350,8 +356,9 @@ class ChatConfigRepository:
                   memory_preload_count, enable_parallel_tools,
                   searxng_url,
                   image_gen_enabled, image_gen_provider, image_gen_dalle_model, image_gen_stability_url,
+                  enable_memory_tools, debug_mode,
                   updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(persona) DO UPDATE SET
                 provider=excluded.provider,
                 model=excluded.model,
@@ -394,6 +401,8 @@ class ChatConfigRepository:
                  image_gen_provider=excluded.image_gen_provider,
                  image_gen_dalle_model=excluded.image_gen_dalle_model,
                  image_gen_stability_url=excluded.image_gen_stability_url,
+                 enable_memory_tools=excluded.enable_memory_tools,
+                 debug_mode=excluded.debug_mode,
                  updated_at=excluded.updated_at
             """,
             (
@@ -439,6 +448,8 @@ class ChatConfigRepository:
                 config.image_gen_provider,
                 config.image_gen_dalle_model,
                 config.image_gen_stability_url,
+                int(config.enable_memory_tools),
+                int(config.debug_mode),
                 now,
             ),
         )
