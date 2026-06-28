@@ -42,9 +42,9 @@ services:
     ports:
       - "26262:26262"
     volumes:
-      # 全データ永続化（memory, logs, cache）
-      # DATA_ROOT（ホスト） → /opt/nous/data（コンテナ、=NOUS_DATA_ROOT）
-      - ${DATA_ROOT}:/opt/nous/data
+      # Nous アプリデータ永続化（memory, logs, cache, config, skills）
+      # DATA_ROOT/app（ホスト） → /opt/nous/data（コンテナ、=NOUS_DATA_ROOT）
+      - ${DATA_ROOT}/app:/opt/nous/data
       # Host Docker socket for sibling-container sandbox execution (no DinD needed)
       - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
@@ -69,7 +69,7 @@ services:
       NOUS_AGENT_BROWSER_PATH: /opt/nous/data/.agent-browser/bin/agent-browser
       # HOST_DATA_ROOT: normally auto-detected from this container's own volume mounts.
       # Set manually only if auto-detection fails (e.g. on Synology, custom Docker setups).
-      # Example: NOUS_SANDBOX__HOST_DATA_ROOT: /volume1/docker/nous/data
+      # Example: NOUS_SANDBOX__HOST_DATA_ROOT: /volume1/docker/nous/app
       # NOUS_SANDBOX__HOST_DATA_ROOT:
     # Load env vars from .env file (ignored by git) so you can override Dockerfile defaults
     env_file:
