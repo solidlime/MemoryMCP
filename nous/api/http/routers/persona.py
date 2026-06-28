@@ -29,10 +29,12 @@ def register_persona_routes(mcp) -> None:
         ctx = AppContextRegistry.get(_resolve_persona_from_request(request))
         vs = ctx.vector_store
         qdrant_ok = vs.client_manager.health_check() if vs is not None else False
+        from nous import __version__  # noqa: PLC0415  — avoids circular import
+
         return JSONResponse(
             {
                 "status": "ok",
-                "version": "2.0.0",
+                "version": __version__,
                 "qdrant": "connected" if qdrant_ok else "unavailable",
             }
         )
