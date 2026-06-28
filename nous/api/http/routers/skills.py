@@ -94,7 +94,9 @@ def register_skills_routes(mcp) -> None:
         # 1. FS削除（先にやることでsync復活を防止）
         from nous.config.settings import get_settings
 
-        skill_dir = Path(get_settings().skills_dir) / name
+        skill_dir = (Path(get_settings().skills_dir) / name).resolve()
+        if not str(skill_dir).startswith(str(Path(get_settings().skills_dir).resolve()) + "/"):
+            return JSONResponse({"error": "Invalid skill name"}, status_code=400)
         if skill_dir.exists():
             shutil.rmtree(skill_dir)
 

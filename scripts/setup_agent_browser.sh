@@ -64,7 +64,7 @@ echo "[agent-browser] Chrome install starting in background (log: $AGENT_LOG)...
         OLD=$(ls -1dt "$CHROME_DIR"/chrome-* 2>/dev/null | tail -n +2)
         if [ -n "$OLD" ]; then
             echo "[agent-browser] Removing old Chrome: $OLD" >> "$AGENT_LOG"
-            rm -rf $OLD
+            rm -rf "$OLD"
         fi
     fi
 ) >> "$AGENT_LOG" 2>&1 &

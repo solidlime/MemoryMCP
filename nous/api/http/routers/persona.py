@@ -302,7 +302,9 @@ def register_persona_routes(mcp) -> None:
     async def delete_persona(request: Request) -> JSONResponse:
         persona = _resolve_persona_from_request(request)
         settings = Settings()
-        persona_dir = Path(settings.data_dir) / persona
+        persona_dir = (Path(settings.data_dir) / persona).resolve()
+        if not str(persona_dir).startswith(str(Path(settings.data_dir).resolve()) + "/"):
+            return JSONResponse({"error": "Invalid persona name"}, status_code=400)
         if not persona_dir.exists():
             return JSONResponse({"error": f"Persona '{persona}' not found"}, status_code=404)
         try:
