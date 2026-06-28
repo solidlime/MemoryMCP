@@ -118,7 +118,7 @@ function applyChatConfig(cfg) {
     set('chat-model', cfg.model || '');
     set('chat-api-key', cfg.api_key || '');
     set('chat-base-url', cfg.base_url || '');
-    set('chat-searxng-url', cfg.searxng_url || '');
+
     set('chat-temperature', cfg.temperature != null ? cfg.temperature : 0.7);
     set('chat-max-tokens', cfg.max_tokens || 2048);
     set('chat-max-tool-calls', cfg.max_tool_calls || 5);
@@ -239,7 +239,7 @@ async function saveChatConfig() {
         model: document.getElementById('chat-model').value.trim(),
         api_key: apiKeyVal,
         base_url: document.getElementById('chat-base-url').value.trim(),
-        searxng_url: document.getElementById('chat-searxng-url')?.value.trim() || '',
+
         temperature: parseFloat(document.getElementById('chat-temperature').value),
         max_tokens: parseInt(document.getElementById('chat-max-tokens').value),
         max_stored_messages: parseInt(document.getElementById('chat-stored-msgs').value),

@@ -49,9 +49,6 @@ class ChatConfig(BaseModel):
     tool_result_max_chars: int = 4000
     mcp_servers: list[dict] = []
     enabled_skills: list[str] = ["browser", "search", "memory"]
-    searxng_url: str = (
-        RuntimeConfigManager().get_effective_value("general", "searxng_url")[0] or "http://localhost:8080"
-    )
     # 画像生成
     image_gen_enabled: bool = False
     image_gen_provider: str = "openai"  # "openai" | "stability"
@@ -240,7 +237,7 @@ class ChatConfigRepository:
                 "max_stored_messages, context_max_tokens, context_compression_threshold, "
                 "context_compression_mode, context_keep_recent_turns, "
                 "context_compress_system_prompt, context_compress_history, "
-                "memory_preload_count, enable_parallel_tools, searxng_url, "
+                "memory_preload_count, enable_parallel_tools, "
                 "image_gen_enabled, image_gen_provider, image_gen_dalle_model, image_gen_stability_url, "
                 "enable_memory_tools, debug_mode "
                 "FROM chat_settings WHERE persona = ?",
@@ -261,13 +258,13 @@ class ChatConfigRepository:
                 "max_stored_messages, context_max_tokens, context_compression_threshold, "
                 "context_compression_mode, context_keep_recent_turns, "
                 "context_compress_system_prompt, context_compress_history, "
-                "memory_preload_count, enable_parallel_tools, searxng_url, "
+                "memory_preload_count, enable_parallel_tools, "
                 "enable_memory_tools, debug_mode "
                 "FROM chat_settings WHERE persona = ?",
                 (persona,),
             ).fetchone()
             if row is not None:
-                row = (*row, 0, "openai", "dall-e-3", "", 1, 0)
+                row = (*row, 0, "openai", "dall-e-3", "")
         if row is None:
             return ChatConfig(persona=persona)
         return ChatConfig(
@@ -311,20 +308,18 @@ class ChatConfigRepository:
             context_compress_history=bool(row[35]) if len(row) > 35 and row[35] is not None else True,
             memory_preload_count=int(row[36]) if len(row) > 36 and row[36] is not None else 3,
             enable_parallel_tools=bool(row[37]) if len(row) > 37 and row[37] is not None else True,
-            searxng_url=row[38] if len(row) > 38 and row[38] else "http://localhost:8080",
-            image_gen_enabled=bool(row[39]) if len(row) > 39 and row[39] is not None else False,
-            image_gen_provider=row[40] if len(row) > 40 and row[40] else "openai",
-            image_gen_dalle_model=row[41] if len(row) > 41 and row[41] else "dall-e-3",
-            image_gen_stability_url=row[42] if len(row) > 42 and row[42] else "",
-            enable_memory_tools=bool(row[43]) if len(row) > 43 and row[43] is not None else True,
-            debug_mode=bool(row[44]) if len(row) > 44 and row[44] is not None else False,
+            image_gen_enabled=bool(row[38]) if len(row) > 38 and row[38] is not None else False,
+            image_gen_provider=row[39] if len(row) > 39 and row[39] else "openai",
+            image_gen_dalle_model=row[40] if len(row) > 40 and row[40] else "dall-e-3",
+            image_gen_stability_url=row[41] if len(row) > 41 and row[41] else "",
+            enable_memory_tools=bool(row[42]) if len(row) > 42 and row[42] is not None else True,
+            debug_mode=bool(row[43]) if len(row) > 43 and row[43] is not None else False,
         )
 
     def save(self, config: ChatConfig) -> None:
         """Insert or replace config for persona."""
         # Ensure newer columns exist (for test environments without migrations)
         for col, col_type, default in (
-            ("searxng_url", "TEXT", "'http://localhost:8080'"),
             ("image_gen_enabled", "BOOLEAN", "0"),
             ("image_gen_provider", "TEXT", "'openai'"),
             ("image_gen_dalle_model", "TEXT", "'dall-e-3'"),
@@ -354,11 +349,10 @@ class ChatConfigRepository:
                  context_compression_mode, context_keep_recent_turns,
                   context_compress_system_prompt, context_compress_history,
                   memory_preload_count, enable_parallel_tools,
-                  searxng_url,
                   image_gen_enabled, image_gen_provider, image_gen_dalle_model, image_gen_stability_url,
                   enable_memory_tools, debug_mode,
                   updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(persona) DO UPDATE SET
                 provider=excluded.provider,
                 model=excluded.model,
@@ -396,7 +390,6 @@ class ChatConfigRepository:
                 context_compress_history=excluded.context_compress_history,
                  memory_preload_count=excluded.memory_preload_count,
                  enable_parallel_tools=excluded.enable_parallel_tools,
-                 searxng_url=excluded.searxng_url,
                  image_gen_enabled=excluded.image_gen_enabled,
                  image_gen_provider=excluded.image_gen_provider,
                  image_gen_dalle_model=excluded.image_gen_dalle_model,
@@ -443,7 +436,6 @@ class ChatConfigRepository:
                 int(config.context_compress_history),
                 config.memory_preload_count,
                 int(config.enable_parallel_tools),
-                config.searxng_url,
                 int(config.image_gen_enabled),
                 config.image_gen_provider,
                 config.image_gen_dalle_model,

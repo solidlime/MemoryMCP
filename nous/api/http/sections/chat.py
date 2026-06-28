@@ -135,11 +135,6 @@ def render_chat_tab() -> str:
                                     <div class="chat-field-label">APIキー</div>
                                     <input type="password" id="chat-api-key" class="chat-field-input" placeholder="sk-..." autocomplete="off" />
                                 </div>
-                                <div>
-                                    <div class="chat-field-label">SearXNG URL</div>
-                                    <input type="text" id="chat-searxng-url" class="chat-field-input" placeholder="http://localhost:8080" />
-                                    <div class="chat-field-hint" style="font-size:0.7rem;color:var(--text-muted);margin-top:2px;">検索に使用するSearXNGメタサーチエンジンのURL</div>
-                                </div>
                                 <!-- 画像生成設定 -->
                                 <div class="chat-config-section">
                                     <h4 style="font-size:0.82rem;font-weight:600;color:var(--text-secondary);margin:8px 0 4px;display:flex;align-items:center;gap:6px;"><i data-lucide="image"></i> 画像生成</h4>

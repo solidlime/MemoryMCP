@@ -81,7 +81,6 @@ def register_chat_routes(mcp) -> None:
             "context_compress_history",
             "memory_preload_count",
             "enable_parallel_tools",
-            "searxng_url",
             "image_gen_enabled",
             "image_gen_provider",
             "image_gen_dalle_model",

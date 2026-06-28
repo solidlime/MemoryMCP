@@ -54,7 +54,7 @@ const CATEGORY_DESCRIPTIONS = {
 
 /* ── Category display order (consistent across renders) ── */
 const CATEGORY_ORDER = [
-    'api_keys', 'general', 'server', 'embedding', 'reranker',
+    'api_keys', 'general', 'server', 'sandbox', 'embedding', 'reranker',
     'qdrant', 'forgetting', 'summarization', 'memory_enrichment'
 ];
 

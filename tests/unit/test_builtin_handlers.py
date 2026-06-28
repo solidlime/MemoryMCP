@@ -30,6 +30,14 @@ def mock_ctx():
     return ctx
 
 
+@pytest.fixture(autouse=True)
+def mock_runtime_config():
+    """Patch RuntimeConfigManager to return test searxng URL."""
+    with patch("nous.application.chat.tools.builtin.RuntimeConfigManager") as mock:
+        mock.return_value.get_effective_value.return_value = ("http://test-searxng:11111", "env")
+        yield
+
+
 @pytest.fixture
 def mock_config():
     """Minimal ChatConfig mock."""
@@ -39,7 +47,6 @@ def mock_config():
     cfg.image_gen_provider = "openai"
     cfg.image_gen_dalle_model = "dall-e-3"
     cfg.image_gen_stability_url = ""
-    cfg.searxng_url = "http://test-searxng:11111"
     return cfg
 
 
