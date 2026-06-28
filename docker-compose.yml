@@ -93,7 +93,11 @@ services:
     cap_drop:
       - ALL
     cap_add:
-      - DAC_OVERRIDE  # needed for file reads across users
+      - DAC_OVERRIDE  # file access across users
+      - CHOWN        # chown on bind-mounted /home for per-persona isolation
+      - FOWNER        # needed for useradd to write /etc/shadow
+      - SETUID        # set UID for per-persona users
+      - SETGID        # set GID for per-persona users
     security_opt:
       - no-new-privileges:true
 

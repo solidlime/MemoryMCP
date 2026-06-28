@@ -44,16 +44,16 @@ class SandboxFileInfo:
 
 
 _LANG_ROUTING: dict[str, tuple[str, str]] = {
-    "python": ("python3", ".py"),
-    "py": ("python3", ".py"),
-    "javascript": ("node", ".js"),
-    "js": ("node", ".js"),
-    "node": ("node", ".js"),
-    "bash": ("bash", ".sh"),
-    "sh": ("bash", ".sh"),
-    "shell": ("bash", ".sh"),
-    "go": ("go run", ".go"),
-    "golang": ("go run", ".go"),
+    "python": ("python3 {file}", ".py"),
+    "py": ("python3 {file}", ".py"),
+    "javascript": ("node {file}", ".js"),
+    "js": ("node {file}", ".js"),
+    "node": ("node {file}", ".js"),
+    "bash": ("bash {file}", ".sh"),
+    "sh": ("bash {file}", ".sh"),
+    "shell": ("bash {file}", ".sh"),
+    "go": ("go run {file}", ".go"),
+    "golang": ("go run {file}", ".go"),
     "rust": ("rustc {file} -o {bin} && {bin}", ".rs"),
     "rs": ("rustc {file} -o {bin} && {bin}", ".rs"),
 }
@@ -62,13 +62,14 @@ _LANG_ROUTING: dict[str, tuple[str, str]] = {
 class SandboxSession:
     """Single sandbox container execution via docker exec.
 
-    No longer per-persona container. All personas share the same container,
-    isolated by Linux user accounts.
+    No longer per-persona container. All personas share the same container.
+    All code runs as root (container-level isolation is sufficient on
+    bind-mounted volumes).
     """
 
     def __init__(self, persona: str) -> None:
         self.persona = persona
-        self.username = persona  # username = persona name, no prefix
+        self.username = make_username(persona)
         self._docker: docker.DockerClient | None = None
         self._container = None
         self._last_access: float | None = None

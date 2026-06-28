@@ -18,15 +18,55 @@ from nous.application.sandbox.user_manager import (
 
 
 class TestMakeUsername:
-    def test_default_persona(self):
-        assert make_username("test_user") == "test_user"
+    def test_standard_name(self):
+        assert make_username("alice") == "sbox_alice"
 
-    def test_custom_persona(self):
-        assert make_username("my-persona") == "my-persona"
+    def test_hyphen_preserved(self):
+        assert make_username("my-persona") == "sbox_my-persona"
 
-    def test_no_prefix(self):
-        # Username = persona name, no prefix like "sandbox-"
-        assert make_username("alice") == "alice"
+    def test_underscore_preserved(self):
+        assert make_username("test_user") == "sbox_test_user"
+
+    def test_uppercase_lowered(self):
+        assert make_username("Alice") == "sbox_alice"
+
+    def test_special_chars_replaced(self):
+        assert make_username("hello@world!") == "sbox_hello_world_"
+
+    def test_none_string_fallback(self):
+        """'None' is reserved → fallback."""
+        result = make_username("None")
+        assert result == "sbox_sandbox_user"
+
+    def test_empty_string_fallback(self):
+        result = make_username("")
+        assert result == "sbox_sandbox_user"
+
+    def test_whitespace_fallback(self):
+        result = make_username("  \t  ")
+        assert result == "sbox_sandbox_user"
+
+    def test_root_reserved(self):
+        result = make_username("root")
+        assert result == "sbox_sandbox_user"
+
+    def test_nobody_reserved(self):
+        result = make_username("nobody")
+        assert result == "sbox_sandbox_user"
+
+    def test_starts_with_digit(self):
+        result = make_username("000agent")
+        assert result == "sbox_u_000agent"
+
+    def test_truncated_to_maxlen(self):
+        long_name = "a" * 100
+        result = make_username(long_name)
+        assert len(result) <= 32
+        assert result.startswith("sbox_")
+        assert result == "sbox_" + "a" * 27
+
+    def test_prefix_enforced(self):
+        assert make_username("bob").startswith("sbox_")
 
 
 class TestUserCreateCommands:
@@ -37,6 +77,12 @@ class TestUserCreateCommands:
         assert "useradd" in joined
         # First command checks id before useradd
         assert "id -u" in cmds[0]
+
+    def test_useradd_with_group_flags(self):
+        cmds = user_create_commands("test_user")
+        text = " ".join(cmds)
+        assert "-U" in text  # Creates group with same name
+        assert "groupadd" in text  # Fallback if group not created
 
     def test_generates_pip_user_setup(self):
         cmds = user_create_commands("test_user")
@@ -51,13 +97,13 @@ class TestUserCreateCommands:
     def test_includes_home_directory(self):
         cmds = user_create_commands("bob")
         text = " ".join(cmds)
-        assert "/home/bob" in text
+        assert "/home/sbox_bob" in text
 
     def test_chown_applied(self):
         cmds = user_create_commands("testuser")
         text = " ".join(cmds)
         assert "chown" in text
-        assert "testuser:testuser" in text
+        assert "sbox_testuser:sbox_testuser" in text
 
 
 class TestUserDeleteCommands:
@@ -82,7 +128,7 @@ class TestUserExistsCommands:
         cmds = user_exists_commands("test_user")
         text = " ".join(cmds)
         assert "id -u" in text
-        assert "test_user" in text
+        assert "sbox_test_user" in text
 
 
 class TestConstants:
@@ -125,7 +171,7 @@ class TestEnsureSandboxUser:
 
         result = await ensure_sandbox_user("test_persona")
 
-        assert result == "test_persona"
+        assert result == "sbox_test_persona"
         assert mock_container.exec_run.call_count == 1
         call_args = mock_container.exec_run.call_args[0]
         assert "id -u" in " ".join(call_args[0] if isinstance(call_args[0], list) else [str(call_args[0])])
@@ -145,7 +191,7 @@ class TestEnsureSandboxUser:
 
         result = await ensure_sandbox_user("new_user")
 
-        assert result == "new_user"
+        assert result == "sbox_new_user"
         assert mock_container.exec_run.call_count == 2
         # Second call should contain useradd
         second_call = mock_container.exec_run.call_args_list[1]
@@ -165,7 +211,7 @@ class TestEnsureSandboxUser:
 
         # Should not raise — just log warning
         result = await ensure_sandbox_user("fail_user")
-        assert result == "fail_user"
+        assert result == "sbox_fail_user"
 
     @pytest.mark.asyncio
     async def test_container_not_found(self, mock_docker):
