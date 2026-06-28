@@ -223,6 +223,21 @@ class ChatConfigRepository:
 
     def get(self, persona: str) -> ChatConfig:
         """Load config for persona, returning defaults if not found."""
+        # Ensure newer columns exist (auto-migration on read, same as save())
+        for col, col_type, default in (
+            ("searxng_url", "TEXT", "'http://localhost:8080'"),
+            ("image_gen_enabled", "BOOLEAN", "0"),
+            ("image_gen_provider", "TEXT", "'openai'"),
+            ("image_gen_dalle_model", "TEXT", "'dall-e-3'"),
+            ("image_gen_stability_url", "TEXT", "''"),
+            ("enable_memory_tools", "BOOLEAN", "1"),
+            ("debug_mode", "BOOLEAN", "0"),
+        ):
+            try:
+                self._db.execute(f"SELECT {col} FROM chat_settings LIMIT 0")  # nosec B608
+            except sqlite3.OperationalError:
+                self._db.execute(f"ALTER TABLE chat_settings ADD COLUMN {col} {col_type} DEFAULT {default}")
+
         try:
             row = self._db.execute(
                 "SELECT persona, provider, model, api_key, base_url, system_prompt, "
