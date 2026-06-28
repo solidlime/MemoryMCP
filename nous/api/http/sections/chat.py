@@ -1,4 +1,4 @@
-"""Chat tab section for the MemoryMCP Dashboard.
+"""Chat tab section for the Nous Dashboard.
 
 Renders a fully-functional chat interface with SSE streaming,
 tool call visualization, and an inline settings panel.

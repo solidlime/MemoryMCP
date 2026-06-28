@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
 
 class LegacyImporter:
-    """Import legacy MemoryMCP v1 data into v2 schema.
+    """Import legacy MemoryMCP v1 data into Nous v2/v3 schema.
 
     Expects a persona directory (or zip) containing:
     - ``memory.sqlite``  (memories, emotion_history, user_state,

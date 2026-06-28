@@ -1,4 +1,4 @@
-"""Daily summarization worker for MemoryMCP.
+"""Daily summarization worker for Nous.
 
 Periodically checks all active personas for new memories and creates
 summary records to help maintain long-term context coherence.

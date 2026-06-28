@@ -1,4 +1,4 @@
-"""Memory Timeline tab section for the MemoryMCP Dashboard.
+"""Memory Timeline tab section for the Nous Dashboard.
 
 Interactive chronological visualization of memories using vis-timeline.
 Memories are displayed as colored items along a horizontal time axis,

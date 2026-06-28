@@ -1,4 +1,4 @@
-"""Admin tab section for the MemoryMCP Dashboard.
+"""Admin tab section for the Nous Dashboard.
 
 Renders the administration panel with vector store rebuild, database
 statistics, and system information cards.

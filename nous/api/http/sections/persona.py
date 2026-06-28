@@ -1,4 +1,4 @@
-"""Persona Management tab section for the MemoryMCP Dashboard.
+"""Persona Management tab section for the Nous Dashboard.
 
 Provides UI for creating, editing, switching, and deleting personas.
 Each persona is displayed as a card showing memory count, last conversation,

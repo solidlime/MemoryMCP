@@ -1,4 +1,4 @@
-"""MemoryMCP v2 Dashboard - Single Page Application.
+"""Nous v3 Dashboard - Single Page Application.
 
 A modular glassmorphism dashboard for managing persona memories,
 analytics, settings, and administration. Each tab is defined in

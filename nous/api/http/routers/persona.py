@@ -356,7 +356,7 @@ def _render_setup_page() -> str:
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MemoryMCP — Setup</title>
+<title>Nous — Setup</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
 <style>
@@ -413,7 +413,7 @@ def _render_setup_page() -> str:
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px">
     <i data-lucide="brain" style="width:2rem;height:2rem;color:#a855f7"></i>
     <div>
-      <h1 style="font-size:1.5rem;font-weight:700;color:white;margin:0">MemoryMCP</h1>
+      <h1 style="font-size:1.5rem;font-weight:700;color:white;margin:0">Nous</h1>
       <p style="margin:2px 0 0 0" class="text-muted">Welcome! Let's set up your first persona.</p>
     </div>
   </div>

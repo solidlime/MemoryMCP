@@ -1,4 +1,4 @@
-"""Base layout components for the MemoryMCP Dashboard.
+"""Base layout components for the Nous Dashboard.
 
 Provides the shared HTML head, navigation bar, utility JavaScript,
 and the overall page shell that section-specific renderers plug into.
@@ -16,7 +16,7 @@ def render_head() -> str:
     return r"""<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MemoryMCP Dashboard</title>
+    <title>Nous Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
     <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
@@ -101,7 +101,7 @@ def render_layout_shell(nav_html: str, tab_contents: str, tab_js: str, initial_p
         '    <header class="app-header">\n'
         '        <div style="display:flex;align-items:center;gap:10px;">\n'
         '            <span style="font-size:1.6rem;"><i data-lucide="brain"></i></span>\n'
-        "            <h1>MemoryMCP v" + __version__ + " Dashboard</h1>\n"
+        "            <h1>Nous v" + __version__ + " Dashboard</h1>\n"
         "        </div>\n"
         '        <div class="header-controls">\n'
         '            <select id="persona-select" class="glass-input" title="Select persona">\n'

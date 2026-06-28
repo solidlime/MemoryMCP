@@ -1,4 +1,4 @@
-"""Settings tab section for the MemoryMCP Dashboard.
+"""Settings tab section for the Nous Dashboard.
 
 Renders the settings configuration panel with live hot-reload support,
 source-priority display (env > override > default), settings profiles,

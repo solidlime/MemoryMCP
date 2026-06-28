@@ -1,4 +1,4 @@
-"""Skills management tab for the MemoryMCP Dashboard."""
+"""Skills management tab for the Nous Dashboard."""
 
 from __future__ import annotations
 

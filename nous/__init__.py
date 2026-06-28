@@ -1,5 +1,5 @@
-"""MemoryMCP v2 - Persistent memory server for LLM agents."""
+"""Nous v3 - Persistent memory server for LLM agents."""
 
 from __future__ import annotations
 
-__version__ = "2.0.0"
+__version__ = "3.0.0"

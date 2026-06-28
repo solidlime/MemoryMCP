@@ -18,6 +18,7 @@ from nous.api.mcp.middleware import PersonaMiddleware
 from nous.api.mcp.tools import register_tools
 from nous.application.sandbox.service import _sessions as sandbox_sessions
 from nous.application.use_cases import AppContextRegistry
+from nous import __version__
 from nous.config.settings import Settings
 from nous.infrastructure.logging.structured import get_logger, setup_logging
 
@@ -119,7 +120,7 @@ def create_app() -> MemoryFastMCP:
     setup_logging(settings.log_level)
     logger = get_logger("main")
 
-    logger.info("Starting MemoryMCP v2.0.0 on %s:%s", settings.server.host, settings.server.port)
+    logger.info("Starting Nous v%s on %s:%s", __version__, settings.server.host, settings.server.port)
 
     AppContextRegistry.configure(settings)
 
@@ -132,7 +133,7 @@ def create_app() -> MemoryFastMCP:
     os.environ.setdefault("TORCH_HOME", str(Path(settings.cache_dir) / "torch"))
 
     mcp = MemoryFastMCP(
-        "MemoryMCP",
+        "Nous",
         host=settings.server.host,
         port=settings.server.port,
         stateless_http=True,
@@ -274,7 +275,7 @@ mcp = create_app()
 
 
 def main() -> None:
-    """Run the MemoryMCP server."""
+    """Run the Nous server."""
     mcp.run(transport="streamable-http")
 
 

@@ -1,4 +1,4 @@
-"""MemoryMCP CLI — Data management tools.
+"""Nous CLI — Data management tools.
 
 Usage examples::
 
@@ -25,7 +25,7 @@ from nous.migration.importers.legacy_importer import LegacyImporter
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="nous.cli",
-        description="MemoryMCP CLI — data import / export / migration utilities",
+        description="Nous CLI — data import / export / migration utilities",
     )
     subparsers = parser.add_subparsers(dest="command")
 

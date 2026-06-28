@@ -1,4 +1,4 @@
-"""E2E dogfooding tests for the MemoryMCP v2 dashboard.
+"""E2E dogfooding tests for the Nous v3 dashboard.
 
 Tests all HTTP endpoints registered via ``register_http_routes`` against a
 real (temporary) SQLite backend and mocked/absent Qdrant vector store.
@@ -56,7 +56,7 @@ def _reset_singletons():
 
 @pytest.fixture()
 async def client(tmp_data_dir, _reset_singletons):
-    """httpx AsyncClient backed by a fresh MemoryMCP Starlette app."""
+    """httpx AsyncClient backed by a fresh Nous Starlette app."""
     env_overrides = {
         "NOUS_DATA_ROOT": tmp_data_dir,
         "NOUS_SERVER__HOST": "127.0.0.1",
@@ -218,7 +218,7 @@ async def test_dashboard_html_loads(client):
     resp = await client.get("/")
     assert resp.status_code == 200
     html = resp.text
-    assert "MemoryMCP" in html
+    assert "Nous" in html
     # Chart.js reference
     assert "chart.js" in html.lower() or "Chart" in html
     # Tailwind reference
@@ -521,7 +521,7 @@ async def test_full_dogfooding_flow(client):
     # 3. Dashboard HTML
     resp = await client.get("/")
     assert resp.status_code == 200
-    assert "MemoryMCP" in resp.text
+    assert "Nous" in resp.text
 
     # 4. Dashboard data (empty)
     resp = await client.get(f"/api/dashboard/{persona}")

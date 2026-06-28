@@ -53,7 +53,7 @@ def _reset_singletons():
 
 @pytest.fixture()
 async def client(tmp_data_dir, _reset_singletons):
-    """AsyncClient backed by a fresh MemoryMCP app (Qdrant intentionally offline)."""
+    """AsyncClient backed by a fresh Nous app (Qdrant intentionally offline)."""
     env_overrides = {
         "NOUS_DATA_ROOT": tmp_data_dir,
         "NOUS_SERVER__HOST": "127.0.0.1",

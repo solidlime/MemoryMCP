@@ -1,4 +1,4 @@
-"""Coding Agent Floating Panel for MemoryMCP Dashboard."""
+"""Coding Agent Floating Panel for Nous Dashboard."""
 
 from pathlib import Path
 

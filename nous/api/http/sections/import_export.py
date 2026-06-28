@@ -1,7 +1,7 @@
-"""Import/Export tab section for the MemoryMCP Dashboard.
+"""Import/Export tab section for the Nous Dashboard.
 
 Provides drag-and-drop ZIP import and full data export
-(ZIP archive or JSON) for MemoryMCP persona data.
+(ZIP archive or JSON) for Nous persona data.
 """
 
 
@@ -34,7 +34,7 @@ def render_import_export_tab() -> str:
               <div id="drop-zone" style="border:2px dashed var(--glass-border);border-radius:12px;padding:48px 24px;text-align:center;cursor:pointer;transition:all 0.3s">
                 <div style="font-size:3rem;margin-bottom:12px"><i data-lucide="folder"></i></div>
                 <p style="color:var(--text-muted)">Drag &amp; drop a ZIP file here, or click to select</p>
-                <p style="font-size:0.85rem;color:var(--text-muted);opacity:0.6;margin-top:8px">Supports v1 and v2 MemoryMCP data formats</p>
+                <p style="font-size:0.85rem;color:var(--text-muted);opacity:0.6;margin-top:8px">Supports v1 and v2 Nous data formats</p>
                 <input type="file" id="import-file" accept=".zip" style="display:none">
               </div>
 

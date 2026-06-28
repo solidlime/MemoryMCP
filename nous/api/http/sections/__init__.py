@@ -1,4 +1,4 @@
-"""Dashboard section modules for the MemoryMCP WebUI."""
+"""Dashboard section modules for the Nous WebUI."""
 
 from .admin import render_admin_js, render_admin_tab
 from .analytics import render_analytics_js, render_analytics_tab

@@ -1,4 +1,4 @@
-"""Knowledge Graph tab section for the MemoryMCP Dashboard.
+"""Knowledge Graph tab section for the Nous Dashboard.
 
 Interactive visualization of memory relationships using vis-network.
 Provides a force-directed graph where nodes represent memories and
