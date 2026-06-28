@@ -362,7 +362,8 @@ def _find_agent_browser(settings=None) -> str | None:
     # 4. Data volume paths (Docker)
     data_root = os.environ.get("NOUS_DATA_ROOT", "/opt/nous/data")
     candidates = [
-        os.path.join(data_root, "bin/agent-browser"),
+        os.path.join(data_root, ".agent-browser/bin/agent-browser"),
+        os.path.join(data_root, "bin/agent-browser"),  # legacy path
         os.path.expanduser("~/.local/nodejs/bin/agent-browser"),
     ]
     for c in candidates:

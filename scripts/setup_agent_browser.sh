@@ -2,11 +2,13 @@
 # Setup agent-browser for MemoryMCP (run at container startup)
 set -eo pipefail
 
-AGENT_DIR="${AGENT_BROWSER_DIR:-/opt/nous/data}"
-AGENT_BROWSER="$AGENT_DIR/bin/agent-browser"
 # Resolve to absolute path (NOUS_DATA_ROOT may be relative like ./data,
 # which breaks symlink resolution when $HOME is /root)
 DATA_ROOT=$(realpath "${NOUS_DATA_ROOT:-/opt/nous/data}" 2>/dev/null || echo "/opt/nous/data")
+# All agent-browser files (CLI + Chrome cache) live under .agent-browser/
+# so they don't pollute the data volume root on the host.
+AGENT_DIR="${AGENT_BROWSER_DIR:-$DATA_ROOT/.agent-browser}"
+AGENT_BROWSER="$AGENT_DIR/bin/agent-browser"
 export PATH="$AGENT_DIR/bin:$PATH"
 
 # ── Step 1: Install agent-browser CLI ──
@@ -54,7 +56,7 @@ echo "[agent-browser] Chrome dependencies installed."
 # ── Step 4: Ensure Chrome browser is installed (idempotent, background) ──
 # Run Chrome download in background with low CPU/IO priority to avoid
 # starving the MCP server during first-time setup (~200MB download).
-AGENT_LOG="$DATA_ROOT/agent-browser-install.log"
+AGENT_LOG="$AGENT_DIR/install.log"
 echo "[agent-browser] Chrome install starting in background (log: $AGENT_LOG)..."
 (
     nice -n 19 ionice -c 3 "$AGENT_BROWSER" install
