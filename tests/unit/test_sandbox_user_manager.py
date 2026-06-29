@@ -78,11 +78,11 @@ class TestUserCreateCommands:
         # First command checks id before useradd
         assert "id -u" in cmds[0]
 
-    def test_useradd_with_group_flags(self):
+    def test_useradd_with_flags(self):
         cmds = user_create_commands("test_user")
         text = " ".join(cmds)
-        assert "-U" in text  # Creates group with same name
-        assert "groupadd" in text  # Fallback if group not created
+        assert "-m -d" in text  # Create home directory
+        assert "-s /bin/bash" in text  # Set shell
 
     def test_generates_pip_user_setup(self):
         cmds = user_create_commands("test_user")

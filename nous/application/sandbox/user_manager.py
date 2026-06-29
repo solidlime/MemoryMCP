@@ -1,9 +1,8 @@
 """Sandbox container home directory management.
 
-No longer creates Linux users. Since the sandbox container is fully isolated
-at the container level, per-user Linux isolation is unnecessary overhead.
-All code runs as root inside the sandbox. We only manage home directories
-on the bind-mounted volume.
+Creates per-persona Linux users for data isolation between personas.
+Each persona's code runs as their own Linux user inside the sandbox.
+Home directories live on the bind-mounted volume.
 """
 
 from __future__ import annotations
@@ -48,15 +47,16 @@ def make_username(persona: str) -> str:
 def home_create_commands(persona: str) -> list[str]:
     """Generate shell commands to ensure persona home directory exists.
 
-    Bind-mount safe: no useradd/chown involved. Just mkdir + chmod.
-    Sets up standard subdirectories for pip, npm, cargo.
+    Creates a Linux user for the persona (idempotent), sets up standard
+    subdirectories for pip, npm, cargo, and fixes ownership.
     """
     username = make_username(persona)
     home = f"/home/{username}"
     return [
-        f"mkdir -p {home} && chmod 777 {home}",
+        f"id -u {username} &>/dev/null || useradd -m -d {home} -s /bin/bash {username}",
         f"mkdir -p {home}/.local {home}/.cache/pip {home}/.config/pip",
         f"mkdir -p {home}/.npm-global",
+        f"chown -R {username}:{username} {home}",
         # Set PIP_USER=1 for pip install --user behavior
         f'test -f {home}/.bashrc || echo "export PIP_USER=1" > {home}/.bashrc',
         f'grep -q "PIP_USER=1" {home}/.bashrc 2>/dev/null || echo "export PIP_USER=1" >> {home}/.bashrc',
@@ -82,9 +82,8 @@ def home_exists_commands(persona: str) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
-# Deprecated — kept for backwards compatibility but no longer used internally.
-# All code now runs as root inside the container; Linux user creation is
-# unnecessary overhead on bind-mounted volumes.
+# Deprecated — kept for backwards compatibility. Prefer home_create_commands
+# directly. Linux user creation is now handled inside home_create_commands.
 # ---------------------------------------------------------------------------
 
 import warnings as _warnings
