@@ -99,9 +99,9 @@
 
 ### 🟡 中優先度（一貫性・信頼性）
 - [ ] T045: K-4 memory_delete の docstring 修正（query パラメータの扱い明確化）
-- [ ] T046: K-5 item_* 7ツール → item 1ツールに統合（operation パラメータ）
+- [x] T046: K-5 item_* 7ツール → item 1ツールに統合（operation パラメータ）
 
 ### 🟢 低優先度（仕上げ）
-- [ ] T047: K-6 sandbox_context の pip_packages 実装 or 削除
-- [ ] T048: K-7 memory_create の感情自動付与に auto_emotion フラグ追加
+- [x] T047: K-6 sandbox_context の pip_packages 実装（_tool_sandbox_context() を常にJSON+空リストフォールバックに）
+- [x] T048: K-7 memory_create の感情自動付与に auto_emotion フラグ追加（レスポンス + docstring）
 ```

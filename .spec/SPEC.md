@@ -474,17 +474,17 @@ strength_score = (
 ### K-5: item_* 7ツール統合（中優先度）
 - **現状**: `item_add/remove/equip/unequip/update/search/history` の7ツールが別々に登録。sandbox_files が `operation` で統合されているのと一貫性がない。
 - **修正**: `item` 1ツールに統合。`operation: add/remove/equip/unequip/update/search/history` パラメータ。旧ツールは下位互換ラッパーとして残す。
-- [ ] **K-5**: `_tools_item.py` に `_tool_item()` 統合関数追加、`tools.py` に `item` ツール登録
+- [x] **K-5**: `_tools_item.py` に `_tool_item()` 統合関数追加、`tools.py` に `item` ツール登録
 
 ### K-6: sandbox_context pip_packages 修正（低優先度）
 - **現状**: `pip_packages: []` が常に空。実装されていないのかバグなのか不明。
-- **修正**: `pip3 list --user --format=json` の結果を返す or フィールド削除。
-- [ ] **K-6**: `service.py` の `sandbox_context()` で pip_packages 実装
+- **修正**: `_tool_sandbox_context()` を常にJSONを返すよう変更。session.get_context() から pip_packages を取得、sandbox利用不可時は空リストフォールバック。
+- [x] **K-6**: `_tool_sandbox_context()` で pip_packages 実装 + 空リストフォールバック
 
 ### K-7: memory_create 感情自動付与の透明化（低優先度）
 - **現状**: 感情を指定しなくても現在のペルソナ感情が自動付与される（暗黙的）。
 - **修正**: レスポンスに `auto_emotion: true` フラグを追加。ツール説明に「省略時は現在のペルソナ感情が自動付与されます」と明記。
-- [ ] **K-7**: `_tools_memory.py` / `tools.py` に auto_emotion フラグ + 説明追加
+- [x] **K-7**: `_tools_memory.py` レスポンスに `auto_emotion: True` 追加 / `tools.py` docstring に自動付与の説明を追記
 
 ---
 

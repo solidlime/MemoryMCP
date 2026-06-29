@@ -424,10 +424,23 @@ async def _tool_sandbox_reset(ctx: AppContext, persona: str, level: str = "files
 
 
 async def _tool_sandbox_context(ctx: AppContext, persona: str) -> str:
-    """Get sandbox environment context."""
+    """Get sandbox environment context (languages, pip packages)."""
+    import json
+
+    import nous.application.sandbox.service
+    from nous.application.sandbox.service import get_sandbox_session, SandboxSession
     from nous.config.settings import get_settings
 
     settings = get_settings()
+    pip_packages: list[str] = []
+    context: dict = {
+        "user": f"sbox_{persona}",
+        "home": f"/home/sbox_{persona}",
+        "languages": {},
+        "pip_packages": [],
+        "available_languages": [],
+    }
+
     if not settings.sandbox.enabled:
         await ctx.event_bus.publish(
             "tool.called",
@@ -435,43 +448,43 @@ async def _tool_sandbox_context(ctx: AppContext, persona: str) -> str:
                 "persona": persona,
                 "tool_name": "sandbox_context",
                 "params_summary": "",
-                "result_summary": "Sandbox is not enabled",
+                "result_summary": f"Sandbox is not enabled — returning context skeleton for {persona}",
                 "success": False,
             },
         )
-        return "Sandbox is not enabled."
-
-    from nous.application.sandbox.service import get_sandbox_session
+        return json.dumps(context, ensure_ascii=False, indent=2)
 
     try:
-        session = await get_sandbox_session(persona)
+        session: SandboxSession = await get_sandbox_session(persona)
         result = await session.get_context()
-        import json
-
-        output = json.dumps(result, ensure_ascii=False, indent=2)
+        # get_context() already returns pip_packages populated via
+        # pip3 list --user --format=json inside the session
+        context = result
         await ctx.event_bus.publish(
             "tool.called",
             {
                 "persona": persona,
                 "tool_name": "sandbox_context",
                 "params_summary": "",
-                "result_summary": f"Context: user={result.get('user')}, langs={list(result.get('languages', {}).keys())}",
+                "result_summary": f"Context: user={result.get('user')}, pip_packages={len(result.get('pip_packages', []))}, langs={list(result.get('languages', {}).keys())}",
                 "success": True,
             },
         )
-        return output
     except Exception as e:
+        # Sandbox unavailable — return skeleton with empty pip_packages
         await ctx.event_bus.publish(
             "tool.called",
             {
                 "persona": persona,
                 "tool_name": "sandbox_context",
                 "params_summary": "",
-                "result_summary": f"Error: {e}",
+                "result_summary": f"Sandbox unavailable — returning skeleton for {persona}: {e}",
                 "success": False,
             },
         )
-        return f"Sandbox context error: {e}"
+        # context already has empty pip_packages, keep skeleton
+
+    return json.dumps(context, ensure_ascii=False, indent=2)
 
 
 # --- Goal/Promise tools ---

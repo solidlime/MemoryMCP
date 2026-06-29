@@ -87,7 +87,7 @@ async def _tool_memory_create(
                 "importance": importance,
             },
         )
-        return json.dumps({"ok": True, "key": result.value.key}, ensure_ascii=False)
+        return json.dumps({"ok": True, "key": result.value.key, "auto_emotion": True}, ensure_ascii=False)
     return json.dumps({"ok": False, "error": str(result.error)}, ensure_ascii=False)
 
 

@@ -29,6 +29,7 @@ from nous.api.mcp._tools_helpers import (  # noqa: E402, F401
     _parse_days_from_relative,
 )
 from nous.api.mcp._tools_item import (  # noqa: E402, F401
+    _tool_item,
     _tool_item_add,
     _tool_item_equip,
     _tool_item_history,
@@ -67,6 +68,7 @@ TOOL_DISPATCH: dict[str, Any] = {
     "memory_search": _tool_memory_search,
     "memory_stats": _tool_memory_stats,
     "update_context": _tool_update_context,
+    "item": _tool_item,
     "item_add": _tool_item_add,
     "item_remove": _tool_item_remove,
     "item_equip": _tool_item_equip,
@@ -143,7 +145,9 @@ def register_tools(mcp: FastMCP) -> None:
         **Important**: Call context_update/update_context *before* memory_create
         if your emotional or physical state has changed. The system automatically
         snapshots your current persona state (emotions + body_state) at memory creation time —
-        this enables searching memories by the emotional/physical context in which they were created."""
+        this enables searching memories by the emotional/physical context in which they were created.
+        When emotion is omitted, the current persona emotion is automatically attached
+        (indicated by auto_emotion: true in response)."""
         p = _resolve_persona()
         return await _tool_memory_create(
             AppContextRegistry.get(p),
@@ -353,6 +357,45 @@ def register_tools(mcp: FastMCP) -> None:
         """Get equipment change history for the last N days."""
         p = _resolve_persona()
         return await _tool_item_history(AppContextRegistry.get(p), p, days=days)
+
+    # item (unified, operation-based)
+    @_tool("item")
+    async def item(
+        operation: str,
+        item_name: str = "",
+        category: str | None = None,
+        description: str | None = None,
+        quantity: int = 1,
+        tags: list[str] | None = None,
+        equipment: dict | None = None,
+        auto_add: bool = True,
+        slots: list[str] | str | None = None,
+        query: str | None = None,
+        days: int = 7,
+    ) -> str:
+        """Unified inventory tool. operation: add/remove/equip/unequip/update/search/history.
+        Parameters vary by operation — unused ones are ignored.
+        Examples:
+          item(operation="add", item_name="白いドレス", category="top")
+          item(operation="equip", equipment={"top": "白いドレス"})
+          item(operation="search", query="ドレス")
+          item(operation="history", days=7)"""
+        p = _resolve_persona()
+        return await _tool_item(
+            AppContextRegistry.get(p),
+            p,
+            operation=operation,
+            item_name=item_name,
+            category=category,
+            description=description,
+            quantity=quantity,
+            tags=tags,
+            equipment=equipment,
+            auto_add=auto_add,
+            slots=slots,
+            query=query,
+            days=days,
+        )
 
     # sandbox_execute
     @_tool("sandbox_execute")

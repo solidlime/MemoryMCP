@@ -338,6 +338,7 @@ _NOUS_TOOL_NAMES: frozenset[str] = frozenset(
         "memory_stats",
         "get_context",
         "update_context",
+        "item",
         "item_add",
         "item_remove",
         "item_equip",
