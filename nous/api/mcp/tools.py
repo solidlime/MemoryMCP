@@ -30,13 +30,6 @@ from nous.api.mcp._tools_helpers import (  # noqa: E402, F401
 )
 from nous.api.mcp._tools_item import (  # noqa: E402, F401
     _tool_item,
-    _tool_item_add,
-    _tool_item_equip,
-    _tool_item_history,
-    _tool_item_remove,
-    _tool_item_search,
-    _tool_item_unequip,
-    _tool_item_update,
 )
 from nous.api.mcp._tools_memory import (  # noqa: E402, F401
     _tool_memory_create,
@@ -69,13 +62,6 @@ TOOL_DISPATCH: dict[str, Any] = {
     "memory_stats": _tool_memory_stats,
     "update_context": _tool_update_context,
     "item": _tool_item,
-    "item_add": _tool_item_add,
-    "item_remove": _tool_item_remove,
-    "item_equip": _tool_item_equip,
-    "item_unequip": _tool_item_unequip,
-    "item_update": _tool_item_update,
-    "item_search": _tool_item_search,
-    "item_history": _tool_item_history,
     "sandbox_execute": _tool_sandbox_execute,
     "sandbox_files": _tool_sandbox_files,
     "sandbox_reset": _tool_sandbox_reset,
@@ -280,83 +266,6 @@ def register_tools(mcp: FastMCP) -> None:
             nickname=nickname,
             relationship_type=relationship_type,
         )
-
-    # item_add
-    @_tool("item_add")
-    async def item_add(
-        item_name: str = "",
-        category: str | None = None,
-        description: str | None = None,
-        quantity: int = 1,
-        tags: list[str] | None = None,
-    ) -> str:
-        """Add item to inventory. State changes (wet, dirty) should use item_update on existing items."""
-        p = _resolve_persona()
-        return await _tool_item_add(
-            AppContextRegistry.get(p),
-            p,
-            item_name=item_name,
-            category=category,
-            description=description,
-            quantity=quantity,
-            tags=tags,
-        )
-
-    # item_remove
-    @_tool("item_remove")
-    async def item_remove(item_name: str = "") -> str:
-        """Remove item from inventory by name."""
-        p = _resolve_persona()
-        return await _tool_item_remove(AppContextRegistry.get(p), p, item_name=item_name)
-
-    # item_equip
-    @_tool("item_equip")
-    async def item_equip(equipment: dict | None = None, auto_add: bool = True) -> str:
-        """Equip items to slots. equipment={"top":"白いドレス"}. Slots: top,bottom,shoes,outer,accessories,head."""
-        p = _resolve_persona()
-        return await _tool_item_equip(AppContextRegistry.get(p), p, equipment=equipment, auto_add=auto_add)
-
-    # item_unequip
-    @_tool("item_unequip")
-    async def item_unequip(slots: list[str] | str | None = None) -> str:
-        """Unequip items from slots. slots: "top" or ["top","head"]."""
-        p = _resolve_persona()
-        return await _tool_item_unequip(AppContextRegistry.get(p), p, slots=slots)
-
-    # item_update
-    @_tool("item_update")
-    async def item_update(
-        item_name: str = "",
-        category: str | None = None,
-        description: str | None = None,
-        quantity: int = 1,
-        tags: list[str] | None = None,
-    ) -> str:
-        """Update item properties. Only provided fields change. Use for state changes not new items."""
-        p = _resolve_persona()
-        return await _tool_item_update(
-            AppContextRegistry.get(p),
-            p,
-            item_name=item_name,
-            category=category,
-            description=description,
-            quantity=quantity,
-            tags=tags,
-        )
-
-    # item_search
-    @_tool("item_search")
-    async def item_search(query: str | None = None, category: str | None = None) -> str:
-        """Search inventory by name query or category."""
-        p = _resolve_persona()
-        return await _tool_item_search(AppContextRegistry.get(p), p, query=query, category=category)
-
-    # item_history
-    @_tool("item_history")
-    async def item_history(days: int = 7) -> str:
-        """Get equipment change history for the last N days."""
-        p = _resolve_persona()
-        return await _tool_item_history(AppContextRegistry.get(p), p, days=days)
 
     # item (unified, operation-based)
     @_tool("item")
