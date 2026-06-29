@@ -47,6 +47,9 @@
 - [ ] T051: I-4 default 削除禁止コード除去（persona.py, sections/persona.py）（15m）
 - [ ] T052: I-5 テスト更新 + 後方互換確認（30m）
 
+## 優先度：🟢（改善・新機能 続き）
+- [x] T053: J-23 ConsolidationWorker 実装 + summarization_worker 削除（1h）
+
 ## 並行実行計画
 
 ```

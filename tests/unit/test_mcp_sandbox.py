@@ -55,7 +55,9 @@ def _mock_settings(enabled: bool = True):
 
 def _mock_sandbox_session() -> MagicMock:
     """Create an AsyncMock sandbox session."""
-    return AsyncMock()
+    session = AsyncMock()
+    session.username = "sbox_test_persona"
+    return session
 
 
 # ============================================================================
@@ -244,7 +246,7 @@ class TestSandboxFiles:
         assert data["files"][0]["is_dir"] is False
         assert data["files"][1]["name"] == "subdir"
         assert data["files"][1]["is_dir"] is True
-        session.list_files.assert_called_once_with("/sandbox")
+        session.list_files.assert_called_once_with("/home/sbox_test_persona")
 
     @pytest.mark.asyncio
     async def test_read_file_success(self, registered_tools):
@@ -268,8 +270,8 @@ class TestSandboxFiles:
         data = json.loads(result)
         assert data["ok"] is True
         assert data["content"] == "hello world"
-        session.read_file.assert_called_once_with("/sandbox/test.txt")
-        session.read_image.assert_called_once_with("/sandbox/test.txt")
+        session.read_file.assert_called_once_with("/home/sbox_test_persona/test.txt")
+        session.read_image.assert_called_once_with("/home/sbox_test_persona/test.txt")
 
     @pytest.mark.asyncio
     async def test_write_file_success(self, registered_tools):
@@ -294,7 +296,7 @@ class TestSandboxFiles:
 
         data = json.loads(result)
         assert data["ok"] is True
-        assert data["path"] == "/sandbox/test.txt"
+        assert data["path"] == "/home/sbox_test_persona/test.txt"
         assert "written" in data["stdout"]
         session.execute.assert_called_once()
 
@@ -317,8 +319,8 @@ class TestSandboxFiles:
 
         data = json.loads(result)
         assert data["ok"] is True
-        assert data["path"] == "/sandbox/test.txt"
-        session.delete_file.assert_called_once_with("/sandbox/test.txt")
+        assert data["path"] == "/home/sbox_test_persona/test.txt"
+        session.delete_file.assert_called_once_with("/home/sbox_test_persona/test.txt")
 
     @pytest.mark.asyncio
     async def test_delete_file_failure(self, registered_tools):
@@ -340,7 +342,7 @@ class TestSandboxFiles:
         data = json.loads(result)
         assert data["ok"] is False
         assert "delete failed" in data["error"]
-        session.delete_file.assert_called_once_with("/sandbox/nonexistent.txt")
+        session.delete_file.assert_called_once_with("/home/sbox_test_persona/nonexistent.txt")
 
     @pytest.mark.asyncio
     async def test_read_image_file(self, registered_tools):
@@ -368,7 +370,7 @@ class TestSandboxFiles:
         assert data["content_type"] == "image/png"
         assert data["content_base64"] == "iVBORw0KGgo="
         assert data["size"] == 1024
-        session.read_image.assert_called_once_with("/sandbox/plot.png")
+        session.read_image.assert_called_once_with("/home/sbox_test_persona/plot.png")
 
     @pytest.mark.asyncio
     async def test_read_image_with_resize(self, registered_tools):
@@ -397,7 +399,7 @@ class TestSandboxFiles:
         assert data["ok"] is True
         assert data["resized"] is True
         assert data["orig_dims"] == "3000x2000"
-        session.read_image.assert_called_once_with("/sandbox/photo.jpg")
+        session.read_image.assert_called_once_with("/home/sbox_test_persona/photo.jpg")
 
     @pytest.mark.asyncio
     async def test_invalid_operation(self, registered_tools):

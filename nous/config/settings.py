@@ -37,26 +37,6 @@ class ServerConfig(BaseModel):
     port: int = 26262
 
 
-class SummarizationConfig(BaseModel):
-    """LLM-based summarization configuration."""
-
-    enabled: bool = False
-    use_llm: bool = False
-    llm_api_url: str = "https://openrouter.ai/api/v1"
-    llm_api_key: str | None = None
-    llm_model: str = "anthropic/claude-3.5-sonnet"
-    llm_provider: str = "openrouter"
-    llm_max_tokens: int = 500
-    check_interval_seconds: int = 3600
-    min_importance: float = 0.3
-    # Daily summarization worker settings
-    interval_hours: float = 24.0
-    min_new_memories: int = 1
-    max_memories_per_summary: int = 20
-    # LLM不要な抽出型要約（デフォルト有効）
-    extractive_enabled: bool = True
-
-
 class MemoRAGConfig(BaseModel):
     """MemoRAG-inspired memory context snapshot and clue generation configuration."""
 
@@ -137,7 +117,6 @@ class Settings(BaseSettings):
     embedding: EmbeddingConfig = EmbeddingConfig()
     reranker: RerankerConfig = RerankerConfig()
     qdrant: QdrantConfig = QdrantConfig()
-    summarization: SummarizationConfig = SummarizationConfig()
     forgetting: ForgettingConfig = ForgettingConfig()
     memorag: MemoRAGConfig = MemoRAGConfig()
     sandbox: SandboxConfig = SandboxConfig()

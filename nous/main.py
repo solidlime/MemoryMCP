@@ -230,11 +230,10 @@ def create_app() -> MemoryFastMCP:
         logger.exception("Skills auto-sync failed")
 
     # Start background workers
-    if settings.summarization.enabled:
-        from nous.application.workers import SummarizationWorker
+    from nous.application.workers.consolidation_worker import ConsolidationWorker
 
-        summarization_worker = SummarizationWorker(settings)
-        summarization_worker.start()
+    consolidation_worker = ConsolidationWorker(settings)
+    consolidation_worker.start()
 
     # Start MemoRAG context snapshot worker
     if settings.memorag.enabled:

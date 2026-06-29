@@ -266,7 +266,7 @@ SANDBOX_TOOLS: list[ToolDefinition] = [
     ),
     ToolDefinition(
         name="sandbox_files",
-        description="サンドボックス内ファイル操作。operation: list/read/write/append/delete。",
+        description="サンドボックス内ファイル操作。operation: list/read/write/append/delete。ファイルはペルソナのホームディレクトリに保存されます。",
         input_schema={
             "type": "object",
             "properties": {

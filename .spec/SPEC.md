@@ -444,7 +444,12 @@ strength_score = (
 
 ---
 
-### 柱J Phase 6: Consolidation worker（将来）
+### 柱J Phase 6: Consolidation worker
 
 低優先度記憶の圧縮・統合。CraniMem 流 episodic consolidation。
-- [ ] **J-23**: 設計のみ。実装は Phase 5 完了後に判断
+- [x] **J-23**: SummarizationWorker 削除 → ConsolidationWorker 実装済み
+  - 既存 `summarization_worker.py`（日付ベース・importance<0.3 機械的圧縮）を削除
+  - FSRS 強度ベースの CraniMem 風 ConsolidationWorker に置換
+  - 動作: DecayWorker が `lifecycle_status='archived'` に設定した記憶を、
+    共有エンティティ（`entity_relations` テーブル）でクラスタリングし、
+    統合要約メモリとして保存 + `related_keys` でソースリンク保持

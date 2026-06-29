@@ -120,6 +120,15 @@ async def _tool_sandbox_files(
         )
         return {"ok": False, "error": "path must be under /sandbox"}
     sandbox_session = await get_sandbox_session(persona)
+
+    # Translate /sandbox → persona home directory (bind-mounted)
+    # /sandbox/foo → /home/sbox_herta/foo
+    home = f"/home/{sandbox_session.username}"
+    if path == "/sandbox":
+        path = home
+    elif path.startswith("/sandbox/"):
+        path = home + path[8:]  # strip "/sandbox" (8 chars)
+
     import base64 as _b64
 
     if operation == "list":

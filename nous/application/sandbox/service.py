@@ -249,8 +249,15 @@ class SandboxSession:
         # Fix ownership
         await self._exec_root(f"chown {self.username}:{self.username} {filepath}")
 
-    async def list_files(self, path: str = WORKSPACE) -> list[SandboxFileInfo]:
+    @property
+    def _workspace(self) -> str:
+        """Persona's home directory (bind-mounted, per-persona isolation)."""
+        return f"/home/{self.username}"
+
+    async def list_files(self, path: str | None = None) -> list[SandboxFileInfo]:
         """List files in sandbox directory (as persona user)."""
+        if path is None:
+            path = self._workspace
         code = (
             "import os, json, stat\n"
             f"entries = []\n"
