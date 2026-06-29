@@ -19,6 +19,17 @@ services:
       retries: 5
       start_period: 30s
 
+  searxng-init:
+    image: alpine:latest
+    container_name: searxng-init
+    volumes:
+      - ${DATA_ROOT}/searxng:/etc/searxng
+    command: >
+      sh -c 'if [ ! -f /etc/searxng/settings.yml ]; then
+      SECRET=$$(head -c 32 /dev/urandom | base64 | tr -d "=+/" | cut -c1-32);
+      printf "use_default_settings: true\nserver:\n  secret_key: \"%s\"\n  limiter: false\n  image_proxy: true\nsearch:\n  formats:\n    - html\n    - json\n" "$$SECRET" > /etc/searxng/settings.yml;
+      echo "Generated default settings.yml"; else echo "settings.yml already exists, skipping."; fi'
+
   searxng:
     image: searxng/searxng:latest
     container_name: searxng
@@ -27,6 +38,9 @@ services:
     volumes:
       - ${DATA_ROOT}/searxng:/etc/searxng
     restart: unless-stopped
+    depends_on:
+      searxng-init:
+        condition: service_completed_successfully
     environment:
       SEARXNG_BASE_URL: http://localhost:8080/
     healthcheck:

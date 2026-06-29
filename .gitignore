@@ -43,10 +43,12 @@ logs/
 data/*/
 data/_tmp/
 !data/*.zip
-# searxng: allow only seed settings.yml + .gitkeep
+# searxng: allow only .gitkeep (settings.yml auto-generated on first docker-compose up)
 !data/searxng/
 data/searxng/*
-!data/searxng/settings.yml
+!data/searxng/.gitkeep
+# SearXNG — auto-generated on first docker-compose up
+data/searxng/settings.yml
 # skills: allow only SKILL.md + .gitkeep, exclude SQLite DBs
 !data/skills/
 data/skills/*
