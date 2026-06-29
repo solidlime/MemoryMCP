@@ -277,8 +277,8 @@ SANDBOX_TOOLS: list[ToolDefinition] = [
                 },
                 "path": {
                     "type": "string",
-                    "description": "/sandbox 配下のパス（list はディレクトリ、read/write/delete はファイル）",
-                    "default": "/sandbox",
+                    "description": "ペルソナのホームディレクトリ (/home/sbox_{persona}/) 配下のパス",
+                    "default": "",
                 },
                 "content": {
                     "type": "string",

@@ -376,10 +376,10 @@ def register_tools(mcp: FastMCP) -> None:
 
     # sandbox_files
     @_tool("sandbox_files")
-    async def sandbox_files(operation: str, path: str = "/sandbox", content: str | None = None) -> str:
+    async def sandbox_files(operation: str, path: str = "", content: str | None = None) -> str:
         """Sandbox file operations. operation: list/read/write/append/delete.
         Files are stored in the persona's home directory (bind-mounted per-persona).
-        Use /sandbox/ paths — translated to persona home automatically.
+        Use /home/sbox_{persona}/ paths — direct persona home paths.
         read auto-detects images (PNG/JPEG/GIF/WebP) returning base64 with PIL resize support."""
         p = _resolve_persona()
         r = await _tool_sandbox_files(AppContextRegistry.get(p), p, operation=operation, path=path, content=content)

@@ -87,7 +87,7 @@ async def _tool_sandbox_files(
     ctx: AppContext,
     persona: str,
     operation: str,
-    path: str = "/sandbox",
+    path: str = "",
     content: str | None = None,
 ) -> dict:
     from nous.config.settings import get_settings
@@ -107,27 +107,26 @@ async def _tool_sandbox_files(
         return {"ok": False, "error": "Sandbox is not enabled."}
     from nous.application.sandbox.service import get_sandbox_session
 
-    if not path.startswith("/sandbox"):
+    sandbox_session = await get_sandbox_session(persona)
+
+    # Resolve default path to persona home
+    home = f"/home/{sandbox_session.username}"
+    if not path or path == "/sandbox":  # backward compat for old invocations
+        path = home
+
+    # Security: must stay within persona home directory
+    if not path.startswith(home + "/") and path != home:
         await ctx.event_bus.publish(
             "tool.called",
             {
                 "persona": persona,
                 "tool_name": "sandbox_files",
                 "params_summary": f"operation={operation}, path={path}",
-                "result_summary": "path must be under /sandbox",
+                "result_summary": f"path must be under {home}",
                 "success": False,
             },
         )
-        return {"ok": False, "error": "path must be under /sandbox"}
-    sandbox_session = await get_sandbox_session(persona)
-
-    # Translate /sandbox → persona home directory (bind-mounted)
-    # /sandbox/foo → /home/sbox_herta/foo
-    home = f"/home/{sandbox_session.username}"
-    if path == "/sandbox":
-        path = home
-    elif path.startswith("/sandbox/"):
-        path = home + path[8:]  # strip "/sandbox" (8 chars)
+        return {"ok": False, "error": f"path must be under {home}"}
 
     import base64 as _b64
 
@@ -149,6 +148,9 @@ async def _tool_sandbox_files(
     elif operation == "read":
         try:
             img_data = await sandbox_session.read_image(path)
+            # read_image returns "application/octet-stream" for non-images → fallback to text
+            if img_data.get("content_type") == "application/octet-stream":
+                raise ValueError("not an image, falling back to text read")
             resp: dict = {
                 "ok": True,
                 "content_type": img_data["content_type"],

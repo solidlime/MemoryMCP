@@ -232,8 +232,8 @@ class TestSandboxFiles:
             mock_get_settings.return_value = _mock_settings(enabled=True)
             session = _mock_sandbox_session()
             session.list_files.return_value = [
-                SandboxFileInfo(name="test.txt", path="/sandbox/test.txt", is_dir=False, size=10),
-                SandboxFileInfo(name="subdir", path="/sandbox/subdir", is_dir=True, size=0),
+                SandboxFileInfo(name="test.txt", path="/home/sbox_test_persona/test.txt", is_dir=False, size=10),
+                SandboxFileInfo(name="subdir", path="/home/sbox_test_persona/subdir", is_dir=True, size=0),
             ]
             mock_get_session.return_value = session
 
@@ -265,7 +265,36 @@ class TestSandboxFiles:
             session.read_file.return_value = b"hello world"
             mock_get_session.return_value = session
 
-            result = await sf_tool(operation="read", path="/sandbox/test.txt")
+            result = await sf_tool(operation="read", path="/home/sbox_test_persona/test.txt")
+
+        data = json.loads(result)
+        assert data["ok"] is True
+        assert data["content"] == "hello world"
+        session.read_file.assert_called_once_with("/home/sbox_test_persona/test.txt")
+        session.read_image.assert_called_once_with("/home/sbox_test_persona/test.txt")
+
+    @pytest.mark.asyncio
+    async def test_read_non_image_fallback(self, registered_tools):
+        """Non-image file should fallback to text when read_image returns octet-stream."""
+        tools, ctx, _ = registered_tools
+        sf_tool = tools["sandbox_files"]
+
+        with (
+            patch("nous.config.settings.get_settings") as mock_get_settings,
+            patch("nous.application.sandbox.service.get_sandbox_session") as mock_get_session,
+        ):
+            mock_get_settings.return_value = _mock_settings(enabled=True)
+            session = _mock_sandbox_session()
+            # read_image returns octet-stream instead of raising → should still fallback
+            session.read_image.return_value = {
+                "content_type": "application/octet-stream",
+                "content_base64": "",
+                "size": 11,
+            }
+            session.read_file.return_value = b"hello world"
+            mock_get_session.return_value = session
+
+            result = await sf_tool(operation="read", path="/home/sbox_test_persona/test.txt")
 
         data = json.loads(result)
         assert data["ok"] is True
@@ -292,7 +321,7 @@ class TestSandboxFiles:
             )
             mock_get_session.return_value = session
 
-            result = await sf_tool(operation="write", path="/sandbox/test.txt", content="hello world")
+            result = await sf_tool(operation="write", path="/home/sbox_test_persona/test.txt", content="hello world")
 
         data = json.loads(result)
         assert data["ok"] is True
@@ -315,7 +344,7 @@ class TestSandboxFiles:
             session.delete_file.return_value = True
             mock_get_session.return_value = session
 
-            result = await sf_tool(operation="delete", path="/sandbox/test.txt")
+            result = await sf_tool(operation="delete", path="/home/sbox_test_persona/test.txt")
 
         data = json.loads(result)
         assert data["ok"] is True
@@ -337,7 +366,7 @@ class TestSandboxFiles:
             session.delete_file.return_value = False
             mock_get_session.return_value = session
 
-            result = await sf_tool(operation="delete", path="/sandbox/nonexistent.txt")
+            result = await sf_tool(operation="delete", path="/home/sbox_test_persona/nonexistent.txt")
 
         data = json.loads(result)
         assert data["ok"] is False
@@ -363,7 +392,7 @@ class TestSandboxFiles:
             }
             mock_get_session.return_value = session
 
-            result = await sf_tool(operation="read", path="/sandbox/plot.png")
+            result = await sf_tool(operation="read", path="/home/sbox_test_persona/plot.png")
 
         data = json.loads(result)
         assert data["ok"] is True
@@ -393,7 +422,7 @@ class TestSandboxFiles:
             }
             mock_get_session.return_value = session
 
-            result = await sf_tool(operation="read", path="/sandbox/photo.jpg")
+            result = await sf_tool(operation="read", path="/home/sbox_test_persona/photo.jpg")
 
         data = json.loads(result)
         assert data["ok"] is True
@@ -420,8 +449,8 @@ class TestSandboxFiles:
         assert "Unknown operation" in data["error"]
 
     @pytest.mark.asyncio
-    async def test_path_must_be_under_sandbox(self, registered_tools):
-        """Path outside /sandbox should be rejected."""
+    async def test_path_must_be_under_home(self, registered_tools):
+        """Path outside persona home should be rejected."""
         tools, ctx, _ = registered_tools
         sf_tool = tools["sandbox_files"]
 
@@ -430,13 +459,15 @@ class TestSandboxFiles:
             patch("nous.application.sandbox.service.get_sandbox_session") as mock_get_session,
         ):
             mock_get_settings.return_value = _mock_settings(enabled=True)
+            session = _mock_sandbox_session()
+            mock_get_session.return_value = session
 
             result = await sf_tool(operation="list", path="/etc/passwd")
 
         data = json.loads(result)
         assert data["ok"] is False
-        assert "path must be under /sandbox" in data["error"]
-        mock_get_session.assert_not_called()
+        assert "path must be under /home/sbox_test_persona" in data["error"]
+        mock_get_session.assert_called_once_with("test_persona")
 
     @pytest.mark.asyncio
     async def test_write_requires_content(self, registered_tools):
@@ -446,11 +477,13 @@ class TestSandboxFiles:
 
         with (
             patch("nous.config.settings.get_settings") as mock_get_settings,
-            patch("nous.application.sandbox.service.get_sandbox_session"),
+            patch("nous.application.sandbox.service.get_sandbox_session") as mock_get_session,
         ):
             mock_get_settings.return_value = _mock_settings(enabled=True)
+            session = _mock_sandbox_session()
+            mock_get_session.return_value = session
 
-            result = await sf_tool(operation="write", path="/sandbox/test.txt", content=None)
+            result = await sf_tool(operation="write", path="/home/sbox_test_persona/test.txt", content=None)
 
         data = json.loads(result)
         assert data["ok"] is False
