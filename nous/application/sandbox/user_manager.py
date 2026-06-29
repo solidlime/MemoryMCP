@@ -7,6 +7,7 @@ Home directories live on the bind-mounted volume.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import re
 
@@ -44,6 +45,17 @@ def make_username(persona: str) -> str:
     return f"{_PREFIX}{name}"[:_MAXLEN]
 
 
+def _deterministic_uid(persona: str) -> int:
+    """Generate a deterministic UID from persona name (range: 10000–49999).
+
+    This ensures the same persona always gets the same UID across container
+    recreations, avoiding unnecessary ``chown -R`` rewrites on bind-mounted
+    home directories.
+    """
+    h = hashlib.md5(persona.encode()).hexdigest()
+    return int(h[:8], 16) % 40000 + 10000
+
+
 def home_create_commands(persona: str) -> list[str]:
     """Generate shell commands to ensure persona home directory exists.
 
@@ -53,7 +65,7 @@ def home_create_commands(persona: str) -> list[str]:
     username = make_username(persona)
     home = f"/home/{username}"
     return [
-        f"id -u {username} &>/dev/null || useradd -m -d {home} -s /bin/bash {username}",
+        f"id -u {username} &>/dev/null || useradd -u {_deterministic_uid(persona)} -m -d {home} -s /bin/bash {username}",
         f"mkdir -p {home}/.local {home}/.cache/pip {home}/.config/pip",
         f"mkdir -p {home}/.npm-global",
         f"chown -R {username}:{username} {home}",
@@ -66,19 +78,31 @@ def home_create_commands(persona: str) -> list[str]:
 
 
 def home_delete_commands(persona: str) -> list[str]:
-    """Generate command to remove persona home directory."""
+    """Generate command to remove persona home directory and Linux user.
+
+    Removes the Linux user entry (``userdel -r`` removes both /etc/passwd
+    and the home directory). If the user doesn't exist in /etc/passwd but
+    the home directory is still present (e.g., container rebuild with
+    bind-mounted /home), falls back to ``rm -rf``.
+    """
     username = make_username(persona)
     home = f"/home/{username}"
     return [
-        f"rm -rf {home}",
+        f"id -u {username} &>/dev/null && userdel -r {username} || rm -rf {home}",
     ]
 
 
 def home_exists_commands(persona: str) -> list[str]:
-    """Generate command to check if home directory exists (exit code 0 = exists)."""
+    """Generate command to check if Linux user exists (exit code 0 = exists).
+
+    Uses ``id -u`` to check /etc/passwd, NOT ``test -d`` on the home
+    directory. This avoids a TOCTOU race where the bind-mounted home
+    directory survives container rebuild but the user entry is gone,
+    causing ``docker exec --user <username>`` to fail with
+    ``unable to find user``.
+    """
     username = make_username(persona)
-    home = f"/home/{username}"
-    return [f"test -d {home}"]
+    return [f"id -u {username} &>/dev/null"]
 
 
 # ---------------------------------------------------------------------------

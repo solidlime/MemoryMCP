@@ -13,10 +13,10 @@ from docker.errors import NotFound
 
 from nous.application.sandbox.user_manager import (
     SANDBOX_CONTAINER_NAME,
+    home_create_commands,
+    home_delete_commands,
+    home_exists_commands,
     make_username,
-    user_create_commands,
-    user_delete_commands,
-    user_exists_commands,
 )
 
 logger = logging.getLogger(__name__)
@@ -96,7 +96,7 @@ class SandboxSession:
         if self._initialized:
             return
         await self._ensure_container()
-        cmds = user_create_commands(self.persona)
+        cmds = home_create_commands(self.persona)
         script = " && ".join(cmds)
         stdout, stderr, exit_code = await self._exec_root(f"bash -c {_safe_quote(script)}")
         if exit_code != 0:
@@ -508,14 +508,14 @@ async def ensure_sandbox_user(persona: str) -> str:
     client, container = await _get_container()
     try:
         # Check if user already exists
-        check_cmd = user_exists_commands(persona)[0]
+        check_cmd = home_exists_commands(persona)[0]
         exit_code, output = await asyncio.to_thread(container.exec_run, ["bash", "-c", check_cmd], user="root")
         if exit_code == 0:
             logger.debug("Sandbox user already exists: %s", username)
             return username
 
         # Create user
-        cmds = user_create_commands(persona)
+        cmds = home_create_commands(persona)
         script = " && ".join(cmds)
         exit_code, output = await asyncio.to_thread(
             container.exec_run,
@@ -538,7 +538,7 @@ async def delete_sandbox_user(persona: str) -> bool:
     """Delete Linux user from sandbox container. Returns True if deleted."""
     client, container = await _get_container()
     try:
-        cmds = user_delete_commands(persona)
+        cmds = home_delete_commands(persona)
         exit_code, output = await asyncio.to_thread(
             container.exec_run,
             ["bash", "-c", cmds[0]],
