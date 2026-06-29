@@ -2,10 +2,8 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from datetime import datetime
 
 
 @dataclass
@@ -38,7 +36,7 @@ class Memory:
 
 @dataclass
 class MemoryStrength:
-    """FSRS v6 power-law forgetting curve for a memory."""
+    """FSRS v6 power-law forgetting curve + 7-factor scoring for a memory."""
 
     memory_key: str
     strength: float = 1.0
@@ -46,6 +44,11 @@ class MemoryStrength:
     last_decay: datetime | None = None
     recall_count: int = 0
     last_recall: datetime | None = None
+    last_utility: datetime | None = None
+    interference_count: int = 0
+    link_count: int = 0
+    emotion_peak: float = 0.0
+    is_ltm: bool = False
 
     def compute_recall(self, elapsed_hours: float, decay_exponent: float = 0.5) -> float:
         """R(t) = (1 + 19 * t_hours / (S * 24))^(-decay_exponent).
@@ -61,8 +64,61 @@ class MemoryStrength:
             return 0.0
         return (1 + 19.0 * elapsed_hours / (self.stability * 24)) ** (-decay_exponent)
 
-    def boost_on_recall(self) -> None:
-        """Increase stability on successful recall."""
+    def compute_strength_score(
+        self,
+        importance: float = 0.5,
+        now: datetime | None = None,
+    ) -> float:
+        """7-factor composite strength score (0.0-1.0).
+
+        Factors:
+        - recency: 0.20 * exp(-age_days / 7)
+        - frequency: 0.15 * min(1.0, log(1+recall_count)/log(10))
+        - importance: 0.25 * importance
+        - utility: 0.20 * exp(-utility_age_days / 3) if last_utility else 0.0
+        - novelty: 0.05 * 0.5  (stub)
+        - confidence: 0.10 * 0.8  (stub)
+        - interference: -0.05 * min(1.0, interference_count / 5)  (penalty)
+        """
+        if now is None:
+            now = datetime.now()
+
+        # Recency: 7-day half-life
+        if self.last_recall is not None:
+            age_days = (now - self.last_recall).total_seconds() / 86400
+        else:
+            age_days = 365.0
+        recency = 0.20 * math.exp(-age_days / 7.0)
+
+        # Frequency: log-scaled recall count
+        frequency = 0.15 * min(1.0, math.log(1 + self.recall_count) / math.log(10))
+
+        # Importance: direct factor
+        importance_score = 0.25 * max(0.0, min(1.0, importance))
+
+        # Utility: 3-day half-life
+        if self.last_utility is not None:
+            utility_age = (now - self.last_utility).total_seconds() / 86400
+            utility = 0.20 * math.exp(-utility_age / 3.0)
+        else:
+            utility = 0.0
+
+        # Novelty: stub (0.5 = average novelty)
+        novelty = 0.05 * 0.5
+
+        # Confidence: stub (0.8 = default confidence)
+        confidence = 0.10 * 0.8
+
+        # Interference: penalty
+        interference = -0.05 * min(1.0, self.interference_count / 5.0)
+
+        score = recency + frequency + importance_score + utility + novelty + confidence + interference
+        return max(0.0, min(1.0, score))
+
+    def boost_on_recall(self, emotion_intensity: float = 0.0) -> None:
+        """Increase stability on successful recall + update emotion peak."""
         self.recall_count += 1
         self.stability = min(self.stability * 1.5, 365.0)
         self.strength = 1.0
+        self.last_recall = datetime.now()
+        self.emotion_peak = max(self.emotion_peak, emotion_intensity)

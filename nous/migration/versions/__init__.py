@@ -47,6 +47,9 @@ from nous.migration.versions.v027_skill_metadata import (
 from nous.migration.versions.v028_lifecycle_status import (
     upgrade as v028_upgrade,
 )
+from nous.migration.versions.v029_strength_factors import (
+    upgrade as v029_upgrade,
+)
 
 ALL_MIGRATIONS: list[tuple[str, str, object]] = [
     ("001", "Initial schema", v001_upgrade),
@@ -76,4 +79,5 @@ ALL_MIGRATIONS: list[tuple[str, str, object]] = [
     ("026", "Add image_gen columns to chat_settings", v026_upgrade),
     ("027", "Add license/compatibility/metadata to skills table", v027_upgrade),
     ("028", "Add lifecycle_status column to memories table", v028_upgrade),
+    ("029", "Add 7-factor scoring columns to memory_strength", v029_upgrade),
 ]

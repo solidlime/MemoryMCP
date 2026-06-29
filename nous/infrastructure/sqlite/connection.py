@@ -43,6 +43,11 @@ CREATE TABLE IF NOT EXISTS memory_strength (
     last_decay TEXT,
     recall_count INTEGER DEFAULT 0,
     last_recall TEXT,
+    last_utility TEXT,
+    interference_count INTEGER DEFAULT 0,
+    link_count INTEGER DEFAULT 0,
+    emotion_peak REAL DEFAULT 0.0,
+    is_ltm INTEGER DEFAULT 0,
     FOREIGN KEY (memory_key) REFERENCES memories(key)
 );
 

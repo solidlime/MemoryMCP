@@ -42,7 +42,9 @@ class DecayWorker:
         for strength in result.value:
             elapsed = (now - strength.last_decay).total_seconds() / 3600 if strength.last_decay else 24.0
 
-            new_strength_val = strength.compute_recall(elapsed)
+            recall = strength.compute_recall(elapsed)
+            score = strength.compute_strength_score()
+            new_strength_val = recall * score
             if new_strength_val < self.context.settings.forgetting.min_strength:
                 continue
 

@@ -29,8 +29,9 @@ class SQLiteStrengthMixin:
             self._db.execute(
                 """
                 INSERT OR REPLACE INTO memory_strength
-                    (memory_key, strength, stability, last_decay, recall_count, last_recall)
-                VALUES (?, ?, ?, ?, ?, ?)
+                    (memory_key, strength, stability, last_decay, recall_count, last_recall,
+                     last_utility, interference_count, link_count, emotion_peak, is_ltm)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     strength.memory_key,
@@ -39,6 +40,11 @@ class SQLiteStrengthMixin:
                     format_iso(strength.last_decay) if strength.last_decay else None,
                     strength.recall_count,
                     format_iso(strength.last_recall) if strength.last_recall else None,
+                    format_iso(strength.last_utility) if strength.last_utility else None,
+                    strength.interference_count,
+                    strength.link_count,
+                    strength.emotion_peak,
+                    int(strength.is_ltm),
                 ),
             )
             self._db.commit()
@@ -66,4 +72,9 @@ class SQLiteStrengthMixin:
             last_decay=self._parse_iso_or_none(row["last_decay"]),
             recall_count=row["recall_count"] or 0,
             last_recall=self._parse_iso_or_none(row["last_recall"]),
+            last_utility=self._parse_iso_or_none(row["last_utility"]),
+            interference_count=row["interference_count"] or 0,
+            link_count=row["link_count"] or 0,
+            emotion_peak=row["emotion_peak"] or 0.0,
+            is_ltm=bool(row["is_ltm"]) if row["is_ltm"] is not None else False,
         )

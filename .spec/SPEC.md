@@ -1,7 +1,9 @@
-# SPEC - 技術仕様・要件定義 v10
+# SPEC - 技術仕様・要件定義 v12
 
 > 元PLAN: `.spec/PLAN.md` v9。@oracle レビュー反映済み。
 > v10: 柱J（記憶減衰 Phase 1）追加。`docs/memory_decay_research_2026-06-29.md` 参照。
+> v11: 柱J Phase 1 実装完了（9181cd9）。FSRS power-law、test 10件。
+> v12: 柱J Phase 2〜6（7-factor scoring、STM/LTM、interference、Qdrant decay）追加。
 
 ## 目標
 - **`docker compose up` 一発で全機能が利用可能になること。**
@@ -364,6 +366,107 @@ CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
     10. `elapsed_hours=0` → `compute_recall() ≈ 1.0`（既存テスト互換）
   - `test_decay_worker.py` の既存テストも全件パス確認
 
-- [ ] **J-5**: ドキュメント更新
+- [x] **J-5**: ドキュメント更新
   - `CLAUDE.md`: MemoryStrength の減衰モデル変更を追記
   - `docs/memory_features.md`: 減衰曲線の更新（Ebbinghaus → FSRS）
+
+---
+
+### 柱J Phase 2: 7-factor scoring（総合的記憶強度評価）
+
+Phase 1 の純粋な FSRS 忘却曲線を拡張し、recency / frequency / importance / utility / novelty / confidence / interference の 7因子で `strength_score` を算出する。DecayWorker が `compute_recall()` → `strength_score()` → `strength` の二段階で更新する。
+
+**追加フィールド** (`MemoryStrength`):
+| フィールド | 型 | デフォルト | 説明 |
+|---|---|---|---|
+| `last_utility` | `datetime\|None` | `None` | 最後に有用判定された時刻 |
+| `interference_count` | `int` | `0` | 矛盾検出回数 |
+| `link_count` | `int` | `0` | 関連記憶へのリンク数（entity_relations + related_keys） |
+| `emotion_peak` | `float` | `0.0` | 過去最大の emotion_intensity |
+| `is_ltm` | `bool` | `False` | STM/LTM フラグ（Phase 3 で使用） |
+
+**7-factor score 計算式**:
+```python
+strength_score = (
+    recency_weight(0.20) * exp(-age_days / 7)          # recency: 7日半減期
+  + frequency_weight(0.15) * min(1.0, log(1+recall_count)/log(10))  # frequency
+  + importance_weight(0.25) * importance               # importance (0.0-1.0)
+  + utility_weight(0.20) * exp(-utility_age_days / 3)  # utility: 3日半減期
+  + novelty_weight(0.05) * novelty                     # novelty (未実装: 0.5 default)
+  + confidence_weight(0.10) * confidence               # confidence (未実装: 0.8 default)
+  - interference_penalty(0.05) * min(1.0, interference_count / 5)  # penalty
+)
+```
+
+**最終 strength = compute_recall(elapsed) * strength_score**（両方 0-1 → 乗算で 0-1）
+
+**Phase 2 で実装する因子**: recency, frequency, importance, utility（4/7）。novelty/confidence はデフォルト値でスタブ（Phase 4 で本実装）。interference はカウントのみ（Phase 4 で本実装）。
+
+- [ ] **J-6**: `MemoryStrength` に新フィールド追加
+  - ファイル: `nous/domain/memory/entities.py`
+  - `last_utility`, `interference_count`, `link_count`, `emotion_peak`, `is_ltm` を追加
+  - DB migration: `memory_strength` テーブルにカラム追加（ALTER TABLE ADD COLUMN）
+  
+- [ ] **J-7**: `compute_strength_score()` 実装
+  - ファイル: `nous/domain/memory/entities.py`
+  - 7-factor 計算式を実装
+  - `strength = compute_recall(elapsed) * compute_strength_score(memory, now)`
+  
+- [ ] **J-8**: `DecayWorker` 更新
+  - ファイル: `nous/application/workers/decay_worker.py`
+  - `compute_recall(elapsed)` → `compute_recall(elapsed) * compute_strength_score(memory, now)` に変更
+  - `min_strength` 判定は最終 strength で行う
+  
+- [ ] **J-9**: `boost_on_recall()` 拡張
+  - `emotion_peak = max(emotion_peak, emotion_intensity)` 追加
+  - `last_recall` 更新（既存）
+  - `link_count` 再計算（entity_relations + related_keys から）
+  
+- [ ] **J-10**: テスト追加（Phase 2）
+  - 新規: `test_memory_strength.py` に strength_score テスト追加
+  - 既存 decay_worker テストの期待値更新
+
+---
+
+### 柱J Phase 3: STM/LTM 自動昇格・アーカイブ
+
+- **昇格条件**: `strength > 0.7` AND `recall_count >= 3` → `is_ltm = True`
+- **アーカイブ条件**: `strength < 0.2` AND `now - last_recall > 30 days` → `lifecycle_status = 'archived'`
+- LTM 記憶は減衰を遅くする（`decay_exponent` を 0.5 → 0.3 に緩和）
+
+- [ ] **J-11**: `is_ltm` フラグ追加（Phase 2 で先行追加済み、本 Phase では自動昇格ロジック）
+- [ ] **J-12**: `DecayWorker` に STM/LTM 遷移ロジック追加
+- [ ] **J-13**: LTM 減衰緩和: `compute_recall(elapsed, decay_exponent=0.3)`
+- [ ] **J-14**: アーカイブ機構: 30日以上 inactive + strength < 0.2 → `archived`
+- [ ] **J-15**: テスト追加（Phase 3）
+
+---
+
+### 柱J Phase 4: Interference + Chain-aware + Emotion boost
+
+- **Interference**: 2つの記憶の embedding 類似度が 0.7-0.92 で矛盾判定 → `interference_count += 1`
+- **Chain-aware**: `link_count * 0.1`（max 1.0）を strength に加算（連鎖保存）
+- **Emotion boost**: `emotion_peak * 0.5`（max 0.5）を strength に加算（感情顯著性 1-1.5x）
+
+- [ ] **J-16**: `interference_count` 更新ロジック（記憶作成時に類似度チェック）
+- [ ] **J-17**: `link_count` 自動計算（entity_relations + related_keys から）
+- [ ] **J-18**: `emotion_peak` 更新（boost_on_recall 時）
+- [ ] **J-19**: `strength_score` に chain-aware + emotion boost 統合
+- [ ] **J-20**: テスト追加（Phase 4）
+
+---
+
+### 柱J Phase 5: Qdrant decay functions（検索時鮮度減衰）
+
+- Qdrant 検索クエリに `exp_decay` formula を追加（`created_at` 基準、scale=7日）
+- ベクトル検索結果に組み込み時点の鮮度補正
+
+- [ ] **J-21**: Qdrant クエリに `exp_decay` formula 追加
+- [ ] **J-22**: テスト追加（Phase 5）
+
+---
+
+### 柱J Phase 6: Consolidation worker（将来）
+
+低優先度記憶の圧縮・統合。CraniMem 流 episodic consolidation。
+- [ ] **J-23**: 設計のみ。実装は Phase 5 完了後に判断
