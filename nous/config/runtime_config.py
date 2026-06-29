@@ -215,10 +215,15 @@ class RuntimeConfigManager:
 
         meta = SETTINGS_META[category][key]
         if not meta.get("hot_reload", False):
+            # Save override to disk even if restart is needed
+            if category not in self._overrides:
+                self._overrides[category] = {}
+            self._overrides[category][key] = value
+            self._save_overrides()
             return {
-                "success": False,
-                "error": f"{category}.{key} requires server restart",
+                "success": True,
                 "restart_required": True,
+                "message": f"{category}.{key} saved. Server restart required to apply changes.",
             }
 
         # Save override

@@ -52,6 +52,8 @@ def register_admin_routes(mcp) -> None:
 
             config = RuntimeConfigManager()
             result = config.update(category, key, value)
+            if result.get("restart_required"):
+                return JSONResponse(content=result, status_code=200)
             status_code = 200 if result.get("success") else 400
             return JSONResponse(result, status_code=status_code)
         except Exception as exc:

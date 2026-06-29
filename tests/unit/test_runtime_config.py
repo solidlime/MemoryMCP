@@ -75,12 +75,18 @@ def test_update_hot_reloadable(tmp_data_dir: Path):
 
 
 def test_update_non_hot_reloadable(tmp_data_dir: Path):
-    """Updating a non-hot-reloadable setting should fail with restart_required."""
+    """Updating a non-hot-reloadable setting saves to disk with restart_required flag."""
     mgr = RuntimeConfigManager()
 
     result = mgr.update("server", "port", 9999)
-    assert result["success"] is False
+    assert result["success"] is True
     assert result.get("restart_required") is True
+    # Verify it was persisted to overrides file
+    overrides_file = tmp_data_dir / "config" / "config_overrides.json"
+    assert overrides_file.exists()
+    import json
+    data = json.loads(overrides_file.read_text())
+    assert data.get("server", {}).get("port") == 9999
 
 
 def test_overrides_persist_to_file(tmp_data_dir: Path):
