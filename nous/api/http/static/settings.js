@@ -59,6 +59,93 @@ const CATEGORY_ORDER = [
 ];
 
 /* ═══════════════════════════════════════════════════════════════════
+   AUTO-SAVE DEBOUNCE & HELPERS
+   ═══════════════════════════════════════════════════════════════════ */
+
+const _autoSaveTimers = {};
+const RELOAD_CATEGORIES = new Set(['embedding', 'reranker', 'qdrant']);
+
+function debounceAutoSave(cat, key, inputId, value) {
+    var timerKey = cat + '.' + key;
+    if (_autoSaveTimers[timerKey]) clearTimeout(_autoSaveTimers[timerKey]);
+    _autoSaveTimers[timerKey] = setTimeout(function() {
+        doAutoSave(cat, key, inputId, value);
+    }, 300);
+}
+
+async function doAutoSave(cat, key, inputId, value) {
+    var statusEl = document.getElementById('status-' + inputId);
+    var input = document.getElementById(inputId);
+    if (!statusEl) return;
+
+    /* Show saving state */
+    statusEl.className = 'setting-status status-saving visible';
+    statusEl.innerHTML = '<span class="setting-spinner"></span> Saving...';
+
+    /* Clear previous error */
+    var row = input ? input.closest('.setting-row') : null;
+    var errEl = row ? row.querySelector('.setting-inline-error') : null;
+    if (errEl) { errEl.textContent = ''; errEl.className = 'setting-inline-error'; }
+
+    try {
+        await api('/api/settings', {
+            method: 'PUT',
+            body: JSON.stringify({ category: cat, key: key, value: value })
+        });
+
+        /* Show saved state */
+        statusEl.className = 'setting-status status-saved visible';
+        statusEl.innerHTML = '✓ Saved';
+
+        /* Update source badge to "override" */
+        if (row) {
+            var srcEl = row.querySelector('.setting-source');
+            if (srcEl) {
+                srcEl.className = 'setting-source source-override';
+                srcEl.title = 'Set via WebUI override';
+                srcEl.innerHTML = '<i data-lucide="edit-3"></i> override';
+            }
+        }
+
+        /* Start polling for reload categories */
+        if (RELOAD_CATEGORIES.has(cat)) {
+            statusEl.className = 'setting-status status-reloading visible';
+            statusEl.innerHTML = '<span class="setting-spinner reloading"></span> Reloading...';
+            startStatusPoll();
+        }
+
+        /* Auto-fade saved indicator after 2s (only if not reloading) */
+        if (!RELOAD_CATEGORIES.has(cat)) {
+            setTimeout(function() {
+                if (statusEl.className.indexOf('status-saved') !== -1) {
+                    statusEl.classList.remove('visible');
+                }
+            }, 2000);
+        }
+
+        /* Update internal data */
+        if (S.settingsData && S.settingsData[cat] && S.settingsData[cat][key]) {
+            S.settingsData[cat][key].value = value;
+            S.settingsData[cat][key].source = 'override';
+        }
+    } catch (e) {
+        /* Show error state */
+        var errMsg = e.message || 'Save failed';
+        statusEl.className = 'setting-status status-error visible';
+        statusEl.innerHTML = '✕ Error';
+        if (errEl) {
+            errEl.textContent = errMsg;
+            errEl.className = 'setting-inline-error visible';
+        }
+        /* Auto-fade error after 3s */
+        setTimeout(function() {
+            statusEl.classList.remove('visible');
+            if (errEl) errEl.classList.remove('visible');
+        }, 3000);
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
    LOAD SETTINGS
    ═══════════════════════════════════════════════════════════════════ */
 
@@ -211,43 +298,48 @@ function renderSettings(el, settings, status) {
             html += sourceIcon(src);
 
             /* Input element */
+            var autosaveAttr = hot ? ' data-autosave="true"' : '';
             if (isMasked) {
                 /* ── Password / masked field with toggle ── */
                 var displayVal = isMasked && val === '***' ? '••••••••' : String(val);
                 html += '<div style="flex:1;min-width:160px;position:relative;display:flex;align-items:center">';
-                html += '<input id="' + inputId + '" type="password" class="glass-input" style="flex:1;padding-right:36px" value="' + esc(String(val)) + '" data-cat="' + esc(cat) + '" data-key="' + esc(key) + '" data-masked="true" placeholder="' + (val === '***' ? '•••••••• (set via env/override)' : 'Enter value...') + '"' + (!hot ? ' disabled' : '') + '>';
+                html += '<input id="' + inputId + '" type="password" class="glass-input" style="flex:1;padding-right:36px" value="' + esc(String(val)) + '" data-cat="' + esc(cat) + '" data-key="' + esc(key) + '" data-masked="true"' + autosaveAttr + ' placeholder="' + (val === '***' ? '•••••••• (set via env/override)' : 'Enter value...') + '"' + (!hot ? ' disabled' : '') + '>';
                 html += '<button class="pw-toggle-btn" data-input="' + inputId + '" style="position:absolute;right:8px;background:none;border:none;color:var(--text-muted);cursor:pointer;padding:2px;font-size:0.8rem" title="Show/hide"><i data-lucide="eye"></i></button>';
                 html += '</div>';
             } else if (key === 'log_level') {
-                html += '<select id="' + inputId + '" class="glass-input" style="flex:1;min-width:120px" data-cat="' + esc(cat) + '" data-key="' + esc(key) + '">';
+                html += '<select id="' + inputId + '" class="glass-input" style="flex:1;min-width:120px" data-cat="' + esc(cat) + '" data-key="' + esc(key) + '"' + autosaveAttr + '">';
                 ['DEBUG','INFO','WARNING','ERROR','CRITICAL'].forEach(function(lv) {
                     html += '<option value="' + lv + '"' + (String(val).toUpperCase() === lv ? ' selected' : '') + '>' + lv + '</option>';
                 });
                 html += '</select>';
             } else if (key === 'device') {
-                html += '<select id="' + inputId + '" class="glass-input" style="flex:1;min-width:120px" data-cat="' + esc(cat) + '" data-key="' + esc(key) + '">';
+                html += '<select id="' + inputId + '" class="glass-input" style="flex:1;min-width:120px" data-cat="' + esc(cat) + '" data-key="' + esc(key) + '"' + autosaveAttr + '">';
                 ['cpu','cuda','mps','auto'].forEach(function(d) {
                     html += '<option value="' + d + '"' + (String(val) === d ? ' selected' : '') + '>' + d + '</option>';
                 });
                 html += '</select>';
             } else if (isBool) {
-                html += '<select id="' + inputId + '" class="glass-input" style="flex:1;min-width:120px" data-cat="' + esc(cat) + '" data-key="' + esc(key) + '">';
+                html += '<select id="' + inputId + '" class="glass-input" style="flex:1;min-width:120px" data-cat="' + esc(cat) + '" data-key="' + esc(key) + '"' + autosaveAttr + '">';
                 html += '<option value="true"' + (val === true ? ' selected' : '') + '>true</option>';
                 html += '<option value="false"' + (val === false ? ' selected' : '') + '>false</option>';
                 html += '</select>';
             } else {
                 var inputType = (typeof val === 'number' && key !== 'host') ? 'number' : 'text';
-                html += '<input id="' + inputId + '" type="' + inputType + '" class="glass-input" style="flex:1;min-width:160px" value="' + esc(String(val)) + '" data-cat="' + esc(cat) + '" data-key="' + esc(key) + '"' + (typeof val === 'number' ? ' step="any"' : '') + (!hot ? ' disabled' : '') + '>';
+                html += '<input id="' + inputId + '" type="' + inputType + '" class="glass-input" style="flex:1;min-width:160px" value="' + esc(String(val)) + '" data-cat="' + esc(cat) + '" data-key="' + esc(key) + '"' + autosaveAttr + (typeof val === 'number' ? ' step="any"' : '') + (!hot ? ' disabled' : '') + '>';
             }
 
             /* Hot reload badge */
             html += '<span class="setting-badge ' + (hot ? 'badge-hot' : 'badge-restart') + '" title="' + esc(tooltipText) + '">' + (hot ? '⚡ hot' : '🔒 restart') + '</span>';
 
-            /* Apply button */
+            /* Status indicator for auto-save fields */
+            if (hot) {
+                html += '<span class="setting-status" id="status-' + inputId + '"></span>';
+            }
+
+            /* Apply button (only for restart-required fields) */
             if (!hot) {
-                html += '<button class="setting-apply-btn" data-cat="' + esc(cat) + '" data-key="' + esc(key) + '" data-input="' + inputId + '" disabled style="padding:6px 12px;font-size:0.78rem;opacity:0.4;cursor:not-allowed"><i data-lucide="lock"></i> Locked</button>';
-            } else {
                 html += '<button class="glass-btn setting-apply-btn" data-cat="' + esc(cat) + '" data-key="' + esc(key) + '" data-input="' + inputId + '" style="padding:6px 12px;font-size:0.78rem"><i data-lucide="check-circle"></i> Apply</button>';
+                html += '<div class="setting-restart-notice" id="notice-' + inputId + '"></div>';
             }
 
             /* Reset button (hidden when no diff) */
@@ -326,7 +418,7 @@ function renderSettings(el, settings, status) {
         };
     });
 
-    /* Apply buttons */
+    /* Apply buttons (restart-required fields only) */
     document.querySelectorAll('.setting-apply-btn').forEach(function(btn) {
         btn.onclick = async function() {
             if (btn.disabled) return;
@@ -356,11 +448,22 @@ function renderSettings(el, settings, status) {
             btn.innerHTML = '<i data-lucide="clock"></i>';
             btn.disabled = true;
             try {
-                await api('/api/settings', { method: 'PUT', body: JSON.stringify({ category: cat, key: key, value: value }) });
-                toast('<i data-lucide="check-circle"></i> Setting saved: ' + cat + '.' + key, 'success');
+                var resp = await api('/api/settings', { method: 'PUT', body: JSON.stringify({ category: cat, key: key, value: value }) });
+                if (resp.restart_required) {
+                    toast('<i data-lucide="alert-triangle"></i> Change saved. Server restart required to apply: ' + cat + '.' + key, 'warning');
+                } else {
+                    toast('<i data-lucide="check-circle"></i> Setting saved: ' + cat + '.' + key, 'success');
+                }
                 btn.innerHTML = '<i data-lucide="check-circle"></i> Done';
-                if (cat === 'embedding' || cat === 'reranker' || cat === 'qdrant') startStatusPoll();
-                setTimeout(function() { loadSettings(); }, 1500);
+                /* Update internal data */
+                if (S.settingsData && S.settingsData[cat] && S.settingsData[cat][key]) {
+                    S.settingsData[cat][key].value = value;
+                    S.settingsData[cat][key].source = 'override';
+                }
+                /* Show restart notice on the row */
+                var row = btn.closest('.setting-row');
+                var noticeEl = row ? row.querySelector('.setting-restart-notice') : null;
+                if (noticeEl) { noticeEl.textContent = 'Change will apply after server restart'; noticeEl.className = 'setting-restart-notice visible'; }
             } catch (e) {
                 var errMsg = e.message || 'Unknown error';
                 toast('<i data-lucide="x-circle"></i> Failed to save: ' + errMsg, 'error');
@@ -370,7 +473,7 @@ function renderSettings(el, settings, status) {
         };
     });
 
-    /* Input validation listeners */
+    /* Input validation listeners + auto-save trigger */
     document.querySelectorAll('.setting-row input, .setting-row select').forEach(function(input) {
         input.addEventListener('input', function() {
             var cat = this.dataset.cat;
@@ -391,6 +494,28 @@ function renderSettings(el, settings, status) {
                 else if (applyBtn) applyBtn.disabled = false;
             }
         });
+
+        /* Auto-save on change for hot_reload fields */
+        if (input.dataset.autosave === 'true') {
+            input.addEventListener('change', function() {
+                var cat = this.dataset.cat;
+                var key = this.dataset.key;
+                var meta = S.settingsData && S.settingsData[cat] && S.settingsData[cat][key];
+                if (!meta) return;
+                var value = this.value;
+                /* Type coercion */
+                if (this.tagName === 'SELECT') {
+                    if (value === 'true') value = true;
+                    else if (value === 'false') value = false;
+                } else if (this.type === 'number') {
+                    value = parseFloat(value);
+                }
+                /* Validation before save */
+                var result = validateField(cat, key, value, meta);
+                if (!result.valid) return;
+                debounceAutoSave(cat, key, this.id, value);
+            });
+        }
     });
 
     /* Export button */
@@ -519,10 +644,40 @@ function toggleCategory(catId) {
    ═══════════════════════════════════════════════════════════════════ */
 
 async function resetField(cat, key, defaultVal) {
+    var meta = S.settingsData && S.settingsData[cat] && S.settingsData[cat][key];
+    var isHot = meta && meta.hot_reload !== false;
     try {
         await api('/api/settings', { method: 'PUT', body: JSON.stringify({ category: cat, key: key, value: defaultVal }) });
         toast('<i data-lucide="check-circle"></i> Reset ' + cat + '.' + key + ' to default', 'success');
-        setTimeout(function() { loadSettings(); }, 800);
+        if (isHot) {
+            /* Auto-save field: update input and status inline */
+            var inputId = 'setting-' + cat + '-' + key;
+            var input = document.getElementById(inputId);
+            if (input) {
+                if (input.tagName === 'SELECT') {
+                    input.value = String(defaultVal);
+                } else {
+                    input.value = defaultVal != null ? String(defaultVal) : '';
+                }
+            }
+            /* Update status indicator */
+            var statusEl = document.getElementById('status-' + inputId);
+            if (statusEl) {
+                statusEl.className = 'setting-status status-saved visible';
+                statusEl.innerHTML = '✓ Saved';
+                setTimeout(function() { statusEl.classList.remove('visible'); }, 2000);
+            }
+            /* Update internal data */
+            if (S.settingsData && S.settingsData[cat] && S.settingsData[cat][key]) {
+                S.settingsData[cat][key].value = defaultVal;
+                S.settingsData[cat][key].source = 'default';
+            }
+            /* Start polling for reload categories */
+            if (RELOAD_CATEGORIES.has(cat)) startStatusPoll();
+        } else {
+            /* Restart-required field: reload to show updated source badge */
+            setTimeout(function() { loadSettings(); }, 800);
+        }
     } catch (e) {
         toast('<i data-lucide="x-circle"></i> Reset failed: ' + e.message, 'error');
     }
@@ -532,6 +687,7 @@ async function resetCategory(cat) {
     if (!confirm('Reset all ' + cat + ' settings to defaults?')) return;
     var settings = S.settingsData;
     if (!settings || !settings[cat]) return;
+    var isHotCat = !RELOAD_CATEGORIES.has(cat) && cat !== 'server' && cat !== 'sandbox' && cat !== 'general';
     try {
         var count = 0;
         Object.entries(settings[cat]).forEach(function(entry) {
@@ -542,7 +698,11 @@ async function resetCategory(cat) {
             }
         });
         toast('<i data-lucide="check-circle"></i> Category ' + cat + ' reset (' + count + ' settings)', 'success');
-        setTimeout(function() { loadSettings(); }, 800);
+        if (RELOAD_CATEGORIES.has(cat)) {
+            startStatusPoll();
+        } else {
+            setTimeout(function() { loadSettings(); }, 800);
+        }
     } catch (e) {
         toast('<i data-lucide="x-circle"></i> Reset failed: ' + e.message, 'error');
     }
@@ -705,12 +865,61 @@ function startStatusPoll() {
             if (allDone) {
                 clearInterval(S.statusPoll);
                 S.statusPoll = null;
-                loadSettings();
+                /* Update per-field status indicators to show completion */
+                RELOAD_CATEGORIES.forEach(function(cat) {
+                    var s = rs[cat];
+                    if (s && (s.status === 'ready' || s.status === 'success')) {
+                        document.querySelectorAll('[data-category="' + cat + '"] .setting-status.status-reloading').forEach(function(el) {
+                            el.className = 'setting-status status-saved visible';
+                            el.innerHTML = '✓ Ready';
+                            setTimeout(function() { el.classList.remove('visible'); }, 2000);
+                        });
+                    } else if (s && s.status === 'error') {
+                        document.querySelectorAll('[data-category="' + cat + '"] .setting-status.status-reloading').forEach(function(el) {
+                            el.className = 'setting-status status-error visible';
+                            el.innerHTML = '✕ Error';
+                            setTimeout(function() { el.classList.remove('visible'); }, 3000);
+                        });
+                    }
+                });
+                /* Update category-level status banners */
+                updateCategoryStatusBanners(rs);
             } else {
-                var el = document.getElementById('settings-content');
-                var settings = S.settingsData;
-                if (settings) renderSettings(el, settings, status);
+                /* Update category-level status banners for loading state */
+                updateCategoryStatusBanners(rs);
             }
         } catch(e) { /* ignore poll errors */ }
     }, 2000);
+}
+
+function updateCategoryStatusBanners(rs) {
+    RELOAD_CATEGORIES.forEach(function(cat) {
+        var s = rs[cat];
+        var statusHtml = '';
+        if (s && s.status === 'loading') {
+            statusHtml = '<div style="margin-top:8px"><div style="font-size:0.78rem;color:var(--accent-yellow);margin-bottom:4px"><i data-lucide="clock"></i> Reloading ' + esc(cat) + ' model...</div><div class="progress-wrap"><div class="progress-bar progress-indeterminate"></div></div></div>';
+        } else if (s && (s.status === 'ready' || s.status === 'success')) {
+            statusHtml = '<div style="margin-top:8px;font-size:0.78rem;color:var(--accent-green)"><i data-lucide="check-circle"></i> ' + esc(cat) + ' ready</div>';
+        } else if (s && s.status === 'error') {
+            statusHtml = '<div style="margin-top:8px;font-size:0.78rem;color:var(--accent-red)"><i data-lucide="x-circle"></i> ' + esc(cat) + ' error: ' + esc(s.error || 'Unknown') + '</div>';
+        }
+        var card = document.querySelector('[data-category="' + cat + '"]');
+        if (card) {
+            var existing = card.querySelector('.cat-reload-status');
+            if (statusHtml) {
+                if (existing) {
+                    existing.innerHTML = statusHtml;
+                } else {
+                    var div = document.createElement('div');
+                    div.className = 'cat-reload-status';
+                    div.innerHTML = statusHtml;
+                    var body = card.querySelector('.cat-body');
+                    if (body) body.insertAdjacentElement('beforebegin', div);
+                }
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            } else if (existing) {
+                existing.remove();
+            }
+        }
+    });
 }
