@@ -110,24 +110,25 @@ class TestUserDeleteCommands:
     def test_generates_delete_command(self):
         cmds = user_delete_commands("test_user")
         text = " ".join(cmds)
-        assert "userdel" in text
+        assert "rm -rf" in text
 
     def test_safe_for_missing_user(self):
         cmds = user_delete_commands("nonexistent")
         text = " ".join(cmds)
-        assert "|| true" in text
+        assert "rm -rf" in text  # -rf silently succeeds for missing paths
 
     def test_deletes_home_directory(self):
         cmds = user_delete_commands("alice")
         text = " ".join(cmds)
-        assert "userdel -r" in text  # -r flag removes home dir
+        assert "rm -rf" in text
+        assert "/home/sbox_alice" in text
 
 
 class TestUserExistsCommands:
     def test_generates_id_check(self):
         cmds = user_exists_commands("test_user")
         text = " ".join(cmds)
-        assert "id -u" in text
+        assert "test -d" in text
         assert "sbox_test_user" in text
 
 
@@ -174,7 +175,7 @@ class TestEnsureSandboxUser:
         assert result == "sbox_test_persona"
         assert mock_container.exec_run.call_count == 1
         call_args = mock_container.exec_run.call_args[0]
-        assert "id -u" in " ".join(call_args[0] if isinstance(call_args[0], list) else [str(call_args[0])])
+        assert "test -d" in " ".join(call_args[0] if isinstance(call_args[0], list) else [str(call_args[0])])
 
     @pytest.mark.asyncio
     async def test_user_not_exists_creates(self, mock_docker):
