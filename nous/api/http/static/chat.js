@@ -828,10 +828,9 @@ async function restoreChatHistory() {
         const msgs = data.messages.slice(-maxMsgs);
         container.innerHTML = '';
         for (const msg of msgs) {
-            appendChatMessage(msg.role, msg.content, msg.time, msg.role === 'assistant');
-            // Render tool calls if present (persist across reload)
-            if (msg.tool_calls && msg.tool_calls.length > 0) {
-                const container = document.getElementById('chat-messages');
+            // assistant の tool_calls は先にレンダリング（時系列順: tool_call → tool_result → assistant 応答）
+            if (msg.role === 'assistant' && msg.tool_calls?.length) {
+                const msgContainer = document.getElementById('chat-messages');
                 for (const tc of msg.tool_calls) {
                     const div = document.createElement('div');
                     div.className = 'chat-tool-call done';
@@ -846,7 +845,28 @@ async function restoreChatHistory() {
                         '<span class="chat-tool-status"> <i data-lucide="check"></i> 完了</span></summary>' +
                         '<pre class="chat-tool-detail">' + esc(inputStr) + '</pre>' +
                         '<pre class="chat-tool-detail chat-tool-result-content">' + esc(resultStr) + '</pre></details>';
-                    container.appendChild(div);
+                    msgContainer.appendChild(div);
+                }
+            }
+            appendChatMessage(msg.role, msg.content, msg.time, msg.role === 'assistant');
+            // user メッセージの tool_calls（存在すれば）は従来通り後
+            if (msg.role !== 'assistant' && msg.tool_calls?.length) {
+                const msgContainer = document.getElementById('chat-messages');
+                for (const tc of msg.tool_calls) {
+                    const div = document.createElement('div');
+                    div.className = 'chat-tool-call done';
+                    let inputStr;
+                    try { inputStr = JSON.stringify(tc.input, null, 2); } catch (e) { inputStr = String(tc.input); }
+                    let resultStr;
+                    try {
+                        resultStr = typeof tc.result === 'object' ? JSON.stringify(tc.result, null, 2) : String(tc.result);
+                    } catch (e) { resultStr = String(tc.result); }
+                    div.innerHTML =
+                        '<details><summary><i data-lucide="wrench"></i> <strong>' + esc(tc.name) + '</strong>' +
+                        '<span class="chat-tool-status"> <i data-lucide="check"></i> 完了</span></summary>' +
+                        '<pre class="chat-tool-detail">' + esc(inputStr) + '</pre>' +
+                        '<pre class="chat-tool-detail chat-tool-result-content">' + esc(resultStr) + '</pre></details>';
+                    msgContainer.appendChild(div);
                 }
             }
         }

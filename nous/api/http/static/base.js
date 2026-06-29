@@ -497,6 +497,7 @@ async function init() {
     // Event: Persona change
     document.getElementById('persona-select').onchange = (e) => {
         S.persona = e.target.value;
+        setStoredPersona(e.target.value);
         connectSSE(e.target.value);
         S.dashCache = null;
         // Reset pagination/search without losing extended properties from memories.js
