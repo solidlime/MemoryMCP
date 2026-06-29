@@ -443,6 +443,25 @@ html.light .badge-yellow { color: #d97706; } html.light .badge-red { color: #dc2
 .setting-restart-notice.visible { display: block; }
 
 /* ============================================================
+   GLOBAL APPLY SECTION
+   ============================================================ */
+.global-apply-section {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 16px 20px; margin-top: 8px;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+}
+.global-apply-section .primary-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg,rgba(167,139,250,0.3),rgba(96,165,250,0.3));
+    box-shadow: 0 0 20px rgba(167,139,250,0.15);
+    transform: translateY(-1px);
+}
+.global-apply-section .primary-btn:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+/* ============================================================
    SETTINGS PANEL STICKY HEADER (Chat)
    ============================================================ */
 .settings-sticky-header {

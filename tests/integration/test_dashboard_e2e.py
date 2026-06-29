@@ -473,15 +473,15 @@ async def test_settings_update_worker(client):
 
 @pytest.mark.asyncio
 async def test_settings_restart_required(client):
-    """E14: PUT /api/settings server.host → restart_required error."""
+    """E14: PUT /api/settings server.host → saves override, restart_required."""
     resp = await client.put(
         "/api/settings",
         json={"category": "server", "key": "host", "value": "0.0.0.0"},
     )
-    # server.host has hot_reload=False → should fail
-    assert resp.status_code == 400
+    # server.host has hot_reload=False → saved to disk, restart required
+    assert resp.status_code == 200
     data = resp.json()
-    assert data["success"] is False
+    assert data["success"] is True
     assert data.get("restart_required") is True
 
 

@@ -2,15 +2,7 @@
    SETTINGS DASHBOARD — Nous WebUI
    ═══════════════════════════════════════════════════════════════════ */
 
-const DEPENDS_RULES = {
-    'summarization.use_llm': { field: 'summarization.enabled', value: true },
-    'summarization.llm_api_url': { field: 'summarization.use_llm', value: true },
-    'summarization.llm_api_key': { field: 'summarization.use_llm', value: true },
-    'summarization.llm_model': { field: 'summarization.use_llm', value: true },
-    'summarization.llm_max_tokens': { field: 'summarization.use_llm', value: true },
-    'summarization.check_interval_seconds': { field: 'summarization.enabled', value: true },
-    'summarization.min_importance': { field: 'summarization.enabled', value: true }
-};
+const DEPENDS_RULES = {};
 
 const BUILTIN_PROFILES = {
     'Development': {
@@ -35,7 +27,6 @@ const CATEGORY_ICONS = {
     reranker: '<i data-lucide="search"></i>',
     qdrant: '<i data-lucide="package"></i>',
     forgetting: '<i data-lucide="broom"></i>',
-    summarization: '<i data-lucide="bot"></i>',
     memory_enrichment: '<i data-lucide="sparkles"></i>',
     general: '<i data-lucide="settings"></i>'
 };
@@ -47,7 +38,6 @@ const CATEGORY_DESCRIPTIONS = {
     reranker: 'Cross-encoder reranker for search result quality. Reload takes 5-30s.',
     qdrant: 'Qdrant vector database connection settings.',
     forgetting: 'Ebbinghaus forgetting curve for automatic memory decay.',
-    summarization: 'LLM-based or statistical memory summarization pipeline.',
     memory_enrichment: 'Auto-evaluate importance and relations via LLM after memory creation.',
     general: 'General settings: timezone, logging, thresholds, search engine, browser path.'
 };
@@ -55,7 +45,7 @@ const CATEGORY_DESCRIPTIONS = {
 /* ── Category display order (consistent across renders) ── */
 const CATEGORY_ORDER = [
     'api_keys', 'general', 'server', 'sandbox', 'embedding', 'reranker',
-    'qdrant', 'forgetting', 'summarization', 'memory_enrichment'
+    'qdrant', 'forgetting', 'memory_enrichment'
 ];
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -336,12 +326,6 @@ function renderSettings(el, settings, status) {
                 html += '<span class="setting-status" id="status-' + inputId + '"></span>';
             }
 
-            /* Apply button (only for restart-required fields) */
-            if (!hot) {
-                html += '<button class="glass-btn setting-apply-btn" data-cat="' + esc(cat) + '" data-key="' + esc(key) + '" data-input="' + inputId + '" style="padding:6px 12px;font-size:0.78rem"><i data-lucide="check-circle"></i> Apply</button>';
-                html += '<div class="setting-restart-notice" id="notice-' + inputId + '"></div>';
-            }
-
             /* Reset button (hidden when no diff) */
             html += '<button class="setting-reset-btn" data-cat="' + esc(cat) + '" data-key="' + esc(key) + '" style="' + (isDiff ? '' : 'display:none;') + 'padding:4px 10px;font-size:0.72rem;background:none;border:1px solid var(--glass-border);border-radius:6px;color:var(--text-muted);cursor:pointer">↩ Reset</button>';
 
@@ -369,6 +353,13 @@ function renderSettings(el, settings, status) {
     html += '<button id="export-config-btn" class="glass-btn-success glass-btn"><i data-lucide="download"></i> Export Config</button>';
     html += '<button id="reset-config-btn" class="glass-btn-danger glass-btn"><i data-lucide="trash-2"></i> Reset All to Defaults</button>';
     html += '</div>';
+    html += '</div>';
+
+    /* ── Global Apply for restart-required changes ── */
+    html += '<div class="global-apply-section">';
+    html += '<button id="global-apply-btn" class="primary-btn" disabled style="padding:10px 24px;font-size:0.85rem;font-weight:600;border-radius:10px;background:linear-gradient(135deg,rgba(167,139,250,0.2),rgba(96,165,250,0.2));border:1px solid rgba(167,139,250,0.3);color:var(--text-primary);cursor:not-allowed;opacity:0.4;transition:all 0.2s"><i data-lucide="save"></i> Apply Restart-Required Changes</button>';
+    html += '<span id="global-apply-status" class="setting-status"></span>';
+    html += '<div id="global-apply-details" style="display:none;width:100%;margin-top:8px;font-size:0.78rem;color:var(--text-muted)"></div>';
     html += '</div>';
 
     el.innerHTML = html;
@@ -418,60 +409,120 @@ function renderSettings(el, settings, status) {
         };
     });
 
-    /* Apply buttons (restart-required fields only) */
-    document.querySelectorAll('.setting-apply-btn').forEach(function(btn) {
-        btn.onclick = async function() {
-            if (btn.disabled) return;
-            var cat = btn.dataset.cat;
-            var key = btn.dataset.key;
-            var input = document.getElementById(btn.dataset.input);
-            var value = input.value;
-            /* Type coercion */
-            if (input.tagName === 'SELECT') {
-                if (value === 'true') value = true;
-                else if (value === 'false') value = false;
-            } else if (input.type === 'number') {
-                value = parseFloat(value);
+    /* ═══════════════════════ GLOBAL APPLY (restart-required) ═══════════════════════ */
+    (function initGlobalApply() {
+        var dirtyFields = {};
+        var btn = document.getElementById('global-apply-btn');
+        var statusEl = document.getElementById('global-apply-status');
+        var detailsEl = document.getElementById('global-apply-details');
+        if (!btn) return;
+
+        function updateBtnState() {
+            var count = Object.keys(dirtyFields).length;
+            if (count > 0) {
+                btn.disabled = false;
+                btn.style.opacity = '1';
+                btn.style.cursor = 'pointer';
+                btn.innerHTML = '<i data-lucide="save"></i> Apply ' + count + ' Change' + (count > 1 ? 's' : '');
+            } else {
+                btn.disabled = true;
+                btn.style.opacity = '0.4';
+                btn.style.cursor = 'not-allowed';
+                btn.innerHTML = '<i data-lucide="save"></i> Apply Restart-Required Changes';
             }
-            /* Validation */
-            var meta = S.settingsData && S.settingsData[cat] && S.settingsData[cat][key];
-            if (meta) {
-                var result = validateField(cat, key, value, meta);
-                if (!result.valid) {
-                    var errEl = btn.closest('.setting-row').querySelector('.setting-validation-error');
-                    if (errEl) { errEl.textContent = result.error; errEl.style.display = 'block'; }
-                    input.style.borderColor = 'var(--accent-red)';
-                    toast('<i data-lucide="x-circle"></i> Validation error: ' + result.error, 'error');
-                    return;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        /* Attach change listeners to all restart-required fields */
+        document.querySelectorAll('.setting-row input[data-autosave="false"], .setting-row select[data-autosave="false"]').forEach(function(input) {
+            /* Skip — these shouldn't exist, but be safe */
+        });
+        /* restart-required fields have no data-autosave attr and are not hot */
+        document.querySelectorAll('.setting-row input:not([data-autosave]), .setting-row select:not([data-autosave])').forEach(function(input) {
+            if (input.dataset.cat && input.dataset.key) {
+                var cat = input.dataset.cat;
+                var key = input.dataset.key;
+                var meta = S.settingsData && S.settingsData[cat] && S.settingsData[cat][key];
+                if (meta && meta.hot_reload === false) {
+                    input.addEventListener('change', function() {
+                        var value = this.value;
+                        if (this.tagName === 'SELECT') {
+                            if (value === 'true') value = true;
+                            else if (value === 'false') value = false;
+                        } else if (this.type === 'number') {
+                            value = parseFloat(value);
+                        }
+                        var result = validateField(cat, key, value, meta);
+                        if (result.valid) {
+                            dirtyFields[cat + '.' + key] = { cat: cat, key: key, value: value, inputId: this.id };
+                        } else {
+                            delete dirtyFields[cat + '.' + key];
+                        }
+                        updateBtnState();
+                    });
                 }
             }
-            btn.innerHTML = '<i data-lucide="clock"></i>';
+        });
+
+        btn.addEventListener('click', async function() {
+            var entries = Object.values(dirtyFields);
+            if (entries.length === 0) return;
             btn.disabled = true;
-            try {
-                var resp = await api('/api/settings', { method: 'PUT', body: JSON.stringify({ category: cat, key: key, value: value }) });
-                if (resp.restart_required) {
-                    toast('<i data-lucide="alert-triangle"></i> Change saved. Server restart required to apply: ' + cat + '.' + key, 'warning');
-                } else {
-                    toast('<i data-lucide="check-circle"></i> Setting saved: ' + cat + '.' + key, 'success');
+            btn.innerHTML = '<span class="setting-spinner"></span> Applying...';
+            if (statusEl) { statusEl.className = 'setting-status status-saving visible'; statusEl.innerHTML = '<span class="setting-spinner"></span> Saving...'; }
+            if (detailsEl) { detailsEl.style.display = 'none'; detailsEl.textContent = ''; }
+
+            var saved = 0, failed = 0, restartNeeded = false;
+            for (var i = 0; i < entries.length; i++) {
+                var e = entries[i];
+                try {
+                    var resp = await api('/api/settings', { method: 'PUT', body: JSON.stringify({ category: e.cat, key: e.key, value: e.value }) });
+                    saved++;
+                    if (resp.restart_required) restartNeeded = true;
+                    /* Update internal data */
+                    if (S.settingsData && S.settingsData[e.cat] && S.settingsData[e.cat][e.key]) {
+                        S.settingsData[e.cat][e.key].value = e.value;
+                        S.settingsData[e.cat][e.key].source = 'override';
+                    }
+                    /* Update source badge */
+                    var row = document.getElementById(e.inputId) ? document.getElementById(e.inputId).closest('.setting-row') : null;
+                    if (row) {
+                        var srcEl = row.querySelector('.setting-source');
+                        if (srcEl) {
+                            srcEl.className = 'setting-source source-override';
+                            srcEl.title = 'Set via WebUI override';
+                            srcEl.innerHTML = '<i data-lucide="edit-3"></i> override';
+                        }
+                    }
+                } catch (err) {
+                    failed++;
                 }
-                btn.innerHTML = '<i data-lucide="check-circle"></i> Done';
-                /* Update internal data */
-                if (S.settingsData && S.settingsData[cat] && S.settingsData[cat][key]) {
-                    S.settingsData[cat][key].value = value;
-                    S.settingsData[cat][key].source = 'override';
-                }
-                /* Show restart notice on the row */
-                var row = btn.closest('.setting-row');
-                var noticeEl = row ? row.querySelector('.setting-restart-notice') : null;
-                if (noticeEl) { noticeEl.textContent = 'Change will apply after server restart'; noticeEl.className = 'setting-restart-notice visible'; }
-            } catch (e) {
-                var errMsg = e.message || 'Unknown error';
-                toast('<i data-lucide="x-circle"></i> Failed to save: ' + errMsg, 'error');
-                btn.innerHTML = '<i data-lucide="x-circle"></i> Error';
             }
-            setTimeout(function() { btn.disabled = false; }, 2000);
-        };
-    });
+
+            if (failed > 0) {
+                if (statusEl) { statusEl.className = 'setting-status status-error visible'; statusEl.innerHTML = '✕ ' + failed + ' failed'; }
+            } else if (restartNeeded) {
+                if (statusEl) { statusEl.className = 'setting-status status-saved visible'; statusEl.innerHTML = '✓ Saved — restart to apply'; }
+                if (detailsEl) {
+                    detailsEl.style.display = 'block';
+                    detailsEl.textContent = 'Changes saved. Server restart is required for: ' + entries.map(function(e) { return e.key; }).join(', ');
+                    detailsEl.style.color = 'var(--accent-orange)';
+                }
+            } else {
+                if (statusEl) { statusEl.className = 'setting-status status-saved visible'; statusEl.innerHTML = '✓ All saved'; }
+            }
+
+            toast(restartNeeded
+                ? '<i data-lucide="alert-triangle"></i> Changes saved. Server restart required.'
+                : '<i data-lucide="check-circle"></i> All changes saved.', restartNeeded ? 'warning' : 'success');
+
+            dirtyFields = {};
+            updateBtnState();
+            setTimeout(function() {
+                if (statusEl) statusEl.classList.remove('visible');
+            }, 3000);
+        });
+    })();
 
     /* Input validation listeners + auto-save trigger */
     document.querySelectorAll('.setting-row input, .setting-row select').forEach(function(input) {
@@ -482,16 +533,12 @@ function renderSettings(el, settings, status) {
             if (!meta) return;
             var result = validateField(cat, key, this.value, meta);
             var errEl = this.closest('.setting-row').querySelector('.setting-validation-error');
-            var applyBtn = this.closest('.setting-row').querySelector('.setting-apply-btn');
             if (!result.valid) {
                 this.style.borderColor = 'var(--accent-red)';
                 if (errEl) { errEl.textContent = result.error; errEl.style.display = 'block'; }
-                if (applyBtn && !applyBtn.disabled) applyBtn.disabled = true;
             } else {
                 this.style.borderColor = '';
                 if (errEl) { errEl.textContent = ''; errEl.style.display = 'none'; }
-                if (applyBtn && !applyBtn.dataset.cat) { /* don't re-enable locked buttons */ }
-                else if (applyBtn) applyBtn.disabled = false;
             }
         });
 
@@ -727,16 +774,13 @@ function applyDependsRules() {
             row.style.opacity = isEnabled ? '1' : '0.4';
             row.style.pointerEvents = isEnabled ? 'auto' : 'none';
             var input = row.querySelector('input, select');
-            var btn = row.querySelector('.setting-apply-btn');
             if (!isEnabled) {
                 if (input) input.disabled = true;
-                if (btn) btn.disabled = true;
             } else {
                 /* Only re-enable if not a locked (hot_reload=false) field */
                 var meta = settings[targetKey.split('.')[0]] && settings[targetKey.split('.')[0]][targetKey.split('.')[1]];
                 if (!meta || meta.hot_reload !== false) {
                     if (input) input.disabled = false;
-                    if (btn) btn.disabled = false;
                 }
             }
         }
