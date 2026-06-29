@@ -1,6 +1,7 @@
-# SPEC - 技術仕様・要件定義 v9
+# SPEC - 技術仕様・要件定義 v10
 
 > 元PLAN: `.spec/PLAN.md` v9。@oracle レビュー反映済み。
+> v10: 柱J（記憶減衰 Phase 1）追加。`docs/memory_decay_research_2026-06-29.md` 参照。
 
 ## 目標
 - **`docker compose up` 一発で全機能が利用可能になること。**
@@ -315,3 +316,54 @@ CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
     content='memories', content_rowid='rowid'
 );
 ```
+
+### 柱J: 記憶減衰・増幅アルゴリズム改良 Phase 1 (2026-06-29)
+
+> **背景**: 現状の Ebbinghaus 指数減衰 `R = e^(-t/(S*24))` は人間の記憶曲線（power-law）より精度が低い。FSRS v6 power-law は Anki 実データで検証済みのデファクト。
+> **方針**: 減衰関数を Ebbinghaus → FSRS power-law に置換。Phase 2 以降で 7-factor scoring / STM-LTM auto-promotion / interference を追加。
+> **参考**: `docs/memory_decay_research_2026-06-29.md`（23ソース比較）
+
+- [ ] **J-0**: SPEC レビュー（@oracle）
+  - Phase 1 のスコープと設計の妥当性確認
+  - 後続 Phase の依存関係整理
+  - 既存実装との整合性チェック
+
+- [ ] **J-1**: `MemoryStrength.compute_recall()` の FSRS power-law 化
+  - ファイル: `nous/domain/memory/entities.py`
+  - 現状: `compute_recall()` で `R = e^(-elapsed_hours / (stability * 24))`（Ebbinghaus 指数）
+  - 変更後: `R = (1 + 19 * elapsed_hours / (stability * 24))^(-decay_exponent)`（正準 FSRS v6 power-law）
+  - `decay_exponent`: デフォルト 0.5（FSRS v6 標準値）
+  - `factor = 19.0`: 正準 FSRS に忠実。`/9` の魔術定数は使用しない（@oracle レビュー指摘）
+  - **検証**: `factor=19` で `R(S*24h, S) = (1 + 19*24S/(S*24))^(-0.5) = 20^(-0.5) ≈ 0.224`
+  - 後方互換: メソッド名 `compute_recall()` は変更しない。`decay_exponent` を引数に追加（デフォルト 0.5）
+  - 安全策: `min_strength` を 0.01 → 0.005 に調整（新規記憶の急速消失を緩和、Phase 2 で再調整）
+
+- [ ] **J-2**: `DecayWorker` の互換性確認
+  - ファイル: `nous/application/workers/decay_worker.py`
+  - `retrievability()` 呼び出し箇所を確認
+  - 引数シグネチャ変更の影響範囲チェック
+  - 必要に応じて decay_exponent を環境変数で調整可能に
+
+- [ ] **J-3**: 検索ランキング統合の確認
+  - ファイル: `nous/domain/memory/repo.py`（RRF + ForgettingCurve 統合箇所）
+  - 減衰関数変更が検索スコアに与える影響を評価
+  - 必要に応じて RRF 重み調整
+
+- [ ] **J-4**: ユニットテスト追加
+  - `tests/unit/test_memory_strength.py`: 新規作成（10ケース）
+  - テストケース:
+    1. `t=0` → R ≈ 1.0（新規記憶）
+    2. `t=stability*24h, S=1` → R ≈ 0.224（正準 FSRS 定義値）
+    3. `t=stability*24h*10, S=1` → R < 0.1（有意減衰）
+    4. `stability=0` → R = 0.0（境界値）
+    5. `decay_exponent=1.0` → より急峻な減衰
+    6. `decay_exponent=2.0` → さらに急峻
+    7. `decay_exponent=0.1` → より緩やかな減衰
+    8. `stability=365`（最大値）, `t=365*24h` → 1年後も R > 0.05（長期記憶存続）
+    9. 新旧曲線クロスオーバー: FSRS と Ebbinghaus が交差する性質の確認
+    10. `elapsed_hours=0` → `compute_recall() ≈ 1.0`（既存テスト互換）
+  - `test_decay_worker.py` の既存テストも全件パス確認
+
+- [ ] **J-5**: ドキュメント更新
+  - `CLAUDE.md`: MemoryStrength の減衰モデル変更を追記
+  - `docs/memory_features.md`: 減衰曲線の更新（Ebbinghaus → FSRS）
