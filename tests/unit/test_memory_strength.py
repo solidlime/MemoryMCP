@@ -85,3 +85,31 @@ class TestFSRSRecall:
         """elapsed_hours=0 → R ≈ 1.0 (backward compat)."""
         ms = MemoryStrength(memory_key="test", stability=5.0)
         assert ms.compute_recall(0.0) == pytest.approx(1.0, abs=1e-6)
+
+
+class TestMemoryStrengthLTM:
+    """is_ltm flag and LTM-related behaviour."""
+
+    def test_is_ltm_default_false(self):
+        """新規 MemoryStrength の is_ltm は False."""
+        ms = MemoryStrength(memory_key="test")
+        assert ms.is_ltm is False
+
+    def test_is_ltm_uses_slower_decay(self):
+        """is_ltm=True → decay_exponent=0.3 でより緩やかな減衰."""
+        ms = MemoryStrength(memory_key="test", stability=1.0, is_ltm=True)
+        r_fast = ms.compute_recall(24.0, decay_exponent=0.5)
+        r_slow = ms.compute_recall(24.0, decay_exponent=0.3)
+        assert r_slow > r_fast, (
+            f"LTM should decay slower: {r_slow} vs {r_fast}"
+        )
+
+    def test_boost_on_recall_preserves_is_ltm(self):
+        """boost_on_recall は is_ltm を変更しない."""
+        ms = MemoryStrength(memory_key="test", is_ltm=True)
+        ms.boost_on_recall()
+        assert ms.is_ltm is True
+
+        ms2 = MemoryStrength(memory_key="test", is_ltm=False)
+        ms2.boost_on_recall()
+        assert ms2.is_ltm is False

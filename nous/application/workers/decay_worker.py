@@ -42,9 +42,31 @@ class DecayWorker:
         for strength in result.value:
             elapsed = (now - strength.last_decay).total_seconds() / 3600 if strength.last_decay else 24.0
 
-            recall = strength.compute_recall(elapsed)
+            # LTM uses slower decay exponent
+            decay_exp = 0.3 if strength.is_ltm else 0.5
+            recall = strength.compute_recall(elapsed, decay_exponent=decay_exp)
             score = strength.compute_strength_score()
             new_strength_val = recall * score
+
+            # STM → LTM automatic promotion (before min_strength check)
+            if not strength.is_ltm and new_strength_val > 0.7 and strength.recall_count >= 3:
+                strength.is_ltm = True
+
+            # Archive condition (before min_strength check)
+            if new_strength_val < 0.2 and strength.last_recall:
+                # Unify timezone to avoid aware/naive mismatch
+                _now = now.replace(tzinfo=None)
+                _last = strength.last_recall.replace(tzinfo=None)
+                inactive_days = (_now - _last).days
+                if inactive_days > 30:
+                    try:
+                        self.context.memory_repo.update(
+                            strength.memory_key,
+                            lifecycle_status="archived",
+                        )
+                    except Exception:
+                        pass
+
             if new_strength_val < self.context.settings.forgetting.min_strength:
                 continue
 
