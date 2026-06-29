@@ -425,8 +425,7 @@ async def _tool_sandbox_reset(ctx: AppContext, persona: str, level: str = "files
 
 async def _tool_sandbox_context(ctx: AppContext, persona: str) -> dict:
     """Get sandbox environment context (languages, pip packages)."""
-    import nous.application.sandbox.service
-    from nous.application.sandbox.service import get_sandbox_session, SandboxSession
+    from nous.application.sandbox.service import SandboxSession, get_sandbox_session
     from nous.config.settings import get_settings
 
     settings = get_settings()

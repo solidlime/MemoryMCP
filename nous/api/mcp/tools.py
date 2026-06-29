@@ -4,11 +4,10 @@ import json
 import logging
 from typing import Annotated, Any
 
-from pydantic import Field
-
 from mcp.server.fastmcp import FastMCP  # noqa: TC002
 from mcp.shared.exceptions import McpError
 from mcp.types import ErrorData
+from pydantic import Field
 
 from nous.api.mcp.middleware import PersonaRequiredError, get_current_persona
 from nous.application.use_cases import AppContextRegistry
