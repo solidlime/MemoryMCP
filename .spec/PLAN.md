@@ -1,3 +1,27 @@
+# WebUI修正 + sandbox ファイル操作修正 (2026-06-29)
+
+## 課題1: チャットログ表示順序（リロード後）
+- リアルタイムSSE: ユーザー→ツール呼出→ツール結果→LLM応答 ✅
+- リロード後: ユーザー→LLM応答→ツール呼出→ツール結果 ❌
+- 原因: `restoreChatHistory()` が assistant メッセージ→tool_calls の順でレンダリング
+- 修正: assistant の tool_calls を先にレンダリングしてから assistant メッセージを追加
+
+## 課題2: ページリロードでペルソナ選択がリセット
+- 原因: `persona-select.onchange` で `setStoredPersona()` を呼んでない
+- `getStoredPersona()` は存在するのに保存側が呼ばれていない
+- 修正: onchange ハンドラに `setStoredPersona(e.target.value)` を1行追加
+
+## 課題3: sandbox ファイル操作のパスバグ
+- `/home/sbox_herta/...` を渡すと "path must be under /sandbox" で弾かれる
+- `/sandbox/...` を渡すとバイナリとして返ってくる
+- 原因1: パスバリデーション（/sandbox チェック）が変換より先に実行される
+- 原因2: `read_image()` がテキストファイルでも "application/octet-stream" で成功を返し、テキスト処理コードに到達しない
+- 修正:
+  - (1) `/sandbox` → `/home/{username}` 変換をバリデーションより先に実行
+  - (2) `read_image()` が非画像ファイルで例外を投げる or content_type 判定で fallback
+
+---
+
 # ホスト側データ永続化ディレクトリ構造 案
 
 ## 動機：sandbox から nous 記憶DB の分離
