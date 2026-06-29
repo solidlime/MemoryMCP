@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import threading
 import time
 from typing import TYPE_CHECKING
@@ -59,13 +60,11 @@ class DecayWorker:
                 _last = strength.last_recall.replace(tzinfo=None)
                 inactive_days = (_now - _last).days
                 if inactive_days > 30:
-                    try:
+                    with contextlib.suppress(Exception):
                         self.context.memory_repo.update(
                             strength.memory_key,
                             lifecycle_status="archived",
                         )
-                    except Exception:
-                        pass
 
             if new_strength_val < self.context.settings.forgetting.min_strength:
                 continue

@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
+import warnings as _warnings
 
 logger = logging.getLogger(__name__)
 
@@ -109,8 +110,6 @@ def home_exists_commands(persona: str) -> list[str]:
 # Deprecated — kept for backwards compatibility. Prefer home_create_commands
 # directly. Linux user creation is now handled inside home_create_commands.
 # ---------------------------------------------------------------------------
-
-import warnings as _warnings
 
 
 def user_create_commands(persona: str) -> list[str]:

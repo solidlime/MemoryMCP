@@ -3,7 +3,6 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING
 
 
 @dataclass
@@ -86,10 +85,7 @@ class MemoryStrength:
             now = datetime.now()
 
         # Recency: 7-day half-life
-        if self.last_recall is not None:
-            age_days = (now - self.last_recall).total_seconds() / 86400
-        else:
-            age_days = 365.0
+        age_days = (now - self.last_recall).total_seconds() / 86400 if self.last_recall is not None else 365.0
         recency = 0.20 * math.exp(-age_days / 7.0)
 
         # Frequency: log-scaled recall count
