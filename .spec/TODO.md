@@ -94,8 +94,8 @@
 
 ### 🔴 高優先度（ヘルタの毎日使う体験に直結）
 - [ ] T042: K-1 memory_search スコアを 0-1 正規化（`_tools_memory.py: _tool_memory_search`）
-- [ ] T043: K-2 memory_read に total_count 返却（`_tools_memory.py: _tool_memory_read`）
-- [ ] T044: K-3 sandbox_execute のエラーメッセージ改善（Permission denied 表示）
+- [x] T043: K-2 memory_read に total_count 返却（`_tools_memory.py: _tool_memory_read`）
+- [x] T044: K-3 sandbox_execute のエラーメッセージ改善（Permission denied 表示）
 
 ### 🟡 中優先度（一貫性・信頼性）
 - [ ] T045: K-4 memory_delete の docstring 修正（query パラメータの扱い明確化）

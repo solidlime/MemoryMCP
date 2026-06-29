@@ -138,32 +138,40 @@ async def _tool_memory_read(
         )
         return f"Error: {result.error}"
     else:
-        result = ctx.memory_service.get_recent(limit=limit + offset)
-        if result.is_ok:
-            items = result.value[offset : offset + limit]
-            result_text = "\n---\n".join(f"[{m.key}] {m.content}" for m in items)
-            await ctx.event_bus.publish(
-                "tool.called",
+        memories_result = ctx.memory_service.get_recent(limit=limit + offset)
+        if memories_result.is_ok:
+            items = memories_result.value[offset : offset + limit]
+            count_result = ctx.memory_service.count_memories()
+            total_count = count_result.value if count_result.is_ok else len(items)
+            return json.dumps(
                 {
-                    "persona": persona,
-                    "tool_name": "memory_read",
-                    "params_summary": f"limit={limit}, offset={offset}",
-                    "result_summary": f"Listed {len(items)} recent memories",
-                    "success": True,
+                    "ok": True,
+                    "memories": [
+                        {
+                            "key": m.key,
+                            "content": m.content,
+                            "importance": m.importance,
+                            "emotion": m.emotion,
+                            "tags": m.tags,
+                            "created_at": str(m.created_at) if m.created_at else None,
+                        }
+                        for m in items
+                    ],
+                    "total_count": total_count,
                 },
+                ensure_ascii=False,
             )
-            return result_text
         await ctx.event_bus.publish(
             "tool.called",
             {
                 "persona": persona,
                 "tool_name": "memory_read",
                 "params_summary": f"limit={limit}, offset={offset}",
-                "result_summary": str(result.error),
+                "result_summary": str(memories_result.error),
                 "success": False,
             },
         )
-        return f"Error: {result.error}"
+        return json.dumps({"ok": False, "error": str(memories_result.error)}, ensure_ascii=False)
 
 
 async def _tool_memory_update(
@@ -369,6 +377,10 @@ async def _tool_memory_search(
         return json.dumps({"ok": True, "memories": []}, ensure_ascii=False)
     ctx.memory_service.log_search(query, "hybrid", len(result.value))
 
+    # Normalize scores to 0-1 for intuitive LLM consumption
+    scores = [sr.score for sr in result.value]
+    max_score = max(scores) if scores else 0.0
+
     memories: list[dict] = []
     for sr in result.value:
         m = sr.memory
@@ -378,7 +390,7 @@ async def _tool_memory_search(
             "importance": m.importance,
             "tags": m.tags,
             "emotion": m.emotion,
-            "score": sr.score,
+            "score": (sr.score / max_score) if max_score > 0 else sr.score,
         }
         if sr.similarity_flag:
             entry["similarity_flag"] = True

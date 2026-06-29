@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 
@@ -224,10 +225,14 @@ class TestMemoryRead:
     async def test_read_recent_when_no_key(self, registered_tools):
         tools, ctx, _ = registered_tools
         ctx.memory_service.get_recent.return_value = Success([_mem("k1"), _mem("k2")])
+        ctx.memory_service.count_memories.return_value = Success(2)
         memory_read = tools["memory_read"]
-        result = await memory_read()
-        assert "k1" in result
-        assert "k2" in result
+        result = json.loads(await memory_read())
+        assert result["ok"] is True
+        assert len(result["memories"]) == 2
+        assert result["memories"][0]["key"] == "k1"
+        assert result["memories"][1]["key"] == "k2"
+        assert result["total_count"] == 2
 
     @pytest.mark.asyncio
     async def test_read_by_key_not_found(self, registered_tools):
@@ -437,7 +442,7 @@ class TestMemorySearch:
         assert data["ok"] is True
         assert len(data["memories"]) == 1
         assert data["memories"][0]["key"] == "mem_abc"
-        assert data["memories"][0]["score"] == 0.75
+        assert data["memories"][0]["score"] == 1.0  # normalized to max score
 
     @pytest.mark.asyncio
     async def test_search_no_results(self, registered_tools):

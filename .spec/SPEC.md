@@ -464,7 +464,7 @@ strength_score = (
 ### K-3: sandbox_execute エラーメッセージ改善（高優先度）
 - **現状**: 他ペルソナのファイルにアクセスすると `No such file or directory`（実際は権限エラー）。LLM が誤解する。
 - **修正**: ホームディレクトリ外へのアクセス試行を事前に検出し `"Permission denied: path outside persona home"` を返す。または `sandbox_execute` 内でパスバリデーション追加。
-- [ ] **K-3**: `_tools_sandbox.py` の `_tool_sandbox_execute()` でコード内パス検証 or エラーメッセージ変換
+- [x] **K-3**: `_tools_sandbox.py` の `_tool_sandbox_execute()` で stderr ベースの後処理エラーメッセージ変換
 
 ### K-4: memory_delete クエリ削除の明確化（中優先度）
 - **現状**: ドキュメントに「キーまたは検索クエリで」とあるが `memory_key` パラメータしかない。query パラメータが効くのか不明。

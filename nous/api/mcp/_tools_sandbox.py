@@ -3,12 +3,47 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import TYPE_CHECKING
 
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from nous.application.use_cases import AppContext
+
+# stderr 上の権限エラーっぽいパターン
+_SANDBOX_ISOLATION_PATTERNS: list[re.Pattern[str]] = [
+    re.compile(r"Permission denied", re.IGNORECASE),
+    re.compile(r"No such file or directory", re.IGNORECASE),
+    re.compile(r"cannot access", re.IGNORECASE),
+    re.compile(r"Operation not permitted", re.IGNORECASE),
+]
+
+
+def _detect_sandbox_isolation_error(stderr: str, username: str) -> str | None:
+    """Check if stderr indicates a sandbox isolation / permission issue.
+
+    Returns an explanatory note if the error is likely caused by
+    cross-persona file access restriction, None otherwise.
+    """
+    if not stderr:
+        return None
+    # Must match at least one known error pattern
+    if not any(p.search(stderr) for p in _SANDBOX_ISOLATION_PATTERNS):
+        return None
+    # Must reference a /home/ path (likely another persona's files)
+    home_pattern = re.compile(r"/home/([^/\s'\"]+)")
+    referenced_homes = home_pattern.findall(stderr)
+    if not referenced_homes:
+        return None
+    # At least one referenced home is NOT our own
+    for home_user in referenced_homes:
+        if home_user != username:
+            return (
+                "[Sandbox isolation: code runs as user "
+                f"'{username}'. Cannot access other personas' files.]"
+            )
+    return None
 
 
 async def _tool_sandbox_execute(
@@ -47,6 +82,12 @@ async def _tool_sandbox_execute(
         if result.stdout:
             parts.append(result.stdout)
         if result.stderr:
+            # Check for sandbox isolation issues before appending raw stderr
+            isolation_note = _detect_sandbox_isolation_error(
+                result.stderr, session.username
+            )
+            if isolation_note:
+                parts.append(isolation_note)
             parts.append(f"[stderr] {result.stderr}")
         if result.exit_code != 0:
             parts.append(f"[exit code: {result.exit_code}]")

@@ -247,6 +247,10 @@ class MemoryService:
         """Get most recent memories with optional pagination offset."""
         return self._repo.find_recent(limit=limit, offset=offset)
 
+    def count_memories(self) -> Result[int, DomainError]:
+        """Count total non-tombstoned memories."""
+        return self._repo.count()
+
     def get_stats(self, top_n: int = 20) -> Result[dict, DomainError]:
         """Get memory statistics.
 
