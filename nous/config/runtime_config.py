@@ -65,7 +65,10 @@ SETTINGS_META: dict[str, dict[str, dict]] = {
         "session_idle_timeout": {"hot_reload": True, "description": "sandbox: session idle timeout (seconds)"},
         "allowed_languages": {"hot_reload": True, "description": "sandbox: allowed programming languages (JSON array)"},
         "max_sessions": {"hot_reload": True, "description": "sandbox: max concurrent sessions"},
-        "host_data_root": {"hot_reload": False, "description": "sandbox: host-absolute path to data dir for volume mounts"},
+        "host_data_root": {
+            "hot_reload": False,
+            "description": "sandbox: host-absolute path to data dir for volume mounts",
+        },
     },
     "general": {
         "timezone": {"hot_reload": True, "description": "Timezone"},

@@ -17,7 +17,29 @@ logger = logging.getLogger(__name__)
 SANDBOX_CONTAINER_NAME = "sandbox"
 
 # System usernames that conflict with sandbox users
-_RESERVED = frozenset({"none", "root", "nobody", "daemon", "bin", "sys", "sync", "games", "man", "lp", "mail", "news", "uucp", "proxy", "www-data", "backup", "list", "irc", "gnats"})
+_RESERVED = frozenset(
+    {
+        "none",
+        "root",
+        "nobody",
+        "daemon",
+        "bin",
+        "sys",
+        "sync",
+        "games",
+        "man",
+        "lp",
+        "mail",
+        "news",
+        "uucp",
+        "proxy",
+        "www-data",
+        "backup",
+        "list",
+        "irc",
+        "gnats",
+    }
+)
 _FALLBACK = "sandbox_user"
 _MAXLEN = 32
 _PREFIX = "sbox_"

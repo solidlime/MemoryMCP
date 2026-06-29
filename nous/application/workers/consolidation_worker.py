@@ -85,7 +85,9 @@ class ConsolidationWorker:
 
         archived = [m for m in all_result.value if m.lifecycle_status == "archived"]
         if len(archived) < self.min_memories_per_group:
-            logger.debug("ConsolidationWorker: %s has %d archived (< %d)", persona, len(archived), self.min_memories_per_group)
+            logger.debug(
+                "ConsolidationWorker: %s has %d archived (< %d)", persona, len(archived), self.min_memories_per_group
+            )
             return
 
         logger.info("ConsolidationWorker: %s has %d archived memories", persona, len(archived))

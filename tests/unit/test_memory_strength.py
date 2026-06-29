@@ -1,10 +1,9 @@
 """FSRS v6 power-law compute_recall() tests."""
 
 import math
+from datetime import datetime
 
 import pytest
-
-from datetime import datetime
 
 from nous.domain.memory.entities import MemoryStrength
 
@@ -72,16 +71,12 @@ class TestFSRSRecall:
         # Short time (1 min): FSRS < Ebbinghaus (faster initial decay due to factor=19)
         r_fsrs = ms.compute_recall(1.0 / 60.0)  # 1 minute
         r_ebbinghaus = math.exp(-(1.0 / 60.0) / (1.0 * 24))
-        assert r_fsrs < r_ebbinghaus, (
-            f"FSRS should be lower at 1min: {r_fsrs} vs {r_ebbinghaus}"
-        )
+        assert r_fsrs < r_ebbinghaus, f"FSRS should be lower at 1min: {r_fsrs} vs {r_ebbinghaus}"
 
         # Long time (100 days): FSRS > Ebbinghaus (power-law tail, Ebbinghaus near-zero)
         r_fsrs = ms.compute_recall(100 * 24.0)
         r_ebbinghaus = math.exp(-(100 * 24.0) / (1.0 * 24))
-        assert r_fsrs > r_ebbinghaus, (
-            f"FSRS should be higher at 100 days: {r_fsrs} vs {r_ebbinghaus}"
-        )
+        assert r_fsrs > r_ebbinghaus, f"FSRS should be higher at 100 days: {r_fsrs} vs {r_ebbinghaus}"
 
     def test_elapsed_zero_returns_one(self):
         """elapsed_hours=0 → R ≈ 1.0 (backward compat)."""
@@ -102,9 +97,7 @@ class TestMemoryStrengthLTM:
         ms = MemoryStrength(memory_key="test", stability=1.0, is_ltm=True)
         r_fast = ms.compute_recall(24.0, decay_exponent=0.5)
         r_slow = ms.compute_recall(24.0, decay_exponent=0.3)
-        assert r_slow > r_fast, (
-            f"LTM should decay slower: {r_slow} vs {r_fast}"
-        )
+        assert r_slow > r_fast, f"LTM should decay slower: {r_slow} vs {r_fast}"
 
     def test_boost_on_recall_preserves_is_ltm(self):
         """boost_on_recall は is_ltm を変更しない."""

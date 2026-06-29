@@ -85,6 +85,7 @@ def test_update_non_hot_reloadable(tmp_data_dir: Path):
     overrides_file = tmp_data_dir / "config" / "config_overrides.json"
     assert overrides_file.exists()
     import json
+
     data = json.loads(overrides_file.read_text())
     assert data.get("server", {}).get("port") == 9999
 

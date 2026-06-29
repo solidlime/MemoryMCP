@@ -13,12 +13,12 @@ from mcp.shared.exceptions import McpError
 if TYPE_CHECKING:
     from starlette.requests import Request
 
+from nous import __version__
 from nous.api.http.routes import register_http_routes
 from nous.api.mcp.middleware import PersonaMiddleware
 from nous.api.mcp.tools import register_tools
 from nous.application.sandbox.service import _sessions as sandbox_sessions
 from nous.application.use_cases import AppContextRegistry
-from nous import __version__
 from nous.config.settings import Settings
 from nous.infrastructure.logging.structured import get_logger, setup_logging
 

@@ -1,6 +1,5 @@
 """Tests for Memory domain entities."""
 
-import math
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -74,7 +73,7 @@ class TestMemoryStrength:
     def test_compute_recall_decays_over_time(self):
         s = MemoryStrength(memory_key="k", stability=1.0)
         r24 = s.compute_recall(24.0)  # 1 day elapsed, stability=1 day => FSRS: 20^(-0.5) ≈ 0.224
-        assert r24 == pytest.approx(20 ** -0.5, rel=1e-5)
+        assert r24 == pytest.approx(20**-0.5, rel=1e-5)
 
     def test_higher_stability_slower_decay(self):
         s_low = MemoryStrength(memory_key="k", stability=1.0)

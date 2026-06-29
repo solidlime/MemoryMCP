@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import hashlib
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from nous.domain.shared.errors import VectorStoreError
@@ -85,7 +85,7 @@ class QdrantVectorStore:
                 "key": key,
                 "content": content,
                 "lifecycle_status": lifecycle_status,
-                "created_at": datetime.now(timezone.utc).isoformat(),
+                "created_at": datetime.now(UTC).isoformat(),
             }
             if metadata:
                 payload.update(metadata)
@@ -126,11 +126,7 @@ class QdrantVectorStore:
             scale=decay_scale,
             midpoint=0.1,
         )
-        formula = FormulaQuery(
-            formula=SumExpression(
-                sum=["$score", ExpDecayExpression(exp_decay=decay)]
-            )
-        )
+        formula = FormulaQuery(formula=SumExpression(sum=["$score", ExpDecayExpression(exp_decay=decay)]))
         prefetch = Prefetch(
             query=vector.tolist(),
             limit=limit * 3,  # oversample to compensate decay re-ranking
@@ -210,7 +206,7 @@ class QdrantVectorStore:
                 "key": key,
                 "content": content,
                 "lifecycle_status": lifecycle_status,
-                "created_at": datetime.now(timezone.utc).isoformat(),
+                "created_at": datetime.now(UTC).isoformat(),
             }
             if metadata:
                 payload.update(metadata)

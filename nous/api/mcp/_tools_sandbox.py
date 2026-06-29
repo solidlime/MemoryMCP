@@ -39,10 +39,7 @@ def _detect_sandbox_isolation_error(stderr: str, username: str) -> str | None:
     # At least one referenced home is NOT our own
     for home_user in referenced_homes:
         if home_user != username:
-            return (
-                "[Sandbox isolation: code runs as user "
-                f"'{username}'. Cannot access other personas' files.]"
-            )
+            return f"[Sandbox isolation: code runs as user '{username}'. Cannot access other personas' files.]"
     return None
 
 
@@ -83,9 +80,7 @@ async def _tool_sandbox_execute(
             parts.append(result.stdout)
         if result.stderr:
             # Check for sandbox isolation issues before appending raw stderr
-            isolation_note = _detect_sandbox_isolation_error(
-                result.stderr, session.username
-            )
+            isolation_note = _detect_sandbox_isolation_error(result.stderr, session.username)
             if isolation_note:
                 parts.append(isolation_note)
             parts.append(f"[stderr] {result.stderr}")

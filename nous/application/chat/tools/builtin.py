@@ -6,8 +6,8 @@ import json
 from typing import TYPE_CHECKING, Any
 
 from nous.api.mcp.tools import TOOL_DISPATCH
-from nous.config.runtime_config import RuntimeConfigManager
 from nous.application.chat.tools.definitions import _NOUS_TOOL_NAMES
+from nous.config.runtime_config import RuntimeConfigManager
 from nous.config.settings import get_settings
 from nous.domain.skill import SkillRepository
 from nous.infrastructure.logging.structured import get_logger
