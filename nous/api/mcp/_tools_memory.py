@@ -278,7 +278,7 @@ async def _tool_memory_update(
 async def _tool_memory_delete(
     ctx: AppContext, persona: str, memory_key: str | None = None, query: str | None = None
 ) -> str:
-    """Delete a memory by key, or search and delete the top match by query."""
+    """Delete a memory by key. Shows deleted content snippet for confirmation."""
     if not memory_key and not query:
         return "Error: memory_key or query required"
 

@@ -193,7 +193,7 @@ def register_tools(mcp: FastMCP) -> None:
     # memory_delete
     @_tool("memory_delete")
     async def memory_delete(memory_key: str | None = None, query: str | None = None) -> str:
-        """Delete a memory by key or search query. Shows deleted content snippet for confirmation."""
+        """Delete a memory by key. Shows deleted content snippet for confirmation."""
         p = _resolve_persona()
         return await _tool_memory_delete(AppContextRegistry.get(p), p, memory_key=memory_key, query=query)
 
