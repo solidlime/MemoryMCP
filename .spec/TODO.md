@@ -87,3 +87,21 @@
 - [ ] T033: アップグレード/マイグレーション後方互換性テスト
 - [ ] T034: 設定二重管理（.env vs WebUI）競合パターンテスト
 ```
+
+---
+
+## 柱K: MCPツール ヘルタ実使用レビュー改善 (2026-06-29)
+
+### 🔴 高優先度（ヘルタの毎日使う体験に直結）
+- [ ] T042: K-1 memory_search スコアを 0-1 正規化（`_tools_memory.py: _tool_memory_search`）
+- [ ] T043: K-2 memory_read に total_count 返却（`_tools_memory.py: _tool_memory_read`）
+- [ ] T044: K-3 sandbox_execute のエラーメッセージ改善（Permission denied 表示）
+
+### 🟡 中優先度（一貫性・信頼性）
+- [ ] T045: K-4 memory_delete の docstring 修正（query パラメータの扱い明確化）
+- [ ] T046: K-5 item_* 7ツール → item 1ツールに統合（operation パラメータ）
+
+### 🟢 低優先度（仕上げ）
+- [ ] T047: K-6 sandbox_context の pip_packages 実装 or 削除
+- [ ] T048: K-7 memory_create の感情自動付与に auto_emotion フラグ追加
+```

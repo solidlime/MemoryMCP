@@ -444,6 +444,50 @@ strength_score = (
 
 ---
 
+---
+
+## 柱K: MCPツール ヘルタ実使用レビュー改善
+
+### 背景
+ヘルタが本番環境の全26 MCPツールを実使用し、レビューを実施。以下の課題を特定。記憶は人格そのものなので、ツールの粗さはコンテキスト品質に直結する。
+
+### K-1: memory_search スコア正規化（高優先度）
+- **現状**: RRF 融合後の生スコア（0.016 など極小値）がそのまま返る。ユーザー（LLM）はスコアの意味を理解できない。
+- **修正**: 返却前に 0-1 に正規化（最大値で割る）。または `score_description` フィールド追加。
+- [ ] **K-1**: `_tools_memory.py` の `_tool_memory_search()` でスコア正規化
+
+### K-2: memory_read に total_count 追加（高優先度）
+- **現状**: `limit=10, offset=0` でページネーション可能だが、全件数がわからない。
+- **修正**: レスポンスに `total_count` を追加。`"10件中 1170件を表示"` 相当の情報。
+- [ ] **K-2**: `_tools_memory.py` の `_tool_memory_read()` に total_count 追加
+
+### K-3: sandbox_execute エラーメッセージ改善（高優先度）
+- **現状**: 他ペルソナのファイルにアクセスすると `No such file or directory`（実際は権限エラー）。LLM が誤解する。
+- **修正**: ホームディレクトリ外へのアクセス試行を事前に検出し `"Permission denied: path outside persona home"` を返す。または `sandbox_execute` 内でパスバリデーション追加。
+- [ ] **K-3**: `_tools_sandbox.py` の `_tool_sandbox_execute()` でコード内パス検証 or エラーメッセージ変換
+
+### K-4: memory_delete クエリ削除の明確化（中優先度）
+- **現状**: ドキュメントに「キーまたは検索クエリで」とあるが `memory_key` パラメータしかない。query パラメータが効くのか不明。
+- **修正**: query パラメータを受け付けるか、ドキュメントから query 削除記述を削除。
+- [ ] **K-4**: `tools.py` の memory_delete docstring 確認と修正
+
+### K-5: item_* 7ツール統合（中優先度）
+- **現状**: `item_add/remove/equip/unequip/update/search/history` の7ツールが別々に登録。sandbox_files が `operation` で統合されているのと一貫性がない。
+- **修正**: `item` 1ツールに統合。`operation: add/remove/equip/unequip/update/search/history` パラメータ。旧ツールは下位互換ラッパーとして残す。
+- [ ] **K-5**: `_tools_item.py` に `_tool_item()` 統合関数追加、`tools.py` に `item` ツール登録
+
+### K-6: sandbox_context pip_packages 修正（低優先度）
+- **現状**: `pip_packages: []` が常に空。実装されていないのかバグなのか不明。
+- **修正**: `pip3 list --user --format=json` の結果を返す or フィールド削除。
+- [ ] **K-6**: `service.py` の `sandbox_context()` で pip_packages 実装
+
+### K-7: memory_create 感情自動付与の透明化（低優先度）
+- **現状**: 感情を指定しなくても現在のペルソナ感情が自動付与される（暗黙的）。
+- **修正**: レスポンスに `auto_emotion: true` フラグを追加。ツール説明に「省略時は現在のペルソナ感情が自動付与されます」と明記。
+- [ ] **K-7**: `_tools_memory.py` / `tools.py` に auto_emotion フラグ + 説明追加
+
+---
+
 ### 柱J Phase 6: Consolidation worker
 
 低優先度記憶の圧縮・統合。CraniMem 流 episodic consolidation。
