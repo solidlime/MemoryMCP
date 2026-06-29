@@ -225,9 +225,10 @@ class TestBrowserHandler:
         mock_subprocess.assert_awaited_once()
         call_args = mock_subprocess.call_args[0]
         assert call_args[0] == "/usr/bin/agent-browser"
-        assert call_args[1] == "--no-sandbox"
-        assert call_args[2] == "open"
-        assert call_args[3] == "https://example.com"
+        assert call_args[1] == "--args"
+        assert call_args[2] == "--no-sandbox"
+        assert call_args[3] == "open"
+        assert call_args[4] == "https://example.com"
 
     @pytest.mark.asyncio
     async def test_browser_valid_click(self, mock_ctx, mock_config):

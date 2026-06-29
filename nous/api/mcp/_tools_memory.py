@@ -278,7 +278,7 @@ async def _tool_memory_update(
 async def _tool_memory_delete(
     ctx: AppContext, persona: str, memory_key: str | None = None, query: str | None = None
 ) -> str:
-    """Delete a memory by key. Shows deleted content snippet for confirmation."""
+    """Delete (tombstone) a memory by key or query. Returns key and content snippet of deleted memory."""
     if not memory_key and not query:
         return "Error: memory_key or query required"
 
@@ -337,6 +337,11 @@ async def _tool_memory_search(
     if top_k is not None and (top_k < 1 or top_k > 200):
         return json.dumps({"ok": False, "error": "top_k must be between 1 and 200"}, ensure_ascii=False)
     top_k = min(top_k or 5, 200)
+    # Clamp RRF weights to [0.0, 1.0]
+    importance_weight = max(0.0, min(1.0, importance_weight))
+    recency_weight = max(0.0, min(1.0, recency_weight))
+    vector_weight = max(0.0, min(1.0, vector_weight))
+    keyword_weight = max(0.0, min(1.0, keyword_weight))
     search_query = SearchQuery(
         text=query,
         top_k=top_k,
@@ -374,7 +379,9 @@ async def _tool_memory_search(
                 "success": True,
             },
         )
-        return json.dumps({"ok": True, "memories": []}, ensure_ascii=False)
+        count_result = ctx.memory_service.count_memories()
+        total_count = count_result.value if count_result.is_ok else 0
+        return json.dumps({"ok": True, "memories": [], "total_count": total_count}, ensure_ascii=False)
     ctx.memory_service.log_search(query, "hybrid", len(result.value))
 
     # Normalize scores to 0-1 for intuitive LLM consumption
@@ -405,7 +412,9 @@ async def _tool_memory_search(
             "success": True,
         },
     )
-    return json.dumps({"ok": True, "memories": memories}, ensure_ascii=False)
+    count_result = ctx.memory_service.count_memories()
+    total_count = count_result.value if count_result.is_ok else len(result.value)
+    return json.dumps({"ok": True, "memories": memories, "total_count": total_count}, ensure_ascii=False)
 
 
 async def _tool_memory_stats(ctx: AppContext, persona: str, top_n: int = 20) -> str:

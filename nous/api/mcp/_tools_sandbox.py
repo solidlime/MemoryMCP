@@ -423,16 +423,13 @@ async def _tool_sandbox_reset(ctx: AppContext, persona: str, level: str = "files
         return f"Sandbox reset error: {e}"
 
 
-async def _tool_sandbox_context(ctx: AppContext, persona: str) -> str:
+async def _tool_sandbox_context(ctx: AppContext, persona: str) -> dict:
     """Get sandbox environment context (languages, pip packages)."""
-    import json
-
     import nous.application.sandbox.service
     from nous.application.sandbox.service import get_sandbox_session, SandboxSession
     from nous.config.settings import get_settings
 
     settings = get_settings()
-    pip_packages: list[str] = []
     context: dict = {
         "user": f"sbox_{persona}",
         "home": f"/home/sbox_{persona}",
@@ -452,7 +449,7 @@ async def _tool_sandbox_context(ctx: AppContext, persona: str) -> str:
                 "success": False,
             },
         )
-        return json.dumps(context, ensure_ascii=False, indent=2)
+        return context
 
     try:
         session: SandboxSession = await get_sandbox_session(persona)
@@ -484,7 +481,7 @@ async def _tool_sandbox_context(ctx: AppContext, persona: str) -> str:
         )
         # context already has empty pip_packages, keep skeleton
 
-    return json.dumps(context, ensure_ascii=False, indent=2)
+    return context
 
 
 # --- Goal/Promise tools ---

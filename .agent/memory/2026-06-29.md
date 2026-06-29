@@ -135,9 +135,9 @@ Nous: 日本語特化の永続記憶 MCP サーバー。SQLite + Qdrant + Ebbing
 - `_tool_item(operation, ...)` 統合関数: operation="add/remove/equip/unequip/update/search/history" で分岐
 - `_tools_item.py` に `_tool_item()` 追加、既存 sub-tool を呼び出すだけの薄いディスパッチャ
 - `tools.py` に `item` ツール登録 + `TOOL_DISPATCH["item"]` 追加
-- 旧7ツールは **削除せず** 後方互換維持（既存 MCP クライアント保護）
-- `definitions.py` の `_NOUS_TOOL_NAMES` に `"item"` 追加
-- テスト: 既存11件維持 + 新規8件（全 operation カバー + unknown operation）
+- 旧7ツールは **完全削除済み**（`_tools_item.py` の内部関数は維持、`_tool_item()` が呼出）
+- `definitions.py` の `_NOUS_TOOL_NAMES` に `"item"` 追加、旧7名削除
+- テスト: 旧ツールテスト削除、統合ツールテスト8件のみ（全 operation + unknown）
 - デザインパターン: `sandbox_files(operation=...)` と同一設計
 
 #### 次アクション候補

@@ -7,12 +7,15 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from nous.domain.shared.result import Success
+
 
 @pytest.fixture
 def mock_app_context():
     """Comprehensive mock app context with all common services."""
     ctx = MagicMock()
     ctx.memory_service = MagicMock()
+    ctx.memory_service.count_memories.return_value = Success(0)
     ctx.search_engine = MagicMock()
     ctx.persona_service = MagicMock()
     ctx.equipment_service = MagicMock()

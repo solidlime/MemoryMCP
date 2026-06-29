@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import Annotated, Any
+
+from pydantic import Field
 
 from mcp.server.fastmcp import FastMCP  # noqa: TC002
 from mcp.shared.exceptions import McpError
@@ -183,7 +185,7 @@ def register_tools(mcp: FastMCP) -> None:
     # memory_delete
     @_tool("memory_delete")
     async def memory_delete(memory_key: str | None = None, query: str | None = None) -> str:
-        """Delete a memory by key. Shows deleted content snippet for confirmation."""
+        """Delete (tombstone) a memory by key or query. Returns key and content snippet of deleted memory."""
         p = _resolve_persona()
         return await _tool_memory_delete(AppContextRegistry.get(p), p, memory_key=memory_key, query=query)
 
@@ -196,10 +198,10 @@ def register_tools(mcp: FastMCP) -> None:
         date_range: str | None = None,
         min_importance: float | None = None,
         emotion: str | None = None,
-        importance_weight: float = 0.0,
-        recency_weight: float = 0.0,
-        vector_weight: float = 1.0,
-        keyword_weight: float = 0.5,
+        importance_weight: Annotated[float, Field(ge=0.0, le=1.0)] = 0.0,
+        recency_weight: Annotated[float, Field(ge=0.0, le=1.0)] = 0.0,
+        vector_weight: Annotated[float, Field(ge=0.0, le=1.0)] = 1.0,
+        keyword_weight: Annotated[float, Field(ge=0.0, le=1.0)] = 0.5,
     ) -> str:
         """Search memories with hybrid retrieval. Use when conversation references past events
         or you need context about the user. date_range: "7d","30d","昨日".
@@ -349,7 +351,8 @@ def register_tools(mcp: FastMCP) -> None:
     async def sandbox_context() -> str:
         """Get sandbox environment context (languages, installed packages)."""
         p = _resolve_persona()
-        return await _tool_sandbox_context(AppContextRegistry.get(p), p)
+        r = await _tool_sandbox_context(AppContextRegistry.get(p), p)
+        return json.dumps(r, ensure_ascii=False)
 
     # goal_manage
     @_tool("goal_manage")

@@ -432,6 +432,7 @@ class TestMemorySearch:
         sr = _search_result("mem_abc", score=0.75)
         ctx.search_engine.search.return_value = Success([sr])
         ctx.memory_service.log_search.return_value = Success(None)
+        ctx.memory_service.count_memories.return_value = Success(42)
         # search_engine._semantic should exist for the persona assignment
         ctx.search_engine._semantic = None
         memory_search = tools["memory_search"]
@@ -443,11 +444,13 @@ class TestMemorySearch:
         assert len(data["memories"]) == 1
         assert data["memories"][0]["key"] == "mem_abc"
         assert data["memories"][0]["score"] == 1.0  # normalized to max score
+        assert data["total_count"] == 42
 
     @pytest.mark.asyncio
     async def test_search_no_results(self, registered_tools):
         tools, ctx, _ = registered_tools
         ctx.search_engine.search.return_value = Success([])
+        ctx.memory_service.count_memories.return_value = Success(0)
         ctx.search_engine._semantic = None
         memory_search = tools["memory_search"]
         result = await memory_search(query="nothing")
@@ -456,6 +459,7 @@ class TestMemorySearch:
         data = json.loads(result)
         assert data["ok"] is True
         assert data["memories"] == []
+        assert data["total_count"] == 0
 
     @pytest.mark.asyncio
     async def test_search_invalid_top_k(self, registered_tools):
@@ -550,6 +554,51 @@ class TestMemorySearch:
         assert call_args.date_range == "30d"
         assert call_args.min_importance == 0.3
         assert call_args.emotion == "sad"
+
+    @pytest.mark.asyncio
+    async def test_search_clamps_negative_weight(self, registered_tools):
+        """Negative weight should be clamped to 0.0."""
+        tools, ctx, _ = registered_tools
+        ctx.search_engine.search.return_value = Success([])
+        ctx.search_engine._semantic = None
+        ctx.memory_service.log_search.return_value = Success(None)
+        memory_search = tools["memory_search"]
+        await memory_search(query="test", importance_weight=-0.5, recency_weight=-1.0, vector_weight=-99.0, keyword_weight=-0.1)
+        call_args = ctx.search_engine.search.call_args[0][0]
+        assert call_args.importance_weight == 0.0
+        assert call_args.recency_weight == 0.0
+        assert call_args.vector_weight == 0.0
+        assert call_args.keyword_weight == 0.0
+
+    @pytest.mark.asyncio
+    async def test_search_clamps_overmax_weight(self, registered_tools):
+        """Weight > 1.0 should be clamped to 1.0."""
+        tools, ctx, _ = registered_tools
+        ctx.search_engine.search.return_value = Success([])
+        ctx.search_engine._semantic = None
+        ctx.memory_service.log_search.return_value = Success(None)
+        memory_search = tools["memory_search"]
+        await memory_search(query="test", importance_weight=1.5, recency_weight=5.0, vector_weight=2.0, keyword_weight=999.0)
+        call_args = ctx.search_engine.search.call_args[0][0]
+        assert call_args.importance_weight == 1.0
+        assert call_args.recency_weight == 1.0
+        assert call_args.vector_weight == 1.0
+        assert call_args.keyword_weight == 1.0
+
+    @pytest.mark.asyncio
+    async def test_search_accepts_valid_weights(self, registered_tools):
+        """Valid weights in [0.0, 1.0] should pass through unchanged."""
+        tools, ctx, _ = registered_tools
+        ctx.search_engine.search.return_value = Success([])
+        ctx.search_engine._semantic = None
+        ctx.memory_service.log_search.return_value = Success(None)
+        memory_search = tools["memory_search"]
+        await memory_search(query="test", importance_weight=0.5, recency_weight=0.0, vector_weight=1.0, keyword_weight=0.25)
+        call_args = ctx.search_engine.search.call_args[0][0]
+        assert call_args.importance_weight == 0.5
+        assert call_args.recency_weight == 0.0
+        assert call_args.vector_weight == 1.0
+        assert call_args.keyword_weight == 0.25
 
     @pytest.mark.asyncio
     async def test_search_passes_tags_and_filters(self, registered_tools):

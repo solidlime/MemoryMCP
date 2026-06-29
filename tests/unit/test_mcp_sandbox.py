@@ -212,6 +212,116 @@ class TestSandbox:
 
 
 # ============================================================================
+# sandbox_context()
+# ============================================================================
+
+
+class TestSandboxContext:
+    """Tests for sandbox_context tool (sandbox environment context)."""
+
+    @pytest.mark.asyncio
+    async def test_context_when_sandbox_enabled(self, registered_tools):
+        """Returns full context when sandbox is enabled."""
+        tools, ctx, _ = registered_tools
+        sc_tool = tools["sandbox_context"]
+
+        with (
+            patch("nous.config.settings.get_settings") as mock_get_settings,
+            patch("nous.application.sandbox.service.get_sandbox_session") as mock_get_session,
+        ):
+            mock_get_settings.return_value = _mock_settings(enabled=True)
+            session = _mock_sandbox_session()
+            session.get_context.return_value = {
+                "user": "sbox_test_persona",
+                "home": "/home/sbox_test_persona",
+                "languages": {"python": "3.11.0", "node": "20.0.0"},
+                "pip_packages": ["numpy==1.26.0", "requests==2.31.0"],
+                "available_languages": ["python", "node"],
+            }
+            mock_get_session.return_value = session
+
+            result = await sc_tool()
+
+        data = json.loads(result)
+        assert data["user"] == "sbox_test_persona"
+        assert data["home"] == "/home/sbox_test_persona"
+        assert data["languages"]["python"] == "3.11.0"
+        assert data["pip_packages"] == ["numpy==1.26.0", "requests==2.31.0"]
+        session.get_context.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_context_when_sandbox_disabled(self, registered_tools):
+        """Returns skeleton context when sandbox is disabled."""
+        tools, ctx, _ = registered_tools
+        sc_tool = tools["sandbox_context"]
+
+        with (
+            patch("nous.config.settings.get_settings") as mock_get_settings,
+            patch("nous.application.sandbox.service.get_sandbox_session") as mock_get_session,
+        ):
+            mock_get_settings.return_value = _mock_settings(enabled=False)
+
+            result = await sc_tool()
+
+        data = json.loads(result)
+        assert data["user"] == "sbox_test_persona"
+        assert data["home"] == "/home/sbox_test_persona"
+        assert data["pip_packages"] == []
+        assert data["languages"] == {}
+        mock_get_session.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_context_when_sandbox_unavailable(self, registered_tools):
+        """Returns skeleton context when sandbox service is unavailable."""
+        tools, ctx, _ = registered_tools
+        sc_tool = tools["sandbox_context"]
+
+        with (
+            patch("nous.config.settings.get_settings") as mock_get_settings,
+            patch("nous.application.sandbox.service.get_sandbox_session") as mock_get_session,
+        ):
+            mock_get_settings.return_value = _mock_settings(enabled=True)
+            mock_get_session.side_effect = RuntimeError("Docker not available")
+
+            result = await sc_tool()
+
+        data = json.loads(result)
+        assert data["user"] == "sbox_test_persona"
+        assert data["home"] == "/home/sbox_test_persona"
+        assert data["pip_packages"] == []
+        assert data["languages"] == {}
+
+    @pytest.mark.asyncio
+    async def test_context_includes_available_languages(self, registered_tools):
+        """Context includes available_languages list."""
+        tools, ctx, _ = registered_tools
+        sc_tool = tools["sandbox_context"]
+
+        with (
+            patch("nous.config.settings.get_settings") as mock_get_settings,
+            patch("nous.application.sandbox.service.get_sandbox_session") as mock_get_session,
+        ):
+            mock_get_settings.return_value = _mock_settings(enabled=True)
+            session = _mock_sandbox_session()
+            session.get_context.return_value = {
+                "user": "sbox_test_persona",
+                "home": "/home/sbox_test_persona",
+                "languages": {"python": "3.11.0", "go": "1.21.0"},
+                "pip_packages": [],
+                "available_languages": ["python", "javascript", "bash", "go", "rust"],
+            }
+            mock_get_session.return_value = session
+
+            result = await sc_tool()
+
+        data = json.loads(result)
+        assert "available_languages" in data
+        assert "python" in data["available_languages"]
+        assert "go" in data["available_languages"]
+        assert "rust" in data["available_languages"]
+
+
+# ============================================================================
 # sandbox_files()
 # ============================================================================
 

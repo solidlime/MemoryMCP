@@ -164,7 +164,8 @@ async def _handle_browser(
 
     # ── Build command args from action ──
     # --no-sandbox: WSL2/Linux で "No usable sandbox!" エラー回避
-    args: list[str] = [agent_bin, "--no-sandbox"]
+    # agent-browser CLI ではブラウザ起動引数は --args フラグ経由で渡す
+    args: list[str] = [agent_bin, "--args", "--no-sandbox"]
 
     try:
         if action == "open":
