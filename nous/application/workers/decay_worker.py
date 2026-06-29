@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 
 
 class DecayWorker:
-    """Ebbinghaus forgetting curve decay worker."""
+    """FSRS v6 power-law forgetting curve decay worker."""
 
     def __init__(self, context: AppContext, interval_seconds: int = 3600) -> None:
         self.context = context

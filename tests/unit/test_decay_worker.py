@@ -40,7 +40,7 @@ class TestDecayWorker:
     def test_decay_cycle_skips_below_min_strength(self) -> None:
         """compute_recall が min_strength 未満の場合はスキップする"""
         # use_old_decay=True: last_decay=2020-01-01 → elapsed ≈ 50000+ hours
-        # compute_recall = exp(-50000/24) ≈ 0.0 < min_strength=0.01 → skip
+        # FSRS: (1 + 19*50000/24)^(-0.5) ≈ 0.005 < min_strength=0.01 → skip
         strengths = [_make_strength("mem_001", use_old_decay=True)]
         ctx = _make_ctx(strengths, min_strength=0.01)
 

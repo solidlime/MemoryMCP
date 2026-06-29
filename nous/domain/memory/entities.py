@@ -38,7 +38,7 @@ class Memory:
 
 @dataclass
 class MemoryStrength:
-    """Ebbinghaus forgetting curve strength for a memory."""
+    """FSRS v6 power-law forgetting curve for a memory."""
 
     memory_key: str
     strength: float = 1.0
@@ -47,11 +47,19 @@ class MemoryStrength:
     recall_count: int = 0
     last_recall: datetime | None = None
 
-    def compute_recall(self, elapsed_hours: float) -> float:
-        """R(t) = e^(-t/S) where S = stability in days."""
+    def compute_recall(self, elapsed_hours: float, decay_exponent: float = 0.5) -> float:
+        """R(t) = (1 + 19 * t_hours / (S * 24))^(-decay_exponent).
+
+        Canonical FSRS v6 power-law decay. S = stability in days.
+        At t = S*24h (one stability period), R = 20^(-0.5) ≈ 0.224.
+
+        Args:
+            elapsed_hours: Time since last decay in hours.
+            decay_exponent: FSRS decay exponent (default 0.5 = canonical).
+        """
         if self.stability <= 0:
             return 0.0
-        return math.exp(-elapsed_hours / (self.stability * 24))
+        return (1 + 19.0 * elapsed_hours / (self.stability * 24)) ** (-decay_exponent)
 
     def boost_on_recall(self) -> None:
         """Increase stability on successful recall."""

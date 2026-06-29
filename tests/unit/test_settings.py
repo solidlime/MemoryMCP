@@ -39,7 +39,7 @@ class TestDefaultValues:
         cfg = ForgettingConfig()
         assert cfg.enabled is True
         assert cfg.decay_interval_seconds == 3600
-        assert cfg.min_strength == 0.01
+        assert cfg.min_strength == 0.005
 
 
 class TestSettings:

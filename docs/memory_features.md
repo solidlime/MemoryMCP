@@ -4,21 +4,24 @@ This document describes the advanced memory management features.
 
 ---
 
-## Ebbinghaus Forgetting Curve
+## FSRS v6 Power-Law Forgetting Curve
 
-Memories decay over time according to the [Ebbinghaus forgetting curve](https://en.wikipedia.org/wiki/Forgetting_curve):
+Memories decay over time according to the [FSRS v6 power-law forgetting curve](https://github.com/open-spaced-repetition/awesome-fsrs/wiki/The-Algorithm), validated against real human recall data via Anki benchmarks:
 
 ```
-R(t) = e^(-t / S)
+R(t) = (1 + 19 · t / S)^(-0.5)
 ```
 
 | Variable | Description |
 |----------|-------------|
 | `R` | Retention (0.0–1.0) |
-| `t` | Days since last access |
-| `S` | Stability (grows on each recall) |
+| `t` | Days since last access (in hours internally) |
+| `S` | Stability in days (grows on each recall) |
+| `decay_exponent` | 0.5 (canonical FSRS v6) |
 
 **Effective search score**: `strength = importance × R(t)`
+
+> **Why power-law?** FSRS starts with faster initial decay than Ebbinghaus but maintains a much heavier tail — memories survive far longer in the "barely remembered" zone. This better models human long-term memory.
 
 ### How it works
 

@@ -55,7 +55,7 @@ def test_memory_entity_creation_batch(benchmark):
     benchmark(make_memories, 100)
 
 
-def test_ebbinghaus_compute_recall(benchmark):
-    """Benchmark Ebbinghaus recall computation."""
+def test_fsrs_compute_recall(benchmark):
+    """Benchmark FSRS power-law recall computation."""
     ms = MemoryStrength(memory_key="test", strength=0.8, stability=7.0)
     benchmark(ms.compute_recall, 24.0)

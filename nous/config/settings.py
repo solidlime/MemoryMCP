@@ -93,11 +93,11 @@ class SandboxConfig(BaseModel):
 
 
 class ForgettingConfig(BaseModel):
-    """Ebbinghaus forgetting curve configuration."""
+    """FSRS v6 forgetting curve configuration."""
 
     enabled: bool = True
     decay_interval_seconds: int = 3600
-    min_strength: float = 0.01
+    min_strength: float = 0.005
 
 
 class MemoryEnrichmentConfig(BaseModel):
