@@ -69,7 +69,7 @@ class MemoryStrength:
         importance: float = 0.5,
         now: datetime | None = None,
     ) -> float:
-        """7-factor composite strength score (0.0-1.0).
+        """9-factor composite strength score (0.0-1.0).
 
         Factors:
         - recency: 0.20 * exp(-age_days / 7)
@@ -79,6 +79,8 @@ class MemoryStrength:
         - novelty: 0.05 * 0.5  (stub)
         - confidence: 0.10 * 0.8  (stub)
         - interference: -0.05 * min(1.0, interference_count / 5)  (penalty)
+        - chain: +0.02 * link_count (max +0.10, linked memories decay slower)
+        - emotion: +0.20 * emotion_peak (max +0.10, emotional salience)
         """
         if now is None:
             now = datetime.now()
@@ -112,7 +114,17 @@ class MemoryStrength:
         # Interference: penalty
         interference = -0.05 * min(1.0, self.interference_count / 5.0)
 
-        score = recency + frequency + importance_score + utility + novelty + confidence + interference
+        # Chain-aware boost: linked memories decay slower
+        chain = 0.0
+        if self.link_count > 0:
+            chain = min(0.10, 0.02 * self.link_count)  # max +0.10 (5+ links)
+
+        # Emotion boost: emotional memories are stronger
+        emotion = 0.0
+        if self.emotion_peak > 0.0:
+            emotion = min(0.10, 0.20 * self.emotion_peak)  # max +0.10 (intensity >= 0.5)
+
+        score = recency + frequency + importance_score + utility + novelty + confidence + interference + chain + emotion
         return max(0.0, min(1.0, score))
 
     def boost_on_recall(self, emotion_intensity: float = 0.0) -> None:

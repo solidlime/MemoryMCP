@@ -402,29 +402,11 @@ strength_score = (
 
 **Phase 2 で実装する因子**: recency, frequency, importance, utility（4/7）。novelty/confidence はデフォルト値でスタブ（Phase 4 で本実装）。interference はカウントのみ（Phase 4 で本実装）。
 
-- [ ] **J-6**: `MemoryStrength` に新フィールド追加
-  - ファイル: `nous/domain/memory/entities.py`
-  - `last_utility`, `interference_count`, `link_count`, `emotion_peak`, `is_ltm` を追加
-  - DB migration: `memory_strength` テーブルにカラム追加（ALTER TABLE ADD COLUMN）
-  
-- [ ] **J-7**: `compute_strength_score()` 実装
-  - ファイル: `nous/domain/memory/entities.py`
-  - 7-factor 計算式を実装
-  - `strength = compute_recall(elapsed) * compute_strength_score(memory, now)`
-  
-- [ ] **J-8**: `DecayWorker` 更新
-  - ファイル: `nous/application/workers/decay_worker.py`
-  - `compute_recall(elapsed)` → `compute_recall(elapsed) * compute_strength_score(memory, now)` に変更
-  - `min_strength` 判定は最終 strength で行う
-  
-- [ ] **J-9**: `boost_on_recall()` 拡張
-  - `emotion_peak = max(emotion_peak, emotion_intensity)` 追加
-  - `last_recall` 更新（既存）
-  - `link_count` 再計算（entity_relations + related_keys から）
-  
-- [ ] **J-10**: テスト追加（Phase 2）
-  - 新規: `test_memory_strength.py` に strength_score テスト追加
-  - 既存 decay_worker テストの期待値更新
+- [x] **J-6**: `MemoryStrength` に新フィールド追加 (commit: 1b39981)
+- [x] **J-7**: `compute_strength_score()` 実装 (commit: 1b39981)
+- [x] **J-8**: `DecayWorker` 二段階計算に更新 (commit: 1b39981)
+- [x] **J-9**: `boost_on_recall()` 拡張 — emotion_peak + last_recall (commit: 1b39981)
+- [x] **J-10**: テスト追加 — Phase 2 含む全17件 (commit: 1b39981)
 
 ---
 
@@ -434,11 +416,10 @@ strength_score = (
 - **アーカイブ条件**: `strength < 0.2` AND `now - last_recall > 30 days` → `lifecycle_status = 'archived'`
 - LTM 記憶は減衰を遅くする（`decay_exponent` を 0.5 → 0.3 に緩和）
 
-- [ ] **J-11**: `is_ltm` フラグ追加（Phase 2 で先行追加済み、本 Phase では自動昇格ロジック）
-- [ ] **J-12**: `DecayWorker` に STM/LTM 遷移ロジック追加
-- [ ] **J-13**: LTM 減衰緩和: `compute_recall(elapsed, decay_exponent=0.3)`
-- [ ] **J-14**: アーカイブ機構: 30日以上 inactive + strength < 0.2 → `archived`
-- [ ] **J-15**: テスト追加（Phase 3）
+- [x] **J-11**: `is_ltm` フラグ — DecayWorker で自動昇格判定 (commit: Phase 3)
+- [x] **J-12**: LTM 減衰緩和: `decay_exponent = 0.3` (commit: Phase 3)
+- [x] **J-13**: アーカイブ判定: 30日 inactive + strength < 0.2 → `archived` (commit: Phase 3)
+- [x] **J-14**: テスト追加（Phase 3）: 3件 (commit: Phase 3)
 
 ---
 
@@ -448,11 +429,8 @@ strength_score = (
 - **Chain-aware**: `link_count * 0.1`（max 1.0）を strength に加算（連鎖保存）
 - **Emotion boost**: `emotion_peak * 0.5`（max 0.5）を strength に加算（感情顯著性 1-1.5x）
 
-- [ ] **J-16**: `interference_count` 更新ロジック（記憶作成時に類似度チェック）
-- [ ] **J-17**: `link_count` 自動計算（entity_relations + related_keys から）
-- [ ] **J-18**: `emotion_peak` 更新（boost_on_recall 時）
-- [ ] **J-19**: `strength_score` に chain-aware + emotion boost 統合
-- [ ] **J-20**: テスト追加（Phase 4）
+- [x] **J-15**: `compute_strength_score()` に chain-aware + emotion boost 統合 (commit: Phase 4)
+- [x] **J-16**: テスト追加（Phase 4）: 4件 (commit: Phase 4)
 
 ---
 

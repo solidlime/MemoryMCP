@@ -4,6 +4,8 @@ import math
 
 import pytest
 
+from datetime import datetime
+
 from nous.domain.memory.entities import MemoryStrength
 
 
@@ -113,3 +115,81 @@ class TestMemoryStrengthLTM:
         ms2 = MemoryStrength(memory_key="test", is_ltm=False)
         ms2.boost_on_recall()
         assert ms2.is_ltm is False
+
+
+class TestChainEmotionBoost:
+    """Chain-aware + emotion boost integration tests."""
+
+    def test_chain_boost_increases_score(self):
+        """link_count=10 → score > link_count=0（他条件同一）."""
+        now = datetime(2026, 6, 29, 12, 0, 0)
+        base = MemoryStrength(
+            memory_key="a",
+            link_count=0,
+            recall_count=5,
+            last_recall=now,
+        )
+        boosted = MemoryStrength(
+            memory_key="b",
+            link_count=10,
+            recall_count=5,
+            last_recall=now,
+        )
+        assert boosted.compute_strength_score(now=now) > base.compute_strength_score(now=now)
+
+    def test_emotion_boost_increases_score(self):
+        """emotion_peak=0.8 → score > emotion_peak=0.0（他条件同一）."""
+        now = datetime(2026, 6, 29, 12, 0, 0)
+        base = MemoryStrength(
+            memory_key="a",
+            link_count=0,
+            emotion_peak=0.0,
+            recall_count=5,
+            last_recall=now,
+        )
+        boosted = MemoryStrength(
+            memory_key="b",
+            link_count=0,
+            emotion_peak=0.8,
+            recall_count=5,
+            last_recall=now,
+        )
+        assert boosted.compute_strength_score(now=now) > base.compute_strength_score(now=now)
+
+    def test_chain_boost_capped(self):
+        """link_count=100 でも boost は +0.10 を超えない."""
+        now = datetime(2026, 6, 29, 12, 0, 0)
+        low = MemoryStrength(
+            memory_key="a",
+            link_count=0,
+            recall_count=5,
+            last_recall=now,
+        )
+        high = MemoryStrength(
+            memory_key="b",
+            link_count=100,
+            recall_count=5,
+            last_recall=now,
+        )
+        diff = high.compute_strength_score(now=now) - low.compute_strength_score(now=now)
+        assert diff <= 0.10 + 1e-9
+
+    def test_emotion_boost_capped(self):
+        """emotion_peak=1.0 でも boost は +0.10 を超えない."""
+        now = datetime(2026, 6, 29, 12, 0, 0)
+        low = MemoryStrength(
+            memory_key="a",
+            link_count=0,
+            emotion_peak=0.0,
+            recall_count=5,
+            last_recall=now,
+        )
+        high = MemoryStrength(
+            memory_key="b",
+            link_count=0,
+            emotion_peak=1.0,
+            recall_count=5,
+            last_recall=now,
+        )
+        diff = high.compute_strength_score(now=now) - low.compute_strength_score(now=now)
+        assert diff <= 0.10 + 1e-9
