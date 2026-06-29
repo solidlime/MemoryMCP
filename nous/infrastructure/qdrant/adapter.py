@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 from nous.domain.shared.errors import VectorStoreError
@@ -80,7 +81,12 @@ class QdrantVectorStore:
             from qdrant_client.models import PointStruct
 
             vector = self.embedding.encode(content, is_query=False)
-            payload = {"key": key, "content": content, "lifecycle_status": lifecycle_status}
+            payload = {
+                "key": key,
+                "content": content,
+                "lifecycle_status": lifecycle_status,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            }
             if metadata:
                 payload.update(metadata)
 
@@ -99,14 +105,50 @@ class QdrantVectorStore:
             logger.error("Failed to upsert vector for %s: %s", key, e)
             return Failure(VectorStoreError(str(e)))
 
+    def _build_decay_query(self, vector, limit, decay_scale=604800):
+        """Build a Qdrant QueryRequest with exp_decay temporal scoring.
+
+        decay_scale: 604800 = 1 week in seconds (recency half-life)
+        """
+        from qdrant_client.models import (
+            DatetimeKeyExpression,
+            DecayParamsExpression,
+            ExpDecayExpression,
+            FormulaQuery,
+            Prefetch,
+            QueryRequest,
+            SumExpression,
+        )
+
+        decay = DecayParamsExpression(
+            x=DatetimeKeyExpression(datetime_key="created_at"),
+            target="now",
+            scale=decay_scale,
+            midpoint=0.1,
+        )
+        formula = FormulaQuery(
+            formula=SumExpression(
+                sum=["$score", ExpDecayExpression(exp_decay=decay)]
+            )
+        )
+        prefetch = Prefetch(
+            query=vector.tolist(),
+            limit=limit * 3,  # oversample to compensate decay re-ranking
+        )
+        return QueryRequest(
+            prefetch=[prefetch],
+            query=formula,
+            limit=limit,
+        )
+
     def search(self, persona: str, query: str, limit: int = 10) -> Result[list[tuple[str, float]], VectorStoreError]:
-        """Semantic search. Returns list of (memory_key, score)."""
+        """Semantic search with temporal decay. Returns list of (memory_key, score)."""
         try:
             vector = self.embedding.encode(query, is_query=True)
+            query_request = self._build_decay_query(vector, limit)
             response = self.client_manager.client.query_points(
                 collection_name=self.collection_name(persona),
-                query=vector.tolist(),
-                limit=limit,
+                **query_request.model_dump(exclude_none=True),
             )
             results = response.points
             return Success([(r.payload["key"], r.score) for r in results])
@@ -164,7 +206,12 @@ class QdrantVectorStore:
             from qdrant_client.models import PointStruct
 
             vector = await self.embedding.async_encode(content, is_query=False)
-            payload = {"key": key, "content": content, "lifecycle_status": lifecycle_status}
+            payload = {
+                "key": key,
+                "content": content,
+                "lifecycle_status": lifecycle_status,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            }
             if metadata:
                 payload.update(metadata)
 
@@ -189,13 +236,13 @@ class QdrantVectorStore:
         query: str,
         limit: int = 10,
     ) -> Result[list[tuple[str, float]], VectorStoreError]:
-        """Async version of :meth:`search`."""
+        """Async version of :meth:`search` with temporal decay."""
         try:
             vector = await self.embedding.async_encode(query, is_query=True)
+            query_request = self._build_decay_query(vector, limit)
             response = self.client_manager.client.query_points(
                 collection_name=self.collection_name(persona),
-                query=vector.tolist(),
-                limit=limit,
+                **query_request.model_dump(exclude_none=True),
             )
             results = response.points
             return Success([(r.payload["key"], r.score) for r in results])
