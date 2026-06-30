@@ -49,21 +49,24 @@
 - **依存**: なし
 - **担当**: @fixer
 
-### T07: 感情半減期の設定化 🟡
-- [ ] **T07a**: `ForgettingConfig` に `emotion_half_life_hours: float = 24.0` 追加（`nous/config/settings.py`）
-- [ ] **T07b**: `emotion_decay.py` の `_EMOTION_HALF_LIFE` ハードコードを設定値参照に変更
-- [ ] **T07c**: runtime_config のホットリロード対応
-- [ ] **T07d**: WebUI の Settings ページに表示
-- [ ] **T07e**: テスト更新
+### T07: 感情半減期の設定化 🟡 ✅
+- [x] **T07a**: `ForgettingConfig` に `emotion_half_life_hours: float = 24.0` 追加（`nous/config/settings.py`）
+- [x] **T07b**: `emotion_decay.py` の `_EMOTION_HALF_LIFE` ハードコードを設定値参照に変更（`half_life_hours` パラメータとして注入）
+- [x] **T07c**: runtime_config SETTINGS_META に `emotion_half_life_hours` 追加（hot_reload=True）
+- [x] **T07d**: WebUI settings.js の BUILTIN_PROFILES forgetting セクションに追加
+- [x] **T07e**: テスト追加（custom half-life affects decay rate, apply_if_needed passes through, settings default）
 - **依存**: T06（持続性の概念が先）
 - **担当**: @fixer
 
-### T08: TIME GAP コメントの体験層化 🟡
-- [ ] **T08a**: `_tools_helpers.py` の TIME GAP / `_format_state_diff()` をテンプレートベース自然言語生成に拡張
-- [ ] **T08b**: 経過時間 + 身体状態変化 + 直近会話トピック（`recent[0].content`要約） + 現在感情を自然に記述
-- [ ] **T08c**: 30分未満の短い経過時間でも「直前の感情状態を維持」等の説明生成
-- [ ] **T08d**: テスト更新
-- **依存**: T04, T05, T06（trigger_key, 減衰通知, 持続性を参照）
+### T08: TIME GAP コメントの体験層化 🟡 ✅
+- [x] **T08a**: `_tools_helpers.py` に `_generate_time_passage_narrative()` 追加 — テンプレートベース自然言語生成
+- [x] **T08b**: 経過時間 + 身体状態変化 + 直近会話トピック（`recent[0].content`） + 感情減衰を自然に記述
+- [x] **T08c**: <1h: "holds steady", 1-24h: body+emotion, >24h: body+topic+emotion の3段階
+- [x] **T08d**: `_format_lightweight_response` に `elapsed_hours` / `emotion_decay_result` パラメータ追加
+- [x] **T08e**: `_tools_persona.py` で elapsed_hours 計算 + emotion_decay_result を渡す
+- [x] **T08f**: `prepare.py` の時間経過メッセージを日本語→英語に変更
+- [x] **T08g**: テスト追加（6 tests: short/medium/long/zero/no-emotion/no-body）
+- **依存**: T04, T05（trigger_key, 減衰通知）
 - **担当**: @fixer
 
 ## Phase 2: 機能追加 (P1-P2)

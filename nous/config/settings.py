@@ -78,6 +78,8 @@ class ForgettingConfig(BaseModel):
     enabled: bool = True
     decay_interval_seconds: int = 3600
     min_strength: float = 0.005
+    emotion_half_life_hours: float = 24.0
+    """Base half-life for emotion decay. Effective half-life = base * max(0.3, intensity)."""
 
 
 class MemoryEnrichmentConfig(BaseModel):
@@ -89,6 +91,16 @@ class MemoryEnrichmentConfig(BaseModel):
     model: str = "openai/gpt-4o-mini"
     base_url: str = "https://openrouter.ai/api/v1"
     min_chars: int = 10  # skip enrichment for very short memories
+
+
+class AutoCaptureConfig(BaseModel):
+    """Auto-capture: extract key information from session as memories."""
+
+    enabled: bool = True
+    """Auto-capture memories at end of each chat turn."""
+
+    max_memories: int = 5
+    """Maximum memories to create per session."""
 
 
 class Settings(BaseSettings):
@@ -121,6 +133,7 @@ class Settings(BaseSettings):
     memorag: MemoRAGConfig = MemoRAGConfig()
     sandbox: SandboxConfig = SandboxConfig()
     memory_enrichment: MemoryEnrichmentConfig = MemoryEnrichmentConfig()
+    auto_capture: AutoCaptureConfig = AutoCaptureConfig()
     timezone: str = "Asia/Tokyo"
     data_root: str = "./data"
     log_level: str = "INFO"

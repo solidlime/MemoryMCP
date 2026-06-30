@@ -345,7 +345,12 @@ class PrepareStep:
             state = state_result.value
             decay_note = ""
             try:
-                decay_result = await apply_emotion_decay_if_needed(ctx.persona_service, persona, state)
+                from nous.config.runtime_config import RuntimeConfigManager
+
+                half_life, _ = RuntimeConfigManager().get_effective_value("forgetting", "emotion_half_life_hours")
+                decay_result = await apply_emotion_decay_if_needed(
+                    ctx.persona_service, persona, state, half_life_hours=float(half_life)
+                )
                 if decay_result is not None:
                     # decay後に再取得
                     refreshed = ctx.persona_service.get_context(persona)

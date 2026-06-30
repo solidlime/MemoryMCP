@@ -132,6 +132,46 @@ class TestComputeEmotionDecay:
         assert result > 0.01  # cap prevents near-zero result
         assert result < 0.8
 
+    def test_custom_half_life_affects_decay_rate(self):
+        """Custom half_life_hours changes decay rate proportionally."""
+        from nous.domain.persona.emotion_decay import compute_emotion_decay
+
+        # Same intensity and elapsed, different half-life
+        fast = compute_emotion_decay(intensity=0.8, elapsed_hours=48.0, half_life_hours=12.0)
+        slow = compute_emotion_decay(intensity=0.8, elapsed_hours=48.0, half_life_hours=48.0)
+        # Shorter half-life → more decay → lower value
+        assert fast < slow
+        # fast: effective_half_life = 12*0.8 = 9.6h, factor = 0.5^(48/9.6) = 0.5^5 = 0.03125
+        #   result = 0.8 * 0.03125 ≈ 0.025
+        assert 0.02 <= fast <= 0.03
+        # slow: effective_half_life = 48*0.8 = 38.4h, factor = 0.5^(48/38.4) = 0.5^1.25 ≈ 0.420
+        #   result = 0.8 * 0.420 ≈ 0.336
+        assert 0.30 <= slow <= 0.37
+
+    def test_custom_half_life_via_kwarg(self):
+        """Custom half_life_hours can be passed as keyword argument."""
+        from nous.domain.persona.emotion_decay import compute_emotion_decay
+
+        result = compute_emotion_decay(intensity=0.5, elapsed_hours=24.0, half_life_hours=6.0)
+        # effective_half_life = 6 * max(0.3, 0.5) = 6 * 0.5 = 3.0h
+        # factor = 0.5^(24/3) = 0.5^8 = 0.0039
+        # result = 0.5 * 0.0039 ≈ 0.00195
+        assert result < 0.01  # very decayed with short half-life
+
+    def test_custom_half_life_apply_if_needed(self):
+        """apply_emotion_decay_if_needed passes half_life_hours through to compute."""
+        from nous.domain.persona.emotion_decay import compute_emotion_decay
+
+        # With very long half-life, decay should be minimal
+        long_hl = compute_emotion_decay(intensity=0.9, elapsed_hours=48.0, half_life_hours=240.0)
+        # effective_half_life = 240 * 0.9 = 216h
+        # factor = 0.5^(48/216) ≈ 0.851
+        # result = 0.9 * 0.851 ≈ 0.766
+        assert long_hl > 0.7  # well preserved
+        # Compare with default (24h) — default decays much more
+        default_hl = compute_emotion_decay(intensity=0.9, elapsed_hours=48.0)
+        assert long_hl > default_hl
+
 
 # --- ToolRegistry ---
 

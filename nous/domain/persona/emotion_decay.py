@@ -12,9 +12,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# 感情強度の半減期（時間）
-_EMOTION_HALF_LIFE: float = 24.0
-
 
 @dataclass
 class EmotionDecayResult:
@@ -27,14 +24,14 @@ class EmotionDecayResult:
     elapsed_hours: float
 
 
-def compute_emotion_decay(intensity: float, elapsed_hours: float) -> float:
+def compute_emotion_decay(intensity: float, elapsed_hours: float, half_life_hours: float = 24.0) -> float:
     """指数減衰で新しい感情強度を計算する。
     減衰係数 = 0.5^(経過時間 / effective_half_life)
     effective_half_life = base_half_life * max(0.3, intensity)  — 強度が高いほど長持ち
     """
     if elapsed_hours <= 0 or intensity <= 0.0:
         return 0.0
-    effective_half_life = _EMOTION_HALF_LIFE * max(0.3, intensity)
+    effective_half_life = half_life_hours * max(0.3, intensity)
     factor = 0.5 ** (elapsed_hours / effective_half_life)
     return max(0.0, round(intensity * factor, 4))
 
@@ -43,6 +40,7 @@ async def apply_emotion_decay_if_needed(
     persona_service: PersonaService,
     persona: str,
     state: PersonaState,
+    half_life_hours: float = 24.0,
 ) -> EmotionDecayResult | None:
     """経過時間に基づいて感情強度を減衰、永続化する。
 
@@ -62,7 +60,7 @@ async def apply_emotion_decay_if_needed(
     if current_intensity <= 0.0:
         return None
 
-    new_intensity = compute_emotion_decay(current_intensity, elapsed_hours)
+    new_intensity = compute_emotion_decay(current_intensity, elapsed_hours, half_life_hours)
     if abs(new_intensity - current_intensity) < 0.005:
         return None
 

@@ -37,9 +37,11 @@ async def _tool_get_context(ctx: AppContext, persona: str) -> str:
 
     decay_note = ""
     try:
+        from nous.config.runtime_config import RuntimeConfigManager
         from nous.domain.persona.emotion_decay import apply_emotion_decay_if_needed
 
-        decay_result = await apply_emotion_decay_if_needed(ctx.persona_service, persona, state)
+        half_life, _ = RuntimeConfigManager().get_effective_value("forgetting", "emotion_half_life_hours")
+        decay_result = await apply_emotion_decay_if_needed(ctx.persona_service, persona, state, half_life_hours=float(half_life))
         if decay_result is not None:
             refreshed = ctx.persona_service.get_context(persona)
             if refreshed.is_ok:
@@ -97,6 +99,7 @@ async def _tool_get_context(ctx: AppContext, persona: str) -> str:
         time_since = relative_time_str(state.last_conversation_time)
     current_time = get_now().strftime("%Y-%m-%d %H:%M")
     ctx.persona_service.record_conversation_time(persona)
+
     result_text = _format_lightweight_response(
         state,
         top_memories,

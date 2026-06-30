@@ -10,13 +10,13 @@ const BUILTIN_PROFILES = {
         embedding: { model: 'cl-nagoya/ruri-v3-30m', device: 'cpu', batch_size: 32 },
         reranker: { model: 'hotchpotch/japanese-reranker-xsmall-v2', enabled: true },
         general: { log_level: 'DEBUG', contradiction_threshold: 0.85, duplicate_threshold: 0.90 },
-        forgetting: { enabled: true, decay_interval_seconds: 3600, min_strength: 0.005 }
+        forgetting: { enabled: true, decay_interval_seconds: 3600, min_strength: 0.005, emotion_half_life_hours: 24.0 }
     },
     'Production': {
         embedding: { model: 'cl-nagoya/ruri-v3-30m', device: 'auto', batch_size: 64 },
         reranker: { model: 'hotchpotch/japanese-reranker-xsmall-v2', enabled: true },
         general: { log_level: 'WARNING', contradiction_threshold: 0.85, duplicate_threshold: 0.90 },
-        forgetting: { enabled: true, decay_interval_seconds: 1800, min_strength: 0.005 }
+        forgetting: { enabled: true, decay_interval_seconds: 1800, min_strength: 0.005, emotion_half_life_hours: 24.0 }
     }
 };
 

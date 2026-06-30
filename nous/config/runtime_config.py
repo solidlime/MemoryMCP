@@ -46,6 +46,7 @@ SETTINGS_META: dict[str, dict[str, dict]] = {
         "enabled": {"hot_reload": True, "description": "Enable forgetting curve"},
         "decay_interval_seconds": {"hot_reload": True, "description": "Decay worker interval (seconds)"},
         "min_strength": {"hot_reload": True, "description": "Minimum memory strength"},
+        "emotion_half_life_hours": {"hot_reload": True, "description": "Base half-life for emotion decay (hours)"},
     },
     "memory_enrichment": {
         "enabled": {"hot_reload": True, "description": "Auto-evaluate importance & relations via LLM"},
