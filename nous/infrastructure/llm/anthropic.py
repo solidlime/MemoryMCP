@@ -97,6 +97,7 @@ class AnthropicProvider(LLMProvider):
         tools: list[ToolDefinition] | None = None,
         temperature: float = 0.7,
         max_tokens: int = 2048,
+        top_p: float | None = None,
     ) -> AsyncIterator[ChatEvent]:
         anthropic_tools = []
         if tools:
@@ -119,6 +120,8 @@ class AnthropicProvider(LLMProvider):
                 "messages": api_messages,
                 "temperature": temperature,
             }
+            if top_p is not None:
+                kwargs["top_p"] = top_p
             if anthropic_tools:
                 kwargs["tools"] = anthropic_tools
 

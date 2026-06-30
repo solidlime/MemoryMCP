@@ -30,6 +30,7 @@ class EquipmentService:
         name: str,
         category: str | None = None,
         description: str | None = None,
+        visual_desc: str | None = None,
         quantity: int = 1,
         tags: list[str] | None = None,
     ) -> Result[Item, DomainError]:
@@ -61,6 +62,7 @@ class EquipmentService:
             name=name.strip(),
             category=category,
             description=description,
+            visual_desc=visual_desc,
             quantity=quantity,
             tags=tags or [],
             created_at=now,

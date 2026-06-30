@@ -50,6 +50,13 @@ from nous.migration.versions.v028_lifecycle_status import (
 from nous.migration.versions.v029_strength_factors import (
     upgrade as v029_upgrade,
 )
+from nous.migration.versions.v030_persona_appearance import (
+    upgrade as v030_upgrade,
+)
+from nous.migration.versions.v031_author_note import upgrade as v031_upgrade
+from nous.migration.versions.v032_dynamic_temp import (
+    upgrade as v032_upgrade,
+)
 
 ALL_MIGRATIONS: list[tuple[str, str, object]] = [
     ("001", "Initial schema", v001_upgrade),
@@ -80,4 +87,7 @@ ALL_MIGRATIONS: list[tuple[str, str, object]] = [
     ("027", "Add license/compatibility/metadata to skills table", v027_upgrade),
     ("028", "Add lifecycle_status column to memories table", v028_upgrade),
     ("029", "Add 7-factor scoring columns to memory_strength", v029_upgrade),
+    ("030", "Add visual_desc column to items table", v030_upgrade),
+    ("031", "Add author_note and author_note_frequency to persona state", v031_upgrade),
+    ("032", "Add dynamic temperature and top_p to chat_settings", v032_upgrade),
 ]

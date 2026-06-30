@@ -48,6 +48,9 @@ class InMemoryPersonaRepository:
                 relationship_status=state_map.get("relationship_status"),
                 user_info=user_info,
                 persona_info=persona_info,
+                appearance=state_map.get("appearance"),
+                author_note=state_map.get("author_note"),
+                author_note_frequency=state_map.get("author_note_frequency", "always"),
             )
         )
 
@@ -256,9 +259,74 @@ class TestUpdatePersonaInfo:
         assert result.is_ok
         assert repo._persona_info[PERSONA]["nickname"] == "ヘルタ"
 
+    def test_appearance_propagates_to_state(self, service: PersonaService, repo: InMemoryPersonaRepository):
+        """appearance key in persona_info should also update PersonaState.appearance."""
+        desc = "銀色の長い髪、赤い瞳、白い研究着"
+        result = service.update_persona_info(PERSONA, {"appearance": desc})
+        assert result.is_ok
+        assert repo._persona_info[PERSONA]["appearance"] == desc
+        assert repo._state.get(PERSONA, {}).get("appearance") == desc
+
+    def test_appearance_none_does_not_set_state(self, service: PersonaService, repo: InMemoryPersonaRepository):
+        """appearance=None should store in persona_info but not touch state."""
+        result = service.update_persona_info(PERSONA, {"appearance": None})
+        assert result.is_ok
+        assert repo._persona_info[PERSONA].get("appearance") == "None"
+        assert "appearance" not in repo._state.get(PERSONA, {})
+
+    def test_get_context_reflects_appearance(self, service: PersonaService):
+        """Appearance set via persona_info should be readable via get_context."""
+        desc = "短い黒髪、青い眼"
+        service.update_persona_info(PERSONA, {"appearance": desc})
+        result = service.get_context(PERSONA)
+        assert result.is_ok
+        state = result.unwrap()
+        assert state.appearance == desc
+
+    def test_appearance_defaults_to_none(self, service: PersonaService):
+        """Fresh persona should have appearance=None."""
+        result = service.get_context(PERSONA)
+        assert result.is_ok
+        state = result.unwrap()
+        assert state.appearance is None
+
 
 class TestRecordConversationTime:
     def test_records_time(self, service: PersonaService, repo: InMemoryPersonaRepository):
         result = service.record_conversation_time(PERSONA)
         assert result.is_ok
         assert "last_conversation_time" in repo._state.get(PERSONA, {})
+
+
+class TestAuthorNote:
+    def test_author_note_default_is_none(self, service: PersonaService):
+        result = service.get_context(PERSONA)
+        assert result.is_ok
+        state = result.unwrap()
+        assert state.author_note is None
+        assert state.author_note_frequency == "always"
+
+    def test_author_note_persisted_via_update_state(self, service: PersonaService, repo: InMemoryPersonaRepository):
+        result = service.update_state(PERSONA, "author_note", "Remember: you are a helpful assistant.")
+        assert result.is_ok
+        assert repo._state[PERSONA]["author_note"] == "Remember: you are a helpful assistant."
+
+        result = service.get_context(PERSONA)
+        assert result.is_ok
+        state = result.unwrap()
+        assert state.author_note == "Remember: you are a helpful assistant."
+
+    def test_author_note_frequency_custom(self, service: PersonaService, repo: InMemoryPersonaRepository):
+        service.update_state(PERSONA, "author_note_frequency", "on_emotion_change")
+        result = service.get_context(PERSONA)
+        assert result.is_ok
+        state = result.unwrap()
+        assert state.author_note_frequency == "on_emotion_change"
+
+    def test_author_note_roundtrip_with_empty(self, service: PersonaService):
+        service.update_state(PERSONA, "author_note", "test note")
+        service.update_state(PERSONA, "author_note", "")
+        result = service.get_context(PERSONA)
+        assert result.is_ok
+        state = result.unwrap()
+        assert state.author_note == ""

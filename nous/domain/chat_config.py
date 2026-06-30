@@ -85,6 +85,10 @@ class ChatConfig(BaseModel):
     context_compress_history: bool = True
     memory_preload_count: int = 3  # 0=all, N=preload top N
     enable_parallel_tools: bool = True
+    # Dynamic temperature + top_p (TA02)
+    dynamic_temperature: bool = True
+    emotion_temperature_scale: float = 0.2
+    top_p: float | None = None
     updated_at: str | None = None
 
     def model_post_init(self, __context) -> None:
@@ -173,6 +177,18 @@ class ChatConfig(BaseModel):
     def _clamp_preload_count(cls, v: int) -> int:
         return max(0, min(20, v))
 
+    @field_validator("emotion_temperature_scale")
+    @classmethod
+    def _clamp_emotion_temperature_scale(cls, v: float) -> float:
+        return max(0.0, min(1.0, v))
+
+    @field_validator("top_p")
+    @classmethod
+    def _clamp_top_p(cls, v: float | None) -> float | None:
+        if v is None:
+            return None
+        return max(0.0, min(1.0, v))
+
     def get_effective_api_key(self) -> str:
         """Return stored API key or fall back via RuntimeConfigManager."""
         if self.api_key:
@@ -232,11 +248,15 @@ class ChatConfigRepository:
             ("image_gen_stability_url", "TEXT", "''"),
             ("enable_memory_tools", "BOOLEAN", "1"),
             ("debug_mode", "BOOLEAN", "0"),
+            ("dynamic_temperature", "INTEGER", "1"),
+            ("emotion_temperature_scale", "REAL", "0.2"),
+            ("top_p", "REAL", "NULL"),
         ):
             try:
                 self._db.execute(f"SELECT {col} FROM chat_settings LIMIT 0")  # nosec B608
             except sqlite3.OperationalError:
-                self._db.execute(f"ALTER TABLE chat_settings ADD COLUMN {col} {col_type} DEFAULT {default}")
+                default_sql = "NULL" if default == "NULL" else f"DEFAULT {default}"
+                self._db.execute(f"ALTER TABLE chat_settings ADD COLUMN {col} {col_type} {default_sql}")
 
         try:
             row = self._db.execute(
@@ -254,7 +274,8 @@ class ChatConfigRepository:
                 "context_compress_system_prompt, context_compress_history, "
                 "memory_preload_count, enable_parallel_tools, "
                 "image_gen_enabled, image_gen_provider, image_gen_dalle_model, image_gen_stability_url, "
-                "enable_memory_tools, debug_mode "
+                "enable_memory_tools, debug_mode, "
+                "dynamic_temperature, emotion_temperature_scale, top_p "
                 "FROM chat_settings WHERE persona = ?",
                 (persona,),
             ).fetchone()
@@ -279,7 +300,7 @@ class ChatConfigRepository:
                 (persona,),
             ).fetchone()
             if row is not None:
-                row = (*row, 0, "openai", "dall-e-3", "")
+                row = (*row, 0, "openai", "dall-e-3", "", 1, 0.2, None)
         if row is None:
             return ChatConfig(persona=persona)
         return ChatConfig(
@@ -329,6 +350,9 @@ class ChatConfigRepository:
             image_gen_stability_url=row[41] if len(row) > 41 and row[41] else "",
             enable_memory_tools=bool(row[42]) if len(row) > 42 and row[42] is not None else True,
             debug_mode=bool(row[43]) if len(row) > 43 and row[43] is not None else False,
+            dynamic_temperature=bool(row[44]) if len(row) > 44 and row[44] is not None else True,
+            emotion_temperature_scale=float(row[45]) if len(row) > 45 and row[45] is not None else 0.2,
+            top_p=float(row[46]) if len(row) > 46 and row[46] is not None else None,
         )
 
     def save(self, config: ChatConfig) -> None:
@@ -341,6 +365,9 @@ class ChatConfigRepository:
             ("image_gen_stability_url", "TEXT", "''"),
             ("enable_memory_tools", "BOOLEAN", "1"),
             ("debug_mode", "BOOLEAN", "0"),
+            ("dynamic_temperature", "INTEGER", "1"),
+            ("emotion_temperature_scale", "REAL", "0.2"),
+            ("top_p", "REAL", "NULL"),
         ):
             try:
                 self._db.execute(f"SELECT {col} FROM chat_settings LIMIT 0")  # nosec B608 — col from hardcoded tuple, not user input
@@ -364,10 +391,11 @@ class ChatConfigRepository:
                  context_compression_mode, context_keep_recent_turns,
                   context_compress_system_prompt, context_compress_history,
                   memory_preload_count, enable_parallel_tools,
-                  image_gen_enabled, image_gen_provider, image_gen_dalle_model, image_gen_stability_url,
-                  enable_memory_tools, debug_mode,
-                  updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   image_gen_enabled, image_gen_provider, image_gen_dalle_model, image_gen_stability_url,
+                   enable_memory_tools, debug_mode,
+                   dynamic_temperature, emotion_temperature_scale, top_p,
+                   updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(persona) DO UPDATE SET
                 provider=excluded.provider,
                 model=excluded.model,
@@ -411,6 +439,9 @@ class ChatConfigRepository:
                  image_gen_stability_url=excluded.image_gen_stability_url,
                  enable_memory_tools=excluded.enable_memory_tools,
                  debug_mode=excluded.debug_mode,
+                 dynamic_temperature=excluded.dynamic_temperature,
+                 emotion_temperature_scale=excluded.emotion_temperature_scale,
+                 top_p=excluded.top_p,
                  updated_at=excluded.updated_at
             """,
             (
@@ -457,6 +488,9 @@ class ChatConfigRepository:
                 config.image_gen_stability_url,
                 int(config.enable_memory_tools),
                 int(config.debug_mode),
+                int(config.dynamic_temperature),
+                config.emotion_temperature_scale,
+                config.top_p,
                 now,
             ),
         )

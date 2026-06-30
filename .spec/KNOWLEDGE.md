@@ -73,3 +73,42 @@
 - パッケージ名変更は段階的に: (1) ファイルシステム (mv), (2) Pythonインポート (sed), (3) 文字列リテラル (fixer並列)
 - 並列fixerで効率的だが、同一ファイルの競合に注意（今回は競合なし）
 - テストの env var 文字列は grep から漏れやすいので別途 sed で対応
+
+## SillyTavern + ComfyUI + Irodori-TTS 調査 (2026-07-01)
+
+### SillyTavern (AGPL-3.0 → 設計思想のみ採用)
+- Dynamic Temperature はトークン分布ベースで感情ベースではない。Nous は emotion_decay と組み合わせ独自実装
+- Persona Card V2/V3 (PNG tEXt ccv3 chunk) → import/export に最適
+- Lorebook: keyword-trigger 記憶注入は Qdrant 既存で二重管理 → 過剰設計
+- Expression sprites (28 GoEmotions) は過剰。Nous の感情アイコンで十分
+
+### ComfyUI (GPL-3.0, ローカル画像生成)
+- ghcr.io/clsferguson/comfyui-docker:latest が最も信頼できる
+- Animagine XL 4.0 (SDXL): 日本語キャラ名直接プロンプト可
+- comfy-api-simplified (MCPサーバ同梱) → Nous 統合に理想的
+- A1111 は deprecated (wiki 2023-09-09 以降未更新) → StabilityProvider は将来 deprecate 必要
+- 8GB VRAM 推奨、4GB でも SD1.5 ベースで動作可能
+
+### Irodori-TTS (MIT, 日本語特化音声)
+- Flow Matching + DiT (VITS 系ではない)。50,000時間日本語学習
+- OpenAI TTS API 完全互換 → Nous 側は極薄ラッパー
+- 感情制御: 絵文字 + キャプション + 参照音声 (3系統)
+- timbre 0.9745 (6モデル中最高)、MOS 4.37
+- 弱点: 開発者1名/4ヶ月、漢字読み精度、20-30秒チャンク制限
+
+### Oracle 設計判断
+- コスト制御レイヤーが決定的に不足 → PortraitGenerationConfig (デフォルトOFF) が必須前提
+- DynaTemp: InferenceStep ではなく pipeline orchestrator が事前計算すべき (純粋性維持)
+- D1 Lorebook: Qdrant上位互換のため Phase E 降格
+
+### 教訓
+- 「未使用コード」調査は grep では不十分。AST 検索 + データフロー追跡が必要 (RerankerModel の例)
+- AI 画像生成は「デフォルトOFF」が鉄則。ユーザーが意図せず API コスト負担するリスク大
+- Irodori-TTS のような若すぎるプロジェクトは「疎結合 + 別コンテナ」でリスク限定
+
+## デプロイ判断 (2026-07-01)
+
+### ComfyUI & Irodori-TTS: 外部サービス前提
+- 両方とも **GPU 必須の重いワークロード** → Nous 本体 (CPU only でOK) とは別マシン推奨
+- Nous 側は HTTP URL 設定 (`comfyui_url`, `irodori_url`) だけで接続。非起動時は機能をフォールバック（エラー停止しない）
+- Synology NAS (24GB RAM) に Irodori-TTS は **非推奨**: GPU がないため CPU 推論のみになり、Flow Matching (32-step DiT) で 20秒音声に1分以上。チャット対話には非実用的。軽量 TTS が欲しいなら VOICEVOX (CPU, リアルタイム) が現実的

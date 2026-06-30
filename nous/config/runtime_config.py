@@ -71,6 +71,12 @@ SETTINGS_META: dict[str, dict[str, dict]] = {
             "description": "sandbox: host-absolute path to data dir for volume mounts",
         },
     },
+    "irodori": {
+        "enabled": {"hot_reload": True, "description": "Enable Irodori-TTS voice generation"},
+        "url": {"hot_reload": True, "description": "Irodori-TTS server URL (OpenAI-compatible endpoint)"},
+        "voice": {"hot_reload": True, "description": "Default voice name"},
+        "timeout_seconds": {"hot_reload": True, "description": "Generation timeout (seconds)"},
+    },
     "general": {
         "timezone": {"hot_reload": True, "description": "Timezone"},
         "log_level": {"hot_reload": True, "description": "Log level"},

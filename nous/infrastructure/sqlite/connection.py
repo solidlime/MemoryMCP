@@ -69,6 +69,8 @@ CREATE TABLE IF NOT EXISTS context_state (
     valid_from TEXT NOT NULL,
     valid_until TEXT,
     change_source TEXT,
+    author_note TEXT,
+    author_note_frequency TEXT DEFAULT 'always',
     PRIMARY KEY (persona, key, valid_from)
 );
 
@@ -196,6 +198,7 @@ CREATE TABLE IF NOT EXISTS items (
     name TEXT UNIQUE NOT NULL,
     category TEXT,
     description TEXT,
+    visual_desc TEXT,
     quantity INTEGER DEFAULT 1,
     tags TEXT DEFAULT '[]',
     created_at TEXT NOT NULL,

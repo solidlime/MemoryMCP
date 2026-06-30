@@ -125,6 +125,16 @@ class TestAddItem:
         service.add_item("帽子", tags=["accessory", "head"])
         assert repo._items["帽子"].tags == ["accessory", "head"]
 
+    def test_add_with_visual_desc(self, service: EquipmentService, repo: InMemoryEquipmentRepository):
+        """visual_desc should be set and retrievable."""
+        service.add_item("古びた剣", visual_desc="錆びた刃、革の柄巻き")
+        assert repo._items["古びた剣"].visual_desc == "錆びた刃、革の柄巻き"
+
+    def test_visual_desc_defaults_none(self, service: EquipmentService, repo: InMemoryEquipmentRepository):
+        """Items without visual_desc should have None."""
+        service.add_item("普通の石")
+        assert repo._items["普通の石"].visual_desc is None
+
 
 class TestRemoveItem:
     def test_remove_existing(self, service: EquipmentService, repo: InMemoryEquipmentRepository):

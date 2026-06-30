@@ -15,6 +15,7 @@ class PersonaState:
     mental_state: str | None = None
     environment: str | None = None
     relationship_status: str | None = None
+    appearance: str | None = None
     fatigue: float | None = None
     warmth: float | None = None
     arousal: float | None = None
@@ -25,6 +26,8 @@ class PersonaState:
     persona_info: dict = field(default_factory=dict)
     last_conversation_time: datetime | None = None
     last_state_update: datetime | None = None
+    author_note: str | None = None
+    author_note_frequency: str = "always"  # "always" | "every_n" | "on_emotion_change"
 
 
 @dataclass

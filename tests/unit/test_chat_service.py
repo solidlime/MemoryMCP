@@ -182,6 +182,42 @@ class TestChatConfig:
         assert d["api_key"] == ""
         assert d["is_configured"] is False
 
+    # ── Dynamic temperature + top_p (TA02) ──
+
+    def test_dynamic_temperature_default(self):
+        cfg = ChatConfig(persona="test")
+        assert cfg.dynamic_temperature is True
+
+    def test_emotion_temperature_scale_default(self):
+        cfg = ChatConfig(persona="test")
+        assert cfg.emotion_temperature_scale == 0.2
+
+    def test_emotion_temperature_scale_clamped(self):
+        cfg = ChatConfig(persona="test", emotion_temperature_scale=2.0)
+        assert cfg.emotion_temperature_scale == 1.0
+        cfg2 = ChatConfig(persona="test", emotion_temperature_scale=-0.5)
+        assert cfg2.emotion_temperature_scale == 0.0
+
+    def test_top_p_default_none(self):
+        cfg = ChatConfig(persona="test")
+        assert cfg.top_p is None
+
+    def test_top_p_clamped_low(self):
+        cfg = ChatConfig(persona="test", top_p=0.0)
+        assert cfg.top_p == 0.0  # 境界: 0.0 は許可
+
+    def test_top_p_clamped_high(self):
+        cfg = ChatConfig(persona="test", top_p=1.5)
+        assert cfg.top_p == 1.0
+
+    def test_top_p_negative(self):
+        cfg = ChatConfig(persona="test", top_p=-1.0)
+        assert cfg.top_p == 0.0  # clamp to (0.0, 1.0]
+
+    def test_top_p_accepted_value(self):
+        cfg = ChatConfig(persona="test", top_p=0.9)
+        assert cfg.top_p == 0.9
+
 
 # ─────────────────────────────────────────────────────────────
 # ChatConfigRepository tests
@@ -236,7 +272,10 @@ class TestChatConfigRepository:
                 image_gen_enabled INTEGER DEFAULT 0,
                 image_gen_provider TEXT DEFAULT 'openai',
                 image_gen_dalle_model TEXT DEFAULT 'dall-e-3',
-                image_gen_stability_url TEXT DEFAULT ''
+                image_gen_stability_url TEXT DEFAULT '',
+                dynamic_temperature INTEGER DEFAULT 1,
+                emotion_temperature_scale REAL DEFAULT 0.2,
+                top_p REAL
             )
         """)
         db.execute("""
@@ -295,6 +334,30 @@ class TestChatConfigRepository:
         repo.delete("p1")
         loaded = repo.get("p1")
         assert loaded.api_key == ""
+
+    def test_save_and_get_dynamic_temp_top_p(self):
+        db = self._make_db()
+        repo = ChatConfigRepository(db)
+        cfg = ChatConfig(
+            persona="p1",
+            dynamic_temperature=True,
+            emotion_temperature_scale=0.5,
+            top_p=0.9,
+        )
+        repo.save(cfg)
+        loaded = repo.get("p1")
+        assert loaded.dynamic_temperature is True
+        assert loaded.emotion_temperature_scale == 0.5
+        assert loaded.top_p == 0.9
+
+    def test_save_and_get_top_p_none(self):
+        db = self._make_db()
+        repo = ChatConfigRepository(db)
+        cfg = ChatConfig(persona="p1")
+        assert cfg.top_p is None
+        repo.save(cfg)
+        loaded = repo.get("p1")
+        assert loaded.top_p is None
 
 
 # ─────────────────────────────────────────────────────────────
@@ -385,6 +448,60 @@ class TestChatService:
         payload = json.loads(chunks[0][6:].strip())
         assert payload["type"] == "error"
         assert "APIキー" in payload["message"]
+
+    @pytest.mark.asyncio
+    async def test_top_p_passed_to_provider_stream(self):
+        """Verify top_p from ChatConfig is forwarded to provider.stream()."""
+        from nous.application.chat_service import ChatService
+
+        captured_kwargs = {}
+
+        async def mock_stream(*args, **kwargs):
+            captured_kwargs.update(kwargs)
+            yield TextDeltaEvent(content="ok")
+            yield DoneEvent(full_content="ok", tool_calls=[])
+
+        mock_provider = MagicMock()
+        mock_provider.stream = mock_stream
+
+        ctx = self._make_ctx()
+        cfg = self._make_config(api_key="sk-valid-key")
+        cfg.top_p = 0.9
+        service = ChatService()
+
+        with patch("nous.application.chat.pipeline.inference.get_provider", return_value=mock_provider):
+            async for _ in service.chat(ctx, cfg, "sess1", "hello"):
+                pass
+
+        assert captured_kwargs.get("top_p") == 0.9
+
+    @pytest.mark.asyncio
+    async def test_top_p_none_in_kwargs_when_config_none(self):
+        """When top_p is None in ChatConfig, provider.stream() receives top_p=None."""
+        from nous.application.chat_service import ChatService
+
+        captured_kwargs = {}
+
+        async def mock_stream(*args, **kwargs):
+            captured_kwargs.update(kwargs)
+            yield TextDeltaEvent(content="ok")
+            yield DoneEvent(full_content="ok", tool_calls=[])
+
+        mock_provider = MagicMock()
+        mock_provider.stream = mock_stream
+
+        ctx = self._make_ctx()
+        cfg = self._make_config(api_key="sk-valid-key")
+        cfg.top_p = None  # default
+        service = ChatService()
+
+        with patch("nous.application.chat.pipeline.inference.get_provider", return_value=mock_provider):
+            async for _ in service.chat(ctx, cfg, "sess1", "hello"):
+                pass
+
+        # top_p is always passed to provider.stream(); provider filters None → not sent to API
+        assert "top_p" in captured_kwargs
+        assert captured_kwargs["top_p"] is None
 
     @pytest.mark.asyncio
     async def test_streams_text_and_done(self):

@@ -95,6 +95,7 @@ class OpenAICompatProvider(LLMProvider):
         tools: list[ToolDefinition] | None = None,
         temperature: float = 0.7,
         max_tokens: int = 2048,
+        top_p: float | None = None,
     ) -> AsyncIterator[ChatEvent]:
         openai_tools = []
         if tools:
@@ -120,6 +121,8 @@ class OpenAICompatProvider(LLMProvider):
                 "max_tokens": max_tokens,
                 "stream": True,
             }
+            if top_p is not None:
+                kwargs["top_p"] = top_p
             if openai_tools:
                 kwargs["tools"] = openai_tools
 

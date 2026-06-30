@@ -3,7 +3,7 @@ from __future__ import annotations
 import functools
 from pathlib import Path
 
-from pydantic import BaseModel, computed_field, field_validator
+from pydantic import BaseModel, Field, computed_field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -103,6 +103,52 @@ class AutoCaptureConfig(BaseModel):
     """Maximum memories to create per session."""
 
 
+class IrodoriConfig(BaseModel):
+    """Irodori-TTS connection configuration."""
+
+    enabled: bool = False
+    """Default OFF — must be explicitly enabled."""
+
+    url: str = "http://localhost:8088/v1"
+    """Irodori-TTS-Server OpenAI-compatible API endpoint."""
+
+    voice: str = "default"
+    """Default voice name."""
+
+    timeout_seconds: int = 30
+    """Generation timeout in seconds."""
+
+
+class PortraitGenerationConfig(BaseModel):
+    """Portrait generation configuration — CRITICAL cost-control layer (default OFF)."""
+
+    enabled: bool = False
+    """DEFAULT OFF — must be explicitly enabled for any portrait generation."""
+
+    provider: str = "comfyui"
+    """"comfyui" | "openai" | "stability" — generation backend."""
+
+    comfyui_url: str = "http://localhost:8188"
+    """ComfyUI API address (used when provider="comfyui")."""
+
+    auto_generate: bool = False
+    """Auto-generate portrait on emotion change (also default OFF)."""
+
+    generate_interval_min: int = 10
+    """Minimum minutes between automatic generations."""
+
+    size: str = "512x512"
+    """Preview size."""
+
+    quality: str = "standard"
+
+    emotion_threshold: float = 0.3
+    """Only regenerate if emotion intensity change exceeds this threshold."""
+
+    max_monthly_budget: float = 5.0
+    """Monthly USD cap for cloud providers (0 = N/A for local ComfyUI)."""
+
+
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
@@ -134,6 +180,8 @@ class Settings(BaseSettings):
     sandbox: SandboxConfig = SandboxConfig()
     memory_enrichment: MemoryEnrichmentConfig = MemoryEnrichmentConfig()
     auto_capture: AutoCaptureConfig = AutoCaptureConfig()
+    portrait_gen: PortraitGenerationConfig = Field(default_factory=PortraitGenerationConfig)
+    irodori: IrodoriConfig = Field(default_factory=IrodoriConfig)
     timezone: str = "Asia/Tokyo"
     data_root: str = "./data"
     log_level: str = "INFO"

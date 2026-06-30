@@ -16,6 +16,7 @@ class Item:
     name: str
     category: str | None = None
     description: str | None = None
+    visual_desc: str | None = None
     quantity: int = 1
     tags: list[str] = field(default_factory=list)
     id: int | None = None

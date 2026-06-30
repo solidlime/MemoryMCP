@@ -43,9 +43,9 @@
 - **依存**: T04（trigger_keyが使える前提）
 - **担当**: @fixer
 
-### T06: 感情持続性の概念（半減期×強度）🟡
-- [ ] **T06a**: `emotion_decay.py` の減衰計算を `effective_half_life = base_half_life * intensity` に変更
-- [ ] **T06b**: テスト更新
+### T06: 感情持続性の概念（半減期×強度）🟡 ✅ DONE
+- [x] **T06a**: `emotion_decay.py` の減衰計算を `effective_half_life = base_half_life * intensity` に変更
+- [x] **T06b**: テスト更新
 - **依存**: なし
 - **担当**: @fixer
 
@@ -77,11 +77,11 @@
 - **依存**: なし
 - **担当**: @fixer（調査は@explorer）
 
-### T10: セッション自動記憶抽出（autoCapture）🟡
-- [ ] **T10a**: `PostProcessStep` にセッション内容からの重要情報抽出ロジック追加
-- [ ] **T10b**: 抽出情報の `memory_create` 自動保存
-- [ ] **T10c**: 設定でON/OFF切替可能に
-- [ ] **T10d**: テスト追加
+### T10: セッション自動記憶抽出（autoCapture）🟡 ✅ DONE
+- [x] **T10a**: `PostProcessStep` にセッション内容からの重要情報抽出ロジック追加
+- [x] **T10b**: 抽出情報の `memory_create` 自動保存
+- [x] **T10c**: 設定でON/OFF切替可能に
+- [x] **T10d**: テスト追加
 - **依存**: なし
 - **担当**: @fixer
 

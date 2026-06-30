@@ -5,6 +5,8 @@ from __future__ import annotations
 from nous.config.settings import (
     EmbeddingConfig,
     ForgettingConfig,
+    IrodoriConfig,
+    PortraitGenerationConfig,
     QdrantConfig,
     RerankerConfig,
     ServerConfig,
@@ -42,6 +44,25 @@ class TestDefaultValues:
         assert cfg.min_strength == 0.005
         assert cfg.emotion_half_life_hours == 24.0
 
+    def test_portrait_gen_defaults(self):
+        cfg = PortraitGenerationConfig()
+        assert cfg.enabled is False  # CRITICAL: default OFF
+        assert cfg.provider == "comfyui"
+        assert cfg.comfyui_url == "http://localhost:8188"
+        assert cfg.auto_generate is False
+        assert cfg.generate_interval_min == 10
+        assert cfg.size == "512x512"
+        assert cfg.quality == "standard"
+        assert cfg.emotion_threshold == 0.3
+        assert cfg.max_monthly_budget == 5.0
+
+    def test_irodori_defaults(self):
+        cfg = IrodoriConfig()
+        assert cfg.enabled is False
+        assert cfg.url == "http://localhost:8088/v1"
+        assert cfg.voice == "default"
+        assert cfg.timeout_seconds == 30
+
 
 class TestSettings:
     def test_full_defaults(self, monkeypatch):
@@ -56,6 +77,9 @@ class TestSettings:
         assert s.server.port == 26262
         assert s.contradiction_threshold == 0.85
         assert s.duplicate_threshold == 0.90
+        # Portrait generation — critical cost-control layer: default OFF
+        assert s.portrait_gen.enabled is False
+        assert s.portrait_gen.provider == "comfyui"
 
     def test_env_override_simple(self, monkeypatch):
         monkeypatch.setenv("NOUS_TIMEZONE", "UTC")
@@ -68,6 +92,28 @@ class TestSettings:
         monkeypatch.setenv("NOUS_SERVER__PORT", "9999")
         s = Settings()
         assert s.server.port == 9999
+
+    def test_env_override_portrait_gen(self, monkeypatch):
+        monkeypatch.setenv("NOUS_PORTRAIT_GEN__ENABLED", "true")
+        monkeypatch.setenv("NOUS_PORTRAIT_GEN__PROVIDER", "openai")
+        monkeypatch.setenv("NOUS_PORTRAIT_GEN__AUTO_GENERATE", "true")
+        s = Settings()
+        assert s.portrait_gen.enabled is True
+        assert s.portrait_gen.provider == "openai"
+        assert s.portrait_gen.auto_generate is True
+        # Other fields should remain default
+        assert s.portrait_gen.comfyui_url == "http://localhost:8188"
+        assert s.portrait_gen.max_monthly_budget == 5.0
+
+    def test_env_override_irodori(self, monkeypatch):
+        monkeypatch.setenv("NOUS_IRODORI__URL", "http://192.168.1.100:8088/v1")
+        monkeypatch.setenv("NOUS_IRODORI__VOICE", "kobayashi")
+        s = Settings()
+        assert s.irodori.url == "http://192.168.1.100:8088/v1"
+        assert s.irodori.voice == "kobayashi"
+        # Other fields should remain default
+        assert s.irodori.enabled is False
+        assert s.irodori.timeout_seconds == 30
 
     def test_env_override_data_root(self, monkeypatch):
         monkeypatch.setenv("NOUS_DATA_ROOT", "/custom/data")

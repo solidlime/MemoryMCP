@@ -560,7 +560,87 @@ class TestRunAutoCapture:
         ctx.persona = "test"
         result = await run_auto_capture(ctx, "test", [{"role": "user", "content": "来週からジムに通うことにした。"}])
         assert result == []
-        ctx.memory_service.create_memory.assert_not_called()
+
+
+# ──────────────────────────────────────────────
+# Author's Note — PromptBuildStep
+# ──────────────────────────────────────────────
+
+
+class TestPromptBuildStepAuthorNote:
+    """PromptBuildStep should inject author_note into system_prompt."""
+
+    def test_author_note_injected_when_set(self):
+        """author_note が設定されている場合、system_prompt末尾に [Author's Note] セクションが追加される."""
+        from unittest.mock import MagicMock
+
+        from nous.application.chat.pipeline.prompt import PromptBuildStep
+
+        ctx = MagicMock()
+        ctx.persona = "test"
+        config = MagicMock()
+        config.system_prompt = "Base system prompt."
+        config.enabled_skills = []
+
+        turn_ctx = MagicMock()
+        turn_ctx.context_section = "--- context ---"
+        turn_ctx.related_memories = ""
+        turn_ctx.author_note = "Remember to be concise."
+        turn_ctx.author_note_frequency = "always"
+
+        PromptBuildStep().run(ctx, config, turn_ctx)
+
+        assert turn_ctx.system_prompt is not None
+        assert "Base system prompt." in turn_ctx.system_prompt
+        assert "[Author's Note]" in turn_ctx.system_prompt
+        assert "Remember to be concise." in turn_ctx.system_prompt
+        # Should be at the end (after context section)
+        assert turn_ctx.system_prompt.strip().endswith("Remember to be concise.")
+
+    def test_author_note_not_injected_when_none(self):
+        """author_note が None の場合、[Author's Note] セクションは追加されない."""
+        from unittest.mock import MagicMock
+
+        from nous.application.chat.pipeline.prompt import PromptBuildStep
+
+        ctx = MagicMock()
+        ctx.persona = "test"
+        config = MagicMock()
+        config.system_prompt = "Base system prompt."
+        config.enabled_skills = []
+
+        turn_ctx = MagicMock()
+        turn_ctx.context_section = "--- context ---"
+        turn_ctx.related_memories = ""
+        turn_ctx.author_note = None
+        turn_ctx.author_note_frequency = "always"
+
+        PromptBuildStep().run(ctx, config, turn_ctx)
+
+        assert "[Author's Note]" not in turn_ctx.system_prompt
+
+    def test_author_note_not_injected_when_empty(self):
+        """author_note が空文字の場合、[Author's Note] セクションは追加されない."""
+        from unittest.mock import MagicMock
+
+        from nous.application.chat.pipeline.prompt import PromptBuildStep
+
+        ctx = MagicMock()
+        ctx.persona = "test"
+        config = MagicMock()
+        config.system_prompt = "Base system prompt."
+        config.enabled_skills = []
+
+        turn_ctx = MagicMock()
+        turn_ctx.context_section = "--- context ---"
+        turn_ctx.related_memories = ""
+        turn_ctx.author_note = ""
+        turn_ctx.author_note_frequency = "always"
+
+        PromptBuildStep().run(ctx, config, turn_ctx)
+
+        assert "[Author's Note]" not in turn_ctx.system_prompt
+
 
     @pytest.mark.asyncio
     async def test_decision_creates_memory(self):

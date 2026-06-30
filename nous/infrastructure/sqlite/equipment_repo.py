@@ -53,13 +53,14 @@ class SQLiteEquipmentRepository:
 
             self._db.execute(
                 """
-                INSERT INTO items (name, category, description, quantity, tags, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO items (name, category, description, visual_desc, quantity, tags, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     item.name,
                     item.category,
                     item.description,
+                    item.visual_desc,
                     item.quantity,
                     json.dumps(item.tags, ensure_ascii=False),
                     now,
@@ -338,6 +339,7 @@ class SQLiteEquipmentRepository:
             name=row["name"],
             category=row["category"],
             description=row["description"],
+            visual_desc=row["visual_desc"] if "visual_desc" in row else None,  # noqa: SIM401 (sqlite3.Row has no .get)
             quantity=row["quantity"] or 1,
             tags=self._parse_json_list(row["tags"]),
             created_at=_parse_or_none(row["created_at"]),

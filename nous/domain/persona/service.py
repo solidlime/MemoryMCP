@@ -128,6 +128,9 @@ class PersonaService:
             result = self._repo.set_persona_info(persona, str(key), serialized)
             if not result.is_ok:
                 return Failure(result.error)
+            # appearance は PersonaState の専用フィールドにも反映
+            if key == "appearance" and value is not None:
+                self._repo.update_state(persona, "appearance", str(value))
         return Success(None)
 
     def get_emotion_history(self, persona: str, limit: int = 20) -> Result[list[EmotionRecord], DomainError]:
@@ -150,6 +153,14 @@ class PersonaService:
     def get_body_state_history_by_days(self, persona: str, days: int = 7) -> Result[list[BodyStateRecord], DomainError]:
         """Get body state history for last N days (oldest first)."""
         return self._repo.get_body_state_history_by_days(persona, days)
+
+    def update_state(self, persona: str, key: str, value: str) -> Result[None, DomainError]:
+        """Update an arbitrary persona state key-value pair.
+
+        Low-level access for fields not covered by dedicated methods
+        (e.g. author_note, author_note_frequency).
+        """
+        return self._repo.update_state(persona, key, value)
 
     def record_conversation_time(self, persona: str) -> Result[None, DomainError]:
         """Record current time as last conversation time."""

@@ -84,6 +84,7 @@ class InferenceStep:
                 tools=all_tools,
                 temperature=config.temperature,
                 max_tokens=config.max_tokens,
+                top_p=config.top_p,
             ):
                 if isinstance(event, TextDeltaEvent):
                     current_text += event.content

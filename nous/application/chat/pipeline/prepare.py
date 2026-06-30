@@ -362,6 +362,10 @@ class PrepareStep:
             except Exception as e:
                 logger.warning("PrepareStep: EmotionDecay failed (swallowed): %s", e)
 
+            # Author's Note: propagate to turn_ctx for PromptBuildStep
+            turn_ctx.author_note = getattr(state, "author_note", None)
+            turn_ctx.author_note_frequency = getattr(state, "author_note_frequency", "always")
+
             # state_raw: シリアライズ可能な dict
             turn_ctx.state_raw = (
                 {

@@ -64,5 +64,10 @@ class PromptBuildStep:
             except Exception as e:
                 logger.warning("PromptBuildStep: skills load failed: %s", e)
 
+        # Author's Note: inject at end of system prompt if set
+        author_note = getattr(turn_ctx, "author_note", None)
+        if author_note:
+            parts.append(f"\n[Author's Note]\n{author_note}")
+
         turn_ctx.system_prompt = "\n".join(parts)
         turn_ctx.skills_raw = skills_raw
