@@ -4,6 +4,7 @@ import json
 from typing import TYPE_CHECKING
 
 from nous.domain.persona.entities import (
+    BodyStateRecord,
     EmotionRecord,
     PersonaState,
 )
@@ -132,6 +133,23 @@ class PersonaService:
     def get_emotion_history(self, persona: str, limit: int = 20) -> Result[list[EmotionRecord], DomainError]:
         """Get recent emotion change history."""
         return self._repo.get_emotion_history(persona, limit)
+
+    def record_body_state(
+        self,
+        persona: str,
+        body_state_dict: dict[str, float | None],
+        context: str | None = None,
+    ) -> Result[None, DomainError]:
+        """Record body state snapshot into history."""
+        return self._repo.add_body_state_record(persona, body_state_dict, context)
+
+    def get_body_state_history(self, persona: str, limit: int = 20) -> Result[list[BodyStateRecord], DomainError]:
+        """Get recent body state history (latest first)."""
+        return self._repo.get_body_state_history(persona, limit)
+
+    def get_body_state_history_by_days(self, persona: str, days: int = 7) -> Result[list[BodyStateRecord], DomainError]:
+        """Get body state history for last N days (oldest first)."""
+        return self._repo.get_body_state_history_by_days(persona, days)
 
     def record_conversation_time(self, persona: str) -> Result[None, DomainError]:
         """Record current time as last conversation time."""

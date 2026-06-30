@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from nous.domain.persona.entities import (
+    BodyStateRecord,
     ContextEntry,
     EmotionRecord,
     PersonaState,
@@ -28,6 +29,7 @@ class InMemoryPersonaRepository:
     def __init__(self) -> None:
         self._state: dict[str, dict[str, str]] = {}
         self._emotions: dict[str, list[EmotionRecord]] = {}
+        self._body_state_history: dict[str, list[BodyStateRecord]] = {}
         self._user_info: dict[str, dict[str, str]] = {}
         self._persona_info: dict[str, dict[str, str]] = {}
 
@@ -97,6 +99,40 @@ class InMemoryPersonaRepository:
 
     def sync_promises(self, persona: str, promises: list) -> Result[None, RepositoryError]:
         return Success(None)
+
+    def add_body_state_record(
+        self,
+        persona: str,
+        body_state_dict: dict[str, float | None],
+        context: str | None = None,
+    ) -> Result[None, RepositoryError]:
+        if persona not in self._body_state_history:
+            self._body_state_history[persona] = []
+        from datetime import datetime
+
+        self._body_state_history[persona].append(
+            BodyStateRecord(
+                persona=persona,
+                fatigue=body_state_dict.get("fatigue"),
+                warmth=body_state_dict.get("warmth"),
+                arousal=body_state_dict.get("arousal"),
+                heart_rate=body_state_dict.get("heart_rate"),
+                pain=body_state_dict.get("pain"),
+                timestamp=datetime.now(),
+                context=context,
+            )
+        )
+        return Success(None)
+
+    def get_body_state_history(self, persona: str, limit: int = 20) -> Result[list[BodyStateRecord], RepositoryError]:
+        records = self._body_state_history.get(persona, [])
+        return Success(records[-limit:])
+
+    def get_body_state_history_by_days(
+        self, persona: str, days: int = 7
+    ) -> Result[list[BodyStateRecord], RepositoryError]:
+        records = self._body_state_history.get(persona, [])
+        return Success(records)
 
 
 # ---------------------------------------------------------------------------

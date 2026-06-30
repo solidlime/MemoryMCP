@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+from nous.domain.value_objects import importance_to_label
+
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
@@ -45,9 +47,10 @@ async def _tool_goal_manage(
             lines.append("  (none)")
         else:
             for m in memories:
-                key = getattr(m, "key", "?")
                 content_str = getattr(m, "content", "?")[:80]
-                lines.append(f"  - [{key}] {content_str}")
+                imp = getattr(m, "importance", 0.5) or 0.5
+                label = importance_to_label(imp)
+                lines.append(f"  - [{label}] {content_str} (imp={imp:.2f})")
         result_text = "\n".join(lines)
         await ctx.event_bus.publish(
             "tool.called",

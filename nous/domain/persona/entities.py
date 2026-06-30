@@ -49,3 +49,18 @@ class EmotionRecord:
     timestamp: datetime = field(default_factory=datetime.now)
     trigger_memory_key: str | None = None
     context: str | None = None
+
+
+@dataclass
+class BodyStateRecord:
+    """Body state history event."""
+
+    id: int | None = None
+    persona: str | None = None
+    fatigue: float | None = None
+    warmth: float | None = None
+    arousal: float | None = None
+    heart_rate: float | None = None
+    pain: float | None = None
+    timestamp: datetime = field(default_factory=datetime.now)
+    context: str | None = None

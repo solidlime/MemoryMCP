@@ -125,6 +125,7 @@ def _format_lightweight_response(
     session_summaries: list | None = None,
     current_time: str = "",
     decay_note: str = "",
+    body_state_history: list | None = None,
 ) -> str:
     """Lightweight context (~700-900 tokens): persona + conversation continuity + body state."""
     lines: list[str] = []
@@ -155,6 +156,26 @@ def _format_lightweight_response(
         time_comment = _build_time_comment(time_since, state.relationship_status)
         if time_comment:
             lines.append(time_comment)
+
+    # Body state history — show how body has changed over time
+    if body_state_history and len(body_state_history) >= 2:
+        lines.append("  Body state history:")
+        for record in body_state_history[-3:]:  # last 3 records
+            parts = []
+            for key, label in [
+                ("fatigue", "fatigue"),
+                ("warmth", "warmth"),
+                ("arousal", "arousal"),
+                ("heart_rate", "heart"),
+                ("pain", "pain"),
+            ]:
+                val = getattr(record, key, None)
+                if val is not None:
+                    parts.append(f"{label}:{val:.0%}")
+            if parts:
+                ts = relative_time_str(record.timestamp) if getattr(record, "timestamp", None) else ""
+                ctx_str = f" ({record.context})" if getattr(record, "context", None) else ""
+                lines.append(f"    [{ts}{ctx_str}] {' | '.join(parts)}")
 
     if state.relationship_status:
         lines.append(f"Your relationship: {state.relationship_status}")

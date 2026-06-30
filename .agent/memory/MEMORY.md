@@ -1,5 +1,11 @@
 # MEMORY
 
+## T11: body_state_history complete (2026-07-01)
+- Implementation was already in place (table, repo methods, service, body_decay recording, context display, tests)
+- Fixed 3 ruff errors: removed unused imports (`BodyStateRecord` in `_tools_helpers.py`, `compute_body_state_decay` in test), removed unused variable
+- 21 tests pass for body_state_history module
+- 1296 total passing, 7 skipped, ruff 0 errors
+
 ## プロジェクト概要
 Nous: 日本語特化の永続記憶 MCP サーバー。SQLite + Qdrant + Ebbinghaus 忘却曲線。WebUIダッシュボード付き。
 3レイヤー構造（L1:MCP拡張, L2:EventBus基盤, L3:OpenCode Plugin）。

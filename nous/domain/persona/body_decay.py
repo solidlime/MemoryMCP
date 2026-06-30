@@ -11,6 +11,11 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
+def _extract_body_dict(state: PersonaState) -> dict[str, float | None]:
+    """Extract numeric body fields from PersonaState."""
+    return {k: getattr(state, k, None) for k in ("fatigue", "warmth", "arousal", "heart_rate", "pain")}
+
 # 身体状態の減衰設定: decay_hours で目標値へ半減
 # fatigue: 休息で徐々に回復 (0.0 へ)
 # warmth: 常温へ (0.5 へ)
@@ -91,6 +96,10 @@ async def apply_body_decay_if_needed(
     if not updates:
         return False
 
+    # Record body state BEFORE decay
+    before_body = _extract_body_dict(state)
+    persona_service.record_body_state(persona, before_body, context="before_body_decay")
+
     try:
         result = persona_service.update_physical_state(persona, **updates)
         if result.is_ok:
@@ -99,6 +108,12 @@ async def apply_body_decay_if_needed(
                 ", ".join(f"{k}={v}" for k, v in updates.items()),
                 elapsed_hours,
             )
+            # Record body state AFTER decay (re-read fresh state)
+            after_result = persona_service.get_context(persona)
+            if after_result.is_ok:
+                after_state = after_result.value  # type: ignore[union-attr]
+                after_body = _extract_body_dict(after_state)
+                persona_service.record_body_state(persona, after_body, context="after_body_decay")
             return True
         logger.warning("BodyDecay: update_physical_state failed: %s", result.error)
     except Exception as e:

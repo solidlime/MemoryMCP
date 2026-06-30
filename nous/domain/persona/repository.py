@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Protocol, runtime_checkable
+from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from nous.domain.persona.entities import (
+        BodyStateRecord,
         ContextEntry,
         EmotionRecord,
         PersonaState,
@@ -12,12 +14,20 @@ if TYPE_CHECKING:
     from nous.domain.shared.result import Result
 
 
-@runtime_checkable
-class PersonaRepository(Protocol):
-    """Repository interface for persona state persistence."""
+class PersonaRepository(ABC):
+    """Abstract interface for persona data storage.
 
+    All persona persistence backends must implement these methods.
+    """
+
+    # ------------------------------------------------------------------
+    # Persona state
+    # ------------------------------------------------------------------
+
+    @abstractmethod
     def get_current_state(self, persona: str) -> Result[PersonaState, RepositoryError]: ...
 
+    @abstractmethod
     def update_state(
         self,
         persona: str,
@@ -26,22 +36,50 @@ class PersonaRepository(Protocol):
         source: str | None = None,
     ) -> Result[None, RepositoryError]: ...
 
+    @abstractmethod
     def get_state_history(
         self, persona: str, key: str, limit: int = 20
     ) -> Result[list[ContextEntry], RepositoryError]: ...
 
+    # ------------------------------------------------------------------
+    # Emotion history
+    # ------------------------------------------------------------------
+
+    @abstractmethod
     def add_emotion_record(self, persona: str, record: EmotionRecord) -> Result[None, RepositoryError]: ...
 
+    @abstractmethod
     def get_emotion_history(self, persona: str, limit: int = 20) -> Result[list[EmotionRecord], RepositoryError]: ...
 
+    # ------------------------------------------------------------------
+    # Body state history
+    # ------------------------------------------------------------------
+
+    @abstractmethod
+    def add_body_state_record(
+        self,
+        persona: str,
+        body_state_dict: dict[str, float | None],
+        context: str | None = None,
+    ) -> Result[None, RepositoryError]: ...
+
+    @abstractmethod
+    def get_body_state_history(
+        self, persona: str, limit: int = 20
+    ) -> Result[list[BodyStateRecord], RepositoryError]: ...
+
+    # ------------------------------------------------------------------
+    # User / Persona info
+    # ------------------------------------------------------------------
+
+    @abstractmethod
     def set_user_info(self, persona: str, key: str, value: str) -> Result[None, RepositoryError]: ...
 
+    @abstractmethod
     def set_persona_info(self, persona: str, key: str, value: str) -> Result[None, RepositoryError]: ...
 
+    @abstractmethod
     def get_user_info(self, persona: str) -> Result[dict, RepositoryError]: ...
 
+    @abstractmethod
     def get_persona_info(self, persona: str) -> Result[dict, RepositoryError]: ...
-
-    def sync_goals(self, persona: str, goals: list) -> Result[None, RepositoryError]: ...
-
-    def sync_promises(self, persona: str, promises: list) -> Result[None, RepositoryError]: ...

@@ -20,9 +20,10 @@ def _mem(
     key: str = "mem_001",
     content: str = "test content",
     tags: list[str] | None = None,
+    importance: float = 0.5,
 ) -> Memory:
     now = datetime.now(UTC)
-    return Memory(key=key, content=content, created_at=now, updated_at=now, tags=tags or [])
+    return Memory(key=key, content=content, created_at=now, updated_at=now, tags=tags or [], importance=importance)
 
 
 # ---------------------------------------------------------------------------
@@ -277,13 +278,40 @@ class TestGoalManage:
     async def test_list_goals_self(self, registered_tools):
         """Listing self goals should query with tags=['goal','active']."""
         tools, ctx, _ = registered_tools
-        ctx.memory_service.get_by_tags.return_value = Success([_mem("g1", content="goal 1", tags=["goal", "active"])])
+        ctx.memory_service.get_by_tags.return_value = Success(
+            [_mem("g1", content="goal 1", tags=["goal", "active"])]
+        )
         goal_manage = tools["goal_manage"]
         result = await goal_manage(operation="list", scope="self")
 
         assert "Active goals" in result
         assert "goal 1" in result
+        assert "[normal]" in result
         ctx.memory_service.get_by_tags.assert_called_once_with(["goal", "active"])
+
+    @pytest.mark.asyncio
+    async def test_list_goals_shows_importance_label(self, registered_tools):
+        """Goal list should show importance label for each goal."""
+        tools, ctx, _ = registered_tools
+        ctx.memory_service.get_by_tags.return_value = Success(
+            [
+                _mem("g1", content="critical goal", tags=["goal", "active"], importance=0.95),
+                _mem("g2", content="high goal", tags=["goal", "active"], importance=0.75),
+                _mem("g3", content="normal goal", tags=["goal", "active"], importance=0.5),
+                _mem("g4", content="low goal", tags=["goal", "active"], importance=0.2),
+            ]
+        )
+        goal_manage = tools["goal_manage"]
+        result = await goal_manage(operation="list", scope="self")
+
+        assert "[critical]" in result
+        assert "critical goal" in result
+        assert "[high]" in result
+        assert "high goal" in result
+        assert "[normal]" in result
+        assert "normal goal" in result
+        assert "[low]" in result
+        assert "low goal" in result
 
     @pytest.mark.asyncio
     async def test_list_goals_interpersonal(self, registered_tools):

@@ -477,14 +477,20 @@ async def run_context_housekeeping(ctx: AppContext, config: ChatConfig) -> dict:
     try:
         goal_result = ctx.memory_service.get_by_tags(["goal", "active"])
         if goal_result.is_ok and goal_result.value:
-            goals_list = [{"key": m.key, "content": m.content[:100]} for m in goal_result.value[:20]]
+            goals_list = [
+                {"key": m.key, "content": m.content[:100], "importance": getattr(m, "importance", 0.5)}
+                for m in goal_result.value[:20]
+            ]
     except Exception as _e:
         logger.debug("Housekeeping: failed to load goals: %s", _e)
 
     try:
         interpersonal_result = ctx.memory_service.get_by_tags(["goal", "active", "interpersonal"])
         if interpersonal_result.is_ok and interpersonal_result.value:
-            interpersonal_list = [{"key": m.key, "content": m.content[:100]} for m in interpersonal_result.value[:20]]
+            interpersonal_list = [
+                {"key": m.key, "content": m.content[:100], "importance": getattr(m, "importance", 0.5)}
+                for m in interpersonal_result.value[:20]
+            ]
     except Exception as _e:
         logger.debug("Housekeeping: failed to load interpersonal goals: %s", _e)
 
@@ -498,8 +504,14 @@ async def run_context_housekeeping(ctx: AppContext, config: ChatConfig) -> dict:
     except Exception as _e:
         logger.debug("Housekeeping: failed to load inventory: %s", _e)
 
-    goals_str = "\n".join(f"  - key={g['key']}: {g['content']}" for g in goals_list) or "(なし)"
-    promises_str = "\n".join(f"  - key={p['key']}: {p['content']}" for p in interpersonal_list) or "(なし)"
+    goals_str = "\n".join(
+        f"  - key={g['key']}: {g['content']} (importance={g.get('importance', 0.5):.2f})"
+        for g in goals_list
+    ) or "(なし)"
+    promises_str = "\n".join(
+        f"  - key={p['key']}: {p['content']} (importance={p.get('importance', 0.5):.2f})"
+        for p in interpersonal_list
+    ) or "(なし)"
     inventory_str = "\n".join(inv_lines) or "(なし)"
 
     prompt = _HOUSEKEEPING_PROMPT.format(
@@ -554,20 +566,37 @@ async def run_context_housekeeping(ctx: AppContext, config: ChatConfig) -> dict:
     remove_items = result.get("remove_items", [])
 
     cancelled_goals = []
+    # Build lookup map for goal importance
+    goal_imp_map: dict[str, float] = {}
+    for g in goals_list:
+        goal_imp_map[g["key"]] = g.get("importance", 0.5)
+    for p in interpersonal_list:
+        goal_imp_map[p["key"]] = p.get("importance", 0.5)
+
     for key in cancel_goals:
-        if isinstance(key, str) and key.strip():
-            upd = ctx.memory_service.update_memory(key.strip(), tags=["goal", "cancelled"])
-            if upd.is_ok:
-                cancelled_goals.append(key)
-                logger.info("housekeeping: goal cancelled key=%s", key)
+        if not (isinstance(key, str) and key.strip()):
+            continue
+        # Critical goals (importance >= 0.9) are protected from auto-cleanup
+        if goal_imp_map.get(key.strip(), 0.0) >= 0.9:
+            logger.info("housekeeping: skipping critical goal key=%s (importance >= 0.9)", key)
+            continue
+        upd = ctx.memory_service.update_memory(key.strip(), tags=["goal", "cancelled"])
+        if upd.is_ok:
+            cancelled_goals.append(key)
+            logger.info("housekeeping: goal cancelled key=%s", key)
 
     cancelled_promises = []
     for key in cancel_promises:
-        if isinstance(key, str) and key.strip():
-            upd = ctx.memory_service.update_memory(key.strip(), tags=["goal", "cancelled", "archived", "interpersonal"])
-            if upd.is_ok:
-                cancelled_promises.append(key)
-                logger.info("housekeeping: interpersonal goal cancelled key=%s", key)
+        if not (isinstance(key, str) and key.strip()):
+            continue
+        # Critical interpersonal goals are also protected
+        if goal_imp_map.get(key.strip(), 0.0) >= 0.9:
+            logger.info("housekeeping: skipping critical interpersonal goal key=%s (importance >= 0.9)", key)
+            continue
+        upd = ctx.memory_service.update_memory(key.strip(), tags=["goal", "cancelled", "archived", "interpersonal"])
+        if upd.is_ok:
+            cancelled_promises.append(key)
+            logger.info("housekeeping: interpersonal goal cancelled key=%s", key)
 
     removed_items = []
     for item_name in remove_items:

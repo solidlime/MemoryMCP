@@ -4,10 +4,12 @@ import json
 from typing import TYPE_CHECKING
 
 from nous.domain.persona.entities import (
+    BodyStateRecord,
     ContextEntry,
     EmotionRecord,
     PersonaState,
 )
+from nous.domain.persona.repository import PersonaRepository
 from nous.domain.shared.errors import RepositoryError
 from nous.domain.shared.result import Failure, Result, Success
 from nous.domain.shared.time_utils import format_iso, get_now, parse_iso
@@ -19,8 +21,8 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class SQLitePersonaRepository:
-    """SQLite-backed implementation of the PersonaRepository protocol."""
+class SQLitePersonaRepository(PersonaRepository):
+    """SQLite-backed implementation of the PersonaRepository interface."""
 
     def __init__(self, connection: SQLiteConnection) -> None:
         self._conn = connection
@@ -210,6 +212,82 @@ class SQLitePersonaRepository:
             return Failure(RepositoryError(str(e)))
 
     # ------------------------------------------------------------------
+    # Body state history
+    # ------------------------------------------------------------------
+
+    def add_body_state_record(
+        self,
+        persona: str,
+        body_state_dict: dict[str, float | None],
+        context: str | None = None,
+    ) -> Result[None, RepositoryError]:
+        """Insert a body state record into history."""
+        try:
+            self._db.execute(
+                """
+                INSERT INTO body_state_history
+                    (persona_id, fatigue, warmth, arousal, heart_rate, pain, context)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    persona,
+                    body_state_dict.get("fatigue"),
+                    body_state_dict.get("warmth"),
+                    body_state_dict.get("arousal"),
+                    body_state_dict.get("heart_rate"),
+                    body_state_dict.get("pain"),
+                    context,
+                ),
+            )
+            self._db.commit()
+            return Success(None)
+        except Exception as e:
+            logger.error("Failed to add body state record for '%s': %s", persona, e)
+            return Failure(RepositoryError(str(e)))
+
+    def get_body_state_history(
+        self, persona: str, limit: int = 20
+    ) -> Result[list[BodyStateRecord], RepositoryError]:
+        """Get recent body state history records (latest first)."""
+        try:
+            rows = self._db.execute(
+                """
+                SELECT * FROM body_state_history
+                WHERE persona_id = ?
+                ORDER BY timestamp DESC
+                LIMIT ?
+                """,
+                (persona, limit),
+            ).fetchall()
+            return Success([self._row_to_body_state_record(r) for r in rows])
+        except Exception as e:
+            logger.error("Failed to get body state history for '%s': %s", persona, e)
+            return Failure(RepositoryError(str(e)))
+
+    def get_body_state_history_by_days(
+        self, persona: str, days: int = 7
+    ) -> Result[list[BodyStateRecord], RepositoryError]:
+        """Get body state history for the last N days, ordered by timestamp ascending."""
+        try:
+            from datetime import timedelta
+
+            from nous.domain.shared.time_utils import get_now
+
+            cutoff = get_now() - timedelta(days=days)
+            rows = self._db.execute(
+                """
+                SELECT * FROM body_state_history
+                WHERE persona_id = ? AND timestamp >= ?
+                ORDER BY timestamp ASC
+                """,
+                (persona, cutoff.isoformat()),
+            ).fetchall()
+            return Success([self._row_to_body_state_record(r) for r in rows])
+        except Exception as e:
+            logger.error("Failed to get body state history by days for '%s': %s", persona, e)
+            return Failure(RepositoryError(str(e)))
+
+    # ------------------------------------------------------------------
     # User / Persona info (key-value store)
     # ------------------------------------------------------------------
 
@@ -294,6 +372,20 @@ class SQLitePersonaRepository:
             intensity=row["intensity"] or 0.5,
             timestamp=parse_iso(row["timestamp"]),
             trigger_memory_key=row["trigger_memory_key"],
+            context=row["context"],
+        )
+
+    @staticmethod
+    def _row_to_body_state_record(row) -> BodyStateRecord:
+        return BodyStateRecord(
+            id=row["id"],
+            persona=row["persona_id"],
+            fatigue=row["fatigue"],
+            warmth=row["warmth"],
+            arousal=row["arousal"],
+            heart_rate=row["heart_rate"],
+            pain=row["pain"],
+            timestamp=parse_iso(row["timestamp"]),
             context=row["context"],
         )
 

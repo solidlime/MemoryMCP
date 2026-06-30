@@ -135,3 +135,22 @@ def normalize_importance(value: float | None) -> float:
     if value is None:
         return 0.5
     return max(0.0, min(1.0, value))
+
+
+def importance_to_label(importance: float) -> str:
+    """Convert float importance (0.0-1.0) to human-readable label.
+
+    Thresholds:
+        >= 0.9  → "critical"
+        >= 0.7  → "high"
+        >= 0.4  → "normal"
+        <  0.4  → "low"
+    """
+    if importance >= 0.9:
+        return "critical"
+    elif importance >= 0.7:
+        return "high"
+    elif importance >= 0.4:
+        return "normal"
+    else:
+        return "low"

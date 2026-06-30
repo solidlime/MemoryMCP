@@ -175,6 +175,19 @@ CREATE INDEX IF NOT EXISTS idx_memories_updated_at ON memories(updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_memories_created_at ON memories(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_memory_strength_strength ON memory_strength(strength);
 CREATE INDEX IF NOT EXISTS idx_emotion_history_persona ON emotion_history(timestamp DESC);
+
+CREATE TABLE IF NOT EXISTS body_state_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    persona_id TEXT NOT NULL,
+    fatigue REAL,
+    warmth REAL,
+    arousal REAL,
+    heart_rate REAL,
+    pain REAL,
+    timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+    context TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_body_state_history_persona ON body_state_history(persona_id, timestamp DESC);
 """
 
 _INVENTORY_SCHEMA = """\

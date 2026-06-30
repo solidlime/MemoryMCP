@@ -87,11 +87,11 @@
 
 ## Phase 3: 基盤・ドキュメント (P2-P3)
 
-### T11: body_state_history テーブル新設 🟢（P2に降格）
-- [ ] **T11a**: `body_state_history` テーブル作成（migration + `connection.py`）
-- [ ] **T11b**: `add_body_state_record()`, `get_body_state_history()` 追加（`persona_repo.py`）
-- [ ] **T11c**: `apply_body_decay_if_needed` で履歴記録（`body_decay.py`）
-- [ ] **T11d**: テスト追加
+### T11: body_state_history テーブル新設 🟢（P2に降格）✅
+- [x] **T11a**: `body_state_history` テーブル作成（migration + `connection.py`）
+- [x] **T11b**: `add_body_state_record()`, `get_body_state_history()` 追加（`persona_repo.py`）
+- [x] **T11c**: `apply_body_decay_if_needed` で履歴記録（`body_decay.py`）
+- [x] **T11d**: テスト追加
 - **依存**: なし
 - **担当**: @fixer
 
@@ -104,9 +104,9 @@
 - **担当**: @fixer
 
 ### T13: 外部ストレージ基盤 🟢（P3に降格）
-- [ ] **T13a**: `MemoryRepository` 抽象インターフェース定義
-- [ ] **T13b**: 既存 `SQLitePersonaRepository` をインターフェース準拠にリファクタ
-- [ ] **T13c**: テスト更新
+- [x] **T13a**: `PersonaRepository` 抽象インターフェース定義（ABC）
+- [x] **T13b**: 既存 `SQLitePersonaRepository` をインターフェース準拠にリファクタ（継承）
+- [x] **T13c**: テスト更新（isinstance/abstract instantiation）
 - **依存**: なし
 - **担当**: @fixer（設計レビュー:@oracle）
 
