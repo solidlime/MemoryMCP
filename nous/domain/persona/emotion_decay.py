@@ -56,7 +56,7 @@ async def apply_emotion_decay_if_needed(
         new_emotion = state.emotion
 
     try:
-        result = persona_service.update_emotion(persona, new_emotion, new_intensity)
+        result = persona_service.update_emotion(persona, new_emotion, new_intensity, context="time_decay")
         if result.is_ok:
             logger.info(
                 "EmotionDecay: %s intensity %.3f→%.3f (elapsed=%.1fh)",

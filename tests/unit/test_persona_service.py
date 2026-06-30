@@ -161,6 +161,14 @@ class TestUpdateEmotion:
         assert result.is_ok
         assert repo._state[PERSONA]["emotion"] == "neutral"
 
+    def test_records_trigger_key(self, service: PersonaService, repo: InMemoryPersonaRepository):
+        """trigger_memory_key and context are stored in emotion history."""
+        service.update_emotion(PERSONA, "anger", 0.9, trigger_key="mem_abc", context="argument")
+        records = repo._emotions[PERSONA]
+        assert len(records) == 1
+        assert records[0].trigger_memory_key == "mem_abc"
+        assert records[0].context == "argument"
+
 
 class TestUpdatePhysicalState:
     def test_updates_fields(self, service: PersonaService, repo: InMemoryPersonaRepository):

@@ -33,7 +33,7 @@ def generate_memory_key(prefix: str = "memory") -> str:
 
 
 def relative_time_str(dt: datetime, now: datetime | None = None) -> str:
-    """Return a Japanese relative time string (e.g. '2時間前', '3日前')."""
+    """Return a relative time string (e.g. '2h ago', '3d ago')."""
     if now is None:
         now = get_now()
     if dt.tzinfo is None:
@@ -45,23 +45,23 @@ def relative_time_str(dt: datetime, now: datetime | None = None) -> str:
     seconds = int(diff.total_seconds())
 
     if seconds < 0:
-        return "未来"
+        return "in the future"
     if seconds < 60:
-        return "たった今"
+        return "just now"
     if seconds < 3600:
         minutes = seconds // 60
-        return f"{minutes}分前"
+        return f"{minutes}m ago"
     if seconds < 86400:
         hours = seconds // 3600
-        return f"{hours}時間前"
+        return f"{hours}h ago"
     if seconds < 2592000:
         days = seconds // 86400
-        return f"{days}日前"
+        return f"{days}d ago"
     if seconds < 31536000:
         months = seconds // 2592000
-        return f"{months}ヶ月前"
+        return f"{months}mo ago"
     years = seconds // 31536000
-    return f"{years}年前"
+    return f"{years}y ago"
 
 
 def _kanji_to_int(text: str) -> int | None:

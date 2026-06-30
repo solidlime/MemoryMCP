@@ -54,7 +54,7 @@ async def _tool_memory_create(
                     {
                         "ok": True,
                         "status": "duplicate",
-                        "message": "類似の記憶が既に存在します",
+                        "message": "Similar memory already exists",
                         "similar_to": duplicates,
                     },
                     ensure_ascii=False,

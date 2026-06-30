@@ -163,8 +163,14 @@ def _format_lightweight_response(
         recent_emotions = emotion_history[-5:]
         prev_emotion = recent_emotions[-2]
         if prev_emotion.emotion != state.emotion:
-            trend = " → ".join(r.emotion for r in recent_emotions[-4:])
-            trend += f" → {state.emotion}"
+            def _fmt(emotion: str, context: str | None = None) -> str:
+                return f"{emotion}({context})" if context else emotion
+            trend = " → ".join(
+                _fmt(r.emotion, r.context) for r in recent_emotions[-4:]
+            )
+            # last history record's context applies to current state too
+            last_ctx = recent_emotions[-1].context if recent_emotions else None
+            trend += f" → {_fmt(state.emotion, last_ctx)}"
             lines.append(f"Your emotion trend: {trend}")
 
     # Equipment
@@ -180,11 +186,11 @@ def _format_lightweight_response(
         lines.append("\n⚠️ YOUR ACTIVE COMMITMENTS:")
         for g in active_goals:
             ts = relative_time_str(g.created_at) if getattr(g, "created_at", None) else ""
-            ts_str = f" ({ts}前)" if ts else ""
+            ts_str = f" ({ts})" if ts else ""
             lines.append(f"  🎯 {g.content[:100]}{ts_str}")
         for p in active_promises:
             ts = relative_time_str(p.created_at) if getattr(p, "created_at", None) else ""
-            ts_str = f" ({ts}前)" if ts else ""
+            ts_str = f" ({ts})" if ts else ""
             lines.append(f"  🤝 {p.content[:100]}{ts_str}")
 
     # Recent memories — conversation continuity across sessions
@@ -195,7 +201,7 @@ def _format_lightweight_response(
             if len(snippet) > 100:
                 snippet = snippet[:97] + "..."
             ts = relative_time_str(m.created_at) if getattr(m, "created_at", None) else ""
-            ts_str = f" ({ts}前)" if ts else ""
+            ts_str = f" ({ts})" if ts else ""
             lines.append(f"- {snippet}{ts_str}")
 
         # Synthesize current context from recent memory tags (no LLM call needed)

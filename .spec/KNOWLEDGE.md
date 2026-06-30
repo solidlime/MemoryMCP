@@ -41,6 +41,14 @@
 - pre-commit: lefthook に統一済み
 - カバレッジ: 63→65%、長期目標70%
 
+## emotion trigger_key 即時活用（2026-07-01）
+- `update_emotion()` は `trigger_key` と `context` パラメータを持つが、全4呼出箇所で `None` 渡しだった（因果関係の喪失）
+- 修正: 各呼出に `context` を設定（manual_update, llm_suggested, time_decay）
+- 感情トレンド表示にコンテキスト情報を追記: `joy → sadness(time_decay) → anger(manual_update)`
+- `memory_llm.py` はLLM提案の感情変更 → `context="llm_suggested"`（現時点ではtrigger_memory_keyなし）
+- `emotion_decay.py` は時間減衰 → `context="time_decay"`（trigger_memory_keyは恒久的にNone）
+- 教訓: DBスキーマにあってもコード経路でデータが流れていないパターンが多い。oracle audit で検出可能。
+
 ## read_pdf パス解決（2026-07-01）
 - Nous は Docker 2コンテナ構成（nous + sandbox）で sandbox ファイルは別コンテナの `/home/sbox_*/` に存在
 - `read_pdf` は nous コンテナ内の `Path.exists()` でチェック → sandbox パスは常に存在しないと判定

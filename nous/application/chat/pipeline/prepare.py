@@ -138,12 +138,12 @@ async def _build_context_section(
 
     # === Tier 1: 現在の状態 ===
     now_jst = get_now()
-    t1.append(f"現在: {now_jst.strftime('%Y年%m月%d日 %H:%M')} (JST)")
+    t1.append(f"Now: {now_jst.strftime('%Y-%m-%d %H:%M')} (JST)")
 
     last_conv = getattr(state, "last_conversation_time", None)
     if last_conv:
         time_since = relative_time_str(last_conv)
-        t1.append(f"前回の会話: {time_since}")
+        t1.append(f"Last conversation: {time_since}")
         # Elapsed time note (minimal - LLM uses this naturally)
         try:
             _now = get_now()
@@ -154,9 +154,9 @@ async def _build_context_section(
             elapsed_hours = (_now - last_conv).total_seconds() / 3600.0
             if elapsed_hours >= 24:
                 days = elapsed_hours / 24
-                t1.append(f"前回の会話から約{days:.0f}日経過しています。")
+                t1.append(f"About {days:.0f} day(s) since last conversation.")
             elif elapsed_hours >= 6:
-                t1.append(f"前回から{elapsed_hours:.0f}時間経過しています。")
+                t1.append(f"{elapsed_hours:.0f} hour(s) since last conversation.")
         except (TypeError, AttributeError) as e:
             logger.debug("Failed to compute elapsed time: %s", e)
 
@@ -220,13 +220,13 @@ async def _build_context_section(
             commit_lines: list[str] = []
             for g in active_goals:
                 ts = relative_time_str(g.created_at) if getattr(g, "created_at", None) else ""
-                ts_str = f" ({ts}前)" if ts else ""
+                ts_str = f" ({ts})" if ts else ""
                 commit_lines.append(f"  🎯 [Goal] {g.content}{ts_str}")
             for p in active_promises:
                 ts = relative_time_str(p.created_at) if getattr(p, "created_at", None) else ""
-                ts_str = f" ({ts}前)" if ts else ""
+                ts_str = f" ({ts})" if ts else ""
                 commit_lines.append(f"  🤝 [Promise] {p.content}{ts_str}")
-            t3.append("アクティブなコミットメント:\n" + "\n".join(commit_lines))
+            t3.append("Active commitments:\n" + "\n".join(commit_lines))
     except Exception as e:
         logger.debug("Failed to fetch goals/promises: %s", e)
 
@@ -239,8 +239,15 @@ async def _build_context_section(
                 if len(recent_emotions) >= 2:
                     prev = recent_emotions[-2]
                     if prev.emotion != state.emotion:
-                        trend = " → ".join(r.emotion for r in recent_emotions[-4:])
-                        trend += f" → {state.emotion}"
+
+                        def _fmt(emotion: str, context: str | None = None) -> str:
+                            return f"{emotion}({context})" if context else emotion
+
+                        trend = " → ".join(
+                            _fmt(r.emotion, r.context) for r in recent_emotions[-4:]
+                        )
+                        last_ctx = recent_emotions[-1].context if recent_emotions else None
+                        trend += f" → {_fmt(state.emotion, last_ctx)}"
                         t3.append(f"感情推移: {trend}")
         except Exception as e:
             logger.debug("Failed to build emotion trend: %s", e)

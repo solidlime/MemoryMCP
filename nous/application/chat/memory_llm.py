@@ -374,7 +374,7 @@ async def run_memory_llm(ctx: AppContext, config: ChatConfig, payload: dict) -> 
             emotion = ctx_update.get("emotion")
             intensity = ctx_update.get("emotion_intensity")
             if emotion:
-                ctx.persona_service.update_emotion(persona, emotion, float(intensity or 0.5))
+                ctx.persona_service.update_emotion(persona, emotion, float(intensity or 0.5), context="llm_suggested")
             state_fields = {
                 k: v
                 for k, v in ctx_update.items()

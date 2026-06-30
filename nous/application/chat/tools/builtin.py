@@ -75,6 +75,7 @@ async def _handle_context_update(ctx: AppContext, config: ChatConfig, tool_input
                 ctx.persona,
                 update_kwargs["emotion"],
                 update_kwargs.get("emotion_intensity", 0.5),
+                context="manual_update",
             )
         if "mental_state" in update_kwargs:
             ctx.persona_service.update_physical_state(

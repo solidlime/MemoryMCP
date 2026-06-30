@@ -336,7 +336,7 @@ class TestExecuteCodeHandler:
         mock_config.sandbox_enabled = False
         result = await _handle_execute_code(mock_ctx, mock_config, {"code": "print(1)"})
         assert result["status"] == "error"
-        assert "sandbox" in result["message"]
+        assert "Sandbox" in result["message"]
 
     @pytest.mark.asyncio
     async def test_execute_valid_python(self, mock_ctx, mock_config):
@@ -404,35 +404,35 @@ class TestImageGenerateHandler:
         mock_config.image_gen_enabled = False
         result = await _handle_image_generate(mock_ctx, mock_config, {})
         assert result["status"] == "error"
-        assert "無効" in result["message"]
+        assert "disabled" in result["message"].lower()
 
     @pytest.mark.asyncio
     async def test_image_empty_prompt(self, mock_ctx, mock_config):
         """prompt無指定 → error"""
         result = await _handle_image_generate(mock_ctx, mock_config, {})
         assert result["status"] == "error"
-        assert "プロンプト" in result["message"]
+        assert "No prompt" in result["message"]
 
     @pytest.mark.asyncio
     async def test_image_empty_prompt_string(self, mock_ctx, mock_config):
         """prompt="" → error"""
         result = await _handle_image_generate(mock_ctx, mock_config, {"prompt": ""})
         assert result["status"] == "error"
-        assert "プロンプト" in result["message"]
+        assert "No prompt" in result["message"]
 
     @pytest.mark.asyncio
     async def test_image_whitespace_prompt(self, mock_ctx, mock_config):
         """prompt="   " → error"""
         result = await _handle_image_generate(mock_ctx, mock_config, {"prompt": "   "})
         assert result["status"] == "error"
-        assert "プロンプト" in result["message"]
+        assert "No prompt" in result["message"]
 
     @pytest.mark.asyncio
     async def test_image_invalid_provider(self, mock_ctx, mock_config):
         """provider="unknown" → error"""
         result = await _handle_image_generate(mock_ctx, mock_config, {"prompt": "a cat", "provider": "unknown"})
         assert result["status"] == "error"
-        assert "未対応" in result["message"] or "対応" in result["message"]
+        assert "Unsupported provider" in result["message"]
 
     @pytest.mark.asyncio
     async def test_image_stability_no_url(self, mock_ctx, mock_config):

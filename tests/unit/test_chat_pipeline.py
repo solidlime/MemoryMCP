@@ -214,7 +214,7 @@ class TestBuildContextSectionLightMode:
 
         result = await _build_context_section(ctx, state, compress_mode="light")
         # Should still contain basic info
-        assert "現在:" in result
+        assert "Now:" in result
         # Should not call emotion history
         ctx.persona_service.get_emotion_history.assert_not_called()
         # Light mode should not fetch heavy sections (reflection, mental_model, session_summary)
@@ -260,7 +260,7 @@ class TestBuildContextSectionNormalMode:
         state.arousal = None
 
         result = await _build_context_section(ctx, state, compress_mode="auto")
-        assert "現在:" in result
+        assert "Now:" in result
 
 
 class TestBuildContextSectionTierContent:

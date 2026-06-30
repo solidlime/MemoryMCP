@@ -91,7 +91,7 @@ async def _tool_get_context(ctx: AppContext, persona: str) -> str:
     time_since = ""
     if state.last_conversation_time:
         time_since = relative_time_str(state.last_conversation_time)
-    current_time = get_now().strftime("%Y年%m月%d日 %H:%M")
+    current_time = get_now().strftime("%Y-%m-%d %H:%M")
     ctx.persona_service.record_conversation_time(persona)
     result_text = _format_lightweight_response(
         state,
@@ -142,7 +142,9 @@ async def _tool_update_context(
     updated: list[str] = []
 
     if emotion is not None:
-        result = ctx.persona_service.update_emotion(persona, emotion, emotion_intensity or 0.5)
+        result = ctx.persona_service.update_emotion(
+            persona, emotion, emotion_intensity or 0.5, context="manual_update"
+        )
         if result.is_ok:
             updated.append(f"emotion={emotion}")
 

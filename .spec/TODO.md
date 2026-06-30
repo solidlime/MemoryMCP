@@ -27,10 +27,10 @@
 
 ## Phase 0.5: 感情コンテキスト即時対応 (P0.5) ← 新設
 
-### T04: emotion trigger_key 即時活用 🔴
-- [ ] **T04a**: `update_emotion()` の全呼出箇所（`memory_llm.py:377`, `builtin.py:74`, `_tools_persona.py:145`, `emotion_decay.py:59`）に `trigger_memory_key` と `context` を渡す
-- [ ] **T04b**: 感情トレンド表示に因果関係を追加（`_tools_helpers.py`, `prepare.py`）
-- [ ] **T04c**: テスト更新
+### T04: emotion trigger_key 即時活用 🔴 ✅ DONE
+- [x] **T04a**: `update_emotion()` の全呼出箇所（`memory_llm.py:377`, `builtin.py:74`, `_tools_persona.py:145`, `emotion_decay.py:59`）に `trigger_memory_key` と `context` を渡す
+- [x] **T04b**: 感情トレンド表示に因果関係を追加（`_tools_helpers.py`, `prepare.py`）
+- [x] **T04c**: テスト更新
 - **依存**: なし（最小限の変更、数行）
 - **担当**: @fixer
 

@@ -100,7 +100,7 @@ class TestUpdateContext:
             mock_reg_cls.get.return_value = ctx
             result = await update_context(emotion="joy", emotion_intensity=0.9)
         assert "emotion=joy" in result
-        ctx.persona_service.update_emotion.assert_called_once_with("test_persona", "joy", 0.9)
+        ctx.persona_service.update_emotion.assert_called_once_with("test_persona", "joy", 0.9, context="manual_update")
 
     @pytest.mark.asyncio
     async def test_update_physical_state(self, registered_tools):

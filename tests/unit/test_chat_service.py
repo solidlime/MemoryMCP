@@ -51,14 +51,14 @@ class TestSessionWindow:
         assert len(msgs) == 1
         assert msgs[0].role == "user"
         assert msgs[0].content == "test message"
-        assert msgs[0].time_label == "1時間前"
+        assert msgs[0].time_label == "1h ago"
 
     def test_labeled_messages_recent(self):
         win = SessionWindow(max_turns=3)
         now = datetime(2025, 3, 1, 10, 0, 0)
         win.add("user", "just now message", now)
         msgs = win.get_labeled_messages(now)
-        assert msgs[0].time_label == "たった今"
+        assert msgs[0].time_label == "just now"
 
 
 # ─────────────────────────────────────────────────────────────

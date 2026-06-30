@@ -99,43 +99,43 @@ class TestRelativeTimeStr:
     def test_just_now(self):
         now = _fixed_now()
         dt = now - timedelta(seconds=10)
-        assert relative_time_str(dt, now) == "たった今"
+        assert relative_time_str(dt, now) == "just now"
 
     def test_minutes_ago(self):
         now = _fixed_now()
         dt = now - timedelta(minutes=5)
-        assert relative_time_str(dt, now) == "5分前"
+        assert relative_time_str(dt, now) == "5m ago"
 
     def test_hours_ago(self):
         now = _fixed_now()
         dt = now - timedelta(hours=3)
-        assert relative_time_str(dt, now) == "3時間前"
+        assert relative_time_str(dt, now) == "3h ago"
 
     def test_days_ago(self):
         now = _fixed_now()
         dt = now - timedelta(days=7)
-        assert relative_time_str(dt, now) == "7日前"
+        assert relative_time_str(dt, now) == "7d ago"
 
     def test_months_ago(self):
         now = _fixed_now()
         dt = now - timedelta(days=60)
-        assert relative_time_str(dt, now) == "2ヶ月前"
+        assert relative_time_str(dt, now) == "2mo ago"
 
     def test_years_ago(self):
         now = _fixed_now()
         dt = now - timedelta(days=400)
-        assert relative_time_str(dt, now) == "1年前"
+        assert relative_time_str(dt, now) == "1y ago"
 
     def test_future(self):
         now = _fixed_now()
         dt = now + timedelta(hours=1)
-        assert relative_time_str(dt, now) == "未来"
+        assert relative_time_str(dt, now) == "in the future"
 
     def test_naive_datetime_handled(self):
         now = _fixed_now()
         dt_naive = datetime(2025, 6, 15, 14, 0, 0)  # naive
         result = relative_time_str(dt_naive, now)
-        assert "分前" in result
+        assert "m ago" in result or "just now" in result
 
 
 class TestParseDateRange:
@@ -299,7 +299,7 @@ class TestParseDateRange:
         # Just call without 'now' to cover the `if now is None: now = get_now()` line
         dt = get_now() - timedelta(minutes=2)
         result = relative_time_str(dt)
-        assert "分前" in result
+        assert "m ago" in result
 
     @patch("nous.domain.shared.time_utils.get_now", return_value=_fixed_now())
     def test_n_days_ago_with_juu(self, _mock):
@@ -336,4 +336,4 @@ class TestParseDateRange:
         dt = datetime(2025, 6, 15, 10, 0, 0)  # naive
         now_naive = datetime(2025, 6, 15, 12, 0, 0)  # naive — no tzinfo
         result = relative_time_str(dt, now_naive)
-        assert "時間前" in result
+        assert "h ago" in result

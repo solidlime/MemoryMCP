@@ -943,6 +943,7 @@ class TestRunMemoryLLM:
             "test_persona",
             "joy",
             0.85,
+            context="llm_suggested",
         )
         mock_ctx.persona_service.update_physical_state.assert_called_once_with(
             "test_persona",
@@ -997,6 +998,7 @@ class TestRunMemoryLLM:
             "test_persona",
             "sad",
             0.3,
+            context="llm_suggested",
         )
         mock_ctx.persona_service.update_physical_state.assert_not_called()
         mock_ctx.persona_service.update_persona_info.assert_not_called()
