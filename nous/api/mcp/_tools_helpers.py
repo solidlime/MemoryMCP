@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from nous.domain.shared.time_utils import relative_time_str
 
 if TYPE_CHECKING:
+    from nous.domain.persona.emotion_decay import EmotionDecayResult
     from nous.domain.persona.entities import PersonaState
 
 
@@ -44,6 +45,22 @@ def _format_state_block(state: PersonaState) -> str:
         lines.append(f"  Speech: {state.speech_style}")
 
     return "\n".join(lines)
+
+
+def _format_emotion_decay_note(decay_result: EmotionDecayResult | None) -> str:
+    """Format a notification line for emotion decay: before→after — faded over N hours."""
+    if decay_result is None:
+        return ""
+    before_str = f"{decay_result.before_emotion}({decay_result.before_intensity:.2f})"
+    after_str = f"{decay_result.after_emotion}({decay_result.after_intensity:.2f})" if decay_result.after_intensity > 0 else decay_result.after_emotion
+    if decay_result.elapsed_hours >= 1:
+        time_str = f"{decay_result.elapsed_hours:.0f}h"
+    else:
+        time_str = f"{decay_result.elapsed_hours * 60:.0f}min"
+    # 強度が高いほど半減期が長いので減衰が遅い
+    intensity = decay_result.before_intensity
+    speed_note = " (high intensity, slow decay)" if intensity >= 0.7 else ""
+    return f"{before_str} → {after_str} — faded over {time_str}{speed_note}"
 
 
 def _format_state_diff(time_since: str) -> str:
@@ -103,6 +120,7 @@ def _format_lightweight_response(
     mental_models: list | None = None,
     session_summaries: list | None = None,
     current_time: str = "",
+    decay_note: str = "",
 ) -> str:
     """Lightweight context (~700-900 tokens): persona + conversation continuity + body state."""
     lines: list[str] = []
@@ -112,6 +130,10 @@ def _format_lightweight_response(
 
     # Current state block — compact body/mind/action/speech overview
     lines.append(_format_state_block(state))
+
+    # Emotion decay notification — before/after change visible
+    if decay_note:
+        lines.append(f"  Emotion: {decay_note}")
 
     # Speech style reminder — critical for persona voice consistency
     if state.speech_style:

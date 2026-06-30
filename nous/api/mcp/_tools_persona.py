@@ -35,14 +35,18 @@ async def _tool_get_context(ctx: AppContext, persona: str) -> str:
         return f"Error: {state_result.error}"
     state = state_result.value
 
+    decay_note = ""
     try:
         from nous.domain.persona.emotion_decay import apply_emotion_decay_if_needed
 
-        changed = await apply_emotion_decay_if_needed(ctx.persona_service, persona, state)
-        if changed:
+        decay_result = await apply_emotion_decay_if_needed(ctx.persona_service, persona, state)
+        if decay_result is not None:
             refreshed = ctx.persona_service.get_context(persona)
             if refreshed.is_ok:
                 state = refreshed.value
+            from nous.api.mcp._tools_helpers import _format_emotion_decay_note
+
+            decay_note = _format_emotion_decay_note(decay_result)
     except Exception as _e:
         logger.debug("get_context: emotion_decay failed (swallowed): %s", _e)
 
@@ -106,6 +110,7 @@ async def _tool_get_context(ctx: AppContext, persona: str) -> str:
         mental_models,
         session_summaries,
         current_time,
+        decay_note=decay_note,
     )
     await ctx.event_bus.publish(
         "tool.called",

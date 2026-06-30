@@ -68,9 +68,9 @@
 
 ## Phase 2: 機能追加 (P1-P2)
 
-### T09: スキルプリインストール 🟡
-- [ ] **T09a**: `verification-before-completion`, `systematic-debugging`, `test-driven-development` スキル登録
-- [ ] **T09b**: `nous_list_skills` が空でない確認テスト
+### T09: スキルプリインストール 🟡 ✅
+- [x] **T09a**: `verification-before-completion`, `systematic-debugging`, `test-driven-development` スキル登録
+- [x] **T09b**: `nous_list_skills` が空でない確認テスト
 - **依存**: なし
 - **担当**: @fixer（調査は@explorer）
 

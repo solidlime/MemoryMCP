@@ -125,6 +125,7 @@ async def _build_context_section(
     state,
     turn_ctx: ChatTurnContext | None = None,
     compress_mode: str = "auto",
+    decay_note: str = "",
 ) -> str:
     """get_context() 同等の充実したコンテキストサマリーを構築する。
 
@@ -164,6 +165,10 @@ async def _build_context_section(
         intensity = getattr(state, "emotion_intensity", 0.5)
         intensity_label = "強い" if intensity > 0.6 else "やや強い" if intensity > 0.3 else "弱い"
         t1.append(f"感情: {state.emotion}（{intensity_label}）")
+
+    # Emotion decay notification (English per T02 unification)
+    if decay_note:
+        t1.append(f"  Emotion: {decay_note}")
 
     if getattr(state, "mental_state", None):
         t1.append(f"精神状態: {state.mental_state}")
@@ -338,12 +343,17 @@ class PrepareStep:
         state_result = ctx.persona_service.get_context(persona)
         if state_result.is_ok:
             state = state_result.value
+            decay_note = ""
             try:
-                await apply_emotion_decay_if_needed(ctx.persona_service, persona, state)
-                # decay後に再取得
-                refreshed = ctx.persona_service.get_context(persona)
-                if refreshed.is_ok:
-                    state = refreshed.value
+                decay_result = await apply_emotion_decay_if_needed(ctx.persona_service, persona, state)
+                if decay_result is not None:
+                    # decay後に再取得
+                    refreshed = ctx.persona_service.get_context(persona)
+                    if refreshed.is_ok:
+                        state = refreshed.value
+                    from nous.api.mcp._tools_helpers import _format_emotion_decay_note
+
+                    decay_note = _format_emotion_decay_note(decay_result)
             except Exception as e:
                 logger.warning("PrepareStep: EmotionDecay failed (swallowed): %s", e)
 
@@ -360,7 +370,9 @@ class PrepareStep:
             # context_section 構築
             last_assistant = session.get_last_assistant_content()
             context_task = asyncio.create_task(
-                _build_context_section(ctx, state, turn_ctx, compress_mode=config.context_compression_mode)
+                _build_context_section(
+                    ctx, state, turn_ctx, compress_mode=config.context_compression_mode, decay_note=decay_note
+                )
             )
             # Progressive disclosure: only preload N memories; LLM searches for more if needed
             preload_count = getattr(config, "memory_preload_count", 3)

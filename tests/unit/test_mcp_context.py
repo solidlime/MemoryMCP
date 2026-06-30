@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -236,3 +236,151 @@ class TestGetContext:
             mock_reg_cls.get.return_value = ctx
             result = await get_context()
         assert "Finish project" in result
+
+    # ------------------------------------------------------------------
+    # Emotion decay notification
+    # ------------------------------------------------------------------
+
+    def test_format_emotion_decay_note_emotion_change(self):
+        """_format_emotion_decay_note shows before→after when emotion changed."""
+        from nous.api.mcp._tools_helpers import _format_emotion_decay_note
+        from nous.domain.persona.emotion_decay import EmotionDecayResult
+
+        result = EmotionDecayResult(
+            before_emotion="anger",
+            before_intensity=0.72,
+            after_emotion="neutral",
+            after_intensity=0.0,
+            elapsed_hours=48.0,
+        )
+        note = _format_emotion_decay_note(result)
+        assert "anger(0.72)" in note
+        assert "neutral" in note
+        assert "48h" in note
+        assert "faded" in note
+
+    def test_format_emotion_decay_note_same_emotion(self):
+        """_format_emotion_decay_note handles same emotion with decayed intensity."""
+        from nous.api.mcp._tools_helpers import _format_emotion_decay_note
+        from nous.domain.persona.emotion_decay import EmotionDecayResult
+
+        result = EmotionDecayResult(
+            before_emotion="joy",
+            before_intensity=0.9,
+            after_emotion="joy",
+            after_intensity=0.3,
+            elapsed_hours=24.0,
+        )
+        note = _format_emotion_decay_note(result)
+        assert "joy(0.90)" in note
+        assert "joy(0.30)" in note
+        assert "24h" in note
+
+    def test_format_emotion_decay_note_none(self):
+        """_format_emotion_decay_note returns empty string for None."""
+        from nous.api.mcp._tools_helpers import _format_emotion_decay_note
+
+        assert _format_emotion_decay_note(None) == ""
+
+    def test_format_emotion_decay_note_minutes(self):
+        """_format_emotion_decay_note shows minutes when < 1h."""
+        from nous.api.mcp._tools_helpers import _format_emotion_decay_note
+        from nous.domain.persona.emotion_decay import EmotionDecayResult
+
+        result = EmotionDecayResult(
+            before_emotion="joy",
+            before_intensity=0.8,
+            after_emotion="neutral",
+            after_intensity=0.0,
+            elapsed_hours=0.5,
+        )
+        note = _format_emotion_decay_note(result)
+        assert "30min" in note
+
+    @pytest.mark.asyncio
+    async def test_get_context_includes_decay_notification(self, registered_tools):
+        """When emotion decay is applied, context output includes the before→after line."""
+        from nous.domain.persona.emotion_decay import EmotionDecayResult
+
+        tools, ctx, _ = registered_tools
+        state_before = PersonaState(
+            persona="test_persona",
+            emotion="anger",
+            emotion_intensity=0.72,
+            last_conversation_time=datetime.now(UTC) - timedelta(hours=48),
+        )
+        state_after = PersonaState(
+            persona="test_persona",
+            emotion="neutral",
+            emotion_intensity=0.0,
+            last_conversation_time=datetime.now(UTC) - timedelta(hours=48),
+        )
+        # First get_context returns before-decay state, second returns after
+        ctx.persona_service.get_context.side_effect = [Success(state_before), Success(state_after)]
+        ctx.persona_service.update_emotion.return_value = Success(None)
+        ctx.memory_service.get_stats.return_value = Success({"total": 10})
+        ctx.memory_service.get_smart_recent.return_value = Success([])
+        ctx.memory_service.list_blocks.return_value = Success([])
+        ctx.memory_service.get_by_tags.return_value = Success([])
+        ctx.memory_service.get_recent_searches.return_value = Success([])
+        ctx.memory_service.count_decayed_important.return_value = Success(0)
+        ctx.memory_service.get_memory_index.return_value = Success(None)
+        ctx.memory_service.get_relationship_highlights.return_value = Success([])
+        ctx.persona_service.record_conversation_time.return_value = Success(None)
+        get_context = tools["get_context"]
+        decay_result = EmotionDecayResult(
+            before_emotion="anger",
+            before_intensity=0.72,
+            after_emotion="neutral",
+            after_intensity=0.0,
+            elapsed_hours=48.0,
+        )
+        with (
+            patch("nous.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
+            patch("nous.api.mcp.tools.get_current_persona", return_value="test_persona"),
+            patch(
+                "nous.domain.persona.emotion_decay.apply_emotion_decay_if_needed",
+                return_value=decay_result,
+            ),
+        ):
+            mock_reg_cls.get.return_value = ctx
+            result = await get_context()
+        assert "anger(0.72)" in result
+        assert "neutral" in result
+        assert "faded" in result
+
+    @pytest.mark.asyncio
+    async def test_get_context_no_decay_no_notification(self, registered_tools):
+        """When no decay happens, context output should NOT include a decay line."""
+        tools, ctx, _ = registered_tools
+        state = PersonaState(
+            persona="test_persona",
+            emotion="joy",
+            emotion_intensity=0.8,
+            last_conversation_time=datetime.now(UTC),
+        )
+        ctx.persona_service.get_context.return_value = Success(state)
+        ctx.persona_service.update_emotion.return_value = Success(None)
+        ctx.memory_service.get_stats.return_value = Success({"total": 10})
+        ctx.memory_service.get_smart_recent.return_value = Success([])
+        ctx.memory_service.list_blocks.return_value = Success([])
+        ctx.memory_service.get_by_tags.return_value = Success([])
+        ctx.memory_service.get_recent_searches.return_value = Success([])
+        ctx.memory_service.count_decayed_important.return_value = Success(0)
+        ctx.memory_service.get_memory_index.return_value = Success(None)
+        ctx.memory_service.get_relationship_highlights.return_value = Success([])
+        ctx.persona_service.record_conversation_time.return_value = Success(None)
+        get_context = tools["get_context"]
+        with (
+            patch("nous.api.mcp.tools.AppContextRegistry") as mock_reg_cls,
+            patch("nous.api.mcp.tools.get_current_persona", return_value="test_persona"),
+            patch(
+                "nous.domain.persona.emotion_decay.apply_emotion_decay_if_needed",
+                return_value=None,
+            ),
+        ):
+            mock_reg_cls.get.return_value = ctx
+            result = await get_context()
+        assert "CURRENT STATE" in result
+        assert "joy" in result
+        assert "faded" not in result.lower()

@@ -90,14 +90,16 @@ class TestComputeEmotionDecay:
         assert result == 0.0
 
     def test_decay_after_elapsed(self):
-        """intensity=0.8, elapsed=48h (2 half-lives) → 0.8 * 0.25 = 0.2."""
+        """intensity=0.8, elapsed=48h → effective_half_life=24*0.8=19.2h."""
         from nous.domain.persona.emotion_decay import compute_emotion_decay
 
         result = compute_emotion_decay(intensity=0.8, elapsed_hours=48.0)
         assert result > 0.0
         assert result < 0.8  # decayed
-        # 48h / 24h half-life → factor 0.5^(2) = 0.25 → 0.8*0.25 = 0.2
-        assert 0.19 <= result <= 0.21
+        # effective_half_life = 24 * max(0.3, 0.8) = 19.2h
+        # factor = 0.5^(48/19.2) = 0.5^2.5 ≈ 0.1768
+        # result = 0.8 * 0.1768 ≈ 0.1414
+        assert 0.13 <= result <= 0.15
 
     def test_no_change_for_zero_elapsed(self):
         """Zero elapsed → decay returns 0.0 (caller skips when elapsed <= 0)."""
@@ -105,6 +107,30 @@ class TestComputeEmotionDecay:
 
         result = compute_emotion_decay(intensity=0.8, elapsed_hours=0)
         assert result == 0.0
+
+    def test_high_intensity_persists_longer(self):
+        """Higher intensity (0.9) decays slower than lower intensity (0.3) over same period."""
+        from nous.domain.persona.emotion_decay import compute_emotion_decay
+
+        high = compute_emotion_decay(intensity=0.9, elapsed_hours=48.0)
+        low = compute_emotion_decay(intensity=0.3, elapsed_hours=48.0)
+        # high: effective_half_life = 24*0.9 = 21.6h, result ≈ 0.1931
+        # low:  effective_half_life = 24*0.3 = 7.2h,  result ≈ 0.0030
+        assert high > low
+        assert high > 0.15  # well preserved
+        assert low < 0.01   # almost gone
+
+    def test_min_cap_prevents_instant_decay(self):
+        """intensity=0.05 (below cap=0.3) uses min effective_half_life to avoid vanishing instantly."""
+        from nous.domain.persona.emotion_decay import compute_emotion_decay
+
+        result = compute_emotion_decay(intensity=0.05, elapsed_hours=6.0)
+        # Without cap: effective_half_life = 24*0.05 = 1.2h
+        #   factor = 0.5^(6/1.2) = 0.5^5 = 0.03125 → result ≈ 0.0016
+        # With cap: effective_half_life = 24*0.3 = 7.2h
+        #   factor = 0.5^(6/7.2) ≈ 0.560 → result ≈ 0.028
+        assert result > 0.01  # cap prevents near-zero result
+        assert result < 0.8
 
 
 # --- ToolRegistry ---

@@ -309,3 +309,27 @@ Body content
         assert s.compatibility == ">=1.0"
         assert s.metadata == {"key": "val"}
         assert s.content == "Tool body here"
+
+
+def test_skills_pre_installed():
+    """Verify the 3 pre-installed skills exist and can be loaded from the project's data/skills/ directory."""
+    from tests.conftest import PROJECT_ROOT
+
+    skills_dir = PROJECT_ROOT / "data" / "skills"
+    assert skills_dir.is_dir(), f"Skills directory not found: {skills_dir}"
+
+    db = _make_db()
+    repo = SkillRepository(db)
+    skills = repo.load_from_dir(str(skills_dir))
+
+    names = {s.name for s in skills}
+
+    assert len(skills) >= 3, f"Expected at least 3 skills, got {len(skills)}"
+    assert "verification-before-completion" in names, "Missing: verification-before-completion"
+    assert "systematic-debugging" in names, "Missing: systematic-debugging"
+    assert "test-driven-development" in names, "Missing: test-driven-development"
+
+    # Each skill must have a non-empty description and content
+    for s in skills:
+        assert s.description, f"Skill '{s.name}' has empty description"
+        assert s.content, f"Skill '{s.name}' has empty content"
