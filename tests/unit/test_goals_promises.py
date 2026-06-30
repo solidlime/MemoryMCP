@@ -18,7 +18,7 @@ from nous.api.mcp.tools import _format_lightweight_response
 from nous.domain.memory.entities import Memory
 from nous.domain.memory.entity_extractor import SimpleEntityExtractor
 from nous.domain.memory.graph import EntityService
-from nous.domain.persona.entities import PersonaState
+from nous.domain.persona.entities import EmotionRecord, PersonaState
 from nous.domain.persona.service import PersonaService
 from nous.domain.shared.time_utils import get_now
 from nous.infrastructure.sqlite.connection import SQLiteConnection
@@ -430,3 +430,63 @@ class TestEntityAutoExtract:
         assert "alice" in entity_ids_lower or "bob" in entity_ids_lower, (
             f"Expected 'alice' or 'bob' (case-insensitive) in extracted entities, got {entity_ids!r}"
         )
+
+
+class TestEmotionTrendDisplay:
+    """_format_lightweight_response() の感情トレンド表示に trigger context が含まれること。"""
+
+    @staticmethod
+    def _state(emotion: str = "neutral", intensity: float = 0.0) -> PersonaState:
+        return PersonaState(
+            persona=PERSONA,
+            emotion=emotion,
+            emotion_intensity=intensity,
+            user_info={},
+            persona_info={},
+        )
+
+    def _fmt(self, emotion_history: list) -> str:
+        return _format_lightweight_response(
+            state=self._state("sadness", 0.6),
+            top_memories=[],
+            goals=[],
+            promises=[],
+            equipment={},
+            recent=[],
+            time_since="",
+            emotion_history=emotion_history,
+        )
+
+    def test_trend_shows_context(self):
+        """Emotion history with context → context displayed in trend."""
+        now = get_now()
+        history = [
+            EmotionRecord(emotion="joy", intensity=0.8, timestamp=now, context="manual_update"),
+            EmotionRecord(emotion="anger", intensity=0.9, timestamp=now, context="argument"),
+        ]
+        output = self._fmt(history)
+        assert "Your emotion trend:" in output
+        assert "joy(manual_update)" in output or "joy" in output
+        assert "anger(argument)" in output or "sadness" in output
+
+    def test_trend_no_context_shows_plain(self):
+        """Emotion history without context → plain emotion names."""
+        now = get_now()
+        history = [
+            EmotionRecord(emotion="joy", intensity=0.8, timestamp=now),
+            EmotionRecord(emotion="anger", intensity=0.9, timestamp=now),
+        ]
+        output = self._fmt(history)
+        assert "Your emotion trend:" in output
+        # Should not have parenthetical context
+        assert "Your emotion trend: joy → anger → sadness" in output
+
+    def test_time_decay_context_in_trend(self):
+        """time_decay context appears in trend display."""
+        now = get_now()
+        history = [
+            EmotionRecord(emotion="joy", intensity=0.8, timestamp=now, context="manual_update"),
+            EmotionRecord(emotion="neutral", intensity=0.0, timestamp=now, context="time_decay"),
+        ]
+        output = self._fmt(history)
+        assert "time_decay" in output
