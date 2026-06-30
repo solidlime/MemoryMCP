@@ -147,6 +147,26 @@ class AppContext:
         self._reranker: RerankerModel | None = None
         self._search_engine: SearchEngine | None = None
 
+        # Instantiate reranker model
+        from nous.infrastructure.embedding.reranker import RerankerModel
+
+        self._reranker = RerankerModel(
+            model_name=self.settings.reranker.model,
+            enabled=self.settings.reranker.enabled,
+        )
+
+        # Preload reranker model in background thread (avoid blocking first search)
+        if self._reranker.enabled:
+            import threading
+
+            def _safe_preload() -> None:
+                try:
+                    self._reranker._load_model()
+                except Exception:
+                    logger.debug("Reranker preload failed (will lazy-load on first use)")
+
+            threading.Thread(target=_safe_preload, daemon=True).start()
+
         # EventBus
         from nous.application.event_bus import EventBus
 
@@ -217,6 +237,7 @@ class AppContext:
                 ranker,
                 memory_repo=self.memory_repo,
                 memorag_config=self.settings.memorag,
+                reranker=self._reranker,
             )
         return self._search_engine
 

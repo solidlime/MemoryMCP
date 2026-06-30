@@ -63,6 +63,7 @@ class SearchEngine:
         memory_repo=None,
         memorag_config=None,
         chat_config=None,
+        reranker=None,
     ) -> None:
         self._keyword = keyword_search
         self._semantic = semantic_search
@@ -70,6 +71,7 @@ class SearchEngine:
         self._memory_repo = memory_repo
         self._memorag_config = memorag_config
         self._chat_config = chat_config
+        self._reranker = reranker
 
     def search(self, query: SearchQuery) -> Result[list[SearchResult], SearchError]:
         """Execute search using the specified mode.
@@ -186,6 +188,27 @@ class SearchEngine:
             if r.memory.key not in seen or r.score > seen[r.memory.key].score:
                 seen[r.memory.key] = r
         deduped = sorted(seen.values(), key=lambda x: x.score, reverse=True)
+
+        # 5. Rerank step: cross-encoder refinement (if available)
+        if self._reranker is not None and self._reranker.enabled:
+            pairs = [(r.memory.key, r.score) for r in deduped]
+            contents = {r.memory.key: r.memory.content for r in deduped if r.memory.content}
+            if contents:
+                try:
+                    reranked = self._reranker.rerank(
+                        query.text,
+                        pairs,
+                        contents,
+                        top_k=min(len(pairs), 20),
+                    )
+                    score_map = dict(reranked)
+                    for r in deduped:
+                        new_score = score_map.get(r.memory.key)
+                        if new_score is not None:
+                            r.score = new_score
+                    deduped.sort(key=lambda x: x.score, reverse=True)
+                except Exception:
+                    logger.warning("Reranker step failed, using pre-rerank scores")
 
         return Success(deduped[: query.top_k])
 

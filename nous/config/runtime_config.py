@@ -326,6 +326,8 @@ def register_model_reload_callbacks(config_manager: RuntimeConfigManager) -> Non
                     kwargs["new_enabled"] = new_value
                 result = ctx._reranker.reload_model(**kwargs)
                 results.append({"persona": persona, **result})
+                # search_engine をリセット（reranker変更で再構築が必要）
+                ctx._search_engine = None
 
         status = "ready" if all(r.get("status") in ("ready", "disabled") for r in results) else "error"
         error_msg = "; ".join(r["message"] for r in results if r.get("status") == "error") or None
