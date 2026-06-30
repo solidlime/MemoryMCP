@@ -163,11 +163,11 @@ def _format_lightweight_response(
         recent_emotions = emotion_history[-5:]
         prev_emotion = recent_emotions[-2]
         if prev_emotion.emotion != state.emotion:
+
             def _fmt(emotion: str, context: str | None = None) -> str:
                 return f"{emotion}({context})" if context else emotion
-            trend = " → ".join(
-                _fmt(r.emotion, r.context) for r in recent_emotions[-4:]
-            )
+
+            trend = " → ".join(_fmt(r.emotion, r.context) for r in recent_emotions[-4:])
             # last history record's context applies to current state too
             last_ctx = recent_emotions[-1].context if recent_emotions else None
             trend += f" → {_fmt(state.emotion, last_ctx)}"

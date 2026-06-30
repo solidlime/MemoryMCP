@@ -243,9 +243,7 @@ async def _build_context_section(
                         def _fmt(emotion: str, context: str | None = None) -> str:
                             return f"{emotion}({context})" if context else emotion
 
-                        trend = " → ".join(
-                            _fmt(r.emotion, r.context) for r in recent_emotions[-4:]
-                        )
+                        trend = " → ".join(_fmt(r.emotion, r.context) for r in recent_emotions[-4:])
                         last_ctx = recent_emotions[-1].context if recent_emotions else None
                         trend += f" → {_fmt(state.emotion, last_ctx)}"
                         t3.append(f"感情推移: {trend}")

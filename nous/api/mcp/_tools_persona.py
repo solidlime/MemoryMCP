@@ -142,9 +142,7 @@ async def _tool_update_context(
     updated: list[str] = []
 
     if emotion is not None:
-        result = ctx.persona_service.update_emotion(
-            persona, emotion, emotion_intensity or 0.5, context="manual_update"
-        )
+        result = ctx.persona_service.update_emotion(persona, emotion, emotion_intensity or 0.5, context="manual_update")
         if result.is_ok:
             updated.append(f"emotion={emotion}")
 
