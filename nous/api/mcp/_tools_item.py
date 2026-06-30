@@ -287,7 +287,15 @@ async def _tool_item(
     """
     match operation:
         case "add":
-            return await _tool_item_add(ctx, persona, item_name=item_name, category=category, description=description, quantity=quantity, tags=tags)
+            return await _tool_item_add(
+                ctx,
+                persona,
+                item_name=item_name,
+                category=category,
+                description=description,
+                quantity=quantity,
+                tags=tags,
+            )
         case "remove":
             return await _tool_item_remove(ctx, persona, item_name=item_name)
         case "equip":
@@ -295,13 +303,23 @@ async def _tool_item(
         case "unequip":
             return await _tool_item_unequip(ctx, persona, slots=slots)
         case "update":
-            return await _tool_item_update(ctx, persona, item_name=item_name, category=category, description=description, quantity=quantity, tags=tags)
+            return await _tool_item_update(
+                ctx,
+                persona,
+                item_name=item_name,
+                category=category,
+                description=description,
+                quantity=quantity,
+                tags=tags,
+            )
         case "search":
             return await _tool_item_search(ctx, persona, query=query, category=category)
         case "history":
             return await _tool_item_history(ctx, persona, days=days)
         case _:
-            return f"Error: unknown operation '{operation}'. Valid: add, remove, equip, unequip, update, search, history"
+            return (
+                f"Error: unknown operation '{operation}'. Valid: add, remove, equip, unequip, update, search, history"
+            )
 
 
 # --- Sandbox tools ---

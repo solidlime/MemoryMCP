@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import fitz  # PyMuPDF
 import pytest
@@ -113,7 +113,7 @@ async def test_read_pdf_file_not_found():
     result = await _handle_read_pdf(ctx, config, {"path": "/tmp/nonexistent_file_xyz.pdf"})
 
     assert result["status"] == "error"
-    assert "ファイルが見つかりません" in result["message"]
+    assert "File not found" in result["message"]
 
 
 @pytest.mark.asyncio
@@ -132,7 +132,7 @@ async def test_read_pdf_not_a_pdf():
         result = await _handle_read_pdf(ctx, config, {"path": txt_path})
 
         assert result["status"] == "error"
-        assert "PDFファイルではありません" in result["message"]
+        assert "Not a PDF file" in result["message"]
     finally:
         Path(txt_path).unlink(missing_ok=True)
 
@@ -148,7 +148,100 @@ async def test_read_pdf_missing_path():
     result = await _handle_read_pdf(ctx, config, {})
 
     assert result["status"] == "error"
-    assert "パス" in result["message"]
+    assert "PDF path not specified" in result["message"]
+
+
+# ── Sandbox path resolution ──
+
+
+@pytest.mark.asyncio
+async def test_read_pdf_sandbox_path_success():
+    """Sandboxパス (/home/sbox_*) → sandbox session 経由で読み取り成功"""
+    pdf_bytes = _create_test_pdf_bytes()
+
+    ctx = MagicMock()
+    ctx.persona = "default"
+    config = MagicMock()
+
+    mock_session = MagicMock()
+    mock_session.read_file = AsyncMock(return_value=pdf_bytes)
+
+    with patch(
+        "nous.application.sandbox.service.get_sandbox_session",
+        new_callable=AsyncMock,
+        return_value=mock_session,
+    ):
+        from nous.application.chat.tools.builtin import _handle_read_pdf
+
+        result = await _handle_read_pdf(ctx, config, {"path": "/home/sbox_default/report.pdf"})
+
+    assert result["status"] == "success"
+    assert result["filename"] == "report.pdf"
+    assert "テスト用PDF文書" in result["text"]
+    assert result["pages"] == 1
+
+
+@pytest.mark.asyncio
+async def test_read_pdf_sandbox_path_file_not_found():
+    """Sandboxパス → sandbox session が FileNotFoundError → 適切なエラー"""
+    ctx = MagicMock()
+    ctx.persona = "default"
+    config = MagicMock()
+
+    mock_session = MagicMock()
+    mock_session.read_file = AsyncMock(side_effect=FileNotFoundError("not found"))
+
+    with patch(
+        "nous.application.sandbox.service.get_sandbox_session",
+        new_callable=AsyncMock,
+        return_value=mock_session,
+    ):
+        from nous.application.chat.tools.builtin import _handle_read_pdf
+
+        result = await _handle_read_pdf(ctx, config, {"path": "/home/sbox_default/missing.pdf"})
+
+    assert result["status"] == "error"
+    assert "File not found" in result["message"]
+    assert "/home/sbox_default/missing.pdf" in result["message"]
+
+
+@pytest.mark.asyncio
+async def test_read_pdf_workspace_path_success():
+    """Sandbox workspace パス (/sandbox/...) → sandbox session 経由"""
+    pdf_bytes = _create_test_pdf_bytes()
+
+    ctx = MagicMock()
+    ctx.persona = "default"
+    config = MagicMock()
+
+    mock_session = MagicMock()
+    mock_session.read_file = AsyncMock(return_value=pdf_bytes)
+
+    with patch(
+        "nous.application.sandbox.service.get_sandbox_session",
+        new_callable=AsyncMock,
+        return_value=mock_session,
+    ):
+        from nous.application.chat.tools.builtin import _handle_read_pdf
+
+        result = await _handle_read_pdf(ctx, config, {"path": "/sandbox/uploads/doc.pdf"})
+
+    assert result["status"] == "success"
+    assert result["filename"] == "doc.pdf"
+    assert "テスト用PDF文書" in result["text"]
+
+
+def _create_test_pdf_bytes() -> bytes:
+    """Bytes のテスト用PDFを生成"""
+    doc = fitz.open()
+    page = doc.new_page()
+    page.insert_text((50, 50), "テスト用PDF文書", fontname="japan")
+    doc.save("/tmp/_pdf_test_bytes.pdf")
+    with open("/tmp/_pdf_test_bytes.pdf", "rb") as f:
+        data = f.read()
+    Path("/tmp/_pdf_test_bytes.pdf").unlink(missing_ok=True)
+    doc.close()
+    return data
 
 
 @pytest.mark.asyncio
@@ -208,7 +301,7 @@ async def test_read_pdf_text_truncation():
         assert result["status"] == "success"
         # テキストが上限 (100,000) + 切り捨てメッセージ分に収まっている
         assert len(result["text"]) <= 100_100
-        assert "切り捨てられました" in result["text"]
+        assert "Text truncated" in result["text"]
     finally:
         Path(pdf_path).unlink(missing_ok=True)
 

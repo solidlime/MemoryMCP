@@ -563,7 +563,9 @@ class TestMemorySearch:
         ctx.search_engine._semantic = None
         ctx.memory_service.log_search.return_value = Success(None)
         memory_search = tools["memory_search"]
-        await memory_search(query="test", importance_weight=-0.5, recency_weight=-1.0, vector_weight=-99.0, keyword_weight=-0.1)
+        await memory_search(
+            query="test", importance_weight=-0.5, recency_weight=-1.0, vector_weight=-99.0, keyword_weight=-0.1
+        )
         call_args = ctx.search_engine.search.call_args[0][0]
         assert call_args.importance_weight == 0.0
         assert call_args.recency_weight == 0.0
@@ -578,7 +580,9 @@ class TestMemorySearch:
         ctx.search_engine._semantic = None
         ctx.memory_service.log_search.return_value = Success(None)
         memory_search = tools["memory_search"]
-        await memory_search(query="test", importance_weight=1.5, recency_weight=5.0, vector_weight=2.0, keyword_weight=999.0)
+        await memory_search(
+            query="test", importance_weight=1.5, recency_weight=5.0, vector_weight=2.0, keyword_weight=999.0
+        )
         call_args = ctx.search_engine.search.call_args[0][0]
         assert call_args.importance_weight == 1.0
         assert call_args.recency_weight == 1.0
@@ -593,7 +597,9 @@ class TestMemorySearch:
         ctx.search_engine._semantic = None
         ctx.memory_service.log_search.return_value = Success(None)
         memory_search = tools["memory_search"]
-        await memory_search(query="test", importance_weight=0.5, recency_weight=0.0, vector_weight=1.0, keyword_weight=0.25)
+        await memory_search(
+            query="test", importance_weight=0.5, recency_weight=0.0, vector_weight=1.0, keyword_weight=0.25
+        )
         call_args = ctx.search_engine.search.call_args[0][0]
         assert call_args.importance_weight == 0.5
         assert call_args.recency_weight == 0.0
