@@ -52,6 +52,7 @@ data/searxng/settings.yml
 # skills: allow only SKILL.md + .gitkeep, exclude SQLite DBs
 !data/skills/
 data/skills/*
+!data/skills/*/
 !data/skills/**/SKILL.md
 !data/skills/.gitkeep
 # import: allow only .gitkeep
