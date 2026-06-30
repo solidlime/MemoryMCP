@@ -37,9 +37,16 @@
 ## 既存知見（継承）
 - sections/ のJS/CSS静的ファイル分離完了（6,986→2,770行）
 - 画像生成: DALL-E 3 + SD 両対応、base64統一
-- PDF解析: PyMuPDF + pdfplumber
+- PDF解析: PyMuPDF + pdfplumber + OCR (tesseract)
 - pre-commit: lefthook に統一済み
 - カバレッジ: 63→65%、長期目標70%
+
+## read_pdf パス解決（2026-07-01）
+- Nous は Docker 2コンテナ構成（nous + sandbox）で sandbox ファイルは別コンテナの `/home/sbox_*/` に存在
+- `read_pdf` は nous コンテナ内の `Path.exists()` でチェック → sandbox パスは常に存在しないと判定
+- 修正: `/home/sbox_*` / `/sandbox` で始まるパスを sandbox session 経由で読み取り、bytes で PyMuPDF に渡す
+- `_sync_process_pdf` は `str | bytes` を受け付けるよう拡張。`fitz.open(stream=bytes, filetype="pdf")` で in-memory 処理
+- エラーメッセージを日本語→英語に統一（既存の他ツール英文化と一貫）
 
 ## sandbox 単一コンテナ移行の知見 🆕
 
