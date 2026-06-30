@@ -41,7 +41,9 @@ async def _tool_get_context(ctx: AppContext, persona: str) -> str:
         from nous.domain.persona.emotion_decay import apply_emotion_decay_if_needed
 
         half_life, _ = RuntimeConfigManager().get_effective_value("forgetting", "emotion_half_life_hours")
-        decay_result = await apply_emotion_decay_if_needed(ctx.persona_service, persona, state, half_life_hours=float(half_life))
+        decay_result = await apply_emotion_decay_if_needed(
+            ctx.persona_service, persona, state, half_life_hours=float(half_life)
+        )
         if decay_result is not None:
             refreshed = ctx.persona_service.get_context(persona)
             if refreshed.is_ok:

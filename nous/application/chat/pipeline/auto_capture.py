@@ -24,9 +24,7 @@ _CATEGORIES: list[tuple[re.Pattern, str]] = [
     (re.compile(r"(ことにした|決めた|決定|will do|decided to|going to)"), "decision"),
     # Preferences
     (
-        re.compile(
-            r"(好き|好み|欲しい|の方がいい|prefer|like|want|would rather)"
-        ),
+        re.compile(r"(好き|好み|欲しい|の方がいい|prefer|like|want|would rather)"),
         "preference",
     ),
     # Facts learned
@@ -38,9 +36,7 @@ _CATEGORIES: list[tuple[re.Pattern, str]] = [
     ),
     # Commitments
     (
-        re.compile(
-            r"(約束|必ず|絶対|確実に|promise|commit to|will make sure)"
-        ),
+        re.compile(r"(約束|必ず|絶対|確実に|promise|commit to|will make sure)"),
         "commitment",
     ),
 ]

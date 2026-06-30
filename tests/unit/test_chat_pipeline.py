@@ -526,9 +526,7 @@ class TestAutoCaptureScanMessage:
 
     def test_multi_category_in_one_message(self):
         """1メッセージに複数カテゴリが含まれる場合."""
-        results = self._scan(
-            "抹茶味が好きです。来週からジムに通うことにした。実は昨夜ほとんど眠れなかった。"
-        )
+        results = self._scan("抹茶味が好きです。来週からジムに通うことにした。実は昨夜ほとんど眠れなかった。")
         cats = {cat for _, cat, _ in results}
         assert "preference" in cats
         assert "decision" in cats
@@ -560,9 +558,7 @@ class TestRunAutoCapture:
         ctx = MagicMock()
         ctx.settings.auto_capture.enabled = False
         ctx.persona = "test"
-        result = await run_auto_capture(
-            ctx, "test", [{"role": "user", "content": "来週からジムに通うことにした。"}]
-        )
+        result = await run_auto_capture(ctx, "test", [{"role": "user", "content": "来週からジムに通うことにした。"}])
         assert result == []
         ctx.memory_service.create_memory.assert_not_called()
 
@@ -583,9 +579,7 @@ class TestRunAutoCapture:
         ctx.memory_service.create_memory.return_value = Success(fake_memory)
         ctx.vector_store = None
 
-        result = await run_auto_capture(
-            ctx, "test", [{"role": "user", "content": "来週からジムに通うことにした。"}]
-        )
+        result = await run_auto_capture(ctx, "test", [{"role": "user", "content": "来週からジムに通うことにした。"}])
         assert len(result) == 1
         assert result[0] == "mem_key_001"
         call_kwargs = ctx.memory_service.create_memory.call_args[1]
@@ -681,7 +675,5 @@ class TestRunAutoCapture:
 
         ctx.memory_service.create_memory.return_value = Failure(DomainError("DB error"))
 
-        result = await run_auto_capture(
-            ctx, "test", [{"role": "user", "content": "来週からジムに通うことにした。"}]
-        )
+        result = await run_auto_capture(ctx, "test", [{"role": "user", "content": "来週からジムに通うことにした。"}])
         assert result == []
