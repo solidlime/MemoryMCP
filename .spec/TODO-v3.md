@@ -60,13 +60,13 @@
 - **依存**: なし (TB00 と並列可)
 - **担当**: @fixer
 
-### TB02: PortraitPromptBuilder [中]
-- [ ] TB02a: `nous/domain/persona/portrait_prompt.py` 新設
-- [ ] TB02b: **2モード合成**: (1) LLM合成: scene + persona外見 = 完全プロンプト (2) 自動合成: emotion/bodyのみ
-- [ ] TB02c: 入力: persona, scene (LLM指定, optional), emotion, intensity, body_state, equipment
-- [ ] TB02d: 出力: Animagine XL 4.0 プロンプト文字列 + negative_prompt
-- [ ] TB02e: 感情→形容詞マッピング (joy="smiling", anger="glaring", 等)
-- [ ] TB02f: ユニットテスト (sceneあり/なし, 全感情, 装備あり/なし, 外見未設定)
+### TB02: PortraitPromptBuilder [中] ✅
+- [x] TB02a: `nous/domain/persona/portrait_prompt.py` 新設
+- [x] TB02b: **2モード合成**: (1) LLM合成: scene + persona外見 = 完全プロンプト (2) 自動合成: emotion/bodyのみ
+- [x] TB02c: 入力: persona, scene (LLM指定, optional), emotion, intensity, body_state, equipment
+- [x] TB02d: 出力: Animagine XL 4.0 プロンプト文字列 + negative_prompt
+- [x] TB02e: 感情→形容詞マッピング (joy="smiling", anger="glaring", 等)
+- [x] TB02f: ユニットテスト (sceneあり/なし, 全感情, 装備あり/なし, 外見未設定)
 - **依存**: TB01
 - **担当**: @fixer
 
