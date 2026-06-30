@@ -96,6 +96,22 @@ class PostProcessStep:
             except Exception as e:
                 logger.warning("SessionSummarizedSSE failed: %s", e)
 
+        # Auto-capture: セッション会話から重要情報を記憶として抽出
+        try:
+            if ctx.settings.auto_capture.enabled and session._messages:
+                from nous.application.chat.pipeline.auto_capture import run_auto_capture
+
+                asyncio.create_task(
+                    run_auto_capture(
+                        ctx=ctx,
+                        persona=ctx.persona,
+                        messages=session._messages,
+                        max_memories=ctx.settings.auto_capture.max_memories,
+                    )
+                )
+        except Exception as e:
+            logger.warning("PostProcessStep: auto_capture failed: %s", e)
+
         # 最終会話時刻を記録
         try:
             ctx.persona_service.record_conversation_time(ctx.persona)
