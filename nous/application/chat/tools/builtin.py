@@ -89,7 +89,7 @@ async def _handle_context_update(ctx: AppContext, config: ChatConfig, tool_input
 
 async def _handle_execute_code(ctx: AppContext, config: ChatConfig, tool_input: dict) -> dict:
     if not getattr(config, "sandbox_enabled", False):
-        return {"status": "error", "message": "sandbox が無効です。チャット設定で有効化してください。"}
+        return {"status": "error", "message": "Sandbox is disabled. Enable it in chat settings."}
     from nous.application.sandbox.service import get_sandbox_session
 
     code = tool_input.get("code", "")
@@ -119,7 +119,7 @@ async def _handle_execute_code(ctx: AppContext, config: ChatConfig, tool_input: 
 
 async def _handle_sandbox_reset(ctx: AppContext, config: ChatConfig, tool_input: dict) -> dict:
     if not getattr(config, "sandbox_enabled", False):
-        return {"status": "error", "message": "sandbox が無効です。"}
+        return {"status": "error", "message": "Sandbox is disabled."}
     from nous.application.sandbox.service import get_sandbox_session
 
     level = tool_input.get("level", "files")
@@ -130,7 +130,7 @@ async def _handle_sandbox_reset(ctx: AppContext, config: ChatConfig, tool_input:
 
 async def _handle_sandbox_context(ctx: AppContext, config: ChatConfig, tool_input: dict) -> dict:
     if not getattr(config, "sandbox_enabled", False):
-        return {"status": "error", "message": "sandbox が無効です。"}
+        return {"status": "error", "message": "Sandbox is disabled."}
     from nous.application.sandbox.service import get_sandbox_session
 
     session = await get_sandbox_session(ctx.persona)
@@ -388,7 +388,7 @@ def _find_agent_browser(settings=None) -> str | None:
 async def _handle_mcp_dispatch(tool_name: str, ctx: AppContext, config: ChatConfig, tool_input: dict) -> dict:
     """Call shared MCP tool implementation via TOOL_DISPATCH."""
     if tool_name.startswith("sandbox_") and not getattr(config, "sandbox_enabled", False):
-        return {"status": "error", "message": "sandbox が無効です。チャット設定で有効化してください。"}
+        return {"status": "error", "message": "Sandbox is disabled. Enable it in chat settings."}
 
     func = TOOL_DISPATCH.get(tool_name)
     if func is None:
@@ -444,11 +444,11 @@ async def _handle_mcp_dispatch(tool_name: str, ctx: AppContext, config: ChatConf
 async def _handle_image_generate(ctx: AppContext, config: ChatConfig, tool_input: dict) -> dict:
     """DALL-E 3またはStable Diffusionで画像を生成する"""
     if not getattr(config, "image_gen_enabled", False):
-        return {"status": "error", "message": "画像生成が無効です。チャット設定で有効化してください。"}
+        return {"status": "error", "message": "Image generation is disabled. Enable it in chat settings."}
 
     prompt = str(tool_input.get("prompt", "")).strip()
     if not prompt:
-        return {"status": "error", "message": "プロンプトが指定されていません"}
+        return {"status": "error", "message": "No prompt provided"}
 
     size = str(tool_input.get("size", "1024x1024"))
     quality = str(tool_input.get("quality", "standard"))
@@ -476,10 +476,10 @@ async def _handle_image_generate(ctx: AppContext, config: ChatConfig, tool_input
 
             stability_url = getattr(config, "image_gen_stability_url", "")
             if not stability_url:
-                return {"status": "error", "message": "Stable DiffusionのURLが設定されていません"}
+                return {"status": "error", "message": "Stable Diffusion URL is not configured"}
             provider = StabilityProvider(api_url=stability_url)
         else:
-            return {"status": "error", "message": f"未対応のプロバイダです: {provider_name}"}
+            return {"status": "error", "message": f"Unsupported provider: {provider_name}"}
 
         generated = await provider.generate(prompt=prompt, size=size, quality=quality, n=n)
 
@@ -501,9 +501,9 @@ async def _handle_image_generate(ctx: AppContext, config: ChatConfig, tool_input
             )
 
         # サマリーを返す（base64が大きくなるため全文はimagesに入れる）
-        summary = f"{len(generated)}枚の画像を生成しました"
+        summary = f"Generated {len(generated)} image(s)"
         if generated and generated[0].revised_prompt != prompt:
-            summary += f"\n改訂プロンプト: {generated[0].revised_prompt}"
+            summary += f"\nRevised prompt: {generated[0].revised_prompt}"
 
         return {
             "status": "success",
@@ -512,7 +512,7 @@ async def _handle_image_generate(ctx: AppContext, config: ChatConfig, tool_input
         }
 
     except Exception as e:
-        return {"status": "error", "message": f"画像生成に失敗しました: {str(e)}"}
+        return {"status": "error", "message": f"Image generation failed: {str(e)}"}
 
 
 # ── PDF reading ──
@@ -525,16 +525,47 @@ async def _handle_read_pdf(ctx: AppContext, config: ChatConfig, tool_input: dict
 
     path = str(tool_input.get("path", "")).strip()
     if not path:
-        return {"status": "error", "message": "PDFのパスが指定されていません"}
+        return {"status": "error", "message": "PDF path not specified"}
 
+    filename = Path(path).name
+
+    # ── Sandbox path: read via sandbox session ──
+    if _is_sandbox_path(path):
+        try:
+            from nous.application.sandbox.service import get_sandbox_session
+
+            session = await get_sandbox_session(ctx.persona)
+            pdf_bytes = await session.read_file(path)
+        except FileNotFoundError:
+            return {"status": "error", "message": f"File not found: {path}"}
+        except Exception as e:
+            return {"status": "error", "message": f"Failed to read from sandbox: {e}"}
+
+        if len(pdf_bytes) > 50 * 1024 * 1024:
+            return {"status": "error", "message": "PDF file too large (max: 50MB)"}
+
+        try:
+            result = await asyncio.to_thread(_sync_process_pdf, pdf_bytes)
+            result["filename"] = filename
+            return result
+        except ImportError as e:
+            missing = str(e).split("'")[1] if "'" in str(e) else str(e)
+            return {
+                "status": "error",
+                "message": f"Missing PDF library: {missing}. Run: pip install PyMuPDF pdfplumber",
+            }
+        except Exception as e:
+            return {"status": "error", "message": f"PDF parse failed: {e}"}
+
+    # ── Local filesystem path ──
     pdf_path = Path(path)
     if not pdf_path.exists():
-        return {"status": "error", "message": f"ファイルが見つかりません: {path}"}
+        return {"status": "error", "message": f"File not found: {path}"}
     if pdf_path.suffix.lower() != ".pdf":
-        return {"status": "error", "message": "PDFファイルではありません"}
+        return {"status": "error", "message": f"Not a PDF file: {path}"}
     # ファイルサイズチェック (50MB上限)
     if pdf_path.stat().st_size > 50 * 1024 * 1024:
-        return {"status": "error", "message": "PDFファイルが大きすぎます (上限: 50MB)"}
+        return {"status": "error", "message": "PDF file too large (max: 50MB)"}
 
     try:
         result = await asyncio.to_thread(_sync_process_pdf, str(pdf_path))
@@ -544,20 +575,30 @@ async def _handle_read_pdf(ctx: AppContext, config: ChatConfig, tool_input: dict
         missing = str(e).split("'")[1] if "'" in str(e) else str(e)
         return {
             "status": "error",
-            "message": f"PDFライブラリが不足しています: {missing}。pip install PyMuPDF pdfplumber を実行してください",
+            "message": f"Missing PDF library: {missing}. Run: pip install PyMuPDF pdfplumber",
         }
     except Exception as e:
-        return {"status": "error", "message": f"PDFの解析に失敗しました: {str(e)}"}
+        return {"status": "error", "message": f"PDF parse failed: {e}"}
 
 
-def _sync_process_pdf(pdf_path: str) -> dict:
+def _is_sandbox_path(path: str) -> bool:
+    """Check if a path is a sandbox container path (not directly accessible)."""
+    return path.startswith("/home/sbox_") or path.startswith("/sandbox")
+
+
+def _sync_process_pdf(pdf_source: str | bytes) -> dict:
     """同期PDF処理 — asyncio.to_thread で実行するために分離"""
     import base64
     import io
 
     import fitz  # PyMuPDF
 
-    doc = fitz.open(pdf_path)
+    if isinstance(pdf_source, bytes):
+        doc = fitz.open(stream=pdf_source, filetype="pdf")
+        pdf_path: str | io.BytesIO = io.BytesIO(pdf_source)
+    else:
+        doc = fitz.open(pdf_source)
+        pdf_path = pdf_source
     num_pages = len(doc)
 
     # ── テキスト抽出 (ステージ1: PyMuPDF) ──
@@ -572,7 +613,7 @@ def _sync_process_pdf(pdf_path: str) -> dict:
             remaining = text_limit - total_chars
             if remaining > 0:
                 all_text_parts.append(text[:remaining])
-            all_text_parts.append("\n\n[テキストが上限に達したため切り捨てられました]")
+            all_text_parts.append("\n\n[Text truncated due to reaching the limit]")
             break
         all_text_parts.append(text)
         total_chars += len(text)
@@ -593,7 +634,7 @@ def _sync_process_pdf(pdf_path: str) -> dict:
                         remaining = text_limit - plumber_total
                         if remaining > 0:
                             plumber_parts.append(pt[:remaining])
-                        plumber_parts.append("\n\n[テキストが上限に達したため切り捨てられました]")
+                        plumber_parts.append("\n\n[Text truncated due to reaching the limit]")
                         break
                     plumber_parts.append(pt)
                     plumber_total += len(pt)

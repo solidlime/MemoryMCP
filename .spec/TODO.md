@@ -1,107 +1,133 @@
-# TODO - タスクリスト v10
+# TODO — Nousツール レビュー対策 v2 (oracle review反映)
 
-## 優先度：🔴（ブロッカー・本番必須）
-- [x] T035: E-1 RuntimeConfigManager 優先順位を override > env > default に変更（30m）
-- [x] T036: E-2 LLM APIキーを Settings 統合 + RuntimeConfigManager 管轄化（1h）
-- [x] T037: E-3 SearXNG URL / agent-browser パス の RuntimeConfigManager 管轄化（30m）
-- [x] T038: E-4 WebUI 設定ダッシュボード拡充（APIキー欄・全カテゴリ・envソース表示）（1.5h）
-- [x] T039: F-1 chat.message フックで synthetic part メモリ注入（1.5h, plugins/opencode-memory-sync）
-- [x] T040: F-2 session.compacted イベントで compaction recovery（1h, plugins/opencode-memory-sync）
-- [x] T041: F-3 warmup 非同期化（30m, plugins/opencode-memory-sync）
-- [x] T042: G-1 sandbox コンテナの /home 一括バインドマウント（15m, docker-compose.yml）
-- [x] T043: G-2 config ペルソナの dangling mount 除去（5m, docker-compose.yml）
-- [x] T044: G-3 default ペルソナの docker-compose マウント除去（G-1で自動解決）
-- [x] T045: H-1 Dockerfile の memory_mcp → nous 修正（15m）
-- [x] T046: H-2 docker-compose nous を ghcr.io/solidlime/nous:latest に（5m）
-- [x] T047: H-3 GitHub Actions docker.yml のイメージ名修正確認（15m）
+## Phase 0: クリティカルフィックス (P0) — 並列実行可
 
-## 優先度：🟡（重要・後方互換）
-- [ ] T001: A-1 SearXNG docker-compose化（30m）
-- [x] T002: A-2 Dockerfile.sandbox多言語ランタイム追加（2h）(Chunk 1-3で実装済み: 単一sandboxコンテナ + docker exec方式)
-- [ ] T003: A-4 本番ビルド + 全起動確認（1h, A-1,A-2依存）
-- [ ] T004: B-1 5ツールMCP登録 — browser/search/image_generate/read_pdf/list_skills（2h）
-- [ ] T005: B-5-1 memory_create/search/update 戻り値形式統一 (MCP→dict)（1.5h, B-1依存）
-- [x] T006: C-2 JavaScript sandboxセッション追加（2h, A-2依存）(Chunk 1-3で実装済み: 単一sandboxコンテナ + docker exec方式)
+### T01: リランカー統合 🔴 ⚠️ 最高リスク ✅ DONE
+- [x] **T01a**: `AppContext.__init__()` で `RerankerModel` をインスタンス化（`nous/application/use_cases.py`）
+- [x] **T01b**: SearchEngine が `_reranker` 参照を持つよう修正（`__init__`パラメータ＋`_hybrid_search`での利用）
+- [x] **T01c**: `SearchEngine._hybrid_search()` のRRF+dedup後に `self._reranker.rerank()` 呼出追加（`nous/domain/search/engine.py`）
+- [ ] ~~**T01d**: `contents` dictをバッチ取得する `memory_repo.get_by_keys()` 呼出追加~~ — 不要: 結果はSearchResultとして既にメモリ上にある
+- [x] **T01e**: モデルプリロード機構（daemon thread + try/except、同期ブロッキング回避）
+- [x] **T01f**: ホットリロードコールバック修正（SearchEngineリセット追加、`_reranker`ガードは動作する）
+- [x] **T01g**: 統合テスト追加（`tests/unit/test_reranker_integration.py` — 12 tests）
+- **依存**: なし
+- **担当**: @fixer（設計相談は@oracle）
 
-## 優先度：🟡（重要・後方互換）
-- [ ] T007: A-3 SearXNG環境変数化（15m, A-1依存）
-- [ ] T008: A-5 Docker security hardening（15m, A-1依存）
-- [ ] T009: A-6 /health エンドポイント追加（30m）
-- [x] T010: B-2 execute_code → sandbox 名前統一（30m）(Chunk 1-3で実装済み: 単一sandboxコンテナ + docker exec方式)
-- [ ] T011: B-3 context_update → update_context 統合（1h）
-- [ ] T012: B-4 _NOUS_TOOL_NAMES フィルタ修正（5m, B-2依存）
-- [ ] T013: B-5-2 memory_create/search/update 実装統合・委譲（2h, B-5-1依存）
-- [x] T014: C-5 Bash ネイティブ実行化（1h）(Chunk 1-3で実装済み: 単一sandboxコンテナ + docker exec方式)
-- [x] T015: C-6 allowed_languages 更新 + get_supported_languages ツール追加（5m, C-2~C-5依存）(Chunk 1-3で実装済み: 単一sandboxコンテナ + docker exec方式)
+### T02: エラーメッセージ英語統一 🔴
+- [ ] **T02a**: 全 `nous_` ツールのエラーメッセージgrep→日本語→英語に置換
+- [ ] **T02b**: テストのエラーメッセージ期待値も更新
+- **依存**: なし
+- **担当**: @fixer
 
-## 優先度：🟢（改善・新機能）
-- [ ] T016: B-6 ツール説明環境変数カスタマイズ（30m）
-- [x] T017: C-3/C-4 Go/Rust sandboxセッション追加（2h, A-2依存）(Chunk 1-3で実装済み: 単一sandboxコンテナ + docker exec方式)
-- [ ] T018: D-1 PDF OCR対応（2h）
-- [ ] T019: D-2 Agent Skills標準移行（基本）（4h）
-- [ ] T020: D-3 メモリ 4-tier lifecycle（基本）（6h, B-5-2依存）
-- [ ] T021: D-4 メモリ検索ハイブリッド強化（4h, D-3依存）
-- [ ] T048: I-1 Settings.default_persona → None に変更（5m）
-- [ ] T049: I-2 MCP ツールのペルソナ未指定エラー処理（middleware.py, chat_config.py）（30m）
-- [ ] T050: I-3 WebUI 初期セットアップ画面（persona.py ルート + セットアップ HTML）（1h）
-- [ ] T051: I-4 default 削除禁止コード除去（persona.py, sections/persona.py）（15m）
-- [ ] T052: I-5 テスト更新 + 後方互換確認（30m）
+### T03: read_pdf パス解決バグ修正 ✅
+- [x] **T03a**: `nous_read_pdf` のパス解決ロジック調査 — sandbox環境とnousコンテナの分離が原因
+- [x] **T03b**: 修正実装 — `/home/sbox_*` / `/sandbox` パスをsandbox session経由で読み取り
+- [x] **T03c**: テストPDF動作確認 — 実ファイル＋モックテスト15件pass
+- **担当**: @fixer
 
-## 優先度：🟢（改善・新機能 続き）
-- [x] T053: J-23 ConsolidationWorker 実装 + summarization_worker 削除（1h）
+## Phase 0.5: 感情コンテキスト即時対応 (P0.5) ← 新設
 
-## 並行実行計画
+### T04: emotion trigger_key 即時活用 🔴
+- [ ] **T04a**: `update_emotion()` の全呼出箇所（`memory_llm.py:377`, `builtin.py:74`, `_tools_persona.py:145`, `emotion_decay.py:59`）に `trigger_memory_key` と `context` を渡す
+- [ ] **T04b**: 感情トレンド表示に因果関係を追加（`_tools_helpers.py`, `prepare.py`）
+- [ ] **T04c**: テスト更新
+- **依存**: なし（最小限の変更、数行）
+- **担当**: @fixer
 
-```
-フェーズ1（並行）:
-  T001 (A-1) ── T002 (A-2) ── T009 (A-6)
-  T004 (B-1) ── T010 (B-2) ── T011 (B-3)
-  T018 (D-1) ── T019 (D-2)
+## Phase 1: 最重要 — 時間経過認識・感情強化 (P1)
 
-フェーズ2（フェーズ1一部完了後）:
-  T007 (A-3) ── T008 (A-5) ── T003 (A-4)
-  T012 (B-4) ── T005 (B-5-1) ── T013 (B-5-2) ── T016 (B-6)
-  T006 (C-2) ── T014 (C-5) ── T017 (C-3/C-4) ── T015 (C-6)
+### T05: 感情減衰の通知強化 🟡
+- [ ] **T05a**: `get_context()` 時に減衰前感情→減衰後感情を明示表示（`_tools_persona.py`, `_tools_helpers.py`）
+- [ ] **T05b**: 例: `joy(0.72)→neutral —— 24h経過により自然に落ち着きました`
+- [ ] **T05c**: テスト更新
+- **依存**: T04（trigger_keyが使える前提）
+- **担当**: @fixer
 
-フェーズ3（B-5-2完了後）:
-  T020 (D-3) ── T021 (D-4)
+### T06: 感情持続性の概念（半減期×強度）🟡
+- [ ] **T06a**: `emotion_decay.py` の減衰計算を `effective_half_life = base_half_life * intensity` に変更
+- [ ] **T06b**: テスト更新
+- **依存**: なし
+- **担当**: @fixer
 
-## @oracle レビュー (2026-06-27) からの追加タスク
+### T07: 感情半減期の設定化 🟡
+- [ ] **T07a**: `ForgettingConfig` に `emotion_half_life_hours: float = 24.0` 追加（`nous/config/settings.py`）
+- [ ] **T07b**: `emotion_decay.py` の `_EMOTION_HALF_LIFE` ハードコードを設定値参照に変更
+- [ ] **T07c**: runtime_config のホットリロード対応
+- [ ] **T07d**: WebUI の Settings ページに表示
+- [ ] **T07e**: テスト更新
+- **依存**: T06（持続性の概念が先）
+- **担当**: @fixer
 
-### 🔴 P0: テスト計画の穴を埋める
-- [ ] T022: NEW-01 tombstone化→memory_read除外→find_by_key取得可能のテスト追加
-- [ ] T023: NEW-02 tombstonedメモリがmemory_search結果から除外されるテスト追加
-- [ ] T024: NEW-03 Import/Export往復データ同一性テスト追加
-- [ ] T025: NEW-04 ChatのDOMPurify XSS防御テスト追加
-- [ ] T026: NEW-05 /healthエンドポイント到達性報告テスト追加
-- [ ] T027: DK-08 初回起動目標値を120s→300sに修正
+### T08: TIME GAP コメントの体験層化 🟡
+- [ ] **T08a**: `_tools_helpers.py` の TIME GAP / `_format_state_diff()` をテンプレートベース自然言語生成に拡張
+- [ ] **T08b**: 経過時間 + 身体状態変化 + 直近会話トピック（`recent[0].content`要約） + 現在感情を自然に記述
+- [ ] **T08c**: 30分未満の短い経過時間でも「直前の感情状態を維持」等の説明生成
+- [ ] **T08d**: テスト更新
+- **依存**: T04, T05, T06（trigger_key, 減衰通知, 持続性を参照）
+- **担当**: @fixer
 
-### 🟡 P1: カバレッジ拡充
-- [ ] T028: セキュリティテスト (XSS注入/パストラバーサル/MCPインジェクション)
-- [ ] T029: データ整合性テスト (Qdrant↔SQLite同期ズレ/tombstone→Qdrant物理削除)
-- [ ] T030: ネットワーク障害テスト (SSE再接続中メッセージ欠落/Qdrant-SearXNG断→復帰)
-- [ ] T031: 優先度修正反映 (AD-01 P0→P1, CH-16 P3→P1, IE-01/02 P1→P0)
+## Phase 2: 機能追加 (P1-P2)
 
-### 🟢 P2: 拡張テスト
-- [ ] T032: パフォーマンステスト (10000件/100000件スケーラビリティ)
-- [ ] T033: アップグレード/マイグレーション後方互換性テスト
-- [ ] T034: 設定二重管理（.env vs WebUI）競合パターンテスト
-```
+### T09: スキルプリインストール 🟡
+- [ ] **T09a**: `verification-before-completion`, `systematic-debugging`, `test-driven-development` スキル登録
+- [ ] **T09b**: `nous_list_skills` が空でない確認テスト
+- **依存**: なし
+- **担当**: @fixer（調査は@explorer）
+
+### T10: セッション自動記憶抽出（autoCapture）🟡
+- [ ] **T10a**: `PostProcessStep` にセッション内容からの重要情報抽出ロジック追加
+- [ ] **T10b**: 抽出情報の `memory_create` 自動保存
+- [ ] **T10c**: 設定でON/OFF切替可能に
+- [ ] **T10d**: テスト追加
+- **依存**: なし
+- **担当**: @fixer
+
+## Phase 3: 基盤・ドキュメント (P2-P3)
+
+### T11: body_state_history テーブル新設 🟢（P2に降格）
+- [ ] **T11a**: `body_state_history` テーブル作成（migration + `connection.py`）
+- [ ] **T11b**: `add_body_state_record()`, `get_body_state_history()` 追加（`persona_repo.py`）
+- [ ] **T11c**: `apply_body_decay_if_needed` で履歴記録（`body_decay.py`）
+- [ ] **T11d**: テスト追加
+- **依存**: なし
+- **担当**: @fixer
+
+### T12: ドキュメント拡充 🟢
+- [ ] **T12a**: README.md: 全ツール使用例追加
+- [ ] **T12b**: README.md: セットアップ手順明確化
+- [ ] **T12c**: README.md: トラブルシューティングセクション
+- [ ] **T12d**: `docs/llm_usage_guide.md` 更新（エラーメッセージ変更反映）
+- **依存**: Phase 0-2 完了後
+- **担当**: @fixer
+
+### T13: 外部ストレージ基盤 🟢（P3に降格）
+- [ ] **T13a**: `MemoryRepository` 抽象インターフェース定義
+- [ ] **T13b**: 既存 `SQLitePersonaRepository` をインターフェース準拠にリファクタ
+- [ ] **T13c**: テスト更新
+- **依存**: なし
+- **担当**: @fixer（設計レビュー:@oracle）
+
+### T14: goal_manage 重要度ラベル表示 🟢（P3、スコープ縮小）
+- [ ] **T14a**: `importance → ラベル` コンバータ実装（≥0.9=critical, ≥0.7=high, ≥0.4=normal, <0.4=low）
+- [ ] **T14b**: `goal_manage(list)` にラベル付与
+- [ ] **T14c**: テスト追加
+- **依存**: なし
+- **担当**: @fixer
 
 ---
 
-## 柱K: MCPツール ヘルタ実使用レビュー改善 (2026-06-29)
+## 実行順序（修正後）
 
-### 🔴 高優先度（ヘルタの毎日使う体験に直結）
-- [ ] T042: K-1 memory_search スコアを 0-1 正規化（`_tools_memory.py: _tool_memory_search`）
-- [x] T043: K-2 memory_read に total_count 返却（`_tools_memory.py: _tool_memory_read`）
-- [x] T044: K-3 sandbox_execute のエラーメッセージ改善（Permission denied 表示）
-
-### 🟡 中優先度（一貫性・信頼性）
-- [ ] T045: K-4 memory_delete の docstring 修正（query パラメータの扱い明確化）
-- [x] T046: K-5 item_* 7ツール → item 1ツールに統合（operation パラメータ）
-
-### 🟢 低優先度（仕上げ）
-- [x] T047: K-6 sandbox_context の pip_packages 実装（_tool_sandbox_context() を常にJSON+空リストフォールバックに）
-- [x] T048: K-7 memory_create の感情自動付与に auto_emotion フラグ追加（レスポンス + docstring）
 ```
+Phase 0:    [T01, T02, T03] → 3並列
+Phase 0.5:  [T04] → T01-T03完了後（独立だが、T01完了でAppContextが安定）
+Phase 1:    [T06] → [T05, T07] → [T08]
+Phase 2:    [T09, T10] → 2並列
+Phase 3:    [T11, T13, T14] → 3並列 → [T12]
+```
+
+## 検証ゲート
+各Phase完了後:
+1. `python -m pytest tests/ -x --tb=short` → 全テスト通過
+2. `ruff check .` → 0 errors
+3. `git commit && git push` → GitHub Actionsパス
