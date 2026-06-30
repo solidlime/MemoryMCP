@@ -36,10 +36,10 @@
 
 ## Phase 1: 最重要 — 時間経過認識・感情強化 (P1)
 
-### T05: 感情減衰の通知強化 🟡
-- [ ] **T05a**: `get_context()` 時に減衰前感情→減衰後感情を明示表示（`_tools_persona.py`, `_tools_helpers.py`）
-- [ ] **T05b**: 例: `joy(0.72)→neutral —— 24h経過により自然に落ち着きました`
-- [ ] **T05c**: テスト更新
+### T05: 感情減衰の通知強化 🟡 ✅
+- [x] **T05a**: `get_context()` 時に減衰前感情→減衰後感情を明示表示（`_tools_persona.py`, `_tools_helpers.py`）
+- [x] **T05b**: 例: `anger(0.72)→neutral — faded over 48h`
+- [x] **T05c**: テスト更新（6 tests追加）
 - **依存**: T04（trigger_keyが使える前提）
 - **担当**: @fixer
 

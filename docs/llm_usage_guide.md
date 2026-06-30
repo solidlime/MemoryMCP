@@ -35,6 +35,10 @@ Use the returned context to:
 - Continue unfinished goals or promises
 - Reflect the current emotion state in tone
 
+> **Emotion Decay Notification**: If time has passed since the last session, emotions naturally decay.
+> The output includes a before/after line: `  Emotion: anger(0.72) → neutral — faded over 48h`
+> This signals "I was angry before, but I've calmed down now" — acknowledge the change naturally.
+
 > **Note (日本語)**: 毎セッション冒頭で必ず呼ぶこと。記憶統計・直近の出来事・約束・目標が一括返却される。
 
 ---

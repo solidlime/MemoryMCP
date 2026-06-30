@@ -52,7 +52,11 @@ def _format_emotion_decay_note(decay_result: EmotionDecayResult | None) -> str:
     if decay_result is None:
         return ""
     before_str = f"{decay_result.before_emotion}({decay_result.before_intensity:.2f})"
-    after_str = f"{decay_result.after_emotion}({decay_result.after_intensity:.2f})" if decay_result.after_intensity > 0 else decay_result.after_emotion
+    after_str = (
+        f"{decay_result.after_emotion}({decay_result.after_intensity:.2f})"
+        if decay_result.after_intensity > 0
+        else decay_result.after_emotion
+    )
     if decay_result.elapsed_hours >= 1:
         time_str = f"{decay_result.elapsed_hours:.0f}h"
     else:

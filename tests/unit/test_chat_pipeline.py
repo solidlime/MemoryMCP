@@ -118,7 +118,7 @@ class TestComputeEmotionDecay:
         # low:  effective_half_life = 24*0.3 = 7.2h,  result ≈ 0.0030
         assert high > low
         assert high > 0.15  # well preserved
-        assert low < 0.01   # almost gone
+        assert low < 0.01  # almost gone
 
     def test_min_cap_prevents_instant_decay(self):
         """intensity=0.05 (below cap=0.3) uses min effective_half_life to avoid vanishing instantly."""
