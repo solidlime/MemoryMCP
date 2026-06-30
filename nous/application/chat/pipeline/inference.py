@@ -37,6 +37,7 @@ class InferenceStep:
         session_messages: list[LLMMessage],
         turn_ctx: ChatTurnContext,
         registry: ToolRegistry,
+        effective_temp: float | None = None,
     ) -> AsyncIterator[TextDeltaSSE | ToolCallSSE | ToolResultSSE | ErrorSSE]:
         from nous.infrastructure.llm.base import ErrorEvent, TextDeltaEvent, ToolCallEvent
 
@@ -74,6 +75,7 @@ class InferenceStep:
         else:
             messages.append(LLMMessage(role="user", content=turn_ctx.user_message))
 
+        temperature = effective_temp if effective_temp is not None else config.temperature
         while turn_ctx.tool_call_count <= config.max_tool_calls:
             pending_tool_calls: list[ToolCallEvent] = []
             current_text = ""
@@ -82,7 +84,7 @@ class InferenceStep:
                 messages=messages,
                 system=turn_ctx.system_prompt,
                 tools=all_tools,
-                temperature=config.temperature,
+                temperature=temperature,
                 max_tokens=config.max_tokens,
                 top_p=config.top_p,
             ):

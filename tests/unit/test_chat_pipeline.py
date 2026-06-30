@@ -757,3 +757,184 @@ class TestPromptBuildStepAuthorNote:
 
         result = await run_auto_capture(ctx, "test", [{"role": "user", "content": "来週からジムに通うことにした。"}])
         assert result == []
+
+
+# ──────────────────────────────────────────────
+# TA03: Dynamic Temperature — EmotionDrivenSampler integration
+# ──────────────────────────────────────────────
+
+
+class TestDynamicTemperatureInference:
+    """InferenceStep が effective_temp を受け取り、provider.stream() に正しく伝搬する。"""
+
+    @pytest.mark.asyncio
+    async def test_uses_effective_temp_when_provided(self):
+        """effective_temp が指定された場合、provider.stream() にそれが使われる。"""
+        from unittest.mock import MagicMock, patch
+
+        from nous.application.chat.pipeline.inference import InferenceStep
+        from nous.infrastructure.llm.base import TextDeltaEvent
+
+        # Mock provider: async generator for stream()
+        async def _mock_stream(**kwargs):
+            yield TextDeltaEvent(content="hello")
+
+        mock_provider = MagicMock()
+        mock_provider.stream = _mock_stream
+
+        config = MagicMock()
+        config.temperature = 0.7
+        config.max_tokens = 100
+        config.provider = "anthropic"
+        config.get_effective_api_key.return_value = "test-key"
+        config.get_effective_model.return_value = "claude-3"
+        config.get_effective_base_url.return_value = ""
+        config.max_tool_calls = 0
+        config.enable_parallel_tools = True
+        config.tool_result_max_chars = 4000
+        config.top_p = None
+
+        turn_ctx = MagicMock()
+        turn_ctx.images = []
+        turn_ctx.tool_call_count = 0
+        turn_ctx.full_response = ""
+        turn_ctx.user_message = "test"
+        turn_ctx.system_prompt = "test sys"
+        turn_ctx.tool_calls_log = []
+
+        registry = MagicMock()
+
+        ctx = MagicMock()
+        session_messages = []
+
+        effective_temp = 0.85
+
+        with patch("nous.application.chat.pipeline.inference.get_provider", return_value=mock_provider):
+            events = []
+            async for event in InferenceStep().run(
+                ctx, config, session_messages, turn_ctx, registry, effective_temp=effective_temp
+            ):
+                events.append(event)
+
+        # Verify effective_temp != base_temp
+        assert effective_temp != config.temperature, "effective_temp should differ from base_temp"
+        assert len(events) == 1
+
+    @pytest.mark.asyncio
+    async def test_uses_config_temp_when_effective_temp_none(self):
+        """effective_temp が None の場合、config.temperature が使われる。"""
+        from unittest.mock import MagicMock, patch
+
+        from nous.application.chat.pipeline.inference import InferenceStep
+        from nous.infrastructure.llm.base import TextDeltaEvent
+
+        captured_temp = [None]  # mutable capture
+
+        async def _mock_stream(**kwargs):
+            captured_temp[0] = kwargs.get("temperature")
+            yield TextDeltaEvent(content="hello")
+
+        mock_provider = MagicMock()
+        mock_provider.stream = _mock_stream
+
+        config = MagicMock()
+        config.temperature = 0.7
+        config.max_tokens = 100
+        config.provider = "anthropic"
+        config.get_effective_api_key.return_value = "test-key"
+        config.get_effective_model.return_value = "claude-3"
+        config.get_effective_base_url.return_value = ""
+        config.max_tool_calls = 0
+        config.enable_parallel_tools = True
+        config.tool_result_max_chars = 4000
+        config.top_p = None
+
+        turn_ctx = MagicMock()
+        turn_ctx.images = []
+        turn_ctx.tool_call_count = 0
+        turn_ctx.full_response = ""
+        turn_ctx.user_message = "test"
+        turn_ctx.system_prompt = "test sys"
+        turn_ctx.tool_calls_log = []
+
+        registry = MagicMock()
+        ctx = MagicMock()
+        session_messages = []
+
+        with patch("nous.application.chat.pipeline.inference.get_provider", return_value=mock_provider):
+            events = []
+            async for event in InferenceStep().run(
+                ctx, config, session_messages, turn_ctx, registry, effective_temp=None
+            ):
+                events.append(event)
+
+        assert captured_temp[0] == config.temperature
+        assert len(events) == 1
+
+    @pytest.mark.asyncio
+    async def test_effective_temp_passed_to_stream(self):
+        """provider.stream() は effective_temp を temperature パラメータとして受け取る。"""
+        from unittest.mock import MagicMock, patch
+
+        from nous.application.chat.pipeline.inference import InferenceStep
+        from nous.infrastructure.llm.base import TextDeltaEvent
+
+        captured_kwargs = [None]
+
+        async def _mock_stream(**kwargs):
+            captured_kwargs[0] = kwargs
+            yield TextDeltaEvent(content="hello")
+
+        mock_provider = MagicMock()
+        mock_provider.stream = _mock_stream
+
+        config = MagicMock()
+        config.temperature = 0.7
+        config.max_tokens = 100
+        config.provider = "anthropic"
+        config.get_effective_api_key.return_value = "test-key"
+        config.get_effective_model.return_value = "claude-3"
+        config.get_effective_base_url.return_value = ""
+        config.max_tool_calls = 0
+        config.enable_parallel_tools = True
+        config.tool_result_max_chars = 4000
+        config.top_p = None
+
+        turn_ctx = MagicMock()
+        turn_ctx.images = []
+        turn_ctx.tool_call_count = 0
+        turn_ctx.full_response = ""
+        turn_ctx.user_message = "test"
+        turn_ctx.system_prompt = "test sys"
+        turn_ctx.tool_calls_log = []
+
+        registry = MagicMock()
+        ctx = MagicMock()
+        session_messages = []
+
+        with patch("nous.application.chat.pipeline.inference.get_provider", return_value=mock_provider):
+            async for _ in InferenceStep().run(ctx, config, session_messages, turn_ctx, registry, effective_temp=0.85):
+                pass
+
+        assert captured_kwargs[0] is not None
+        assert captured_kwargs[0]["temperature"] == 0.85
+
+    @pytest.mark.asyncio
+    async def test_emotion_driven_sampler_compute_integration(self):
+        """EmotionDrivenSampler.compute() が期待通り effective_temp を計算する。"""
+        from nous.domain.sampling import EmotionDrivenSampler
+
+        base_temp = 0.7
+        # anger → modifier = +0.15, intensity=0.8, scale=0.2
+        # effective_modifier = 0.15 * 0.8 * 0.2 = 0.024
+        # effective_temp = 0.7 + 0.024 = 0.724
+        result = EmotionDrivenSampler.compute(base_temp, "anger", 0.8, scale=0.2)
+        assert result == pytest.approx(0.724, rel=1e-3)
+
+    @pytest.mark.asyncio
+    async def test_emotion_driven_sampler_neutral_no_change(self):
+        """neutral emotion → modifier=0 → effective_temp == base_temp. base_temp is 0.5 already without dynamic temp."""
+        from nous.domain.sampling import EmotionDrivenSampler
+
+        result = EmotionDrivenSampler.compute(0.7, "neutral", 0.9, scale=0.2)
+        assert result == pytest.approx(0.7, rel=1e-3)

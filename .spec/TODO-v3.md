@@ -17,10 +17,10 @@
 - **依存**: なし (TA01 と並列可)
 - **担当**: @fixer
 
-### TA03: Pipeline orchestrator 修正 [小]
-- [ ] TA03a: `nous/application/chat/pipeline/` — パイプラインオーケストレータが `PersonaService.get_context()` で感情取得 → `EmotionDrivenSampler.compute()` → `effective_temp` を `InferenceStep` に注入
-- [ ] TA03b: `InferenceStep` が ChatConfig.temperature ではなく effective_temp を使うよう修正
-- [ ] TA03c: 統合テスト
+### TA03: Pipeline orchestrator 修正 [小] ✅
+- [x] TA03a: `nous/application/chat/service.py` — パイプラインオーケストレータが `turn_ctx.state_raw` から感情取得 → `EmotionDrivenSampler.compute()` → `effective_temp` を `InferenceStep` に注入
+- [x] TA03b: `InferenceStep` が `effective_temp` パラメータを受け取り、`provider.stream()` に渡すよう修正
+- [x] TA03c: 統合テスト — `TestDynamicTemperatureInference` 5件 (effective_temp差、fallback、stream伝搬、sampler統合)
 - **依存**: TA01, TA02
 - **担当**: @fixer (設計レビュー: @oracle)
 

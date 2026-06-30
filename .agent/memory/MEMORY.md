@@ -6,6 +6,13 @@
 - 21 tests pass for body_state_history module
 - 1296 total passing, 7 skipped, ruff 0 errors
 
+## TA03: dynamic_temperature pipeline 統合 (2026-07-01)
+- `InferenceStep.run()` に `effective_temp: float | None = None` パラメータ追加
+- オーケストレータ (`ChatService.chat()`) が `config.dynamic_temperature=True` 時のみ `EmotionDrivenSampler.compute()` で実効温度を事前計算
+- InferenceStep は PersonaState を直接参照しない — オーケストレータが `turn_ctx.state_raw` から抽出して注入
+- `dynamic_temperature=False` 時は `config.temperature` をそのまま使用（後方互換）
+- テスト5件追加: effective_temp伝搬、fallback、streamパラメータ確認、sampler計算検証
+
 ## プロジェクト概要
 Nous: 日本語特化の永続記憶 MCP サーバー。SQLite + Qdrant + Ebbinghaus 忘却曲線。WebUIダッシュボード付き。
 3レイヤー構造（L1:MCP拡張, L2:EventBus基盤, L3:OpenCode Plugin）。
@@ -46,7 +53,19 @@ Nous: 日本語特化の永続記憶 MCP サーバー。SQLite + Qdrant + Ebbing
 - sandboxテスト: `registered_tools` fixtureでMCPラッパー関数を呼び、戻り値は `json.loads()` でパースして検証
 - テストは MCPラッパー経由で呼ぶ（コア関数直呼びではない）
 
-### プロジェクトの現在の状態
-- 全ユニットテスト通過: 1241 passed, 7 skipped
+### TB05+TB06: ComfyUI ImageGenProvider + healthcheck (2026-07-01)
+- `ComfyUIProvider` 新規作成: `nous/infrastructure/image_gen/comfyui.py`
+  - `async generate()`: POST /prompt → poll /history → GET /view の fire-and-forget パターン
+  - `async health_check()`: GET /system_stats
+  - 接続エラー時: 最大2回リトライ（httpx.ConnectError / httpx.TimeoutException）
+  - ポーリング: 60回 × 3s = 180s タイムアウト
+  - `asyncio.sleep` はテストでモックして高速化
+- `ImageGenConfig` に `comfyui_url` フィールド追加
+- factory に `"comfyui"` ケース追加
+- 注意: httpx 0.28.1 は `Timeout(connect=..., read=...)` 形式をサポートしていない → 全4パラメータ明示が必要
+- 12 tests + 1 factory test = 22 total for image_gen module
+
+## プロジェクトの現在の状態
+- 全ユニットテスト通過（image_gen: 22 passed）
 - pytest-benchmark 未インストール（7 skipped の原因）
 - ruff check 0 errors 維持

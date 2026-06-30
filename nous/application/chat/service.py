@@ -61,6 +61,21 @@ class ChatService:
         # PromptBuildStep: system プロンプト組み立て
         PromptBuildStep().run(ctx, config, turn_ctx)
 
+        # TA03: Compute effective temperature from persona emotion
+        from nous.domain.sampling import EmotionDrivenSampler
+
+        effective_temp: float | None = None
+        if config.dynamic_temperature:
+            state_raw = turn_ctx.state_raw
+            emotion = state_raw.get("emotion", "neutral")
+            intensity = float(state_raw.get("emotion_intensity", 0.5))
+            effective_temp = EmotionDrivenSampler.compute(
+                base_temp=config.temperature,
+                emotion=emotion,
+                intensity=intensity,
+                scale=config.emotion_temperature_scale,
+            )
+
         # InferenceStep + PostProcessStep: MCPプール共有
         async with MCPClientPool(config.mcp_servers) as mcp_pool:
             builtin = list(MEMORY_TOOLS) if config.enable_memory_tools else []
@@ -97,7 +112,7 @@ class ChatService:
 
             # Collect and stream LLM response
             full_response = ""
-            async for event in InferenceStep().run(ctx, config, messages, turn_ctx, registry):
+            async for event in InferenceStep().run(ctx, config, messages, turn_ctx, registry, effective_temp=effective_temp):
                 yield event.to_sse()
                 # Collect text deltas for chat.llm_response event
                 from nous.application.chat.events import TextDeltaSSE
